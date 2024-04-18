@@ -661,9 +661,8 @@ public final class SandboxHelpers {
       }
       PathFragment pathFragment = e.getKey();
       ActionInput actionInput = e.getValue();
-      if (actionInput instanceof VirtualActionInput) {
+      if (actionInput instanceof VirtualActionInput input) {
         // TODO(larsrc): Figure out which VAIs actually require atomicity, maybe avoid it.
-        VirtualActionInput input = (VirtualActionInput) actionInput;
         byte[] digest =
             input.atomicallyWriteRelativeTo(
                 execRootPath,
@@ -686,8 +685,7 @@ public final class SandboxHelpers {
           inputPath = null;
         } else if (actionInput instanceof VirtualActionInput) {
           inputPath = RootedPath.toRootedPath(withinSandboxExecRoot, actionInput.getExecPath());
-        } else if (actionInput instanceof Artifact) {
-          Artifact inputArtifact = (Artifact) actionInput;
+        } else if (actionInput instanceof Artifact inputArtifact) {
           if (sandboxSourceRoots == null) {
             inputPath = RootedPath.toRootedPath(withinSandboxExecRoot, inputArtifact.getExecPath());
           } else {

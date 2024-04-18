@@ -70,11 +70,10 @@ public class RecursivePkgKey {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof RecursivePkgKey)) {
+    if (!(o instanceof RecursivePkgKey that)) {
       return false;
     }
 
-    RecursivePkgKey that = (RecursivePkgKey) o;
     return excludedPaths.equals(that.excludedPaths)
         && rootedPath.equals(that.rootedPath)
         && repositoryName.equals(that.repositoryName);

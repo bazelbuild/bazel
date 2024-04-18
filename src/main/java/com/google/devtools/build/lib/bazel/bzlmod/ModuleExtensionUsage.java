@@ -22,9 +22,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.hash.Hashing;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.gson.Gson;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
-import java.util.Map;
 import java.util.Optional;
 import net.starlark.java.syntax.Location;
 
@@ -94,16 +95,14 @@ public abstract class ModuleExtensionUsage {
   }
 
   /**
-   * Turns the given collection of usages for a particular extension into an object that can be
-   * compared for equality with another object obtained in this way and compares equal only if the
-   * two original collections of usages are equivalent for the purpose of evaluating the extension.
+   * Turns the given collection of usages for a particular extension into a hash that can be
+   * compared for equality with another hash obtained in this way and compares equal only if the two
+   * original collections of usages are equivalent for the purpose of evaluating the extension.
    */
-  static ImmutableList<Map.Entry<ModuleKey, ModuleExtensionUsage>> trimForEvaluation(
-      ImmutableMap<ModuleKey, ModuleExtensionUsage> usages) {
-    // ImmutableMap#equals doesn't compare the order of entries, but it matters for the evaluation
-    // of the extension.
-    return ImmutableList.copyOf(
-        Maps.transformValues(usages, ModuleExtensionUsage::trimForEvaluation).entrySet());
+  static byte[] hashForEvaluation(Gson gson, ImmutableMap<ModuleKey, ModuleExtensionUsage> usages) {
+    ImmutableMap<ModuleKey, ModuleExtensionUsage> trimmedUsages =
+        ImmutableMap.copyOf(Maps.transformValues(usages, ModuleExtensionUsage::trimForEvaluation));
+    return Hashing.sha256().hashUnencodedChars(gson.toJson(trimmedUsages)).asBytes();
   }
 
   /**

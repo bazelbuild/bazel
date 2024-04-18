@@ -140,11 +140,10 @@ public class CycleInfo {
     if (this == that) {
       return true;
     }
-    if (!(that instanceof CycleInfo)) {
+    if (!(that instanceof CycleInfo thatCycle)) {
       return false;
     }
 
-    CycleInfo thatCycle = (CycleInfo) that;
     return thatCycle.cycle.equals(this.cycle) && thatCycle.pathToCycle.equals(this.pathToCycle);
   }
 

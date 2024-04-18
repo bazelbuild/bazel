@@ -20,9 +20,8 @@ import static com.google.devtools.build.lib.analysis.TargetCompleteEvent.newFile
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -105,11 +104,14 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
   public void testReferencedTreeArtifact() throws Exception {
     scratch.file(
         "defs.bzl",
-        "def _impl(ctx):",
-        "  d = ctx.actions.declare_directory(ctx.label.name)",
-        "  ctx.actions.run_shell(outputs = [d], command = 'does not matter')",
-        "  return DefaultInfo(files = depset([d]))",
-        "dir = rule(_impl)");
+        """
+        def _impl(ctx):
+            d = ctx.actions.declare_directory(ctx.label.name)
+            ctx.actions.run_shell(outputs = [d], command = "does not matter")
+            return DefaultInfo(files = depset([d]))
+
+        dir = rule(_impl)
+        """);
     scratch.file(
         "BUILD",
         "load(':defs.bzl', 'dir')",
@@ -153,11 +155,14 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
   public void testReferencedUnresolvedSymlink() throws Exception {
     scratch.file(
         "defs.bzl",
-        "def _impl(ctx):",
-        "  s = ctx.actions.declare_symlink(ctx.label.name)",
-        "  ctx.actions.symlink(output = s, target_path = 'does not matter')",
-        "  return DefaultInfo(files = depset([s]))",
-        "sym = rule(_impl)");
+        """
+        def _impl(ctx):
+            s = ctx.actions.declare_symlink(ctx.label.name)
+            ctx.actions.symlink(output = s, target_path = "does not matter")
+            return DefaultInfo(files = depset([s]))
+
+        sym = rule(_impl)
+        """);
     scratch.file(
         "BUILD",
         "load(':defs.bzl', 'sym')",
@@ -247,12 +252,11 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
   private CompletionContext getCompletionContext(
       Map<Artifact, FileArtifactValue> metadata,
       Map<SpecialArtifact, TreeArtifactValue> treeMetadata) {
-    ImmutableMap.Builder<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts =
+    ImmutableMap.Builder<Artifact, ImmutableSortedSet<TreeFileArtifact>> expandedArtifacts =
         ImmutableMap.builder();
     ActionInputMap inputMap = new ActionInputMap(0);
 
     for (Map.Entry<Artifact, FileArtifactValue> entry : metadata.entrySet()) {
-      expandedArtifacts.put(entry.getKey(), ImmutableList.of(entry.getKey()));
       inputMap.put(entry.getKey(), entry.getValue(), /* depOwner= */ null);
     }
 

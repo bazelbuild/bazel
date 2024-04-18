@@ -215,8 +215,7 @@ final class SdkMavenRepository {
           new ImmutableSortedSet.Builder<>(Ordering.usingToString());
       NodeList dependencies = pomDocument.getElementsByTagName("dependency");
       for (int i = 0; i < dependencies.getLength(); i++) {
-        if (dependencies.item(i) instanceof Element) {
-          Element dependency = (Element) dependencies.item(i);
+        if (dependencies.item(i) instanceof Element dependency) {
           dependencyCoordinates.add(MavenCoordinate.create(
               dependency.getElementsByTagName("groupId").item(0).getTextContent(),
               dependency.getElementsByTagName("artifactId").item(0).getTextContent(),

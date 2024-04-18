@@ -132,10 +132,9 @@ public class PlatformInfo extends NativeInfo
 
   @Override
   public boolean equals(Object o) {
-    if (!(o instanceof PlatformInfo)) {
+    if (!(o instanceof PlatformInfo that)) {
       return false;
     }
-    PlatformInfo that = (PlatformInfo) o;
     return Objects.equals(label, that.label)
         && Objects.equals(constraints, that.constraints)
         && Objects.equals(remoteExecutionProperties, that.remoteExecutionProperties)

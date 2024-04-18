@@ -1,5 +1,5 @@
-load("//src:build_defs.bzl", "java_11_library")
 load("@rules_java//java:defs.bzl", "java_library")
+load("//src:build_defs.bzl", "java_11_library")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -91,6 +91,17 @@ java_library(
 )
 
 java_library(
+    name = "script_util",
+    srcs = ["ScriptUtil.java"],
+    deps = [
+        ":os",
+        ":shell_escaper",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "command",
     srcs = [
         "CommandBuilder.java",
@@ -101,7 +112,7 @@ java_library(
     deps = [
         ":describable_execution_unit",
         ":os",
-        ":shell_escaper",
+        ":script_util",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -167,6 +178,7 @@ java_library(
     deps = [
         ":object_graph_traverser",
         ":shallow_object_size_computer",
+        "//third_party:guava",
     ],
 )
 
@@ -194,10 +206,8 @@ java_11_library(
 java_library(
     name = "util",
     srcs = [
-        "AbstractIndexer.java",
         "AnsiStrippingOutputStream.java",
         "CPU.java",
-        "CanonicalStringIndexer.java",
         "ClassName.java",
         "DependencySet.java",
         "Either.java",
@@ -231,7 +241,6 @@ java_library(
     deps = [
         ":os",
         ":shell_escaper",
-        ":string",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -407,6 +416,20 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//third_party:error_prone_annotations",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "blocker",
+    srcs = ["Blocker.java"],
+    add_exports = ["java.base/jdk.internal.misc"],
+)
+
+java_library(
+    name = "value_or_exception",
+    srcs = ["ValueOrException.java"],
+    deps = [
         "//third_party:guava",
     ],
 )

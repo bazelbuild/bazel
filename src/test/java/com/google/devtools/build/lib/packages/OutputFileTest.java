@@ -88,13 +88,19 @@ public class OutputFileTest extends PackageLoadingTestCase {
   public void testDuplicateOutputFilesInDifferentRules() throws Exception {
     scratch.file(
         "two_outs/BUILD",
-        "genrule(name='a',",
-        "        cmd='ls >$(location out)',",
-        "        outs=['out'])",
-        "",
-        "genrule(name='b',",
-        "        cmd='ls >$(location out)',",
-        "        outs=['out'])");
+        """
+        genrule(
+            name = "a",
+            outs = ["out"],
+            cmd = "ls >$(location out)",
+        )
+
+        genrule(
+            name = "b",
+            outs = ["out"],
+            cmd = "ls >$(location out)",
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getTarget("//two_outs:BUILD");
@@ -107,13 +113,19 @@ public class OutputFileTest extends PackageLoadingTestCase {
   public void testOutputFileNameConflictsWithExistingRule() throws Exception {
     scratch.file(
         "out_is_rule/BUILD",
-        "genrule(name='a',",
-        "        cmd='ls >$(location out)',",
-        "        outs=['out'])",
-        "",
-        "genrule(name='b',",
-        "        cmd='ls >$(location out)',",
-        "        outs=['a'])");
+        """
+        genrule(
+            name = "a",
+            outs = ["out"],
+            cmd = "ls >$(location out)",
+        )
+
+        genrule(
+            name = "b",
+            outs = ["a"],
+            cmd = "ls >$(location out)",
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getTarget("//out_is_rule:BUILD");
@@ -124,11 +136,16 @@ public class OutputFileTest extends PackageLoadingTestCase {
   public void testDuplicateOutputFilesInSameRule() throws Exception {
     scratch.file(
         "two_outs/BUILD",
-        "genrule(",
-        "    name='a',",
-        "    cmd='ls >$(location out)',",
-        "    outs=['out', 'out'],",
-        ")");
+        """
+        genrule(
+            name = "a",
+            outs = [
+                "out",
+                "out",
+            ],
+            cmd = "ls >$(location out)",
+        )
+        """);
     reporter.removeHandler(failFastHandler);
     getTarget("//two_outs:BUILD");
     assertContainsEvent("rule 'a' has more than one generated file named 'out'");

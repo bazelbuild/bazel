@@ -268,7 +268,7 @@ final class ActionExecutionState {
    * {@link ActionStep}, and implement {@link #run}. In order to represent a result, use {@link
    * #of}.
    */
-  interface ActionStepOrResult {
+  sealed interface ActionStepOrResult permits ActionStep, Finished, Exceptional, Obsolete {
     static ActionStepOrResult of(ActionExecutionValue value) {
       return new Finished(value);
     }
@@ -324,7 +324,7 @@ final class ActionExecutionState {
    * without having to lock. Note that there may be multiple calls to {@link #run} from different
    * threads, as long as they do not overlap in time.
    */
-  abstract static class ActionStep implements ActionStepOrResult {
+  abstract static non-sealed class ActionStep implements ActionStepOrResult {
     @Override
     public final boolean isDone() {
       return false;

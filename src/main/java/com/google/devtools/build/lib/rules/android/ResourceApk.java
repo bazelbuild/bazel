@@ -264,8 +264,7 @@ public final class ResourceApk {
   }
 
   AndroidAssetsInfo toAssetsInfo(Label label) {
-    if (primaryAssets instanceof MergedAndroidAssets) {
-      MergedAndroidAssets merged = (MergedAndroidAssets) primaryAssets;
+    if (primaryAssets instanceof MergedAndroidAssets merged) {
       return merged.toProvider();
     }
     return assetDeps.toInfo(label);

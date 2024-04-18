@@ -33,12 +33,14 @@ public class PlatformFlagsProducerTest extends ProducerTestCase {
   public void nativeFlag() throws Exception {
     scratch.overwriteFile(
         "lookup/BUILD",
-        "platform(",
-        "    name = 'basic',",
-        "    flags = [",
-        "        '--compilation_mode=dbg',",
-        "    ],",
-        ")");
+        """
+        platform(
+            name = "basic",
+            flags = [
+                "--compilation_mode=dbg",
+            ],
+        )
+        """);
 
     Label platformLabel = Label.parseCanonicalUnchecked("//lookup:basic");
     NativeAndStarlarkFlags result = fetch(platformLabel);
@@ -51,25 +53,37 @@ public class PlatformFlagsProducerTest extends ProducerTestCase {
   public void starlarkFlag() throws Exception {
     scratch.file(
         "flag/def.bzl",
-        "def _impl(ctx):",
-        "    return []",
-        "basic_flag = rule(",
-        "    implementation = _impl,",
-        "    build_setting = config.string(flag = True))");
+        """
+        def _impl(ctx):
+            return []
+
+        basic_flag = rule(
+            implementation = _impl,
+            build_setting = config.string(flag = True),
+        )
+        """);
 
     scratch.file(
         "flag/BUILD",
-        "load(':def.bzl', 'basic_flag')",
-        "basic_flag(name = 'flag', build_setting_default = 'from_default')");
+        """
+        load(":def.bzl", "basic_flag")
+
+        basic_flag(
+            name = "flag",
+            build_setting_default = "from_default",
+        )
+        """);
 
     scratch.overwriteFile(
         "lookup/BUILD",
-        "platform(",
-        "    name = 'basic',",
-        "    flags = [",
-        "        '--//flag=from_platform',",
-        "    ],",
-        ")");
+        """
+        platform(
+            name = "basic",
+            flags = [
+                "--//flag=from_platform",
+            ],
+        )
+        """);
 
     Label platformLabel = Label.parseCanonicalUnchecked("//lookup:basic");
     NativeAndStarlarkFlags result = fetch(platformLabel);
@@ -82,12 +96,14 @@ public class PlatformFlagsProducerTest extends ProducerTestCase {
   public void starlarkFlag_invalid() throws Exception {
     scratch.overwriteFile(
         "lookup/BUILD",
-        "platform(",
-        "    name = 'basic',",
-        "    flags = [",
-        "        '--//unknown/starlark:flag=fake',",
-        "    ],",
-        ")");
+        """
+        platform(
+            name = "basic",
+            flags = [
+                "--//unknown/starlark:flag=fake",
+            ],
+        )
+        """);
 
     Label platformLabel = Label.parseCanonicalUnchecked("//lookup:basic");
     assertThrows(OptionsParsingException.class, () -> fetch(platformLabel));
@@ -95,7 +111,7 @@ public class PlatformFlagsProducerTest extends ProducerTestCase {
 
   private NativeAndStarlarkFlags fetch(Label platformLabel)
       throws InvalidPlatformException, InterruptedException, OptionsParsingException {
-    PlatformFlagsSink sink = new PlatformFlagsSink();
+    PlatformFlagsSink sink = new PlatformFlagsSink(platformLabel);
     PlatformFlagsProducer producer =
         new PlatformFlagsProducer(platformLabel, sink, StateMachine.DONE);
     var unused = executeProducer(producer);
@@ -104,22 +120,30 @@ public class PlatformFlagsProducerTest extends ProducerTestCase {
 
   /** Receiver for platform info from {@link PlatformFlagsProducer}. */
   private static class PlatformFlagsSink implements PlatformFlagsProducer.ResultSink {
+    private final Label expectedPlatform;
     @Nullable private NativeAndStarlarkFlags parsedFlags = null;
     @Nullable private InvalidPlatformException invalidPlatformException = null;
     @Nullable private OptionsParsingException optionParsingException = null;
 
+    private PlatformFlagsSink(Label expectedPlatform) {
+      this.expectedPlatform = expectedPlatform;
+    }
+
     @Override
-    public void acceptPlatformFlags(NativeAndStarlarkFlags parsedFlags) {
+    public void acceptPlatformFlags(Label platform, NativeAndStarlarkFlags parsedFlags) {
+      assertThat(platform).isEqualTo(this.expectedPlatform);
       this.parsedFlags = parsedFlags;
     }
 
     @Override
-    public void acceptPlatformFlagsError(InvalidPlatformException error) {
+    public void acceptPlatformFlagsError(Label platform, InvalidPlatformException error) {
+      assertThat(platform).isEqualTo(this.expectedPlatform);
       this.invalidPlatformException = error;
     }
 
     @Override
-    public void acceptPlatformFlagsError(OptionsParsingException error) {
+    public void acceptPlatformFlagsError(Label platform, OptionsParsingException error) {
+      assertThat(platform).isEqualTo(this.expectedPlatform);
       this.optionParsingException = error;
     }
 

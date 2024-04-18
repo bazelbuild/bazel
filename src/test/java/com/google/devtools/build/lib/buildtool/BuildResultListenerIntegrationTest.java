@@ -40,81 +40,76 @@ public class BuildResultListenerIntegrationTest extends BuildIntegrationTestCase
   private void writeMyRuleBzl() throws IOException {
     write(
         "foo/my_rule.bzl",
-        "def _path(file):",
-        "  return file.path",
-        "def _impl(ctx):",
-        "  inputs = depset(",
-        "    ctx.files.srcs, transitive = [dep[DefaultInfo].files for dep in ctx.attr.deps])",
-        "  output = ctx.actions.declare_file(ctx.attr.name + '.out')",
-        "  command = 'echo $@ > %s' % (output.path)",
-        "  args = ctx.actions.args()",
-        "  args.add_all(inputs, map_each=_path)",
-        "  ctx.actions.run_shell(",
-        "    inputs = inputs,",
-        "    outputs = [output],",
-        "    command = command,",
-        "    arguments = [args]",
-        "  )",
-        "  return DefaultInfo(files = depset([output]))",
-        "",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'srcs': attr.label_list(allow_files = True),",
-        "    'deps': attr.label_list(providers = ['DefaultInfo']),",
-        "  }",
-        ")");
+        """
+        def _path(file):
+            return file.path
+
+        def _impl(ctx):
+            inputs = depset(
+                ctx.files.srcs,
+                transitive = [dep[DefaultInfo].files for dep in ctx.attr.deps],
+            )
+            output = ctx.actions.declare_file(ctx.attr.name + ".out")
+            command = "echo $@ > %s" % (output.path)
+            args = ctx.actions.args()
+            args.add_all(inputs, map_each = _path)
+            ctx.actions.run_shell(
+                inputs = inputs,
+                outputs = [output],
+                command = command,
+                arguments = [args],
+            )
+            return DefaultInfo(files = depset([output]))
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "srcs": attr.label_list(allow_files = True),
+                "deps": attr.label_list(providers = ["DefaultInfo"]),
+            },
+        )
+        """);
   }
 
   private void writeAnalysisFailureAspectBzl() throws IOException {
     write(
         "foo/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "  malformed",
-        "",
-        "analysis_err_aspect = aspect(implementation = _aspect_impl)");
+        """
+        def _aspect_impl(target, ctx):
+            malformed
+
+        analysis_err_aspect = aspect(implementation = _aspect_impl)
+        """);
   }
 
   private void writeExecutionFailureAspectBzl() throws IOException {
     write(
         "foo/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "  output = ctx.actions.declare_file('aspect_output')",
-        "  ctx.actions.run_shell(",
-        "    outputs = [output],",
-        "    command = 'false',",
-        "  )",
-        "  return [OutputGroupInfo(",
-        "    files = depset([output])",
-        "  )]",
-        "",
-        "execution_err_aspect = aspect(implementation = _aspect_impl)");
+        """
+        def _aspect_impl(target, ctx):
+            output = ctx.actions.declare_file("aspect_output")
+            ctx.actions.run_shell(
+                outputs = [output],
+                command = "false",
+            )
+            return [OutputGroupInfo(
+                files = depset([output]),
+            )]
+
+        execution_err_aspect = aspect(implementation = _aspect_impl)
+        """);
   }
 
   private void writeSuccessfulAspectBzl() throws IOException {
     write(
         "foo/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "  print('hello')",
-        "  return []",
-        "",
-        "successful_aspect = aspect(implementation = _aspect_impl)");
-  }
+        """
+        def _aspect_impl(target, ctx):
+            print("hello")
+            return []
 
-  private void writeEnvironmentRules(String... defaults) throws Exception {
-    StringBuilder defaultsBuilder = new StringBuilder();
-    for (String defaultEnv : defaults) {
-      defaultsBuilder.append("'").append(defaultEnv).append("', ");
-    }
-
-    write(
-        "buildenv/BUILD",
-        "environment_group(",
-        "    name = 'group',",
-        "    environments = [':one', ':two'],",
-        "    defaults = [" + defaultsBuilder + "])",
-        "environment(name = 'one')",
-        "environment(name = 'two')");
+        successful_aspect = aspect(implementation = _aspect_impl)
+        """);
   }
 
   @Test
@@ -123,9 +118,19 @@ public class BuildResultListenerIntegrationTest extends BuildIntegrationTestCase
     writeSuccessfulAspectBzl();
     write(
         "foo/BUILD",
-        "load('//foo:my_rule.bzl', 'my_rule')",
-        "my_rule(name = 'bar', srcs = ['bar.in'])",
-        "my_rule(name = 'foo', srcs = ['foo.in'])");
+        """
+        load("//foo:my_rule.bzl", "my_rule")
+
+        my_rule(
+            name = "bar",
+            srcs = ["bar.in"],
+        )
+
+        my_rule(
+            name = "foo",
+            srcs = ["foo.in"],
+        )
+        """);
     write("foo/foo.in");
     write("foo/bar.in");
     addOptions("--aspects=//foo:aspect.bzl%successful_aspect");
@@ -145,8 +150,14 @@ public class BuildResultListenerIntegrationTest extends BuildIntegrationTestCase
     writeAnalysisFailureAspectBzl();
     write(
         "foo/BUILD",
-        "load('//foo:my_rule.bzl', 'my_rule')",
-        "my_rule(name = 'foo', srcs = ['foo.in'])");
+        """
+        load("//foo:my_rule.bzl", "my_rule")
+
+        my_rule(
+            name = "foo",
+            srcs = ["foo.in"],
+        )
+        """);
     write("foo/foo.in");
 
     addOptions("--aspects=//foo:aspect.bzl%analysis_err_aspect", "--output_groups=files");
@@ -164,8 +175,14 @@ public class BuildResultListenerIntegrationTest extends BuildIntegrationTestCase
     writeExecutionFailureAspectBzl();
     write(
         "foo/BUILD",
-        "load('//foo:my_rule.bzl', 'my_rule')",
-        "my_rule(name = 'foo', srcs = ['foo.in'])");
+        """
+        load("//foo:my_rule.bzl", "my_rule")
+
+        my_rule(
+            name = "foo",
+            srcs = ["foo.in"],
+        )
+        """);
     write("foo/foo.in");
 
     addOptions("--aspects=//foo:aspect.bzl%execution_err_aspect", "--output_groups=files");
@@ -183,9 +200,19 @@ public class BuildResultListenerIntegrationTest extends BuildIntegrationTestCase
     writeMyRuleBzl();
     write(
         "foo/BUILD",
-        "load('//foo:my_rule.bzl', 'my_rule')",
-        "my_rule(name = 'execution_failure', srcs = ['missing'])",
-        "my_rule(name = 'foo', srcs = ['foo.in'])");
+        """
+        load("//foo:my_rule.bzl", "my_rule")
+
+        my_rule(
+            name = "execution_failure",
+            srcs = ["missing"],
+        )
+
+        my_rule(
+            name = "foo",
+            srcs = ["foo.in"],
+        )
+        """);
     write("foo/foo.in");
 
     assertThrows(
@@ -206,9 +233,20 @@ public class BuildResultListenerIntegrationTest extends BuildIntegrationTestCase
     writeMyRuleBzl();
     write(
         "foo/BUILD",
-        "load('//foo:my_rule.bzl', 'my_rule')",
-        "my_rule(name = 'analysis_failure', srcs = ['foo.in'], deps = [':missing'])",
-        "my_rule(name = 'foo', srcs = ['foo.in'])");
+        """
+        load("//foo:my_rule.bzl", "my_rule")
+
+        my_rule(
+            name = "analysis_failure",
+            srcs = ["foo.in"],
+            deps = [":missing"],
+        )
+
+        my_rule(
+            name = "foo",
+            srcs = ["foo.in"],
+        )
+        """);
     write("foo/foo.in");
 
     if (keepGoing) {
@@ -225,28 +263,18 @@ public class BuildResultListenerIntegrationTest extends BuildIntegrationTestCase
   }
 
   @Test
-  public void targetSkipped_consistentWithNonSkymeld() throws Exception {
-    writeEnvironmentRules();
-    write(
-        "foo/BUILD",
-        "sh_library(name = 'good', srcs = ['bar.sh'], restricted_to = ['//buildenv:one'])",
-        "sh_library(name = 'bad', srcs = ['bar.sh'], compatible_with = ['//buildenv:two'])");
-    write("foo/bar.sh");
-    addOptions("--auto_cpu_environment_group=//buildenv:group", "--cpu=one");
-
-    buildTarget("//foo:all");
-    assertThat(getLabelsOfAnalyzedTargets()).containsExactly("//foo:good", "//foo:bad");
-    assertThat(getLabelsOfBuiltTargets()).containsExactly("//foo:good");
-    assertThat(getLabelsOfSkippedTargets()).containsExactly("//foo:bad");
-  }
-
-  @Test
   public void nullIncrementalBuild_correctAnalyzedAndBuiltTargets() throws Exception {
     writeMyRuleBzl();
     write(
         "foo/BUILD",
-        "load('//foo:my_rule.bzl', 'my_rule')",
-        "my_rule(name = 'foo', srcs = ['foo.in'])");
+        """
+        load("//foo:my_rule.bzl", "my_rule")
+
+        my_rule(
+            name = "foo",
+            srcs = ["foo.in"],
+        )
+        """);
     write("foo/foo.in");
 
     BuildResult result = buildTarget("//foo:foo");

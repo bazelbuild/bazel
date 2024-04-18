@@ -94,6 +94,11 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
+  public void setTemporaryMaxTransitiveSourceVersion(Version maxTransitiveSourceVersion) {
+    getDelegate().setTemporaryMaxTransitiveSourceVersion(maxTransitiveSourceVersion);
+  }
+
+  @Override
   public LifecycleState getLifecycleState() {
     return getDelegate().getLifecycleState();
   }

@@ -28,8 +28,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi",
         "//src/main/java/com/google/devtools/build/skydoc/rendering",
         "//src/main/java/com/google/devtools/build/skydoc/rendering:rendering_util",
-        "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",
         "//src/main/java/net/starlark/java/eval",
+        "//src/main/protobuf:stardoc_output_java_proto",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party:guava",
         "//third_party:junit4",
@@ -44,7 +44,7 @@ java_binary(
     main_class = "com.google.devtools.build.skydoc.BinaryprotoToTextproto",
     visibility = ["//visibility:private"],
     deps = [
-        "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",
+        "//src/main/protobuf:stardoc_output_java_proto",
         "//third_party/protobuf:protobuf_java",
     ],
 )

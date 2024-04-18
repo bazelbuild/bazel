@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpecFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionUsagesFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
@@ -139,6 +140,8 @@ public abstract class AnalysisMock extends LoadingMock {
 
   public abstract MockCcSupport ccSupport();
 
+  public abstract AbstractMockJavaSupport javaSupport();
+
   public abstract MockPythonSupport pySupport();
 
   public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(BlazeDirectories directories) {
@@ -166,6 +169,7 @@ public abstract class AnalysisMock extends LoadingMock {
         .put(
             SkyFunctions.MODULE_FILE,
             new ModuleFileFunction(
+                createRuleClassProvider().getBazelStarlarkEnvironment(),
                 FakeRegistry.DEFAULT_FACTORY,
                 directories.getWorkspace(),
                 getBuiltinModules(directories)))
@@ -177,6 +181,7 @@ public abstract class AnalysisMock extends LoadingMock {
             new SingleExtensionEvalFunction(directories, ImmutableMap::of, downloadManager))
         .put(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
         .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction(FakeRegistry.DEFAULT_FACTORY))
+        .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction(FakeRegistry.DEFAULT_FACTORY))
         .put(
             SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
             new ModuleExtensionRepoMappingEntriesFunction())
@@ -272,6 +277,11 @@ public abstract class AnalysisMock extends LoadingMock {
     }
 
     @Override
+    public AbstractMockJavaSupport javaSupport() {
+      return delegate.javaSupport();
+    }
+
+    @Override
     public MockPythonSupport pySupport() {
       return delegate.pySupport();
     }
@@ -287,6 +297,7 @@ public abstract class AnalysisMock extends LoadingMock {
           .put(
               SkyFunctions.MODULE_FILE,
               new ModuleFileFunction(
+                  createRuleClassProvider().getBazelStarlarkEnvironment(),
                   FakeRegistry.DEFAULT_FACTORY,
                   directories.getWorkspace(),
                   getBuiltinModules(directories)))

@@ -35,12 +35,15 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     context()
         .write(
             "repo_rule.bzl",
-            "def _impl(rctx):",
-            "  result = rctx.execute(['bash', '-c', 'which bash > out.txt'])",
-            "  if result.return_code != 0:",
-            "    fail('Execute bash failed: ' + result.stderr)",
-            "  rctx.file('BUILD', 'exports_files([\"out.txt\"])')",
-            "check_bash = repository_rule(implementation = _impl)");
+            """
+            def _impl(rctx):
+                result = rctx.execute(["bash", "-c", "which bash > out.txt"])
+                if result.return_code != 0:
+                    fail("Execute bash failed: " + result.stderr)
+                rctx.file("BUILD", 'exports_files(["out.txt"])')
+
+            check_bash = repository_rule(implementation = _impl)
+            """);
 
     context()
         .write(
@@ -59,18 +62,20 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     context()
         .write(
             "rule.bzl",
-            "def _impl(ctx):",
-            "  out = ctx.actions.declare_file('does_not_matter')",
-            "  ctx.actions.do_nothing(mnemonic = 'UseInput', inputs = ctx.attr.dep.files)",
-            "  ctx.actions.write(out, 'Hi')",
-            "  return [DefaultInfo(files = depset([out]))]",
-            "",
-            "debug_rule = rule(",
-            "    implementation = _impl,",
-            "    attrs = {",
-            "        \"dep\": attr.label(allow_single_file = True),",
-            "    }",
-            ")");
+            """
+            def _impl(ctx):
+                out = ctx.actions.declare_file("does_not_matter")
+                ctx.actions.do_nothing(mnemonic = "UseInput", inputs = ctx.attr.dep.files)
+                ctx.actions.write(out, "Hi")
+                return [DefaultInfo(files = depset([out]))]
+
+            debug_rule = rule(
+                implementation = _impl,
+                attrs = {
+                    "dep": attr.label(allow_single_file = True),
+                },
+            )
+            """);
 
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
     // The build using "bash" should fail on Windows, and pass on Linux and Mac OS

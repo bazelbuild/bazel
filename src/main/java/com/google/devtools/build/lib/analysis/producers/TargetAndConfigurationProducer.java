@@ -300,11 +300,9 @@ public final class TargetAndConfigurationProducer
     // TODO: @aranguyen b/297077082
     public UnloadedToolchainContextsInputs getUnloadedToolchainContextsInputs(
         Target target, @Nullable Label parentExecutionPlatformLabel) throws InterruptedException {
-      if (!(target instanceof Rule)) {
+      if (!(target instanceof Rule rule)) {
         return UnloadedToolchainContextsInputs.empty();
       }
-
-      Rule rule = (Rule) target;
 
       if (!preRuleTransitionKey
           .getConfigurationKey()
@@ -527,6 +525,11 @@ public final class TargetAndConfigurationProducer
     }
 
     @Override
+    public void acceptPlatformFlagsError(InvalidPlatformException e) {
+      emitErrorMessage(e.getMessage());
+    }
+
+    @Override
     public void acceptPlatformInfo(PlatformInfo info) {
       this.platformInfo = info;
     }
@@ -621,6 +624,11 @@ public final class TargetAndConfigurationProducer
 
       @Override
       public void acceptPlatformMappingError(PlatformMappingException e) {
+        emitErrorMessage(e.getMessage());
+      }
+
+      @Override
+      public void acceptPlatformFlagsError(InvalidPlatformException e) {
         emitErrorMessage(e.getMessage());
       }
 

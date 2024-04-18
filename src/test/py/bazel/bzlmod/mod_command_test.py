@@ -32,6 +32,7 @@ class ModCommandTest(test_base.TestBase):
     self.main_registry = BazelRegistry(
         os.path.join(self.registries_work_dir, 'main')
     )
+    self.main_registry.start()
     self.main_registry.setModuleBasePath('projects')
     self.projects_dir = self.main_registry.projects
     self.maxDiff = None  # there are some long diffs in this test
@@ -132,6 +133,10 @@ class ModCommandTest(test_base.TestBase):
     self.main_registry.createLocalPathModule('ext2', '1.0', 'ext2')
     scratchFile(self.projects_dir.joinpath('ext2', 'BUILD'))
     scratchFile(self.projects_dir.joinpath('ext2', 'ext.bzl'), ext_src)
+
+  def tearDown(self):
+    self.main_registry.stop()
+    test_base.TestBase.tearDown(self)
 
   def testFailWithoutBzlmod(self):
     _, _, stderr = self.RunBazel(
@@ -358,6 +363,22 @@ class ModCommandTest(test_base.TestBase):
             '',
         ],
         'Wrong output in the show with some extensions and some usages query.',
+    )
+
+  def testShowExtensionWithUnknownRepo(self):
+    _, _, stderr = self.RunBazel(
+        [
+            'mod',
+            'show_extension',
+            '@@unknown//foo:bar.bzl%x',
+        ],
+        allow_failure=True,
+        rstrip=True,
+    )
+    self.assertIn(
+        'ERROR: In extension argument @@unknown//foo:bar.bzl%x: No module with '
+        'the canonical repo name @@unknown exists in the dependency graph.',
+        '\n'.join(stderr),
     )
 
   def testShowModuleAndExtensionReposFromBaseModule(self):

@@ -438,7 +438,11 @@ abstract class AbstractParallelEvaluator {
               .stateStarting(skyKey, NodeState.INITIALIZING_ENVIRONMENT);
           env =
               SkyFunctionEnvironment.create(
-                  skyKey, nodeEntry.getTemporaryDirectDeps(), oldDeps, evaluatorContext);
+                  skyKey,
+                  nodeEntry.getTemporaryDirectDeps(),
+                  oldDeps,
+                  nodeEntry.getMaxTransitiveSourceVersion(),
+                  evaluatorContext);
         } catch (UndonePreviouslyRequestedDeps undonePreviouslyRequestedDeps) {
           handleUndonePreviouslyRequestedDep(nodeEntry);
           return;
@@ -556,6 +560,16 @@ abstract class AbstractParallelEvaluator {
         } finally {
           env.doneBuilding();
         }
+
+        // For any `SkyKey`s, regardless of partially evaluated or not, the node's Max Transitive
+        // Source Version so far is always tracked at the end of a Skyframe restart.
+        // This effort makes it meaningless to fetch MTSV of all deps during
+        // INITIALIZE_ENVIRONMENT's batch prefetch, and resolves a blocker to remove batch prefetch
+        // from INITIALIZE_ENVIRONMENT. Also, `SkyFunctionEnvironment#PartialEvaluation` subclass
+        // starts to support `getMaxTransitiveSourceVersionSoFar()` method.
+        // TODO(b/324948927): This comment should be rephrased when batch prefetch is removed from
+        // INITIALIZE_ENVIRONMENT PHASE.
+        nodeEntry.setTemporaryMaxTransitiveSourceVersion(env.getMaxTransitiveSourceVersionSoFar());
 
         if (value instanceof Reset) {
           if (nodeEntry.hasUnsignaledDeps()) {

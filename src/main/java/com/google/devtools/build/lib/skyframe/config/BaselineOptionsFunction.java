@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -127,12 +128,15 @@ public final class BaselineOptionsFunction implements SkyFunction {
       BuildConfigurationKeyValue buildConfigurationKeyValue =
           (BuildConfigurationKeyValue)
               env.getValueOrThrow(
-                  bckvk, OptionsParsingException.class, PlatformMappingException.class);
+                  bckvk,
+                  OptionsParsingException.class,
+                  PlatformMappingException.class,
+                  InvalidPlatformException.class);
       if (buildConfigurationKeyValue == null) {
         return null;
       }
       return buildConfigurationKeyValue.buildConfigurationKey().getOptions();
-    } catch (PlatformMappingException | OptionsParsingException e) {
+    } catch (PlatformMappingException | OptionsParsingException | InvalidPlatformException e) {
       throw new BaselineOptionsFunctionException(e);
     }
   }

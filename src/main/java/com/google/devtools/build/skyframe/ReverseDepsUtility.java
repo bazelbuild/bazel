@@ -166,11 +166,17 @@ abstract class ReverseDepsUtility {
         return ImmutableList.copyOf(reverseDeps);
       }
       ImmutableSet<SkyKey> set = ImmutableSet.copyOf(reverseDeps);
-      Preconditions.checkState(
-          set.size() == reverseDeps.size(),
-          "Duplicate reverse deps present in %s: %s",
-          reverseDeps,
-          entry);
+      if (set.size() != reverseDeps.size()) {
+        Set<SkyKey> seen = new HashSet<>();
+        Set<SkyKey> duplicates = new HashSet<>();
+        for (SkyKey key : reverseDeps) {
+          if (seen.add(key)) {
+            duplicates.add(key);
+          }
+        }
+        throw new IllegalStateException(
+            String.format("In node %s: duplicate reverse deps present: %s", entry, duplicates));
+      }
       return set;
     }
   }

@@ -312,11 +312,10 @@ public class BuildConfigurationValue
     if (this == other) {
       return true;
     }
-    if (!(other instanceof BuildConfigurationValue)) {
+    if (!(other instanceof BuildConfigurationValue otherVal)) {
       return false;
     }
     // Only considering arguments that are non-dependent and non-server-global.
-    BuildConfigurationValue otherVal = (BuildConfigurationValue) other;
     return this.buildOptions.equals(otherVal.buildOptions)
         && this.workspaceName.equals(otherVal.workspaceName)
         && this.siblingRepositoryLayout == otherVal.siblingRepositoryLayout
@@ -919,14 +918,6 @@ public class BuildConfigurationValue
    */
   public List<Label> getTargetEnvironments() {
     return options.targetEnvironments;
-  }
-
-  /**
-   * Returns the {@link Label} of the {@code environment_group} target that will be used to find the
-   * target environment during auto-population.
-   */
-  public Label getAutoCpuEnvironmentGroup() {
-    return options.autoCpuEnvironmentGroup;
   }
 
   @Nullable

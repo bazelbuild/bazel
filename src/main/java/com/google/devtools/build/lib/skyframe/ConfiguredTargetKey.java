@@ -129,10 +129,9 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof ConfiguredTargetKey)) {
+    if (!(obj instanceof ConfiguredTargetKey other)) {
       return false;
     }
-    ConfiguredTargetKey other = (ConfiguredTargetKey) obj;
     return hashCode == other.hashCode
         && getLabel().equals(other.getLabel())
         && Objects.equals(configurationKey, other.configurationKey)

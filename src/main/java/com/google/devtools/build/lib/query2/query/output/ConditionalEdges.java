@@ -133,8 +133,7 @@ public class ConditionalEdges {
         }
         selector.forEach(
             (key, value) -> {
-              if (value instanceof List<?>) {
-                List<?> deps = (List<?>) value;
+              if (value instanceof List<?> deps) {
                 for (Object dep : deps) {
                   if (dep instanceof Label) {
                     conditions.put((Label) dep, key);

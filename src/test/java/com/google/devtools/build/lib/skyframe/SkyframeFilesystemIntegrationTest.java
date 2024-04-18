@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.util.SkyframeIntegrationTestBase;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
@@ -46,12 +45,8 @@ public class SkyframeFilesystemIntegrationTest extends SkyframeIntegrationTestBa
   private final SyscallCache syscallCache = spy(SyscallCache.NO_CACHE);
 
   @Override
-  protected EventCollectionApparatus createEvents() {
-    return new EventCollectionApparatus(
-        ImmutableSet.<EventKind>builder()
-            .addAll(EventKind.ERRORS_WARNINGS_AND_INFO)
-            .add(EventKind.FINISH)
-            .build());
+  protected ImmutableSet<EventKind> additionalEventsToCollect() {
+    return ImmutableSet.of(EventKind.FINISH);
   }
 
   @Override
@@ -80,7 +75,6 @@ public class SkyframeFilesystemIntegrationTest extends SkyframeIntegrationTestBa
 
     MoreAsserts.assertContainsEvent(events.collector(), "Executing genrule //hello:target");
 
-    events.clear();
     // Throw an IOException during the initial filesystem access of the source file dep for
     // configured target //hello:target.
     initializeFileSystemSingletonIoException(pathToThrow);
@@ -106,7 +100,6 @@ public class SkyframeFilesystemIntegrationTest extends SkyframeIntegrationTestBa
 
     MoreAsserts.assertContainsEvent(events.collector(), "Executing genrule //hello:target");
 
-    events.clear();
     // Throw an IOException during the initial filesystem access of the source file dep for
     // configured target //hello:target.
     Path pathToThrow = write("hello/one", "new lines");
@@ -133,7 +126,6 @@ public class SkyframeFilesystemIntegrationTest extends SkyframeIntegrationTestBa
 
     MoreAsserts.assertContainsEvent(events.collector(), "Executing genrule //hello:target");
 
-    events.clear();
     initializeFileSystemPersistentIoException(pathToThrow);
 
     BuildFailedException e =

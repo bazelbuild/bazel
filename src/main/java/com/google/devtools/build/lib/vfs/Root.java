@@ -246,10 +246,9 @@ public abstract class Root implements Comparable<Root> {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof AbsoluteRoot)) {
+      if (!(o instanceof AbsoluteRoot that)) {
         return false;
       }
-      AbsoluteRoot that = (AbsoluteRoot) o;
       return fileSystem.equals(that.fileSystem);
     }
 

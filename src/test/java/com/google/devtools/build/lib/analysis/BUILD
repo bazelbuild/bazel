@@ -11,6 +11,8 @@ filegroup(
     testonly = 0,
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/analysis/allowlisting:srcs",
+        "//src/test/java/com/google/devtools/build/lib/analysis/config:srcs",
+        "//src/test/java/com/google/devtools/build/lib/analysis/constraints:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/extra:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/mock:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/platform:srcs",
@@ -40,7 +42,6 @@ java_library(
             "RunfilesRepoMappingManifestTest.java",
             "SourceManifestActionTest.java",
             "AnalysisFailureInfoTest.java",
-            "config/FeatureSetTest.java",
             "starlark/StarlarkSubruleTest.java",
         ],
     ),
@@ -78,31 +79,17 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:build_view",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_option_details",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options_cache",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/compilation_mode",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/execution_info_modifier",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/execution_transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_registry",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/optioninfo",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/options_diff",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/per_label_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/run_under",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/run_under_converter",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/toolchain_type_requirement",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transition_factories",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/comparing_transition",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/composing_transition",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/composing_transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/configuration_transition",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/no_config_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/no_transition",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/null_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/patch_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/split_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/transition_factory",
@@ -114,6 +101,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:label_expander",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:projects",
         "//src/main/java/com/google/devtools/build/lib/analysis:required_config_fragments_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:resolved_toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
@@ -146,20 +134,16 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages:exec_group",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
-        "//src/main/java/com/google/devtools/build/lib/rules/android",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
-        "//src/main/java/com/google/devtools/build/lib/rules/objc",
-        "//src/main/java/com/google/devtools/build/lib/rules/proto",
-        "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_status_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:depsutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:toolchain_context_key",
@@ -203,7 +187,6 @@ java_library(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
-        "//third_party/protobuf:protobuf_java",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
     ],
 )
@@ -320,26 +303,6 @@ java_test(
 )
 
 java_test(
-    name = "ConstraintsTest",
-    srcs = [
-        "constraints/AbstractConstraintsTest.java",
-        "constraints/ConstraintsTest.java",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/util:filetype",
-        "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
     name = "SourceManifestActionTest",
     srcs = ["SourceManifestActionTest.java"],
     deps = [
@@ -370,6 +333,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/rules/python:PythonTestUtils",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -453,20 +417,9 @@ java_test(
     ],
 )
 
-java_test(
-    name = "config/FeatureSetTest",
-    srcs = ["config/FeatureSetTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/feature_set",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
 test_suite(
     name = "AllAnalysisTests",
     tests = [
-        "ConstraintsTest",
         ":AbstractConfiguredTargetTest",
         ":AnalysisTests",
         ":AnalysisUtilsTest",

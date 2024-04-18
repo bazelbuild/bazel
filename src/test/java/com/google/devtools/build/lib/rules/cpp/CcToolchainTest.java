@@ -200,25 +200,44 @@ public class CcToolchainTest extends BuildViewTestCase {
     scratch.file("a/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
     scratch.file(
         "a/BUILD",
-        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
-        "filegroup(name='dynamic', srcs=['not-an-so', 'so.so'])",
-        "filegroup(name='static', srcs=['not-an-a', 'a.a'])",
-        "cc_toolchain(",
-        "    name = 'a',",
-        "    toolchain_config = ':toolchain_config',",
-        "    module_map = 'map',",
-        "    ar_files = 'ar-a',",
-        "    as_files = 'as-a',",
-        "    compiler_files = 'compile-a',",
-        "    dwp_files = 'dwp-a',",
-        "    coverage_files = 'gcov-a',",
-        "    linker_files = 'link-a',",
-        "    strip_files = 'strip-a',",
-        "    objcopy_files = 'objcopy-a',",
-        "    all_files = 'all-a',",
-        "    dynamic_runtime_lib = ':dynamic',",
-        "    static_runtime_lib = ':static')",
-        "cc_toolchain_config(name='toolchain_config')");
+        """
+        load(":cc_toolchain_config.bzl", "cc_toolchain_config")
+
+        filegroup(
+            name = "dynamic",
+            srcs = [
+                "not-an-so",
+                "so.so",
+            ],
+        )
+
+        filegroup(
+            name = "static",
+            srcs = [
+                "a.a",
+                "not-an-a",
+            ],
+        )
+
+        cc_toolchain(
+            name = "a",
+            all_files = "all-a",
+            ar_files = "ar-a",
+            as_files = "as-a",
+            compiler_files = "compile-a",
+            coverage_files = "gcov-a",
+            dwp_files = "dwp-a",
+            dynamic_runtime_lib = ":dynamic",
+            linker_files = "link-a",
+            module_map = "map",
+            objcopy_files = "objcopy-a",
+            static_runtime_lib = ":static",
+            strip_files = "strip-a",
+            toolchain_config = ":toolchain_config",
+        )
+
+        cc_toolchain_config(name = "toolchain_config")
+        """);
 
     getAnalysisMock()
         .ccSupport()
@@ -235,27 +254,39 @@ public class CcToolchainTest extends BuildViewTestCase {
   public void testDynamicMode() throws Exception {
     scratch.file(
         "a/BUILD",
-        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
-        "filegroup(",
-        "   name='empty')",
-        "filegroup(",
-        "    name = 'banana',",
-        "    srcs = ['banana1', 'banana2'])",
-        "cc_toolchain(",
-        "    name = 'b',",
-        "    toolchain_identifier = 'toolchain-identifier-k8',",
-        "    toolchain_config = ':toolchain_config',",
-        "    all_files = ':banana',",
-        "    ar_files = ':empty',",
-        "    as_files = ':empty',",
-        "    compiler_files = ':empty',",
-        "    dwp_files = ':empty',",
-        "    linker_files = ':empty',",
-        "    strip_files = ':empty',",
-        "    objcopy_files = ':empty',",
-        "    dynamic_runtime_lib = ':empty',",
-        "    static_runtime_lib = ':empty')",
-        "cc_toolchain_config(name='toolchain_config')");
+        """
+        load(":cc_toolchain_config.bzl", "cc_toolchain_config")
+
+        filegroup(
+            name = "empty",
+        )
+
+        filegroup(
+            name = "banana",
+            srcs = [
+                "banana1",
+                "banana2",
+            ],
+        )
+
+        cc_toolchain(
+            name = "b",
+            all_files = ":banana",
+            ar_files = ":empty",
+            as_files = ":empty",
+            compiler_files = ":empty",
+            dwp_files = ":empty",
+            dynamic_runtime_lib = ":empty",
+            linker_files = ":empty",
+            objcopy_files = ":empty",
+            static_runtime_lib = ":empty",
+            strip_files = ":empty",
+            toolchain_config = ":toolchain_config",
+            toolchain_identifier = "toolchain-identifier-k8",
+        )
+
+        cc_toolchain_config(name = "toolchain_config")
+        """);
     scratch.file("a/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
 
     // Check defaults.
@@ -404,11 +435,15 @@ public class CcToolchainTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "a/BUILD",
-        "cc_toolchain_alias(name = 'b')",
-        "genrule(",
-        "    name ='gen_artifact',",
-        "    outs=['profile.profdata'],",
-        "    cmd='touch $@')");
+        """
+        cc_toolchain_alias(name = "b")
+
+        genrule(
+            name = "gen_artifact",
+            outs = ["profile.profdata"],
+            cmd = "touch $@",
+        )
+        """);
     useConfiguration("-c", "opt", "--fdo_optimize=//a:gen_artifact");
     assertThat(getConfiguredTarget("//a:b")).isNull();
     assertContainsEvent(
@@ -419,7 +454,12 @@ public class CcToolchainTest extends BuildViewTestCase {
   public void testFdoOptimizeUnexpectedExtension() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
-        "a/BUILD", "cc_toolchain_alias(name = 'b')", "exports_files(['profile.unexpected'])");
+        "a/BUILD",
+        """
+        cc_toolchain_alias(name = "b")
+
+        exports_files(["profile.unexpected"])
+        """);
     scratch.file("a/profile.unexpected", "");
     useConfiguration("-c", "opt", "--fdo_optimize=//a:profile.unexpected");
     assertThat(getConfiguredTarget("//a:b")).isNull();
@@ -431,10 +471,14 @@ public class CcToolchainTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "a/BUILD",
-        "cc_toolchain_alias(name = 'b')",
-        "filegroup(",
-        "    name ='profile',",
-        "    srcs=['my_profile.afdo'])");
+        """
+        cc_toolchain_alias(name = "b")
+
+        filegroup(
+            name = "profile",
+            srcs = ["my_profile.afdo"],
+        )
+        """);
     scratch.file("my_profile.afdo", "");
     useConfiguration("-c", "opt", "--fdo_optimize=//a:profile");
     assertThat(getConfiguredTarget("//a:b")).isNull();
@@ -445,7 +489,13 @@ public class CcToolchainTest extends BuildViewTestCase {
   @Test
   public void testFdoOptimizeNotCompatibleWithCoverage() throws Exception {
     reporter.removeHandler(failFastHandler);
-    scratch.file("a/BUILD", "cc_toolchain_alias(name = 'b')", "exports_files(['profile.afdo'])");
+    scratch.file(
+        "a/BUILD",
+        """
+        cc_toolchain_alias(name = "b")
+
+        exports_files(["profile.afdo"])
+        """);
     scratch.file("a/profile.afdo", "");
     useConfiguration("-c", "opt", "--fdo_optimize=//a:profile.afdo", "--collect_code_coverage");
     assertThat(getConfiguredTarget("//a:b")).isNull();
@@ -475,8 +525,15 @@ public class CcToolchainTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "a/BUILD",
-        "cc_toolchain_alias(name = 'b')",
-        "genrule(name='profile.xfdo', outs = ['c.txt'], cmd = '')");
+        """
+        cc_toolchain_alias(name = "b")
+
+        genrule(
+            name = "profile.xfdo",
+            outs = ["c.txt"],
+            cmd = "",
+        )
+        """);
     useConfiguration("-c", "opt", "--xbinary_fdo=//a:profile.xfdo");
     assertThat(getConfiguredTarget("//a:b")).isNull();
     assertContainsEvent("does not have mandatory providers: 'FdoProfileInfo'");
@@ -487,8 +544,14 @@ public class CcToolchainTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "a/BUILD",
-        "cc_toolchain_alias(name = 'b')",
-        "fdo_profile(name='out.afdo', profile='profile.afdo')");
+        """
+        cc_toolchain_alias(name = "b")
+
+        fdo_profile(
+            name = "out.afdo",
+            profile = "profile.afdo",
+        )
+        """);
     useConfiguration("-c", "opt", "--xbinary_fdo=//a:out.afdo");
     assertThat(getConfiguredTarget("//a:b")).isNotNull();
     assertNoEvents();
@@ -499,8 +562,14 @@ public class CcToolchainTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "a/BUILD",
-        "cc_toolchain_alias(name = 'b')",
-        "fdo_profile(name='out.fdo', profile='profile.profdata')");
+        """
+        cc_toolchain_alias(name = "b")
+
+        fdo_profile(
+            name = "out.fdo",
+            profile = "profile.profdata",
+        )
+        """);
     useConfiguration("-c", "opt", "--xbinary_fdo=//a:out.fdo");
     assertThat(getConfiguredTarget("//a:b")).isNull();
     assertContainsEvent("--xbinary_fdo only accepts");
@@ -511,27 +580,40 @@ public class CcToolchainTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "a/BUILD",
-        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
-        "filegroup(",
-        "   name='empty')",
-        "cc_toolchain(",
-        "    name = 'b',",
-        "    toolchain_identifier = 'toolchain-identifier-k8',",
-        "    toolchain_config = ':toolchain_config',",
-        "    all_files = ':empty',",
-        "    ar_files = ':empty',",
-        "    as_files = ':empty',",
-        "    compiler_files = ':empty',",
-        "    dwp_files = ':empty',",
-        "    linker_files = ':empty',",
-        "    strip_files = ':empty',",
-        "    objcopy_files = ':empty')",
-        "cc_toolchain_config(name = 'toolchain_config')");
+        """
+        load(":cc_toolchain_config.bzl", "cc_toolchain_config")
+
+        filegroup(
+            name = "empty",
+        )
+
+        cc_toolchain(
+            name = "b",
+            all_files = ":empty",
+            ar_files = ":empty",
+            as_files = ":empty",
+            compiler_files = ":empty",
+            dwp_files = ":empty",
+            linker_files = ":empty",
+            objcopy_files = ":empty",
+            strip_files = ":empty",
+            toolchain_config = ":toolchain_config",
+            toolchain_identifier = "toolchain-identifier-k8",
+        )
+
+        cc_toolchain_config(name = "toolchain_config")
+        """);
     scratch.file("fdo/my_profile.afdo", "");
     scratch.file(
         "fdo/BUILD",
-        "exports_files(['my_profile.afdo'])",
-        "fdo_profile(name = 'fdo', profile = ':my_profile.profdata')");
+        """
+        exports_files(["my_profile.afdo"])
+
+        fdo_profile(
+            name = "fdo",
+            profile = ":my_profile.profdata",
+        )
+        """);
     scratch.file("a/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
 
     useConfiguration();
@@ -580,82 +662,98 @@ public class CcToolchainTest extends BuildViewTestCase {
   private void writeStarlarkRule() throws IOException {
     scratch.file(
         "a/BUILD",
-        "load(':crosstool_rule.bzl', 'cc_toolchain_config_rule')",
-        "cc_toolchain_config_rule(name = 'toolchain_config')",
-        "filegroup(",
-        "   name='empty')",
-        "cc_toolchain(",
-        "    name = 'b',",
-        "    all_files = ':empty',",
-        "    ar_files = ':empty',",
-        "    as_files = ':empty',",
-        "    compiler_files = ':empty',",
-        "    dwp_files = ':empty',",
-        "    linker_files = ':empty',",
-        "    strip_files = ':empty',",
-        "    objcopy_files = ':empty',",
-        "    toolchain_config = ':toolchain_config')");
+        """
+        load(":crosstool_rule.bzl", "cc_toolchain_config_rule")
+
+        cc_toolchain_config_rule(name = "toolchain_config")
+
+        filegroup(
+            name = "empty",
+        )
+
+        cc_toolchain(
+            name = "b",
+            all_files = ":empty",
+            ar_files = ":empty",
+            as_files = ":empty",
+            compiler_files = ":empty",
+            dwp_files = ":empty",
+            linker_files = ":empty",
+            objcopy_files = ":empty",
+            strip_files = ":empty",
+            toolchain_config = ":toolchain_config",
+        )
+        """);
 
     scratch.file(
         "a/crosstool_rule.bzl",
-        "load('//tools/cpp:cc_toolchain_config_lib.bzl',",
-        "        'feature',",
-        "        'action_config',",
-        "        'artifact_name_pattern',",
-        "        'env_entry',",
-        "        'variable_with_value',",
-        "        'make_variable',",
-        "        'feature_set',",
-        "        'with_feature_set',",
-        "        'env_set',",
-        "        'flag_group',",
-        "        'flag_set',",
-        "        'tool_path',",
-        "        'tool')",
-        "",
-        "def _impl(ctx):",
-        "    return cc_common.create_cc_toolchain_config_info(",
-        "                ctx = ctx,",
-        "                features = [feature(name = 'simple_feature'), ",
-        "                            feature(name = 'no_legacy_features')],",
-        "                action_configs = [",
-        "                   action_config(action_name = 'simple_action', enabled=True)",
-        "                ],",
-        "                artifact_name_patterns = [artifact_name_pattern(",
-        "                   category_name = 'static_library',",
-        "                   prefix = 'prefix',",
-        "                   extension = '.a')],",
-        "                cxx_builtin_include_directories = ['dir1', 'dir2', 'dir3'],",
-        "                toolchain_identifier = 'toolchain',",
-        "                host_system_name = 'host',",
-        "                target_system_name = 'target',",
-        "                target_cpu = 'cpu',",
-        "                target_libc = 'libc',",
-        "                compiler = 'compiler',",
-        "                abi_libc_version = 'abi_libc',",
-        "                abi_version = 'banana',",
-        "                tool_paths = [",
-        "                     tool_path(name = 'ar', path = '/absolute/path'),",
-        "                     tool_path(name = 'cpp', path = 'relative/path'),",
-        "                     tool_path(name = 'gcc', path = '/some/path'),",
-        "                     tool_path(name = 'gcov', path = '/some/path'),",
-        "                     tool_path(name = 'gcovtool', path = '/some/path'),",
-        "                     tool_path(name = 'ld', path = '/some/path'),",
-        "                     tool_path(name = 'nm', path = '/some/path'),",
-        "                     tool_path(name = 'objcopy', path = '/some/path'),",
-        "                     tool_path(name = 'objdump', path = '/some/path'),",
-        "                     tool_path(name = 'strip', path = '/some/path'),",
-        "                     tool_path(name = 'dwp', path = '/some/path'),",
-        "                     tool_path(name = 'llvm_profdata', path = '/some/path'),",
-        "                ],",
-        "                cc_target_os = 'os',",
-        "                builtin_sysroot = 'sysroot')",
-        "cc_toolchain_config_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {},",
-        "    provides = [CcToolchainConfigInfo],",
-        "    fragments = ['cpp']",
-        ")");
+        """
+        load(
+            "//tools/cpp:cc_toolchain_config_lib.bzl",
+            "action_config",
+            "artifact_name_pattern",
+            "env_entry",
+            "env_set",
+            "feature",
+            "feature_set",
+            "flag_group",
+            "flag_set",
+            "make_variable",
+            "tool",
+            "tool_path",
+            "variable_with_value",
+            "with_feature_set",
+        )
+
+        def _impl(ctx):
+            return cc_common.create_cc_toolchain_config_info(
+                ctx = ctx,
+                features = [
+                    feature(name = "simple_feature"),
+                    feature(name = "no_legacy_features"),
+                ],
+                action_configs = [
+                    action_config(action_name = "simple_action", enabled = True),
+                ],
+                artifact_name_patterns = [artifact_name_pattern(
+                    category_name = "static_library",
+                    prefix = "prefix",
+                    extension = ".a",
+                )],
+                cxx_builtin_include_directories = ["dir1", "dir2", "dir3"],
+                toolchain_identifier = "toolchain",
+                host_system_name = "host",
+                target_system_name = "target",
+                target_cpu = "cpu",
+                target_libc = "libc",
+                compiler = "compiler",
+                abi_libc_version = "abi_libc",
+                abi_version = "banana",
+                tool_paths = [
+                    tool_path(name = "ar", path = "/absolute/path"),
+                    tool_path(name = "cpp", path = "relative/path"),
+                    tool_path(name = "gcc", path = "/some/path"),
+                    tool_path(name = "gcov", path = "/some/path"),
+                    tool_path(name = "gcovtool", path = "/some/path"),
+                    tool_path(name = "ld", path = "/some/path"),
+                    tool_path(name = "nm", path = "/some/path"),
+                    tool_path(name = "objcopy", path = "/some/path"),
+                    tool_path(name = "objdump", path = "/some/path"),
+                    tool_path(name = "strip", path = "/some/path"),
+                    tool_path(name = "dwp", path = "/some/path"),
+                    tool_path(name = "llvm_profdata", path = "/some/path"),
+                ],
+                cc_target_os = "os",
+                builtin_sysroot = "sysroot",
+            )
+
+        cc_toolchain_config_rule = rule(
+            implementation = _impl,
+            attrs = {},
+            provides = [CcToolchainConfigInfo],
+            fragments = ["cpp"],
+        )
+        """);
   }
 
   @Test
@@ -673,10 +771,24 @@ public class CcToolchainTest extends BuildViewTestCase {
   public void correctToolFilesUsed() throws Exception {
     scratch.file(
         "a/BUILD",
-        "cc_toolchain_alias(name = 'a')",
-        "cc_library(name = 'l', srcs = ['l.c'])",
-        "cc_library(name = 'asm', srcs = ['a.s'])",
-        "cc_library(name = 'preprocessed-asm', srcs = ['a.S'])");
+        """
+        cc_toolchain_alias(name = "a")
+
+        cc_library(
+            name = "l",
+            srcs = ["l.c"],
+        )
+
+        cc_library(
+            name = "asm",
+            srcs = ["a.s"],
+        )
+
+        cc_library(
+            name = "preprocessed-asm",
+            srcs = ["a.S"],
+        )
+        """);
     getAnalysisMock()
         .ccSupport()
         .setupCcToolchainConfig(

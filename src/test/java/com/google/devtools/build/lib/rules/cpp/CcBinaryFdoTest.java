@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.rules.genrule.GenRuleAction;
+import java.util.regex.Pattern;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -30,6 +32,9 @@ import org.junit.runners.JUnit4;
 /** Tests for cc_binary with FDO. */
 @RunWith(JUnit4.class)
 public class CcBinaryFdoTest extends BuildViewTestCase {
+  private static final Correspondence<String, String> MATCHES_REGEX =
+      Correspondence.from((a, b) -> Pattern.matches(b, a), "matches");
+
   @Test
   public void testActionGraph() throws Exception {
     AnalysisMock.get()
@@ -60,8 +65,8 @@ public class CcBinaryFdoTest extends BuildViewTestCase {
                 getBinArtifact("_objs/binary/binary.o", getConfiguredTarget("//:binary")));
     assertThat(compileAction).isNotNull();
     assertThat(compileAction.getArguments())
-        .contains(
-            "-fprofile-use=bazel-out/k8-opt/bin/external/bazel_tools/tools/cpp/fdo/everything/mock.profdata");
+        .comparingElementsUsing(MATCHES_REGEX)
+        .contains("-fprofile-use=bl?azel?-out/k8-opt/bin/.*/mock.profdata");
     Artifact profData =
         ActionsTestUtil.getFirstArtifactEndingWith(compileAction.getInputs(), ".profdata");
     assertThat(profData).isNotNull();

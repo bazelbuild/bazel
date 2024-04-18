@@ -47,15 +47,18 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     useConfiguration();
     scratch.file(
         "x/BUILD",
-        "cc_binary(",
-        "  name = 'foo',",
-        "  deps = ['a'],",
-        ")",
-        "cc_library(",
-        "  name = 'a',",
-        "  srcs = [ 'a.cc' ],",
-        "  linkstamp = 'ls.cc',",
-        ")");
+        """
+        cc_binary(
+            name = "foo",
+            deps = ["a"],
+        )
+
+        cc_library(
+            name = "a",
+            srcs = ["a.cc"],
+            linkstamp = "ls.cc",
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     Artifact executable = getExecutable(target);
@@ -106,16 +109,19 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     useConfiguration();
     scratch.file(
         "x/BUILD",
-        "cc_binary(",
-        "  name = 'libfoo.so',",
-        "  deps = ['a'],",
-        "  linkshared = 1,",
-        ")",
-        "cc_library(",
-        "  name = 'a',",
-        "  srcs = [ 'a.cc' ],",
-        "  linkstamp = 'ls.cc',",
-        ")");
+        """
+        cc_binary(
+            name = "libfoo.so",
+            linkshared = 1,
+            deps = ["a"],
+        )
+
+        cc_library(
+            name = "a",
+            srcs = ["a.cc"],
+            linkstamp = "ls.cc",
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//x:libfoo.so");
     Artifact executable = getExecutable(target);
@@ -151,15 +157,18 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     useConfiguration("--force_pic");
     scratch.file(
         "x/BUILD",
-        "cc_binary(",
-        "  name = 'foo',",
-        "  deps = ['a'],",
-        ")",
-        "cc_library(",
-        "  name = 'a',",
-        "  srcs = [ 'a.cc' ],",
-        "  linkstamp = 'ls.cc',",
-        ")");
+        """
+        cc_binary(
+            name = "foo",
+            deps = ["a"],
+        )
+
+        cc_library(
+            name = "a",
+            srcs = ["a.cc"],
+            linkstamp = "ls.cc",
+        )
+        """);
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     Artifact executable = getExecutable(target);
     CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
@@ -177,15 +186,18 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     useConfiguration("--fdo_instrument=foo");
     scratch.file(
         "x/BUILD",
-        "cc_binary(",
-        "  name = 'foo',",
-        "  deps = ['a'],",
-        ")",
-        "cc_library(",
-        "  name = 'a',",
-        "  srcs = [ 'a.cc' ],",
-        "  linkstamp = 'ls.cc',",
-        ")");
+        """
+        cc_binary(
+            name = "foo",
+            deps = ["a"],
+        )
+
+        cc_library(
+            name = "a",
+            srcs = ["a.cc"],
+            linkstamp = "ls.cc",
+        )
+        """);
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     Artifact executable = getExecutable(target);
     CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
@@ -210,16 +222,19 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
   public void testLinkstampCompileDependsOnAllCcBinaryLinkingInputs() throws Exception {
     scratch.file(
         "x/BUILD",
-        "cc_binary(",
-        "  name = 'foo',",
-        "  deps = ['bar'],",
-        "  srcs = [ 'main.cc' ],",
-        ")",
-        "cc_library(",
-        "  name = 'bar',",
-        "  srcs = [ 'bar.cc' ],",
-        "  linkstamp = 'ls.cc',",
-        ")");
+        """
+        cc_binary(
+            name = "foo",
+            srcs = ["main.cc"],
+            deps = ["bar"],
+        )
+
+        cc_library(
+            name = "bar",
+            srcs = ["bar.cc"],
+            linkstamp = "ls.cc",
+        )
+        """);
     useConfiguration();
 
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
@@ -259,16 +274,19 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     useConfiguration("--copt=-foo_copt_from_option");
     scratch.file(
         "x/BUILD",
-        "cc_binary(",
-        "  name = 'foo',",
-        "  deps = ['a'],",
-        "  copts = [ '-bar_copt_from_attribute' ],",
-        ")",
-        "cc_library(",
-        "  name = 'a',",
-        "  srcs = [ 'a.cc' ],",
-        "  linkstamp = 'ls.cc',",
-        ")");
+        """
+        cc_binary(
+            name = "foo",
+            copts = ["-bar_copt_from_attribute"],
+            deps = ["a"],
+        )
+
+        cc_library(
+            name = "a",
+            srcs = ["a.cc"],
+            linkstamp = "ls.cc",
+        )
+        """);
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     Artifact executable = getExecutable(target);
     CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
@@ -286,17 +304,20 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
     useConfiguration("--copt=-foo_copt_from_option");
     scratch.file(
         "x/BUILD",
-        "cc_binary(",
-        "  name = 'foo',",
-        "  deps = ['a'],",
-        "  copts = [ '-bar_copt_from_attribute' ],",
-        ")",
-        "cc_library(",
-        "  name = 'a',",
-        "  srcs = [ 'a.cc' ],",
-        "  linkstamp = 'ls.cc',",
-        "  copts = [ '-baz_copt_from_attribute' ],",
-        ")");
+        """
+        cc_binary(
+            name = "foo",
+            copts = ["-bar_copt_from_attribute"],
+            deps = ["a"],
+        )
+
+        cc_library(
+            name = "a",
+            srcs = ["a.cc"],
+            copts = ["-baz_copt_from_attribute"],
+            linkstamp = "ls.cc",
+        )
+        """);
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     Artifact executable = getExecutable(target);
     CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);

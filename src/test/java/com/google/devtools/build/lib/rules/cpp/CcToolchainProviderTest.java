@@ -55,33 +55,41 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     useConfiguration("--force_pic", "--platforms=" + TestConstants.PLATFORM_LABEL);
     scratch.file(
         "test/rule.bzl",
-        "MyInfo = provider()",
-        "def _impl(ctx):",
-        "  provider = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
-        "  feature_configuration = cc_common.configure_features(",
-        "    ctx = ctx,",
-        "    cc_toolchain = provider,",
-        "  )",
-        "  return MyInfo(",
-        "    dirs = provider.built_in_include_directories,",
-        "    sysroot = provider.sysroot,",
-        "    cpu = provider.cpu,",
-        "    ar_executable = provider.ar_executable,",
-        "    use_pic_for_dynamic_libraries = provider.needs_pic_for_dynamic_libraries(",
-        "      feature_configuration = feature_configuration,",
-        "    ),",
-        "  )",
-        "",
-        "my_rule = rule(",
-        "  _impl,",
-        "  attrs = {'_cc_toolchain': attr.label(default=Label('//test:toolchain'))},",
-        "  fragments = [ 'cpp' ],",
-        ")");
+        """
+        MyInfo = provider()
 
-    scratch.file("test/BUILD",
-        "load(':rule.bzl', 'my_rule')",
-        "cc_toolchain_alias(name = 'toolchain')",
-        "my_rule(name = 'target')");
+        def _impl(ctx):
+            provider = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
+            feature_configuration = cc_common.configure_features(
+                ctx = ctx,
+                cc_toolchain = provider,
+            )
+            return MyInfo(
+                dirs = provider.built_in_include_directories,
+                sysroot = provider.sysroot,
+                cpu = provider.cpu,
+                ar_executable = provider.ar_executable,
+                use_pic_for_dynamic_libraries = provider.needs_pic_for_dynamic_libraries(
+                    feature_configuration = feature_configuration,
+                ),
+            )
+
+        my_rule = rule(
+            _impl,
+            attrs = {"_cc_toolchain": attr.label(default = Label("//test:toolchain"))},
+            fragments = ["cpp"],
+        )
+        """);
+
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":rule.bzl", "my_rule")
+
+        cc_toolchain_alias(name = "toolchain")
+
+        my_rule(name = "target")
+        """);
 
     ConfiguredTarget ct = getConfiguredTarget("//test:target");
     Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//test:rule.bzl"), "MyInfo");
@@ -102,21 +110,25 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
     scratch.file("suite/BUILD", "filegroup(name = 'empty')");
     scratch.file(
         "toolchain/BUILD",
-        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
-        "cc_toolchain(",
-        "    name = 'toolchain',",
-        "    all_files = ':empty',",
-        "    ar_files = ':empty',",
-        "    as_files = ':empty',",
-        "    compiler_files = ':empty',",
-        "    dwp_files = ':empty',",
-        "    linker_files = ':empty',",
-        "    strip_files = ':empty',",
-        "    objcopy_files = ':empty',",
-        "    toolchain_identifier = 'banana',",
-        "    toolchain_config = ':banana_config',",
-        ")",
-        "cc_toolchain_config(name = 'banana_config')");
+        """
+        load(":cc_toolchain_config.bzl", "cc_toolchain_config")
+
+        cc_toolchain(
+            name = "toolchain",
+            all_files = ":empty",
+            ar_files = ":empty",
+            as_files = ":empty",
+            compiler_files = ":empty",
+            dwp_files = ":empty",
+            linker_files = ":empty",
+            objcopy_files = ":empty",
+            strip_files = ":empty",
+            toolchain_config = ":banana_config",
+            toolchain_identifier = "banana",
+        )
+
+        cc_toolchain_config(name = "banana_config")
+        """);
 
     scratch.appendFile("tools/cpp/BUILD", "");
     scratch.overwriteFile(
@@ -125,44 +137,48 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
             TestConstants.RULES_CC_REPOSITORY_EXECROOT + "cc/cc_toolchain_config_lib.bzl"));
     scratch.file(
         "toolchain/cc_toolchain_config.bzl",
-        "load('//tools/cpp:cc_toolchain_config_lib.bzl', 'tool_path')",
-        "def _impl(ctx):",
-        "    return cc_common.create_cc_toolchain_config_info(",
-        "        ctx = ctx,",
-        "        features = [],",
-        "        action_configs = [],",
-        "        artifact_name_patterns = [],",
-        "        cxx_builtin_include_directories = [],",
-        "        toolchain_identifier = 'toolchain',",
-        "        host_system_name = 'host',",
-        "        target_system_name = 'target',",
-        "        target_cpu = 'cpu',",
-        "        target_libc = 'libc',",
-        "        compiler = 'compiler',",
-        "        abi_libc_version = 'abi_libc',",
-        "        abi_version = 'banana',",
-        "        tool_paths = [",
-        "             tool_path(name = 'ar', path = 'some/ar'),",
-        "             tool_path(name = 'cpp', path = 'some/cpp'),",
-        "             tool_path(name = 'gcc', path = 'some/gcc'),",
-        "             tool_path(name = 'gcov', path = 'some/gcov'),",
-        "             tool_path(name = 'gcovtool', path = 'some/gcovtool'),",
-        "             tool_path(name = 'ld', path = 'some/ld'),",
-        "             tool_path(name = 'nm', path = 'some/nm'),",
-        "             tool_path(name = 'objcopy', path = 'some/objcopy'),",
-        "             tool_path(name = 'objdump', path = 'some/objdump'),",
-        "             tool_path(name = 'strip', path = 'some/strip'),",
-        "             tool_path(name = 'dwp', path = 'some/dwp'),",
-        "        ],",
-        "        cc_target_os = 'os',",
-        "        builtin_sysroot = 'sysroot'",
-        "    )",
-        "cc_toolchain_config = rule(",
-        "    implementation = _impl,",
-        "    attrs = {},",
-        "    provides = [CcToolchainConfigInfo],",
-        "    fragments = ['cpp']",
-        ")");
+        """
+        load("//tools/cpp:cc_toolchain_config_lib.bzl", "tool_path")
+
+        def _impl(ctx):
+            return cc_common.create_cc_toolchain_config_info(
+                ctx = ctx,
+                features = [],
+                action_configs = [],
+                artifact_name_patterns = [],
+                cxx_builtin_include_directories = [],
+                toolchain_identifier = "toolchain",
+                host_system_name = "host",
+                target_system_name = "target",
+                target_cpu = "cpu",
+                target_libc = "libc",
+                compiler = "compiler",
+                abi_libc_version = "abi_libc",
+                abi_version = "banana",
+                tool_paths = [
+                    tool_path(name = "ar", path = "some/ar"),
+                    tool_path(name = "cpp", path = "some/cpp"),
+                    tool_path(name = "gcc", path = "some/gcc"),
+                    tool_path(name = "gcov", path = "some/gcov"),
+                    tool_path(name = "gcovtool", path = "some/gcovtool"),
+                    tool_path(name = "ld", path = "some/ld"),
+                    tool_path(name = "nm", path = "some/nm"),
+                    tool_path(name = "objcopy", path = "some/objcopy"),
+                    tool_path(name = "objdump", path = "some/objdump"),
+                    tool_path(name = "strip", path = "some/strip"),
+                    tool_path(name = "dwp", path = "some/dwp"),
+                ],
+                cc_target_os = "os",
+                builtin_sysroot = "sysroot",
+            )
+
+        cc_toolchain_config = rule(
+            implementation = _impl,
+            attrs = {},
+            provides = [CcToolchainConfigInfo],
+            fragments = ["cpp"],
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//toolchain");
     CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
@@ -184,7 +200,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
                 .getStarlarkDefinedBuiltins()
                 .get("get_toolchain_global_make_variables");
     try (Mutability mu = Mutability.create("test")) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       Dict<?, ?> makeVarsDict =
           (Dict<?, ?>)
               Starlark.call(
@@ -492,10 +508,13 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
   public void testEnableCoveragePropagatesSupportFiles() throws Exception {
     scratch.file(
         "a/BUILD",
-        "cc_toolchain_alias(name = 'toolchain')",
-        "cc_library(",
-        "    name = 'lib',",
-        ")");
+        """
+        cc_toolchain_alias(name = "toolchain")
+
+        cc_library(
+            name = "lib",
+        )
+        """);
     useConfiguration("--collect_code_coverage", "--instrumentation_filter=//a[:/]");
 
     CcToolchainProvider ccToolchainProvider =
@@ -512,10 +531,13 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
   public void testDisableCoverageDoesNotPropagateSupportFiles() throws Exception {
     scratch.file(
         "a/BUILD",
-        "cc_toolchain_alias(name = 'toolchain')",
-        "cc_library(",
-        "    name = 'lib',",
-        ")");
+        """
+        cc_toolchain_alias(name = "toolchain")
+
+        cc_library(
+            name = "lib",
+        )
+        """);
 
     InstrumentedFilesInfo instrumentedFilesInfo =
         getConfiguredTarget("//a:lib").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
@@ -570,22 +592,27 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
   public void testRuntimeLibsAttributesAreNotObligatory() throws Exception {
     scratch.file(
         "a/BUILD",
-        "load(':cc_toolchain_config.bzl', 'cc_toolchain_config')",
-        "filegroup(name='empty') ",
-        "cc_toolchain(",
-        "    name = 'b',",
-        "    all_files = ':empty',",
-        "    ar_files = ':empty',",
-        "    as_files = ':empty',",
-        "    compiler_files = ':empty',",
-        "    dwp_files = ':empty',",
-        "    linker_files = ':empty',",
-        "    strip_files = ':empty',",
-        "    objcopy_files = ':empty',",
-        "    toolchain_identifier = 'banana',",
-        "    toolchain_config = ':banana_config',",
-        ")",
-        "cc_toolchain_config(name = 'banana_config')");
+        """
+        load(":cc_toolchain_config.bzl", "cc_toolchain_config")
+
+        filegroup(name = "empty")
+
+        cc_toolchain(
+            name = "b",
+            all_files = ":empty",
+            ar_files = ":empty",
+            as_files = ":empty",
+            compiler_files = ":empty",
+            dwp_files = ":empty",
+            linker_files = ":empty",
+            objcopy_files = ":empty",
+            strip_files = ":empty",
+            toolchain_config = ":banana_config",
+            toolchain_identifier = "banana",
+        )
+
+        cc_toolchain_config(name = "banana_config")
+        """);
     scratch.file("a/cc_toolchain_config.bzl", MockCcSupport.EMPTY_CC_TOOLCHAIN);
     analysisMock.ccSupport().setupCcToolchainConfig(mockToolsConfig, CcToolchainConfig.builder());
     reporter.removeHandler(failFastHandler);

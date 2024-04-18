@@ -21,10 +21,8 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.config.FeatureSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
-import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
-import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -45,7 +43,6 @@ public abstract class PackageArgs {
           .setDefaultTestOnly(false)
           .setFeatures(FeatureSet.EMPTY)
           .setLicense(License.NO_LICENSE)
-          .setDistribs(License.DEFAULT_DISTRIB)
           .setDefaultCompatibleWith(ImmutableSet.of())
           .setDefaultRestrictedTo(ImmutableSet.of())
           .setDefaultPackageMetadata(ImmutableList.of())
@@ -74,10 +71,6 @@ public abstract class PackageArgs {
   /** The default license value for the package. */
   @Nullable
   public abstract License license();
-
-  /** The default distributions value for the package. */
-  @Nullable
-  public abstract ImmutableSet<DistributionType> distribs();
 
   /** The default {@link RuleClass#COMPATIBLE_ENVIRONMENT_ATTR} value for the package. */
   @Nullable
@@ -132,8 +125,6 @@ public abstract class PackageArgs {
     }
 
     public abstract Builder setLicense(License x);
-
-    public abstract Builder setDistribs(Set<DistributionType> x);
 
     /** Note that we don't check dupes in this method. Check beforehand! */
     public abstract Builder setDefaultCompatibleWith(Iterable<Label> x);
@@ -231,9 +222,6 @@ public abstract class PackageArgs {
     }
     if (other.license() != null) {
       builder.setLicense(other.license());
-    }
-    if (other.distribs() != null) {
-      builder.setDistribs(other.distribs());
     }
     if (other.defaultCompatibleWith() != null) {
       builder.setDefaultCompatibleWith(other.defaultCompatibleWith());

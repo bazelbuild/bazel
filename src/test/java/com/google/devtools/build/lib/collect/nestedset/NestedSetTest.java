@@ -98,6 +98,31 @@ public final class NestedSetTest {
   }
 
   @Test
+  public void toListNoMemo_sameOrderAsToList() {
+    NestedSet<String> transitive = nestedSetBuilder("c", "d").build();
+
+    var compile =
+        NestedSetBuilder.<String>compileOrder().add("a").add("b").addTransitive(transitive).build();
+    assertThat(compile.toListNoMemoUpdate()).isEqualTo(compile.toList());
+
+    var stable =
+        NestedSetBuilder.<String>stableOrder().add("a").add("b").addTransitive(transitive).build();
+    assertThat(stable.toListNoMemoUpdate()).isEqualTo(stable.toList());
+
+    var link =
+        NestedSetBuilder.<String>linkOrder().add("a").add("b").addTransitive(transitive).build();
+    assertThat(link.toListNoMemoUpdate()).isEqualTo(link.toList());
+
+    var naiveLink =
+        NestedSetBuilder.<String>naiveLinkOrder()
+            .add("a")
+            .add("b")
+            .addTransitive(transitive)
+            .build();
+    assertThat(naiveLink.toListNoMemoUpdate()).isEqualTo(naiveLink.toList());
+  }
+
+  @Test
   public void isEmpty() {
     NestedSet<String> triviallyEmpty = nestedSetBuilder().build();
     assertThat(triviallyEmpty.isEmpty()).isTrue();

@@ -309,9 +309,12 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
   public void setUp() throws Exception {
     scratch.file(
         "platform/BUILD",
-        // Add basic target and exec platforms for testing.
-        "platform(name = 'target')",
-        "platform(name = 'exec')");
+        """
+        # Add basic target and exec platforms for testing.
+        platform(name = "target")
+
+        platform(name = "exec")
+        """);
   }
 
   @Test
@@ -326,8 +329,15 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
   public void genQueryScopeHasExpectedConfigs() throws Exception {
     scratch.file(
         "p/BUILD",
-        "sh_library(name='a')",
-        "genquery(name='q', scope=[':a'], expression='deps(//p:a)')");
+        """
+        sh_library(name = "a")
+
+        genquery(
+            name = "q",
+            expression = "deps(//p:a)",
+            scope = [":a"],
+        )
+        """);
     ConfiguredTarget target = Iterables.getOnlyElement(update("//p:q").getTargetsToBuild());
     // There are no configured targets for the "scope" attribute.
     @Nullable
@@ -339,9 +349,26 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
   public void targetDeps() throws Exception {
     scratch.file(
         "a/BUILD",
-        "cc_library(name = 'dep1', srcs = ['dep1.cc'])",
-        "cc_library(name = 'dep2', srcs = ['dep2.cc'])",
-        "cc_binary(name = 'binary', srcs = ['main.cc'], deps = [':dep1', ':dep2'])");
+        """
+        cc_library(
+            name = "dep1",
+            srcs = ["dep1.cc"],
+        )
+
+        cc_library(
+            name = "dep2",
+            srcs = ["dep2.cc"],
+        )
+
+        cc_binary(
+            name = "binary",
+            srcs = ["main.cc"],
+            deps = [
+                ":dep1",
+                ":dep2",
+            ],
+        )
+        """);
     List<ConfiguredTarget> deps = getConfiguredDeps("//a:binary", "deps");
     assertThat(deps).hasSize(2);
     BuildConfigurationValue topLevelConfiguration =
@@ -356,15 +383,27 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
   public void execDeps() throws Exception {
     scratch.file(
         "a/exec_rule.bzl",
-        "exec_rule = rule(",
-        "  implementation = lambda ctx: [],",
-        "  attrs = {'tools': attr.label_list(cfg = 'exec')},",
-        ")");
+        """
+        exec_rule = rule(
+            implementation = lambda ctx: [],
+            attrs = {"tools": attr.label_list(cfg = "exec")},
+        )
+        """);
     scratch.file(
         "a/BUILD",
-        "load('//a:exec_rule.bzl', 'exec_rule')",
-        "sh_binary(name = 'exec_tool', srcs = ['exec_tool.sh'])",
-        "exec_rule(name = 'gen', tools = [':exec_tool'])");
+        """
+        load("//a:exec_rule.bzl", "exec_rule")
+
+        sh_binary(
+            name = "exec_tool",
+            srcs = ["exec_tool.sh"],
+        )
+
+        exec_rule(
+            name = "gen",
+            tools = [":exec_tool"],
+        )
+        """);
 
     ConfiguredTarget toolDep = Iterables.getOnlyElement(getConfiguredDeps("//a:gen", "tools"));
     BuildConfigurationValue toolConfiguration = getConfiguration(toolDep);
@@ -378,37 +417,54 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
     // Write a simple rule with split dependencies.
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
-        "package_group(",
-        "    name = 'function_transition_allowlist',",
-        "    packages = [",
-        "        '//a/...',",
-        "    ],",
-        ")");
+        """
+        package_group(
+            name = "function_transition_allowlist",
+            packages = [
+                "//a/...",
+            ],
+        )
+        """);
     scratch.file(
         "a/defs.bzl",
-        "def _transition_impl(settings, attr):",
-        "    return {",
-        "        'opt': {'//command_line_option:compilation_mode': 'opt'},",
-        "        'dbg': {'//command_line_option:compilation_mode': 'dbg'},",
-        "    }",
-        "split_transition = transition(",
-        "    implementation = _transition_impl,",
-        "    inputs = [],",
-        "    outputs = ['//command_line_option:compilation_mode'])",
-        "def _split_deps_rule_impl(ctx):",
-        "    pass",
-        "split_deps_rule = rule(",
-        "    implementation = _split_deps_rule_impl,",
-        "    attrs = {",
-        "        'dep': attr.label(cfg = split_transition),",
-        "    })");
+        """
+        def _transition_impl(settings, attr):
+            return {
+                "opt": {"//command_line_option:compilation_mode": "opt"},
+                "dbg": {"//command_line_option:compilation_mode": "dbg"},
+            }
+
+        split_transition = transition(
+            implementation = _transition_impl,
+            inputs = [],
+            outputs = ["//command_line_option:compilation_mode"],
+        )
+
+        def _split_deps_rule_impl(ctx):
+            pass
+
+        split_deps_rule = rule(
+            implementation = _split_deps_rule_impl,
+            attrs = {
+                "dep": attr.label(cfg = split_transition),
+            },
+        )
+        """);
     scratch.file(
         "a/BUILD",
-        "load('//a:defs.bzl', 'split_deps_rule')",
-        "cc_library(name = 'lib', srcs = ['lib.cc'])",
-        "split_deps_rule(",
-        "    name = 'a',",
-        "    dep = ':lib')");
+        """
+        load("//a:defs.bzl", "split_deps_rule")
+
+        cc_library(
+            name = "lib",
+            srcs = ["lib.cc"],
+        )
+
+        split_deps_rule(
+            name = "a",
+            dep = ":lib",
+        )
+        """);
 
     // Verify that the dependencies have different configurations.
     ImmutableList<ConfiguredTargetAndData> deps = getConfiguredDepsWithData("//a:a", "dep");
@@ -432,50 +488,71 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
   public void sameTransitionDifferentParameters() throws Exception {
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
-        "package_group(",
-        "    name = 'function_transition_allowlist',",
-        "    packages = [",
-        "        '//a/...',",
-        "    ],",
-        ")");
+        """
+        package_group(
+            name = "function_transition_allowlist",
+            packages = [
+                "//a/...",
+            ],
+        )
+        """);
     scratch.file(
         "a/defs.bzl",
-        "def _transition_impl(settings, attr):",
-        "    return {'//command_line_option:compilation_mode': attr.myattr}",
-        "my_transition = transition(",
-        "    implementation = _transition_impl,",
-        "    inputs = [],",
-        "    outputs = ['//command_line_option:compilation_mode'])",
-        "def _parent_rule_impl(ctx):",
-        "    pass",
-        "parent_rule = rule(",
-        "    implementation = _parent_rule_impl,",
-        "    attrs = {",
-        "        'dep1': attr.label(),",
-        "        'dep2': attr.label(),",
-        "    })",
-        "def _child_rule_impl(ctx):",
-        "    pass",
-        "child_rule = rule(",
-        "    implementation = _child_rule_impl,",
-        "    cfg = my_transition,",
-        "    attrs = {",
-        "        'myattr': attr.string(),",
-        "    }",
-        ")");
+        """
+        def _transition_impl(settings, attr):
+            return {"//command_line_option:compilation_mode": attr.myattr}
+
+        my_transition = transition(
+            implementation = _transition_impl,
+            inputs = [],
+            outputs = ["//command_line_option:compilation_mode"],
+        )
+
+        def _parent_rule_impl(ctx):
+            pass
+
+        parent_rule = rule(
+            implementation = _parent_rule_impl,
+            attrs = {
+                "dep1": attr.label(),
+                "dep2": attr.label(),
+            },
+        )
+
+        def _child_rule_impl(ctx):
+            pass
+
+        child_rule = rule(
+            implementation = _child_rule_impl,
+            cfg = my_transition,
+            attrs = {
+                "myattr": attr.string(),
+            },
+        )
+        """);
     scratch.file(
         "a/BUILD",
-        "load('//a:defs.bzl', 'parent_rule', 'child_rule')",
-        "child_rule(",
-        "    name = 'child1',",
-        "    myattr = 'dbg')", // For this dep, my_transition reads myattr="dbg".
-        "child_rule(",
-        "    name = 'child2',",
-        "    myattr = 'opt')", // For this dep, my_transition reads myattr="opt".
-        "parent_rule(",
-        "    name = 'buildme',",
-        "    dep1 = ':child1',",
-        "    dep2 = ':child2')");
+        """
+        load("//a:defs.bzl", "child_rule", "parent_rule")
+
+        child_rule(
+            name = "child1",
+            # For this dep, my_transition reads myattr="dbg".
+            myattr = "dbg",
+        )
+
+        child_rule(
+            name = "child2",
+            # For this dep, my_transition reads myattr="opt".
+            myattr = "opt",
+        )
+
+        parent_rule(
+            name = "buildme",
+            dep1 = ":child1",
+            dep2 = ":child2",
+        )
+        """);
 
     ConfiguredTarget child1 = Iterables.getOnlyElement(getConfiguredDeps("//a:buildme", "dep1"));
     ConfiguredTarget child2 = Iterables.getOnlyElement(getConfiguredDeps("//a:buildme", "dep2"));

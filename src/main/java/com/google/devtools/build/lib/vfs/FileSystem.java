@@ -773,6 +773,8 @@ public abstract class FileSystem {
   /**
    * Renames the file denoted by "sourceNode" to the location "targetNode". See {@link
    * Path#renameTo} for specification.
+   *
+   * <p>Implementations must be atomic.
    */
   public abstract void renameTo(PathFragment sourcePath, PathFragment targetPath)
       throws IOException;

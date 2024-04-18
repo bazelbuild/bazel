@@ -40,12 +40,57 @@ public class AndroidCommonTest extends AndroidBuildViewTestCase {
   public void testLibrarySrcs() throws Exception {
     scratch.file(
         "java/srcs/BUILD",
-        "android_library(name = 'valid', srcs = ['a.java', 'b.srcjar', ':gvalid', ':gmix'])",
-        "android_library(name = 'invalid', srcs = ['a.properties', ':ginvalid'])",
-        "android_library(name = 'mix', srcs = ['a.java', 'a.properties'])",
-        "genrule(name = 'gvalid', srcs = ['a.java'], outs = ['b.java'], cmd = '')",
-        "genrule(name = 'ginvalid', srcs = ['a.java'], outs = ['b.properties'], cmd = '')",
-        "genrule(name = 'gmix', srcs = ['a.java'], outs = ['c.java', 'c.properties'], cmd = '')");
+        """
+        android_library(
+            name = "valid",
+            srcs = [
+                "a.java",
+                "b.srcjar",
+                ":gmix",
+                ":gvalid",
+            ],
+        )
+
+        android_library(
+            name = "invalid",
+            srcs = [
+                "a.properties",
+                ":ginvalid",
+            ],
+        )
+
+        android_library(
+            name = "mix",
+            srcs = [
+                "a.java",
+                "a.properties",
+            ],
+        )
+
+        genrule(
+            name = "gvalid",
+            srcs = ["a.java"],
+            outs = ["b.java"],
+            cmd = "",
+        )
+
+        genrule(
+            name = "ginvalid",
+            srcs = ["a.java"],
+            outs = ["b.properties"],
+            cmd = "",
+        )
+
+        genrule(
+            name = "gmix",
+            srcs = ["a.java"],
+            outs = [
+                "c.java",
+                "c.properties",
+            ],
+            cmd = "",
+        )
+        """);
     assertSrcsValidityForRuleType("android_library", ".java or .srcjar");
   }
 

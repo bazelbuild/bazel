@@ -13,6 +13,7 @@
 # limitations under the License.
 """ Mock objc toolchain configuration. """
 
+load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 load(
     "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
     "action_config",
@@ -29,7 +30,6 @@ load(
     "variable_with_value",
     "with_feature_set",
 )
-load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 
 # Link actions using the C++ bazel actions.
 _NON_OBJC_LINK_ACTIONS = [

@@ -89,7 +89,7 @@ public final class UmbrellaHeaderAction extends AbstractFileWriteAction {
     List<Artifact> expandedHeaders = new ArrayList<>();
     for (Artifact unexpandedHeader : unexpandedHeaders) {
       if (unexpandedHeader.isTreeArtifact()) {
-        artifactExpander.expand(unexpandedHeader, expandedHeaders);
+        expandedHeaders.addAll(artifactExpander.expandTreeArtifact(unexpandedHeader));
       } else {
         expandedHeaders.add(unexpandedHeader);
       }
@@ -97,8 +97,8 @@ public final class UmbrellaHeaderAction extends AbstractFileWriteAction {
     return ImmutableList.copyOf(expandedHeaders);
   }
 
-  private void appendHeader(StringBuilder content, PathFragment path, 
-      HashSet<PathFragment> deduper) {
+  private static void appendHeader(
+      StringBuilder content, PathFragment path, HashSet<PathFragment> deduper) {
     if (deduper.contains(path)) {
       return;
     }
@@ -107,7 +107,7 @@ public final class UmbrellaHeaderAction extends AbstractFileWriteAction {
     content.append("#include \"").append(path).append("\"");
     content.append("\n");
   }
-  
+
   @Override
   public String getMnemonic() {
     return "UmbrellaHeader";

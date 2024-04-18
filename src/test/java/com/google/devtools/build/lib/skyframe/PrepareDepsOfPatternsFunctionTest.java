@@ -224,8 +224,20 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
   public void testDepOnCachedPDOPNodeThatItselfDependsOnBothCycleAndError() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "sh_library(name = 't1', deps = ['//foo:t2'])",
-        "sh_library(name = 't2', deps = ['//foo:t1', '//nope:nope'])");
+        """
+        sh_library(
+            name = "t1",
+            deps = ["//foo:t2"],
+        )
+
+        sh_library(
+            name = "t2",
+            deps = [
+                "//foo:t1",
+                "//nope",
+            ],
+        )
+        """);
     EvaluationResult<PrepareDepsOfPatternsValue> unusedJustWantSideEffectOfPrimingGraph =
         evaluate(ImmutableList.of("//foo/..."), /* keepGoing= */ true);
     // The main property we're trying to test is that we don't crash (due to
@@ -312,19 +324,27 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
   private void createFooWithDependencyOnMissingBarPackage() throws IOException {
     scratch.file(
         "foo/BUILD",
-        "genrule(name = 'foo',",
-        "    srcs = ['//bar:bar'],",
-        "    outs = ['out.txt'],",
-        "    cmd = 'touch $@')");
+        """
+        genrule(
+            name = "foo",
+            srcs = ["//bar"],
+            outs = ["out.txt"],
+            cmd = "touch $@",
+        )
+        """);
   }
 
   private void createFooWithDependencyOnBarPackageWithMissingTarget() throws IOException {
     scratch.file(
         "foo/BUILD",
-        "genrule(name = 'foo',",
-        "    srcs = ['//bar:bar'],",
-        "    outs = ['out.txt'],",
-        "    cmd = 'touch $@')");
+        """
+        genrule(
+            name = "foo",
+            srcs = ["//bar"],
+            outs = ["out.txt"],
+            cmd = "touch $@",
+        )
+        """);
     scratch.file("bar/BUILD");
   }
 
@@ -333,10 +353,14 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
         "MODULE.bazel", "bazel_dep(name= \"repo\", version=\"1.0\", repo_name=\"my_repo\")");
     scratch.overwriteFile(
         "rinne/BUILD",
-        "genrule(name = 'rinne',",
-        "    srcs = ['@my_repo//a:x'],",
-        "    outs = ['out.txt'],",
-        "    cmd = 'touch $@')");
+        """
+        genrule(
+            name = "rinne",
+            srcs = ["@my_repo//a:x"],
+            outs = ["out.txt"],
+            cmd = "touch $@",
+        )
+        """);
     registry.addModule(
         ModuleKey.create("repo", Version.parse("1.0")),
         "module(name = \"repo\", version = \"1.0\")");

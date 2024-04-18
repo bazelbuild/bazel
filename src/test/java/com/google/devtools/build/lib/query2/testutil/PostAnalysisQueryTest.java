@@ -17,11 +17,11 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.testutil.TestConstants.PLATFORM_LABEL;
+import static com.google.devtools.build.lib.testutil.TestConstants.PLATFORM_LABEL_ALIAS;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
@@ -62,7 +62,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
   // Also filter out platform dependencies.
   @Override
   protected String getDependencyCorrection() {
-    return " - deps(" + PLATFORM_LABEL + ")";
+    return " - deps(" + PLATFORM_LABEL_ALIAS + ")";
   }
 
   static final String DEFAULT_UNIVERSE = "DEFAULT_UNIVERSE";
@@ -195,15 +195,21 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
 
     writeFile(
         "test/BUILD",
-        "implicit_deps_rule(",
-        "    name = 'my_rule',",
-        "    explicit = ':explicit',",
-        "    explicit_with_default = ':explicit_with_default',",
-        ")",
-        "cc_library(name = 'explicit')",
-        "cc_library(name = 'explicit_with_default')",
-        "cc_library(name = 'implicit')",
-        "cc_library(name = 'latebound')");
+        """
+        implicit_deps_rule(
+            name = "my_rule",
+            explicit = ":explicit",
+            explicit_with_default = ":explicit_with_default",
+        )
+
+        cc_library(name = "explicit")
+
+        cc_library(name = "explicit_with_default")
+
+        cc_library(name = "implicit")
+
+        cc_library(name = "latebound")
+        """);
 
     final String implicits = "//test:implicit + //test:latebound";
     final String explicits = "//test:my_rule + //test:explicit + //test:explicit_with_default";
@@ -234,25 +240,34 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
 
     writeFile(
         "test/toolchain.bzl",
-        "def _impl(ctx):",
-        "  toolchain = platform_common.ToolchainInfo()",
-        "  return [toolchain]",
-        "test_toolchain = rule(",
-        "    implementation = _impl,",
-        ")");
+        """
+        def _impl(ctx):
+            toolchain = platform_common.ToolchainInfo()
+            return [toolchain]
+
+        test_toolchain = rule(
+            implementation = _impl,
+        )
+        """);
     writeFile(
         "test/BUILD",
-        "load(':toolchain.bzl', 'test_toolchain')",
-        "implicit_toolchain_deps_rule(",
-        "    name = 'my_rule',",
-        ")",
-        "toolchain_type(name = 'toolchain_type')",
-        "toolchain(",
-        "    name = 'toolchain',",
-        "    toolchain_type = ':toolchain_type',",
-        "    toolchain = ':toolchain_impl',",
-        ")",
-        "test_toolchain(name = 'toolchain_impl')");
+        """
+        load(":toolchain.bzl", "test_toolchain")
+
+        implicit_toolchain_deps_rule(
+            name = "my_rule",
+        )
+
+        toolchain_type(name = "toolchain_type")
+
+        toolchain(
+            name = "toolchain",
+            toolchain = ":toolchain_impl",
+            toolchain_type = ":toolchain_type",
+        )
+
+        test_toolchain(name = "toolchain_impl")
+        """);
     ((PostAnalysisQueryHelper<T>) helper).useConfiguration("--extra_toolchains=//test:toolchain");
 
     String implicits = "//test:toolchain_impl";
@@ -271,21 +286,29 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
   private void writeSimpleToolchain() throws Exception {
     writeFile(
         "test/toolchain_def.bzl",
-        "def _impl(ctx):",
-        "    return [platform_common.ToolchainInfo()]",
-        "test_toolchain = rule(",
-        "    implementation = _impl,",
-        ")");
+        """
+        def _impl(ctx):
+            return [platform_common.ToolchainInfo()]
+
+        test_toolchain = rule(
+            implementation = _impl,
+        )
+        """);
     writeFile(
         "test/BUILD",
-        "load('//test:toolchain_def.bzl', 'test_toolchain')",
-        "toolchain_type(name = 'toolchain_type')",
-        "toolchain(",
-        "  name = 'toolchain',",
-        "  toolchain_type = '//test:toolchain_type',",
-        "  toolchain = ':toolchain_impl'",
-        ")",
-        "test_toolchain(name = 'toolchain_impl')");
+        """
+        load("//test:toolchain_def.bzl", "test_toolchain")
+
+        toolchain_type(name = "toolchain_type")
+
+        toolchain(
+            name = "toolchain",
+            toolchain = ":toolchain_impl",
+            toolchain_type = "//test:toolchain_type",
+        )
+
+        test_toolchain(name = "toolchain_impl")
+        """);
   }
 
   @Test
@@ -293,18 +316,24 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     writeSimpleToolchain();
     writeFile(
         "test/rule/rule.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "implicit_toolchain_deps_rule = rule(",
-        "    implementation = _impl,",
-        "    toolchains = ['//test:toolchain_type']",
-        ")");
+        """
+        def _impl(ctx):
+            return []
+
+        implicit_toolchain_deps_rule = rule(
+            implementation = _impl,
+            toolchains = ["//test:toolchain_type"],
+        )
+        """);
     writeFile(
         "test/rule/BUILD",
-        "load(':rule.bzl', 'implicit_toolchain_deps_rule')",
-        "implicit_toolchain_deps_rule(",
-        "    name = 'my_rule',",
-        ")");
+        """
+        load(":rule.bzl", "implicit_toolchain_deps_rule")
+
+        implicit_toolchain_deps_rule(
+            name = "my_rule",
+        )
+        """);
     ((PostAnalysisQueryHelper<T>) helper).useConfiguration("--extra_toolchains=//test:toolchain");
 
     String implicits = "//test:toolchain_impl";
@@ -324,22 +353,26 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
   public void testNoImplicitDeps_cc_toolchains() throws Exception {
     writeFile(
         "test/toolchain/toolchain_config.bzl",
-        "def _impl(ctx):",
-        "    return cc_common.create_cc_toolchain_config_info(",
-        "                ctx = ctx,",
-        "                toolchain_identifier = 'mock-llvm-toolchain-k8',",
-        "                host_system_name = 'mock-system-name-for-k8',",
-        "                target_system_name = 'mock-target-system-name-for-k8',",
-        "                target_cpu = 'k8',",
-        "                target_libc = 'mock-libc-for-k8',",
-        "                compiler = 'mock-compiler-for-k8',",
-        "                abi_libc_version = 'mock-abi-libc-for-k8',",
-        "                abi_version = 'mock-abi-version-for-k8')",
-        "cc_toolchain_config = rule(",
-        "    implementation = _impl,",
-        "    attrs = {},",
-        "    provides = [CcToolchainConfigInfo],",
-        ")");
+        """
+        def _impl(ctx):
+            return cc_common.create_cc_toolchain_config_info(
+                ctx = ctx,
+                toolchain_identifier = "mock-llvm-toolchain-k8",
+                host_system_name = "mock-system-name-for-k8",
+                target_system_name = "mock-target-system-name-for-k8",
+                target_cpu = "k8",
+                target_libc = "mock-libc-for-k8",
+                compiler = "mock-compiler-for-k8",
+                abi_libc_version = "mock-abi-libc-for-k8",
+                abi_version = "mock-abi-version-for-k8",
+            )
+
+        cc_toolchain_config = rule(
+            implementation = _impl,
+            attrs = {},
+            provides = [CcToolchainConfigInfo],
+        )
+        """);
     writeFile(
         "test/toolchain/BUILD",
         "load(':toolchain_config.bzl', 'cc_toolchain_config')",
@@ -362,7 +395,13 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
         "    toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
         ")");
     writeFile(
-        "test/BUILD", "cc_library(", "    name = 'my_rule',", "    srcs = ['whatever.cpp'],", ")");
+        "test/BUILD",
+        """
+        cc_library(
+            name = "my_rule",
+            srcs = ["whatever.cpp"],
+        )
+        """);
     ((PostAnalysisQueryHelper<T>) helper)
         .useConfiguration("--extra_toolchains=//test/toolchain:some_cc_toolchain");
 
@@ -387,9 +426,13 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
 
     writeFile(
         "test/BUILD",
-        "simple_rule(name = 'my_rule')",
-        "platform(name = 'host_platform')",
-        "platform(name = 'execution_platform')");
+        """
+        simple_rule(name = "my_rule")
+
+        platform(name = "host_platform")
+
+        platform(name = "execution_platform")
+        """);
 
     ((PostAnalysisQueryHelper<T>) helper)
         .useConfiguration(
@@ -410,16 +453,22 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     writeSimpleToolchain();
     writeFile(
         "test/aeg/defs.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  toolchains = ['//test:toolchain_type'],",
-        ")");
+        """
+        def _impl(ctx):
+            return []
+
+        custom_rule = rule(
+            implementation = _impl,
+            toolchains = ["//test:toolchain_type"],
+        )
+        """);
     writeFile(
         "test/aeg/BUILD",
-        "load('//test/aeg:defs.bzl', 'custom_rule')",
-        "custom_rule(name = 'custom_rule_name')");
+        """
+        load("//test/aeg:defs.bzl", "custom_rule")
+
+        custom_rule(name = "custom_rule_name")
+        """);
     ((PostAnalysisQueryHelper<T>) helper)
         .useConfiguration("--incompatible_auto_exec_groups", "--extra_toolchains=//test:all");
 
@@ -442,20 +491,26 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     writeSimpleToolchain();
     writeFile(
         "test/aeg/defs.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "custom_rule = rule(",
-        "  implementation = _impl,",
-        "  exec_groups = {",
-        "    'custom_exec_group': exec_group(",
-        "      toolchains = ['//test:toolchain_type'],",
-        "    ),",
-        "  },",
-        ")");
+        """
+        def _impl(ctx):
+            return []
+
+        custom_rule = rule(
+            implementation = _impl,
+            exec_groups = {
+                "custom_exec_group": exec_group(
+                    toolchains = ["//test:toolchain_type"],
+                ),
+            },
+        )
+        """);
     writeFile(
         "test/aeg/BUILD",
-        "load('//test/aeg:defs.bzl', 'custom_rule')",
-        "custom_rule(name = 'custom_rule_name')");
+        """
+        load("//test/aeg:defs.bzl", "custom_rule")
+
+        custom_rule(name = "custom_rule_name")
+        """);
     ((PostAnalysisQueryHelper<T>) helper)
         .useConfiguration("--incompatible_auto_exec_groups", "--extra_toolchains=//test:all");
 
@@ -495,7 +550,13 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
 
     helper.useRuleClassProvider(setRuleClassProviders(computedDefaultRule).build());
 
-    writeFile("test/BUILD", "cc_library(name = 'foo')", "computed_default_rule(name = 'my_rule')");
+    writeFile(
+        "test/BUILD",
+        """
+        cc_library(name = "foo")
+
+        computed_default_rule(name = "my_rule")
+        """);
 
     String target = "//test:my_rule";
 
@@ -566,8 +627,11 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
 
     writeFile(
         "test/BUILD",
-        "transitioned_rule(name = 'transitioned_rule')",
-        "untransitioned_rule(name = 'untransitioned_rule')");
+        """
+        transitioned_rule(name = "transitioned_rule")
+
+        untransitioned_rule(name = "untransitioned_rule")
+        """);
 
     Set<T> result = eval("//test:transitioned_rule+//test:untransitioned_rule");
 
@@ -601,13 +665,19 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
 
     writeFile(
         "test/BUILD",
-        "rule_with_transition_and_dep(name = 'top-level', dep = ':dep')",
-        "simple_rule(name = 'dep')");
+        """
+        rule_with_transition_and_dep(
+            name = "top-level",
+            dep = ":dep",
+        )
+
+        simple_rule(name = "dep")
+        """);
 
     helper.setUniverseScope("//test:*");
 
-    assertThat(getConfiguration(Iterables.getOnlyElement(eval("//test:dep"))))
-        .isNotEqualTo(getConfiguration(Iterables.getOnlyElement(eval("//test:top-level"))));
+    // `//test:dep` has two configurations.
+    assertThat(eval("//test:dep")).hasSize(2);
   }
 
   @Test
@@ -632,6 +702,9 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
         .isEqualTo(FailureDetails.TargetPatterns.Code.CANNOT_DETERMINE_TARGET_FROM_FILENAME);
   }
 
+  @Test
+  public void labelPointsToMultipleConfiguredTargets() throws Exception {}
+
   private void writeSimpleTarget() throws Exception {
     MockRule simpleRule =
         () ->
@@ -640,6 +713,27 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     helper.useRuleClassProvider(setRuleClassProviders(simpleRule).build());
 
     writeFile("test/BUILD", "simple_rule(name = 'target')");
+  }
+
+  @Test
+  public void aliasMinus() throws Exception {
+    MockRule simpleRule =
+        () ->
+            MockRule.define(
+                "simple_rule", attr("dep", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE));
+    helper.useRuleClassProvider(setRuleClassProviders(simpleRule).build());
+
+    writeFile(
+        "p/BUILD",
+        "simple_rule(name = 'dep')",
+        "alias(name = 'alias', actual = 'dep')",
+        "simple_rule(name = 'user', dep = ':alias')");
+    assertThat(evalToString("deps(//p:alias) - deps(//p:dep)")).isEqualTo("//p:alias");
+    // The following assertion fails if the expression `//p:alias` doesn't represent two configured
+    // targets -- one configured without TestOptions (trimmed) and the other configured with one
+    // (untrimmed). The untrimmed configured target is from the top-level expression, whereas the
+    // trimmed one is from `//p:user`'s dependency.
+    assertThat(evalToString("deps(//p:user) - deps(//p:alias)")).isEqualTo("//p:user");
   }
 
   @Test

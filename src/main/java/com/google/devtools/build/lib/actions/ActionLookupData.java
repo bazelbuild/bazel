@@ -109,10 +109,9 @@ public abstract class ActionLookupData implements ExecutionPhaseSkyKey {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof ActionLookupData)) {
+    if (!(obj instanceof ActionLookupData that)) {
       return false;
     }
-    ActionLookupData that = (ActionLookupData) obj;
     return getActionIndex() == that.getActionIndex()
         && actionLookupKey.equals(that.actionLookupKey)
         && valueIsShareable() == that.valueIsShareable();

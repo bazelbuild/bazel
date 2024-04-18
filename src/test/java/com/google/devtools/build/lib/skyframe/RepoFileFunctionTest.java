@@ -100,8 +100,18 @@ public class RepoFileFunctionTest extends BuildViewTestCase {
     scratch.overwriteFile("REPO.bazel", "repo(features=['a', 'b', 'c', '-d'])");
     scratch.overwriteFile(
         "abc/def/BUILD",
-        "package(features=['-a','-b','d'])",
-        "filegroup(name='what', features=['b'])");
+        """
+        package(features = [
+            "-a",
+            "-b",
+            "d",
+        ])
+
+        filegroup(
+            name = "what",
+            features = ["b"],
+        )
+        """);
     invalidatePackages();
     RuleContext ruleContext = getRuleContext(getConfiguredTarget("//abc/def:what"));
     assertThat(ruleContext.getFeatures()).containsExactly("b", "c", "d");

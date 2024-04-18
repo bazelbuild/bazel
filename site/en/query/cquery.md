@@ -573,7 +573,7 @@ $ bazel cquery 'somepath(//foo, //bar)' --universe_scope=//foo
 
 `cquery` does not automatically wipe the build graph from
 previous commands and is therefore prone to picking up results from past
-queries. For example, `genquery` exerts an exec transition on
+queries. For example, `genrule` exerts an exec transition on
 its `tools` attribute - that is, it configures its tools in the
 [exec configuration](/extending/rules#configurations).
 
@@ -606,7 +606,7 @@ tool(exec_config)
 </pre>
 
 Workaround: change any startup option to force re-analysis of configured targets.
-For example, add `--test_arg=&lt;whatever&gt;` to your build command.
+For example, add `--test_arg=<whatever>` to your build command.
 
 ## Troubleshooting {:#troubleshooting}
 

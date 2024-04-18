@@ -26,6 +26,9 @@ load("@_builtins//:common/python/py_library_macro.bzl", "py_library")
 load("@_builtins//:common/python/py_test_macro.bzl", "py_test")
 load(":bazel/java/bazel_java_binary.bzl", "java_test")
 load(":bazel/java/bazel_java_binary_wrapper.bzl", "java_binary")
+load(":common/java/java_package_configuration.bzl", "java_package_configuration")
+load(":common/java/java_runtime.bzl", "java_runtime")
+load(":common/java/java_toolchain.bzl", "java_toolchain")
 
 exported_toplevels = {
     # This is an experimental export in Bazel. The interface will change in a way
@@ -47,6 +50,9 @@ exported_rules = {
     "cc_proto_library": cc_proto_library,
     "java_binary": java_binary,
     "java_test": java_test,
+    "java_package_configuration": java_package_configuration,
+    "java_runtime": java_runtime,
+    "java_toolchain": java_toolchain,
     "py_binary": py_binary,
     "py_test": py_test,
     "py_library": py_library,

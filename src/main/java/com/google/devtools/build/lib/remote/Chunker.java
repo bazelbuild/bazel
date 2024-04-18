@@ -88,10 +88,9 @@ public class Chunker {
       if (o == this) {
         return true;
       }
-      if (!(o instanceof Chunk)) {
+      if (!(o instanceof Chunk other)) {
         return false;
       }
-      Chunk other = (Chunk) o;
       return other.offset == offset && other.data.equals(data);
     }
 

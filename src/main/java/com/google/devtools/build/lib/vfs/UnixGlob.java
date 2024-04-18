@@ -694,10 +694,9 @@ public final class UnixGlob {
 
         @Override
         public boolean equals(Object obj) {
-          if (!(obj instanceof GlobTask)) {
+          if (!(obj instanceof GlobTask other)) {
             return false;
           }
-          GlobTask other = (GlobTask) obj;
           return base.equals(other.base) && patternIdx == other.patternIdx;
         }
 

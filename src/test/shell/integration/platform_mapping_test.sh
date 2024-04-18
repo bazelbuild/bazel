@@ -235,5 +235,26 @@ EOF
   expect_log "platform: .*//plat:platform2"
 }
 
+function test_mapping_overrides_command_line() {
+   cat > platform_mappings <<EOF
+platforms:
+  //plat:platform1
+    --copt=foo
+EOF
+
+  cat > package/BUILD <<EOF
+load("//report:report.bzl", "report_flags")
+report_flags(name = "report")
+EOF
+
+  bazel build \
+    --platform_mappings=platform_mappings \
+    --platforms=//plat:platform1 \
+    --copt=bar \
+    package:report &> $TEST_log \
+      || fail "Build failed unexpectedly"
+  expect_log "copts: \[\"foo\"\]"
+}
+
 run_suite "platform mapping test"
 

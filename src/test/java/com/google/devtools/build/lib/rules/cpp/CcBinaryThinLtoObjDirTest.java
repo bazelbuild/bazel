@@ -83,8 +83,17 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void createBasePkg() throws IOException {
     scratch.overwriteFile(
         "base/BUILD",
-        "cc_library(name = 'system_malloc', visibility = ['//visibility:public'])",
-        "cc_library(name = 'empty_lib', visibility = ['//visibility:public'])");
+        """
+        cc_library(
+            name = "system_malloc",
+            visibility = ["//visibility:public"],
+        )
+
+        cc_library(
+            name = "empty_lib",
+            visibility = ["//visibility:public"],
+        )
+        """);
   }
   
   public void createBuildFiles(String... extraCcBinaryParameters) throws Exception {
@@ -765,11 +774,18 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testFdoInstrument() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto', 'use_lto_native_object_directory'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = [
+            "thin_lto",
+            "use_lto_native_object_directory",
+        ])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
 
@@ -1078,11 +1094,18 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testAutoFdo() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto', 'use_lto_native_object_directory'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = [
+            "thin_lto",
+            "use_lto_native_object_directory",
+        ])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.afdo", "");
@@ -1139,10 +1162,13 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testAutoFdoNoImplicitThinLto() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.afdo", "");
@@ -1169,10 +1195,13 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testAutoFdoImplicitThinLto() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.afdo", "");
@@ -1206,10 +1235,13 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testAutoFdoImplicitThinLtoDisabledOption() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.afdo", "");
@@ -1244,11 +1276,17 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testAutoFdoImplicitThinLtoDisabledRule() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          features = ['-thin_lto', 'use_lto_native_object_directory'],",
-        "          malloc = '//base:system_malloc')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            features = [
+                "-thin_lto",
+                "use_lto_native_object_directory",
+            ],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.afdo", "");
@@ -1281,11 +1319,18 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testAutoFdoImplicitThinLtoDisabledPackage() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['-thin_lto', 'use_lto_native_object_directory'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = [
+            "-thin_lto",
+            "use_lto_native_object_directory",
+        ])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.afdo", "");
@@ -1324,10 +1369,13 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testFdoNoImplicitThinLto() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.zip", "");
@@ -1354,10 +1402,13 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testFdoImplicitThinLto() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.zip", "");
@@ -1391,10 +1442,13 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testFdoImplicitThinLtoDisabledOption() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.zip", "");
@@ -1429,11 +1483,17 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testFdoImplicitThinLtoDisabledRule() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          features = ['-thin_lto', 'use_lto_native_object_directory'],",
-        "          malloc = '//base:system_malloc')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            features = [
+                "-thin_lto",
+                "use_lto_native_object_directory",
+            ],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.zip", "");
@@ -1467,11 +1527,18 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
     setupThinLTOCrosstool();
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['-thin_lto', 'use_lto_native_object_directory'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')");
+        """
+        package(features = [
+            "-thin_lto",
+            "use_lto_native_object_directory",
+        ])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
     scratch.file("pkg/profile.zip", "");
@@ -1511,10 +1578,17 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testXBinaryFdoNoImplicitThinLto() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ])",
-        "fdo_profile(name='out.xfdo', profile='profiles.xfdo')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+        )
+
+        fdo_profile(
+            name = "out.xfdo",
+            profile = "profiles.xfdo",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
 
@@ -1540,10 +1614,17 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testXBinaryFdoImplicitThinLto() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ])",
-        "fdo_profile(name='out.xfdo', profile='profiles.xfdo')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+        )
+
+        fdo_profile(
+            name = "out.xfdo",
+            profile = "profiles.xfdo",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
 
@@ -1576,10 +1657,17 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testXBinaryFdoImplicitThinLtoDisabledOption() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ])",
-        "fdo_profile(name='out.xfdo', profile='profiles.xfdo')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+        )
+
+        fdo_profile(
+            name = "out.xfdo",
+            profile = "profiles.xfdo",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
 
@@ -1613,11 +1701,21 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testXBinaryFdoImplicitThinLtoDisabledRule() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          features = ['-thin_lto', 'use_lto_native_object_directory'])",
-        "fdo_profile(name='out.xfdo', profile='profiles.xfdo')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            features = [
+                "-thin_lto",
+                "use_lto_native_object_directory",
+            ],
+        )
+
+        fdo_profile(
+            name = "out.xfdo",
+            profile = "profiles.xfdo",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
 
@@ -1649,11 +1747,22 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testXBinaryFdoImplicitThinLtoDisabledPackage() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['-thin_lto', 'use_lto_native_object_directory'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ])",
-        "fdo_profile(name='out.xfdo', profile='profiles.xfdo')");
+        """
+        package(features = [
+            "-thin_lto",
+            "use_lto_native_object_directory",
+        ])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+        )
+
+        fdo_profile(
+            name = "out.xfdo",
+            profile = "profiles.xfdo",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
 
@@ -1681,12 +1790,23 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testXBinaryFdo() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "package(features = ['thin_lto', 'use_lto_native_object_directory'])",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')",
-        "fdo_profile(name='out.xfdo', profile='profiles.xfdo')");
+        """
+        package(features = [
+            "thin_lto",
+            "use_lto_native_object_directory",
+        ])
+
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+
+        fdo_profile(
+            name = "out.xfdo",
+            profile = "profiles.xfdo",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
 
@@ -1719,11 +1839,18 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   public void testXBinaryFdoNoAutoFdoOrFdoImplicitThinLto() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "",
-        "cc_binary(name = 'bin',",
-        "          srcs = ['binfile.cc', ],",
-        "          malloc = '//base:system_malloc')",
-        "fdo_profile(name='out.xfdo', profile='profiles.xfdo')");
+        """
+        cc_binary(
+            name = "bin",
+            srcs = ["binfile.cc"],
+            malloc = "//base:system_malloc",
+        )
+
+        fdo_profile(
+            name = "out.xfdo",
+            profile = "profiles.xfdo",
+        )
+        """);
 
     scratch.file("pkg/binfile.cc", "int main() {}");
 

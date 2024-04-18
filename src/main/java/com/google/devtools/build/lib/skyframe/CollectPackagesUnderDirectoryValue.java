@@ -102,11 +102,9 @@ public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof NoErrorCollectPackagesUnderDirectoryValue)) {
+      if (!(o instanceof NoErrorCollectPackagesUnderDirectoryValue that)) {
         return false;
       }
-      NoErrorCollectPackagesUnderDirectoryValue that =
-          (NoErrorCollectPackagesUnderDirectoryValue) o;
       return this.isDirectoryPackage == that.isDirectoryPackage
           && Objects.equals(
               this.getSubdirectoryTransitivelyContainsPackagesOrErrors(),
@@ -157,10 +155,9 @@ public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof ErrorCollectPackagesUnderDirectoryValue)) {
+      if (!(o instanceof ErrorCollectPackagesUnderDirectoryValue that)) {
         return false;
       }
-      ErrorCollectPackagesUnderDirectoryValue that = (ErrorCollectPackagesUnderDirectoryValue) o;
       return Objects.equals(this.errorMessage, that.errorMessage)
           && Objects.equals(
               this.getSubdirectoryTransitivelyContainsPackagesOrErrors(),

@@ -74,28 +74,4 @@ public interface DependencyCollector {
    */
   @Nullable
   public byte[] toByteArray();
-
-  /** Simple collectors that don't collect any information. */
-  public enum NoWriteCollectors implements DependencyCollector {
-    /** Singleton instance that does nothing. */
-    NOOP,
-    /**
-     * Singleton instance that does nothing besides throwing if {@link #missingImplementedInterface}
-     * is called.
-     */
-    FAIL_ON_MISSING {
-      @Override
-      public void missingImplementedInterface(String origin, String target) {
-        throw new IllegalStateException(
-            String.format(
-                "Couldn't find interface %s on the classpath for desugaring %s", target, origin));
-      }
-    };
-
-    @Override
-    @Nullable
-    public final byte[] toByteArray() {
-      return null;
-    }
-  }
 }

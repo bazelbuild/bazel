@@ -35,6 +35,7 @@ import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 
 /** Implementation of the {@code TemplateDict} Starlark type */
 public class TemplateDict implements TemplateDictApi {
@@ -67,8 +68,7 @@ public class TemplateDict implements TemplateDictApi {
       Boolean allowClosure,
       StarlarkThread thread)
       throws EvalException {
-    if (mapEach instanceof StarlarkFunction) {
-      StarlarkFunction sfn = (StarlarkFunction) mapEach;
+    if (mapEach instanceof StarlarkFunction sfn) {
       if (!allowClosure && sfn.getModule().getGlobal(sfn.getName()) != sfn) {
         throw Starlark.errorf(
             "to avoid unintended retention of analysis data structures, "
@@ -122,7 +122,14 @@ public class TemplateDict implements TemplateDictApi {
     @Override
     public String getValue() throws EvalException {
       try (Mutability mutability = Mutability.create("expand_template")) {
-        StarlarkThread execThread = new StarlarkThread(mutability, semantics, "map_each callback");
+        StarlarkThread execThread =
+            StarlarkThread.create(
+                mutability,
+                semantics,
+                "map_each callback",
+                // The map_each callback should not create any persistent state beyond the returned
+                // String value.
+                SymbolGenerator.createTransient());
         ImmutableList<?> values = valuesSet.toList();
         List<String> parts = new ArrayList<>(values.size());
         for (Object val : values) {

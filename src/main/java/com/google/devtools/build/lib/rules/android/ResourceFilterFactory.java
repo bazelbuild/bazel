@@ -198,11 +198,10 @@ public class ResourceFilterFactory {
    */
   @Override
   public boolean equals(Object object) {
-    if (!(object instanceof ResourceFilterFactory)) {
+    if (!(object instanceof ResourceFilterFactory other)) {
       return false;
     }
 
-    ResourceFilterFactory other = (ResourceFilterFactory) object;
     return configFilters.equals(other.configFilters) && densities.equals(other.densities);
   }
 

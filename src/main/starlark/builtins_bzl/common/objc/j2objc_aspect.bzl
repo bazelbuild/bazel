@@ -36,11 +36,12 @@ load(":common/proto/proto_info.bzl", "ProtoInfo")
 
 objc_internal = _builtins.internal.objc_internal
 
-def _j2objc_source_header_search_paths(genfiles_dir_path, objc_file_path, proto_sources):
+def _j2objc_source_header_search_paths(genfiles_dir_path, bin_dir_path, objc_file_path, proto_sources):
     for source_to_translate in proto_sources:
         if not source_to_translate.is_source:
-            gen_root_header_search_path = paths.get_relative(objc_file_path, genfiles_dir_path)
-            return [objc_file_path, gen_root_header_search_path]
+            genfiles_root_header_search_path = paths.get_relative(objc_file_path, genfiles_dir_path)
+            bin_root_header_search_path = paths.get_relative(objc_file_path, bin_dir_path)
+            return [objc_file_path, genfiles_root_header_search_path, bin_root_header_search_path]
     return [objc_file_path]
 
 def _proto_j2objc_source(ctx, proto_info, proto_sources, objc_file_path):
@@ -50,7 +51,12 @@ def _proto_j2objc_source(ctx, proto_info, proto_sources, objc_file_path):
         objc_hdrs = [] if not proto_sources else proto_common.declare_generated_files(ctx.actions, proto_info, ".j2objc.pb.h"),
         objc_file_path = objc_file_path,
         source_type = "PROTO",
-        header_search_paths = _j2objc_source_header_search_paths(ctx.genfiles_dir.path, objc_file_path, proto_sources),
+        header_search_paths = _j2objc_source_header_search_paths(
+            ctx.genfiles_dir.path,
+            ctx.bin_dir.path,
+            objc_file_path,
+            proto_sources,
+        ),
         compile_with_arc = False,
     )
 
@@ -89,7 +95,12 @@ def _java_j2objc_source(ctx, java_source_files, java_source_jars):
         objc_file_root_relative_path,
         ".h",
     )
-    header_search_paths = _j2objc_source_header_search_paths(ctx.genfiles_dir.path, objc_file_root_exec_path, java_source_files)
+    header_search_paths = _j2objc_source_header_search_paths(
+        ctx.genfiles_dir.path,
+        ctx.bin_dir.path,
+        objc_file_root_exec_path,
+        java_source_files,
+    )
 
     if java_source_jars:
         source_tree_artifact_rel_path = _get_source_tree_artifact_rel_path(ctx.label.name)

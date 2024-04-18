@@ -465,7 +465,7 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    shard_count = 6,
+    shard_count = 8,
     tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
@@ -875,7 +875,7 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    shard_count = 5,
+    shard_count = 10,
     tags = ["no_windows"],
 )
 
@@ -938,8 +938,17 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    shard_count = 4,
-    tags = ["no_windows"],
+    shard_count = 3,
+)
+
+sh_test(
+    name = "dump_test",
+    srcs = ["dump_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 1,
 )
 
 sh_test(

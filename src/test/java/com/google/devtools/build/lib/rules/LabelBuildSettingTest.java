@@ -19,6 +19,9 @@ import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createMo
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -30,8 +33,9 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
   private void writeRulesBzl(String type) throws Exception {
     scratch.file(
         "test/rules.bzl",
+        "MyRuleInfo = provider()",
         "def _my_rule_impl(ctx):",
-        "    return struct(value = ctx.attr._label_setting[SimpleRuleInfo].value)",
+        "    return MyRuleInfo(value = ctx.attr._label_setting[SimpleRuleInfo].value)",
         "",
         "my_rule = rule(",
         "    implementation = _my_rule_impl,",
@@ -66,10 +70,23 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
         "simple_rule(name = 'command_line', value = 'command_line_value')",
         "label_setting(name = 'my_label_" + testing + "', build_setting_default = ':default')");
 
-    scratch.file("a/BUILD", "cc_library(name='a', srcs=['a.cc'])", "alias(name='b', actual='a')");
+    scratch.file(
+        "a/BUILD",
+        """
+        cc_library(
+            name = "a",
+            srcs = ["a.cc"],
+        )
+
+        alias(
+            name = "b",
+            actual = "a",
+        )
+        """);
 
     ConfiguredTarget b = getConfiguredTarget("//test:my_rule");
-    assertThat(b.get("value")).isEqualTo("default_value");
+    StarlarkInfo myRuleInfo = getStarlarkProvider(b, "MyRuleInfo");
+    assertThat(myRuleInfo.getValue("value")).isEqualTo("default_value");
   }
 
   @Test
@@ -85,10 +102,24 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
         "simple_rule(name = 'command_line', value = 'command_line_value')",
         "label_flag(name = 'my_label_" + testing + "', build_setting_default = ':default')");
 
-    scratch.file("a/BUILD", "cc_library(name='a', srcs=['a.cc'])", "alias(name='b', actual='a')");
+    scratch.file(
+        "a/BUILD",
+        """
+        cc_library(
+            name = "a",
+            srcs = ["a.cc"],
+        )
+
+        alias(
+            name = "b",
+            actual = "a",
+        )
+        """);
 
     ConfiguredTarget b = getConfiguredTarget("//test:my_rule");
-    assertThat(b.get("value")).isEqualTo("default_value");
+    StarlarkProvider.Key myRuleInfo =
+        new StarlarkProvider.Key(Label.parseCanonical("//test:rules.bzl"), "MyRuleInfo");
+    assertThat(((StarlarkInfo) b.get(myRuleInfo)).getValue("value")).isEqualTo("default_value");
   }
 
   @Test
@@ -104,12 +135,27 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
         "simple_rule(name = 'command_line', value = 'command_line_value')",
         "label_flag(name = 'my_label_" + testing + "', build_setting_default = ':default')");
 
-    scratch.file("a/BUILD", "cc_library(name='a', srcs=['a.cc'])", "alias(name='b', actual='a')");
+    scratch.file(
+        "a/BUILD",
+        """
+        cc_library(
+            name = "a",
+            srcs = ["a.cc"],
+        )
+
+        alias(
+            name = "b",
+            actual = "a",
+        )
+        """);
 
     useConfiguration("--//test:my_label_flag=//test:command_line");
 
     ConfiguredTarget b = getConfiguredTarget("//test:my_rule");
-    assertThat(b.get("value")).isEqualTo("command_line_value");
+    StarlarkProvider.Key myRuleInfo =
+        new StarlarkProvider.Key(Label.parseCanonical("//test:rules.bzl"), "MyRuleInfo");
+    assertThat(((StarlarkInfo) b.get(myRuleInfo)).getValue("value"))
+        .isEqualTo("command_line_value");
   }
 
   @Test
@@ -117,16 +163,39 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
     writeRulesBzl("flag");
     scratch.file(
         "test/BUILD",
-        "load('//test:rules.bzl', 'my_rule', 'simple_rule')",
-        "simple_rule(name = 'default', value = 'default_value')",
-        "simple_rule(name = 'command_line', value = 'command_line_value')",
-        "label_flag(name = 'my_label_flag', build_setting_default = ':default')",
-        "alias(name = 'my_label_flag_alias', actual = ':my_label_flag')",
-        "config_setting(",
-        "    name = 'is_default_label',",
-        "    flag_values = {':my_label_flag_alias': '//test:default'}",
-        ")",
-        "simple_rule(name = 'selector', value = select({':is_default_label': 'valid'}))");
+        """
+        load("//test:rules.bzl", "my_rule", "simple_rule")
+
+        simple_rule(
+            name = "default",
+            value = "default_value",
+        )
+
+        simple_rule(
+            name = "command_line",
+            value = "command_line_value",
+        )
+
+        label_flag(
+            name = "my_label_flag",
+            build_setting_default = ":default",
+        )
+
+        alias(
+            name = "my_label_flag_alias",
+            actual = ":my_label_flag",
+        )
+
+        config_setting(
+            name = "is_default_label",
+            flag_values = {":my_label_flag_alias": "//test:default"},
+        )
+
+        simple_rule(
+            name = "selector",
+            value = select({":is_default_label": "valid"}),
+        )
+        """);
 
     useConfiguration();
     getConfiguredTarget("//test:selector");
@@ -144,15 +213,34 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
     writeRulesBzl("flag");
     scratch.file(
         "test/BUILD",
-        "load('//test:rules.bzl', 'my_rule', 'simple_rule')",
-        "simple_rule(name = 'default', value = 'default_value')",
-        "simple_rule(name = 'command_line', value = 'command_line_value')",
-        "label_flag(name = 'my_label_flag', build_setting_default = ':default')",
-        "config_setting(",
-        "    name = 'is_default_label',",
-        "    flag_values = {':my_label_flag': '//test:default'}",
-        ")",
-        "simple_rule(name = 'selector', value = select({':is_default_label': 'valid'}))");
+        """
+        load("//test:rules.bzl", "my_rule", "simple_rule")
+
+        simple_rule(
+            name = "default",
+            value = "default_value",
+        )
+
+        simple_rule(
+            name = "command_line",
+            value = "command_line_value",
+        )
+
+        label_flag(
+            name = "my_label_flag",
+            build_setting_default = ":default",
+        )
+
+        config_setting(
+            name = "is_default_label",
+            flag_values = {":my_label_flag": "//test:default"},
+        )
+
+        simple_rule(
+            name = "selector",
+            value = select({":is_default_label": "valid"}),
+        )
+        """);
 
     useConfiguration();
     getConfiguredTarget("//test:selector");
@@ -170,15 +258,34 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
     writeRulesBzl("flag");
     scratch.file(
         "test/BUILD",
-        "load('//test:rules.bzl', 'my_rule', 'simple_rule')",
-        "simple_rule(name = 'default', value = 'default_value')",
-        "simple_rule(name = 'command_line', value = 'command_line_value')",
-        "label_flag(name = 'my_label_flag', build_setting_default = ':default')",
-        "config_setting(",
-        "    name = 'is_default_label',",
-        "    flag_values = {':my_label_flag': ':default'}",
-        ")",
-        "simple_rule(name = 'selector', value = select({':is_default_label': 'valid'}))");
+        """
+        load("//test:rules.bzl", "my_rule", "simple_rule")
+
+        simple_rule(
+            name = "default",
+            value = "default_value",
+        )
+
+        simple_rule(
+            name = "command_line",
+            value = "command_line_value",
+        )
+
+        label_flag(
+            name = "my_label_flag",
+            build_setting_default = ":default",
+        )
+
+        config_setting(
+            name = "is_default_label",
+            flag_values = {":my_label_flag": ":default"},
+        )
+
+        simple_rule(
+            name = "selector",
+            value = select({":is_default_label": "valid"}),
+        )
+        """);
 
     useConfiguration();
     getConfiguredTarget("//test:selector");
@@ -196,15 +303,34 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
     writeRulesBzl("flag");
     scratch.file(
         "test/BUILD",
-        "load('//test:rules.bzl', 'my_rule', 'simple_rule')",
-        "simple_rule(name = 'default', value = 'default_value')",
-        "simple_rule(name = 'command_line', value = 'command_line_value')",
-        "label_flag(name = 'my_label_flag', build_setting_default = ':default')",
-        "config_setting(",
-        "    name = 'is_default_label',",
-        "    flag_values = {':my_label_flag': ':@not_a_valid_label/'}",
-        ")",
-        "simple_rule(name = 'selector', value = select({':is_default_label': 'valid'}))");
+        """
+        load("//test:rules.bzl", "my_rule", "simple_rule")
+
+        simple_rule(
+            name = "default",
+            value = "default_value",
+        )
+
+        simple_rule(
+            name = "command_line",
+            value = "command_line_value",
+        )
+
+        label_flag(
+            name = "my_label_flag",
+            build_setting_default = ":default",
+        )
+
+        config_setting(
+            name = "is_default_label",
+            flag_values = {":my_label_flag": ":@not_a_valid_label/"},
+        )
+
+        simple_rule(
+            name = "selector",
+            value = select({":is_default_label": "valid"}),
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     useConfiguration();
@@ -217,50 +343,77 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
   public void transitionOutput_samePackage() throws Exception {
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
-        "package_group(",
-        "    name = 'function_transition_allowlist',",
-        "    packages = [",
-        "        '//test/...',",
-        "    ],",
-        ")");
+        """
+        package_group(
+            name = "function_transition_allowlist",
+            packages = [
+                "//test/...",
+            ],
+        )
+        """);
 
     scratch.file(
         "test/rules.bzl",
-        "def _transition_impl(settings, attr):",
-        "    return {",
-        "        '//test:my_flag1': Label('//test:other_rule'),",
-        "        '//test:my_flag2': '//test:other_rule',",
-        "        '//test:my_flag3': ':other_rule',",
-        "    }",
-        "_my_transition = transition(",
-        "    implementation = _transition_impl,",
-        "    inputs = [],",
-        "    outputs = ['//test:my_flag1', '//test:my_flag2', '//test:my_flag3'],",
-        ")",
-        "def _rule_impl(ctx):",
-        "    target = Label('//test:other_rule')",
-        "    if target != ctx.attr._flag1.label: fail('flag1 is ' + str(ctx.attr._flag1.label))",
-        "    if target != ctx.attr._flag2.label: fail('flag2 is ' + str(ctx.attr._flag2.label))",
-        "    if target != ctx.attr._flag3.label: fail('flag3 is ' + str(ctx.attr._flag3.label))",
-        "rule_with_transition = rule(",
-        "    implementation = _rule_impl,",
-        "    cfg = _my_transition,",
-        "    attrs = {",
-        "        '_flag1': attr.label(default=':my_flag1'),",
-        "        '_flag2': attr.label(default=':my_flag2'),",
-        "        '_flag3': attr.label(default=':my_flag3'),",
-        "    }",
-        ")");
+        """
+        def _transition_impl(settings, attr):
+            return {
+                "//test:my_flag1": Label("//test:other_rule"),
+                "//test:my_flag2": "//test:other_rule",
+                "//test:my_flag3": ":other_rule",
+            }
+
+        _my_transition = transition(
+            implementation = _transition_impl,
+            inputs = [],
+            outputs = ["//test:my_flag1", "//test:my_flag2", "//test:my_flag3"],
+        )
+
+        def _rule_impl(ctx):
+            target = Label("//test:other_rule")
+            if target != ctx.attr._flag1.label:
+                fail("flag1 is " + str(ctx.attr._flag1.label))
+            if target != ctx.attr._flag2.label:
+                fail("flag2 is " + str(ctx.attr._flag2.label))
+            if target != ctx.attr._flag3.label:
+                fail("flag3 is " + str(ctx.attr._flag3.label))
+
+        rule_with_transition = rule(
+            implementation = _rule_impl,
+            cfg = _my_transition,
+            attrs = {
+                "_flag1": attr.label(default = ":my_flag1"),
+                "_flag2": attr.label(default = ":my_flag2"),
+                "_flag3": attr.label(default = ":my_flag3"),
+            },
+        )
+        """);
 
     scratch.file(
         "test/BUILD",
-        "load('//test:rules.bzl', 'rule_with_transition')",
-        "label_flag(name = 'my_flag1', build_setting_default = ':first_rule')",
-        "label_flag(name = 'my_flag2', build_setting_default = ':first_rule')",
-        "label_flag(name = 'my_flag3', build_setting_default = ':first_rule')",
-        "filegroup(name = 'first_rule')",
-        "filegroup(name = 'other_rule')",
-        "rule_with_transition(name = 'buildme')");
+        """
+        load("//test:rules.bzl", "rule_with_transition")
+
+        label_flag(
+            name = "my_flag1",
+            build_setting_default = ":first_rule",
+        )
+
+        label_flag(
+            name = "my_flag2",
+            build_setting_default = ":first_rule",
+        )
+
+        label_flag(
+            name = "my_flag3",
+            build_setting_default = ":first_rule",
+        )
+
+        filegroup(name = "first_rule")
+
+        filegroup(name = "other_rule")
+
+        rule_with_transition(name = "buildme")
+        """);
     assertThat(getConfiguredTarget("//test:buildme")).isNotNull();
     assertNoEvents();
   }
@@ -274,45 +427,66 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
 
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
-        "package_group(",
-        "    name = 'function_transition_allowlist',",
-        "    packages = [",
-        "        '//test/...',",
-        "    ],",
-        ")");
+        """
+        package_group(
+            name = "function_transition_allowlist",
+            packages = [
+                "//test/...",
+            ],
+        )
+        """);
 
     scratch.file(
         "test/rules.bzl",
-        "def _transition_impl(settings, attr):",
-        "    return {",
-        "        '//test:my_flag1': Label('@foo//:other_rule'),",
-        "        '//test:my_flag2': '@foo//:other_rule',",
-        "    }",
-        "_my_transition = transition(",
-        "    implementation = _transition_impl,",
-        "    inputs = [],",
-        "    outputs = ['//test:my_flag1', '//test:my_flag2'],",
-        ")",
-        "def _rule_impl(ctx):",
-        "    target = Label('@foo//:other_rule')",
-        "    if target != ctx.attr._flag1.label: fail('flag1 is ' + str(ctx.attr._flag1.label))",
-        "    if target != ctx.attr._flag2.label: fail('flag2 is ' + str(ctx.attr._flag2.label))",
-        "rule_with_transition = rule(",
-        "    implementation = _rule_impl,",
-        "    cfg = _my_transition,",
-        "    attrs = {",
-        "        '_flag1': attr.label(default=':my_flag1'),",
-        "        '_flag2': attr.label(default=':my_flag2'),",
-        "    }",
-        ")");
+        """
+        def _transition_impl(settings, attr):
+            return {
+                "//test:my_flag1": Label("@foo//:other_rule"),
+                "//test:my_flag2": "@foo//:other_rule",
+            }
+
+        _my_transition = transition(
+            implementation = _transition_impl,
+            inputs = [],
+            outputs = ["//test:my_flag1", "//test:my_flag2"],
+        )
+
+        def _rule_impl(ctx):
+            target = Label("@foo//:other_rule")
+            if target != ctx.attr._flag1.label:
+                fail("flag1 is " + str(ctx.attr._flag1.label))
+            if target != ctx.attr._flag2.label:
+                fail("flag2 is " + str(ctx.attr._flag2.label))
+
+        rule_with_transition = rule(
+            implementation = _rule_impl,
+            cfg = _my_transition,
+            attrs = {
+                "_flag1": attr.label(default = ":my_flag1"),
+                "_flag2": attr.label(default = ":my_flag2"),
+            },
+        )
+        """);
 
     scratch.file(
         "test/BUILD",
-        "load('//test:rules.bzl', 'rule_with_transition')",
-        "label_flag(name = 'my_flag1', build_setting_default = ':first_rule')",
-        "label_flag(name = 'my_flag2', build_setting_default = ':first_rule')",
-        "filegroup(name = 'first_rule')",
-        "rule_with_transition(name = 'buildme')");
+        """
+        load("//test:rules.bzl", "rule_with_transition")
+
+        label_flag(
+            name = "my_flag1",
+            build_setting_default = ":first_rule",
+        )
+
+        label_flag(
+            name = "my_flag2",
+            build_setting_default = ":first_rule",
+        )
+
+        filegroup(name = "first_rule")
+
+        rule_with_transition(name = "buildme")
+        """);
 
     invalidatePackages();
 
@@ -324,30 +498,44 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
   public void testInvisibleRepoInLabelResultsInEarlyError() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _setting_impl(ctx):",
-        "  return []",
-        "string_flag = rule(",
-        "  implementation = _setting_impl,",
-        "  build_setting = config.string(flag=True),",
-        ")",
-        "def _transition_impl(settings, attr):",
-        "  return {'//test:formation': 'mesa'}",
-        "formation_transition = transition(",
-        "  implementation = _transition_impl,",
-        "  inputs = ['@foobar//test:formation'],", // invalid repo name
-        "  outputs = ['//test:formation'],",
-        ")",
-        "def _impl(ctx):",
-        "  return []",
-        "state = rule(",
-        "  implementation = _impl,",
-        "  cfg = formation_transition,",
-        ")");
+        """
+        def _setting_impl(ctx):
+            return []
+
+        string_flag = rule(
+            implementation = _setting_impl,
+            build_setting = config.string(flag = True),
+        )
+
+        def _transition_impl(settings, attr):
+            return {"//test:formation": "mesa"}
+
+        formation_transition = transition(
+            implementation = _transition_impl,
+            inputs = ["@foobar//test:formation"],  # invalid repo name
+            outputs = ["//test:formation"],
+        )
+
+        def _impl(ctx):
+            return []
+
+        state = rule(
+            implementation = _impl,
+            cfg = formation_transition,
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'state', 'string_flag')",
-        "state(name = 'arizona')",
-        "string_flag(name = 'formation', build_setting_default = 'canyon')");
+        """
+        load("//test:defs.bzl", "state", "string_flag")
+
+        state(name = "arizona")
+
+        string_flag(
+            name = "formation",
+            build_setting_default = "canyon",
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:arizona");

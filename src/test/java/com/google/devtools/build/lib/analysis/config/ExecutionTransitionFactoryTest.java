@@ -71,9 +71,9 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
     assertThat(result).isNotNull();
     assertThat(result).isNotSameInstanceAs(options);
 
-    assertThat(result.contains(CoreOptions.class)).isNotNull();
+    assertThat(result.contains(CoreOptions.class)).isTrue();
     assertThat(result.get(CoreOptions.class).isExec).isTrue();
-    assertThat(result.contains(PlatformOptions.class)).isNotNull();
+    assertThat(result.contains(PlatformOptions.class)).isTrue();
     assertThat(result.get(PlatformOptions.class).platforms).containsExactly(EXECUTION_PLATFORM);
   }
 
@@ -279,5 +279,45 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
 
     assertThat(missingMetadataTagOptions).isEmpty();
     assertThat(unpreservedOptions.build()).isEmpty();
+  }
+
+  @Test
+  public void platformInOutputPathWorksInExecMode() throws Exception {
+    scratch.file(
+        "platforms/BUILD",
+        """
+        platform(name = "mock_platform")
+        """);
+    scratch.file(
+        "test/lib.bzl",
+        """
+        my_rule = rule(
+            implementation = lambda ctx: [],
+            attrs = {
+                "exec_deps": attr.label_list(cfg = "exec"),
+            },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":lib.bzl", "my_rule")
+        my_rule(
+            name = "parent",
+            exec_deps = [":child"]
+        )
+        my_rule(name = "child")
+        """);
+
+    useConfiguration(
+        "--experimental_platform_in_output_dir",
+        "--extra_execution_platforms=//platforms:mock_platform",
+        "--experimental_override_name_platform_in_output_dir=//platforms:mock_platform=mock_platform_path_string");
+    BuildConfigurationValue execConfig =
+        getConfiguration(
+            getDirectPrerequisite(getConfiguredTarget("//test:parent"), "//test:child"));
+
+    assertThat(execConfig.isExecConfiguration()).isTrue();
+    assertThat(execConfig.getOutputDirectoryName()).isEqualTo("mock_platform_path_string-opt-exec");
   }
 }

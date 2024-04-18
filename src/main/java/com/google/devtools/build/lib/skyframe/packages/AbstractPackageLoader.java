@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.skyframe.packages;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.stream;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
@@ -29,7 +31,10 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -51,7 +56,9 @@ import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.skyframe.BzlCompileFunction;
+import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.BzlmodRepoRuleFunction;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.DefaultSyscallCache;
@@ -71,10 +78,12 @@ import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepoFileFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceNameFunction;
+import com.google.devtools.build.lib.util.ValueOrException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.Path;
@@ -108,6 +117,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /**
@@ -350,11 +360,104 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   @Override
   public Package loadPackage(PackageIdentifier pkgId)
       throws NoSuchPackageException, InterruptedException {
-    return loadPackages(ImmutableList.of(pkgId)).getLoadedPackages().get(pkgId).get();
+    return makeLoadingContext()
+        .loadPackages(ImmutableList.of(pkgId))
+        .getLoadedValues()
+        .get(pkgId)
+        .get();
+  }
+
+  private static class LoadingContext implements PackageLoader.LoadingContext {
+    private final MemoizingEvaluator evaluator;
+    private final EvaluationContext evaluationContext;
+    private final StoredEventHandler storedEventHandler;
+
+    LoadingContext(
+        MemoizingEvaluator evaluator,
+        EvaluationContext evaluationContext,
+        StoredEventHandler storedEventHandler) {
+      this.evaluator = evaluator;
+      this.evaluationContext = evaluationContext;
+      this.storedEventHandler = storedEventHandler;
+    }
+
+    @Override
+    public Result<PackageIdentifier, Package, NoSuchPackageException> loadPackages(
+        Iterable<PackageIdentifier> pkgIds) throws InterruptedException {
+      storedEventHandler.clear();
+      ImmutableSet<SkyKey> pkgKeys = ImmutableSet.copyOf(pkgIds);
+      EvaluationResult<PackageValue> evalResult = evaluator.evaluate(pkgKeys, evaluationContext);
+
+      ImmutableMap.Builder<PackageIdentifier, ValueOrException<Package, NoSuchPackageException>>
+          resultBuilder = ImmutableMap.builder();
+      for (SkyKey key : pkgKeys) {
+        ErrorInfo error = evalResult.getError(key);
+        PackageValue packageValue = evalResult.get(key);
+        checkState((error == null) != (packageValue == null));
+        PackageIdentifier pkgId = (PackageIdentifier) key.argument();
+        resultBuilder.put(
+            pkgId,
+            error != null
+                ? ValueOrException.ofException(exceptionFromErrorInfo(error, pkgId))
+                : ValueOrException.ofValue(packageValue.getPackage()));
+      }
+      return new Result<>(resultBuilder.buildOrThrow(), storedEventHandler.getEvents());
+    }
+
+    @Override
+    public Result<Label, Module, StarlarkModuleLoadingException> loadModules(Iterable<Label> labels)
+        throws InterruptedException {
+      storedEventHandler.clear();
+      ImmutableList<BzlLoadValue.Key> keys =
+          stream(labels).map(BzlLoadValue::keyForBuild).collect(toImmutableList());
+
+      EvaluationResult<BzlLoadValue> evalResult = evaluator.evaluate(keys, evaluationContext);
+      ImmutableMap.Builder<Label, ValueOrException<Module, StarlarkModuleLoadingException>>
+          resultBuilder = ImmutableMap.builderWithExpectedSize(keys.size());
+      for (BzlLoadValue.Key key : keys) {
+        ErrorInfo error = evalResult.getError(key);
+        BzlLoadValue moduleValue = evalResult.get(key);
+        checkState((error == null) != (moduleValue == null));
+        Label label = key.getLabel();
+        if (error == null) {
+          resultBuilder.put(label, ValueOrException.ofValue(moduleValue.getModule()));
+        } else {
+          resultBuilder.put(
+              label,
+              ValueOrException.ofException(
+                  starlarkModuleLoadingExceptionFromErrorInfo(error, label)));
+        }
+      }
+      return new Result<>(resultBuilder.buildOrThrow(), storedEventHandler.getEvents());
+    }
+
+    @Override
+    public RepositoryMapping getRepositoryMapping() throws InterruptedException {
+      SkyKey key = RepositoryMappingValue.key(RepositoryName.MAIN);
+      EvaluationResult<RepositoryMappingValue> evalResult =
+          evaluator.evaluate(ImmutableList.of(key), evaluationContext);
+      RepositoryMappingValue mainRepositoryMappingValue = evalResult.get(key);
+      // We always set up a repository mapping function
+      checkState(evalResult.getError(key) == null && mainRepositoryMappingValue != null);
+      return mainRepositoryMappingValue.getRepositoryMapping();
+    }
+
+    private static StarlarkModuleLoadingException starlarkModuleLoadingExceptionFromErrorInfo(
+        ErrorInfo error, Label label) {
+      if (!error.getCycleInfo().isEmpty()) {
+        return new StarlarkModuleLoadingException("Cycle encountered while loading " + label);
+      }
+      Throwable e = Preconditions.checkNotNull(error.getException());
+      if (e instanceof BzlLoadFailedException) {
+        return new StarlarkModuleLoadingException((BzlLoadFailedException) e);
+      }
+      throw new IllegalStateException(
+          "Unexpected Exception type from BzlLoadValue for " + label + " with error: " + error, e);
+    }
   }
 
   @Override
-  public Result loadPackages(Iterable<PackageIdentifier> pkgIds) throws InterruptedException {
+  public LoadingContext makeLoadingContext() {
     Reporter reporter = new Reporter(commonReporter);
     StoredEventHandler storedEventHandler = new StoredEventHandler();
     reporter.addHandler(storedEventHandler);
@@ -364,31 +467,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             .setParallelism(skyframeThreads)
             .setEventHandler(reporter)
             .build();
-    return loadPackagesInternal(ImmutableSet.copyOf(pkgIds), evaluationContext, storedEventHandler);
-  }
 
-  private Result loadPackagesInternal(
-      ImmutableSet<SkyKey> pkgKeys,
-      EvaluationContext evaluationContext,
-      StoredEventHandler storedEventHandler)
-      throws InterruptedException {
-    MemoizingEvaluator evaluator = makeFreshEvaluator();
-    EvaluationResult<PackageValue> evalResult = evaluator.evaluate(pkgKeys, evaluationContext);
-
-    ImmutableMap.Builder<PackageIdentifier, PackageLoader.PackageOrException> result =
-        ImmutableMap.builder();
-    for (SkyKey key : pkgKeys) {
-      ErrorInfo error = evalResult.getError(key);
-      PackageValue packageValue = evalResult.get(key);
-      checkState((error == null) != (packageValue == null));
-      PackageIdentifier pkgId = (PackageIdentifier) key.argument();
-      result.put(
-          pkgId,
-          error != null
-              ? new PackageOrException(null, exceptionFromErrorInfo(error, pkgId))
-              : new PackageOrException(packageValue.getPackage(), null));
-    }
-    return new Result(result.buildOrThrow(), storedEventHandler.getEvents());
+    return new LoadingContext(makeFreshEvaluator(), evaluationContext, storedEventHandler);
   }
 
   public ConfiguredRuleClassProvider getRuleClassProvider() {

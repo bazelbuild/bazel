@@ -904,16 +904,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   /**
-   * Check if this rule is valid according to the validityPredicate of its RuleClass.
-   */
-  void checkValidityPredicate(EventHandler eventHandler) {
-    PredicateWithMessage<Rule> predicate = ruleClass.getValidityPredicate();
-    if (!predicate.apply(this)) {
-      reportError(predicate.getErrorReason(this), eventHandler);
-    }
-  }
-
-  /**
    * Collects the output files (both implicit and explicit). Must be called before the output
    * accessors methods can be used, and must be called only once.
    */
@@ -1169,7 +1159,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
         && isAttributeValueExplicitlySpecified("distribs")) {
       return NonconfigurableAttributeMapper.of(this).get("distribs", BuildType.DISTRIBUTIONS);
     } else {
-      return pkg.getPackageArgs().distribs();
+      return License.DEFAULT_DISTRIB;
     }
   }
 

@@ -79,12 +79,14 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file("/workspace/tools/build_rules/BUILD");
     scratch.file(
-        "foo/BUILD", //
-        "genrule(",
-        "    name = 'foo',",
-        "    outs = ['out.txt'],",
-        "    cmd = 'echo hello >@'",
-        ")");
+        "foo/BUILD",
+        """
+        genrule(
+            name = "foo",
+            outs = ["out.txt"],
+            cmd = "echo hello >@",
+        )
+        """);
     mockFS.throwIOExceptionFor = PathFragment.create("/workspace/foo/BUILD");
     invalidatePackages(/*alsoConfigs=*/ false); // We don't want to fail early on config creation.
 
@@ -162,7 +164,7 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
           Starlark.execFileProgram(
               bzlCompileValue.getProgram(),
               Module.withPredeclared(StarlarkSemantics.DEFAULT, ImmutableMap.of()),
-              new StarlarkThread(mu, StarlarkSemantics.DEFAULT));
+              StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT));
       assertThat(val.toString()).isEqualTo("[-9223372036854775809, 9223372036854775808]");
     }
   }

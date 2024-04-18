@@ -429,6 +429,8 @@ public class FileSystemUtils {
    * "to". If "from" is a regular file, its last modified time, executable and writable bits are
    * also preserved. Symlinks are also supported but not directories or special files.
    *
+   * <p>This method is not guaranteed to be atomic. Use {@link Path#renameTo(Path)} instead.
+   *
    * <p>If the move fails (usually because the "from" and "to" live in different file systems), this
    * falls back to copying the file. Note that these two operations have very different performance
    * characteristics and is why this operation reports back to the caller what actually happened.

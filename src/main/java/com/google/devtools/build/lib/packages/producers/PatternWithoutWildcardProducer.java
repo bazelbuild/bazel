@@ -32,7 +32,7 @@ import javax.annotation.Nullable;
  *
  * <p>When the pattern does not contain any wildcard character, the path is uniquely determined. So
  * it is only necessary to query the {@link FileValue} ending with this glob pattern fragment. If a
- * such file exists, we handle it by creating the {@link DirentProducer} under this {@link
+ * such file exists, we handle it by creating the {@link DirectoryDirentProducer} under this {@link
  * #filePath}.
  */
 final class PatternWithoutWildcardProducer implements StateMachine, Consumer<SkyValue> {
@@ -86,12 +86,14 @@ final class PatternWithoutWildcardProducer implements StateMachine, Consumer<Sky
       // not exist.
       return DONE;
     }
-    return new DirentProducer(
-        globDetail,
-        filePath,
-        fragmentIndex,
-        fileValue.isDirectory(),
-        resultSink,
-        visitedGlobSubTasks);
+
+    if (fileValue.isDirectory()) {
+      return new DirectoryDirentProducer(
+          globDetail, filePath, fragmentIndex, resultSink, visitedGlobSubTasks);
+    }
+    if (FragmentProducer.shouldAddFileMatchingToResult(fragmentIndex, globDetail)) {
+      resultSink.acceptPathFragmentWithPackageFragment(filePath);
+    }
+    return DONE;
   }
 }

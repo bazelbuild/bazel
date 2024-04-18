@@ -23,8 +23,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
@@ -390,8 +390,7 @@ final class AspectFunction implements SkyFunction {
       if (!e.depReportedOwnError()) {
         env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
       }
-      if (e.getCause() instanceof ConfiguredValueCreationException) {
-        ConfiguredValueCreationException cause = (ConfiguredValueCreationException) e.getCause();
+      if (e.getCause() instanceof ConfiguredValueCreationException cause) {
         throw new AspectFunctionException(
             new AspectCreationException(
                 cause.getMessage(), cause.getRootCauses(), cause.getDetailedExitCode()));
@@ -771,8 +770,8 @@ final class AspectFunction implements SkyFunction {
         view.createAnalysisEnvironment(key, events, env, configuration, starlarkBuiltinsValue);
 
     ConfiguredAspect configuredAspect;
-    if (aspect.getDefinition().applyToGeneratingRules() && associatedTarget instanceof OutputFile) {
-      OutputFile outputFile = (OutputFile) associatedTarget;
+    if (aspect.getDefinition().applyToGeneratingRules()
+        && associatedTarget instanceof OutputFile outputFile) {
       Label label = outputFile.getGeneratingRule().getLabel();
       return createAliasAspect(
           env, associatedTarget, key, aspect, key.withLabel(label), transitiveState);

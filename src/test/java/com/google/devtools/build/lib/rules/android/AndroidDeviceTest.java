@@ -60,16 +60,18 @@ public class AndroidDeviceTest extends AndroidBuildViewTestCase {
   public void setup() throws Exception {
     scratch.file(
         "sdk/system_images/BUILD",
-        "filegroup(",
-        "    name = 'emulator_images_android_21_x86',",
-        "    srcs = [",
-        "        'android_21/x86/kernel-qemu',",
-        "        'android_21/x86/ramdisk.img',",
-        "        'android_21/x86/source.properties',",
-        "        'android_21/x86/system.img.tar.gz',",
-        "        'android_21/x86/userdata.img.tar.gz'",
-        "    ],",
-        ")");
+        """
+        filegroup(
+            name = "emulator_images_android_21_x86",
+            srcs = [
+                "android_21/x86/kernel-qemu",
+                "android_21/x86/ramdisk.img",
+                "android_21/x86/source.properties",
+                "android_21/x86/system.img.tar.gz",
+                "android_21/x86/userdata.img.tar.gz",
+            ],
+        )
+        """);
     setBuildLanguageOptions("--experimental_google_legacy_api");
   }
 
@@ -660,14 +662,24 @@ public class AndroidDeviceTest extends AndroidBuildViewTestCase {
         ")");
     scratch.file(
         "javatests/com/app/starlarktest/starlarktest.bzl",
-        "mystring = provider(fields = ['content'])",
-        "def _impl(ctx):",
-        "  return [mystring(content = ctx.attr.dep[AndroidDeviceBrokerInfo])]",
-        "starlarktest = rule(implementation=_impl, attrs = {'dep': attr.label()})");
+        """
+        mystring = provider(fields = ["content"])
+
+        def _impl(ctx):
+            return [mystring(content = ctx.attr.dep[AndroidDeviceBrokerInfo])]
+
+        starlarktest = rule(implementation = _impl, attrs = {"dep": attr.label()})
+        """);
     scratch.file(
         "javatests/com/app/starlarktest/BUILD",
-        "load(':starlarktest.bzl', 'starlarktest')",
-        "starlarktest(name = 'mytest', dep = '//tools/android/emulated_device:nexus_6')");
+        """
+        load(":starlarktest.bzl", "starlarktest")
+
+        starlarktest(
+            name = "mytest",
+            dep = "//tools/android/emulated_device:nexus_6",
+        )
+        """);
     ConfiguredTarget ct = getConfiguredTarget("//javatests/com/app/starlarktest:mytest");
     assertThat(ct).isNotNull();
   }

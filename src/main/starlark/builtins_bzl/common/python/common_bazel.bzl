@@ -13,11 +13,11 @@
 # limitations under the License.
 """Common functions that are specific to Bazel rule implementation"""
 
-load(":common/paths.bzl", "paths")
-load(":common/python/providers.bzl", "PyCcLinkParamsProvider")
-load(":common/python/common.bzl", "is_bool")
-load(":common/cc/cc_info.bzl", _CcInfo = "CcInfo")
 load(":common/cc/cc_common.bzl", _cc_common = "cc_common")
+load(":common/cc/cc_info.bzl", _CcInfo = "CcInfo")
+load(":common/paths.bzl", "paths")
+load(":common/python/common.bzl", "is_bool")
+load(":common/python/providers.bzl", "PyCcLinkParamsProvider")
 
 _py_builtins = _builtins.internal.py_builtins
 

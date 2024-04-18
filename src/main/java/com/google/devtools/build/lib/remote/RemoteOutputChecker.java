@@ -238,8 +238,7 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
       case COVERAGE:
       case TEST:
         // Do not download test binary in test/coverage mode.
-        if (configuredTarget instanceof RuleConfiguredTarget) {
-          var ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
+        if (configuredTarget instanceof RuleConfiguredTarget ruleConfiguredTarget) {
           var isTestRule = isTestRuleName(ruleConfiguredTarget.getRuleClassString());
           return !isTestRule && outputsMode != RemoteOutputsMode.MINIMAL;
         }

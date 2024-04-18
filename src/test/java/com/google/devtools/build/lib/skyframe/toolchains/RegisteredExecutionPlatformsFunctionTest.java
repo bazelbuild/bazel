@@ -100,8 +100,11 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     // Add an extra execution platform.
     scratch.file(
         "extra/BUILD",
-        "platform(name = 'execution_platform_1')",
-        "platform(name = 'execution_platform_2')");
+        """
+        platform(name = "execution_platform_1")
+
+        platform(name = "execution_platform_2")
+        """);
 
     rewriteWorkspace("register_execution_platforms('//extra:execution_platform_2')");
     useConfiguration("--extra_execution_platforms=//extra:execution_platform_1");
@@ -126,8 +129,11 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     // Add an extra execution platform.
     scratch.file(
         "extra/BUILD",
-        "platform(name = 'execution_platform_1')",
-        "platform(name = 'execution_platform_2')");
+        """
+        platform(name = "execution_platform_1")
+
+        platform(name = "execution_platform_2")
+        """);
 
     useConfiguration(
         "--extra_execution_platforms=//extra:execution_platform_1,//extra:execution_platform_2");
@@ -152,8 +158,11 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     // Add an extra execution platform.
     scratch.file(
         "extra/BUILD",
-        "platform(name = 'execution_platform_1')",
-        "platform(name = 'execution_platform_2')");
+        """
+        platform(name = "execution_platform_1")
+
+        platform(name = "execution_platform_2")
+        """);
 
     rewriteWorkspace("register_execution_platforms('//extra/...')");
 
@@ -177,8 +186,11 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     scratch.file("myrepo/BUILD");
     scratch.file(
         "myrepo/platforms/BUILD",
-        "platform(name = 'execution_platform_1')",
-        "platform(name = 'execution_platform_2')");
+        """
+        platform(name = "execution_platform_1")
+
+        platform(name = "execution_platform_2")
+        """);
     scratch.file(
         "myrepo/macro.bzl", "def reg(): native.register_execution_platforms('//platforms:all')");
 
@@ -205,9 +217,13 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     // Add several targets, some of which are not actually platforms.
     scratch.file(
         "extra/BUILD",
-        "platform(name = 'execution_platform_1')",
-        "platform(name = 'execution_platform_2')",
-        "filegroup(name = 'not_an_execution_platform')");
+        """
+        platform(name = "execution_platform_1")
+
+        platform(name = "execution_platform_2")
+
+        filegroup(name = "not_an_execution_platform")
+        """);
 
     rewriteWorkspace("register_execution_platforms('//extra:all')");
 
@@ -233,8 +249,11 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     // Add an extra execution platform.
     scratch.file(
         "extra/BUILD",
-        "platform(name = 'execution_platform_1')",
-        "platform(name = 'execution_platform_2')");
+        """
+        platform(name = "execution_platform_1")
+
+        platform(name = "execution_platform_2")
+        """);
 
     useConfiguration("--extra_execution_platforms=//extra/...");
 
@@ -278,8 +297,11 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
   public void testRegisteredExecutionPlatforms_reload() throws Exception {
     scratch.overwriteFile(
         "platform/BUILD",
-        "platform(name = 'execution_platform_1')",
-        "platform(name = 'execution_platform_2')");
+        """
+        platform(name = "execution_platform_1")
+
+        platform(name = "execution_platform_2")
+        """);
 
     rewriteWorkspace("register_execution_platforms('//platform:execution_platform_1')");
 

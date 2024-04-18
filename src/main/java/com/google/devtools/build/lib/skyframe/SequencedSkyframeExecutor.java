@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.devtools.build.lib.analysis.config.CommonOptions.EMPTY_OPTIONS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -46,6 +47,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
+import com.google.devtools.build.lib.concurrent.PooledInterner;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.events.Event;
@@ -66,6 +68,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
+import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.XattrProviderOverrider;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
@@ -269,6 +272,11 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
                 "manual GC to clean up from --keep_state_after_build command")) {
           System.gc();
         }
+        try (var profiler =
+            GoogleAutoProfilerUtils.logged(
+                "shrinking pooled interners after resetting evaluator")) {
+          PooledInterner.shrinkAll();
+        }
         needGcAfterResettingEvaluator = false;
       }
     }
@@ -460,7 +468,12 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     long startTime = System.nanoTime();
     FilesystemValueChecker fsvc =
         new FilesystemValueChecker(
-            Preconditions.checkNotNull(tsgm.get()), syscallCache, fsvcThreads);
+            Preconditions.checkNotNull(tsgm.get()),
+            syscallCache,
+            outputService == null
+                ? XattrProviderOverrider.NO_OVERRIDE
+                : outputService::getXattrProvider,
+            fsvcThreads);
     BatchStat batchStatter = outputService == null ? null : outputService.getBatchStatter();
     recordingDiffer.invalidate(
         fsvc.getDirtyActionValues(
@@ -496,8 +509,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       SkyValue value = skyKeyAndValue.getValue();
       SkyKey key = skyKeyAndValue.getKey();
       SkyFunctionName functionName = key.functionName();
-      if (value instanceof RuleConfiguredTargetValue) {
-        RuleConfiguredTargetValue ctValue = (RuleConfiguredTargetValue) value;
+      if (value instanceof RuleConfiguredTargetValue ctValue) {
         ConfiguredTarget configuredTarget = ctValue.getConfiguredTarget();
         if (configuredTarget instanceof RuleConfiguredTarget) {
 
@@ -605,8 +617,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         continue;
       }
       try {
-        if (skyValue instanceof RuleConfiguredTargetValue) {
-          var configuredTarget = (RuleConfiguredTargetValue) skyValue;
+        if (skyValue instanceof RuleConfiguredTargetValue configuredTarget) {
           // Only dumps the value for non-delegating keys.
           if (configuredTarget.getConfiguredTarget().getLookupKey().equals(key)) {
             actionGraphDump.dumpConfiguredTarget(configuredTarget);
@@ -640,16 +651,37 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     memoizingEvaluator.delete(this::shouldDeleteOnAnalysisInvalidatingChange);
   }
 
-  // Also remove ActionLookupData since all such nodes depend on ActionLookupKey nodes and deleting
-  // en masse is cheaper than deleting via graph traversal (b/192863968).
   @ForOverride
   protected boolean shouldDeleteOnAnalysisInvalidatingChange(SkyKey k) {
-    return k instanceof ArtifactNestedSetKey
-        || k instanceof ActionLookupKey
-        || (k instanceof BuildConfigurationKey
-            && getSkyframeBuildView().getBuildConfiguration() != null
-            && !k.equals(getSkyframeBuildView().getBuildConfiguration().getKey()))
-        || k instanceof ActionLookupData;
+    // TODO: b/330770905 - Rewrite this to use pattern matching when available.
+    // Also remove ActionLookupData since all such nodes depend on ActionLookupKey nodes and
+    // deleting en masse is cheaper than deleting via graph traversal (b/192863968).
+    if (k instanceof ArtifactNestedSetKey || k instanceof ActionLookupData) {
+      return true;
+    }
+    // Remove BuildConfigurationKeys except for the currently active key and the key for
+    // EMPTY_OPTIONS, which is a constant and will be re-used frequently.
+    if (k instanceof BuildConfigurationKey key) {
+      if (key.getOptionsChecksum().equals(EMPTY_OPTIONS.checksum())) {
+        return false;
+      }
+      if (getSkyframeBuildView().getBuildConfiguration() != null
+          && k.equals(getSkyframeBuildView().getBuildConfiguration().getKey())) {
+        return false;
+      }
+      return true;
+    }
+    // Remove ActionLookupKeys unless they are for the empty options config, in which case they will
+    // be re-used frequently and we can avoid re-creating them. They are dependencies of the empty
+    // configuration key and will never change.
+    if (k instanceof ActionLookupKey lookupKey) {
+      BuildConfigurationKey key = lookupKey.getConfigurationKey();
+      if (key != null && key.getOptionsChecksum().equals(EMPTY_OPTIONS.checksum())) {
+        return false;
+      }
+      return true;
+    }
+    return false;
   }
 
   /**

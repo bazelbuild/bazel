@@ -84,6 +84,11 @@ public class Checksum {
       expectedLength = 64;
       hash = decoder.decode(integrity.substring(7));
     }
+    if (integrity.startsWith("blake3-")) {
+      keyType = KeyType.BLAKE3;
+      expectedLength = 32;
+      hash = decoder.decode(integrity.substring(7));
+    }
 
     if (keyType == null) {
       throw new InvalidChecksumException(

@@ -29,7 +29,7 @@ java_test(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
@@ -82,6 +82,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/testing",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/bazel/bzlmod:util",
         "//src/test/java/com/google/devtools/build/lib/exec/util",
         "//src/test/java/com/google/devtools/build/lib/rules/python:PythonTestUtils",
         "//src/test/java/com/google/devtools/build/lib/starlark/util",

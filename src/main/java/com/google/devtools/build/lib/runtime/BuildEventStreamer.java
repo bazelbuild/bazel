@@ -504,8 +504,7 @@ public class BuildEventStreamer {
       buildEvent(freedEvent);
     }
 
-    if (event instanceof BuildCompleteEvent) {
-      BuildCompleteEvent buildCompleteEvent = (BuildCompleteEvent) event;
+    if (event instanceof BuildCompleteEvent buildCompleteEvent) {
       if (isCrash(buildCompleteEvent) || isCatastrophe(buildCompleteEvent)) {
         addAbortReason(AbortReason.INTERNAL);
       } else if (isIncomplete(buildCompleteEvent)) {

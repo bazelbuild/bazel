@@ -633,9 +633,8 @@ public final class StarlarkRuleContext
     }
 
     // Normalize the return type
-    if (rawProviders instanceof Info) {
+    if (rawProviders instanceof Info info) {
       // Either an old-style struct or a single declared provider (not in a list)
-      Info info = (Info) rawProviders;
       if (info.getProvider().getKey().equals(StructProvider.STRUCT.getKey())) {
         throw Starlark.errorf(
             "Parent rule returned struct providers. Rules returning struct providers can't be"
@@ -1179,11 +1178,23 @@ public final class StarlarkRuleContext
   @Override
   public Tuple resolveTools(Sequence<?> tools) throws EvalException {
     checkMutable("resolve_tools");
+    checkResolveToolsAllowed();
     CommandHelper helper =
         CommandHelper.builder(ruleContext)
             .addToolDependencies(Sequence.cast(tools, TransitiveInfoCollection.class, "tools"))
             .build();
     return Tuple.pair(Depset.of(Artifact.class, helper.getResolvedTools()), StarlarkList.empty());
+  }
+
+  private void checkResolveToolsAllowed() throws EvalException {
+    if (getStarlarkSemantics()
+        .getBool(BuildLanguageOptions.INCOMPATIBLE_DISALLOW_CTX_RESOLVE_TOOLS)) {
+      throw Starlark.errorf(
+          "Pass an executable or tools argument to ctx.actions.run or ctx.actions.run_shell"
+              + " instead of calling ctx.resolve_tools.\n"
+              + "Use --noincompatible_disallow_ctx_resolve_tools to temporarily disable this"
+              + " check.");
+    }
   }
 
   @Override

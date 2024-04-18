@@ -74,10 +74,9 @@ public class ResolvedFileValue implements SkyValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof ResolvedFileKey)) {
+      if (!(obj instanceof ResolvedFileKey other)) {
         return false;
       }
-      ResolvedFileKey other = (ResolvedFileKey) obj;
       return Objects.equals(path, other.path);
     }
 

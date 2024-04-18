@@ -17,10 +17,12 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType.UNQUOTED;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.packages.StarlarkProviderIdentifier.forKey;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.rules.android.AndroidCommon.getAndroidConfig;
+import static com.google.devtools.build.lib.rules.android.AndroidSdkProvider.ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME;
 
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
@@ -34,9 +36,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -160,6 +162,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
                     // For proto_lang_toolchain rules, where we just want to get at their runtime
                     // deps.
                     ImmutableSet.of(ProtoLangToolchainProvider.PROVIDER_ID)))
+            .add(attr(ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL).value(toolchainType))
             .addToolchainTypes(
                 ToolchainTypeRequirement.builder(toolchainType).mandatory(true).build())
             // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
@@ -236,6 +239,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       AspectParameters params,
       RepositoryName toolsRepository)
       throws InterruptedException, ActionConflictException {
+
     ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(ruleContext);
 
     // No-op out of the aspect in the android_binary rule if the Starlark dex/desugar will execute
@@ -286,6 +290,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       Set<Set<String>> aspectDexopts = aspectDexopts(ruleContext);
       String minSdkFilenamePart = minSdkVersion > 0 ? "--min_sdk_version=" + minSdkVersion : "";
       for (Artifact jar : runtimeJars) {
+        Artifact desugaredJar = desugaredJars.apply(jar);
         for (Set<String> incrementalDexopts : aspectDexopts) {
           // Since we're potentially dexing the same jar multiple times with different flags, we
           // need to write unique artifacts for each flag combination. Here, it is convenient to
@@ -302,7 +307,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
               createDexArchiveAction(
                   ruleContext,
                   ASPECT_DEXBUILDER_PREREQ,
-                  desugaredJars.apply(jar),
+                  desugaredJar,
                   incrementalDexopts,
                   minSdkVersion,
                   AndroidBinary.getDxArtifact(ruleContext, uniqueFilename));
@@ -380,7 +385,14 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       }
     }
     result.addProvider(desugaredJars.build());
-    return Functions.forMap(newlyDesugared);
+
+    return key -> {
+      if (newlyDesugared.containsKey(key)) {
+        return newlyDesugared.get(key);
+      }
+      // Fall back to the original un-desugared artifact.
+      return key;
+    };
   }
 
   @Nullable

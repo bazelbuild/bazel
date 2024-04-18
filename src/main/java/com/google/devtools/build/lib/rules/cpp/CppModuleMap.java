@@ -93,8 +93,7 @@ public final class CppModuleMap implements CppModuleMapApi<Artifact> {
     if (this == other) {
       return true;
     }
-    if (other instanceof CppModuleMap) {
-      CppModuleMap that = (CppModuleMap) other;
+    if (other instanceof CppModuleMap that) {
       return artifact.equals(that.artifact)
           && umbrellaHeader.equals(that.umbrellaHeader)
           && name.equals(that.name);

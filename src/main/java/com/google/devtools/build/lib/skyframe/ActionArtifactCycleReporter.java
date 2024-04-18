@@ -58,8 +58,7 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
       return prettyPrintArtifact(((Artifact) arg));
     } else if (arg instanceof ActionLookupData) {
       return "action from: " + arg;
-    } else if (arg instanceof TopLevelActionLookupKeyWrapper) {
-      TopLevelActionLookupKeyWrapper key = (TopLevelActionLookupKeyWrapper) arg;
+    } else if (arg instanceof TopLevelActionLookupKeyWrapper key) {
       if (skyFunctionName.equals(SkyFunctions.TARGET_COMPLETION)) {
         return "configured target: " + key.actionLookupKey().getLabel();
       }

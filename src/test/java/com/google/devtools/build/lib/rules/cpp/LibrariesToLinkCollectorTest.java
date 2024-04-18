@@ -93,10 +93,15 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
     scratch.file("src/WORKSPACE");
     scratch.file(
         "src/test/BUILD",
-        "cc_binary(",
-        "  name = 'foo',",
-        "  srcs = ['some-dir/bar.so', 'some-other-dir/qux.so'],",
-        ")");
+        """
+        cc_binary(
+            name = "foo",
+            srcs = [
+                "some-dir/bar.so",
+                "some-other-dir/qux.so",
+            ],
+        )
+        """);
     scratch.file("src/test/some-dir/bar.so");
     scratch.file("src/test/some-other-dir/qux.so");
 
@@ -186,10 +191,15 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
 
     scratch.file(
         "src/test/BUILD",
-        "cc_binary(",
-        "  name = 'foo',",
-        "  srcs = ['some-dir/bar.so', 'some-other-dir/qux.so'],",
-        ")");
+        """
+        cc_binary(
+            name = "foo",
+            srcs = [
+                "some-dir/bar.so",
+                "some-other-dir/qux.so",
+            ],
+        )
+        """);
     scratch.file("src/test/some-dir/bar.so");
     scratch.file("src/test/some-other-dir/qux.so");
 

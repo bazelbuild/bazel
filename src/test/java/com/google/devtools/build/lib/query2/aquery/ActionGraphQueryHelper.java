@@ -14,15 +14,15 @@
 package com.google.devtools.build.lib.query2.aquery;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment.TopLevelConfigurations;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.testutil.PostAnalysisQueryHelper;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
-import java.util.Collection;
 
 /** Helper class for aquery test */
 public class ActionGraphQueryHelper extends PostAnalysisQueryHelper<ConfiguredTargetValue> {
@@ -31,7 +31,7 @@ public class ActionGraphQueryHelper extends PostAnalysisQueryHelper<ConfiguredTa
   protected PostAnalysisQueryEnvironment<ConfiguredTargetValue> getPostAnalysisQueryEnvironment(
       WalkableGraph walkableGraph,
       TopLevelConfigurations topLevelConfigurations,
-      Collection<SkyKey> transitiveConfigurationKeys) {
+      ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations) {
     ImmutableList<QueryFunction> extraFunctions =
         ImmutableList.copyOf(ActionGraphQueryEnvironment.AQUERY_FUNCTIONS);
     return new ActionGraphQueryEnvironment(
@@ -39,6 +39,7 @@ public class ActionGraphQueryHelper extends PostAnalysisQueryHelper<ConfiguredTa
         getReporter(),
         extraFunctions,
         topLevelConfigurations,
+        transitiveConfigurations,
         mainRepoTargetParser,
         analysisHelper.getPackageManager().getPackagePath(),
         () -> walkableGraph,

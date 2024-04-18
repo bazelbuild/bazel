@@ -478,42 +478,60 @@ public abstract class CcImportBaseConfiguredTargetTest extends BuildViewTestCase
 
     scratch.file(
         "bin/custom_transition.bzl",
-        "def _custom_transition_impl(settings, attr):",
-        "    _ignore = settings, attr",
-        "",
-        "    return {'//command_line_option:copt': ['-DFLAG']}",
-        "",
-        "custom_transition = transition(",
-        "    implementation = _custom_transition_impl,",
-        "    inputs = [],",
-        "    outputs = ['//command_line_option:copt'],",
-        ")",
-        "",
-        "def _apply_custom_transition_impl(ctx):",
-        "    cc_infos = []",
-        "    for dep in ctx.attr.deps:",
-        "        cc_infos.append(dep[CcInfo])",
-        "    merged_cc_info = cc_common.merge_cc_infos(cc_infos = cc_infos)",
-        "    return merged_cc_info",
-        "",
-        "apply_custom_transition = rule(",
-        "    implementation = _apply_custom_transition_impl,",
-        "    attrs = {",
-        "        'deps': attr.label_list(cfg = custom_transition),",
-        "    },",
-        ")");
+        """
+        def _custom_transition_impl(settings, attr):
+            _ignore = settings, attr
+
+            return {"//command_line_option:copt": ["-DFLAG"]}
+
+        custom_transition = transition(
+            implementation = _custom_transition_impl,
+            inputs = [],
+            outputs = ["//command_line_option:copt"],
+        )
+
+        def _apply_custom_transition_impl(ctx):
+            cc_infos = []
+            for dep in ctx.attr.deps:
+                cc_infos.append(dep[CcInfo])
+            merged_cc_info = cc_common.merge_cc_infos(cc_infos = cc_infos)
+            return merged_cc_info
+
+        apply_custom_transition = rule(
+            implementation = _apply_custom_transition_impl,
+            attrs = {
+                "deps": attr.label_list(cfg = custom_transition),
+            },
+        )
+        """);
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
-        "package_group(",
-        "    name = 'function_transition_allowlist',",
-        "    packages = ['//...'],",
-        ")");
+        """
+        package_group(
+            name = "function_transition_allowlist",
+            packages = ["//..."],
+        )
+        """);
     scratch.file(
         "bin/BUILD",
-        "load(':custom_transition.bzl', 'apply_custom_transition')",
-        "cc_library(name='lib', deps=['//a:foo'])",
-        "apply_custom_transition(name='transitioned_lib', deps=[':lib'])",
-        "cc_binary(name='bin', deps=[':transitioned_lib'])");
+        """
+        load(":custom_transition.bzl", "apply_custom_transition")
+
+        cc_library(
+            name = "lib",
+            deps = ["//a:foo"],
+        )
+
+        apply_custom_transition(
+            name = "transitioned_lib",
+            deps = [":lib"],
+        )
+
+        cc_binary(
+            name = "bin",
+            deps = [":transitioned_lib"],
+        )
+        """);
 
     Artifact dynamicLibrary =
         target

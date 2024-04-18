@@ -48,10 +48,15 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
   public void testSimpleTestNotNull() throws Exception {
     scratch.file(
         "java/test/BUILD",
-        "load('//java/bar:foo.bzl', 'extra_deps')",
-        "android_local_test(name = 'dummyTest',",
-        "    srcs = ['test.java'],",
-        "    deps = extra_deps)");
+        """
+        load("//java/bar:foo.bzl", "extra_deps")
+
+        android_local_test(
+            name = "dummyTest",
+            srcs = ["test.java"],
+            deps = extra_deps,
+        )
+        """);
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
     assertThat(target).isNotNull();
   }
@@ -60,10 +65,15 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
   public void testResourceFilesZipCalledResourceFilesZip() throws Exception {
     scratch.file(
         "java/test/BUILD",
-        "load('//java/bar:foo.bzl', 'extra_deps')",
-        "android_local_test(name = 'dummyTest',",
-        "    srcs = ['test.java'],",
-        "    deps = extra_deps)");
+        """
+        load("//java/bar:foo.bzl", "extra_deps")
+
+        android_local_test(
+            name = "dummyTest",
+            srcs = ["test.java"],
+            deps = extra_deps,
+        )
+        """);
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
 
     Artifact resourcesZip =
@@ -75,10 +85,15 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
   public void testManifestInRunfiles() throws Exception {
     scratch.file(
         "java/test/BUILD",
-        "load('//java/bar:foo.bzl', 'extra_deps')",
-        "android_local_test(name = 'dummyTest',",
-        "    srcs = ['test.java'],",
-        "    deps = extra_deps)");
+        """
+        load("//java/bar:foo.bzl", "extra_deps")
+
+        android_local_test(
+            name = "dummyTest",
+            srcs = ["test.java"],
+            deps = extra_deps,
+        )
+        """);
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
     NestedSet<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact manifest =
@@ -91,10 +106,15 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
   public void testResourcesClassJarInRunfiles() throws Exception {
     scratch.file(
         "java/test/BUILD",
-        "load('//java/bar:foo.bzl', 'extra_deps')",
-        "android_local_test(name = 'dummyTest',",
-        "    srcs = ['test.java'],",
-        "    deps = extra_deps)");
+        """
+        load("//java/bar:foo.bzl", "extra_deps")
+
+        android_local_test(
+            name = "dummyTest",
+            srcs = ["test.java"],
+            deps = extra_deps,
+        )
+        """);
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
     NestedSet<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact resourceClassJar =
@@ -106,10 +126,15 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
   public void testResourcesZipFileInRunfiles() throws Exception {
     scratch.file(
         "java/test/BUILD",
-        "load('//java/bar:foo.bzl', 'extra_deps')",
-        "android_local_test(name = 'dummyTest',",
-        "    srcs = ['test.java'],",
-        "    deps = extra_deps)");
+        """
+        load("//java/bar:foo.bzl", "extra_deps")
+
+        android_local_test(
+            name = "dummyTest",
+            srcs = ["test.java"],
+            deps = extra_deps,
+        )
+        """);
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
     NestedSet<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact resourcesZip =
@@ -133,12 +158,17 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
   public void testCustomPackage() throws Exception {
     scratch.file(
         "a/BUILD",
-        "load('//java/bar:foo.bzl', 'extra_deps')",
-        "android_local_test(name = 'dummyTest',",
-        "    srcs = ['test.java'],",
-        "    custom_package = 'custom.pkg',",
-        "    test_class = 'test',",
-        "    deps = extra_deps)");
+        """
+        load("//java/bar:foo.bzl", "extra_deps")
+
+        android_local_test(
+            name = "dummyTest",
+            srcs = ["test.java"],
+            custom_package = "custom.pkg",
+            test_class = "test",
+            deps = extra_deps,
+        )
+        """);
     ConfiguredTarget target = getConfiguredTarget("//a:dummyTest");
     Artifact resourcesClassJar =
         getImplicitOutputArtifact(target, AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR);
@@ -150,10 +180,15 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
   public void testBinaryResources() throws Exception {
     scratch.file(
         "java/test/BUILD",
-        "load('//java/bar:foo.bzl', 'extra_deps')",
-        "android_local_test(name = 'dummyTest',",
-        "    srcs = ['test.java'],",
-        "    deps = extra_deps)");
+        """
+        load("//java/bar:foo.bzl", "extra_deps")
+
+        android_local_test(
+            name = "dummyTest",
+            srcs = ["test.java"],
+            deps = extra_deps,
+        )
+        """);
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
     NestedSet<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact resourceApk =
@@ -182,13 +217,18 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
   public void testNocompressExtensions() throws Exception {
     scratch.file(
         "java/r/android/BUILD",
-        "android_binary(",
-        "  name = 'r',",
-        "  srcs = ['Foo.java'],",
-        "  manifest = 'AndroidManifest.xml',",
-        "  resource_files = ['res/raw/foo.apk'],",
-        "  nocompress_extensions = ['.apk', '.so'],",
-        ")");
+        """
+        android_binary(
+            name = "r",
+            srcs = ["Foo.java"],
+            manifest = "AndroidManifest.xml",
+            nocompress_extensions = [
+                ".apk",
+                ".so",
+            ],
+            resource_files = ["res/raw/foo.apk"],
+        )
+        """);
     ConfiguredTarget binary = getConfiguredTarget("//java/r/android:r");
     ValidatedAndroidResources resource = getValidatedResources(binary);
     List<String> args = getGeneratingSpawnActionArgs(resource.getApk());
@@ -221,11 +261,16 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
   public void testResourceConfigurationFilters() throws Exception {
     scratch.file(
         "java/test/BUILD",
-        "load('//java/bar:foo.bzl', 'extra_deps')",
-        "android_local_test(name = 'dummyTest',",
-        "    srcs = ['test.java'],",
-        "    deps = extra_deps,",
-        "    resource_configuration_filters = ['ar_XB'])");
+        """
+        load("//java/bar:foo.bzl", "extra_deps")
+
+        android_local_test(
+            name = "dummyTest",
+            srcs = ["test.java"],
+            resource_configuration_filters = ["ar_XB"],
+            deps = extra_deps,
+        )
+        """);
 
     ConfiguredTarget binary = getConfiguredTarget("//java/test:dummyTest");
     final ImmutableList<ActionAnalysisMetadata> actions =
@@ -248,30 +293,42 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
     useConfiguration("--include_config_fragments_provider=direct");
     scratch.overwriteFile(
         "tools/allowlists/config_feature_flag/BUILD",
-        "package_group(",
-        "    name = 'config_feature_flag',",
-        "    packages = ['//java/com/google/android/foo'])");
+        """
+        package_group(
+            name = "config_feature_flag",
+            packages = ["//java/com/google/android/foo"],
+        )
+        """);
     scratch.file(
         "java/com/google/android/foo/BUILD",
-        "load('//java/bar:foo.bzl', 'extra_deps')",
-        "config_feature_flag(",
-        "  name = 'flag1',",
-        "  allowed_values = ['on', 'off'],",
-        "  default_value = 'off',",
-        ")",
-        "android_binary(",
-        "  name = 'foo_under_test',",
-        "  srcs = ['Test.java'],",
-        "  manifest = 'AndroidManifest.xml',",
-        ")",
-        "android_local_test(",
-        "    name = 'local_test',",
-        "    srcs = ['test.java'],",
-        "    deps = extra_deps,",
-        "    feature_flags = {",
-        "      'flag1': 'on',",
-        "    },",
-        "    resource_configuration_filters = ['ar_XB'])");
+        """
+        load("//java/bar:foo.bzl", "extra_deps")
+
+        config_feature_flag(
+            name = "flag1",
+            allowed_values = [
+                "on",
+                "off",
+            ],
+            default_value = "off",
+        )
+
+        android_binary(
+            name = "foo_under_test",
+            srcs = ["Test.java"],
+            manifest = "AndroidManifest.xml",
+        )
+
+        android_local_test(
+            name = "local_test",
+            srcs = ["test.java"],
+            feature_flags = {
+                "flag1": "on",
+            },
+            resource_configuration_filters = ["ar_XB"],
+            deps = extra_deps,
+        )
+        """);
 
     ConfiguredTarget ct = getConfiguredTarget("//java/com/google/android/foo:local_test");
     assertThat(ct.getProvider(RequiredConfigFragmentsProvider.class).getStarlarkOptions())

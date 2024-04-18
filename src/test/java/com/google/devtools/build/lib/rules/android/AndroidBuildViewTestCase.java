@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
+import static com.google.devtools.build.lib.testutil.TestConstants.ANDROID_DEFAULT_SDK;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Ascii;
@@ -270,8 +271,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   @Nullable
   protected AndroidDeployInfo getAndroidDeployInfo(Artifact artifact) throws IOException {
     Action generatingAction = getGeneratingAction(artifact);
-    if (generatingAction instanceof AndroidDeployInfoAction) {
-      AndroidDeployInfoAction writeAction = (AndroidDeployInfoAction) generatingAction;
+    if (generatingAction instanceof AndroidDeployInfoAction writeAction) {
       return writeAction.getDeployInfo();
     }
     return null;
@@ -355,29 +355,28 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     return Sets.difference(action.getInputs().toSet(), action.getTools().toSet());
   }
 
-  protected String getAndroidJarPath() throws Exception {
+  protected String getAndroidJarPath() {
     return getAndroidSdk().getAndroidJar().getExecPathString();
   }
 
-  protected String getAndroidJarFilename() throws Exception {
+  protected String getAndroidJarFilename() {
     return getAndroidSdk().getAndroidJar().getFilename();
   }
 
-  protected Artifact getProguardBinary() throws Exception {
+  protected Artifact getProguardBinary() {
     return getAndroidSdk().getProguard().getExecutable();
   }
 
-  protected String getMainDexClassesPath() throws Exception {
+  protected String getMainDexClassesPath() {
     return getAndroidSdk().getMainDexClasses().getExecPathString();
   }
 
-  protected String getMainDexClassesFilename() throws Exception {
+  protected String getMainDexClassesFilename() {
     return getAndroidSdk().getMainDexClasses().getFilename();
   }
 
-  private AndroidSdkProvider getAndroidSdk() throws Exception {
-    Label sdk = targetConfig.getFragment(AndroidConfiguration.class).getSdk();
-    return getConfiguredTarget(sdk, targetConfig).get(AndroidSdkProvider.PROVIDER);
+  private AndroidSdkProvider getAndroidSdk() {
+    return getConfiguredTarget(ANDROID_DEFAULT_SDK, targetConfig).get(AndroidSdkProvider.PROVIDER);
   }
 
   /**

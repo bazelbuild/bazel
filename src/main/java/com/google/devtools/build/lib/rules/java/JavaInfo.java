@@ -545,11 +545,10 @@ public final class JavaInfo extends NativeInfo
     if (this == otherObject) {
       return true;
     }
-    if (!(otherObject instanceof JavaInfo)) {
+    if (!(otherObject instanceof JavaInfo other)) {
       return false;
     }
 
-    JavaInfo other = (JavaInfo) otherObject;
     return Objects.equals(providerJavaCompilationArgs, other.providerJavaCompilationArgs)
         && Objects.equals(providerJavaSourceJars, other.providerJavaSourceJars)
         && Objects.equals(providerJavaRuleOutputJars, other.providerJavaRuleOutputJars)

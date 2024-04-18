@@ -197,10 +197,21 @@ public final class AndroidSdkProvider extends NativeInfo
 
   @Nullable
   private static Label getToolchainTypeFromAttribute(RuleContext ruleContext) {
-    Type<Label> depType =
-        ruleContext.getRule().getRuleClassObject().isStarlark()
-            ? BuildType.LABEL
-            : BuildType.NODEP_LABEL;
+    Type<Label> depType;
+    if (ruleContext.attributes().has(ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, BuildType.LABEL)) {
+      depType = BuildType.LABEL;
+    } else if (ruleContext
+        .attributes()
+        .has(ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, BuildType.NODEP_LABEL)) {
+      depType = BuildType.NODEP_LABEL;
+    } else {
+      String message =
+          String.format(
+              "%s does not have the attribute %s of type LABEL or NODEP_LABEL, cannot find the"
+                  + " Android SDK",
+              ruleContext.toString(), ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME);
+      throw new IllegalStateException(message);
+    }
     return ruleContext.attributes().get(ANDROID_SDK_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, depType);
   }
 

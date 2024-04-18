@@ -32,6 +32,7 @@ class BazelLockfileTest(test_base.TestBase):
     self.main_registry = BazelRegistry(
         os.path.join(self.registries_work_dir, 'main')
     )
+    self.main_registry.start()
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'aaa', '1.1'
     ).createCcModule('bbb', '1.0', {'aaa': '1.0'}).createCcModule(
@@ -58,6 +59,10 @@ class BazelLockfileTest(test_base.TestBase):
     # TODO(pcloudy): investigate why this is needed, MODULE.bazel.lock is not
     # deterministic?
     os.remove(self.Path('MODULE.bazel.lock'))
+
+  def tearDown(self):
+    self.main_registry.stop()
+    test_base.TestBase.tearDown(self)
 
   def testChangeModuleInRegistryWithoutLockfile(self):
     # Add module 'sss' to the registry with dep on 'aaa'
@@ -446,10 +451,9 @@ class BazelLockfileTest(test_base.TestBase):
     with open(self.Path('MODULE.bazel.lock'), 'r') as f:
       lockfile = json.loads(f.read().strip())
       self.assertGreater(len(lockfile['moduleDepGraph']), 0)
-      self.assertEqual(
-          list(lockfile['moduleExtensions'].keys()),
-          ['//:extension.bzl%extA', '//:extension.bzl%extB'],
-      )
+      ext_keys = list(lockfile['moduleExtensions'].keys())
+      self.assertIn('//:extension.bzl%extA', ext_keys)
+      self.assertIn('//:extension.bzl%extB', ext_keys)
 
   def testUpdateModuleExtension(self):
     self.ScratchFile(
@@ -590,15 +594,15 @@ class BazelLockfileTest(test_base.TestBase):
     self.RunBazel(['build', '@hello//:all'])
     with open(self.Path('MODULE.bazel.lock'), 'r') as f:
       lockfile = json.loads(f.read().strip())
-      self.assertEqual(
-          list(lockfile['moduleExtensions'].keys()), ['//:extension.bzl%ext']
-      )
+      ext_keys = list(lockfile['moduleExtensions'].keys())
+      self.assertIn('//:extension.bzl%ext', ext_keys)
 
     self.ScratchFile('MODULE.bazel', [])
     self.RunBazel(['build', '//:all'])
     with open(self.Path('MODULE.bazel.lock'), 'r') as f:
       lockfile = json.loads(f.read().strip())
-      self.assertEqual(len(lockfile['moduleExtensions']), 0)
+      ext_keys = list(lockfile['moduleExtensions'].keys())
+      self.assertNotIn('//:extension.bzl%ext', ext_keys)
 
   def testNoAbsoluteRootModuleFilePath(self):
     self.ScratchFile(
@@ -1277,66 +1281,70 @@ class BazelLockfileTest(test_base.TestBase):
 
   def testLockfileWithNoUserSpecificPath(self):
     self.my_registry = BazelRegistry(os.path.join(self._test_cwd, 'registry'))
-    self.my_registry.setModuleBasePath('projects')
-    patch_file = self.ScratchFile(
-        'ss.patch',
-        [
-            '--- a/aaa.cc',
-            '+++ b/aaa.cc',
-            '@@ -1,6 +1,6 @@',
-            ' #include <stdio.h>',
-            ' #include "aaa.h"',
-            ' void hello_aaa(const std::string& caller) {',
-            '-    std::string lib_name = "aaa@1.1-1";',
-            '+    std::string lib_name = "aaa@1.1-1 (remotely patched)";',
-            '     printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
-            ' }',
-        ],
-    )
-    # Module with a local patch & extension
-    self.my_registry.createCcModule(
-        'ss',
-        '1.3-1',
-        {'ext': '1.0'},
-        patches=[patch_file],
-        patch_strip=1,
-        extra_module_file_contents=[
-            'my_ext = use_extension("@ext//:ext.bzl", "ext")',
-            'use_repo(my_ext, "justRepo")',
-        ],
-    )
-    ext_src = [
-        'def _repo_impl(ctx): ctx.file("BUILD")',
-        'repo = repository_rule(_repo_impl)',
-        'def _ext_impl(ctx): repo(name=justRepo)',
-        'ext=module_extension(_ext_impl)',
-    ]
-    self.my_registry.createLocalPathModule('ext', '1.0', 'ext')
-    scratchFile(self.my_registry.projects.joinpath('ext', 'BUILD'))
-    scratchFile(self.my_registry.projects.joinpath('ext', 'ext.bzl'), ext_src)
+    self.my_registry.start()
+    try:
+      self.my_registry.setModuleBasePath('projects')
+      patch_file = self.ScratchFile(
+          'ss.patch',
+          [
+              '--- a/aaa.cc',
+              '+++ b/aaa.cc',
+              '@@ -1,6 +1,6 @@',
+              ' #include <stdio.h>',
+              ' #include "aaa.h"',
+              ' void hello_aaa(const std::string& caller) {',
+              '-    std::string lib_name = "aaa@1.1-1";',
+              '+    std::string lib_name = "aaa@1.1-1 (remotely patched)";',
+              '     printf("%s => %s\\n", caller.c_str(), lib_name.c_str());',
+              ' }',
+          ],
+      )
+      # Module with a local patch & extension
+      self.my_registry.createCcModule(
+          'ss',
+          '1.3-1',
+          {'ext': '1.0'},
+          patches=[patch_file],
+          patch_strip=1,
+          extra_module_file_contents=[
+              'my_ext = use_extension("@ext//:ext.bzl", "ext")',
+              'use_repo(my_ext, "justRepo")',
+          ],
+      )
+      ext_src = [
+          'def _repo_impl(ctx): ctx.file("BUILD")',
+          'repo = repository_rule(_repo_impl)',
+          'def _ext_impl(ctx): repo(name=justRepo)',
+          'ext=module_extension(_ext_impl)',
+      ]
+      self.my_registry.createLocalPathModule('ext', '1.0', 'ext')
+      scratchFile(self.my_registry.projects.joinpath('ext', 'BUILD'))
+      scratchFile(self.my_registry.projects.joinpath('ext', 'ext.bzl'), ext_src)
 
-    self.ScratchFile(
-        'MODULE.bazel',
-        [
-            'bazel_dep(name = "ss", version = "1.3-1")',
-        ],
-    )
-    self.ScratchFile('BUILD.bazel', ['filegroup(name = "lala")'])
-    self.RunBazel(
-        ['build', '--registry=file:///%workspace%/registry', '//:lala']
-    )
+      self.ScratchFile(
+          'MODULE.bazel',
+          [
+              'bazel_dep(name = "ss", version = "1.3-1")',
+          ],
+      )
+      self.ScratchFile('BUILD.bazel', ['filegroup(name = "lala")'])
+      self.RunBazel(
+          ['build', '--registry=file:///%workspace%/registry', '//:lala']
+      )
 
-    with open('MODULE.bazel.lock', 'r') as json_file:
-      lockfile = json.load(json_file)
-    ss_dep = lockfile['moduleDepGraph']['ss@1.3-1']
-    remote_patches = ss_dep['repoSpec']['attributes']['remote_patches']
-    ext_usage_location = ss_dep['extensionUsages'][0]['location']['file']
+      with open('MODULE.bazel.lock', 'r') as json_file:
+        lockfile = json.load(json_file)
+      ss_dep = lockfile['moduleDepGraph']['ss@1.3-1']
+      remote_patches = ss_dep['repoSpec']['attributes']['remote_patches']
+      ext_usage_location = ss_dep['extensionUsages'][0]['location']['file']
 
-    self.assertNotIn(self.my_registry.getURL(), ext_usage_location)
-    self.assertIn('%workspace%', ext_usage_location)
-    for key in remote_patches.keys():
-      self.assertNotIn(self.my_registry.getURL(), key)
-      self.assertIn('%workspace%', key)
+      self.assertNotIn(self.my_registry.getURL(), ext_usage_location)
+      self.assertIn('%workspace%', ext_usage_location)
+      for key in remote_patches.keys():
+        self.assertNotIn(self.my_registry.getURL(), key)
+        self.assertIn('%workspace%', key)
+    finally:
+      self.my_registry.stop()
 
   def testExtensionEvaluationRerunsIfDepGraphOrderChanges(self):
     self.ScratchFile(

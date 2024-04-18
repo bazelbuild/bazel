@@ -211,16 +211,6 @@ public class BazelDepGraphFunction implements SkyFunction {
         compatabilityMode);
   }
 
-  /**
-   * For each extension usage, we resolve (i.e. canonicalize) its bzl file label. Then we can group
-   * all usages by the label + name (the ModuleExtensionId).
-   */
-  public static ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
-      getExtensionUsagesById(ImmutableMap<ModuleKey, Module> depGraph)
-          throws ExternalDepsException {
-    return getExtensionUsagesById(depGraph, computeCanonicalRepoNameLookup(depGraph).inverse());
-  }
-
   private static ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
       getExtensionUsagesById(
           ImmutableMap<ModuleKey, Module> depGraph,

@@ -48,9 +48,13 @@ public class SubcommandEventTest extends BuildIntegrationTestCase {
 
     write(
         "hello/BUILD",
-        "genrule(name = 'hello',",
-        "        outs = ['hello.out'],",
-        "        cmd = 'echo \"Hello, World!\" > $(location hello.out)')");
+        """
+        genrule(
+            name = "hello",
+            outs = ["hello.out"],
+            cmd = 'echo "Hello, World!" > $(location hello.out)',
+        )
+        """);
 
     // (1) Ensure that building the target creates the output:
     buildTarget("//hello");

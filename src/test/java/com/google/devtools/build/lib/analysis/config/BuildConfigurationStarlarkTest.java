@@ -37,20 +37,29 @@ public final class BuildConfigurationStarlarkTest extends BuildViewTestCase {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/config_test.bzl",
-        "MyInfo = provider()",
-        "def _test_rule_impl(ctx):",
-        "   return MyInfo(test_env = ctx.configuration.test_env)",
-        "test_rule = rule(implementation = _test_rule_impl,",
-        "   attrs = {},",
-        ")");
+        """
+        MyInfo = provider()
+
+        def _test_rule_impl(ctx):
+            return MyInfo(test_env = ctx.configuration.test_env)
+
+        test_rule = rule(
+            implementation = _test_rule_impl,
+            attrs = {},
+        )
+        """);
 
     scratch.file(
         "examples/config_starlark/BUILD",
-        "package(default_visibility = ['//visibility:public'])",
-        "load('//examples/rule:config_test.bzl', 'test_rule')",
-        "test_rule(",
-        "    name = 'my_target',",
-        ")");
+        """
+        load("//examples/rule:config_test.bzl", "test_rule")
+
+        package(default_visibility = ["//visibility:public"])
+
+        test_rule(
+            name = "my_target",
+        )
+        """);
 
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/config_starlark:my_target");
     Provider.Key key =
@@ -62,14 +71,22 @@ public final class BuildConfigurationStarlarkTest extends BuildViewTestCase {
   @Test
   public void testIsToolConfigurationIsBlocked() throws Exception {
     scratch.file(
-        "example/BUILD", "load(':rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
+        "example/BUILD",
+        """
+        load(":rule.bzl", "custom_rule")
+
+        custom_rule(name = "custom")
+        """);
 
     scratch.file(
         "example/rule.bzl",
-        "def _impl(ctx):",
-        "  ctx.configuration.is_tool_configuration()",
-        "  return [DefaultInfo()]",
-        "custom_rule = rule(implementation = _impl)");
+        """
+        def _impl(ctx):
+            ctx.configuration.is_tool_configuration()
+            return [DefaultInfo()]
+
+        custom_rule = rule(implementation = _impl)
+        """);
 
     AssertionError e =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//example:custom"));
@@ -79,14 +96,22 @@ public final class BuildConfigurationStarlarkTest extends BuildViewTestCase {
   @Test
   public void testRunfilesEnabledIsPrivateApi() throws Exception {
     scratch.file(
-        "example/BUILD", "load(':rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
+        "example/BUILD",
+        """
+        load(":rule.bzl", "custom_rule")
+
+        custom_rule(name = "custom")
+        """);
 
     scratch.file(
         "example/rule.bzl",
-        "def _impl(ctx):",
-        "  ctx.configuration.runfiles_enabled()",
-        "  return [DefaultInfo()]",
-        "custom_rule = rule(implementation = _impl)");
+        """
+        def _impl(ctx):
+            ctx.configuration.runfiles_enabled()
+            return [DefaultInfo()]
+
+        custom_rule = rule(implementation = _impl)
+        """);
 
     AssertionError e =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//example:custom"));

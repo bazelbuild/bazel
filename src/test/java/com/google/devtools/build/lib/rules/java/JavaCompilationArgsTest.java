@@ -245,9 +245,18 @@ public class JavaCompilationArgsTest extends BuildViewTestCase {
   private void createExportsTarget() throws IOException {
     scratch.file(
         "test/BUILD",
-        "java_library(name = 'to_be_exported', srcs = ['A.java'], ",
-        "    deps = [':dep_to_be_exported'])",
-        "java_library(name= 'dep_to_be_exported', srcs = ['B.java'])");
+        """
+        java_library(
+            name = "to_be_exported",
+            srcs = ["A.java"],
+            deps = [":dep_to_be_exported"],
+        )
+
+        java_library(
+            name = "dep_to_be_exported",
+            srcs = ["B.java"],
+        )
+        """);
   }
 
   private List<JavaCompilationArgsProvider> getDeps() throws Exception {
@@ -260,7 +269,17 @@ public class JavaCompilationArgsTest extends BuildViewTestCase {
   private void createDepsTarget() throws IOException {
     scratch.file(
         "test2/BUILD",
-        "java_library(name = 'direct_dep', srcs = ['A.java'], deps = [':transitive_dep'])",
-        "java_library(name= 'transitive_dep', srcs = ['B.java'])");
+        """
+        java_library(
+            name = "direct_dep",
+            srcs = ["A.java"],
+            deps = [":transitive_dep"],
+        )
+
+        java_library(
+            name = "transitive_dep",
+            srcs = ["B.java"],
+        )
+        """);
   }
 }

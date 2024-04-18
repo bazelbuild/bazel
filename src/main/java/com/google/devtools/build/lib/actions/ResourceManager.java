@@ -15,19 +15,23 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.devtools.build.lib.profiler.AutoProfiler.profiled;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.worker.Worker;
 import com.google.devtools.build.lib.worker.WorkerKey;
 import com.google.devtools.build.lib.worker.WorkerPool;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus.Status;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -37,6 +41,10 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
 /**
@@ -71,25 +79,23 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public class ResourceManager implements ResourceEstimator {
 
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   /**
    * A handle returned by {@link #acquireResources(ActionExecutionMetadata, ResourceSet,
    * ResourcePriority)} that must be closed in order to free the resources again.
    */
   public static class ResourceHandle implements AutoCloseable {
-    private final ResourceManager rm;
-    private final ActionExecutionMetadata actionMetadata;
-    private final ResourceSet resourceSet;
+    private final ResourceManager manager;
     private Worker worker;
+    private final ResourceRequest request;
+    private final long resourceAcquiredTime;
 
-    private ResourceHandle(
-        ResourceManager rm,
-        ActionExecutionMetadata actionMetadata,
-        ResourceSet resources,
-        Worker worker) {
-      this.rm = rm;
-      this.actionMetadata = actionMetadata;
-      this.resourceSet = resources;
+    private ResourceHandle(ResourceManager manager, ResourceRequest request, Worker worker) {
+      this.manager = manager;
+      this.resourceAcquiredTime = BlazeClock.instance().nanoTime();
       this.worker = worker;
+      this.request = request;
     }
 
     @Nullable
@@ -97,10 +103,18 @@ public class ResourceManager implements ResourceEstimator {
       return worker;
     }
 
+    @VisibleForTesting
+    ResourceRequest getRequest() {
+      return request;
+    }
+
     /** Closing the ResourceHandle releases the resources associated with it. */
     @Override
     public void close() throws IOException, InterruptedException {
-      rm.releaseResources(actionMetadata, resourceSet, worker);
+      manager.releaseResources(request, worker);
+      Profiler.instance()
+          .completeTask(
+              resourceAcquiredTime, ProfilerTask.LOCAL_ACTION_COUNTS, "Resources acquired");
     }
 
     public void invalidateAndClose(@Nullable Exception e) throws IOException, InterruptedException {
@@ -112,8 +126,7 @@ public class ResourceManager implements ResourceEstimator {
           worker.getStatus().maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_INTERRUPTED_EXCEPTION);
         } else if (e instanceof IOException) {
           worker.getStatus().maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_IO_EXCEPTION);
-        } else if (e instanceof UserExecException) {
-          UserExecException userExecException = (UserExecException) e;
+        } else if (e instanceof UserExecException userExecException) {
           if (userExecException.getFailureDetail().hasWorker()) {
             worker
                 .getStatus()
@@ -128,7 +141,7 @@ public class ResourceManager implements ResourceEstimator {
         worker.getStatus().maybeUpdateStatus(Status.PENDING_KILL_DUE_TO_UNKNOWN);
       }
 
-      rm.workerPool.invalidateObject(resourceSet.getWorkerKey(), worker);
+      manager.workerPool.invalidateObject(request.getResourceSet().getWorkerKey(), worker);
       worker = null;
       this.close();
     }
@@ -154,7 +167,7 @@ public class ResourceManager implements ResourceEstimator {
 
   /** Singleton reference defined in a separate class to ensure thread-safe lazy initialization. */
   private static class Singleton {
-    static ResourceManager instance = new ResourceManager();
+    static final ResourceManager instance = new ResourceManager();
   }
 
   /** Returns singleton instance of the resource manager. */
@@ -182,21 +195,24 @@ public class ResourceManager implements ResourceEstimator {
   private static final Double DEFAULT_MIN_NECESSARY_RATIO = 1.0;
   private static final ImmutableMap<String, Double> MIN_NECESSARY_RATIO =
       ImmutableMap.of(ResourceSet.CPU, 0.6);
+  private static final int MAX_ACTIONS_PER_CPU = 3;
+
+  // Pair of requested resources and latch represented it for waiting.
+  record WaitingRequest(ResourceRequest getResourceRequest, ResourceLatch getResourceLatch) {}
+  ;
 
   // Lists of blocked threads. Associated CountDownLatch object will always
   // be initialized to 1 during creation in the acquire() method.
   // We use LinkedList because we will need to remove elements from the middle frequently in the
   // middle of iterating through the list.
   @SuppressWarnings("JdkObsolete")
-  private final Deque<Pair<ResourceSet, LatchWithWorker>> localRequests = new LinkedList<>();
+  private final Deque<WaitingRequest> localRequests = new LinkedList<>();
 
   @SuppressWarnings("JdkObsolete")
-  private final Deque<Pair<ResourceSet, LatchWithWorker>> dynamicWorkerRequests =
-      new LinkedList<>();
+  private final Deque<WaitingRequest> dynamicWorkerRequests = new LinkedList<>();
 
   @SuppressWarnings("JdkObsolete")
-  private final Deque<Pair<ResourceSet, LatchWithWorker>> dynamicStandaloneRequests =
-      new LinkedList<>();
+  private final Deque<WaitingRequest> dynamicStandaloneRequests = new LinkedList<>();
 
   private WorkerPool workerPool;
 
@@ -212,6 +228,70 @@ public class ResourceManager implements ResourceEstimator {
   // Used local test count. Corresponds to the local test count definition in the ResourceSet class.
   private int usedLocalTestCount;
 
+  // The following flags are responsible for experimental action scheduling based on load of the
+  // machine.
+  //
+  // With this functionality the whole timeline is splitted on the window of the same duration.
+  // In this case the CPU usage by blaze is defined by the formula:
+  // CPU usage = System CPU load + Window estimation.
+  // System CPU load defined by information about system running blaze process.
+  // Window estimation is an sum of ResourceSets defined for all action started to run during this
+  // window. This term added to compensate the pressure by actions which are started to run during
+  // the window but not represented on CPU load yet.
+
+  // Experimental scheduling have showed the large benefit on a large local builds on a powerful
+  // machines with the large number of cores.
+  // The known issue with this flag that it cannot distinguish the load of Bazel and load of
+  // different process on the machine, so it tries to load machine no more than defined in flag
+  // local_resources, so for better utilization it's recommended to set
+  // --local_resources=cpu=HOST_CPUS.
+
+  // Enables experimental action scheduling using CPU load of a machine.
+  private boolean cpuLoadScheduling;
+  // The size of window for running actions.
+  private Duration windowSize = Duration.ofSeconds(5);
+  // Estimation of CPU usage by actions started during the window.
+  private double windowEstimationCpu;
+  // Set of request ids which resource acquiring started during the window.
+  private final Set<Integer> windowRequestIds = new HashSet<>();
+  // Executor for periodic window update.
+  ScheduledExecutorService windowUpdateExecutor = Executors.newScheduledThreadPool(1);
+  // Future for periodic window update.
+  ScheduledFuture<?> windowUpdateFuture = null;
+  // Total number of actions running locally.
+  private int runningActions = 0;
+  // Collects the information about the load of a machine.
+  private MachineLoadProvider machineLoadProvider;
+
+  public void initializeCpuLoadFunctionality(
+      MachineLoadProvider machineLoadProvider, boolean cpuLoadScheduling, Duration windowSize) {
+    this.machineLoadProvider = machineLoadProvider;
+    this.cpuLoadScheduling = cpuLoadScheduling;
+    this.windowSize = windowSize;
+  }
+
+  class WindowUpdateRunner extends Thread {
+    public WindowUpdateRunner(String name) {
+      super(name);
+    }
+
+    @Override
+    public void run() {
+      try {
+        windowUpdate();
+      } catch (IOException | InterruptedException e) {
+        logger.atWarning().withCause(e).log(
+            "Exception while updating window of locally scheduled action: %s", e);
+      }
+    }
+  }
+
+  synchronized void windowUpdate() throws IOException, InterruptedException {
+    windowRequestIds.clear();
+    windowEstimationCpu = 0.0;
+    processAllWaitingRequests();
+  }
+
   @VisibleForTesting
   public static ResourceManager instanceForTestingOnly() {
     return new ResourceManager();
@@ -225,18 +305,22 @@ public class ResourceManager implements ResourceEstimator {
   public synchronized void resetResourceUsage() {
     usedResources = new HashMap<>();
     usedLocalTestCount = 0;
-    for (Pair<ResourceSet, LatchWithWorker> request : localRequests) {
-      request.second.latch.countDown();
+    for (WaitingRequest request : localRequests) {
+      request.getResourceLatch().getLatch().countDown();
     }
-    for (Pair<ResourceSet, LatchWithWorker> request : dynamicWorkerRequests) {
-      request.second.latch.countDown();
+    for (WaitingRequest request : dynamicWorkerRequests) {
+      request.getResourceLatch().getLatch().countDown();
     }
-    for (Pair<ResourceSet, LatchWithWorker> request : dynamicStandaloneRequests) {
-      request.second.latch.countDown();
+    for (WaitingRequest request : dynamicStandaloneRequests) {
+      request.getResourceLatch().getLatch().countDown();
     }
     localRequests.clear();
     dynamicWorkerRequests.clear();
     dynamicStandaloneRequests.clear();
+
+    windowRequestIds.clear();
+    windowEstimationCpu = 0.0;
+    runningActions = 0;
   }
 
   /**
@@ -250,10 +334,33 @@ public class ResourceManager implements ResourceEstimator {
     availableResources = resources;
   }
 
+  public synchronized void scheduleCpuLoadWindowUpdate() {
+    if (windowUpdateFuture != null) {
+      windowUpdateFuture.cancel(true);
+    }
+
+    if (cpuLoadScheduling) {
+      windowUpdateFuture =
+          windowUpdateExecutor.scheduleAtFixedRate(
+              new WindowUpdateRunner("window-update"), 0, windowSize.toMillis(), MILLISECONDS);
+    }
+  }
+
   /** Sets worker pool for taking the workers. Must be called before requesting the workers. */
   public void setWorkerPool(WorkerPool workerPool) {
     this.workerPool = workerPool;
   }
+
+  /** Generates the ids for requests */
+  private static final AtomicInteger requestIdGenerator = new AtomicInteger(0);
+
+  /** Request with the information of resource acquiring. */
+  record ResourceRequest(
+      ActionExecutionMetadata getOwner,
+      ResourceSet getResourceSet,
+      ResourcePriority getPriority,
+      int getId) {}
+  ;
 
   /**
    * Acquires requested resource set. Will block if resource is not available. NB! This method must
@@ -267,26 +374,29 @@ public class ResourceManager implements ResourceEstimator {
     Preconditions.checkState(
         !threadHasResources(), "acquireResources with existing resource lock during %s", owner);
 
-    LatchWithWorker latchWithWorker = null;
+    ResourceLatch resourceLatch = null;
+
+    ResourceRequest request =
+        new ResourceRequest(owner, resources, priority, requestIdGenerator.getAndIncrement());
 
     AutoProfiler p =
         profiled("Acquiring resources for: " + owner.describe(), ProfilerTask.ACTION_LOCK);
     try {
-      latchWithWorker = acquire(resources, priority);
-      if (latchWithWorker.latch != null) {
-        latchWithWorker.latch.await();
+      resourceLatch = acquire(request);
+      if (resourceLatch.getLatch() != null) {
+        resourceLatch.getLatch().await();
       }
     } catch (InterruptedException e) {
-      // Synchronize on this to avoid any racing with #processWaitingThreads
+      // Synchronize on this to avoid any racing with #processWaitingRequests
       synchronized (this) {
-        if (latchWithWorker != null) {
-          if (latchWithWorker.latch == null || latchWithWorker.latch.getCount() == 0) {
+        if (resourceLatch != null) {
+          if (resourceLatch.getLatch() == null || resourceLatch.getLatch().getCount() == 0) {
             // Resources already acquired by other side. Release them, but not inside this
             // synchronized block to avoid deadlock.
-            release(resources, latchWithWorker.worker);
+            release(request, resourceLatch.getWorker());
           } else {
             // Inform other side that resources shouldn't be acquired.
-            latchWithWorker.latch.countDown();
+            resourceLatch.getLatch().countDown();
           }
         }
       }
@@ -298,8 +408,8 @@ public class ResourceManager implements ResourceEstimator {
     CountDownLatch latch;
     Worker worker;
     synchronized (this) {
-      latch = latchWithWorker.latch;
-      worker = latchWithWorker.worker;
+      latch = resourceLatch.getLatch();
+      worker = resourceLatch.getWorker();
     }
 
     // Profile acquisition only if it waited for resource to become available.
@@ -307,12 +417,14 @@ public class ResourceManager implements ResourceEstimator {
       p.complete();
     }
 
-    return new ResourceHandle(this, owner, resources, worker);
+    return new ResourceHandle(this, request, worker);
   }
 
   @Nullable
-  private Worker incrementResources(ResourceSet resources)
+  private synchronized Worker incrementResources(ResourceRequest request)
       throws IOException, InterruptedException {
+    ResourceSet resources = request.getResourceSet();
+
     resources
         .getResources()
         .forEach(
@@ -323,11 +435,14 @@ public class ResourceManager implements ResourceEstimator {
               usedResources.put(key, value);
             });
 
+    windowRequestIds.add(request.getId());
+    windowEstimationCpu += resources.getResources().getOrDefault(ResourceSet.CPU, 0.0);
     usedLocalTestCount += resources.getLocalTestCount();
-
     if (resources.getWorkerKey() != null) {
       return this.workerPool.borrowObject(resources.getWorkerKey());
     }
+
+    runningActions++;
     return null;
   }
 
@@ -350,31 +465,26 @@ public class ResourceManager implements ResourceEstimator {
    *
    * <p>NB! This method must be thread-safe!
    *
-   * @param owner action metadata, which resources should ve released
-   * @param resources resources should be released
+   * @param request initial request of resource acquiring
    * @param worker the worker, which used during execution
    * @throws java.io.IOException if could not return worker to the workerPool
    */
-  void releaseResources(
-      ActionExecutionMetadata owner, ResourceSet resources, @Nullable Worker worker)
+  void releaseResources(ResourceRequest request, @Nullable Worker worker)
       throws IOException, InterruptedException {
     Preconditions.checkNotNull(
-        resources, "releaseResources called with resources == NULL during %s", owner);
+        request.getResourceSet(),
+        "releaseResources called with resources == NULL during %s",
+        request.getOwner());
 
     Preconditions.checkState(
-        threadHasResources(), "releaseResources without resource lock during %s", owner);
+        threadHasResources(),
+        "releaseResources without resource lock during %s",
+        request.getOwner());
 
-    boolean resourcesReused = false;
-    AutoProfiler p = profiled(owner.describe(), ProfilerTask.ACTION_RELEASE);
     try {
-      resourcesReused = release(resources, worker);
+      release(request, worker);
     } finally {
       threadLocked.set(false);
-
-      // Profile resource release only if it resolved at least one allocation request.
-      if (resourcesReused) {
-        p.complete();
-      }
     }
   }
 
@@ -392,55 +502,47 @@ public class ResourceManager implements ResourceEstimator {
    * resources. The latch isn't null if we could not acquire the resources right now and need to
    * wait.
    */
-  private synchronized LatchWithWorker acquire(ResourceSet resources, ResourcePriority priority)
-      throws IOException, InterruptedException, NoSuchElementException {
-    if (areResourcesAvailable(resources)) {
-      Worker worker = incrementResources(resources);
-      return new LatchWithWorker(/* latch= */ null, worker);
+  private synchronized ResourceLatch acquire(ResourceRequest request)
+      throws IOException, InterruptedException {
+    if (areResourcesAvailable(request.getResourceSet())) {
+      Worker worker = incrementResources(request);
+      return new ResourceLatch(/* latch= */ null, worker);
     }
-    Pair<ResourceSet, LatchWithWorker> request =
-        new Pair<>(resources, new LatchWithWorker(new CountDownLatch(1), /* worker= */ null));
-    switch (priority) {
+    WaitingRequest waitingRequest =
+        new WaitingRequest(request, new ResourceLatch(new CountDownLatch(1), /* worker= */ null));
+    switch (request.getPriority()) {
       case LOCAL:
-        localRequests.addLast(request);
+        localRequests.addLast(waitingRequest);
         break;
       case DYNAMIC_WORKER:
         // Dynamic requests should be LIFO, because we are more likely to win the race on newer
         // actions.
-        dynamicWorkerRequests.addFirst(request);
+        dynamicWorkerRequests.addFirst(waitingRequest);
         break;
       case DYNAMIC_STANDALONE:
         // Dynamic requests should be LIFO, because we are more likely to win the race on newer
         // actions.
-        dynamicStandaloneRequests.addFirst(request);
+        dynamicStandaloneRequests.addFirst(waitingRequest);
         break;
     }
-    return request.second;
+    return waitingRequest.getResourceLatch();
   }
 
   /**
    * Release resources and process the queues of waiting threads. Return true when any new thread
    * processed.
    */
-  private boolean release(ResourceSet resources, @Nullable Worker worker)
+  private synchronized void release(ResourceRequest request, @Nullable Worker worker)
       throws IOException, InterruptedException {
-    // We need to release the worker first to not block highPriorityWorkerMnemonics management. See
-    // more on b/244297036.
     if (worker != null) {
       this.workerPool.returnObject(worker.getWorkerKey(), worker);
     }
-    releaseResourcesOnly(resources);
 
-    return processAllWaitingThreads();
-  }
-
-  private synchronized void releaseResourcesOnly(ResourceSet resources) {
+    ResourceSet resources = request.getResourceSet();
     usedLocalTestCount -= resources.getLocalTestCount();
-
     // TODO(bazel-team): (2010) rounding error can accumulate and value below can end up being
     // e.g. 1E-15. So if it is small enough, we set it to 0. But maybe there is a better solution.
     double epsilon = 0.0001;
-
     Set<String> toRemove = new HashSet<>();
     for (Map.Entry<String, Double> resource : resources.getResources().entrySet()) {
       String key = resource.getKey();
@@ -454,35 +556,35 @@ public class ResourceManager implements ResourceEstimator {
     for (String key : toRemove) {
       usedResources.remove(key);
     }
+
+    if (windowRequestIds.remove(request.getId())) {
+      windowEstimationCpu -= resources.getResources().getOrDefault(ResourceSet.CPU, 0.0);
+    }
+    runningActions--;
+
+    processAllWaitingRequests();
   }
 
-  private synchronized boolean processAllWaitingThreads() throws IOException, InterruptedException {
-    boolean anyProcessed = false;
-    if (!localRequests.isEmpty()) {
-      processWaitingThreads(localRequests);
-      anyProcessed = true;
-    }
-    if (!dynamicWorkerRequests.isEmpty()) {
-      processWaitingThreads(dynamicWorkerRequests);
-      anyProcessed = true;
-    }
-    if (!dynamicStandaloneRequests.isEmpty()) {
-      processWaitingThreads(dynamicStandaloneRequests);
-      anyProcessed = true;
-    }
-    return anyProcessed;
+  private synchronized void processAllWaitingRequests() throws IOException, InterruptedException {
+    processWaitingRequests(localRequests);
+    processWaitingRequests(dynamicWorkerRequests);
+    processWaitingRequests(dynamicStandaloneRequests);
   }
 
-  private synchronized void processWaitingThreads(
-      Deque<Pair<ResourceSet, LatchWithWorker>> requests) throws IOException, InterruptedException {
-    Iterator<Pair<ResourceSet, LatchWithWorker>> iterator = requests.iterator();
+  private synchronized void processWaitingRequests(Deque<WaitingRequest> requests)
+      throws IOException, InterruptedException {
+    if (requests.isEmpty()) {
+      return;
+    }
+
+    Iterator<WaitingRequest> iterator = requests.iterator();
     while (iterator.hasNext()) {
-      Pair<ResourceSet, LatchWithWorker> request = iterator.next();
-      if (request.second.latch.getCount() != 0) {
-        if (areResourcesAvailable(request.first)) {
-          Worker worker = incrementResources(request.first);
-          request.second.worker = worker;
-          request.second.latch.countDown();
+      WaitingRequest request = iterator.next();
+      if (request.getResourceLatch().getLatch().getCount() != 0) {
+        if (areResourcesAvailable(request.getResourceRequest().getResourceSet())) {
+          Worker worker = incrementResources(request.getResourceRequest());
+          request.getResourceLatch().setWorker(worker);
+          request.getResourceLatch().getLatch().countDown();
           iterator.remove();
         }
       } else {
@@ -518,7 +620,7 @@ public class ResourceManager implements ResourceEstimator {
 
   // Method will return true if all requested resources are considered to be available.
   @VisibleForTesting
-  boolean areResourcesAvailable(ResourceSet resources) throws NoSuchElementException {
+  synchronized boolean areResourcesAvailable(ResourceSet resources) {
     Preconditions.checkNotNull(availableResources);
     // Comparison below is robust, since any calculation errors will be fixed
     // by the release() method.
@@ -548,6 +650,12 @@ public class ResourceManager implements ResourceEstimator {
     for (Map.Entry<String, Double> resource : resources.getResources().entrySet()) {
       String key = resource.getKey();
 
+      if (key.equals(ResourceSet.CPU)) {
+        if (!isCpuAvailable(resource)) {
+          return false;
+        }
+        continue;
+      }
       // Use only MIN_NECESSARY_RATIO of the resource value to check for
       // allocation. This is necessary to account for the fact that most of the
       // requested resource sets use pessimistic estimations. Note that this
@@ -564,17 +672,52 @@ public class ResourceManager implements ResourceEstimator {
     return true;
   }
 
+  synchronized boolean isCpuAvailable(Map.Entry<String, Double> resource) {
+    String key = resource.getKey();
+
+    double requested =
+        resource.getValue() * MIN_NECESSARY_RATIO.getOrDefault(key, DEFAULT_MIN_NECESSARY_RATIO);
+    double available = availableResources.get(key);
+    double used = usedResources.getOrDefault(key, 0.0);
+
+    if (cpuLoadScheduling) {
+      double currentUsage = machineLoadProvider.getCurrentCpuUsage();
+      double windowEstimation = windowEstimationCpu;
+      // Don't allow to run more than x3 of number cores actions simultaneously.
+      if (runningActions >= MAX_ACTIONS_PER_CPU * availableResources.get(ResourceSet.CPU)) {
+        return false;
+      }
+      return isAvailable(available, windowEstimation + currentUsage, requested);
+    }
+
+    return isAvailable(available, used, requested);
+  }
+
   @VisibleForTesting
   synchronized int getWaitCount() {
     return localRequests.size() + dynamicStandaloneRequests.size() + dynamicWorkerRequests.size();
   }
 
-  private static class LatchWithWorker {
-    public final CountDownLatch latch;
-    public Worker worker;
+  // Latch which indicates the availability of resources. Also via this latch worker could be passed
+  // when it's ready.
+  private static class ResourceLatch {
+    private final CountDownLatch latch;
+    private Worker worker;
 
-    public LatchWithWorker(CountDownLatch latch, Worker worker) {
+    public ResourceLatch(CountDownLatch latch, Worker worker) {
       this.latch = latch;
+      this.worker = worker;
+    }
+
+    public CountDownLatch getLatch() {
+      return latch;
+    }
+
+    public Worker getWorker() {
+      return worker;
+    }
+
+    public void setWorker(Worker worker) {
       this.worker = worker;
     }
   }

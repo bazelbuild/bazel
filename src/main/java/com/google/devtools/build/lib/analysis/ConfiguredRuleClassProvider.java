@@ -890,9 +890,10 @@ public /*final*/ class ConfiguredRuleClassProvider
    * <p>This only includes definitions added by {@link Builder#addSymlinkDefinition}, not the
    * standard symlinks in {@link com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils}.
    *
-   * <p>Note: Usages of custom symlink definitions should be rare. Currently it is only used to
-   * implement the py2-bin / py3-bin symlinks.
+   * <p>Note: Usages of custom symlink definitions should be very rare. This feature was added to
+   * implement the py2-bin / py3-bin symlinks, which have since been removed from Bazel.
    */
+  // TODO(bazel-team): Delete?
   public ImmutableList<SymlinkDefinition> getSymlinkDefinitions() {
     return symlinkDefinitions;
   }

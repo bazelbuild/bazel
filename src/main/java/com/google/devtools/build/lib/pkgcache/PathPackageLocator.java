@@ -267,10 +267,9 @@ public final class PathPackageLocator {
     if (this == other) {
       return true;
     }
-    if (!(other instanceof PathPackageLocator)) {
+    if (!(other instanceof PathPackageLocator pathPackageLocator)) {
       return false;
     }
-    PathPackageLocator pathPackageLocator = (PathPackageLocator) other;
     return Objects.equals(pathEntries, pathPackageLocator.pathEntries)
         && Objects.equals(outputBase, pathPackageLocator.outputBase);
   }

@@ -100,10 +100,9 @@ public class ConstraintValueInfo extends NativeInfo implements ConstraintValueIn
 
   @Override
   public boolean equals(Object o) {
-    if (!(o instanceof ConstraintValueInfo)) {
+    if (!(o instanceof ConstraintValueInfo that)) {
       return false;
     }
-    ConstraintValueInfo that = (ConstraintValueInfo) o;
     return Objects.equals(constraint, that.constraint)
         && Objects.equals(label, that.label);
   }

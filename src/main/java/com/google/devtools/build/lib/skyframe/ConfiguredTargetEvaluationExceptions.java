@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -49,6 +50,10 @@ public final class ConfiguredTargetEvaluationExceptions {
    */
   public static class UnreportedException extends SkyFunctionException {
     UnreportedException(ConfiguredValueCreationException e) {
+      super(e, Transience.PERSISTENT);
+    }
+
+    UnreportedException(ActionConflictException e) {
       super(e, Transience.PERSISTENT);
     }
   }

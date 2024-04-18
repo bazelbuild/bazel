@@ -81,6 +81,8 @@ import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
+import com.google.devtools.build.lib.skyframe.SkyfocusState;
+import com.google.devtools.build.lib.skyframe.SkyfocusState.Request;
 import com.google.devtools.build.lib.skyframe.SkyframeAnalysisAndExecutionResult;
 import com.google.devtools.build.lib.skyframe.SkyframeAnalysisResult;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
@@ -250,6 +252,15 @@ public class BuildView {
     // needed. This requires cleaning up the invalidation in SkyframeBuildView.setConfigurations.
     try (SilentCloseable c = Profiler.instance().profile("createConfigurations")) {
       topLevelConfig = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
+
+      SkyfocusState skyfocusState = skyframeExecutor.getSkyfocusState();
+      if (skyfocusState.enabled()) {
+        Request newRequest =
+            skyfocusState.checkBuildConfigChanges(
+                topLevelConfig, skyfocusState.request(), eventHandler);
+        skyframeExecutor.setSkyfocusState(
+            skyfocusState.withBuildConfiguration(topLevelConfig).withRequest(newRequest));
+      }
       eventBus.post(new ConfigRequestedEvent(topLevelConfig, /* parentChecksum= */ null));
     }
     if (buildConfigurationsCreatedCallback != null) {

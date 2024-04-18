@@ -129,10 +129,9 @@ public final class StarlarkTransitionCache {
       if (other == this) {
         return true;
       }
-      if (!(other instanceof Key)) {
+      if (!(other instanceof Key otherKey)) {
         return false;
       }
-      Key otherKey = (Key) other;
       return this.transition.equals(otherKey.transition)
           && this.fromOptions.equals(otherKey.fromOptions)
           && this.details.equals(otherKey.details);

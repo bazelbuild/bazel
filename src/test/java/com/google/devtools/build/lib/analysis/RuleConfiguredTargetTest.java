@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -82,7 +83,13 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testFeatureEnabledInPackage() throws Exception {
-    scratch.file("a/BUILD", "package(features = ['feature'])", "cc_library(name = 'a')");
+    scratch.file(
+        "a/BUILD",
+        """
+        package(features = ["feature"])
+
+        cc_library(name = "a")
+        """);
     ImmutableSet<String> features = getRuleContext(configure("//a")).getFeatures();
     assertThat(features).contains("feature");
     assertThat(features).doesNotContain("other");
@@ -90,7 +97,13 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testFeatureDisableddInPackage() throws Exception {
-    scratch.file("a/BUILD", "package(features = ['-feature'])", "cc_library(name = 'a')");
+    scratch.file(
+        "a/BUILD",
+        """
+        package(features = ["-feature"])
+
+        cc_library(name = "a")
+        """);
     ImmutableSet<String> disabledFeatures = getRuleContext(configure("//a")).getDisabledFeatures();
     assertThat(disabledFeatures).contains("feature");
     assertThat(disabledFeatures).doesNotContain("other");
@@ -116,7 +129,13 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testFeaturesInPackageOverrideFeaturesFromCommandLine() throws Exception {
     useConfiguration("--features=feature");
-    scratch.file("a/BUILD", "package(features = ['-feature'])", "cc_library(name = 'a')");
+    scratch.file(
+        "a/BUILD",
+        """
+        package(features = ["-feature"])
+
+        cc_library(name = "a")
+        """);
     RuleContext ruleContext = getRuleContext(configure("//a"));
     ImmutableSet<String> features = ruleContext.getFeatures();
     ImmutableSet<String> disabledFeatures = ruleContext.getDisabledFeatures();
@@ -137,9 +156,24 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testFeaturesInRuleOverrideFeaturesFromPackage() throws Exception {
-    scratch.file("a/BUILD",
-        "package(features = ['a', '-b', 'c'])",
-        "cc_library(name = 'a', features = ['b', '-c', 'd'])");
+    scratch.file(
+        "a/BUILD",
+        """
+        package(features = [
+            "a",
+            "-b",
+            "c",
+        ])
+
+        cc_library(
+            name = "a",
+            features = [
+                "b",
+                "-c",
+                "d",
+            ],
+        )
+        """);
     RuleContext ruleContext = getRuleContext(configure("//a"));
     ImmutableSet<String> features = ruleContext.getFeatures();
     ImmutableSet<String> disabledFeatures = ruleContext.getDisabledFeatures();
@@ -152,8 +186,14 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration("--features=-package_feature", "--features=-rule_feature");
     scratch.file(
         "a/BUILD",
-        "package(features = ['package_feature'])",
-        "cc_library(name = 'a', features = ['rule_feature'])");
+        """
+        package(features = ["package_feature"])
+
+        cc_library(
+            name = "a",
+            features = ["rule_feature"],
+        )
+        """);
     RuleContext ruleContext = getRuleContext(configure("//a"));
     ImmutableSet<String> features = ruleContext.getFeatures();
     ImmutableSet<String> disabledFeatures = ruleContext.getDisabledFeatures();
@@ -167,56 +207,100 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
   public void testExperimentalDependenciesOnThirdPartyExperimentalAllowed() throws Exception {
     scratch.file(
         "third_party/experimental/p1/BUILD",
-        "licenses(['unencumbered'])",
-        "exports_files(['p1.cc'])",
-        "cc_library(name = 'p1')");
+        """
+        licenses(["unencumbered"])
+
+        exports_files(["p1.cc"])
+
+        cc_library(name = "p1")
+        """);
     scratch.file(
         "experimental/p2/BUILD",
-        "exports_files(['p2.cc'])",
-        "cc_library(name = 'p2', deps=['//third_party/experimental/p1:p1'])");
+        """
+        exports_files(["p2.cc"])
+
+        cc_library(
+            name = "p2",
+            deps = ["//third_party/experimental/p1"],
+        )
+        """);
 
     getConfiguredTarget("//experimental/p2:p2"); // No errors.
   }
 
   @Test
   public void testThirdPartyExperimentalDependenciesOnExperimentalAllowed() throws Exception {
-    scratch.file("experimental/p1/BUILD", "exports_files(['p1.cc'])", "cc_library(name = 'p1')");
+    scratch.file(
+        "experimental/p1/BUILD",
+        """
+        exports_files(["p1.cc"])
+
+        cc_library(name = "p1")
+        """);
     scratch.file(
         "third_party/experimental/p2/BUILD",
-        "licenses(['unencumbered'])",
-        "exports_files(['p2.cc'])",
-        "cc_library(name = 'p2', deps=['//experimental/p1:p1'])");
+        """
+        licenses(["unencumbered"])
+
+        exports_files(["p2.cc"])
+
+        cc_library(
+            name = "p2",
+            deps = ["//experimental/p1"],
+        )
+        """);
 
     getConfiguredTarget("//third_party/experimental/p2:p2"); // No errors.
   }
 
   @Test
   public void testDependencyOnTestOnlyAllowed() throws Exception {
-    scratch.file("testonly/BUILD",
-        "cc_library(name = 'testutil',",
-        "           srcs = ['testutil.cc'],",
-        "           testonly = 1)");
+    scratch.file(
+        "testonly/BUILD",
+        """
+        cc_library(
+            name = "testutil",
+            testonly = 1,
+            srcs = ["testutil.cc"],
+        )
+        """);
 
-    scratch.file("util/BUILD",
-        "cc_library(name = 'util',",
-        "           srcs = ['util.cc'])");
+    scratch.file(
+        "util/BUILD",
+        """
+        cc_library(
+            name = "util",
+            srcs = ["util.cc"],
+        )
+        """);
 
-    scratch.file("cc/common/BUILD",
-        // testonly=1 -> testonly=1
-        "cc_library(name = 'lib1',",
-        "           srcs = ['foo1.cc'],",
-        "           deps = ['//testonly:testutil'],",
-        "           testonly = 1)",
-        // testonly=0 -> testonly=0
-        "cc_library(name = 'lib2',",
-        "           srcs = ['foo2.cc'],",
-        "           deps = ['//util'],",
-        "           testonly = 0)",
-        // testonly=1 -> testonly=0
-        "cc_library(name = 'lib3',",
-        "           srcs = ['foo3.cc'],",
-        "           deps = [':lib2'],",
-        "           testonly = 1)");
+    scratch.file(
+        "cc/common/BUILD",
+        """
+        # testonly=1 -> testonly=1
+        cc_library(
+            name = "lib1",
+            testonly = 1,
+            srcs = ["foo1.cc"],
+            deps = ["//testonly:testutil"],
+        )
+
+        # testonly=0 -> testonly=0
+        cc_library(
+            name = "lib2",
+            testonly = 0,
+            srcs = ["foo2.cc"],
+            deps = ["//util"],
+        )
+
+        # testonly=1 -> testonly=0
+        cc_library(
+            name = "lib3",
+            testonly = 1,
+            srcs = ["foo3.cc"],
+            deps = [":lib2"],
+        )
+        """);
     getConfiguredTarget("//cc/common:lib1"); // No errors.
     getConfiguredTarget("//cc/common:lib2"); // No errors.
     getConfiguredTarget("//cc/common:lib3"); // No errors.
@@ -224,10 +308,15 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testDependsOnTestOnlyDisallowed() throws Exception {
-    scratch.file("testonly/BUILD",
-        "cc_library(name = 'testutil',",
-        "           srcs = ['testutil.cc'],",
-        "           testonly = 1)");
+    scratch.file(
+        "testonly/BUILD",
+        """
+        cc_library(
+            name = "testutil",
+            testonly = 1,
+            srcs = ["testutil.cc"],
+        )
+        """);
     checkError("cc/error", "cclib",
         // error:
         "non-test target '//cc/error:cclib' depends on testonly target '//testonly:testutil' and "
@@ -244,11 +333,15 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration("--incompatible_check_testonly_for_output_files");
     scratch.file(
         "testonly/BUILD",
-        "genrule(name = 'testutil',",
-        "        outs = ['testutil.cc'],",
-        "        cmd = 'touch testutil.cc',",
-        "        srcs = [],",
-        "        testonly = 1)");
+        """
+        genrule(
+            name = "testutil",
+            testonly = 1,
+            srcs = [],
+            outs = ["testutil.cc"],
+            cmd = "touch testutil.cc",
+        )
+        """);
     checkError(
         "cc/error",
         "cclib",
@@ -339,12 +432,22 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testDependenceOfJavaProductionCodeOnTestPackageGroups() throws Exception {
-    scratch.file("java/banana/BUILD",
-        "java_library(name='banana',",
-        "             visibility=['//javatests/plantain:chips'])");
-    scratch.file("javatests/plantain/BUILD",
-        "package_group(name='chips',",
-        "              packages=['//javatests/plantain'])");
+    scratch.file(
+        "java/banana/BUILD",
+        """
+        java_library(
+            name = "banana",
+            visibility = ["//javatests/plantain:chips"],
+        )
+        """);
+    scratch.file(
+        "javatests/plantain/BUILD",
+        """
+        package_group(
+            name = "chips",
+            packages = ["//javatests/plantain"],
+        )
+        """);
 
     getConfiguredTarget("//java/banana");
     assertNoEvents();
@@ -415,9 +518,26 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
   public void testRulesDontProvideRequiredFragmentsByDefault() throws Exception {
     scratch.file(
         "a/BUILD",
-        "config_setting(name = 'config', values = {'start_end_lib': '1'})",
-        "py_library(name = 'pylib', srcs = ['pylib.py'])",
-        "cc_library(name = 'a', srcs = ['A.cc'], data = [':pylib'])");
+        String.format(
+            """
+            %s
+            config_setting(
+                name = "config",
+                values = {"start_end_lib": "1"},
+            )
+
+            py_library(
+                name = "pylib",
+                srcs = ["pylib.py"],
+            )
+
+            cc_library(
+                name = "a",
+                srcs = ["A.cc"],
+                data = [":pylib"],
+            )
+            """,
+            getPyLoad("py_library")));
     assertThat(getConfiguredTarget("//a:a").getProvider(RequiredConfigFragmentsProvider.class))
         .isNull();
     assertThat(getConfiguredTarget("//a:config").getProvider(RequiredConfigFragmentsProvider.class))
@@ -468,14 +588,23 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
   public void testStarlarkRuleAttrSetToNoneFails() throws Exception {
     setBuildLanguageOptions("--incompatible_fail_on_unknown_attributes");
     scratch.file(
-        "p/rule.bzl", //
-        "def _impl(ctx):",
-        "  pass",
-        "my_rule = rule(_impl)");
+        "p/rule.bzl",
+        """
+        def _impl(ctx):
+            pass
+
+        my_rule = rule(_impl)
+        """);
     scratch.file(
-        "p/BUILD", //
-        "load(':rule.bzl', 'my_rule')",
-        "my_rule(name = 'my_target',  bat = None)");
+        "p/BUILD",
+        """
+        load(":rule.bzl", "my_rule")
+
+        my_rule(
+            name = "my_target",
+            bat = None,
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getTarget("//p:my_target");
@@ -487,14 +616,23 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
   public void testStarlarkRuleAttrSetToNoneDoesntFail() throws Exception {
     setBuildLanguageOptions("--noincompatible_fail_on_unknown_attributes");
     scratch.file(
-        "p/rule.bzl", //
-        "def _impl(ctx):",
-        "  pass",
-        "my_rule = rule(_impl)");
+        "p/rule.bzl",
+        """
+        def _impl(ctx):
+            pass
+
+        my_rule = rule(_impl)
+        """);
     scratch.file(
-        "p/BUILD", //
-        "load(':rule.bzl', 'my_rule')",
-        "my_rule(name = 'my_target',  bat = None)");
+        "p/BUILD",
+        """
+        load(":rule.bzl", "my_rule")
+
+        my_rule(
+            name = "my_target",
+            bat = None,
+        )
+        """);
 
     getTarget("//p:my_target");
   }

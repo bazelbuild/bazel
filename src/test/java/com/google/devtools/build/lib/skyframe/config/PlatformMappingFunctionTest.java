@@ -24,8 +24,10 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -34,6 +36,10 @@ import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.Optional;
 import org.junit.Before;
 import org.junit.Test;
@@ -51,17 +57,45 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
   private static final Label PLATFORM1 = Label.parseCanonicalUnchecked("//platforms:one");
 
   private static final Label DEFAULT_TARGET_PLATFORM =
-      Label.parseCanonicalUnchecked("@local_config_platform//:host");
+      Label.parseCanonicalUnchecked("@bazel_tools//tools:host_platform");
 
-  private BuildOptions defaultBuildOptions;
+  /** Extra options for this test. */
+  public static class DummyTestOptions extends FragmentOptions {
+    public DummyTestOptions() {}
+
+    @Option(
+        name = "internal_option",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "super secret",
+        metadataTags = {OptionMetadataTag.INTERNAL})
+    public String internalOption;
+  }
+
+  /** Test fragment. */
+  @RequiresOptions(options = {DummyTestOptions.class})
+  public static final class DummyTestOptionsFragment extends Fragment {
+    private final BuildOptions buildOptions;
+
+    public DummyTestOptionsFragment(BuildOptions buildOptions) {
+      this.buildOptions = buildOptions;
+    }
+
+    // Getter required to satisfy AutoCodec.
+    public BuildOptions getBuildOptions() {
+      return buildOptions;
+    }
+  }
 
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
-    builder.addConfigurationFragment(DummyTestFragment.class);
+    builder.addConfigurationFragment(DummyTestOptionsFragment.class);
     return builder.build();
   }
+
+  private BuildOptions defaultBuildOptions;
 
   @Before
   public void setDefaultBuildOptions() {
@@ -227,7 +261,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         "my_mapping_file",
         "platforms:", // Force line break
         "  //platforms:one", // Force line break
-        "    --internal foo=something_new");
+        "    --internal_option=something_new");
 
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
@@ -237,8 +271,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 
-    assertThat(mapped.get(DummyTestFragment.DummyTestOptions.class).internalFoo)
-        .isEqualTo("something_new");
+    assertThat(mapped.get(DummyTestOptions.class).internalOption).isEqualTo("something_new");
   }
 
   @Test
@@ -246,16 +279,25 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     rewriteWorkspace("workspace(name = 'my_workspace')");
     scratch.file(
         "test/build_setting.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "string_flag = rule(",
-        "  implementation = _impl,",
-        "  build_setting = config.string(flag=True)",
-        ")");
+        """
+        def _impl(ctx):
+            return []
+
+        string_flag = rule(
+            implementation = _impl,
+            build_setting = config.string(flag = True),
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:build_setting.bzl', 'string_flag')",
-        "string_flag(name = 'my_string_flag', build_setting_default = 'default value')");
+        """
+        load("//test:build_setting.bzl", "string_flag")
+
+        string_flag(
+            name = "my_string_flag",
+            build_setting_default = "default value",
+        )
+        """);
     scratch.file(
         "my_mapping_file",
         "platforms:", // Force line break
@@ -298,19 +340,34 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     // Define a Starlark flag:
     scratch.file(
         "test/flags/build_setting.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "string_flag = rule(",
-        "  implementation = _impl,",
-        "  build_setting = config.string(flag=True)",
-        ")");
+        """
+        def _impl(ctx):
+            return []
+
+        string_flag = rule(
+            implementation = _impl,
+            build_setting = config.string(flag = True),
+        )
+        """);
     scratch.file(
         "test/flags/BUILD",
-        "load('//test/flags:build_setting.bzl', 'string_flag')",
-        "string_flag(name = 'my_string_flag', build_setting_default = 'default value')");
+        """
+        load("//test/flags:build_setting.bzl", "string_flag")
+
+        string_flag(
+            name = "my_string_flag",
+            build_setting_default = "default value",
+        )
+        """);
 
     // Define a custom platform and mapping from that platform to the flag:
-    scratch.file("test/platforms/BUILD", "platform(", "    name = 'my_platform',", ")");
+    scratch.file(
+        "test/platforms/BUILD",
+        """
+        platform(
+            name = "my_platform",
+        )
+        """);
     scratch.file(
         "my_mapping_file",
         "platforms:", // Force line break
@@ -320,35 +377,47 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     // Define a rule that platform-transitions its deps:
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
-        "package_group(",
-        "    name = 'function_transition_allowlist',",
-        "    packages = [",
-        "        '//test/...',",
-        "    ],",
-        ")");
+        """
+        package_group(
+            name = "function_transition_allowlist",
+            packages = [
+                "//test/...",
+            ],
+        )
+        """);
     scratch.file(
         "test/starlark/rules.bzl",
-        "def transition_func(settings, attr):",
-        "  return {'//command_line_option:platforms': '//test/platforms:my_platform'}",
-        "my_transition = transition(",
-        "  implementation = transition_func,",
-        "  inputs = [],",
-        "  outputs = ['//command_line_option:platforms']",
-        ")",
-        "transition_rule = rule(",
-        "  implementation = lambda ctx: [],",
-        "  attrs = {",
-        "    'dep':  attr.label(cfg = my_transition),",
-        "  }",
-        ")");
+        """
+        def transition_func(settings, attr):
+            return {"//command_line_option:platforms": "//test/platforms:my_platform"}
+
+        my_transition = transition(
+            implementation = transition_func,
+            inputs = [],
+            outputs = ["//command_line_option:platforms"],
+        )
+        transition_rule = rule(
+            implementation = lambda ctx: [],
+            attrs = {
+                "dep": attr.label(cfg = my_transition),
+            },
+        )
+        """);
     scratch.file("test/starlark/BUILD");
 
     // Define a target to build and its dep:
     scratch.file(
         "test/BUILD",
-        "load('//test/starlark:rules.bzl', 'transition_rule')",
-        "transition_rule(name = 'main', dep = ':dep')",
-        "transition_rule(name = 'dep')");
+        """
+        load("//test/starlark:rules.bzl", "transition_rule")
+
+        transition_rule(
+            name = "main",
+            dep = ":dep",
+        )
+
+        transition_rule(name = "dep")
+        """);
 
     // Set the Starlark flag explicitly. Otherwise it won't show up at all in the top-level config's
     // getOptions().getStarlarkOptions() map.

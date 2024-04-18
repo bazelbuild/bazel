@@ -26,10 +26,12 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionGraph;
@@ -57,7 +59,6 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.MiddlemanType;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -165,7 +166,7 @@ public final class ActionsTestUtil {
         eventHandler,
         ImmutableMap.copyOf(clientEnv),
         /* topLevelFilesets= */ ImmutableMap.of(),
-        (artifact, output) -> {},
+        treeArtifact -> ImmutableSortedSet.of(),
         /* actionFileSystem= */ null,
         /* skyframeDepsResult= */ null,
         DiscoveredModulesPruner.DEFAULT,
@@ -191,7 +192,7 @@ public final class ActionsTestUtil {
         eventHandler,
         /* clientEnv= */ ImmutableMap.of(),
         /* topLevelFilesets= */ ImmutableMap.of(),
-        (artifact, output) -> {},
+        treeArtifact -> ImmutableSortedSet.of(),
         /* actionFileSystem= */ null,
         /* skyframeDepsResult= */ null,
         DiscoveredModulesPruner.DEFAULT,

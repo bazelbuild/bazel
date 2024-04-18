@@ -81,6 +81,49 @@ public final class PooledInternerTest {
     assertThat(createInterned(/* arg= */ "HelloWorld")).isSameInstanceAs(keyToIntern1);
   }
 
+  @Test
+  public void pooledInterner_sizeOfMap_afterExplicitRemoval() {
+    ObjectForInternerTests keyInPool = new ObjectForInternerTests(/* arg= */ "FooBar");
+    pool =
+        sample -> {
+          if (sample.arg.equals("FooBar")) {
+            return keyInPool;
+          } else {
+            return interner.weakIntern(sample);
+          }
+        };
+
+    var unused = createInterned("FooBar");
+    ObjectForInternerTests weakInterned = createInterned("BazQux");
+
+    // Only BazQux is in the interner
+    assertThat(interner.size()).isEqualTo(1);
+
+    interner.removeWeak(weakInterned);
+
+    assertThat(interner.size()).isEqualTo(0);
+  }
+
+  @Test
+  public void pooledInterner_sizeOfMapReduced_withShrinkAll() {
+    ObjectForInternerTests unusedKeyToIntern = createInterned(/* arg= */ "HelloWorld");
+    // If interned instance already exists in the pool, expect to get the pooled instance.
+    assertThat(createInterned("HelloWorld")).isSameInstanceAs(unusedKeyToIntern);
+    assertThat(interner.size()).isEqualTo(1);
+
+    PooledInterner.shrinkAll();
+    // Does nothing, because the reference is still held.
+    assertThat(interner.size()).isEqualTo(1);
+
+    // Delete the only reference to interned object, and run GC. Without GC, the assertion will
+    // fail.
+    unusedKeyToIntern = null;
+    System.gc();
+    PooledInterner.shrinkAll();
+
+    assertThat(interner.size()).isEqualTo(0);
+  }
+
   static final class ObjectForInternerTests {
     private final String arg;
 

@@ -20,8 +20,8 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -347,25 +347,34 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     // Define a few files that we can load with different kinds of label syntax. In each case,
     // access the `_builtins` symbol to demonstrate that we're being loaded as a builtins bzl.
     scratch.file(
-        "tools/builtins_staging/absolute.bzl", //
-        "_builtins",
-        "a = 'A'");
+        "tools/builtins_staging/absolute.bzl",
+        """
+        _builtins
+        a = "A"
+        """);
     scratch.file(
-        "tools/builtins_staging/repo_relative.bzl", //
-        "_builtins",
-        "b = 'B'");
+        "tools/builtins_staging/repo_relative.bzl",
+        """
+        _builtins
+        b = "B"
+        """);
     scratch.file(
-        "tools/builtins_staging/subdir/pkg_relative1.bzl", //
-        // Do a relative load within a load, to show it's relative to the (pseudo) package, i.e. the
-        // root, and not relative to the file. That is, we specify 'subdir/pkg_relative2.bzl', not
-        // just 'pkg_relative2.bzl'.
-        "load('subdir/pkg_relative2.bzl', 'c2')",
-        "_builtins",
-        "c = c2");
+        "tools/builtins_staging/subdir/pkg_relative1.bzl",
+        """
+        # Do a relative load within a load, to show it's relative to the (pseudo) package, i.e. the
+        # root, and not relative to the file. That is, we specify 'subdir/pkg_relative2.bzl', not
+        # just 'pkg_relative2.bzl'.
+        load("subdir/pkg_relative2.bzl", "c2")
+
+        _builtins
+        c = c2
+        """);
     scratch.file(
-        "tools/builtins_staging/subdir/pkg_relative2.bzl", //
-        "_builtins",
-        "c2 = 'C'");
+        "tools/builtins_staging/subdir/pkg_relative2.bzl",
+        """
+        _builtins
+        c2 = "C"
+        """);
 
     // Also create a file in the main repo whose package path coincides with a file in the builtins
     // pseudo-repo, to show that we get the right one.
@@ -556,8 +565,10 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     scratch.file("BUILD");
     scratch.file(
         "foo.bzl",
-        "dummy_symbol = None",
-        "print('In bzl: overridable_symbol :: %s' % overridable_symbol)");
+        """
+        dummy_symbol = None
+        print("In bzl: overridable_symbol :: %s" % overridable_symbol)
+        """);
 
     buildAndAssertSuccess();
     // Builtins for WORKSPACE bzls are populated the same as for BUILD bzls.

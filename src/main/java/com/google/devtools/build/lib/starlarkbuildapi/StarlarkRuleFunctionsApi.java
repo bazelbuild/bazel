@@ -200,11 +200,23 @@ public interface StarlarkRuleFunctionsApi {
             positional = false,
             named = true,
             documented = false // TODO(#19922): Document
-            )
+            ),
+        @Param(
+            name = "doc",
+            positional = false,
+            named = true,
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            doc =
+                "A description of the macro that can be extracted by documentation generating "
+                    + "tools."),
         // TODO(#19922): Take attrs dict
       },
       useStarlarkThread = true)
-  StarlarkCallable macro(StarlarkFunction implementation, StarlarkThread thread)
+  StarlarkCallable macro(StarlarkFunction implementation, Object doc, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(

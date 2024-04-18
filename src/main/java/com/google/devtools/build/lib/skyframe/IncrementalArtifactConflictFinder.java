@@ -26,12 +26,11 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor.ExceptionHandlingMode;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
@@ -42,7 +41,6 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ActionConflictsAndStats;
-import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -60,6 +58,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 /**
@@ -233,7 +232,7 @@ public final class IncrementalArtifactConflictFinder {
    */
   ActionConflictsAndStats findArtifactConflicts(ActionLookupKey actionLookupKey, boolean inRerun)
       throws InterruptedException {
-    ConcurrentMap<ActionAnalysisMetadata, ConflictException> temporaryBadActionMap =
+    ConcurrentMap<ActionAnalysisMetadata, ActionConflictException> temporaryBadActionMap =
         new ConcurrentHashMap<>();
 
     List<ListenableFuture<Void>> actionCheckingFutures =
@@ -304,7 +303,7 @@ public final class IncrementalArtifactConflictFinder {
 
   ActionConflictsAndStats findArtifactConflictsNoIncrementality(
       ImmutableCollection<SkyValue> actionLookupValues) throws InterruptedException {
-    ConcurrentMap<ActionAnalysisMetadata, ConflictException> temporaryBadActionMap =
+    ConcurrentMap<ActionAnalysisMetadata, ActionConflictException> temporaryBadActionMap =
         new ConcurrentHashMap<>();
 
     try (SilentCloseable c =
@@ -321,7 +320,7 @@ public final class IncrementalArtifactConflictFinder {
   private void constructActionGraphAndArtifactList(
       ConcurrentMap<String, Object> pathFragmentTrieRoot,
       ImmutableCollection<SkyValue> actionLookupValues,
-      ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap)
+      ConcurrentMap<ActionAnalysisMetadata, ActionConflictException> badActionMap)
       throws InterruptedException {
     List<ListenableFuture<Void>> futures = new ArrayList<>(actionLookupValues.size());
     synchronized (freeForAllPool) {
@@ -372,7 +371,7 @@ public final class IncrementalArtifactConflictFinder {
       ActionLookupValue alv,
       MutableActionGraph actionGraph,
       ConcurrentMap<String, Object> pathFragmentTrieRoot,
-      ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap) {
+      ConcurrentMap<ActionAnalysisMetadata, ActionConflictException> badActionMap) {
     for (ActionAnalysisMetadata action : alv.getActions()) {
       try {
         actionGraph.registerAction(action);
@@ -380,7 +379,7 @@ public final class IncrementalArtifactConflictFinder {
         // It may be possible that we detect a conflict for the same action more than once, if
         // that action belongs to multiple aspect values. In this case we will harmlessly
         // overwrite the badActionMap entry.
-        badActionMap.put(action, new ConflictException(e));
+        badActionMap.put(action, e);
         // We skip the rest of the loop, and do not add the path->artifact mapping for this
         // artifact below -- we don't need to check it since this action is already in
         // error.
@@ -390,11 +389,25 @@ public final class IncrementalArtifactConflictFinder {
         Thread.currentThread().interrupt();
         return null;
       }
-      for (Artifact output : action.getOutputs()) {
-        checkOutputPrefix(actionGraph, pathFragmentTrieRoot, output, badActionMap);
+      try {
+        for (Artifact output : action.getOutputs()) {
+          checkOutputPrefix(actionGraph, pathFragmentTrieRoot, output, badActionMap);
+        }
+      } catch (ActionConflictException e) {
+        throw new IllegalStateException(
+            "ActionConflictException aren't expected to be thrown here.", e);
       }
     }
     return null;
+  }
+
+  public void conflictCheckPerAction(ActionAnalysisMetadata action)
+      throws ActionConflictException, InterruptedException {
+    threadSafeMutableActionGraph.registerAction(action);
+
+    for (Artifact output : action.getOutputs()) {
+      checkOutputPrefix(threadSafeMutableActionGraph, pathFragmentTrieRoot, output, null);
+    }
   }
 
   /**
@@ -410,12 +423,15 @@ public final class IncrementalArtifactConflictFinder {
    *
    * <p>We do this instead of creating a proper wrapper TrieNode data structure to save memory, as
    * the trie is expected to get quite large.
+   *
+   * @throws ActionConflictException only when badActionMap is null.
    */
   private static void checkOutputPrefix(
       MutableActionGraph actionGraph,
       ConcurrentMap<String, Object> root,
       Artifact newArtifact,
-      ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap) {
+      @Nullable ConcurrentMap<ActionAnalysisMetadata, ActionConflictException> badActionMap)
+      throws ActionConflictException {
     Object existingTrieNode = root;
     PathFragment newArtifactPathFragment = newArtifact.getExecPath();
     Iterator<String> newPathIter = newArtifactPathFragment.segments().iterator();
@@ -449,21 +465,22 @@ public final class IncrementalArtifactConflictFinder {
                 conflictingExistingArtifact);
         ActionAnalysisMetadata currentAction =
             Preconditions.checkNotNull(actionGraph.getGeneratingAction(newArtifact), newArtifact);
-        ConflictException exception =
-            new ConflictException(
-                new ArtifactPrefixConflictException(
-                    conflictingExistingArtifact.getExecPath(),
-                    newArtifactPathFragment,
-                    priorAction.getOwner().getLabel(),
-                    currentAction.getOwner().getLabel()));
-        badActionMap.put(priorAction, exception);
-        badActionMap.put(currentAction, exception);
+        ActionConflictException exception =
+            ActionConflictException.createPrefix(
+                conflictingExistingArtifact, newArtifact, priorAction, currentAction);
         // If 2 paths collide, we need to update the Trie to contain only the shorter one.
         // This is required for correctness: the set of subsequent paths that could conflict with
         // the longer path is a subset of that of the shorter path.
         if (newPathIsPrefixOfExisting) {
           existingNonLeafNode.put(newSegment, newArtifact);
         }
+
+        if (badActionMap == null) {
+          throw exception;
+        }
+
+        badActionMap.put(priorAction, exception);
+        badActionMap.put(currentAction, exception);
 
         break;
       }
@@ -493,14 +510,14 @@ public final class IncrementalArtifactConflictFinder {
   private final class CheckForConflictsUnderKey implements Runnable {
     private final ActionLookupKey key;
     private final List<ListenableFuture<Void>> actionCheckingFutures;
-    private final ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap;
+    private final ConcurrentMap<ActionAnalysisMetadata, ActionConflictException> badActionMap;
 
     private final Set<ActionLookupKey> dedupSet;
 
     private CheckForConflictsUnderKey(
         ActionLookupKey key,
         List<ListenableFuture<Void>> actionCheckingFutures,
-        ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap,
+        ConcurrentMap<ActionAnalysisMetadata, ActionConflictException> badActionMap,
         Set<ActionLookupKey> dedupSet) {
       this.key = key;
       this.actionCheckingFutures = actionCheckingFutures;
@@ -528,13 +545,12 @@ public final class IncrementalArtifactConflictFinder {
         return;
       }
       for (SkyKey dep : directDeps) {
-        if (!(dep instanceof ActionLookupKey)) {
+        if (!(dep instanceof ActionLookupKey depKey)) {
           // The subgraph of dependencies of ActionLookupKeys never has a non-ActionLookupKey
           // depending on an ActionLookupKey. So we can skip any non-ActionLookupKeys in the
           // traversal as an optimization.
           continue;
         }
-        ActionLookupKey depKey = (ActionLookupKey) dep;
         if (dedupSet.add(depKey)) {
           exclusivePool.execute(
               new CheckForConflictsUnderKey(depKey, actionCheckingFutures, badActionMap, dedupSet));

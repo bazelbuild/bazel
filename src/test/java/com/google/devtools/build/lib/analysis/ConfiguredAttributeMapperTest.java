@@ -50,13 +50,19 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
   }
 
   private void writeConfigRules() throws Exception {
-    scratch.file("conditions/BUILD",
-        "config_setting(",
-        "    name = 'a',",
-        "    values = {'define': 'mode=a'})",
-        "config_setting(",
-        "    name = 'b',",
-        "    values = {'define': 'mode=b'})");
+    scratch.file(
+        "conditions/BUILD",
+        """
+        config_setting(
+            name = "a",
+            values = {"define": "mode=a"},
+        )
+
+        config_setting(
+            name = "b",
+            values = {"define": "mode=b"},
+        )
+        """);
   }
 
   /**
@@ -187,18 +193,43 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
 
   @Test
   public void testConcatenatedSelects() throws Exception {
-    scratch.file("hello/BUILD",
-        "config_setting(name = 'a', values = {'define': 'foo=a'})",
-        "config_setting(name = 'b', values = {'define': 'foo=b'})",
-        "config_setting(name = 'c', values = {'define': 'bar=c'})",
-        "config_setting(name = 'd', values = {'define': 'bar=d'})",
-        "genrule(",
-        "    name = 'gen',",
-        "    srcs = select({':a': ['a.in'], ':b': ['b.in']})",
-        "         + select({':c': ['c.in'], ':d': ['d.in']}),",
-        "    outs = ['out'],",
-        "    cmd = 'nothing',",
-        ")");
+    scratch.file(
+        "hello/BUILD",
+        """
+        config_setting(
+            name = "a",
+            values = {"define": "foo=a"},
+        )
+
+        config_setting(
+            name = "b",
+            values = {"define": "foo=b"},
+        )
+
+        config_setting(
+            name = "c",
+            values = {"define": "bar=c"},
+        )
+
+        config_setting(
+            name = "d",
+            values = {"define": "bar=d"},
+        )
+
+        genrule(
+            name = "gen",
+            srcs = select({
+                       ":a": ["a.in"],
+                       ":b": ["b.in"],
+                   }) +
+                   select({
+                       ":c": ["c.in"],
+                       ":d": ["d.in"],
+                   }),
+            outs = ["out"],
+            cmd = "nothing",
+        )
+        """);
     useConfiguration("--define", "foo=a", "--define", "bar=d");
     assertThat(getMapper("//hello:gen").get("srcs", BuildType.LABEL_LIST))
         .containsExactly(
@@ -208,16 +239,20 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
   @Test
   public void testNoneValuesMeansAttributeIsNotExplicitlySet() throws Exception {
     writeConfigRules();
-    scratch.file("a/BUILD",
-        "genrule(",
-        "    name = 'gen',",
-        "    srcs = [],",
-        "    outs = ['out'],",
-        "    cmd = '',",
-        "    message = select({",
-        "        '//conditions:a': 'defined message',",
-        "        '//conditions:b': None,",
-        "    }))");
+    scratch.file(
+        "a/BUILD",
+        """
+        genrule(
+            name = "gen",
+            srcs = [],
+            outs = ["out"],
+            cmd = "",
+            message = select({
+                "//conditions:a": "defined message",
+                "//conditions:b": None,
+            }),
+        )
+        """);
 
     useConfiguration("--define", "mode=a");
     assertThat(getMapper("//a:gen").isAttributeValueExplicitlySpecified("message")).isTrue();
@@ -229,20 +264,23 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
   @Test
   public void testNoneValuesWithMultipleSelectsAllNone() throws Exception {
     writeConfigRules();
-    scratch.file("a/BUILD",
-        "genrule(",
-        "    name = 'gen',",
-        "    srcs = [],",
-        "    outs = ['out'],",
-        "    cmd = '',",
-        "    message = select({",
-        "        '//conditions:a': 'defined message 1',",
-        "        '//conditions:b': None,",
-        "    }) + select({",
-        "        '//conditions:a': 'defined message 2',",
-        "        '//conditions:b': None,",
-        "    }),",
-        ")");
+    scratch.file(
+        "a/BUILD",
+        """
+        genrule(
+            name = "gen",
+            srcs = [],
+            outs = ["out"],
+            cmd = "",
+            message = select({
+                "//conditions:a": "defined message 1",
+                "//conditions:b": None,
+            }) + select({
+                "//conditions:a": "defined message 2",
+                "//conditions:b": None,
+            }),
+        )
+        """);
 
     useConfiguration("--define", "mode=a");
     assertThat(getMapper("//a:gen").isAttributeValueExplicitlySpecified("message")).isTrue();
@@ -282,19 +320,23 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
     writeConfigRules();
     scratch.file(
         "a/BUILD",
-        "alias(",
-        "    name = 'aliased_a',",
-        "    actual = '//conditions:a',",
-        ")",
-        "genrule(",
-        "    name = 'gen',",
-        "    srcs = [],",
-        "    outs = ['out'],",
-        "    cmd = '',",
-        "    message = select({",
-        "        ':aliased_a': 'defined message',",
-        "        '//conditions:default': None,",
-        "    }))");
+        """
+        alias(
+            name = "aliased_a",
+            actual = "//conditions:a",
+        )
+
+        genrule(
+            name = "gen",
+            srcs = [],
+            outs = ["out"],
+            cmd = "",
+            message = select({
+                ":aliased_a": "defined message",
+                "//conditions:default": None,
+            }),
+        )
+        """);
     useConfiguration("--define", "mode=a");
     assertThat(getMapper("//a:gen").get("message", Type.STRING)).isEqualTo("defined message");
   }
@@ -303,21 +345,28 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
   public void noMatchErrorFormat() throws Exception {
     scratch.file(
         "a/BUILD",
-        "config_setting(",
-        "    name = 'a',",
-        "    values = {'define': 'mode=a'})",
-        "config_setting(",
-        "    name = 'b',",
-        "    values = {'define': 'mode=b'})",
-        "genrule(",
-        "    name = 'g',",
-        "    srcs = [],",
-        "    outs = ['out'],",
-        "    cmd = '',",
-        "    message = select({",
-        "        ':a': 'not chosen',",
-        "        ':b': 'not chosen',",
-        "    }))");
+        """
+        config_setting(
+            name = "a",
+            values = {"define": "mode=a"},
+        )
+
+        config_setting(
+            name = "b",
+            values = {"define": "mode=b"},
+        )
+
+        genrule(
+            name = "g",
+            srcs = [],
+            outs = ["out"],
+            cmd = "",
+            message = select({
+                ":a": "not chosen",
+                ":b": "not chosen",
+            }),
+        )
+        """);
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:g");
     // Match with a regex pattern because the error message includes the failing target's

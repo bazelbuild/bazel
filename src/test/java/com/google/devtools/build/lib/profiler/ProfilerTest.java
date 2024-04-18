@@ -1041,6 +1041,41 @@ public final class ProfilerTest {
     assertThat(first.processId()).isEqualTo(CounterSeriesTraceData.PROCESS_ID);
     assertThat(first.threadId()).isEqualTo(Thread.currentThread().getId());
     // One of the cache hit checks spilled over and used half of the second bucket.
-    assertThat(second.args()).containsExactly("local action cache", 0.5);
+    assertThat(second.args()).containsExactly("action", 0.0, "local action cache", 0.5);
+  }
+
+  @Test
+  public void testLocalActionsCounted() throws Exception {
+    // Given 2 subsequent local actions with length of 200 ms and 100ms
+    ByteArrayOutputStream buffer = start(getAllProfilerTasks(), JSON_TRACE_FILE_FORMAT);
+
+    long startTime1 = clock.nanoTime();
+    clock.advanceMillis(200);
+    profiler.completeTask(startTime1, ProfilerTask.LOCAL_ACTION_COUNTS, "resource usage 1");
+    long startTime2 = clock.nanoTime();
+    clock.advanceMillis(100);
+    profiler.completeTask(startTime2, ProfilerTask.LOCAL_ACTION_COUNTS, "resource usage 2");
+
+    // When profiler builded the profile.
+    profiler.stop();
+
+    // Then find 2 records of local actions of length 1 and 0.5 (because size of window is 200 ms)
+    JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
+    Object[] actionCountEvents =
+        jsonProfile.getTraceEvents().stream()
+            .filter(e -> e.name().equals("action count (local)"))
+            .toArray();
+
+    assertThat(actionCountEvents).hasLength(2);
+
+    TraceEvent first = (TraceEvent) actionCountEvents[0];
+    assertThat(first.processId()).isEqualTo(CounterSeriesTraceData.PROCESS_ID);
+    assertThat(first.threadId()).isEqualTo(Thread.currentThread().getId());
+    assertThat(first.args()).containsExactly("local action", 1.0);
+
+    TraceEvent second = (TraceEvent) actionCountEvents[1];
+    assertThat(first.processId()).isEqualTo(CounterSeriesTraceData.PROCESS_ID);
+    assertThat(first.threadId()).isEqualTo(Thread.currentThread().getId());
+    assertThat(second.args()).containsExactly("local action", 0.5);
   }
 }

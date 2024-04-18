@@ -191,12 +191,11 @@ public class NestedSetCodecWithStore implements ObjectCodec<NestedSet<?>> {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof EqualsWrapper)) {
+      if (!(obj instanceof EqualsWrapper that)) {
         return false;
       }
 
       // Both sets contain Object[] or both sets contain ListenableFuture<Object[]>
-      EqualsWrapper that = (EqualsWrapper) obj;
       if (this.order.equals(that.order) && this.children.equals(that.children)) {
         return true;
       }

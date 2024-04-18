@@ -39,6 +39,7 @@ import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
@@ -104,11 +105,10 @@ import org.mockito.stubbing.Answer;
 /** Tests for {@link RemoteSpawnCache}. */
 @RunWith(JUnit4.class)
 public class RemoteSpawnCacheTest {
+
   private static final RemoteOutputChecker DUMMY_REMOTE_OUTPUT_CHECKER =
       new RemoteOutputChecker(
           new JavaClock(), "build", RemoteOutputsMode.MINIMAL, ImmutableList.of());
-  private static final ArtifactExpander SIMPLE_ARTIFACT_EXPANDER =
-      (artifact, output) -> output.add(artifact);
 
   private static final String BUILD_REQUEST_ID = "build-req-id";
   private static final String COMMAND_ID = "command-id";
@@ -196,7 +196,11 @@ public class RemoteSpawnCacheTest {
             PathFragment baseDirectory, boolean willAccessRepeatedly)
             throws ForbiddenActionInputException {
           return getSpawnInputExpander()
-              .getInputMapping(simpleSpawn, SIMPLE_ARTIFACT_EXPANDER, fakeFileCache, baseDirectory);
+              .getInputMapping(
+                  simpleSpawn,
+                  treeArtifact -> ImmutableSortedSet.of(),
+                  fakeFileCache,
+                  baseDirectory);
         }
 
         @Override

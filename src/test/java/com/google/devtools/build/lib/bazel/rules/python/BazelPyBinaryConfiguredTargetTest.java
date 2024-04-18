@@ -102,15 +102,18 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
   public void runtimeSetByPythonTop() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "py_runtime(",
-        "    name = 'my_py_runtime',",
-        "    interpreter_path = '/system/python3',",
-        "    python_version = 'PY3',",
-        ")",
-        "py_binary(",
-        "    name = 'pybin',",
-        "    srcs = ['pybin.py'],",
-        ")");
+        """
+        py_runtime(
+            name = "my_py_runtime",
+            interpreter_path = "/system/python3",
+            python_version = "PY3",
+        )
+
+        py_binary(
+            name = "pybin",
+            srcs = ["pybin.py"],
+        )
+        """);
     String pythonTop =
         analysisMock.pySupport().createPythonTopEntryPoint(mockToolsConfig, "//pkg:my_py_runtime");
     useConfiguration("--incompatible_use_python_toolchains=false", "--python_top=" + pythonTop);
@@ -121,11 +124,13 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void runtimeSetByPythonPath() throws Exception {
     scratch.file(
-        "pkg/BUILD", //
-        "py_binary(",
-        "    name = 'pybin',",
-        "    srcs = ['pybin.py'],",
-        ")");
+        "pkg/BUILD",
+        """
+        py_binary(
+            name = "pybin",
+            srcs = ["pybin.py"],
+        )
+        """);
     useConfiguration("--incompatible_use_python_toolchains=false", "--python_path=/system/python2");
     String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:pybin"));
     assertThat(path).isEqualTo("/system/python2");
@@ -134,11 +139,13 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void runtimeDefaultsToPythonSystemCommand() throws Exception {
     scratch.file(
-        "pkg/BUILD", //
-        "py_binary(",
-        "    name = 'pybin',",
-        "    srcs = ['pybin.py'],",
-        ")");
+        "pkg/BUILD",
+        """
+        py_binary(
+            name = "pybin",
+            srcs = ["pybin.py"],
+        )
+        """);
     useConfiguration("--incompatible_use_python_toolchains=false");
     String path = getInterpreterPathFromStub(getConfiguredTarget("//pkg:pybin"));
     assertThat(path).isEqualTo("python");
@@ -148,15 +155,18 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
   public void pythonTopTakesPrecedenceOverPythonPath() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "py_runtime(",
-        "    name = 'my_py_runtime',",
-        "    interpreter_path = '/system/python3',",
-        "    python_version = 'PY3',",
-        ")",
-        "py_binary(",
-        "    name = 'pybin',",
-        "    srcs = ['pybin.py'],",
-        ")");
+        """
+        py_runtime(
+            name = "my_py_runtime",
+            interpreter_path = "/system/python3",
+            python_version = "PY3",
+        )
+
+        py_binary(
+            name = "pybin",
+            srcs = ["pybin.py"],
+        )
+        """);
     String pythonTop =
         analysisMock.pySupport().createPythonTopEntryPoint(mockToolsConfig, "//pkg:my_py_runtime");
     useConfiguration(
@@ -208,11 +218,13 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
     defineToolchains();
     scratch.file(
         "pkg/BUILD",
-        "py_binary(",
-        "    name = 'py3_bin',",
-        "    srcs = ['py3_bin.py'],",
-        "    python_version = 'PY3',",
-        ")");
+        """
+        py_binary(
+            name = "py3_bin",
+            srcs = ["py3_bin.py"],
+            python_version = "PY3",
+        )
+        """);
     useConfiguration(
         "--incompatible_use_python_toolchains=true",
         "--extra_toolchains=//toolchains:py_toolchain");
@@ -231,11 +243,13 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
     defineToolchains();
     scratch.file(
         "pkg/BUILD",
-        "py_binary(",
-        "    name = 'py3_bin',",
-        "    srcs = ['py3_bin.py'],",
-        "    python_version = 'PY3',",
-        ")");
+        """
+        py_binary(
+            name = "py3_bin",
+            srcs = ["py3_bin.py"],
+            python_version = "PY3",
+        )
+        """);
     useConfiguration(
         "--incompatible_use_python_toolchains=true",
         "--extra_toolchains=//toolchains:py_toolchain_for_py3_only");
@@ -249,11 +263,13 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
     defineToolchains();
     scratch.file(
         "pkg/BUILD",
-        "py_binary(",
-        "    name = 'py3_bin',",
-        "    srcs = ['py3_bin.py'],",
-        "    python_version = 'PY3',",
-        ")");
+        """
+        py_binary(
+            name = "py3_bin",
+            srcs = ["py3_bin.py"],
+            python_version = "PY3",
+        )
+        """);
     useConfiguration(
         "--incompatible_use_python_toolchains=true",
         "--extra_toolchains=//toolchains:py_toolchain",
@@ -301,11 +317,13 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
   private void analyzePyBinaryTargetUsingCustomToolchain() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        "py_binary(",
-        "    name = 'pybin',",
-        "    srcs = ['pybin.py'],",
-        "    python_version = 'PY3',",
-        ")");
+        """
+        py_binary(
+            name = "pybin",
+            srcs = ["pybin.py"],
+            python_version = "PY3",
+        )
+        """);
     useConfiguration(
         "--incompatible_use_python_toolchains=true",
         "--extra_toolchains=//toolchains:custom_toolchain");
@@ -395,11 +413,13 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void packageNameCanHaveHyphen() throws Exception {
     scratch.file(
-        "pkg-hyphenated/BUILD", //
-        "py_binary(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'],",
-        ")");
+        "pkg-hyphenated/BUILD",
+        """
+        py_binary(
+            name = "foo",
+            srcs = ["foo.py"],
+        )
+        """);
     assertThat(getConfiguredTarget("//pkg-hyphenated:foo")).isNotNull();
     assertNoEvents();
   }
@@ -410,11 +430,16 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
         "pkg-hyphenated/BUILD", //
         "exports_files(['bar.py'])");
     scratch.file(
-        "otherpkg/BUILD", //
-        "py_binary(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py', '//pkg-hyphenated:bar.py'],",
-        ")");
+        "otherpkg/BUILD",
+        """
+        py_binary(
+            name = "foo",
+            srcs = [
+                "foo.py",
+                "//pkg-hyphenated:bar.py",
+            ],
+        )
+        """);
     assertThat(getConfiguredTarget("//otherpkg:foo")).isNotNull();
     assertNoEvents();
   }

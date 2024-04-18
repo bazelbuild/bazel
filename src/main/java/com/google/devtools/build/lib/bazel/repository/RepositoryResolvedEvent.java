@@ -254,8 +254,7 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
       Map<String, Object> orig, Map<String, Object> defaults, Map<?, ?> modified) {
     ImmutableMap.Builder<String, Object> valuesChanged = ImmutableMap.builder();
     for (Map.Entry<?, ?> entry : modified.entrySet()) {
-      if (entry.getKey() instanceof String) {
-        String key = (String) entry.getKey();
+      if (entry.getKey() instanceof String key) {
         if (IGNORED_ATTRIBUTE_NAMES.contains(key)) {
           // The dict returned by the repo rule really shouldn't know about these anyway, but
           // for symmetry we'll ignore them if they happen to be present.

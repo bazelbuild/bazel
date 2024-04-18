@@ -24,15 +24,15 @@ a set of child event identifiers, and a payload.
 
 *  __Build Event Identifier:__ Depending on the kind of build event, it might be
 an [opaque
-string](https://github.com/bazelbuild/bazel/blob/16a107d/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L91){: .external}
+string](https://github.com/bazelbuild/bazel/blob/7.1.0/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L131-L140){: .external}
 or [structured
-information](https://github.com/bazelbuild/bazel/blob/16a107d/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L123){: .external}
+information](https://github.com/bazelbuild/bazel/blob/7.1.0/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L194-L205){: .external}
 revealing more about the build event. A build event identifier is unique within
 a build.
 
 *  __Children:__ A build event may announce other build events, by including
 their build event identifiers in its [children
-field](https://github.com/bazelbuild/bazel/blob/16a107d/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L469){: .external}.
+field](https://github.com/bazelbuild/bazel/blob/7.1.0/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L1276){: .external}.
 For example, the `PatternExpanded` build event announces the targets it expands
 to as children. The protocol guarantees that all events, except for the first
 event, are announced by a previous event.

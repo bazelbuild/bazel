@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.starlark;
 
+import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
@@ -27,10 +29,11 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -51,6 +54,7 @@ import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.events.Event;
@@ -61,9 +65,10 @@ import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OsUtils;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -128,45 +133,47 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   @Before
-  public final void createBuildFile() throws Exception {
+  public void createBuildFile() throws Exception {
     scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
 
     scratch.file("myinfo/BUILD");
 
     scratch.file(
         "foo/BUILD",
-        "genrule(name = 'foo',",
-        "  cmd = 'dummy_cmd',",
-        "  srcs = ['a.txt', 'b.img'],",
-        "  tools = ['t.exe'],",
-        "  outs = ['c.txt'])",
-        "genrule(name = 'bar',",
-        "  cmd = 'dummy_cmd',",
-        "  srcs = [':jl', ':gl'],",
-        "  outs = ['d.txt'])",
-        "genrule(name = 'baz',",
-        "  cmd = 'dummy_cmd',",
-        "  outs = ['e.txt'])",
-        "java_library(name = 'jl',",
-        "  srcs = ['a.java'])",
-        "genrule(name = 'gl',",
-        "  cmd = 'touch $(OUTS)',",
-        "  srcs = ['a.go'],",
-        "  outs = [ 'gl.a', 'gl.gcgox', ],",
-        "  output_to_bindir = 1,",
-        ")",
-        // The target below is used by testResolveCommand and testResolveTools
-        "sh_binary(name = 'mytool',",
-        "  srcs = ['mytool.sh'],",
-        "  data = ['file1.dat', 'file2.dat'],",
-        ")",
-        // The target below is used by testResolveCommand and testResolveTools
-        "genrule(name = 'resolve_me',",
-        "  cmd = 'aa',",
-        "  tools = [':mytool', 't.exe'],",
-        "  srcs = ['file3.dat', 'file4.dat'],",
-        "  outs = ['r1.txt', 'r2.txt'],",
-        ")");
+        """
+        genrule(name = 'foo',
+          cmd = 'dummy_cmd',
+          srcs = ['a.txt', 'b.img'],
+          tools = ['t.exe'],
+          outs = ['c.txt'])
+        genrule(name = 'bar',
+          cmd = 'dummy_cmd',
+          srcs = [':jl', ':gl'],
+          outs = ['d.txt'])
+        genrule(name = 'baz',
+          cmd = 'dummy_cmd',
+          outs = ['e.txt'])
+        java_library(name = 'jl',
+          srcs = ['a.java'])
+        genrule(name = 'gl',
+          cmd = 'touch $(OUTS)',
+          srcs = ['a.go'],
+          outs = [ 'gl.a', 'gl.gcgox', ],
+          output_to_bindir = 1,
+        )
+        # The target below is used by testResolveCommand and testResolveTools
+        sh_binary(name = 'mytool',
+          srcs = ['mytool.sh'],
+          data = ['file1.dat', 'file2.dat'],
+        )
+        # The target below is used by testResolveCommand and testResolveTools
+        genrule(name = 'resolve_me',
+          cmd = 'aa',
+          tools = [':mytool', 't.exe'],
+          srcs = ['file3.dat', 'file4.dat'],
+          outs = ['r1.txt', 'r2.txt'],
+        )
+        """);
   }
 
   private void setRuleContext(StarlarkRuleContext ctx) throws Exception {
@@ -493,16 +500,18 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     scratch.file("bar/bar.bzl", lines.build().toArray(new String[] {}));
     scratch.file(
         "bar/BUILD",
-        "load('//bar:bar.bzl', 'my_rule')",
-        "sh_binary(",
-        "  name = 'mytool',",
-        "  srcs = ['mytool.sh'],",
-        "  data = ['file1.dat', 'file2.dat'],",
-        ")",
-        "my_rule(",
-        "  name = 'my_rule',",
-        "  exe = ':mytool',",
-        ")");
+        """
+        load('//bar:bar.bzl', 'my_rule')
+        sh_binary(
+          name = 'mytool',
+          srcs = ['mytool.sh'],
+          data = ['file1.dat', 'file2.dat'],
+        )
+        my_rule(
+          name = 'my_rule',
+          exe = ':mytool',
+        )
+        """);
   }
 
   @Test
@@ -577,28 +586,32 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testEmptyActionWithExtraAction() throws Exception {
     scratch.file(
         "test/empty.bzl",
-        "def _impl(ctx):",
-        "  ctx.actions.do_nothing(",
-        "      inputs = ctx.files.srcs,",
-        "      mnemonic = 'EA',",
-        "  )",
-        "empty_action_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       \"srcs\": attr.label_list(allow_files=True),",
-        "    }",
-        ")");
+        """
+        def _impl(ctx):
+          ctx.actions.do_nothing(
+              inputs = ctx.files.srcs,
+              mnemonic = 'EA',
+          )
+        empty_action_rule = rule(
+            implementation = _impl,
+            attrs = {
+               "srcs": attr.label_list(allow_files=True),
+            }
+        )
+        """);
 
     scratch.file(
         "test/BUILD",
-        "load('//test:empty.bzl', 'empty_action_rule')",
-        "empty_action_rule(name = 'my_empty_action',",
-        "                srcs = ['foo.in', 'other_foo.in'])",
-        "action_listener(name = 'listener',",
-        "                mnemonics = ['EA'],",
-        "                extra_actions = [':extra'])",
-        "extra_action(name = 'extra',",
-        "             cmd='')");
+        """
+        load('//test:empty.bzl', 'empty_action_rule')
+        empty_action_rule(name = 'my_empty_action',
+                        srcs = ['foo.in', 'other_foo.in'])
+        action_listener(name = 'listener',
+                        mnemonics = ['EA'],
+                        extra_actions = [':extra'])
+        extra_action(name = 'extra',
+                     cmd='')
+        """);
 
     getPseudoActionViaExtraAction("//test:my_empty_action", "//test:listener");
   }
@@ -639,12 +652,20 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testExpandLocationWithShortPathsIsPrivateAPI() throws Exception {
     scratch.file(
         "abc/rule.bzl",
-        "def _impl(ctx):",
-        " ctx.expand_location('', short_paths = True)",
-        " return []",
-        "",
-        "r = rule(implementation = _impl)");
-    scratch.file("abc/BUILD", "load(':rule.bzl', 'r')", "", "r(name = 'foo')");
+        """
+        def _impl(ctx):
+         ctx.expand_location('', short_paths = True)
+         return []
+
+        r = rule(implementation = _impl)
+        """);
+    scratch.file(
+        "abc/BUILD",
+        """
+        load(':rule.bzl', 'r')
+
+        r(name = 'foo')
+        """);
 
     AssertionError error =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//abc:foo"));
@@ -686,8 +707,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         (String) ev.eval(String.format("ruleContext.expand_location('$(%s)')", command)));
   }
 
-  private void assertMatches(String description, String expectedPattern, String computedValue)
-      throws Exception {
+  private static void assertMatches(
+      String description, String expectedPattern, String computedValue) {
     assertWithMessage(
             String.format(
                 "%s '%s' did not match pattern '%s'", description, computedValue, expectedPattern))
@@ -1068,48 +1089,53 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testDefaultProvider() throws Exception {
     scratch.file(
         "test/foo.bzl",
-        "foo_provider = provider()",
-        "def _impl(ctx):",
-        "    default = DefaultInfo(",
-        "        runfiles=ctx.runfiles(ctx.files.runs),",
-        "    )",
-        "    foo = foo_provider()",
-        "    return [foo, default]",
-        "foo_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       'runs': attr.label_list(allow_files=True),",
-        "    }",
-        ")"
-    );
+        """
+        foo_provider = provider()
+        def _impl(ctx):
+            default = DefaultInfo(
+                runfiles=ctx.runfiles(ctx.files.runs),
+            )
+            foo = foo_provider()
+            return [foo, default]
+        foo_rule = rule(
+            implementation = _impl,
+            attrs = {
+               'runs': attr.label_list(allow_files=True),
+            }
+        )
+        """);
     scratch.file(
         "test/bar.bzl",
-        "load(':foo.bzl', 'foo_provider')",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "    provider = ctx.attr.deps[0][DefaultInfo]",
-        "    return [MyInfo(",
-        "        is_provided = DefaultInfo in ctx.attr.deps[0],",
-        "        provider = provider,",
-        "        dir = str(sorted(dir(provider))),",
-        "        rule_data_runfiles = provider.data_runfiles,",
-        "        rule_default_runfiles = provider.default_runfiles,",
-        "        rule_files = provider.files,",
-        "        rule_files_to_run = provider.files_to_run,",
-        "        rule_file_executable = provider.files_to_run.executable",
-        "    )]",
-        "bar_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       'deps': attr.label_list(allow_files=True),",
-        "    }",
-        ")");
+        """
+        load(':foo.bzl', 'foo_provider')
+        load('//myinfo:myinfo.bzl', 'MyInfo')
+        def _impl(ctx):
+            provider = ctx.attr.deps[0][DefaultInfo]
+            return [MyInfo(
+                is_provided = DefaultInfo in ctx.attr.deps[0],
+                provider = provider,
+                dir = str(sorted(dir(provider))),
+                rule_data_runfiles = provider.data_runfiles,
+                rule_default_runfiles = provider.default_runfiles,
+                rule_files = provider.files,
+                rule_files_to_run = provider.files_to_run,
+                rule_file_executable = provider.files_to_run.executable
+            )]
+        bar_rule = rule(
+            implementation = _impl,
+            attrs = {
+               'deps': attr.label_list(allow_files=True),
+            }
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':foo.bzl', 'foo_rule')",
-        "load(':bar.bzl', 'bar_rule')",
-        "foo_rule(name = 'dep_rule', runs = ['run.file', 'run2.file'])",
-        "bar_rule(name = 'my_rule', deps = [':dep_rule', 'file.txt'])");
+        """
+        load(':foo.bzl', 'foo_rule')
+        load(':bar.bzl', 'bar_rule')
+        foo_rule(name = 'dep_rule', runs = ['run.file', 'run2.file'])
+        bar_rule(name = 'my_rule', deps = [':dep_rule', 'file.txt'])
+        """);
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
     StructImpl myInfo = getMyInfoFromTarget(configuredTarget);
     assertThat((Boolean) myInfo.getValue("is_provided")).isTrue();
@@ -1147,46 +1173,52 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testDefaultProviderInStruct() throws Exception {
     scratch.file(
         "test/foo.bzl",
-        "foo_provider = provider()",
-        "def _impl(ctx):",
-        "    default = DefaultInfo(",
-        "        runfiles=ctx.runfiles(ctx.files.runs),",
-        "    )",
-        "    foo = foo_provider()",
-        "    return [foo, default]",
-        "foo_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       'runs': attr.label_list(allow_files=True),",
-        "    }",
-        ")");
+        """
+        foo_provider = provider()
+        def _impl(ctx):
+            default = DefaultInfo(
+                runfiles=ctx.runfiles(ctx.files.runs),
+            )
+            foo = foo_provider()
+            return [foo, default]
+        foo_rule = rule(
+            implementation = _impl,
+            attrs = {
+               'runs': attr.label_list(allow_files=True),
+            }
+        )
+        """);
     scratch.file(
         "test/bar.bzl",
-        "load(':foo.bzl', 'foo_provider')",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "    provider = ctx.attr.deps[0][DefaultInfo]",
-        "    return [MyInfo(",
-        "        is_provided = DefaultInfo in ctx.attr.deps[0],",
-        "        provider = provider,",
-        "        dir = str(sorted(dir(provider))),",
-        "        rule_data_runfiles = provider.data_runfiles,",
-        "        rule_default_runfiles = provider.default_runfiles,",
-        "        rule_files = provider.files,",
-        "        rule_files_to_run = provider.files_to_run,",
-        "    )]",
-        "bar_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       'deps': attr.label_list(allow_files=True),",
-        "    }",
-        ")");
+        """
+        load(':foo.bzl', 'foo_provider')
+        load('//myinfo:myinfo.bzl', 'MyInfo')
+        def _impl(ctx):
+            provider = ctx.attr.deps[0][DefaultInfo]
+            return [MyInfo(
+                is_provided = DefaultInfo in ctx.attr.deps[0],
+                provider = provider,
+                dir = str(sorted(dir(provider))),
+                rule_data_runfiles = provider.data_runfiles,
+                rule_default_runfiles = provider.default_runfiles,
+                rule_files = provider.files,
+                rule_files_to_run = provider.files_to_run,
+            )]
+        bar_rule = rule(
+            implementation = _impl,
+            attrs = {
+               'deps': attr.label_list(allow_files=True),
+            }
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':foo.bzl', 'foo_rule')",
-        "load(':bar.bzl', 'bar_rule')",
-        "foo_rule(name = 'dep_rule', runs = ['run.file', 'run2.file'])",
-        "bar_rule(name = 'my_rule', deps = [':dep_rule', 'file.txt'])");
+        """
+        load(':foo.bzl', 'foo_rule')
+        load(':bar.bzl', 'bar_rule')
+        foo_rule(name = 'dep_rule', runs = ['run.file', 'run2.file'])
+        bar_rule(name = 'my_rule', deps = [':dep_rule', 'file.txt'])
+        """);
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
     StructImpl myInfo = getMyInfoFromTarget(configuredTarget);
 
@@ -1225,23 +1257,27 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     setBuildLanguageOptions("--incompatible_disallow_struct_provider_syntax=false");
     scratch.file(
         "test/foo.bzl",
-        "foo_provider = provider()",
-        "def _impl(ctx):",
-        "    default = DefaultInfo(",
-        "        runfiles=ctx.runfiles(ctx.files.runs),",
-        "    )",
-        "    foo = foo_provider()",
-        "    return struct(providers=[foo, default], files=depset([]))",
-        "foo_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       'runs': attr.label_list(allow_files=True),",
-        "    }",
-        ")");
+        """
+        foo_provider = provider()
+        def _impl(ctx):
+            default = DefaultInfo(
+                runfiles=ctx.runfiles(ctx.files.runs),
+            )
+            foo = foo_provider()
+            return struct(providers=[foo, default], files=depset([]))
+        foo_rule = rule(
+            implementation = _impl,
+            attrs = {
+               'runs': attr.label_list(allow_files=True),
+            }
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':foo.bzl', 'foo_rule')",
-        "foo_rule(name = 'my_rule', runs = ['run.file', 'run2.file'])");
+        """
+        load(':foo.bzl', 'foo_rule')
+        foo_rule(name = 'my_rule', runs = ['run.file', 'run2.file'])
+        """);
 
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
@@ -1256,28 +1292,32 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testDefaultProviderOnFileTarget() throws Exception {
     scratch.file(
         "test/bar.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "    provider = ctx.attr.deps[0][DefaultInfo]",
-        "    return [MyInfo(",
-        "        is_provided = DefaultInfo in ctx.attr.deps[0],",
-        "        provider = provider,",
-        "        dir = str(sorted(dir(provider))),",
-        "        file_data_runfiles = provider.data_runfiles,",
-        "        file_default_runfiles = provider.default_runfiles,",
-        "        file_files = provider.files,",
-        "        file_files_to_run = provider.files_to_run,",
-        "    )]",
-        "bar_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       'deps': attr.label_list(allow_files=True),",
-        "    }",
-        ")");
+        """
+        load('//myinfo:myinfo.bzl', 'MyInfo')
+        def _impl(ctx):
+            provider = ctx.attr.deps[0][DefaultInfo]
+            return [MyInfo(
+                is_provided = DefaultInfo in ctx.attr.deps[0],
+                provider = provider,
+                dir = str(sorted(dir(provider))),
+                file_data_runfiles = provider.data_runfiles,
+                file_default_runfiles = provider.default_runfiles,
+                file_files = provider.files,
+                file_files_to_run = provider.files_to_run,
+            )]
+        bar_rule = rule(
+            implementation = _impl,
+            attrs = {
+               'deps': attr.label_list(allow_files=True),
+            }
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':bar.bzl', 'bar_rule')",
-        "bar_rule(name = 'my_rule', deps = ['file.txt'])");
+        """
+        load(':bar.bzl', 'bar_rule')
+        bar_rule(name = 'my_rule', deps = ['file.txt'])
+        """);
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
     StructImpl myInfo = getMyInfoFromTarget(configuredTarget);
 
@@ -1313,36 +1353,41 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testDefaultProviderProvidedImplicitly() throws Exception {
     scratch.file(
         "test/foo.bzl",
-        "foo_provider = provider()",
-        "def _impl(ctx):",
-        "    foo = foo_provider()",
-        "    return [foo]",
-        "foo_rule = rule(",
-        "    implementation = _impl,",
-        ")"
-    );
+        """
+        foo_provider = provider()
+        def _impl(ctx):
+            foo = foo_provider()
+            return [foo]
+        foo_rule = rule(
+            implementation = _impl,
+        )
+        """);
     scratch.file(
         "test/bar.bzl",
-        "load(':foo.bzl', 'foo_provider')",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "    dep = ctx.attr.deps[0]",
-        "    provider = dep[DefaultInfo]", // The goal is to test this object
-        "    return [MyInfo(", // so we return it here
-        "        default = provider,",
-        "    )]",
-        "bar_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       'deps': attr.label_list(allow_files=True),",
-        "    }",
-        ")");
+        """
+        load(':foo.bzl', 'foo_provider')
+        load('//myinfo:myinfo.bzl', 'MyInfo')
+        def _impl(ctx):
+            dep = ctx.attr.deps[0]
+            provider = dep[DefaultInfo]  # The goal is to test this object
+            return [MyInfo(  # so we return it here
+                default = provider,
+            )]
+        bar_rule = rule(
+            implementation = _impl,
+            attrs = {
+               'deps': attr.label_list(allow_files=True),
+            }
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':foo.bzl', 'foo_rule')",
-        "load(':bar.bzl', 'bar_rule')",
-        "foo_rule(name = 'dep_rule')",
-        "bar_rule(name = 'my_rule', deps = [':dep_rule'])");
+        """
+        load(':foo.bzl', 'foo_rule')
+        load(':bar.bzl', 'bar_rule')
+        foo_rule(name = 'dep_rule')
+        bar_rule(name = 'my_rule', deps = [':dep_rule'])
+        """);
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
     Object provider = getMyInfoFromTarget(configuredTarget).getValue("default");
     assertThat(provider).isInstanceOf(DefaultInfo.class);
@@ -1354,21 +1399,23 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testDefaultProviderUnknownFields() throws Exception {
     scratch.file(
         "test/foo.bzl",
-        "foo_provider = provider()",
-        "def _impl(ctx):",
-        "    default = DefaultInfo(",
-        "        foo=ctx.runfiles(),",
-        "    )",
-        "    return [default]",
-        "foo_rule = rule(",
-        "    implementation = _impl,",
-        ")"
-    );
+        """
+        foo_provider = provider()
+        def _impl(ctx):
+            default = DefaultInfo(
+                foo=ctx.runfiles(),
+            )
+            return [default]
+        foo_rule = rule(
+            implementation = _impl,
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':foo.bzl', 'foo_rule')",
-        "foo_rule(name = 'my_rule')"
-    );
+        """
+        load(':foo.bzl', 'foo_rule')
+        foo_rule(name = 'my_rule')
+        """);
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
     assertThat(expected)
@@ -1380,40 +1427,45 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testDeclaredProviders() throws Exception {
     scratch.file(
         "test/foo.bzl",
-        "foo_provider = provider()",
-        "foobar_provider = provider()",
-        "def _impl(ctx):",
-        "    foo = foo_provider()",
-        "    foobar = foobar_provider()",
-        "    return [foo, foobar]",
-        "foo_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       \"srcs\": attr.label_list(allow_files=True),",
-        "    }",
-        ")"
-    );
+        """
+        foo_provider = provider()
+        foobar_provider = provider()
+        def _impl(ctx):
+            foo = foo_provider()
+            foobar = foobar_provider()
+            return [foo, foobar]
+        foo_rule = rule(
+            implementation = _impl,
+            attrs = {
+               "srcs": attr.label_list(allow_files=True),
+            }
+        )
+        """);
     scratch.file(
         "test/bar.bzl",
-        "load(':foo.bzl', 'foo_provider')",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "    dep = ctx.attr.deps[0]",
-        "    provider = dep[foo_provider]", // The goal is to test this object
-        "    return [MyInfo(proxy = provider)]", // so we return it here
-        "bar_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       'srcs': attr.label_list(allow_files=True),",
-        "       'deps': attr.label_list(allow_files=True),",
-        "    }",
-        ")");
+        """
+        load(':foo.bzl', 'foo_provider')
+        load('//myinfo:myinfo.bzl', 'MyInfo')
+        def _impl(ctx):
+            dep = ctx.attr.deps[0]
+            provider = dep[foo_provider]  # The goal is to test this object
+            return [MyInfo(proxy = provider)]  # so we return it here
+        bar_rule = rule(
+            implementation = _impl,
+            attrs = {
+               'srcs': attr.label_list(allow_files=True),
+               'deps': attr.label_list(allow_files=True),
+            }
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':foo.bzl', 'foo_rule')",
-        "load(':bar.bzl', 'bar_rule')",
-        "foo_rule(name = 'dep_rule')",
-        "bar_rule(name = 'my_rule', deps = [':dep_rule'])");
+        """
+        load(':foo.bzl', 'foo_rule')
+        load(':bar.bzl', 'bar_rule')
+        foo_rule(name = 'dep_rule')
+        bar_rule(name = 'my_rule', deps = [':dep_rule'])
+        """);
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
     Object provider = getMyInfoFromTarget(configuredTarget).getValue("proxy");
     assertThat(provider).isInstanceOf(StructImpl.class);
@@ -1426,36 +1478,42 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testAdvertisedProviders() throws Exception {
     scratch.file(
         "test/foo.bzl",
-        "FooInfo = provider()",
-        "BarInfo = provider()",
-        "def _impl(ctx):",
-        "    foo = FooInfo()",
-        "    bar = BarInfo()",
-        "    return [foo, bar]",
-        "foo_rule = rule(",
-        "    implementation = _impl,",
-        "    provides = [FooInfo, BarInfo]",
-        ")");
+        """
+        FooInfo = provider()
+        BarInfo = provider()
+        def _impl(ctx):
+            foo = FooInfo()
+            bar = BarInfo()
+            return [foo, bar]
+        foo_rule = rule(
+            implementation = _impl,
+            provides = [FooInfo, BarInfo]
+        )
+        """);
     scratch.file(
         "test/bar.bzl",
-        "load(':foo.bzl', 'FooInfo')",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "    dep = ctx.attr.deps[0]",
-        "    proxy = dep[FooInfo]", // The goal is to test this object
-        "    return [MyInfo(proxy = proxy)]", // so we return it here
-        "bar_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       'deps': attr.label_list(allow_files=True),",
-        "    }",
-        ")");
+        """
+        load(':foo.bzl', 'FooInfo')
+        load('//myinfo:myinfo.bzl', 'MyInfo')
+        def _impl(ctx):
+            dep = ctx.attr.deps[0]
+            proxy = dep[FooInfo]  # The goal is to test this object
+            return [MyInfo(proxy = proxy)]  # so we return it here
+        bar_rule = rule(
+            implementation = _impl,
+            attrs = {
+               'deps': attr.label_list(allow_files=True),
+            }
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':foo.bzl', 'foo_rule')",
-        "load(':bar.bzl', 'bar_rule')",
-        "foo_rule(name = 'dep_rule')",
-        "bar_rule(name = 'my_rule', deps = [':dep_rule'])");
+        """
+        load(':foo.bzl', 'foo_rule')
+        load(':bar.bzl', 'bar_rule')
+        foo_rule(name = 'dep_rule')
+        bar_rule(name = 'my_rule', deps = [':dep_rule'])
+        """);
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
     Object provider = getMyInfoFromTarget(configuredTarget).getValue("proxy");
     assertThat(provider).isInstanceOf(StructImpl.class);
@@ -1467,23 +1525,27 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testLacksAdvertisedDeclaredProvider() throws Exception {
     scratch.file(
         "test/foo.bzl",
-        "FooInfo = provider()",
-        "def _impl(ctx):",
-        "    default = DefaultInfo(",
-        "        runfiles=ctx.runfiles(ctx.files.runs),",
-        "    )",
-        "    return [default]",
-        "foo_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       'runs': attr.label_list(allow_files=True),",
-        "    },",
-        "    provides = [FooInfo, DefaultInfo]",
-        ")");
+        """
+        FooInfo = provider()
+        def _impl(ctx):
+            default = DefaultInfo(
+                runfiles=ctx.runfiles(ctx.files.runs),
+            )
+            return [default]
+        foo_rule = rule(
+            implementation = _impl,
+            attrs = {
+               'runs': attr.label_list(allow_files=True),
+            },
+            provides = [FooInfo, DefaultInfo]
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':foo.bzl', 'foo_rule')",
-        "foo_rule(name = 'my_rule', runs = ['run.file', 'run2.file'])");
+        """
+        load(':foo.bzl', 'foo_rule')
+        foo_rule(name = 'my_rule', runs = ['run.file', 'run2.file'])
+        """);
 
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
@@ -1497,18 +1559,22 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testLacksAdvertisedBuiltinProvider() throws Exception {
     scratch.file(
         "test/foo.bzl",
-        "FooInfo = provider()",
-        "def _impl(ctx):",
-        "    MyFooInfo = FooInfo()",
-        "    return [MyFooInfo]",
-        "foo_rule = rule(",
-        "    implementation = _impl,",
-        "    provides = [FooInfo, JavaInfo]",
-        ")");
+        """
+        FooInfo = provider()
+        def _impl(ctx):
+            MyFooInfo = FooInfo()
+            return [MyFooInfo]
+        foo_rule = rule(
+            implementation = _impl,
+            provides = [FooInfo, JavaInfo]
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':foo.bzl', 'foo_rule')",
-        "foo_rule(name = 'my_rule')");
+        """
+        load(':foo.bzl', 'foo_rule')
+        foo_rule(name = 'my_rule')
+        """);
 
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
@@ -1522,14 +1588,20 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testBadlySpecifiedProvides() throws Exception {
     scratch.file(
         "test/foo.bzl",
-        "def _impl(ctx):",
-        "    return []",
-        "foo_rule = rule(",
-        "    implementation = _impl,",
-        "    provides = [1]",
-        ")");
-    scratch.file("test/BUILD", "load(':foo.bzl', 'foo_rule')", "foo_rule(name = 'my_rule')");
-
+        """
+        def _impl(ctx):
+            return []
+        foo_rule = rule(
+            implementation = _impl,
+            provides = [1]
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(':foo.bzl', 'foo_rule')
+        foo_rule(name = 'my_rule')
+        """);
 
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
@@ -1544,36 +1616,42 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testSingleDeclaredProvider() throws Exception {
     scratch.file(
         "test/foo.bzl",
-        "foo_provider = provider()",
-        "def _impl(ctx):",
-        "    return foo_provider(a=123)",
-        "foo_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       \"srcs\": attr.label_list(allow_files=True),",
-        "    }",
-        ")");
+        """
+        foo_provider = provider()
+        def _impl(ctx):
+            return foo_provider(a=123)
+        foo_rule = rule(
+            implementation = _impl,
+            attrs = {
+               "srcs": attr.label_list(allow_files=True),
+            }
+        )
+        """);
     scratch.file(
         "test/bar.bzl",
-        "load(':foo.bzl', 'foo_provider')",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "    dep = ctx.attr.deps[0]",
-        "    provider = dep[foo_provider]", // The goal is to test this object
-        "    return [MyInfo(proxy = provider)]", // so we return it here
-        "bar_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       'srcs': attr.label_list(allow_files=True),",
-        "       'deps': attr.label_list(allow_files=True),",
-        "    }",
-        ")");
+        """
+        load(':foo.bzl', 'foo_provider')
+        load('//myinfo:myinfo.bzl', 'MyInfo')
+        def _impl(ctx):
+            dep = ctx.attr.deps[0]
+            provider = dep[foo_provider]  # The goal is to test this object
+            return [MyInfo(proxy = provider)]  # so we return it here
+        bar_rule = rule(
+            implementation = _impl,
+            attrs = {
+               'srcs': attr.label_list(allow_files=True),
+               'deps': attr.label_list(allow_files=True),
+            }
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':foo.bzl', 'foo_rule')",
-        "load(':bar.bzl', 'bar_rule')",
-        "foo_rule(name = 'dep_rule')",
-        "bar_rule(name = 'my_rule', deps = [':dep_rule'])");
+        """
+        load(':foo.bzl', 'foo_rule')
+        load(':bar.bzl', 'bar_rule')
+        foo_rule(name = 'dep_rule')
+        bar_rule(name = 'my_rule', deps = [':dep_rule'])
+        """);
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
     Object provider = getMyInfoFromTarget(configuredTarget).getValue("proxy");
     assertThat(provider).isInstanceOf(StructImpl.class);
@@ -1587,41 +1665,46 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testDeclaredProvidersAliasTarget() throws Exception {
     scratch.file(
         "test/foo.bzl",
-        "foo_provider = provider()",
-        "foobar_provider = provider()",
-        "def _impl(ctx):",
-        "    foo = foo_provider()",
-        "    foobar = foobar_provider()",
-        "    return [foo, foobar]",
-        "foo_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       \"srcs\": attr.label_list(allow_files=True),",
-        "    }",
-        ")"
-    );
+        """
+        foo_provider = provider()
+        foobar_provider = provider()
+        def _impl(ctx):
+            foo = foo_provider()
+            foobar = foobar_provider()
+            return [foo, foobar]
+        foo_rule = rule(
+            implementation = _impl,
+            attrs = {
+               "srcs": attr.label_list(allow_files=True),
+            }
+        )
+        """);
     scratch.file(
         "test/bar.bzl",
-        "load(':foo.bzl', 'foo_provider')",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "    dep = ctx.attr.deps[0]",
-        "    provider = dep[foo_provider]", // The goal is to test this object
-        "    return [MyInfo(proxy = provider)]", // so we return it here
-        "bar_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       'srcs': attr.label_list(allow_files=True),",
-        "       'deps': attr.label_list(allow_files=True),",
-        "    }",
-        ")");
+        """
+        load(':foo.bzl', 'foo_provider')
+        load('//myinfo:myinfo.bzl', 'MyInfo')
+        def _impl(ctx):
+            dep = ctx.attr.deps[0]
+            provider = dep[foo_provider]  # The goal is to test this object
+            return [MyInfo(proxy = provider)]  # so we return it here
+        bar_rule = rule(
+            implementation = _impl,
+            attrs = {
+               'srcs': attr.label_list(allow_files=True),
+               'deps': attr.label_list(allow_files=True),
+            }
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':foo.bzl', 'foo_rule')",
-        "load(':bar.bzl', 'bar_rule')",
-        "foo_rule(name = 'foo_rule')",
-        "alias(name = 'dep_rule', actual=':foo_rule')",
-        "bar_rule(name = 'my_rule', deps = [':dep_rule'])");
+        """
+        load(':foo.bzl', 'foo_rule')
+        load(':bar.bzl', 'bar_rule')
+        foo_rule(name = 'foo_rule')
+        alias(name = 'dep_rule', actual=':foo_rule')
+        bar_rule(name = 'my_rule', deps = [':dep_rule'])
+        """);
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
     Object provider = getMyInfoFromTarget(configuredTarget).getValue("proxy");
     assertThat(provider).isInstanceOf(StructImpl.class);
@@ -1634,38 +1717,42 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testDeclaredProvidersWrongKey() throws Exception {
     scratch.file(
         "test/foo.bzl",
-        "foo_provider = provider()",
-        "unused_provider = provider()",
-        "def _impl(ctx):",
-        "    foo = foo_provider()",
-        "    return [foo]",
-        "foo_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       \"srcs\": attr.label_list(allow_files=True),",
-        "    }",
-        ")"
-    );
+        """
+        foo_provider = provider()
+        unused_provider = provider()
+        def _impl(ctx):
+            foo = foo_provider()
+            return [foo]
+        foo_rule = rule(
+            implementation = _impl,
+            attrs = {
+               "srcs": attr.label_list(allow_files=True),
+            }
+        )
+        """);
     scratch.file(
         "test/bar.bzl",
-        "load(':foo.bzl', 'unused_provider')",
-        "def _impl(ctx):",
-        "    dep = ctx.attr.deps[0]",
-        "    provider = dep[unused_provider]",  // Should throw an error here
-        "bar_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       'srcs': attr.label_list(allow_files=True),",
-        "       'deps': attr.label_list(allow_files=True),",
-        "    }",
-        ")"
-    );
+        """
+        load(':foo.bzl', 'unused_provider')
+        def _impl(ctx):
+            dep = ctx.attr.deps[0]
+            provider = dep[unused_provider]  # Should throw an error here
+        bar_rule = rule(
+            implementation = _impl,
+            attrs = {
+               'srcs': attr.label_list(allow_files=True),
+               'deps': attr.label_list(allow_files=True),
+            }
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':foo.bzl', 'foo_rule')",
-        "load(':bar.bzl', 'bar_rule')",
-        "foo_rule(name = 'dep_rule')",
-        "bar_rule(name = 'my_rule', deps = [':dep_rule'])");
+        """
+        load(':foo.bzl', 'foo_rule')
+        load(':bar.bzl', 'bar_rule')
+        foo_rule(name = 'dep_rule')
+        bar_rule(name = 'my_rule', deps = [':dep_rule'])
+        """);
 
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
@@ -1680,36 +1767,40 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testDeclaredProvidersInvalidKey() throws Exception {
     scratch.file(
         "test/foo.bzl",
-        "foo_provider = provider()",
-        "def _impl(ctx):",
-        "    foo = foo_provider()",
-        "    return [foo]",
-        "foo_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       \"srcs\": attr.label_list(allow_files=True),",
-        "    }",
-        ")"
-    );
+        """
+        foo_provider = provider()
+        def _impl(ctx):
+            foo = foo_provider()
+            return [foo]
+        foo_rule = rule(
+            implementation = _impl,
+            attrs = {
+               "srcs": attr.label_list(allow_files=True),
+            }
+        )
+        """);
     scratch.file(
         "test/bar.bzl",
-        "def _impl(ctx):",
-        "    dep = ctx.attr.deps[0]",
-        "    provider = dep['foo_provider']",  // Should throw an error here
-        "bar_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       'srcs': attr.label_list(allow_files=True),",
-        "       'deps': attr.label_list(allow_files=True),",
-        "    }",
-        ")"
-    );
+        """
+        def _impl(ctx):
+            dep = ctx.attr.deps[0]
+            provider = dep['foo_provider']  # Should throw an error here
+        bar_rule = rule(
+            implementation = _impl,
+            attrs = {
+               'srcs': attr.label_list(allow_files=True),
+               'deps': attr.label_list(allow_files=True),
+            }
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':foo.bzl', 'foo_rule')",
-        "load(':bar.bzl', 'bar_rule')",
-        "foo_rule(name = 'dep_rule')",
-        "bar_rule(name = 'my_rule', deps = [':dep_rule'])");
+        """
+        load(':foo.bzl', 'foo_rule')
+        load(':bar.bzl', 'bar_rule')
+        foo_rule(name = 'dep_rule')
+        bar_rule(name = 'my_rule', deps = [':dep_rule'])
+        """);
 
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
@@ -1722,21 +1813,24 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testDeclaredProvidersFileTarget() throws Exception {
     scratch.file(
         "test/bar.bzl",
-        "unused_provider = provider()",
-        "def _impl(ctx):",
-        "    src = ctx.attr.srcs[0]",
-        "    provider = src[unused_provider]",  // Should throw an error here
-        "bar_rule = rule(",
-        "    implementation = _impl,",
-        "    attrs = {",
-        "       'srcs': attr.label_list(allow_files=True),",
-        "    }",
-        ")"
-    );
+        """
+        unused_provider = provider()
+        def _impl(ctx):
+            src = ctx.attr.srcs[0]
+            provider = src[unused_provider]  # Should throw an error here
+        bar_rule = rule(
+            implementation = _impl,
+            attrs = {
+               'srcs': attr.label_list(allow_files=True),
+            }
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':bar.bzl', 'bar_rule')",
-        "bar_rule(name = 'my_rule', srcs = ['input.txt'])");
+        """
+        load(':bar.bzl', 'bar_rule')
+        bar_rule(name = 'my_rule', srcs = ['input.txt'])
+        """);
 
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
@@ -1751,34 +1845,38 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testDeclaredProvidersInOperator() throws Exception {
     scratch.file(
         "test/foo.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "foo_provider = provider()",
-        "bar_provider = provider()",
-        "",
-        "def _inner_impl(ctx):",
-        "    foo = foo_provider()",
-        "    return [foo]",
-        "inner_rule = rule(",
-        "    implementation = _inner_impl,",
-        ")",
-        "",
-        "def _outer_impl(ctx):",
-        "    dep = ctx.attr.deps[0]",
-        "    return [MyInfo(",
-        "        foo = (foo_provider in dep),", // Should be true
-        "        bar = (bar_provider in dep),", // Should be false
-        "    )]",
-        "outer_rule = rule(",
-        "    implementation = _outer_impl,",
-        "    attrs = {",
-        "       'deps': attr.label_list(),",
-        "    }",
-        ")");
+        """
+        load('//myinfo:myinfo.bzl', 'MyInfo')
+        foo_provider = provider()
+        bar_provider = provider()
+
+        def _inner_impl(ctx):
+            foo = foo_provider()
+            return [foo]
+        inner_rule = rule(
+            implementation = _inner_impl,
+        )
+
+        def _outer_impl(ctx):
+            dep = ctx.attr.deps[0]
+            return [MyInfo(
+                foo = (foo_provider in dep),  # Should be true
+                bar = (bar_provider in dep),  # Should be false
+            )]
+        outer_rule = rule(
+            implementation = _outer_impl,
+            attrs = {
+               'deps': attr.label_list(),
+            }
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':foo.bzl', 'inner_rule', 'outer_rule')",
-        "inner_rule(name = 'dep_rule')",
-        "outer_rule(name = 'my_rule', deps = [':dep_rule'])");
+        """
+        load(':foo.bzl', 'inner_rule', 'outer_rule')
+        inner_rule(name = 'dep_rule')
+        outer_rule(name = 'my_rule', deps = [':dep_rule'])
+        """);
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
     StructImpl myInfo = getMyInfoFromTarget(configuredTarget);
@@ -1795,31 +1893,34 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testDeclaredProvidersInOperatorInvalidKey() throws Exception {
     scratch.file(
         "test/foo.bzl",
-        "foo_provider = provider()",
-        "bar_provider = provider()",
-        "",
-        "def _inner_impl(ctx):",
-        "    foo = foo_provider()",
-        "    return [foo]",
-        "inner_rule = rule(",
-        "    implementation = _inner_impl,",
-        ")",
-        "",
-        "def _outer_impl(ctx):",
-        "    dep = ctx.attr.deps[0]",
-        "    'foo_provider' in dep",  // Should throw an error here
-        "outer_rule = rule(",
-        "    implementation = _outer_impl,",
-        "    attrs = {",
-        "       'deps': attr.label_list(),",
-        "    }",
-        ")"
-    );
+        """
+        foo_provider = provider()
+        bar_provider = provider()
+
+        def _inner_impl(ctx):
+            foo = foo_provider()
+            return [foo]
+        inner_rule = rule(
+            implementation = _inner_impl,
+        )
+
+        def _outer_impl(ctx):
+            dep = ctx.attr.deps[0]
+            'foo_provider' in dep  # Should throw an error here
+        outer_rule = rule(
+            implementation = _outer_impl,
+            attrs = {
+               'deps': attr.label_list(),
+            }
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':foo.bzl', 'inner_rule', 'outer_rule')",
-        "inner_rule(name = 'dep_rule')",
-        "outer_rule(name = 'my_rule', deps = [':dep_rule'])");
+        """
+        load(':foo.bzl', 'inner_rule', 'outer_rule')
+        inner_rule(name = 'dep_rule')
+        outer_rule(name = 'my_rule', deps = [':dep_rule'])
+        """);
 
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
@@ -1832,15 +1933,22 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testReturnNonExportedProvider() throws Exception {
     scratch.file(
         "test/my_rule.bzl",
-        "def _rule_impl(ctx):",
-        "    foo_provider = provider()",
-        "    foo = foo_provider()",
-        "    return [foo]",
-        "",
-        "my_rule = rule(",
-        "    implementation = _rule_impl,",
-        ")");
-    scratch.file("test/BUILD", "load(':my_rule.bzl', 'my_rule')", "my_rule(name = 'my_rule')");
+        """
+        def _rule_impl(ctx):
+            foo_provider = provider()
+            foo = foo_provider()
+            return [foo]
+
+        my_rule = rule(
+            implementation = _rule_impl,
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(':my_rule.bzl', 'my_rule')
+        my_rule(name = 'my_rule')
+        """);
 
     AssertionError ex =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
@@ -1955,21 +2063,25 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testGlobInImplicitOutputs() throws Exception {
     scratch.file(
         "test/glob.bzl",
-        "def _impl(ctx):",
-        "  ctx.actions.do_nothing(",
-        "    inputs = [],",
-        "  )",
-        "def _foo():",
-        "  return native.glob(['*'])",
-        "glob_rule = rule(",
-        "  implementation = _impl,",
-        "  outputs = _foo,",
-        ")");
+        """
+        def _impl(ctx):
+          ctx.actions.do_nothing(
+            inputs = [],
+          )
+        def _foo():
+          return native.glob(['*'])
+        glob_rule = rule(
+          implementation = _impl,
+          outputs = _foo,
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:glob.bzl', 'glob_rule')",
-        "glob_rule(name = 'my_glob',",
-        "  srcs = ['foo.bar', 'other_foo.bar'])");
+        """
+        load('//test:glob.bzl', 'glob_rule')
+        glob_rule(name = 'my_glob',
+          srcs = ['foo.bar', 'other_foo.bar'])
+        """);
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_glob");
     assertContainsEvent("The native module can be accessed only from a BUILD thread.");
@@ -1977,8 +2089,19 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
   @Test
   public void testRuleFromBzlFile() throws Exception {
-    scratch.file("test/rule.bzl", "def _impl(ctx): return", "foo = rule(implementation = _impl)");
-    scratch.file("test/ext.bzl", "load('//test:rule.bzl', 'foo')", "a = 1", "foo(name = 'x')");
+    scratch.file(
+        "test/rule.bzl",
+        """
+        def _impl(ctx): return
+        foo = rule(implementation = _impl)
+        """);
+    scratch.file(
+        "test/ext.bzl",
+        """
+        load('//test:rule.bzl', 'foo')
+        a = 1
+        foo(name = 'x')
+        """);
     scratch.file("test/BUILD", "load('//test:ext.bzl', 'a')");
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:x");
@@ -1989,33 +2112,37 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testImplicitOutputsFromGlob() throws Exception {
     scratch.file(
         "test/glob.bzl",
-        "def _impl(ctx):",
-        "  outs = ctx.outputs",
-        "  for i in ctx.attr.srcs:",
-        "    o = getattr(outs, 'foo_' + i.label.name)",
-        "    ctx.actions.write(",
-        "      output = o,",
-        "      content = 'hoho')",
-        "",
-        "def _foo(srcs):",
-        "  outs = {}",
-        "  for i in srcs:",
-        "    outs['foo_' + i.name] = i.name + '.out'",
-        "  return outs",
-        "",
-        "glob_rule = rule(",
-        "    attrs = {",
-        "        'srcs': attr.label_list(allow_files = True),",
-        "    },",
-        "    outputs = _foo,",
-        "    implementation = _impl,",
-        ")");
+        """
+        def _impl(ctx):
+          outs = ctx.outputs
+          for i in ctx.attr.srcs:
+            o = getattr(outs, 'foo_' + i.label.name)
+            ctx.actions.write(
+              output = o,
+              content = 'hoho')
+
+        def _foo(srcs):
+          outs = {}
+          for i in srcs:
+            outs['foo_' + i.name] = i.name + '.out'
+          return outs
+
+        glob_rule = rule(
+            attrs = {
+                'srcs': attr.label_list(allow_files = True),
+            },
+            outputs = _foo,
+            implementation = _impl,
+        )
+        """);
     scratch.file("test/a.bar", "a");
     scratch.file("test/b.bar", "b");
     scratch.file(
         "test/BUILD",
-        "load('//test:glob.bzl', 'glob_rule')",
-        "glob_rule(name = 'my_glob', srcs = glob(['*.bar']))");
+        """
+        load('//test:glob.bzl', 'glob_rule')
+        glob_rule(name = 'my_glob', srcs = glob(['*.bar']))
+        """);
     ConfiguredTarget ct = getConfiguredTarget("//test:my_glob");
     assertThat(ct).isNotNull();
     assertThat(getGeneratingAction(getBinArtifact("a.bar.out", ct))).isNotNull();
@@ -2027,17 +2154,20 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     // Using built-in functions as rule implementations shouldn't cause runtime errors
     scratch.file(
         "test/rule.bzl",
-        "silly_rule = rule(",
-        "    implementation = int,",
-        "    attrs = {",
-        "       \"srcs\": attr.label_list(allow_files=True),",
-        "    }",
-        ")"
-    );
+        """
+        silly_rule = rule(
+            implementation = int,
+            attrs = {
+               "srcs": attr.label_list(allow_files=True),
+            }
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:rule.bzl', 'silly_rule')",
-        "silly_rule(name = 'silly')");
+        """
+        load('//test:rule.bzl', 'silly_rule')
+        silly_rule(name = 'silly')
+        """);
     thrown.handleAssertionErrors(); // Compatibility with JUnit 4.11
     thrown.expect(AssertionError.class);
     thrown.expectMessage(
@@ -2321,20 +2451,26 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testLazyArgsWithParamFile() throws Exception {
     scratch.file(
         "test/main_rule.bzl",
-        "def _impl(ctx):",
-        "  args = ctx.actions.args()",
-        "  args.add('--foo')",
-        "  args.use_param_file('--file=%s', use_always=True)",
-        "  output=ctx.actions.declare_file('out')",
-        "  ctx.actions.run_shell(",
-        "    inputs = [output],",
-        "    outputs = [output],",
-        "    arguments = [args],",
-        "    command = 'touch out',",
-        "  )",
-        "main_rule = rule(implementation = _impl)");
+        """
+        def _impl(ctx):
+          args = ctx.actions.args()
+          args.add('--foo')
+          args.use_param_file('--file=%s', use_always=True)
+          output=ctx.actions.declare_file('out')
+          ctx.actions.run_shell(
+            inputs = [output],
+            outputs = [output],
+            arguments = [args],
+            command = 'touch out',
+          )
+        main_rule = rule(implementation = _impl)
+        """);
     scratch.file(
-        "test/BUILD", "load('//test:main_rule.bzl', 'main_rule')", "main_rule(name='main')");
+        "test/BUILD",
+        """
+        load('//test:main_rule.bzl', 'main_rule')
+        main_rule(name='main')
+        """);
     ConfiguredTarget ct = getConfiguredTarget("//test:main");
     Artifact output = getBinArtifact("out", ct);
     SpawnAction action = (SpawnAction) getGeneratingAction(output);
@@ -2530,59 +2666,222 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testLazyArgsObjectImmutability() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load('//test:rules.bzl', 'main_rule', 'dep_rule')",
-        "dep_rule(name = 'dep')",
-        "main_rule(name = 'main', deps = [':dep'])");
+        """
+        load('//test:rules.bzl', 'main_rule', 'dep_rule')
+        dep_rule(name = 'dep')
+        main_rule(name = 'main', deps = [':dep'])
+        """);
     scratch.file(
         "test/rules.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _main_impl(ctx):",
-        "  dep = ctx.attr.deps[0]",
-        "  args = dep[MyInfo].dep_arg",
-        "  args.add('hello')",
-        "main_rule = rule(",
-        "  implementation = _main_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list()",
-        "  },",
-        "  outputs = {'file': 'output.txt'},",
-        ")",
-        "def _dep_impl(ctx):",
-        "  args = ctx.actions.args()",
-        "  return [MyInfo(dep_arg = args)]",
-        "dep_rule = rule(implementation = _dep_impl)");
+        """
+        load('//myinfo:myinfo.bzl', 'MyInfo')
+        def _main_impl(ctx):
+          dep = ctx.attr.deps[0]
+          args = dep[MyInfo].dep_arg
+          args.add('hello')
+        main_rule = rule(
+          implementation = _main_impl,
+          attrs = {
+            'deps': attr.label_list()
+          },
+          outputs = {'file': 'output.txt'},
+        )
+        def _dep_impl(ctx):
+          args = ctx.actions.args()
+          return [MyInfo(dep_arg = args)]
+        dep_rule = rule(implementation = _dep_impl)
+        """);
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
     assertThat(e).hasMessageThat().contains("trying to mutate a frozen Args value");
+  }
+
+  @Test
+  public void testArgsMainRepoLabel() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+    ev.exec(
+        "actions = ruleContext.actions",
+        "a = []",
+        "a.append(actions.args().add(Label('//bar')))",
+        "a.append(actions.args().add('-flag', Label('//bar')))",
+        "a.append(actions.args().add('-flag', Label('//bar'), format = '_%s_'))",
+        "a.append(actions.args().add_all(['foo', Label('//bar')]))",
+        "a.append(actions.args().add_all(depset([Label('//foo'), Label('//bar')])))",
+        "ruleContext.actions.run(",
+        "  inputs = depset(ruleContext.files.srcs),",
+        "  outputs = ruleContext.files.srcs,",
+        "  arguments = a,",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None",
+        ")");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(action.getArguments())
+        .containsExactly(
+            "foo/t.exe",
+            "//bar:bar",
+            "-flag",
+            "//bar:bar",
+            "-flag",
+            "_//bar:bar_",
+            "foo",
+            "//bar:bar",
+            "//foo:foo",
+            "//bar:bar")
+        .inOrder();
+  }
+
+  @Test
+  public void testArgsCanonicalRepoLabel() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+    ev.exec(
+        "actions = ruleContext.actions",
+        "a = []",
+        "a.append(actions.args().add(Label('@@repo~//:foo')))",
+        "a.append(actions.args().add('-flag', Label('@@repo~//:foo')))",
+        "a.append(actions.args().add('-flag', Label('@@repo~//:foo'), format = '_%s_'))",
+        "a.append(actions.args().add_all(['foo', Label('@@repo~//:foo')]))",
+        "a.append(actions.args().add_all(depset([Label('@@other_repo~//:foo'),"
+            + " Label('@@repo~//:foo')])))",
+        "ruleContext.actions.run(",
+        "  inputs = depset(ruleContext.files.srcs),",
+        "  outputs = ruleContext.files.srcs,",
+        "  arguments = a,",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None",
+        ")");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(action.getArguments())
+        .containsExactly(
+            "foo/t.exe",
+            "@@repo~//:foo",
+            "-flag",
+            "@@repo~//:foo",
+            "-flag",
+            "_@@repo~//:foo_",
+            "foo",
+            "@@repo~//:foo",
+            "@@other_repo~//:foo",
+            "@@repo~//:foo")
+        .inOrder();
+  }
+
+  @Test
+  public void testArgsApparentRepoLabel() throws Exception {
+    scratch.overwriteFile("MODULE.bazel", "bazel_dep(name = 'foo', version = '1.0')");
+    registry.addModule(createModuleKey("foo", "1.0"), "module(name='foo', version='1.0')");
+    invalidatePackages();
+
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+    ev.exec(
+        "actions = ruleContext.actions",
+        "a = []",
+        "a.append(actions.args().add(Label('@@foo~//:foo')))",
+        "a.append(actions.args().add('-flag', Label('@@foo~//:foo')))",
+        "a.append(actions.args().add('-flag', Label('@@foo~//:foo'), format = '_%s_'))",
+        "a.append(actions.args().add_all(['foo', Label('@@foo~//:foo')]))",
+        "a.append(actions.args().add_all(depset([Label('@@repo~//:foo'), Label('@@foo~//:foo')])))",
+        "ruleContext.actions.run(",
+        "  inputs = depset(ruleContext.files.srcs),",
+        "  outputs = ruleContext.files.srcs,",
+        "  arguments = a,",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None",
+        ")");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(action.getArguments())
+        .containsExactly(
+            "foo/t.exe",
+            "@foo//:foo",
+            "-flag",
+            "@foo//:foo",
+            "-flag",
+            "_@foo//:foo_",
+            "foo",
+            "@foo//:foo",
+            "@@repo~//:foo",
+            "@foo//:foo")
+        .inOrder();
+  }
+
+  @Test
+  public void testArgsBuiltTwiceWithExternalLabel() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+    ev.exec(
+        "args = ruleContext.actions.args()",
+        "args.add(Label('@@foo'))",
+        "ruleContext.actions.run(",
+        "  inputs = depset(ruleContext.files.srcs),",
+        "  outputs = ruleContext.files.srcs,",
+        "  arguments = [args],",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None",
+        ")",
+        "ruleContext.actions.run(",
+        "  inputs = depset(ruleContext.files.srcs),",
+        "  outputs = ruleContext.files.srcs,",
+        "  arguments = [args],",
+        "  executable = ruleContext.files.tools[0],",
+        "  toolchain = None",
+        ")");
+    List<SpawnAction> actions =
+        ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions().stream()
+            .map(SpawnAction.class::cast)
+            .toList();
+    assertThat(actions).hasSize(2);
+    assertThat(actions.getFirst().getArguments())
+        .containsExactlyElementsIn(actions.getLast().getArguments())
+        .inOrder();
   }
 
   @Test
   public void testConfigurationField_starlarkSplitTransitionProhibited() throws Exception {
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
-        "package_group(",
-        "    name = 'function_transition_allowlist',",
-        "    packages = [",
-        "        '//...',",
-        "    ],",
-        ")");
+        """
+        package_group(
+            name = 'function_transition_allowlist',
+            packages = [
+                '//...',
+            ],
+        )
+        """);
 
     scratch.file(
         "test/rule.bzl",
-        "def _foo_impl(ctx):",
-        "  return []",
-        "",
-        "def _foo_transition_impl(settings):",
-        "  return {'t1': {}, 't2': {}}",
-        "foo_transition = transition(implementation=_foo_transition_impl, inputs=[], outputs=[])",
-        "",
-        "foo = rule(",
-        "  implementation = _foo_impl,",
-        "  attrs = {",
-        "    '_attr': attr.label(",
-        "        cfg = foo_transition,",
-        "        default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})");
+        """
+        def _foo_impl(ctx):
+          return []
 
-    scratch.file("test/BUILD", "load('//test:rule.bzl', 'foo')", "foo(name='foo')");
+        def _foo_transition_impl(settings):
+          return {'t1': {}, 't2': {}}
+        foo_transition = transition(implementation=_foo_transition_impl, inputs=[], outputs=[])
+
+        foo = rule(
+          implementation = _foo_impl,
+          attrs = {
+            '_attr': attr.label(
+                cfg = foo_transition,
+                default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})
+        """);
+
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:rule.bzl', 'foo')
+        foo(name='foo')
+        """);
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:foo");
@@ -2593,17 +2892,24 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testConfigurationField_nativeSplitTransitionProviderProhibited() throws Exception {
     scratch.file(
         "test/rule.bzl",
-        "def _foo_impl(ctx):",
-        "  return []",
-        "",
-        "foo = rule(",
-        "  implementation = _foo_impl,",
-        "  attrs = {",
-        "    '_attr': attr.label(",
-        "        cfg = android_common.multi_cpu_configuration,",
-        "        default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})");
+        """
+        def _foo_impl(ctx):
+          return []
 
-    scratch.file("test/BUILD", "load('//test:rule.bzl', 'foo')", "foo(name='foo')");
+        foo = rule(
+          implementation = _foo_impl,
+          attrs = {
+            '_attr': attr.label(
+                cfg = android_common.multi_cpu_configuration,
+                default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})
+        """);
+
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:rule.bzl', 'foo')
+        foo(name='foo')
+        """);
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:foo");
@@ -2614,18 +2920,25 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testConfigurationField_nativeSplitTransitionProhibited() throws Exception {
     scratch.file(
         "test/rule.bzl",
-        "def _foo_impl(ctx):",
-        "  return []",
-        "",
-        "foo = rule(",
-        "  implementation = _foo_impl,",
-        "  attrs = {",
-        "    '_attr': attr.label(",
-        "        cfg = android_common.multi_cpu_configuration,",
-        "        default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})");
+        """
+        def _foo_impl(ctx):
+          return []
+
+        foo = rule(
+          implementation = _foo_impl,
+          attrs = {
+            '_attr': attr.label(
+                cfg = android_common.multi_cpu_configuration,
+                default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})
+        """);
     setBuildLanguageOptions("--experimental_google_legacy_api");
 
-    scratch.file("test/BUILD", "load('//test:rule.bzl', 'foo')", "foo(name='foo')");
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:rule.bzl', 'foo')
+        foo(name='foo')
+        """);
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:foo");
@@ -2636,18 +2949,23 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testConfigurationField_invalidFragment() throws Exception {
     scratch.file(
         "test/main_rule.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "main_rule = rule(implementation = _impl,",
-        "    attrs = { '_myattr': attr.label(",
-        "        default = configuration_field(",
-        "        fragment = 'notarealfragment', name = 'method_name')),",
-        "    },",
-        ")");
+        """
+        def _impl(ctx):
+          return []
+        main_rule = rule(implementation = _impl,
+            attrs = { '_myattr': attr.label(
+                default = configuration_field(
+                fragment = 'notarealfragment', name = 'method_name')),
+            },
+        )
+        """);
 
-    scratch.file("test/BUILD",
-        "load('//test:main_rule.bzl', 'main_rule')",
-        "main_rule(name='main')");
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:main_rule.bzl', 'main_rule')
+        main_rule(name='main')
+        """);
 
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
@@ -2659,20 +2977,25 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testConfigurationField_doesNotChangeFragmentAccess() throws Exception {
     scratch.file(
         "test/main_rule.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "  return [MyInfo(platform = ctx.fragments.apple.single_arch_platform)]",
-        "main_rule = rule(implementation = _impl,",
-        "    attrs = { '_myattr': attr.label(",
-        "        default = configuration_field(",
-        "        fragment = 'apple', name = 'xcode_config_label')),",
-        "    },",
-        "    fragments = [],",
-        ")");
+        """
+        load('//myinfo:myinfo.bzl', 'MyInfo')
+        def _impl(ctx):
+          return [MyInfo(platform = ctx.fragments.apple.single_arch_platform)]
+        main_rule = rule(implementation = _impl,
+            attrs = { '_myattr': attr.label(
+                default = configuration_field(
+                fragment = 'apple', name = 'xcode_config_label')),
+            },
+            fragments = [],
+        )
+        """);
 
-    scratch.file("test/BUILD",
-        "load('//test:main_rule.bzl', 'main_rule')",
-        "main_rule(name='main')");
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:main_rule.bzl', 'main_rule')
+        main_rule(name='main')
+        """);
 
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
@@ -2684,19 +3007,24 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testConfigurationField_invalidFieldName() throws Exception {
     scratch.file(
         "test/main_rule.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "main_rule = rule(implementation = _impl,",
-        "    attrs = { '_myattr': attr.label(",
-        "        default = configuration_field(",
-        "        fragment = 'apple', name = 'notarealfield')),",
-        "    },",
-        "    fragments = ['apple'],",
-        ")");
+        """
+        def _impl(ctx):
+          return []
+        main_rule = rule(implementation = _impl,
+            attrs = { '_myattr': attr.label(
+                default = configuration_field(
+                fragment = 'apple', name = 'notarealfield')),
+            },
+            fragments = ['apple'],
+        )
+        """);
 
-    scratch.file("test/BUILD",
-        "load('//test:main_rule.bzl', 'main_rule')",
-        "main_rule(name='main')");
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:main_rule.bzl', 'main_rule')
+        main_rule(name='main')
+        """);
 
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
@@ -2710,19 +3038,24 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testConfigurationField_invalidVisibility() throws Exception {
     scratch.file(
         "test/main_rule.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "main_rule = rule(implementation = _impl,",
-        "    attrs = { 'myattr': attr.label(",
-        "        default = configuration_field(",
-        "        fragment = 'apple', name = 'xcode_config_label')),",
-        "    },",
-        "    fragments = ['apple'],",
-        ")");
+        """
+        def _impl(ctx):
+          return []
+        main_rule = rule(implementation = _impl,
+            attrs = { 'myattr': attr.label(
+                default = configuration_field(
+                fragment = 'apple', name = 'xcode_config_label')),
+            },
+            fragments = ['apple'],
+        )
+        """);
 
-    scratch.file("test/BUILD",
-        "load('//test:main_rule.bzl', 'main_rule')",
-        "main_rule(name='main')");
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:main_rule.bzl', 'main_rule')
+        main_rule(name='main')
+        """);
 
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
@@ -2736,22 +3069,26 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testFilesToRunInActionsRun() throws Exception {
     scratch.file(
         "a/a.bzl",
-        "def _impl(ctx):",
-        "    f = ctx.actions.declare_file('output')",
-        "    ctx.actions.run(",
-        "        inputs = [],",
-        "        outputs = [f],",
-        "        executable = ctx.attr._tool[DefaultInfo].files_to_run,",
-        "        toolchain = None",
-        "    )",
-        "    return [DefaultInfo(files=depset([f]))]",
-        "r = rule(implementation=_impl, attrs = {'_tool': attr.label(default='//a:tool')})");
+        """
+        def _impl(ctx):
+            f = ctx.actions.declare_file('output')
+            ctx.actions.run(
+                inputs = [],
+                outputs = [f],
+                executable = ctx.attr._tool[DefaultInfo].files_to_run,
+                toolchain = None
+            )
+            return [DefaultInfo(files=depset([f]))]
+        r = rule(implementation=_impl, attrs = {'_tool': attr.label(default='//a:tool')})
+        """);
 
     scratch.file(
         "a/BUILD",
-        "load(':a.bzl', 'r')",
-        "r(name='r')",
-        "sh_binary(name='tool', srcs=['tool.sh'], data=['data'])");
+        """
+        load(':a.bzl', 'r')
+        r(name='r')
+        sh_binary(name='tool', srcs=['tool.sh'], data=['data'])
+        """);
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     Action action =
@@ -2763,23 +3100,27 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testFilesToRunInActionsTools() throws Exception {
     scratch.file(
         "a/a.bzl",
-        "def _impl(ctx):",
-        "    f = ctx.actions.declare_file('output')",
-        "    ctx.actions.run(",
-        "        inputs = [],",
-        "        outputs = [f],",
-        "        tools = [ctx.attr._tool[DefaultInfo].files_to_run],",
-        "        executable = 'a/tool',",
-        "        toolchain = None",
-        "    )",
-        "    return [DefaultInfo(files=depset([f]))]",
-        "r = rule(implementation=_impl, attrs = {'_tool': attr.label(default='//a:tool')})");
+        """
+        def _impl(ctx):
+            f = ctx.actions.declare_file('output')
+            ctx.actions.run(
+                inputs = [],
+                outputs = [f],
+                tools = [ctx.attr._tool[DefaultInfo].files_to_run],
+                executable = 'a/tool',
+                toolchain = None
+            )
+            return [DefaultInfo(files=depset([f]))]
+        r = rule(implementation=_impl, attrs = {'_tool': attr.label(default='//a:tool')})
+        """);
 
     scratch.file(
         "a/BUILD",
-        "load(':a.bzl', 'r')",
-        "r(name='r')",
-        "sh_binary(name='tool', srcs=['tool.sh'], data=['data'])");
+        """
+        load(':a.bzl', 'r')
+        r(name='r')
+        sh_binary(name='tool', srcs=['tool.sh'], data=['data'])
+        """);
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     Action action =
@@ -2792,19 +3133,24 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testConfigurationField_invalidAttributeType() throws Exception {
     scratch.file(
         "test/main_rule.bzl",
-        "def _impl(ctx):",
-        "  return []",
-        "main_rule = rule(implementation = _impl,",
-        "    attrs = { '_myattr': attr.int(",
-        "        default = configuration_field(",
-        "        fragment = 'apple', name = 'xcode_config_label')),",
-        "    },",
-        "    fragments = ['apple'],",
-        ")");
+        """
+        def _impl(ctx):
+          return []
+        main_rule = rule(implementation = _impl,
+            attrs = { '_myattr': attr.int(
+                default = configuration_field(
+                fragment = 'apple', name = 'xcode_config_label')),
+            },
+            fragments = ['apple'],
+        )
+        """);
 
-    scratch.file("test/BUILD",
-        "load('//test:main_rule.bzl', 'main_rule')",
-        "main_rule(name='main')");
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:main_rule.bzl', 'main_rule')
+        main_rule(name='main')
+        """);
 
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
@@ -3138,25 +3484,17 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   private static ArtifactExpander createArtifactExpander(String dirRelativePath, String... files) {
-    return (artifact, output) -> {
+    return treeArtifact -> {
       Preconditions.checkArgument(
-          artifact.getRootRelativePath().equals(PathFragment.create(dirRelativePath)));
-      for (String file : files) {
-        output.add(
-            DerivedArtifact.create(
-                artifact.getRoot(),
-                artifact.getExecPath().getRelative(file),
-                (ActionLookupKey) artifact.getArtifactOwner()));
+          treeArtifact.getRootRelativePathString().equals(dirRelativePath), treeArtifact);
+      SpecialArtifact parent = (SpecialArtifact) treeArtifact;
+      if (!parent.hasGeneratingActionKey()) {
+        // Set a dummy generating action key so that we can create child TreeFileArtifacts.
+        parent.setGeneratingActionKey(ActionLookupData.create(parent.getArtifactOwner(), 0));
       }
-    };
-  }
-
-  private static ArtifactExpander createArtifactExpander(
-      Artifact directory, ImmutableList<Artifact> files) {
-    return (artifact, output) -> {
-      if (artifact.equals(directory)) {
-        output.addAll(files);
-      }
+      return Arrays.stream(files)
+          .map(f -> TreeFileArtifact.createTreeOutput(parent, f))
+          .collect(toImmutableSortedSet(Comparator.naturalOrder()));
     };
   }
 
@@ -3174,7 +3512,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
   private CommandLine getCommandLine(String... lines) throws Exception {
     ev.exec(lines);
-    return ((Args) ev.eval("args")).build();
+    return ((Args) ev.eval("args")).build(() -> RepositoryMapping.ALWAYS_FALLBACK);
   }
 
   @Test
@@ -3197,16 +3535,14 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     Sequence<?> result = (Sequence<?>) ev.eval("args, directory");
     Args args = (Args) result.get(0);
     Artifact directory = (Artifact) result.get(1);
-    CommandLine commandLine = args.build();
+    CommandLine commandLine = args.build(() -> RepositoryMapping.ALWAYS_FALLBACK);
 
     // When asking for arguments without an artifact expander we just return the directory
     assertThat(commandLine.arguments()).containsExactly("foo/dir");
 
     // Now ask for one with an expanded directory
-    Artifact file1 = getBinArtifactWithNoOwner("foo/dir/file1");
-    Artifact file2 = getBinArtifactWithNoOwner("foo/dir/file2");
     ArtifactExpander artifactExpander =
-        createArtifactExpander(directory, ImmutableList.of(file1, file2));
+        createArtifactExpander(directory.getRootRelativePathString(), "file1", "file2");
     assertThat(commandLine.arguments(artifactExpander, PathMapper.NOOP))
         .containsExactly("foo/dir/file1", "foo/dir/file2");
   }
@@ -3223,12 +3559,10 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     Sequence<?> result = (Sequence<?>) ev.eval("args, directory");
     Args args = (Args) result.get(0);
     Artifact directory = (Artifact) result.get(1);
-    CommandLine commandLine = args.build();
+    CommandLine commandLine = args.build(() -> RepositoryMapping.ALWAYS_FALLBACK);
 
-    Artifact file1 = getBinArtifactWithNoOwner("foo/dir/file1");
-    Artifact file2 = getBinArtifactWithNoOwner("foo/dir/file2");
     ArtifactExpander artifactExpander =
-        createArtifactExpander(directory, ImmutableList.of(file1, file2));
+        createArtifactExpander(directory.getRootRelativePathString(), "file1", "file2");
     // First expanded, then not expanded (two separate calls)
     assertThat(commandLine.arguments(artifactExpander, PathMapper.NOOP))
         .containsExactly("foo/dir/file1", "foo/dir/file2", "foo/dir");
@@ -3274,12 +3608,10 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "args.add_all([directory, file3], map_each=_expand_dirs)");
     Args args = (Args) ev.eval("args");
     Artifact directory = (Artifact) ev.eval("directory");
-    CommandLine commandLine = args.build();
+    CommandLine commandLine = args.build(() -> RepositoryMapping.ALWAYS_FALLBACK);
 
-    Artifact file1 = getBinArtifactWithNoOwner("foo/dir/file1");
-    Artifact file2 = getBinArtifactWithNoOwner("foo/dir/file2");
     ArtifactExpander artifactExpander =
-        createArtifactExpander(directory, ImmutableList.of(file1, file2));
+        createArtifactExpander(directory.getRootRelativePathString(), "file1", "file2");
     assertThat(commandLine.arguments(artifactExpander, PathMapper.NOOP))
         .containsExactly("foo/dir/file1", "foo/dir/file2", "foo/file3");
   }
@@ -3294,7 +3626,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  return dir_expander.expand('oh no a string')",
         "args.add_all([f], map_each=_expand_dirs)");
     Args args = (Args) ev.eval("args");
-    CommandLine commandLine = args.build();
+    CommandLine commandLine = args.build(() -> RepositoryMapping.ALWAYS_FALLBACK);
     assertThrows(CommandLineExpansionException.class, commandLine::arguments);
   }
 
@@ -3302,12 +3634,20 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testDeclareSharedArtifactIsPrivateAPI() throws Exception {
     scratch.file(
         "abc/rule.bzl",
-        "def _impl(ctx):",
-        " ctx.actions.declare_shareable_artifact('foo')",
-        " return []",
-        "",
-        "r = rule(implementation = _impl)");
-    scratch.file("abc/BUILD", "load(':rule.bzl', 'r')", "", "r(name = 'foo')");
+        """
+        def _impl(ctx):
+         ctx.actions.declare_shareable_artifact('foo')
+         return []
+
+        r = rule(implementation = _impl)
+        """);
+    scratch.file(
+        "abc/BUILD",
+        """
+        load(':rule.bzl', 'r')
+
+        r(name = 'foo')
+        """);
 
     AssertionError error =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//abc:foo"));
@@ -3319,12 +3659,20 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testDisablingRunfilesSymlinkChecksIsPrivateAPI() throws Exception {
     scratch.file(
         "abc/rule.bzl",
-        "def _impl(ctx):",
-        " ctx.runfiles(skip_conflict_checking = True)",
-        " return []",
-        "",
-        "r = rule(implementation = _impl)");
-    scratch.file("abc/BUILD", "load(':rule.bzl', 'r')", "", "r(name = 'foo')");
+        """
+        def _impl(ctx):
+         ctx.runfiles(skip_conflict_checking = True)
+         return []
+
+        r = rule(implementation = _impl)
+        """);
+    scratch.file(
+        "abc/BUILD",
+        """
+        load(':rule.bzl', 'r')
+
+        r(name = 'foo')
+        """);
 
     AssertionError error =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//abc:foo"));
@@ -3336,29 +3684,33 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   public void testDeclareSharedArtifact_differentFileRoot() throws Exception {
     scratch.file(
         "test/rule.bzl",
-        "RootProvider = provider(fields = ['root'])",
-        "def _impl(ctx):",
-        "  if not ctx.attr.dep:",
-        "      return [RootProvider(root = ctx.configuration.bin_dir)]", // This is the child.
-        "  exec_config_root = ctx.attr.dep[RootProvider].root",
-        "  a1 = ctx.actions.declare_shareable_artifact(ctx.label.name + '1.so')",
-        "  ctx.actions.write(a1, '')",
-        "  a2 = ctx.actions.declare_shareable_artifact(",
-        "           ctx.label.name + '2.so',",
-        "           exec_config_root",
-        "       )",
-        "  ctx.actions.write(a2, '')",
-        "  return [DefaultInfo(files = depset([a1, a2]))]",
-        "",
-        "r = rule(",
-        "    implementation = _impl,",
-        "    attrs = {'dep': attr.label(cfg = 'exec')},",
-        ")");
+        """
+        RootProvider = provider(fields = ['root'])
+        def _impl(ctx):
+          if not ctx.attr.dep:
+              return [RootProvider(root = ctx.configuration.bin_dir)]  # This is the child.
+          exec_config_root = ctx.attr.dep[RootProvider].root
+          a1 = ctx.actions.declare_shareable_artifact(ctx.label.name + '1.so')
+          ctx.actions.write(a1, '')
+          a2 = ctx.actions.declare_shareable_artifact(
+                   ctx.label.name + '2.so',
+                   exec_config_root
+               )
+          ctx.actions.write(a2, '')
+          return [DefaultInfo(files = depset([a1, a2]))]
+
+        r = rule(
+            implementation = _impl,
+            attrs = {'dep': attr.label(cfg = 'exec')},
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':rule.bzl', 'r')",
-        "r(name = 'foo', dep = ':exec_configured_child')",
-        "r(name = 'exec_configured_child')");
+        """
+        load(':rule.bzl', 'r')
+        r(name = 'foo', dep = ':exec_configured_child')
+        r(name = 'exec_configured_child')
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//test:foo");
 

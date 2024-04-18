@@ -64,9 +64,8 @@ public final class BzlInitThreadContext extends BazelStarlarkContext
       byte[] transitiveDigest,
       RepositoryName toolsRepository,
       Optional<Label> networkAllowlistForTests,
-      ImmutableMap<String, Class<?>> fragmentNameToClass,
-      SymbolGenerator<?> symbolGenerator) {
-    super(BazelStarlarkContext.Phase.LOADING, symbolGenerator);
+      ImmutableMap<String, Class<?>> fragmentNameToClass) {
+    super(BazelStarlarkContext.Phase.LOADING);
     this.bzlFile = bzlFile;
     this.transitiveDigest = transitiveDigest;
     this.toolsRepository = toolsRepository;

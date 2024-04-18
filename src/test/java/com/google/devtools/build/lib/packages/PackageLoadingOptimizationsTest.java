@@ -32,8 +32,14 @@ public class PackageLoadingOptimizationsTest extends PackageLoadingTestCase {
   public void attributeListValuesAreDedupedIntraPackage() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "L = ['//other:t' + str(i) for i in range(10)]",
-        "[sh_library(name = 't' + str(i), deps = L) for i in range(10)]");
+        """
+        L = ["//other:t" + str(i) for i in range(10)]
+
+        [sh_library(
+            name = "t" + str(i),
+            deps = L,
+        ) for i in range(10)]
+        """);
 
     Package fooPkg =
         getPackageManager()
@@ -58,14 +64,24 @@ public class PackageLoadingOptimizationsTest extends PackageLoadingTestCase {
   public void testRuntimeListValueIsDedupedAcrossRuleClasses() throws Exception {
     scratch.file(
         "foo/foo.bzl",
-        "def _foo_test_impl(ctx):",
-        "  return",
-        "foo_test = rule(implementation = _foo_test_impl, test = True)");
+        """
+        def _foo_test_impl(ctx):
+            return
+
+        foo_test = rule(implementation = _foo_test_impl, test = True)
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':foo.bzl', 'foo_test')",
-        "[sh_test(name = str(i) + '_test', srcs = ['t.sh']) for i in range(5)]",
-        "[foo_test(name = str(i) + '_foo_test') for i in range(5)]");
+        """
+        load(":foo.bzl", "foo_test")
+
+        [sh_test(
+            name = str(i) + "_test",
+            srcs = ["t.sh"],
+        ) for i in range(5)]
+
+        [foo_test(name = str(i) + "_foo_test") for i in range(5)]
+        """);
 
     Package fooPkg =
         getPackageManager()
@@ -92,22 +108,34 @@ public class PackageLoadingOptimizationsTest extends PackageLoadingTestCase {
     scratch.file("foo/provider.bzl", "foo_provider = provider()");
     scratch.file(
         "foo/foo.bzl",
-        "load(':provider.bzl', 'foo_provider')",
-        "def _foo_impl(ctx):",
-        "  return",
-        "foo_rule = rule(implementation = _foo_impl, provides=[foo_provider])");
+        """
+        load(":provider.bzl", "foo_provider")
+
+        def _foo_impl(ctx):
+            return
+
+        foo_rule = rule(implementation = _foo_impl, provides = [foo_provider])
+        """);
     scratch.file(
         "foo/foobar.bzl",
-        "load(':provider.bzl', 'foo_provider')",
-        "def _foobar_impl(ctx):",
-        "  return",
-        "foobar_rule = rule(implementation = _foobar_impl, provides=[foo_provider])");
+        """
+        load(":provider.bzl", "foo_provider")
+
+        def _foobar_impl(ctx):
+            return
+
+        foobar_rule = rule(implementation = _foobar_impl, provides = [foo_provider])
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':foo.bzl', 'foo_rule')",
-        "load(':foobar.bzl', 'foobar_rule')",
-        "foo_rule(name = 'foo_rule_instance')",
-        "foobar_rule(name = 'foobar_rule_instance')");
+        """
+        load(":foo.bzl", "foo_rule")
+        load(":foobar.bzl", "foobar_rule")
+
+        foo_rule(name = "foo_rule_instance")
+
+        foobar_rule(name = "foobar_rule_instance")
+        """);
 
     Package fooPkg =
         getPackageManager()
@@ -132,12 +160,26 @@ public class PackageLoadingOptimizationsTest extends PackageLoadingTestCase {
     // When we have a BUILD file that instantiates some test targets
     scratch.file(
         "foo/BUILD",
-        // (in an order that is not target-name-order),
-        "sh_test(name = 'bTest', srcs = ['test.sh'])",
-        "sh_test(name = 'cTest', srcs = ['test.sh'])",
-        "sh_test(name = 'aTest', srcs = ['test.sh'])",
-        // And also a `test_suite` target, without setting the `test_suite.tests` attribute,
-        "test_suite(name = 'suite')");
+        """
+        # (in an order that is not target-name-order),
+        sh_test(
+            name = "bTest",
+            srcs = ["test.sh"],
+        )
+
+        sh_test(
+            name = "cTest",
+            srcs = ["test.sh"],
+        )
+
+        sh_test(
+            name = "aTest",
+            srcs = ["test.sh"],
+        )
+
+        # And also a `test_suite` target, without setting the `test_suite.tests` attribute,
+        test_suite(name = "suite")
+        """);
 
     // Then when we load the package,
     PackageIdentifier fooPkgId = PackageIdentifier.createInMainRepo("foo");

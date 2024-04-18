@@ -85,6 +85,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Location;
 
@@ -163,7 +164,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         try {
           SingleExtensionEvalValue singleExtensionEvalValue =
               tryGettingValueFromLockFile(
-                  env, extensionId, extension, usagesValue, lockfile, lockedExtension);
+                  env, extensionId, extension, usagesValue, lockedExtension);
           if (singleExtensionEvalValue != null) {
             return singleExtensionEvalValue;
           }
@@ -217,6 +218,10 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                   extension.getEvalFactors(),
                   LockFileModuleExtension.builder()
                       .setBzlTransitiveDigest(extension.getBzlTransitiveDigest())
+                      .setUsagesDigest(
+                          ModuleExtensionUsage.hashForEvaluation(
+                              GsonTypeAdapterUtil.createModuleExtensionUsagesHashGson(),
+                              usagesValue.getExtensionUsages()))
                       .setRecordedFileInputs(moduleExtensionResult.getRecordedFileInputs())
                       .setRecordedDirentsInputs(moduleExtensionResult.getRecordedDirentsInputs())
                       .setEnvVariables(extension.getEnvVars())
@@ -243,24 +248,11 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       ModuleExtensionId extensionId,
       RunnableExtension extension,
       SingleExtensionUsagesValue usagesValue,
-      BazelLockFileValue lockfile,
       LockFileModuleExtension lockedExtension)
       throws SingleExtensionEvalFunctionException,
           InterruptedException,
           NeedsSkyframeRestartException {
     LockfileMode lockfileMode = BazelLockFileFunction.LOCKFILE_MODE.get(env);
-
-    ImmutableMap<ModuleKey, ModuleExtensionUsage> lockedExtensionUsages;
-    try {
-      // TODO(salmasamy) might be nicer to precompute this table when we construct
-      // BazelLockFileValue, without adding it to the json file
-      ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById =
-          BazelDepGraphFunction.getExtensionUsagesById(lockfile.getModuleDepGraph());
-      lockedExtensionUsages = extensionUsagesById.row(extensionId);
-    } catch (ExternalDepsException e) {
-      throw new SingleExtensionEvalFunctionException(e, Transience.PERSISTENT);
-    }
-
     DiffRecorder diffRecorder =
         new DiffRecorder(/* recordMessages= */ lockfileMode.equals(LockfileMode.ERROR));
     try {
@@ -280,8 +272,11 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       }
       // Check extension data in lockfile is still valid, disregarding usage information that is not
       // relevant for the evaluation of the extension.
-      if (!ModuleExtensionUsage.trimForEvaluation(usagesValue.getExtensionUsages())
-          .equals(ModuleExtensionUsage.trimForEvaluation(lockedExtensionUsages))) {
+      if (!Arrays.equals(
+          ModuleExtensionUsage.hashForEvaluation(
+              GsonTypeAdapterUtil.createModuleExtensionUsagesHashGson(),
+              usagesValue.getExtensionUsages()),
+          lockedExtension.getUsagesDigest())) {
         diffRecorder.record("The usages of the extension '" + extensionId + "' have changed");
       }
       if (didRepoMappingsChange(env, lockedExtension.getRecordedRepoMappingEntries())) {
@@ -798,7 +793,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
 
     // Check that the .bzl file actually exports a module extension by our name.
     Object exported = bzlLoadValue.getModule().getGlobal(extensionId.getExtensionName());
-    if (!(exported instanceof ModuleExtension)) {
+    if (!(exported instanceof ModuleExtension extension)) {
       ImmutableSet<String> exportedExtensions =
           bzlLoadValue.getModule().getGlobals().entrySet().stream()
               .filter(e -> e.getValue() instanceof ModuleExtension)
@@ -815,7 +810,6 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           Transience.PERSISTENT);
     }
 
-    ModuleExtension extension = (ModuleExtension) exported;
     ImmutableMap<String, String> envVars =
         RepositoryFunction.getEnvVarValues(env, ImmutableSet.copyOf(extension.getEnvVariables()));
     if (envVars == null) {
@@ -876,7 +870,12 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       repoMappingRecorder.mergeEntries(bzlLoadValue.getRecordedRepoMappings());
       try (Mutability mu =
           Mutability.create("module extension", usagesValue.getExtensionUniqueName())) {
-        StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
+        StarlarkThread thread =
+            StarlarkThread.create(
+                mu,
+                starlarkSemantics,
+                /* contextDescription= */ "",
+                SymbolGenerator.create(extensionId));
         thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
         moduleContext = createContext(env, usagesValue, starlarkSemantics, extensionId);
         threadContext.storeInThread(thread);

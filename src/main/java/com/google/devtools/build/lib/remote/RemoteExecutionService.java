@@ -750,11 +750,10 @@ public class RemoteExecutionService {
 
     @Override
     public boolean equals(Object object) {
-      if (!(object instanceof RemoteActionResult)) {
+      if (!(object instanceof RemoteActionResult that)) {
         return false;
       }
 
-      RemoteActionResult that = (RemoteActionResult) object;
       return Objects.equals(actionResult, that.actionResult)
           && Objects.equals(executeResponse, that.executeResponse);
     }
@@ -1503,7 +1502,8 @@ public class RemoteExecutionService {
               .withWriteCachePolicy(CachePolicy.REMOTE_CACHE_ONLY), // Only upload to remote cache
           merkleTree,
           additionalInputs,
-          force);
+          force,
+          reporter);
     } finally {
       maybeReleaseRemoteActionBuildingSemaphore();
     }

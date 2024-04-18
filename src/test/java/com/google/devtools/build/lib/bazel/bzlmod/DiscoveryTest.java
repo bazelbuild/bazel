@@ -170,7 +170,11 @@ public class DiscoveryTest extends FoundationTestCase {
                 .put(DiscoveryValue.FUNCTION_NAME, new DiscoveryFunction())
                 .put(
                     SkyFunctions.MODULE_FILE,
-                    new ModuleFileFunction(registryFactory, workspaceRoot, builtinModules))
+                    new ModuleFileFunction(
+                        ruleClassProvider.getBazelStarlarkEnvironment(),
+                        registryFactory,
+                        workspaceRoot,
+                        builtinModules))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,
@@ -185,6 +189,7 @@ public class DiscoveryTest extends FoundationTestCase {
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
                     new BzlmodRepoRuleFunction(ruleClassProvider, directories))
                 .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory))
+                .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction(registryFactory))
                 .put(
                     SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
                     new ModuleExtensionRepoMappingEntriesFunction())

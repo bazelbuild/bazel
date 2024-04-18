@@ -44,7 +44,7 @@ public class SelectTest {
         Module.withPredeclared(
             StarlarkSemantics.DEFAULT, StarlarkGlobalsImpl.INSTANCE.getUtilToplevels());
     try (Mutability mu = Mutability.create()) {
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
       return Starlark.eval(input, FileOptions.DEFAULT, module, thread);
     }
   }

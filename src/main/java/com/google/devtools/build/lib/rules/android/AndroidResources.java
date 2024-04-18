@@ -444,11 +444,10 @@ public class AndroidResources {
 
   @Override
   public boolean equals(Object object) {
-    if (!(object instanceof AndroidResources)) {
+    if (!(object instanceof AndroidResources other)) {
       return false;
     }
 
-    AndroidResources other = (AndroidResources) object;
     return resources.equals(other.resources) && resourceRoots.equals(other.resourceRoots);
   }
 

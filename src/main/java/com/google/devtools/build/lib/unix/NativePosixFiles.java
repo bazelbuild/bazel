@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.unix;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.jni.JniLoader;
+import com.google.devtools.build.lib.util.Blocker;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.logging.LogManager;
@@ -198,8 +199,13 @@ public final class NativePosixFiles {
    * @throws IOException if the call to opendir failed for any reason.
    */
   public static Dirents readdir(String path, ReadTypes readTypes) throws IOException {
-    // Passing enums to native code is possible, but onerous; we use a char instead.
-    return readdir(path, readTypes.getCode());
+    long comp = Blocker.begin();
+    try {
+      // Passing enums to native code is possible, but onerous; we use a char instead.
+      return readdir(path, readTypes.getCode());
+    } finally {
+      Blocker.end(comp);
+    }
   }
 
   private static native Dirents readdir(String path, char typeCode) throws IOException;

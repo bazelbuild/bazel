@@ -126,10 +126,9 @@ public final class PerLabelOptions {
     if (this == other) {
       return true;
     }
-    if (!(other instanceof PerLabelOptions)) {
+    if (!(other instanceof PerLabelOptions otherOptions)) {
       return false;
     }
-    PerLabelOptions otherOptions = (PerLabelOptions) other;
     return this.regexFilter.equals(otherOptions.regexFilter)
         && this.optionsList.equals(otherOptions.optionsList);
   }

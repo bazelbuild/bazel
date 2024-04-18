@@ -379,18 +379,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalActionResourceSet;
 
   @Option(
-      name = "incompatible_struct_has_no_methods",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "Disables the to_json and to_proto methods of struct, which pollute the struct field"
-              + " namespace. Instead, use json.encode or json.encode_indent for JSON, or"
-              + " proto.encode_text for textproto.")
-  public boolean incompatibleStructHasNoMethods;
-
-  @Option(
       name = "incompatible_always_check_depset_elements",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -723,6 +711,18 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " Label.relative) can be used.")
   public boolean enableDeprecatedLabelApis;
 
+  @Option(
+      name = "incompatible_disallow_ctx_resolve_tools",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If set to true, calling the deprecated ctx.resolve_tools API always fails. Uses of this"
+              + " API should be replaced by an executable or tools argument to ctx.actions.run or"
+              + " ctx.actions.run_shell.")
+  public boolean incompatibleDisallowCtxResolveTools;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -786,7 +786,6 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(INCOMPATIBLE_NO_PACKAGE_DISTRIBS, incompatibleNoPackageDistribs)
             .setBool(INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM, incompatibleNoRuleOutputsParam)
             .setBool(INCOMPATIBLE_RUN_SHELL_COMMAND_STRING, incompatibleRunShellCommandString)
-            .setBool(INCOMPATIBLE_STRUCT_HAS_NO_METHODS, incompatibleStructHasNoMethods)
             .setBool(StarlarkSemantics.PRINT_TEST_MARKER, internalStarlarkFlagTestCanary)
             .setBool(
                 INCOMPATIBLE_DO_NOT_SPLIT_LINKING_CMDLINE, incompatibleDoNotSplitLinkingCmdline)
@@ -827,6 +826,7 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS, enableDeprecatedLabelApis)
             .setBool(
                 INCOMPATIBLE_STOP_EXPORTING_BUILD_FILE_PATH, incompatibleStopExportingBuildFilePath)
+            .setBool(INCOMPATIBLE_DISALLOW_CTX_RESOLVE_TOOLS, incompatibleDisallowCtxResolveTools)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -924,6 +924,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "+incompatible_enable_deprecated_label_apis";
   public static final String INCOMPATIBLE_STOP_EXPORTING_BUILD_FILE_PATH =
       "-incompatible_stop_exporting_build_file_path";
+  public static final String INCOMPATIBLE_DISALLOW_CTX_RESOLVE_TOOLS =
+      "-incompatible_disallow_ctx_resolve_tools";
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =
       new StarlarkSemantics.Key<>("experimental_builtins_bzl_path", "%bundled%");

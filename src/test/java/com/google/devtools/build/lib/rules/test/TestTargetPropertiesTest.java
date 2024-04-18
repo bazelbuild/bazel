@@ -35,12 +35,14 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
     scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
     scratch.file(
         "tests/BUILD",
-        "sh_test(",
-        "  name = 'test',",
-        "  size = 'small',",
-        "  srcs = ['test.sh'],",
-        "  tags = ['cpu:4'],",
-        ")");
+        """
+        sh_test(
+            name = "test",
+            size = "small",
+            srcs = ["test.sh"],
+            tags = ["cpu:4"],
+        )
+        """);
     ConfiguredTarget testTarget = getConfiguredTarget("//tests:test");
     TestRunnerAction testAction =
         (TestRunnerAction)
@@ -57,12 +59,14 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
     scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
     scratch.file(
         "tests/BUILD",
-        "sh_test(",
-        "  name = 'test',",
-        "  size = 'medium',",
-        "  srcs = ['test.sh'],",
-        "  tags = ['resources:gpu:4'],",
-        ")");
+        """
+        sh_test(
+            name = "test",
+            size = "medium",
+            srcs = ["test.sh"],
+            tags = ["resources:gpu:4"],
+        )
+        """);
     useConfiguration(
         "--default_test_resources=memory=10,20,30,40",
         "--default_test_resources=cpu=1,2,3,4",
@@ -89,12 +93,14 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
     scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
     scratch.file(
         "tests/BUILD",
-        "sh_test(",
-        "  name = 'test',",
-        "  size = 'small',",
-        "  srcs = ['test.sh'],",
-        "  tags = ['exclusive'],",
-        ")");
+        """
+        sh_test(
+            name = "test",
+            size = "small",
+            srcs = ["test.sh"],
+            tags = ["exclusive"],
+        )
+        """);
     ConfiguredTarget testTarget = getConfiguredTarget("//tests:test");
     TestRunnerAction testAction =
         (TestRunnerAction)
@@ -109,12 +115,14 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
     scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
     scratch.file(
         "tests/BUILD",
-        "sh_test(",
-        "  name = 'test',",
-        "  size = 'small',",
-        "  srcs = ['test.sh'],",
-        "  tags = ['exclusive-if-local'],",
-        ")");
+        """
+        sh_test(
+            name = "test",
+            size = "small",
+            srcs = ["test.sh"],
+            tags = ["exclusive-if-local"],
+        )
+        """);
     ConfiguredTarget testTarget = getConfiguredTarget("//tests:test");
     TestRunnerAction testAction =
         (TestRunnerAction)
@@ -129,12 +137,14 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
     scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
     scratch.file(
         "tests/BUILD",
-        "sh_test(",
-        "  name = 'test',",
-        "  size = 'small',",
-        "  srcs = ['test.sh'],",
-        "  tags = ['exclusive'],",
-        ")");
+        """
+        sh_test(
+            name = "test",
+            size = "small",
+            srcs = ["test.sh"],
+            tags = ["exclusive"],
+        )
+        """);
     ConfiguredTarget testTarget = getConfiguredTarget("//tests:test");
     TestRunnerAction testAction =
         (TestRunnerAction)
@@ -148,12 +158,14 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
     scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
     scratch.file(
         "tests/BUILD",
-        "sh_test(",
-        "  name = 'test',",
-        "  size = 'small',",
-        "  srcs = ['test.sh'],",
-        "  tags = ['exclusive-if-local'],",
-        ")");
+        """
+        sh_test(
+            name = "test",
+            size = "small",
+            srcs = ["test.sh"],
+            tags = ["exclusive-if-local"],
+        )
+        """);
     ConfiguredTarget testTarget = getConfiguredTarget("//tests:test");
     TestRunnerAction testAction =
         (TestRunnerAction)
@@ -169,12 +181,17 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
     scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
     scratch.file(
         "tests/BUILD",
-        "sh_test(",
-        "  name = 'test',",
-        "  size = 'small',",
-        "  srcs = ['test.sh'],",
-        "  tags = ['exclusive', 'local'],",
-        ")");
+        """
+        sh_test(
+            name = "test",
+            size = "small",
+            srcs = ["test.sh"],
+            tags = [
+                "exclusive",
+                "local",
+            ],
+        )
+        """);
     ConfiguredTarget testTarget = getConfiguredTarget("//tests:test");
     TestRunnerAction testAction =
         (TestRunnerAction)

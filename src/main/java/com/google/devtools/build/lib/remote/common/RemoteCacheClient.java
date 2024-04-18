@@ -58,11 +58,10 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
 
     @Override
     public boolean equals(Object other) {
-      if (!(other instanceof ActionKey)) {
+      if (!(other instanceof ActionKey otherKey)) {
         return false;
       }
 
-      ActionKey otherKey = (ActionKey) other;
       return digest.equals(otherKey.digest);
     }
 

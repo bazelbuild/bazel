@@ -27,11 +27,15 @@ public class BazelAndroidLocalTestTest extends AndroidLocalTestTest {
   @Before
   @Override
   public void setUp() throws Exception {
-    overwriteFile("java/bar/BUILD",
-        "java_library(",
-        "    name = 'bar',",
-        "    srcs = ['S.java'],",
-        "    data = ['robolectric-deps.properties'])");
+    overwriteFile(
+        "java/bar/BUILD",
+        """
+        java_library(
+            name = "bar",
+            srcs = ["S.java"],
+            data = ["robolectric-deps.properties"],
+        )
+        """);
 
     overwriteFile("java/bar/foo.bzl",
         "extra_deps = ['//java/bar:bar']");

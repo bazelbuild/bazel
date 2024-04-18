@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
+import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -207,6 +208,11 @@ final class DependencyProducer
     sink.acceptDependencyError(DependencyError.of(e));
   }
 
+  @Override
+  public void acceptPlatformFlagsError(InvalidPlatformException e) {
+    sink.acceptDependencyError(DependencyError.of(e));
+  }
+
   private String getMessageWithEdgeTransitionInfo(Throwable e) {
     return String.format(
         "On dependency edge %s (%s) -|%s|-> %s: %s",
@@ -321,8 +327,7 @@ final class DependencyProducer
     // `LoadingFailedCause`. Requests parent-side context to be added to such errors by propagating
     // a `MissingEdgeError`.
     for (Cause cause : error.getRootCauses().toList()) {
-      if (cause instanceof LoadingFailedCause) {
-        var loadingFailed = (LoadingFailedCause) cause;
+      if (cause instanceof LoadingFailedCause loadingFailed) {
         if (loadingFailed.getLabel().equals(toLabel)) {
           sink.acceptDependencyError(
               new MissingEdgeError(

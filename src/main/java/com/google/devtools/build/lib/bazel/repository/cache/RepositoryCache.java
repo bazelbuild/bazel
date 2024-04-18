@@ -22,8 +22,10 @@ import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
+import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.bazel.Blake3HashFunction;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.UUID;
@@ -42,7 +44,8 @@ public class RepositoryCache {
     SHA1("SHA-1", "\\p{XDigit}{40}", "sha1", Hashing.sha1()),
     SHA256("SHA-256", "\\p{XDigit}{64}", "sha256", Hashing.sha256()),
     SHA384("SHA-384", "\\p{XDigit}{96}", "sha384", Hashing.sha384()),
-    SHA512("SHA-512", "\\p{XDigit}{128}", "sha512", Hashing.sha512());
+    SHA512("SHA-512", "\\p{XDigit}{128}", "sha512", Hashing.sha512()),
+    BLAKE3("BLAKE3", "\\p{XDigit}{64}", "blake3", Blake3HashFunction.INSTANCE);
 
     private final String stringRepr;
     private final String regexp;
@@ -67,6 +70,10 @@ public class RepositoryCache {
 
     public Hasher newHasher() {
       return hashFunction.newHasher();
+    }
+
+    public HashFunction getHashFunction() {
+      return hashFunction;
     }
 
     public String getHashName() {
@@ -217,7 +224,19 @@ public class RepositoryCache {
     Path tmpName = cacheEntry.getRelative(TMP_PREFIX + UUID.randomUUID());
     cacheEntry.createDirectoryAndParents();
     FileSystemUtils.copyFile(sourcePath, tmpName);
-    FileSystemUtils.moveFile(tmpName, cacheValue);
+    try {
+      tmpName.renameTo(cacheValue);
+    } catch (FileAccessException e) {
+      // On Windows, atomically replacing a file that is currently opened (e.g. due to a concurrent
+      // get on the cache) results in renameTo throwing this exception, which wraps an
+      // AccessDeniedException. This case is benign since if the target path already exists, we know
+      // that another thread won the race to place the file in the cache. As the exception is rather
+      // generic and could result from other failure types, we rethrow the exception if the cache
+      // entry hasn't been created.
+      if (!cacheValue.exists()) {
+        throw e;
+      }
+    }
 
     if (!Strings.isNullOrEmpty(canonicalId)) {
       String idHash = keyType.newHasher().putBytes(canonicalId.getBytes(UTF_8)).hash().toString();

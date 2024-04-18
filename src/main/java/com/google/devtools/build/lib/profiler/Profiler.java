@@ -46,12 +46,14 @@ import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.zip.GZIPOutputStream;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * Blaze internal profiler. Provides facility to report various Blaze tasks and store them
@@ -192,8 +194,7 @@ public final class Profiler {
       }
       jsonWriter.name("pid").value(1);
 
-      if (this instanceof ActionTaskData) {
-        ActionTaskData actionTaskData = (ActionTaskData) this;
+      if (this instanceof ActionTaskData actionTaskData) {
         if (actionTaskData.primaryOutputPath != null) {
           // Primary outputs are non-mergeable, thus incompatible with slim profiles.
           jsonWriter.name("out").value(actionTaskData.primaryOutputPath);
@@ -274,8 +275,7 @@ public final class Profiler {
 
     // @ThreadSafe
     void add(TaskData taskData) {
-      Extrema<SlowTask> extrema =
-          extremaAggregators[(int) (Thread.currentThread().getId() % SHARDS)];
+      Extrema<SlowTask> extrema = extremaAggregators[(int) (taskData.threadId % SHARDS)];
       synchronized (extrema) {
         extrema.aggregate(new SlowTask(taskData));
       }
@@ -330,6 +330,7 @@ public final class Profiler {
 
   private TimeSeries actionCountTimeSeries;
   private TimeSeries actionCacheCountTimeSeries;
+  private TimeSeries localActionCountTimeSeries;
   private Duration actionCountStartTime;
   private boolean collectTaskHistograms;
   private boolean includePrimaryOutput;
@@ -454,6 +455,8 @@ public final class Profiler {
     this.actionCountTimeSeries = new TimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
     this.actionCacheCountTimeSeries =
         new TimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
+    this.localActionCountTimeSeries =
+        new TimeSeries(actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
     this.collectTaskHistograms = collectTaskHistograms;
     this.includePrimaryOutput = includePrimaryOutput;
     this.includeTargetLabel = includeTargetLabel;
@@ -522,6 +525,23 @@ public final class Profiler {
     if (!counterSeriesMap.isEmpty()) {
       instance.logCounters(counterSeriesMap, actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
     }
+
+    Map<ProfilerTask, double[]> localCounterSeriesMap = new LinkedHashMap<>();
+    if (localActionCountTimeSeries != null) {
+      double[] localActionCountValues = localActionCountTimeSeries.toDoubleArray(len);
+      localActionCountTimeSeries = null;
+      localCounterSeriesMap.put(ProfilerTask.LOCAL_ACTION_COUNTS, localActionCountValues);
+    }
+    if (hasNonZeroValues(localCounterSeriesMap)) {
+      instance.logCounters(
+          localCounterSeriesMap, actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
+    }
+  }
+
+  private boolean hasNonZeroValues(Map<ProfilerTask, double[]> countersSeriesMap) {
+    return countersSeriesMap.values().stream()
+        .flatMapToDouble(Arrays::stream)
+        .anyMatch(v -> v != 0);
   }
 
   /**
@@ -639,12 +659,7 @@ public final class Profiler {
    */
   public void logSimpleTask(long startTimeNanos, ProfilerTask type, String description) {
     if (clock != null) {
-      logTask(
-          Thread.currentThread().getId(),
-          startTimeNanos,
-          clock.nanoTime() - startTimeNanos,
-          type,
-          description);
+      logTask(getLaneId(), startTimeNanos, clock.nanoTime() - startTimeNanos, type, description);
     }
   }
 
@@ -662,12 +677,7 @@ public final class Profiler {
    */
   public void logSimpleTask(
       long startTimeNanos, long stopTimeNanos, ProfilerTask type, String description) {
-    logTask(
-        Thread.currentThread().getId(),
-        startTimeNanos,
-        stopTimeNanos - startTimeNanos,
-        type,
-        description);
+    logTask(getLaneId(), startTimeNanos, stopTimeNanos - startTimeNanos, type, description);
   }
 
   /**
@@ -682,12 +692,12 @@ public final class Profiler {
    */
   public void logSimpleTaskDuration(
       long startTimeNanos, Duration duration, ProfilerTask type, String description) {
-    logTask(Thread.currentThread().getId(), startTimeNanos, duration.toNanos(), type, description);
+    logTask(getLaneId(), startTimeNanos, duration.toNanos(), type, description);
   }
 
   /** Used to log "events" happening at a specific time - tasks with zero duration. */
   public void logEventAtTime(long atTimeNanos, ProfilerTask type, String description) {
-    logTask(Thread.currentThread().getId(), atTimeNanos, 0, type, description);
+    logTask(getLaneId(), atTimeNanos, 0, type, description);
   }
 
   /** Used to log "events" - tasks with zero duration. */
@@ -721,7 +731,7 @@ public final class Profiler {
    * @param description task description. May be stored until the end of the build.
    */
   public SilentCloseable profile(ProfilerTask type, String description) {
-    return profile(Thread.currentThread().getId(), type, description);
+    return profile(getLaneId(), type, description);
   }
 
   private SilentCloseable profile(long laneId, ProfilerTask type, String description) {
@@ -733,7 +743,7 @@ public final class Profiler {
    * profiling.
    */
   public SilentCloseable profile(ProfilerTask type, Supplier<String> description) {
-    return profile(Thread.currentThread().getId(), type, description);
+    return profile(getLaneId(), type, description);
   }
 
   private SilentCloseable profile(long laneId, ProfilerTask type, Supplier<String> description) {
@@ -779,7 +789,7 @@ public final class Profiler {
       final long startTimeNanos = clock.nanoTime();
       return () ->
           completeAction(
-              Thread.currentThread().getId(),
+              getLaneId(),
               startTimeNanos,
               type,
               description,
@@ -804,7 +814,7 @@ public final class Profiler {
   }
 
   public void completeTask(long startTimeNanos, ProfilerTask type, String description) {
-    completeTask(Thread.currentThread().getId(), startTimeNanos, type, description);
+    completeTask(getLaneId(), startTimeNanos, type, description);
   }
 
   /** Records the end of the task. */
@@ -864,6 +874,13 @@ public final class Profiler {
             Duration.ofNanos(data.startTimeNanos), Duration.ofNanos(endTimeNanos));
       }
     }
+
+    if (localActionCountTimeSeries != null && data.type == ProfilerTask.LOCAL_ACTION_COUNTS) {
+      synchronized (this) {
+        localActionCountTimeSeries.addRange(
+            Duration.ofNanos(data.startTimeNanos), Duration.ofNanos(endTimeNanos));
+      }
+    }
     SlowestTaskAggregator aggregator = slowestTasks[data.type.ordinal()];
     if (aggregator != null) {
       aggregator.add(data);
@@ -891,7 +908,7 @@ public final class Profiler {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof ProfilerTaskType)) {
+      if (!(obj instanceof ProfilerTaskType that)) {
         return false;
       }
 
@@ -899,7 +916,6 @@ public final class Profiler {
         return true;
       }
 
-      var that = (ProfilerTaskType) obj;
       return Objects.equals(this.format, that.format);
     }
 
@@ -942,72 +958,145 @@ public final class Profiler {
   }
 
   public <T> ListenableFuture<T> profileAsync(
-      ProfilerTaskType type, String description, FutureSupplier<T> futureSupplier) {
+      String prefix, String description, FutureSupplier<T> futureSupplier) {
     if (!(isActive() && isProfiling(ProfilerTask.INFO))) {
       return futureSupplier.get(new ScopedProfiler(/* active= */ false, 0));
     }
 
-    long laneId = laneIdGenerator.acquire(type);
+    var lane = multiLaneGenerator.acquire(prefix);
     final long startTimeNanos = clock.nanoTime();
-    var scopedProfiler = new ScopedProfiler(/* active= */ true, laneId);
+    var scopedProfiler = new ScopedProfiler(/* active= */ true, lane.id());
     var future = futureSupplier.get(scopedProfiler);
     future.addListener(
         () -> {
           long endTimeNanos = clock.nanoTime();
           long duration = endTimeNanos - startTimeNanos;
           recordTask(
-              new TaskData(laneId, startTimeNanos, duration, ProfilerTask.INFO, description));
-          laneIdGenerator.release(type, laneId);
+              new TaskData(lane.id(), startTimeNanos, duration, ProfilerTask.INFO, description));
+          multiLaneGenerator.release(prefix, lane);
         },
         MoreExecutors.directExecutor());
     return future;
   }
 
-  private static final long LANE_ID_BASE = 1_000_000;
-  private final AtomicLong nextLaneId = new AtomicLong(LANE_ID_BASE);
-  private final TaskTypeLaneIdGenerator laneIdGenerator = new TaskTypeLaneIdGenerator();
+  private final ThreadLocal<String> virtualThreadPrefix = ThreadLocal.withInitial(() -> null);
+  private final ThreadLocal<Lane> borrowedLane = ThreadLocal.withInitial(() -> null);
 
-  private class TaskTypeLaneIdGenerator {
-    private final Map<ProfilerTaskType, LaneIdGenerator> typeToLaneIdGenerator =
-        Maps.newConcurrentMap();
+  private void registerVirtualThread(String prefix) {
+    var thread = Thread.currentThread();
+    var threadId = thread.threadId();
+    virtualThreadPrefix.set(prefix);
+    thread.setName(prefix + threadId);
+  }
 
-    public long acquire(ProfilerTaskType type) {
-      var laneIdGenerator =
-          typeToLaneIdGenerator.computeIfAbsent(type, unused -> new LaneIdGenerator(type));
-      return laneIdGenerator.acquire();
-    }
-
-    public void release(ProfilerTaskType type, long laneId) {
-      var laneIdGenerator = checkNotNull(typeToLaneIdGenerator.get(type));
-      laneIdGenerator.release(laneId);
+  private void deregisterVirtualThread() {
+    var prefix = checkNotNull(virtualThreadPrefix.get());
+    virtualThreadPrefix.remove();
+    var lane = borrowedLane.get();
+    if (lane != null) {
+      borrowedLane.remove();
+      multiLaneGenerator.release(prefix, lane);
     }
   }
 
-  private class LaneIdGenerator {
-    private final ProfilerTaskType type;
-    private final PriorityQueue<Long> availableLaneIds = new PriorityQueue<>();
+  private final AtomicLong nextLaneId = new AtomicLong(1_000_000);
+  private final MultiLaneGenerator multiLaneGenerator = new MultiLaneGenerator();
 
-    private int count = 0;
+  private class MultiLaneGenerator {
+    private final Map<String, LaneGenerator> laneGenerators = Maps.newConcurrentMap();
 
-    private LaneIdGenerator(ProfilerTaskType type) {
-      this.type = type;
+    private Lane acquire(String prefix) {
+      checkState(isActive());
+      var laneGenerator =
+          laneGenerators.computeIfAbsent(prefix, unused -> new LaneGenerator(prefix));
+      return laneGenerator.acquire();
     }
 
-    public synchronized long acquire() {
-      if (!availableLaneIds.isEmpty()) {
-        return availableLaneIds.poll();
+    private void release(String prefix, Lane lane) {
+      checkState(isActive());
+      var laneGenerator = checkNotNull(laneGenerators.get(prefix));
+      laneGenerator.release(lane);
+    }
+  }
+
+  private record Lane(long id) implements Comparable<Lane> {
+    @Override
+    public int compareTo(Lane o) {
+      return Long.compare(id, o.id);
+    }
+  }
+
+  private class LaneGenerator {
+    private final String prefix;
+
+    @GuardedBy("this")
+    private final PriorityQueue<Lane> availableLanes = new PriorityQueue<>();
+
+    @GuardedBy("this")
+    private int count = 0;
+
+    private LaneGenerator(String prefix) {
+      this.prefix = prefix;
+    }
+
+    public Lane acquire() {
+      long newLaneId;
+      String newLaneName;
+      synchronized (this) {
+        if (!availableLanes.isEmpty()) {
+          return availableLanes.poll();
+        }
+
+        newLaneId = nextLaneId.getAndIncrement();
+        int newLaneIndex = count++;
+        newLaneName = prefix + newLaneIndex + " (Virtual)";
       }
-      var newLaneId = Profiler.this.nextLaneId.getAndIncrement();
-      var threadMetadata = new ThreadMetadata(type.getName(count++), newLaneId, LANE_ID_BASE);
+
+      var threadMetadata = new ThreadMetadata(newLaneName, newLaneId);
       var writer = Profiler.this.writerRef.get();
       if (writer != null) {
         writer.enqueue(threadMetadata);
       }
-      return newLaneId;
+      return new Lane(newLaneId);
     }
 
-    public synchronized void release(long laneId) {
-      availableLaneIds.add(laneId);
+    public synchronized void release(Lane lane) {
+      availableLanes.add(lane);
     }
+  }
+
+  private long getLaneId() {
+    var currentThread = Thread.currentThread();
+    var threadId = currentThread.threadId();
+    if (!currentThread.isVirtual()) {
+      return threadId;
+    }
+
+    var lane = borrowedLane.get();
+    if (lane == null) {
+      var prefix = virtualThreadPrefix.get();
+      checkNotNull(
+          prefix,
+          "Current virtual thread is not registered. Did you use"
+              + " Profiler#profileableVirtualThreadFactor to create a VirtualThread?");
+      lane = multiLaneGenerator.acquire(prefix);
+      borrowedLane.set(lane);
+    }
+    return lane.id();
+  }
+
+  public ThreadFactory profileableVirtualThreadFactory(String prefix) {
+    return r ->
+        Thread.ofVirtual()
+            .unstarted(
+                () -> {
+                  var profiler = Profiler.instance();
+                  profiler.registerVirtualThread(prefix);
+                  try {
+                    r.run();
+                  } finally {
+                    profiler.deregisterVirtualThread();
+                  }
+                });
   }
 }

@@ -146,7 +146,6 @@ java_library(
         ":visibility_provider",
         ":visibility_provider_impl",
         ":workspace_status_action",
-        ":xcode_config_event",
     ],
 )
 
@@ -379,6 +378,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:runfiles_tree",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
@@ -401,6 +401,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:configured_attribute_mapper",
         "//src/main/java/com/google/devtools/build/lib/packages:exec_group",
+        "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
@@ -411,6 +412,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_value_creation_exception",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:incremental_artifact_conflict_finder",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:starlark_builtins_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_status_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
@@ -421,6 +424,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/test",
+        "//src/main/java/com/google/devtools/build/lib/supplier",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
@@ -597,6 +601,27 @@ java_library(
 )
 
 java_library(
+    name = "projects",
+    srcs = ["Project.java"],
+    deps = [
+        ":config/build_options",
+        ":config/core_options",
+        ":config/invalid_configuration_exception",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:containing_package_lookup_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/config",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "build_view",
     srcs = ["BuildView.java"],
     deps = [
@@ -636,6 +661,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:coverage_report_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyfocus_state",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_pattern_phase_value",
         "//src/main/java/com/google/devtools/build/lib/util",
@@ -657,6 +683,7 @@ java_library(
         ":visibility_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
         "//third_party:guava",
     ],
@@ -1247,7 +1274,7 @@ java_library(
     deps = [
         ":transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
     ],
 )
 
@@ -1258,7 +1285,7 @@ java_library(
         ":visibility_provider",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
     ],
 )
 
@@ -1279,15 +1306,6 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "xcode_config_event",
-    srcs = ["XcodeConfigEvent.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/protobuf:xcode_java_proto",
     ],
 )
 
@@ -2419,9 +2437,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:configured_attribute_mapper",
+        "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:rule_configured_target_value",
@@ -2442,9 +2460,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/com/google/devtools/build/lib/supplier",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
@@ -2472,6 +2492,8 @@ java_library(
         ":starlark/starlark_late_bound_default",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:bzl_visibility",
+        "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/net/starlark/java/eval",

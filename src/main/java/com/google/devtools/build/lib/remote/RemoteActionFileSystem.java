@@ -931,11 +931,10 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
       InMemoryContentInfo node = getOrCreateWritableInode(path);
       // If a node was already existed and is not a remote file node (i.e. directory or symlink node
       // ), throw an error.
-      if (!(node instanceof RemoteInMemoryFileInfo)) {
+      if (!(node instanceof RemoteInMemoryFileInfo remoteInMemoryFileInfo)) {
         throw new IOException("Could not inject into " + node);
       }
 
-      RemoteInMemoryFileInfo remoteInMemoryFileInfo = (RemoteInMemoryFileInfo) node;
       remoteInMemoryFileInfo.set(metadata);
     }
 

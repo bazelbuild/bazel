@@ -111,6 +111,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -133,6 +134,8 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
@@ -810,6 +813,23 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return ImmutableList.copyOf(result);
   }
 
+  /**
+   * Retrieves Starlark provider from a configured target.
+   *
+   * <p>Assuming that the provider is defined in the same bzl file as the rule.
+   */
+  protected StarlarkInfo getStarlarkProvider(ConfiguredTarget target, String providerSymbol)
+      throws Exception {
+    StarlarkProvider.Key key =
+        new StarlarkProvider.Key(
+            getTarget(target.getLabel())
+                .getAssociatedRule()
+                .getRuleClassObject()
+                .getRuleDefinitionEnvironmentLabel(),
+            providerSymbol);
+    return (StarlarkInfo) target.get(key);
+  }
+
   protected ActionGraph getActionGraph() {
     return skyframeExecutor.getActionGraph(reporter);
   }
@@ -1103,10 +1123,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     Set<BuildConfigurationKey> cts = new HashSet<>();
     for (Map.Entry<SkyKey, SkyValue> e :
         skyframeExecutor.getEvaluator().getDoneValues().entrySet()) {
-      if (!(e.getKey() instanceof ConfiguredTargetKey)) {
+      if (!(e.getKey() instanceof ConfiguredTargetKey ctKey)) {
         continue;
       }
-      ConfiguredTargetKey ctKey = (ConfiguredTargetKey) e.getKey();
       if (parsed.equals(ctKey.getLabel())) {
         cts.add(ctKey.getConfigurationKey());
       }
@@ -2140,6 +2159,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     @Override
     public ActionKeyContext getActionKeyContext() {
       return actionKeyContext;
+    }
+
+    @Override
+    public RepositoryMapping getMainRepoMapping() {
+      throw new UnsupportedOperationException();
     }
   }
 

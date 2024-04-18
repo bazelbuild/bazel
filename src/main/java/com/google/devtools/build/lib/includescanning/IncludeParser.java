@@ -543,10 +543,9 @@ class IncludeParser {
       if (o == this) {
         return true;
       }
-      if (!(o instanceof Inclusion)) {
+      if (!(o instanceof Inclusion that)) {
         return false;
       }
-      Inclusion that = (Inclusion) o;
       return kind == that.kind && pathFragment.equals(that.pathFragment);
     }
 

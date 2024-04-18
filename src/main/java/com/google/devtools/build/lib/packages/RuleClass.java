@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.common.collect.Streams.stream;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
@@ -127,6 +126,7 @@ public class RuleClass implements RuleClassData {
   static final Attribute NAME_ATTRIBUTE =
       attr("name", STRING_NO_INTERN)
           .nonconfigurable("All rules have a non-customizable \"name\" attribute")
+          .mandatory()
           .build();
 
   /**
@@ -163,66 +163,6 @@ public class RuleClass implements RuleClassData {
   public static final String APPLICABLE_METADATA_ATTR = "package_metadata";
 
   public static final String APPLICABLE_METADATA_ATTR_ALT = "applicable_licenses";
-
-  /** A constraint for the package name of the Rule instances. */
-  public static class PackageNameConstraint implements PredicateWithMessage<Rule> {
-
-    public static final int ANY_SEGMENT = 0;
-
-    private final int pathSegment;
-
-    private final Set<String> values;
-
-    /**
-     * The pathSegment-th segment of the package must be one of the specified values. The path
-     * segment indexing starts from 1.
-     */
-    public PackageNameConstraint(int pathSegment, String... values) {
-      this.values = ImmutableSet.copyOf(values);
-      this.pathSegment = pathSegment;
-    }
-
-    @Override
-    public boolean apply(Rule input) {
-      PathFragment path = input.getLabel().getPackageFragment();
-      if (pathSegment == ANY_SEGMENT) {
-        return stream(path.segments()).anyMatch(values::contains);
-      } else {
-        return path.segmentCount() >= pathSegment
-            && values.contains(path.getSegment(pathSegment - 1));
-      }
-    }
-
-    @Override
-    public String getErrorReason(Rule param) {
-      if (pathSegment == ANY_SEGMENT) {
-        return param.getRuleClass()
-            + " rules have to be under a "
-            + StringUtil.joinEnglishList(values, "or", "'")
-            + " directory";
-      } else if (pathSegment == 1) {
-        return param.getRuleClass()
-            + " rules are only allowed in "
-            + StringUtil.joinEnglishList(Iterables.transform(values, s -> "//" + s), "or");
-      } else {
-        return param.getRuleClass()
-            + " rules are only allowed in packages which "
-            + StringUtil.ordinal(pathSegment)
-            + " is "
-            + StringUtil.joinEnglishList(values, "or");
-      }
-    }
-
-    @VisibleForTesting
-    public int getPathSegment() {
-      return pathSegment;
-    }
-
-    @VisibleForTesting
-    public Collection<String> getValues() {
-      return values;
-    }
-  }
 
   /** Possible values for setting whether a rule uses toolchain resolution. */
   public enum ToolchainResolutionMode {
@@ -782,7 +722,6 @@ public class RuleClass implements RuleClassData {
     private ImplicitOutputsFunction implicitOutputsFunction = SafeImplicitOutputsFunction.NONE;
     @Nullable private TransitionFactory<RuleTransitionData> transitionFactory;
     private ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory = null;
-    private PredicateWithMessage<Rule> validityPredicate = PredicatesWithMessage.alwaysTrue();
     private final AdvertisedProviderSet.Builder advertisedProviders =
         AdvertisedProviderSet.builder();
     private StarlarkCallable configuredTargetFunction = null;
@@ -849,9 +788,6 @@ public class RuleClass implements RuleClassData {
         Preconditions.checkArgument(starlarkParent.isExtendable());
       }
       for (RuleClass parent : parents) {
-        if (parent.getValidityPredicate() != PredicatesWithMessage.<Rule>alwaysTrue()) {
-          setValidityPredicate(parent.getValidityPredicate());
-        }
         configurationFragmentPolicy.includeConfigurationFragmentsFrom(
             parent.getConfigurationFragmentPolicy());
         supportsConstraintChecking = parent.supportsConstraintChecking;
@@ -996,7 +932,6 @@ public class RuleClass implements RuleClassData {
           implicitOutputsFunction,
           transitionFactory,
           configuredTargetFactory,
-          validityPredicate,
           advertisedProviders.build(),
           configuredTargetFunction,
           externalBindingsFunction,
@@ -1209,12 +1144,6 @@ public class RuleClass implements RuleClassData {
     @CanIgnoreReturnValue
     public Builder factory(ConfiguredTargetFactory<?, ?, ?> factory) {
       this.configuredTargetFactory = factory;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setValidityPredicate(PredicateWithMessage<Rule> predicate) {
-      this.validityPredicate = predicate;
       return this;
     }
 
@@ -1746,9 +1675,6 @@ public class RuleClass implements RuleClassData {
   /** The factory that creates configured targets from this rule. */
   private final ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory;
 
-  /** The constraint the package name of the rule instance must fulfill */
-  private final PredicateWithMessage<Rule> validityPredicate;
-
   /** The list of transitive info providers this class advertises to aspects. */
   private final AdvertisedProviderSet advertisedProviders;
 
@@ -1854,7 +1780,6 @@ public class RuleClass implements RuleClassData {
       ImplicitOutputsFunction implicitOutputsFunction,
       @Nullable TransitionFactory<RuleTransitionData> transitionFactory,
       ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory,
-      PredicateWithMessage<Rule> validityPredicate,
       AdvertisedProviderSet advertisedProviders,
       @Nullable StarlarkCallable configuredTargetFunction,
       Function<? super Rule, Map<String, Label>> externalBindingsFunction,
@@ -1892,7 +1817,6 @@ public class RuleClass implements RuleClassData {
     this.implicitOutputsFunction = implicitOutputsFunction;
     this.transitionFactory = transitionFactory;
     this.configuredTargetFactory = configuredTargetFactory;
-    this.validityPredicate = validityPredicate;
     this.advertisedProviders = advertisedProviders;
     this.configuredTargetFunction = configuredTargetFunction;
     this.externalBindingsFunction = externalBindingsFunction;
@@ -2083,10 +2007,6 @@ public class RuleClass implements RuleClassData {
     return nonConfigurableAttributes;
   }
 
-  public PredicateWithMessage<Rule> getValidityPredicate() {
-    return validityPredicate;
-  }
-
   /**
    * Returns the set of advertised transitive info providers.
    *
@@ -2151,7 +2071,6 @@ public class RuleClass implements RuleClassData {
     checkForDuplicateLabels(rule, eventHandler);
 
     checkForValidSizeAndTimeoutValues(rule, eventHandler);
-    rule.checkValidityPredicate(eventHandler);
     return rule;
   }
 
@@ -2373,8 +2292,7 @@ public class RuleClass implements RuleClassData {
             /* explicit= */ false);
 
       } else if (attr.getName().equals("distribs") && attr.getType() == BuildType.DISTRIBUTIONS) {
-        rule.setAttributeValue(
-            attr, pkgBuilder.getPartialPackageArgs().distribs(), /* explicit= */ false);
+        rule.setAttributeValue(attr, License.DEFAULT_DISTRIB, /* explicit= */ false);
       }
       // Don't store default values, querying materializes them at read time.
     }

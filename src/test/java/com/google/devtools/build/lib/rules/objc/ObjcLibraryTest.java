@@ -78,15 +78,18 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testConfigTransitionWithTopLevelAppleConfiguration() throws Exception {
     scratch.file(
         "bin/BUILD",
-        "objc_library(",
-        "    name = 'objc',",
-        "    srcs = ['objc.m'],",
-        ")",
-        "cc_binary(",
-        "    name = 'cc',",
-        "    srcs = ['cc.cc'],",
-        "    deps = [':objc'],",
-        ")");
+        """
+        objc_library(
+            name = "objc",
+            srcs = ["objc.m"],
+        )
+
+        cc_binary(
+            name = "cc",
+            srcs = ["cc.cc"],
+            deps = [":objc"],
+        )
+        """);
 
     useConfiguration(
         "--apple_platform_type=ios",
@@ -104,15 +107,18 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testNoTransition() throws Exception {
     scratch.file(
         "bin/BUILD",
-        "objc_library(",
-        "    name = 'objc',",
-        "    srcs = ['objc.m'],",
-        ")",
-        "cc_binary(",
-        "    name = 'cc',",
-        "    srcs = ['cc.cc'],",
-        "    deps = [':objc'],",
-        ")");
+        """
+        objc_library(
+            name = "objc",
+            srcs = ["objc.m"],
+        )
+
+        cc_binary(
+            name = "cc",
+            srcs = ["cc.cc"],
+            deps = [":objc"],
+        )
+        """);
 
     setBuildLanguageOptions("--incompatible_disable_objc_library_transition");
     useConfiguration("--macos_cpus=arm64,x86_64");
@@ -599,33 +605,48 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
     scratch.file(
         "objc/defs.bzl",
-        "def _var_providing_rule_impl(ctx):",
-        "   return [",
-        "       platform_common.TemplateVariableInfo({",
-        "        'FOO': '$(BAR)',",
-        "        'BAR': ctx.attr.var_value,",
-        "        'BAZ': '$(FOO)',",
-        "      }),",
-        "   ]",
-        "var_providing_rule = rule(",
-        "   implementation = _var_providing_rule_impl,",
-        "   attrs = { 'var_value': attr.string() }",
-        ")");
+        """
+        def _var_providing_rule_impl(ctx):
+            return [
+                platform_common.TemplateVariableInfo({
+                    "FOO": "$(BAR)",
+                    "BAR": ctx.attr.var_value,
+                    "BAZ": "$(FOO)",
+                }),
+            ]
+
+        var_providing_rule = rule(
+            implementation = _var_providing_rule_impl,
+            attrs = {"var_value": attr.string()},
+        )
+        """);
 
     scratch.file(
         "objc/BUILD",
-        "load('//objc:defs.bzl', 'var_providing_rule')",
-        "var_providing_rule(",
-        "    name = 'set_foo_to_bar',",
-        "    var_value = 'bar',",
-        ")",
-        "objc_library(",
-        "    name = 'lib',",
-        "    srcs = ['a.m', 'b.m', 'private.h'],",
-        "    hdrs = ['c.h'],",
-        "    copts = ['-Ifoo', '--monkeys=$(TARGET_CPU)', '--gorillas=$(FOO),$(BAR),$(BAZ)'],",
-        "    toolchains = [':set_foo_to_bar']",
-        ")");
+        """
+        load("//objc:defs.bzl", "var_providing_rule")
+
+        var_providing_rule(
+            name = "set_foo_to_bar",
+            var_value = "bar",
+        )
+
+        objc_library(
+            name = "lib",
+            srcs = [
+                "a.m",
+                "b.m",
+                "private.h",
+            ],
+            hdrs = ["c.h"],
+            copts = [
+                "-Ifoo",
+                "--monkeys=$(TARGET_CPU)",
+                "--gorillas=$(FOO),$(BAR),$(BAZ)",
+            ],
+            toolchains = [":set_foo_to_bar"],
+        )
+        """);
 
     CommandAction compileActionA = compileAction("//objc:lib", "a.o");
     assertThat(compileActionA.getArguments())
@@ -754,11 +775,16 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     scratch.file("lib_external/WORKSPACE");
     scratch.file(
         "lib_external/BUILD",
-        "objc_library(",
-        "  name = 'lib',",
-        "  srcs = ['a.m', 'bar/b.h'],",
-        "  includes = ['bar'],",
-        ")");
+        """
+        objc_library(
+            name = "lib",
+            srcs = [
+                "a.m",
+                "bar/b.h",
+            ],
+            includes = ["bar"],
+        )
+        """);
     scratch.file("lib_external/a.m");
     scratch.file("lib_external/bar/b.h");
 
@@ -790,12 +816,15 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     addAppleBinaryStarlarkRule(scratch);
     scratch.file(
         "bin/BUILD",
-        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
-        "apple_binary_starlark(",
-        "    name = 'bin',",
-        "    platform_type = 'ios',",
-        "    deps = ['//lib2:lib2'],",
-        ")");
+        """
+        load("//test_starlark:apple_binary_starlark.bzl", "apple_binary_starlark")
+
+        apple_binary_starlark(
+            name = "bin",
+            platform_type = "ios",
+            deps = ["//lib2"],
+        )
+        """);
 
     assertThat(compileAction("//lib1:lib1", "a.o").getArguments())
         .containsAtLeast("-DA=foo", "-DB", "-DMONKEYS=ios_x86_64")
@@ -1025,17 +1054,19 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testUsesDefinesFromTransitiveCcDeps() throws Exception {
     scratch.file(
         "package/BUILD",
-        "cc_library(",
-        "    name = 'cc_lib',",
-        "    srcs = ['a.cc'],",
-        "    defines = ['FOO'],",
-        ")",
-        "",
-        "objc_library(",
-        "    name = 'objc_lib',",
-        "    srcs = ['b.m'],",
-        "    deps = [':cc_lib'],",
-        ")");
+        """
+        cc_library(
+            name = "cc_lib",
+            srcs = ["a.cc"],
+            defines = ["FOO"],
+        )
+
+        objc_library(
+            name = "objc_lib",
+            srcs = ["b.m"],
+            deps = [":cc_lib"],
+        )
+        """);
 
     CommandAction compileAction = compileAction("//package:objc_lib", "b.o");
     assertThat(compileAction.getArguments()).contains("-DFOO");
@@ -1206,8 +1237,19 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     scratch.file("lib/a.m");
     scratch.file(
         "lib/BUILD",
-        "objc_library(name = 'lib1', srcs = ['a.m'], copts = ['-Ilib1flag'])",
-        "objc_library(name = 'lib2', srcs = ['a.m'], copts = ['-Ilib2flag'])");
+        """
+        objc_library(
+            name = "lib1",
+            srcs = ["a.m"],
+            copts = ["-Ilib1flag"],
+        )
+
+        objc_library(
+            name = "lib2",
+            srcs = ["a.m"],
+            copts = ["-Ilib2flag"],
+        )
+        """);
     Artifact obj1 = Iterables.getOnlyElement(inputsEndingWith(archiveAction("//lib:lib1"), ".o"));
     Artifact obj2 = Iterables.getOnlyElement(inputsEndingWith(archiveAction("//lib:lib2"), ".o"));
 
@@ -1250,52 +1292,62 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testIncludesDirsOfTransitiveCcDepsGetPassedToCompileAction() throws Exception {
     scratch.file(
         "package/BUILD",
-        "cc_library(",
-        "    name = 'cc_lib',",
-        "    srcs = ['a.cc'],",
-        "    includes = ['foo/bar'],",
-        ")",
-        "",
-        "objc_library(",
-        "    name = 'objc_lib',",
-        "    srcs = ['b.m'],",
-        "    deps = [':cc_lib'],",
-        ")");
+        """
+        cc_library(
+            name = "cc_lib",
+            srcs = ["a.cc"],
+            includes = ["foo/bar"],
+        )
+
+        objc_library(
+            name = "objc_lib",
+            srcs = ["b.m"],
+            deps = [":cc_lib"],
+        )
+        """);
 
     CommandAction compileAction = compileAction("//package:objc_lib", "b.o");
     assertContainsSublist(
         removeConfigFragment(removeConfigFragment(compileAction.getArguments())),
         ImmutableList.copyOf(
-            Interspersing.beforeEach("-isystem", rootedIncludePaths("package/foo/bar"))));
+            Iterables.concat(
+                Iterables.transform(
+                    rootedIncludePaths("package/foo/bar"),
+                    element -> ImmutableList.of("-isystem", element)))));
   }
 
   @Test
   public void testIncludesDirsOfTransitiveCcIncDepsGetPassedToCompileAction() throws Exception {
     scratch.file(
         "third_party/cc_lib/BUILD",
-        "licenses(['unencumbered'])",
-        "cc_library(",
-        "    name = 'cc_lib_impl',",
-        "    srcs = [",
-        "        'v1/a.c',",
-        "        'v1/a.h',",
-        "    ],",
-        ")",
-        "",
-        "cc_library(",
-        "    name = 'cc_lib',",
-        "    hdrs = ['v1/a.h'],",
-        "    strip_include_prefix = 'v1',",
-        "    deps = [':cc_lib_impl'],",
-        ")");
+        """
+        licenses(["unencumbered"])
+
+        cc_library(
+            name = "cc_lib_impl",
+            srcs = [
+                "v1/a.c",
+                "v1/a.h",
+            ],
+        )
+
+        cc_library(
+            name = "cc_lib",
+            hdrs = ["v1/a.h"],
+            strip_include_prefix = "v1",
+            deps = [":cc_lib_impl"],
+        )
+        """);
 
     scratch.file(
         "package/BUILD",
-        "objc_library(",
-        "    name = 'objc_lib',",
-        "    srcs = ['b.m'],",
-        "    deps = ['//third_party/cc_lib:cc_lib'],",
-        ")");
+        """
+        objc_library(
+            name = "objc_lib",
+            srcs = ["b.m"],
+            deps = ["//third_party/cc_lib"],
+        )
+        """);
 
     CommandAction compileAction = compileAction("//package:objc_lib", "b.o");
     // We remove spaces, since the crosstool rules do not use spaces for include paths.
@@ -1355,39 +1407,51 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testPruningActionsSetLocalityBasedOnXcode() throws Exception {
     scratch.file(
         "xcode/BUILD",
-        "xcode_version(",
-        "   name = 'version10_1_0',",
-        "   version = '10.1.0',",
-        "   aliases = ['10.1' ,'10.1.0'],",
-        "   default_ios_sdk_version = '12.1',",
-        "   default_tvos_sdk_version = '12.1',",
-        "   default_macos_sdk_version = '10.14',",
-        "   default_watchos_sdk_version = '5.1',",
-        ")",
-        "xcode_version(",
-        "   name = 'version10_2_1',",
-        "   version = '10.2.1',",
-        "   aliases = ['10.2.1' ,'10.2'],",
-        "   default_ios_sdk_version = '12.2',",
-        "   default_tvos_sdk_version = '12.2',",
-        "   default_macos_sdk_version = '10.14',",
-        "   default_watchos_sdk_version = '5.2',",
-        ")",
-        "available_xcodes(",
-        "   name= 'local',",
-        "   versions = [':version10_1_0'],",
-        "   default = ':version10_1_0',",
-        ")",
-        "available_xcodes(",
-        "   name= 'remote',",
-        "   versions = [':version10_2_1'],",
-        "   default = ':version10_2_1',",
-        ")",
-        "xcode_config(",
-        "   name = 'my_config',",
-        "   local_versions = ':local',",
-        "   remote_versions = ':remote',",
-        ")");
+        """
+        xcode_version(
+            name = "version10_1_0",
+            aliases = [
+                "10.1",
+                "10.1.0",
+            ],
+            default_ios_sdk_version = "12.1",
+            default_macos_sdk_version = "10.14",
+            default_tvos_sdk_version = "12.1",
+            default_watchos_sdk_version = "5.1",
+            version = "10.1.0",
+        )
+
+        xcode_version(
+            name = "version10_2_1",
+            aliases = [
+                "10.2.1",
+                "10.2",
+            ],
+            default_ios_sdk_version = "12.2",
+            default_macos_sdk_version = "10.14",
+            default_tvos_sdk_version = "12.2",
+            default_watchos_sdk_version = "5.2",
+            version = "10.2.1",
+        )
+
+        available_xcodes(
+            name = "local",
+            default = ":version10_1_0",
+            versions = [":version10_1_0"],
+        )
+
+        available_xcodes(
+            name = "remote",
+            default = ":version10_2_1",
+            versions = [":version10_2_1"],
+        )
+
+        xcode_config(
+            name = "my_config",
+            local_versions = ":local",
+            remote_versions = ":remote",
+        )
+        """);
 
     useConfigurationWithCustomXcode(
         "--xcode_version=10.2.1",
@@ -1461,15 +1525,18 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testObjcImportDoesNotCrash() throws Exception {
     scratch.file(
         "x/BUILD",
-        "objc_library(",
-        "   name = 'objc',",
-        "   srcs = ['source.m'],",
-        "   deps = [':import'],",
-        ")",
-        "objc_import(",
-        "   name = 'import',",
-        "   archives = ['archive.a'],",
-        ")");
+        """
+        objc_library(
+            name = "objc",
+            srcs = ["source.m"],
+            deps = [":import"],
+        )
+
+        objc_import(
+            name = "import",
+            archives = ["archive.a"],
+        )
+        """);
     assertThat(getConfiguredTarget("//x:objc")).isNotNull();
   }
 
@@ -1541,7 +1608,14 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     MockObjcSupport.setupCcToolchainConfig(
         mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures("default_feature"));
     useConfiguration("--cpu=ios_x86_64");
-    scratch.file("x/BUILD", "objc_library(", "   name = 'objc',", "   srcs = ['source.m'],", ")");
+    scratch.file(
+        "x/BUILD",
+        """
+        objc_library(
+            name = "objc",
+            srcs = ["source.m"],
+        )
+        """);
     CommandAction compileAction = compileAction("//x:objc", "source.o");
     assertThat(compileAction.getArguments()).contains("-dummy");
   }
@@ -1584,9 +1658,22 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     scratch.file(
         "foo/BUILD",
-        "cc_test(name = 'd', deps = [':b'])",
-        "objc_library(name = 'b', deps = [':a'])",
-        "cc_library(name = 'a', srcs = ['a.c'])");
+        """
+        cc_test(
+            name = "d",
+            deps = [":b"],
+        )
+
+        objc_library(
+            name = "b",
+            deps = [":a"],
+        )
+
+        cc_library(
+            name = "a",
+            srcs = ["a.c"],
+        )
+        """);
     ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:d");
     assertThat(configuredTarget).isNotNull();
   }
@@ -1595,19 +1682,28 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testDirectFields() throws Exception {
     scratch.file(
         "x/BUILD",
-        "objc_library(",
-        "    name = 'foo',",
-        "    srcs = ['foo.m', 'foo_impl.h'],",
-        "    hdrs = ['foo.h'],",
-        "    textual_hdrs = ['foo.inc'],",
-        ")",
-        "objc_library(",
-        "    name = 'bar',",
-        "    srcs = ['bar.m', 'bar_impl.h'],",
-        "    hdrs = ['bar.h'],",
-        "    textual_hdrs = ['bar.inc'],",
-        "    deps = [':foo'],",
-        ")");
+        """
+        objc_library(
+            name = "foo",
+            srcs = [
+                "foo.m",
+                "foo_impl.h",
+            ],
+            hdrs = ["foo.h"],
+            textual_hdrs = ["foo.inc"],
+        )
+
+        objc_library(
+            name = "bar",
+            srcs = [
+                "bar.m",
+                "bar_impl.h",
+            ],
+            hdrs = ["bar.h"],
+            textual_hdrs = ["bar.inc"],
+            deps = [":foo"],
+        )
+        """);
 
     ObjcProvider dependerProvider =
         getConfiguredTarget("//x:bar").get(ObjcProvider.STARLARK_CONSTRUCTOR);
@@ -1795,16 +1891,20 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
     scratch.file(
         "test/BUILD",
-        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
-        "apple_binary_starlark(",
-        "    name = 'objc_bin',",
-        "    platform_type = 'ios',",
-        "    deps = [':main_lib'],",
-        ")",
-        "objc_library(",
-        "    name = 'main_lib',",
-        "    srcs = ['b.m'],",
-        ")");
+        """
+        load("//test_starlark:apple_binary_starlark.bzl", "apple_binary_starlark")
+
+        apple_binary_starlark(
+            name = "objc_bin",
+            platform_type = "ios",
+            deps = [":main_lib"],
+        )
+
+        objc_library(
+            name = "main_lib",
+            srcs = ["b.m"],
+        )
+        """);
 
     CommandAction testLinkAction = linkAction("//test:objc_bin");
     assertThat(Joiner.on(" ").join(testLinkAction.getArguments())).doesNotContain("-force_load");
@@ -1817,16 +1917,20 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
     scratch.file(
         "test/BUILD",
-        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
-        "apple_binary_starlark(",
-        "    name = 'objc_bin',",
-        "    platform_type = 'ios',",
-        "    deps = [':main_lib'],",
-        ")",
-        "objc_library(",
-        "    name = 'main_lib',",
-        "    srcs = ['b.m'],",
-        ")");
+        """
+        load("//test_starlark:apple_binary_starlark.bzl", "apple_binary_starlark")
+
+        apple_binary_starlark(
+            name = "objc_bin",
+            platform_type = "ios",
+            deps = [":main_lib"],
+        )
+
+        objc_library(
+            name = "main_lib",
+            srcs = ["b.m"],
+        )
+        """);
     scratch.file("test/b.m", "// dummy file");
 
     CommandAction testLinkAction = linkAction("//test:objc_bin");
@@ -1841,17 +1945,21 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
     scratch.file(
         "test/BUILD",
-        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
-        "apple_binary_starlark(",
-        "    name = 'objc_bin',",
-        "    platform_type = 'ios',",
-        "    deps = [':main_lib'],",
-        ")",
-        "objc_library(",
-        "    name = 'main_lib',",
-        "    srcs = ['b.m'],",
-        "    alwayslink = True,",
-        ")");
+        """
+        load("//test_starlark:apple_binary_starlark.bzl", "apple_binary_starlark")
+
+        apple_binary_starlark(
+            name = "objc_bin",
+            platform_type = "ios",
+            deps = [":main_lib"],
+        )
+
+        objc_library(
+            name = "main_lib",
+            srcs = ["b.m"],
+            alwayslink = True,
+        )
+        """);
 
     CommandAction testLinkAction = linkAction("//test:objc_bin");
     assertThat(Joiner.on(" ").join(testLinkAction.getArguments()))
@@ -1865,17 +1973,21 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
     scratch.file(
         "test/BUILD",
-        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
-        "apple_binary_starlark(",
-        "    name = 'objc_bin',",
-        "    platform_type = 'ios',",
-        "    deps = [':main_lib'],",
-        ")",
-        "objc_library(",
-        "    name = 'main_lib',",
-        "    srcs = ['b.m'],",
-        "    alwayslink = False,",
-        ")");
+        """
+        load("//test_starlark:apple_binary_starlark.bzl", "apple_binary_starlark")
+
+        apple_binary_starlark(
+            name = "objc_bin",
+            platform_type = "ios",
+            deps = [":main_lib"],
+        )
+
+        objc_library(
+            name = "main_lib",
+            srcs = ["b.m"],
+            alwayslink = False,
+        )
+        """);
 
     CommandAction testLinkAction = linkAction("//test:objc_bin");
     assertThat(Joiner.on(" ").join(testLinkAction.getArguments())).doesNotContain("-force_load");
@@ -1898,14 +2010,17 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testPassesThroughLinkstamps() throws Exception {
     scratch.file(
         "x/BUILD",
-        "objc_library(",
-        "    name = 'foo',",
-        "    deps = [':bar'],",
-        ")",
-        "cc_library(",
-        "    name = 'bar',",
-        "    linkstamp = 'bar.cc',",
-        ")");
+        """
+        objc_library(
+            name = "foo",
+            deps = [":bar"],
+        )
+
+        cc_library(
+            name = "bar",
+            linkstamp = "bar.cc",
+        )
+        """);
 
     assertThat(
             linkstampExecPaths(
@@ -1981,11 +2096,14 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         ")");
     scratch.file(
         "foo/BUILD",
-        "load('//tools/build_defs/foo:extension.bzl', 'objc_starlark_library')",
-        "objc_starlark_library(",
-        "    name = 'starlark_lib',",
-        "    srcs = ['starlark_lib.m'],",
-        ")");
+        """
+        load("//tools/build_defs/foo:extension.bzl", "objc_starlark_library")
+
+        objc_starlark_library(
+            name = "starlark_lib",
+            srcs = ["starlark_lib.m"],
+        )
+        """);
     scratch.file("a/BUILD", "cc_toolchain_alias(name='alias')");
     getConfiguredTarget("//foo:starlark_lib");
     assertNoEvents();
@@ -1995,18 +2113,25 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testCcTestUsesStaticLibraries() throws Exception {
     scratch.file(
         "x/BUILD",
-        "cc_test(",
-        "    name = 'test',",
-        "    deps = [':foo'],",
-        ")",
-        "objc_library(",
-        "    name = 'foo',",
-        "    deps = [':bar'],",
-        ")",
-        "cc_library(",
-        "    name = 'bar',",
-        "    srcs = ['bar.a', 'bar.so'],",
-        ")");
+        """
+        cc_test(
+            name = "test",
+            deps = [":foo"],
+        )
+
+        objc_library(
+            name = "foo",
+            deps = [":bar"],
+        )
+
+        cc_library(
+            name = "bar",
+            srcs = [
+                "bar.a",
+                "bar.so",
+            ],
+        )
+        """);
 
     assertThat(
             artifactsToStrings(
@@ -2022,20 +2147,24 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testPassesDependenciesStaticLibrariesInCcInfo() throws Exception {
     scratch.file(
         "x/BUILD",
-        "objc_library(",
-        "    name = 'baz',",
-        "    srcs = ['baz.mm'],",
-        ")",
-        "objc_library(",
-        "    name = 'foo',",
-        "    srcs = ['foo.mm'],",
-        "    deps = [':baz'],",
-        ")",
-        "cc_library(",
-        "    name = 'bar',",
-        "    srcs = ['bar.cc'],",
-        "    deps = [':foo'],",
-        ")");
+        """
+        objc_library(
+            name = "baz",
+            srcs = ["baz.mm"],
+        )
+
+        objc_library(
+            name = "foo",
+            srcs = ["foo.mm"],
+            deps = [":baz"],
+        )
+
+        cc_library(
+            name = "bar",
+            srcs = ["bar.cc"],
+            deps = [":foo"],
+        )
+        """);
 
     CcInfo ccInfo = getConfiguredTarget("//x:bar").get(CcInfo.PROVIDER);
 
@@ -2054,7 +2183,14 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     if (analysisMock.isThisBazel()) {
       return;
     }
-    scratch.file("x/BUILD", "objc_library(", "    name = 'foo',", "    srcs = ['foo.mm']", ")");
+    scratch.file(
+        "x/BUILD",
+        """
+        objc_library(
+            name = "foo",
+            srcs = ["foo.mm"],
+        )
+        """);
 
     CppCompileAction compileA = (CppCompileAction) compileAction("//x:foo", "foo.o");
     assertThat(compileA.getGrepIncludes()).isNotNull();
@@ -2064,12 +2200,14 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testModuleMapFileAccessed() throws Exception {
     scratch.file(
         "x/BUILD",
-        "objc_library(",
-        "    name = 'foo',",
-        "    srcs = ['foo.mm'],",
-        "    enable_modules = True,",
-        "    module_map = 'foo.modulemap'",
-        ")");
+        """
+        objc_library(
+            name = "foo",
+            srcs = ["foo.mm"],
+            enable_modules = True,
+            module_map = "foo.modulemap",
+        )
+        """);
 
     getConfiguredTarget("//x:foo");
   }
@@ -2078,10 +2216,24 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void correctToolFilesUsed() throws Exception {
     scratch.file(
         "a/BUILD",
-        "cc_toolchain_alias(name = 'a')",
-        "objc_library(name = 'l', srcs = ['l.m'])",
-        "objc_library(name = 'asm', srcs = ['a.s'])",
-        "objc_library(name = 'preprocessed-asm', srcs = ['a.S'])");
+        """
+        cc_toolchain_alias(name = "a")
+
+        objc_library(
+            name = "l",
+            srcs = ["l.m"],
+        )
+
+        objc_library(
+            name = "asm",
+            srcs = ["a.s"],
+        )
+
+        objc_library(
+            name = "preprocessed-asm",
+            srcs = ["a.S"],
+        )
+        """);
     useConfiguration("--incompatible_use_specific_tool_files");
 
     ConfiguredTarget target = getConfiguredTarget("//a:a");
@@ -2124,16 +2276,19 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testCompilationPrerequisitesHasHeaders() throws Exception {
     scratch.file(
         "bin/BUILD",
-        "objc_library(",
-        "    name = 'objc',",
-        "    srcs = ['objc.m'],",
-        "    deps = [':cc'],",
-        ")",
-        "cc_library(",
-        "    name = 'cc',",
-        "    hdrs = ['cc.h'],",
-        "    srcs = ['cc.cc'],",
-        ")");
+        """
+        objc_library(
+            name = "objc",
+            srcs = ["objc.m"],
+            deps = [":cc"],
+        )
+
+        cc_library(
+            name = "cc",
+            srcs = ["cc.cc"],
+            hdrs = ["cc.h"],
+        )
+        """);
 
     useConfiguration(
         "--apple_platform_type=ios",
@@ -2177,12 +2332,14 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testCoptsLocationWhenNotExpanded_throwsAssertionError() throws Exception {
     scratch.file(
         "bin/BUILD",
-        "objc_library(",
-        "    name = 'lib',",
-        "    copts = ['$(execpath lib2.m)'],",
-        "    srcs = ['lib1.m'],",
-        "    hdrs = ['header.h'],",
-        ")");
+        """
+        objc_library(
+            name = "lib",
+            srcs = ["lib1.m"],
+            hdrs = ["header.h"],
+            copts = ["$(execpath lib2.m)"],
+        )
+        """);
 
     useConfiguration(
         "--apple_platform_type=ios",
@@ -2196,10 +2353,13 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testEnableCoveragePropagatesSupportFiles() throws Exception {
     scratch.file(
         "a/BUILD",
-        "cc_toolchain_alias(name = 'toolchain')",
-        "objc_library(",
-        "    name = 'lib',",
-        ")");
+        """
+        cc_toolchain_alias(name = "toolchain")
+
+        objc_library(
+            name = "lib",
+        )
+        """);
     useConfiguration("--collect_code_coverage", "--instrumentation_filter=//a[:/]");
 
     CcToolchainProvider ccToolchainProvider =
@@ -2216,10 +2376,13 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testDisableCoverageDoesNotPropagateSupportFiles() throws Exception {
     scratch.file(
         "a/BUILD",
-        "cc_toolchain_alias(name = 'toolchain')",
-        "objc_library(",
-        "    name = 'lib',",
-        ")");
+        """
+        cc_toolchain_alias(name = "toolchain")
+
+        objc_library(
+            name = "lib",
+        )
+        """);
 
     InstrumentedFilesInfo instrumentedFilesInfo =
         getConfiguredTarget("//a:lib").get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
@@ -2231,16 +2394,20 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testCoverageMetadataFiles() throws Exception {
     scratch.file(
         "a/BUILD",
-        "cc_toolchain_alias(name = 'toolchain')",
-        "objc_library(",
-        "    name = 'foo',",
-        "    srcs = ['foo.m'],",
-        ")",
-        "objc_library(",
-        "     name = 'bar',",
-        "     srcs = ['bar.m'],",
-        "     deps = [':foo'],",
-        ")");
+        """
+        cc_toolchain_alias(name = "toolchain")
+
+        objc_library(
+            name = "foo",
+            srcs = ["foo.m"],
+        )
+
+        objc_library(
+            name = "bar",
+            srcs = ["bar.m"],
+            deps = [":foo"],
+        )
+        """);
     useConfiguration("--collect_code_coverage", "--instrumentation_filter=//a[:/]");
 
     InstrumentedFilesInfo instrumentedFilesInfo =
@@ -2268,33 +2435,40 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testSdkUserLinkFlagsFromSdkFieldsAndLinkoptsArePropagatedOnCcInfo() throws Exception {
     scratch.file(
         "x/BUILD",
-        "objc_library(",
-        "    name = 'foo',",
-        "    linkopts = [",
-        "        '-lxml2',",
-        "        '-framework AVFoundation',",
-        "        '-Wl,-framework,Framework',",
-        "    ],",
-        "    sdk_dylibs = ['libz'],",
-        "    sdk_frameworks = ['CoreData'],",
-        "    deps = [':bar', ':car'],",
-        ")",
-        "objc_library(",
-        "    name = 'bar',",
-        "    linkopts = [",
-        "        '-lsqlite3',",
-        "        '-Wl,-weak_framework,WeakFrameworkFromLinkOpt',",
-        "    ],",
-        "    sdk_frameworks = ['Foundation'],",
-        ")",
-        "objc_library(",
-        "    name = 'car',",
-        "    linkopts = [",
-        "        '-framework UIKit',",
-        "    ],",
-        "    sdk_dylibs = ['libc++'],",
-        "    weak_sdk_frameworks = ['WeakFramework'],",
-        ")");
+        """
+        objc_library(
+            name = "foo",
+            linkopts = [
+                "-lxml2",
+                "-framework AVFoundation",
+                "-Wl,-framework,Framework",
+            ],
+            sdk_dylibs = ["libz"],
+            sdk_frameworks = ["CoreData"],
+            deps = [
+                ":bar",
+                ":car",
+            ],
+        )
+
+        objc_library(
+            name = "bar",
+            linkopts = [
+                "-lsqlite3",
+                "-Wl,-weak_framework,WeakFrameworkFromLinkOpt",
+            ],
+            sdk_frameworks = ["Foundation"],
+        )
+
+        objc_library(
+            name = "car",
+            linkopts = [
+                "-framework UIKit",
+            ],
+            sdk_dylibs = ["libc++"],
+            weak_sdk_frameworks = ["WeakFramework"],
+        )
+        """);
 
     ImmutableList<String> userLinkFlags = getCcInfoUserLinkFlagsFromTarget("//x:foo");
     assertThat(userLinkFlags).isNotEmpty();
@@ -2329,16 +2503,19 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "bar/create_tree_artifact.bzl",
-        "def _impl(ctx):",
-        "    tree = ctx.actions.declare_directory('dir')",
-        "    ctx.actions.run_shell(",
-        "        outputs = [tree],",
-        "        inputs = [],",
-        "        arguments = [tree.path],",
-        "        command = 'mkdir $1',",
-        "    )",
-        "    return [DefaultInfo(files = depset([tree]))]",
-        "create_tree_artifact = rule(implementation = _impl)");
+        """
+        def _impl(ctx):
+            tree = ctx.actions.declare_directory("dir")
+            ctx.actions.run_shell(
+                outputs = [tree],
+                inputs = [],
+                arguments = [tree.path],
+                command = "mkdir $1",
+            )
+            return [DefaultInfo(files = depset([tree]))]
+
+        create_tree_artifact = rule(implementation = _impl)
+        """);
     scratch.file(
         "bar/BUILD",
         "load(':create_tree_artifact.bzl', 'create_tree_artifact')",

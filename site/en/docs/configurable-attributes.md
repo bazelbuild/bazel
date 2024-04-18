@@ -746,7 +746,7 @@ load("//myapp:defs.bzl", "my_custom_bazel_macro")
 my_custom_bazel_rule(
     name = "happy_rule",
     my_config_string = select({
-        "//tools/target_cpu:x86": "first string",
+        "//third_party/bazel_platforms/cpu:x86_32": "first string",
         "//third_party/bazel_platforms/cpu:ppc": "second string",
     }),
 )
@@ -759,7 +759,7 @@ my_custom_bazel_macro(
 my_custom_bazel_macro(
     name = "sad_macro",
     my_config_string = select({
-        "//tools/target_cpu:x86": "first string",
+        "//third_party/bazel_platforms/cpu:x86_32": "first string",
         "//third_party/bazel_platforms/cpu:ppc": "other string",
     }),
 )
@@ -841,7 +841,7 @@ $ cat myapp/BUILD
 load("//myapp:defs.bzl", "my_boolean_macro")
 my_boolean_macro(
     boolval = select({
-        "//tools/target_cpu:x86": True,
+        "//third_party/bazel_platforms/cpu:x86_32": True,
         "//third_party/bazel_platforms/cpu:ppc": False,
     }),
 )
@@ -885,7 +885,7 @@ $ cat myapp/BUILD
 selecty_genrule(
     name = "selecty",
     select_cmd = {
-        "//tools/target_cpu:x86": "x86 mode",
+        "//third_party/bazel_platforms/cpu:x86_32": "x86 mode",
     },
 )
 

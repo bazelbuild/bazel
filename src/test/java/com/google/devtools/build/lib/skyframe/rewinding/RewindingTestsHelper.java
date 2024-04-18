@@ -324,20 +324,28 @@ public class RewindingTestsHelper {
   public final void runNoLossSmokeTest() throws Exception {
     testCase.write(
         "test/BUILD",
-        "genrule(name = 'rule1',",
-        "    srcs = ['source.txt'],",
-        "    outs = ['intermediate.txt'],",
-        "    cmd = '(cat $< && echo from rule1) > $@')",
-        "",
-        "genrule(name = 'rule2',",
-        "    srcs = ['intermediate.txt'],",
-        "    outs = ['output.inlined'],",
-        "    cmd = '(cat $< && echo from rule2) > $@')",
-        "",
-        "genrule(name = 'consume_output',",
-        "    srcs = [':output.inlined'],",
-        "    outs = ['dummy.out'],",
-        "    cmd = 'touch $@')");
+        """
+        genrule(
+            name = "rule1",
+            srcs = ["source.txt"],
+            outs = ["intermediate.txt"],
+            cmd = "(cat $< && echo from rule1) > $@",
+        )
+
+        genrule(
+            name = "rule2",
+            srcs = ["intermediate.txt"],
+            outs = ["output.inlined"],
+            cmd = "(cat $< && echo from rule2) > $@",
+        )
+
+        genrule(
+            name = "consume_output",
+            srcs = [":output.inlined"],
+            outs = ["dummy.out"],
+            cmd = "touch $@",
+        )
+        """);
     testCase.write("test/source.txt", "source");
 
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
@@ -395,8 +403,20 @@ public class RewindingTestsHelper {
     testCase.setCustomBugReporterAndReinitialize(bugReporter);
     testCase.write(
         "foo/BUILD",
-        "genrule(name = 'top', outs = ['top.out'], srcs = [':dep'], cmd = 'cp $< $@')",
-        "genrule(name = 'dep', outs = ['dep.out'], cmd = 'touch $@')");
+        """
+        genrule(
+            name = "top",
+            srcs = [":dep"],
+            outs = ["top.out"],
+            cmd = "cp $< $@",
+        )
+
+        genrule(
+            name = "dep",
+            outs = ["dep.out"],
+            cmd = "touch $@",
+        )
+        """);
     testCase.injectListenerAtStartOfNextBuild(
         (key, type, order, context) -> {
           if (type == EventType.GET_BATCH
@@ -442,24 +462,39 @@ public class RewindingTestsHelper {
     // This test sets up a genrule, rule2, that consumes the outputs of two other genrules.
     testCase.write(
         "test/BUILD",
-        "genrule(name = 'rule1_1',",
-        "    srcs = ['source_1.txt'],",
-        "    outs = ['intermediate_1.txt'],",
-        "    cmd = '(cat $< && echo from rule1_1) > $@')",
-        "genrule(name = 'rule1_2',",
-        "    srcs = ['source_2.txt'],",
-        "    outs = ['intermediate_2.txt'],",
-        "    cmd = '(cat $< && echo from rule1_2) > $@')",
-        "",
-        "genrule(name = 'rule2',",
-        "    srcs = ['intermediate_1.txt', 'intermediate_2.txt', 'source_3.txt'],",
-        "    outs = ['output.inlined'],",
-        "    cmd = '(cat $(SRCS) && echo from rule2) > $@')",
-        "",
-        "genrule(name = 'consume_output',",
-        "    srcs = [':output.inlined'],",
-        "    outs = ['dummy.out'],",
-        "    cmd = 'touch $@')");
+        """
+        genrule(
+            name = "rule1_1",
+            srcs = ["source_1.txt"],
+            outs = ["intermediate_1.txt"],
+            cmd = "(cat $< && echo from rule1_1) > $@",
+        )
+
+        genrule(
+            name = "rule1_2",
+            srcs = ["source_2.txt"],
+            outs = ["intermediate_2.txt"],
+            cmd = "(cat $< && echo from rule1_2) > $@",
+        )
+
+        genrule(
+            name = "rule2",
+            srcs = [
+                "intermediate_1.txt",
+                "intermediate_2.txt",
+                "source_3.txt",
+            ],
+            outs = ["output.inlined"],
+            cmd = "(cat $(SRCS) && echo from rule2) > $@",
+        )
+
+        genrule(
+            name = "consume_output",
+            srcs = [":output.inlined"],
+            outs = ["dummy.out"],
+            cmd = "touch $@",
+        )
+        """);
 
     testCase.write("test/source_1.txt", "source_1");
     testCase.write("test/source_2.txt", "source_2");
@@ -501,19 +536,31 @@ public class RewindingTestsHelper {
   private static void writeTwoGenrulePackage(BuildIntegrationTestCase testCase) throws IOException {
     testCase.write(
         "test/BUILD",
-        "genrule(name = 'rule1',",
-        "    srcs = ['source_1.txt'],",
-        "    outs = ['intermediate.txt'],",
-        "    cmd = '(cat $< && echo from rule1) > $@')",
-        "genrule(name = 'rule2',",
-        "    srcs = ['intermediate.txt', 'source_2.txt'],",
-        "    outs = ['output.inlined'],",
-        "    cmd = '(cat $(SRCS) && echo from rule2) > $@')",
-        "",
-        "genrule(name = 'consume_output',",
-        "    srcs = [':output.inlined'],",
-        "    outs = ['dummy.out'],",
-        "    cmd = 'touch $@')");
+        """
+        genrule(
+            name = "rule1",
+            srcs = ["source_1.txt"],
+            outs = ["intermediate.txt"],
+            cmd = "(cat $< && echo from rule1) > $@",
+        )
+
+        genrule(
+            name = "rule2",
+            srcs = [
+                "intermediate.txt",
+                "source_2.txt",
+            ],
+            outs = ["output.inlined"],
+            cmd = "(cat $(SRCS) && echo from rule2) > $@",
+        )
+
+        genrule(
+            name = "consume_output",
+            srcs = [":output.inlined"],
+            outs = ["dummy.out"],
+            cmd = "touch $@",
+        )
+        """);
 
     testCase.write("test/source_1.txt", "source_1");
     testCase.write("test/source_2.txt", "source_2");
@@ -857,23 +904,42 @@ public class RewindingTestsHelper {
     // a second time.
     testCase.write(
         "test/BUILD",
-        "genrule(name = 'rule1',",
-        "    srcs = ['source_1.txt'],",
-        "    outs = ['intermediate_1.txt'],",
-        "    cmd = '(cat $< && echo from rule1) > $@')",
-        "genrule(name = 'rule2',",
-        "    srcs = ['intermediate_1.txt', 'source_2.txt'],",
-        "    outs = ['intermediate_2.txt'],",
-        "    cmd = '(cat $(SRCS) && echo from rule2) > $@')",
-        "genrule(name = 'rule3',",
-        "    srcs = ['intermediate_1.txt', 'intermediate_2.txt', 'source_3.txt'],",
-        "    outs = ['output.inlined'],",
-        "    cmd = '(cat $(SRCS) && echo from rule3) > $@')",
-        "",
-        "genrule(name = 'consume_output',",
-        "    srcs = [':output.inlined'],",
-        "    outs = ['dummy.out'],",
-        "    cmd = 'touch $@')");
+        """
+        genrule(
+            name = "rule1",
+            srcs = ["source_1.txt"],
+            outs = ["intermediate_1.txt"],
+            cmd = "(cat $< && echo from rule1) > $@",
+        )
+
+        genrule(
+            name = "rule2",
+            srcs = [
+                "intermediate_1.txt",
+                "source_2.txt",
+            ],
+            outs = ["intermediate_2.txt"],
+            cmd = "(cat $(SRCS) && echo from rule2) > $@",
+        )
+
+        genrule(
+            name = "rule3",
+            srcs = [
+                "intermediate_1.txt",
+                "intermediate_2.txt",
+                "source_3.txt",
+            ],
+            outs = ["output.inlined"],
+            cmd = "(cat $(SRCS) && echo from rule3) > $@",
+        )
+
+        genrule(
+            name = "consume_output",
+            srcs = [":output.inlined"],
+            outs = ["dummy.out"],
+            cmd = "touch $@",
+        )
+        """);
 
     testCase.write("test/source_1.txt", "source_1");
     testCase.write("test/source_2.txt", "source_2");
@@ -925,23 +991,41 @@ public class RewindingTestsHelper {
     // executions succeed.
     testCase.write(
         "test/BUILD",
-        "genrule(name = 'rule1',",
-        "    srcs = ['source_1.txt'],",
-        "    outs = ['intermediate_1.txt'],",
-        "    cmd = '(cat $< && echo from rule1) > $@')",
-        "genrule(name = 'rule2',",
-        "    srcs = ['intermediate_1.txt', 'source_2.txt'],",
-        "    outs = ['intermediate_2.txt'],",
-        "    cmd = '(cat $(SRCS) && echo from rule2) > $@')",
-        "genrule(name = 'rule3',",
-        "    srcs = ['intermediate_2.txt', 'source_3.txt'],",
-        "    outs = ['output.inlined'],",
-        "    cmd = '(cat $(SRCS) && echo from rule3) > $@')",
-        "",
-        "genrule(name = 'consume_output',",
-        "    srcs = [':output.inlined'],",
-        "    outs = ['dummy.out'],",
-        "    cmd = 'touch $@')");
+        """
+        genrule(
+            name = "rule1",
+            srcs = ["source_1.txt"],
+            outs = ["intermediate_1.txt"],
+            cmd = "(cat $< && echo from rule1) > $@",
+        )
+
+        genrule(
+            name = "rule2",
+            srcs = [
+                "intermediate_1.txt",
+                "source_2.txt",
+            ],
+            outs = ["intermediate_2.txt"],
+            cmd = "(cat $(SRCS) && echo from rule2) > $@",
+        )
+
+        genrule(
+            name = "rule3",
+            srcs = [
+                "intermediate_2.txt",
+                "source_3.txt",
+            ],
+            outs = ["output.inlined"],
+            cmd = "(cat $(SRCS) && echo from rule3) > $@",
+        )
+
+        genrule(
+            name = "consume_output",
+            srcs = [":output.inlined"],
+            outs = ["dummy.out"],
+            cmd = "touch $@",
+        )
+        """);
 
     testCase.write("test/source_1.txt", "source_1");
     testCase.write("test/source_2.txt", "source_2");
@@ -1007,21 +1091,32 @@ public class RewindingTestsHelper {
 
     testCase.write(
         "test/BUILD",
-        "genrule(name = 'rule1',",
-        "    srcs = ['source_1.txt'],",
-        "    outs = ['intermediate_1.inlined'],",
-        "    cmd = '(cat $(location source_1.txt) && echo $$RANDOM) > $@',",
-        "    tags = ['no-cache'])",
-        "",
-        "genrule(name = 'rule2',",
-        "    srcs = ['source_2.txt', 'intermediate_1.inlined'],",
-        "    outs = ['intermediate_2.inlined'],",
-        "    cmd = '(cat $(SRCS) && echo from rule2) > $@')",
-        "",
-        "genrule(name = 'rule3',",
-        "    srcs = ['intermediate_2.inlined'],",
-        "    outs = ['output.txt'],",
-        "    cmd = '(cat $< && echo from rule3) > $@')");
+        """
+        genrule(
+            name = "rule1",
+            srcs = ["source_1.txt"],
+            outs = ["intermediate_1.inlined"],
+            cmd = "(cat $(location source_1.txt) && echo $$RANDOM) > $@",
+            tags = ["no-cache"],
+        )
+
+        genrule(
+            name = "rule2",
+            srcs = [
+                "source_2.txt",
+                "intermediate_1.inlined",
+            ],
+            outs = ["intermediate_2.inlined"],
+            cmd = "(cat $(SRCS) && echo from rule2) > $@",
+        )
+
+        genrule(
+            name = "rule3",
+            srcs = ["intermediate_2.inlined"],
+            outs = ["output.txt"],
+            cmd = "(cat $< && echo from rule3) > $@",
+        )
+        """);
     testCase.write("test/source_1.txt", "source_1");
     testCase.write("test/source_2.txt", "source_2");
 
@@ -1129,33 +1224,45 @@ public class RewindingTestsHelper {
         ")");
     testCase.write(
         "shared/BUILD",
-        "load('//shared:shared.bzl', 'shared')",
-        "",
-        "genrule(",
-        "  name = 'shared_input',",
-        "  srcs = [],",
-        "  outs = ['shared_input.txt'],",
-        "  cmd = 'echo \"hi i am a shared input\" > $@')",
-        "",
-        "shared(",
-        "  name = 'shared_1',",
-        "  src = 'shared_input.txt',",
-        "  out = 'shared_1.out')",
-        "",
-        "shared(",
-        "  name = 'shared_2',",
-        "  src = 'shared_input.txt',",
-        "  out = 'shared_2.out')",
-        "",
-        "genrule(name = 'merge_shared_rules',",
-        "    srcs = ['shared_1.out', 'shared_2.out'],",
-        "    outs = ['output.inlined'],",
-        "    cmd = '(cat $(location shared_1.out) && cat $(location shared_2.out)) > $@')",
-        "",
-        "genrule(name = 'consume_output',",
-        "    srcs = [':output.inlined'],",
-        "    outs = ['dummy.out'],",
-        "    cmd = 'touch $@')");
+        """
+        load("//shared:shared.bzl", "shared")
+
+        genrule(
+            name = "shared_input",
+            srcs = [],
+            outs = ["shared_input.txt"],
+            cmd = 'echo "hi i am a shared input" > $@',
+        )
+
+        shared(
+            name = "shared_1",
+            src = "shared_input.txt",
+            out = "shared_1.out",
+        )
+
+        shared(
+            name = "shared_2",
+            src = "shared_input.txt",
+            out = "shared_2.out",
+        )
+
+        genrule(
+            name = "merge_shared_rules",
+            srcs = [
+                "shared_1.out",
+                "shared_2.out",
+            ],
+            outs = ["output.inlined"],
+            cmd = "(cat $(location shared_1.out) && cat $(location shared_2.out)) > $@",
+        )
+
+        genrule(
+            name = "consume_output",
+            srcs = [":output.inlined"],
+            outs = ["dummy.out"],
+            cmd = "touch $@",
+        )
+        """);
   }
 
   private static boolean actionHasLabelAndIndex(
@@ -1349,27 +1456,41 @@ public class RewindingTestsHelper {
   private static void setUpTreeArtifactPackage(BuildIntegrationTestCase testCase) throws Exception {
     testCase.write(
         "tree/tree.bzl",
-        "def _tree_impl(ctx):",
-        "  tree_artifact = ctx.actions.declare_directory(ctx.attr.name + '_dir.cc')",
-        "  ctx.actions.run_shell(",
-        "      inputs = ctx.files.srcs,",
-        "      outputs = [tree_artifact],",
-        "      command = 'touch $1/file1.cc && touch $1/file2.cc',",
-        "      arguments = [tree_artifact.path],",
-        "  )",
-        "  return DefaultInfo(files=depset(direct=[tree_artifact]))",
-        "",
-        "tree = rule(",
-        "  implementation = _tree_impl, ",
-        "  attrs = {'srcs': attr.label_list(allow_files = True)})");
+        """
+        def _tree_impl(ctx):
+            tree_artifact = ctx.actions.declare_directory(ctx.attr.name + "_dir.cc")
+            ctx.actions.run_shell(
+                inputs = ctx.files.srcs,
+                outputs = [tree_artifact],
+                command = "touch $1/file1.cc && touch $1/file2.cc",
+                arguments = [tree_artifact.path],
+            )
+            return DefaultInfo(files = depset(direct = [tree_artifact]))
+
+        tree = rule(
+            implementation = _tree_impl,
+            attrs = {"srcs": attr.label_list(allow_files = True)},
+        )
+        """);
 
     testCase.write(
         "tree/BUILD",
-        "load(':tree.bzl', 'tree')",
-        "",
-        "tree(name = 'make_cc', srcs = ['source_1.txt'])",
-        "",
-        "cc_library(name = 'consumes_tree', srcs = [':make_cc', 'source_2.cc'])");
+        """
+        load(":tree.bzl", "tree")
+
+        tree(
+            name = "make_cc",
+            srcs = ["source_1.txt"],
+        )
+
+        cc_library(
+            name = "consumes_tree",
+            srcs = [
+                "source_2.cc",
+                ":make_cc",
+            ],
+        )
+        """);
 
     testCase.write("tree/source_1.txt", "source_1");
     testCase.write("tree/source_2.cc", "#define FOO");
@@ -1608,22 +1729,39 @@ public class RewindingTestsHelper {
       throws Exception {
     testCase.write(
         "middle/BUILD",
-        "genrule(name = 'gen1',",
-        "    srcs = [],",
-        "    outs = ['gen1.dat'],",
-        "    cmd = 'echo \"made by gen1\" > $@')",
-        "genrule(name = 'gen2',",
-        "    srcs = [],",
-        "    outs = ['gen2.dat'],",
-        "    cmd = 'echo \"made by gen2\" > $@')",
-        "sh_binary(name = 'tool',",
-        "    srcs = ['tool.sh'],",
-        "    data = ['gen1.dat', 'gen2.dat', 'source_1.txt'])",
-        "genrule(name = 'tool_user',",
-        "    outs = ['tool_user.out'],",
-        "    srcs = [],",
-        "    tools = ['tool'],",
-        "    cmd = 'touch $(OUTS)')");
+        """
+        genrule(
+            name = "gen1",
+            srcs = [],
+            outs = ["gen1.dat"],
+            cmd = 'echo "made by gen1" > $@',
+        )
+
+        genrule(
+            name = "gen2",
+            srcs = [],
+            outs = ["gen2.dat"],
+            cmd = 'echo "made by gen2" > $@',
+        )
+
+        sh_binary(
+            name = "tool",
+            srcs = ["tool.sh"],
+            data = [
+                "gen1.dat",
+                "gen2.dat",
+                "source_1.txt",
+            ],
+        )
+
+        genrule(
+            name = "tool_user",
+            srcs = [],
+            outs = ["tool_user.out"],
+            cmd = "touch $(OUTS)",
+            tools = ["tool"],
+        )
+        """);
     testCase.write("middle/tool.sh", "#!/bin/bash").setExecutable(true);
     testCase.write("middle/source_1.txt", "source_1");
 
@@ -1737,27 +1875,40 @@ public class RewindingTestsHelper {
       AtomicReference<String> intermediate1FirstContent, SpawnShim shim) throws Exception {
     testCase.write(
         "test/BUILD",
-        "genrule(name = 'rule1',",
-        "    srcs = [],",
-        "    outs = ['intermediate_1.inlined'],",
-        "    cmd = 'echo $$RANDOM > $@',",
-        "    tags = ['no-cache'])",
-        "",
-        "sh_binary(name = 'tool',",
-        "    srcs = ['tool.sh'],",
-        "    data = ['intermediate_1.inlined'])",
-        "",
-        "genrule(name = 'rule2',",
-        "    srcs = [],",
-        "    outs = ['intermediate_2.inlined'],",
-        "    tools = ['tool', 'intermediate_1.inlined'],",
-        "    cmd = '($(location tool) && cat $(location intermediate_1.inlined) && ' + ",
-        "      'echo from rule2) > $@')",
-        "",
-        "genrule(name = 'rule3',",
-        "    srcs = ['intermediate_2.inlined'],",
-        "    outs = ['output.txt'],",
-        "    cmd = '(cat $< && echo from rule3) > $@')");
+        """
+        genrule(
+            name = "rule1",
+            srcs = [],
+            outs = ["intermediate_1.inlined"],
+            cmd = "echo $$RANDOM > $@",
+            tags = ["no-cache"],
+        )
+
+        sh_binary(
+            name = "tool",
+            srcs = ["tool.sh"],
+            data = ["intermediate_1.inlined"],
+        )
+
+        genrule(
+            name = "rule2",
+            srcs = [],
+            outs = ["intermediate_2.inlined"],
+            cmd = "($(location tool) && cat $(location intermediate_1.inlined) && " +
+                  "echo from rule2) > $@",
+            tools = [
+                "intermediate_1.inlined",
+                "tool",
+            ],
+        )
+
+        genrule(
+            name = "rule3",
+            srcs = ["intermediate_2.inlined"],
+            outs = ["output.txt"],
+            cmd = "(cat $< && echo from rule3) > $@",
+        )
+        """);
     testCase
         .write(
             "test/tool.sh",
@@ -1898,35 +2049,53 @@ public class RewindingTestsHelper {
   final void runTreeInRunfilesRewound(SpawnShim shim) throws Exception {
     testCase.write(
         "middle/tree.bzl",
-        "def _tree_impl(ctx):",
-        "  tree_artifact = ctx.actions.declare_directory(ctx.attr.name + '_dir')",
-        "  ctx.actions.run_shell(",
-        "      inputs = ctx.files.srcs,",
-        "      outputs = [tree_artifact],",
-        "      command = '(echo \"tree1\" > $1/gen1.out) && (echo \"tree2\" > $1/gen2.out)',",
-        "      arguments = [tree_artifact.path],",
-        "  )",
-        "  return DefaultInfo(files=depset(direct=[tree_artifact]),",
-        "                     runfiles = ctx.runfiles(files = [tree_artifact]))",
-        "",
-        "tree = rule(",
-        "  implementation = _tree_impl, ",
-        "  attrs = {'srcs': attr.label_list(allow_files = True)})");
+        """
+        def _tree_impl(ctx):
+            tree_artifact = ctx.actions.declare_directory(ctx.attr.name + "_dir")
+            ctx.actions.run_shell(
+                inputs = ctx.files.srcs,
+                outputs = [tree_artifact],
+                command = '(echo "tree1" > $1/gen1.out) && (echo "tree2" > $1/gen2.out)',
+                arguments = [tree_artifact.path],
+            )
+            return DefaultInfo(
+                files = depset(direct = [tree_artifact]),
+                runfiles = ctx.runfiles(files = [tree_artifact]),
+            )
+
+        tree = rule(
+            implementation = _tree_impl,
+            attrs = {"srcs": attr.label_list(allow_files = True)},
+        )
+        """);
 
     testCase.write(
         "middle/BUILD",
-        "load(':tree.bzl', 'tree')",
-        "",
-        "tree(name = 'gen_tree', srcs = ['source_1.txt'])",
-        "",
-        "sh_binary(name = 'tool',",
-        "    srcs = ['tool.sh'],",
-        "    data = [':gen_tree', 'source_2.txt'])",
-        "genrule(name = 'tool_user',",
-        "    outs = ['tool_user.out'],",
-        "    srcs = [],",
-        "    tools = ['tool'],",
-        "    cmd = 'touch $(OUTS)')");
+        """
+        load(":tree.bzl", "tree")
+
+        tree(
+            name = "gen_tree",
+            srcs = ["source_1.txt"],
+        )
+
+        sh_binary(
+            name = "tool",
+            srcs = ["tool.sh"],
+            data = [
+                "source_2.txt",
+                ":gen_tree",
+            ],
+        )
+
+        genrule(
+            name = "tool_user",
+            srcs = [],
+            outs = ["tool_user.out"],
+            cmd = "touch $(OUTS)",
+            tools = ["tool"],
+        )
+        """);
     testCase.write("middle/tool.sh", "#!/bin/bash").setExecutable(true);
     testCase.write("middle/source_1.txt", "source_1");
     testCase.write("middle/source_2.txt", "source_2");
@@ -2017,27 +2186,44 @@ public class RewindingTestsHelper {
       throws Exception {
     testCase.write(
         "test/defs.bzl",
-        "def _consumer_impl(ctx):",
-        "  in1, in2, in3 = ctx.attr.three_output_genrule.files.to_list()",
-        "  out = ctx.actions.declare_file('consumer.out')",
-        "  ctx.actions.run_shell(",
-        "    outputs = [out],",
-        // Arrange the inputs such that they are split among the depset's children.
-        "    inputs = depset([in1], transitive = [depset([in2, in3])]),",
-        "    command = 'touch %s' % out.path,",
-        "    progress_message = 'Running consumer',",
-        "  )",
-        "  return DefaultInfo(files = depset([out]))",
-        "",
-        "consumer = rule(",
-        "  implementation = _consumer_impl,",
-        "  attrs = {'three_output_genrule': attr.label(mandatory = True)}",
-        ")");
+        """
+        def _consumer_impl(ctx):
+            in1, in2, in3 = ctx.attr.three_output_genrule.files.to_list()
+            out = ctx.actions.declare_file("consumer.out")
+            ctx.actions.run_shell(
+                outputs = [out],
+                # Arrange the inputs such that they are split among the depset's children.
+                inputs = depset([in1], transitive = [depset([in2, in3])]),
+                command = "touch %s" % out.path,
+                progress_message = "Running consumer",
+            )
+            return DefaultInfo(files = depset([out]))
+
+        consumer = rule(
+            implementation = _consumer_impl,
+            attrs = {"three_output_genrule": attr.label(mandatory = True)},
+        )
+        """);
     testCase.write(
         "test/BUILD",
-        "load(':defs.bzl', 'consumer')",
-        "genrule(name = 'gen', outs = ['gen.out1', 'gen.out2', 'gen.out3'], cmd = 'touch $(OUTS)')",
-        "consumer(name = 'consumer', three_output_genrule = ':gen')");
+        """
+        load(":defs.bzl", "consumer")
+
+        genrule(
+            name = "gen",
+            outs = [
+                "gen.out1",
+                "gen.out2",
+                "gen.out3",
+            ],
+            cmd = "touch $(OUTS)",
+        )
+
+        consumer(
+            name = "consumer",
+            three_output_genrule = ":gen",
+        )
+        """);
 
     addSpawnShim(
         "Running consumer",
@@ -2072,13 +2258,22 @@ public class RewindingTestsHelper {
       throws IOException {
     testCase.write(
         "genheader/BUILD",
-        "genrule(name = 'gen_header',",
-        "    srcs = [],",
-        "    outs = ['gen.h'],",
-        "    cmd = 'touch $@')",
-        "",
-        "cc_binary(name = 'consumes_header',",
-        "    srcs = ['consumes.cc', 'gen.h'])");
+        """
+        genrule(
+            name = "gen_header",
+            srcs = [],
+            outs = ["gen.h"],
+            cmd = "touch $@",
+        )
+
+        cc_binary(
+            name = "consumes_header",
+            srcs = [
+                "consumes.cc",
+                "gen.h",
+            ],
+        )
+        """);
     testCase.write(
         "genheader/consumes.cc",
         "#include \"genheader/gen.h\"",
@@ -2206,19 +2401,26 @@ public class RewindingTestsHelper {
       throws IOException {
     testCase.write(
         "genheader/BUILD",
-        "",
-        "genrule(name = 'gen_header',",
-        "  srcs = [],",
-        "  outs = ['gen.h'], ",
-        "  cmd = 'echo \"int f(int x);\" > $@')",
-        "",
-        "cc_library(name = 'intermediate', ",
-        "  srcs = ['intermediate.cc'],",
-        "  hdrs = ['gen.h'])",
-        "",
-        "cc_binary(name = 'consumes_header', ",
-        "  srcs = ['consumes.cc'], ",
-        "  deps = ['intermediate'])");
+        """
+        genrule(
+            name = "gen_header",
+            srcs = [],
+            outs = ["gen.h"],
+            cmd = 'echo "int f(int x);" > $@',
+        )
+
+        cc_library(
+            name = "intermediate",
+            srcs = ["intermediate.cc"],
+            hdrs = ["gen.h"],
+        )
+
+        cc_binary(
+            name = "consumes_header",
+            srcs = ["consumes.cc"],
+            deps = ["intermediate"],
+        )
+        """);
     testCase.write("genheader/intermediate.cc", "int f(int x) { return x + 1; }");
     testCase.write(
         "genheader/consumes.cc",
@@ -2383,9 +2585,30 @@ public class RewindingTestsHelper {
   public final void runDoneToDirtyDepForNodeInError() throws Exception {
     testCase.write(
         "foo/BUILD",
-        "genrule(name = 'other', srcs = [':dep.out2'], outs = ['other.out'], cmd = 'cp $< $@')",
-        "genrule(name = 'fail', srcs = [':dep.out1'], outs = ['fail.out'], cmd = 'false')",
-        "genrule(name = 'dep', outs = ['dep.out1', 'dep.out2'], cmd = 'touch $(OUTS)')");
+        """
+        genrule(
+            name = "other",
+            srcs = [":dep.out2"],
+            outs = ["other.out"],
+            cmd = "cp $< $@",
+        )
+
+        genrule(
+            name = "fail",
+            srcs = [":dep.out1"],
+            outs = ["fail.out"],
+            cmd = "false",
+        )
+
+        genrule(
+            name = "dep",
+            outs = [
+                "dep.out1",
+                "dep.out2",
+            ],
+            cmd = "touch $(OUTS)",
+        )
+        """);
     CountDownLatch depDone = new CountDownLatch(1);
     CountDownLatch failExecuting = new CountDownLatch(1);
     CountDownLatch depRewound = new CountDownLatch(1);
@@ -2432,32 +2655,51 @@ public class RewindingTestsHelper {
   private void runFlakyActionFailsAfterRewind_raceWithIndirectConsumer() throws Exception {
     testCase.write(
         "foo/defs.bzl",
-        "def _action_with_indirect_input(ctx):",
-        "  other1 = ctx.actions.declare_file('other1')",
-        "  ctx.actions.write(other1, '')",
-        "  other2 = ctx.actions.declare_file('other2')",
-        "  ctx.actions.write(other2, '')",
-        "",
-        "  out = ctx.actions.declare_file(ctx.attr.name + '.out')",
-        "  indirect_input = ctx.file.indirect_input",
-        "  ctx.actions.run_shell(",
-        "    inputs = depset([other1], transitive = [depset([other2, indirect_input])]),",
-        "    outputs = [out],",
-        "    command = 'cat $1 $2 $3 > $4',",
-        "    arguments = [other1.path, other2.path, indirect_input.path, out.path],",
-        "  )",
-        "  return DefaultInfo(files = depset([out]))",
-        "",
-        "action_with_indirect_input = rule(",
-        "  implementation = _action_with_indirect_input,",
-        "  attrs = {'indirect_input': attr.label(allow_single_file = True)},",
-        ")");
+        """
+        def _action_with_indirect_input(ctx):
+            other1 = ctx.actions.declare_file("other1")
+            ctx.actions.write(other1, "")
+            other2 = ctx.actions.declare_file("other2")
+            ctx.actions.write(other2, "")
+
+            out = ctx.actions.declare_file(ctx.attr.name + ".out")
+            indirect_input = ctx.file.indirect_input
+            ctx.actions.run_shell(
+                inputs = depset([other1], transitive = [depset([other2, indirect_input])]),
+                outputs = [out],
+                command = "cat $1 $2 $3 > $4",
+                arguments = [other1.path, other2.path, indirect_input.path, out.path],
+            )
+            return DefaultInfo(files = depset([out]))
+
+        action_with_indirect_input = rule(
+            implementation = _action_with_indirect_input,
+            attrs = {"indirect_input": attr.label(allow_single_file = True)},
+        )
+        """);
     testCase.write(
         "foo/BUILD",
-        "load(':defs.bzl', 'action_with_indirect_input')",
-        "action_with_indirect_input(name = 'top2', indirect_input = ':flaky_lost')",
-        "genrule(name = 'top1', srcs = [':flaky_lost'], outs = ['top1.out'], cmd = 'cp $< $@')",
-        "genrule(name = 'flaky_lost', outs = ['flaky_lost.out'], cmd = 'touch $@')");
+        """
+        load(":defs.bzl", "action_with_indirect_input")
+
+        action_with_indirect_input(
+            name = "top2",
+            indirect_input = ":flaky_lost",
+        )
+
+        genrule(
+            name = "top1",
+            srcs = [":flaky_lost"],
+            outs = ["top1.out"],
+            cmd = "cp $< $@",
+        )
+
+        genrule(
+            name = "flaky_lost",
+            outs = ["flaky_lost.out"],
+            cmd = "touch $@",
+        )
+        """);
     Label top2 = Label.parseCanonical("//foo:top2");
     Label top1 = Label.parseCanonical("//foo:top1");
     Label flakyLost = Label.parseCanonical("//foo:flaky_lost");
@@ -2644,9 +2886,23 @@ public class RewindingTestsHelper {
   public void runDiscoveredCppModuleLost() throws Exception {
     testCase.write(
         "foo/BUILD",
-        "package(features = ['header_modules', 'use_header_modules'])",
-        "cc_library(name = 'top', srcs = ['top.cc'], deps = [':dep'])",
-        "cc_library(name = 'dep', hdrs = ['dep.h'])");
+        """
+        package(features = [
+            "header_modules",
+            "use_header_modules",
+        ])
+
+        cc_library(
+            name = "top",
+            srcs = ["top.cc"],
+            deps = [":dep"],
+        )
+
+        cc_library(
+            name = "dep",
+            hdrs = ["dep.h"],
+        )
+        """);
     testCase.write("foo/top.cc", "#include \"foo/dep.h\"");
     testCase.write("foo/dep.h");
 
@@ -2689,18 +2945,23 @@ public class RewindingTestsHelper {
   public final void runTopLevelOutputRewound_regularFile() throws Exception {
     testCase.write(
         "foo/defs.bzl",
-        "def _lost_and_found_impl(ctx):",
-        "  lost = ctx.actions.declare_file('lost.out')",
-        "  found = ctx.actions.declare_file('found.out')",
-        "  ctx.actions.run_shell(outputs = [lost], command = 'echo lost > %s' % lost.path)",
-        "  ctx.actions.run_shell(outputs = [found], command = 'echo found > %s' % found.path)",
-        "  return DefaultInfo(files = depset([lost, found]))",
-        "",
-        "lost_and_found = rule(implementation = _lost_and_found_impl)");
+        """
+        def _lost_and_found_impl(ctx):
+            lost = ctx.actions.declare_file("lost.out")
+            found = ctx.actions.declare_file("found.out")
+            ctx.actions.run_shell(outputs = [lost], command = "echo lost > %s" % lost.path)
+            ctx.actions.run_shell(outputs = [found], command = "echo found > %s" % found.path)
+            return DefaultInfo(files = depset([lost, found]))
+
+        lost_and_found = rule(implementation = _lost_and_found_impl)
+        """);
     testCase.write(
         "foo/BUILD",
-        "load(':defs.bzl', 'lost_and_found')",
-        "lost_and_found(name = 'lost_and_found')");
+        """
+        load(":defs.bzl", "lost_and_found")
+
+        lost_and_found(name = "lost_and_found")
+        """);
     lostOutputsModule.addLostOutput(getExecPath("bin/foo/lost.out"));
     Label fooLostAndFound = Label.parseCanonical("//foo:lost_and_found");
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
@@ -2725,14 +2986,16 @@ public class RewindingTestsHelper {
   public final void runTopLevelOutputRewound_aspectOwned() throws Exception {
     testCase.write(
         "foo/defs.bzl",
-        "def _lost_and_found_aspect_impl(target, ctx):",
-        "  lost = ctx.actions.declare_file('lost.out')",
-        "  found = ctx.actions.declare_file('found.out')",
-        "  ctx.actions.run_shell(outputs = [lost], command = 'echo lost > %s' % lost.path)",
-        "  ctx.actions.run_shell(outputs = [found], command = 'echo found > %s' % found.path)",
-        "  return [OutputGroupInfo(default = depset([lost, found]))]",
-        "",
-        "lost_and_found_aspect = aspect(implementation = _lost_and_found_aspect_impl)");
+        """
+        def _lost_and_found_aspect_impl(target, ctx):
+            lost = ctx.actions.declare_file("lost.out")
+            found = ctx.actions.declare_file("found.out")
+            ctx.actions.run_shell(outputs = [lost], command = "echo lost > %s" % lost.path)
+            ctx.actions.run_shell(outputs = [found], command = "echo found > %s" % found.path)
+            return [OutputGroupInfo(default = depset([lost, found]))]
+
+        lost_and_found_aspect = aspect(implementation = _lost_and_found_aspect_impl)
+        """);
     testCase.write("foo/BUILD", "sh_library(name = 'lib')");
     lostOutputsModule.addLostOutput(getExecPath("bin/foo/lost.out"));
     Label fooLib = Label.parseCanonical("//foo:lib");
@@ -2761,24 +3024,29 @@ public class RewindingTestsHelper {
   public final void runTopLevelOutputRewound_fileInTreeArtifact() throws Exception {
     testCase.write(
         "foo/defs.bzl",
-        "def _lost_and_found_trees_impl(ctx):",
-        "  lost_tree = ctx.actions.declare_directory('lost_tree')",
-        "  found_tree = ctx.actions.declare_directory('found_tree')",
-        "  ctx.actions.run_shell(",
-        "    outputs = [lost_tree],",
-        "    command = 'echo lost > %s/lost_file' % lost_tree.path,",
-        "  )",
-        "  ctx.actions.run_shell(",
-        "    outputs = [found_tree],",
-        "    command = 'echo found > %s/found_file' % found_tree.path,",
-        "  )",
-        "  return DefaultInfo(files = depset([lost_tree, found_tree]))",
-        "",
-        "lost_and_found_trees = rule(implementation = _lost_and_found_trees_impl)");
+        """
+        def _lost_and_found_trees_impl(ctx):
+            lost_tree = ctx.actions.declare_directory("lost_tree")
+            found_tree = ctx.actions.declare_directory("found_tree")
+            ctx.actions.run_shell(
+                outputs = [lost_tree],
+                command = "echo lost > %s/lost_file" % lost_tree.path,
+            )
+            ctx.actions.run_shell(
+                outputs = [found_tree],
+                command = "echo found > %s/found_file" % found_tree.path,
+            )
+            return DefaultInfo(files = depset([lost_tree, found_tree]))
+
+        lost_and_found_trees = rule(implementation = _lost_and_found_trees_impl)
+        """);
     testCase.write(
         "foo/BUILD",
-        "load(':defs.bzl', 'lost_and_found_trees')",
-        "lost_and_found_trees(name = 'lost_and_found_trees')");
+        """
+        load(":defs.bzl", "lost_and_found_trees")
+
+        lost_and_found_trees(name = "lost_and_found_trees")
+        """);
     lostOutputsModule.addLostOutput(getExecPath("bin/foo/lost_tree/lost_file"));
     Label fooLostAndFoundTrees = Label.parseCanonical("//foo:lost_and_found_trees");
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
@@ -2804,22 +3072,27 @@ public class RewindingTestsHelper {
   public final void runTopLevelOutputRewound_partiallyBuiltTarget_regularFile() throws Exception {
     testCase.write(
         "foo/defs.bzl",
-        "def _lost_found_and_failed_impl(ctx):",
-        "  lost = ctx.actions.declare_file('lost.out')",
-        "  found = ctx.actions.declare_file('found.out')",
-        "  failed = ctx.actions.declare_file('failed.out')",
-        "  ctx.actions.run_shell(",
-        "    outputs = [lost, found],",
-        "    command = 'echo lost > %s && echo found > %s' % (lost.path, found.path),",
-        "  )",
-        "  ctx.actions.run_shell(outputs = [failed], inputs = [found], command = 'false')",
-        "  return DefaultInfo(files = depset([lost, found, failed]))",
-        "",
-        "lost_found_and_failed = rule(implementation = _lost_found_and_failed_impl)");
+        """
+        def _lost_found_and_failed_impl(ctx):
+            lost = ctx.actions.declare_file("lost.out")
+            found = ctx.actions.declare_file("found.out")
+            failed = ctx.actions.declare_file("failed.out")
+            ctx.actions.run_shell(
+                outputs = [lost, found],
+                command = "echo lost > %s && echo found > %s" % (lost.path, found.path),
+            )
+            ctx.actions.run_shell(outputs = [failed], inputs = [found], command = "false")
+            return DefaultInfo(files = depset([lost, found, failed]))
+
+        lost_found_and_failed = rule(implementation = _lost_found_and_failed_impl)
+        """);
     testCase.write(
         "foo/BUILD",
-        "load(':defs.bzl', 'lost_found_and_failed')",
-        "lost_found_and_failed(name = 'lost_found_and_failed')");
+        """
+        load(":defs.bzl", "lost_found_and_failed")
+
+        lost_found_and_failed(name = "lost_found_and_failed")
+        """);
     lostOutputsModule.addLostOutput(getExecPath("bin/foo/lost.out"));
     Label fooLostFoundAndFailed = Label.parseCanonical("//foo:lost_found_and_failed");
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
@@ -2859,23 +3132,28 @@ public class RewindingTestsHelper {
       throws Exception {
     testCase.write(
         "foo/defs.bzl",
-        "def _lost_tree_found_and_failed_impl(ctx):",
-        "  lost_tree = ctx.actions.declare_directory('lost_tree')",
-        "  found = ctx.actions.declare_file('found.out')",
-        "  failed = ctx.actions.declare_file('failed.out')",
-        "  ctx.actions.run_shell(",
-        "    outputs = [lost_tree, found],",
-        "    command = 'echo lost > $1/lost_file && echo found > $2',",
-        "    arguments = [lost_tree.path, found.path],",
-        "  )",
-        "  ctx.actions.run_shell(outputs = [failed], inputs = [found], command = 'false')",
-        "  return DefaultInfo(files = depset([lost_tree, found, failed]))",
-        "",
-        "lost_tree_found_and_failed = rule(implementation = _lost_tree_found_and_failed_impl)");
+        """
+        def _lost_tree_found_and_failed_impl(ctx):
+            lost_tree = ctx.actions.declare_directory("lost_tree")
+            found = ctx.actions.declare_file("found.out")
+            failed = ctx.actions.declare_file("failed.out")
+            ctx.actions.run_shell(
+                outputs = [lost_tree, found],
+                command = "echo lost > $1/lost_file && echo found > $2",
+                arguments = [lost_tree.path, found.path],
+            )
+            ctx.actions.run_shell(outputs = [failed], inputs = [found], command = "false")
+            return DefaultInfo(files = depset([lost_tree, found, failed]))
+
+        lost_tree_found_and_failed = rule(implementation = _lost_tree_found_and_failed_impl)
+        """);
     testCase.write(
         "foo/BUILD",
-        "load(':defs.bzl', 'lost_tree_found_and_failed')",
-        "lost_tree_found_and_failed(name = 'lost_tree_found_and_failed')");
+        """
+        load(":defs.bzl", "lost_tree_found_and_failed")
+
+        lost_tree_found_and_failed(name = "lost_tree_found_and_failed")
+        """);
     lostOutputsModule.addLostOutput(getExecPath("bin/foo/lost_tree/lost_file"));
     Label fooLostTreeFoundAndFailed = Label.parseCanonical("//foo:lost_tree_found_and_failed");
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
@@ -2912,18 +3190,23 @@ public class RewindingTestsHelper {
   public final void runTopLevelOutputRewound_ineffectiveRewinding() throws Exception {
     testCase.write(
         "foo/defs.bzl",
-        "def _lost_and_found_impl(ctx):",
-        "  lost = ctx.actions.declare_file('lost.out')",
-        "  found = ctx.actions.declare_file('found.out')",
-        "  ctx.actions.run_shell(outputs = [lost], command = 'echo lost > %s' % lost.path)",
-        "  ctx.actions.run_shell(outputs = [found], command = 'echo found > %s' % found.path)",
-        "  return DefaultInfo(files = depset([lost, found]))",
-        "",
-        "lost_and_found = rule(implementation = _lost_and_found_impl)");
+        """
+        def _lost_and_found_impl(ctx):
+            lost = ctx.actions.declare_file("lost.out")
+            found = ctx.actions.declare_file("found.out")
+            ctx.actions.run_shell(outputs = [lost], command = "echo lost > %s" % lost.path)
+            ctx.actions.run_shell(outputs = [found], command = "echo found > %s" % found.path)
+            return DefaultInfo(files = depset([lost, found]))
+
+        lost_and_found = rule(implementation = _lost_and_found_impl)
+        """);
     testCase.write(
         "foo/BUILD",
-        "load(':defs.bzl', 'lost_and_found')",
-        "lost_and_found(name = 'lost_and_found')");
+        """
+        load(":defs.bzl", "lost_and_found")
+
+        lost_and_found(name = "lost_and_found")
+        """);
     Label fooLostAndFound = Label.parseCanonical("//foo:lost_and_found");
     String outputExecPath = getExecPath("bin/foo/lost.out");
     RecordingBugReporter bugReporter = testCase.recordBugReportsAndReinitialize();

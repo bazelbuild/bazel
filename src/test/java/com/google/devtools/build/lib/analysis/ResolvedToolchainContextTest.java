@@ -338,23 +338,32 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
         ToolchainTypeInfo.create(variableToolchainTypeLabel);
     scratch.file(
         "variable/variable_toolchain_def.bzl",
-        "def _impl(ctx):",
-        "  value = ctx.attr.value",
-        "  toolchain = platform_common.ToolchainInfo()",
-        "  template_variables = platform_common.TemplateVariableInfo({'VALUE': value})",
-        "  return [toolchain, template_variables]",
-        "variable_toolchain = rule(",
-        "    implementation = _impl,",
-        "    attrs = {'value': attr.string()})");
+        """
+        def _impl(ctx):
+            value = ctx.attr.value
+            toolchain = platform_common.ToolchainInfo()
+            template_variables = platform_common.TemplateVariableInfo({"VALUE": value})
+            return [toolchain, template_variables]
+
+        variable_toolchain = rule(
+            implementation = _impl,
+            attrs = {"value": attr.string()},
+        )
+        """);
 
     // Create instance of new toolchain and register it.
     scratch.file(
         "variable/BUILD",
-        "load('//variable:variable_toolchain_def.bzl', 'variable_toolchain')",
-        "toolchain_type(name = 'variable_toolchain_type')",
-        "variable_toolchain(",
-        "  name='variable_toolchain_impl',",
-        "  value = 'foo')");
+        """
+        load("//variable:variable_toolchain_def.bzl", "variable_toolchain")
+
+        toolchain_type(name = "variable_toolchain_type")
+
+        variable_toolchain(
+            name = "variable_toolchain_impl",
+            value = "foo",
+        )
+        """);
 
     ToolchainContextKey toolchainContextKey =
         ToolchainContextKey.key()

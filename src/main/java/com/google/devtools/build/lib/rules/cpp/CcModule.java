@@ -41,12 +41,12 @@ import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -116,7 +116,6 @@ public abstract class CcModule
     implements CcModuleApi<
         StarlarkActionFactory,
         Artifact,
-        FdoContext,
         FeatureConfigurationForStarlark,
         CcCompilationContext,
         LtoBackendArtifacts,
@@ -256,16 +255,6 @@ public abstract class CcModule
   }
 
   @Override
-  public boolean isEnabled(
-      FeatureConfigurationForStarlark featureConfiguration,
-      String featureName,
-      StarlarkThread thread)
-      throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    return featureConfiguration.getFeatureConfiguration().isEnabled(featureName);
-  }
-
-  @Override
   public boolean actionIsEnabled(
       FeatureConfigurationForStarlark featureConfiguration,
       String actionName,
@@ -386,32 +375,23 @@ public abstract class CcModule
       boolean useTestOnlyFlags,
       boolean isStaticLinkingMode,
       StarlarkThread thread)
-      throws EvalException, InterruptedException {
+      throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
     if (featureConfiguration.getFeatureConfiguration().isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
       throw Starlark.errorf("FDO instrumentation not supported");
     }
     CcToolchainProvider ccToolchainProvider =
         CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(ccToolchainInfo);
-    return LinkBuildVariables.setupVariables(
+    CcToolchainVariables.Builder linkBuildVariables =
+        LinkBuildVariables.setupCommonVariables(
             isUsingLinkerNotArchiver,
-            /* binDirectoryPath= */ null,
-            convertFromNoneable(outputFile, /* defaultValue= */ null),
-            /* runtimeSolibName= */ null,
             isCreatingSharedLibrary,
             convertFromNoneable(paramFile, /* defaultValue= */ null),
-            /* thinltoParamFile= */ null,
-            /* thinltoMergedObjectFile= */ null,
             mustKeepDebug,
             ccToolchainProvider,
             featureConfiguration.getFeatureConfiguration(),
             useTestOnlyFlags,
-            /* isLtoIndexing= */ false,
             userFlagsToIterable(userLinkFlags),
-            /* interfaceLibraryBuilder= */ null,
-            /* interfaceLibraryOutput= */ null,
-            /* ltoOutputRootPrefix= */ null,
-            /* ltoObjRootPrefix= */ null,
             /* fdoContext= */ null,
             Depset.noneableCast(
                 runtimeLibrarySearchDirectories,
@@ -419,9 +399,17 @@ public abstract class CcModule
                 "runtime_library_search_directories"),
             /* librariesToLink= */ null,
             Depset.noneableCast(
-                librarySearchDirectories, String.class, "library_search_directories"),
-            /* addIfsoRelatedVariables= */ false)
-        .build();
+                librarySearchDirectories, String.class, "library_search_directories"));
+    // output exec path
+    if (outputFile != Starlark.NONE) {
+      if (!(outputFile instanceof String)) {
+        throw Starlark.errorf(
+            "Parameter 'output' expected String, got '%s'", Starlark.type(outputFile));
+      }
+      linkBuildVariables.addStringVariable(
+          LinkBuildVariables.OUTPUT_EXECPATH.getVariableName(), (String) outputFile);
+    }
+    return linkBuildVariables.build();
   }
 
   @Override
@@ -992,7 +980,7 @@ public abstract class CcModule
       Artifact bitcodeFile,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
       Info ccToolchainInfo,
-      FdoContext fdoContext,
+      StructImpl fdoContextStruct,
       boolean usePic,
       boolean shouldCreatePerObjectDebugInfo,
       Sequence<?> argv,
@@ -1014,7 +1002,7 @@ public abstract class CcModule
             CppLinkActionBuilder.newActionConstruction(ruleContext),
             featureConfigurationForStarlark.getFeatureConfiguration(),
             ccToolchain,
-            fdoContext,
+            new FdoContext(fdoContextStruct),
             usePic,
             shouldCreatePerObjectDebugInfo,
             Sequence.cast(argv, String.class, "argv"));
@@ -1041,9 +1029,7 @@ public abstract class CcModule
           Depset.noneableCast(userLinkFlagsObject, String.class, "user_link_flags").toList();
       if (!userLinkFlagsFlattened.isEmpty()) {
         LinkOptions options =
-            LinkOptions.of(
-                userLinkFlagsFlattened,
-                BazelStarlarkContext.fromOrFail(thread).getSymbolGenerator());
+            LinkOptions.of(userLinkFlagsFlattened, thread.getNextReferenceIdentitySymbol());
         optionsBuilder.add(options);
       }
     } else if (userLinkFlagsObject instanceof Sequence) {
@@ -1055,14 +1041,12 @@ public abstract class CcModule
               LinkOptions.of(
                   Sequence.cast(userLinkFlagsObject, String.class, "user_link_flags[]")
                       .getImmutableList(),
-                  BazelStarlarkContext.fromOrFail(thread).getSymbolGenerator()));
+                  thread.getNextReferenceIdentitySymbol()));
         } else if (options.get(0) instanceof Sequence) {
           for (Object optionObject : options) {
             ImmutableList<String> option =
                 Sequence.cast(optionObject, String.class, "user_link_flags[][]").getImmutableList();
-            optionsBuilder.add(
-                LinkOptions.of(
-                    option, BazelStarlarkContext.fromOrFail(thread).getSymbolGenerator()));
+            optionsBuilder.add(LinkOptions.of(option, thread.getNextReferenceIdentitySymbol()));
           }
         } else {
           throw Starlark.errorf(
@@ -1129,8 +1113,7 @@ public abstract class CcModule
           ccLinkingContextBuilder.addUserLinkFlags(
               ImmutableList.of(
                   CcLinkingContext.LinkOptions.of(
-                      userLinkFlags.getImmutableList(),
-                      BazelStarlarkContext.fromOrFail(thread).getSymbolGenerator())));
+                      userLinkFlags.getImmutableList(), thread.getNextReferenceIdentitySymbol())));
         }
         @SuppressWarnings("unchecked")
         Sequence<String> nonCodeInputs = nullIfNone(nonCodeInputsObject, Sequence.class);
@@ -1947,7 +1930,7 @@ public abstract class CcModule
                 featureConfiguration.getFeatureConfiguration(),
                 ccToolchainProvider,
                 fdoContext,
-                BazelStarlarkContext.fromOrFail(thread).getSymbolGenerator(),
+                thread.getSymbolGenerator(),
                 TargetUtils.getExecutionInfo(
                     actions.getRuleContext().getRule(),
                     actions.getRuleContext().isAllowTagsPropagation()))
@@ -2432,7 +2415,7 @@ public abstract class CcModule
                 actualFeatureConfiguration,
                 ccToolchainProvider,
                 fdoContext,
-                BazelStarlarkContext.fromOrFail(thread).getSymbolGenerator(),
+                thread.getSymbolGenerator(),
                 TargetUtils.getExecutionInfo(
                     actions.getRuleContext().getRule(),
                     actions.getRuleContext().isAllowTagsPropagation()))
@@ -2650,8 +2633,7 @@ public abstract class CcModule
           "Cannot use experimental ExtraLinkTimeLibrary creation API outside of builtins");
     }
     boolean nonGlobalFunc = false;
-    if (buildLibraryFunc instanceof StarlarkFunction) {
-      StarlarkFunction fn = (StarlarkFunction) buildLibraryFunc;
+    if (buildLibraryFunc instanceof StarlarkFunction fn) {
       if (fn.getModule().getGlobal(fn.getName()) != fn) {
         nonGlobalFunc = true;
       }

@@ -29,7 +29,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.BuildSettingProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;

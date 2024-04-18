@@ -12,4 +12,4 @@ these releases.
 
 ## Index {: #index }
 
-<iframe src="https://releases.bazel.build/rolling.html" style="height: 3000px; width: 100%" />
+<iframe src="https://releases.bazel.build/rolling.html" style="height: 3000px; width: 100%" ></iframe>

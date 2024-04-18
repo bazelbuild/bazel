@@ -139,7 +139,11 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         externalFilesHelper))
                 .put(
                     SkyFunctions.MODULE_FILE,
-                    new ModuleFileFunction(registryFactory, rootDirectory, builtinModules))
+                    new ModuleFileFunction(
+                        ruleClassProvider.getBazelStarlarkEnvironment(),
+                        registryFactory,
+                        rootDirectory,
+                        builtinModules))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(
                     SkyFunctions.REPOSITORY_DIRECTORY,
@@ -154,6 +158,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
                     new BzlmodRepoRuleFunction(ruleClassProvider, directories))
                 .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory))
+                .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction(registryFactory))
                 .put(
                     SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
                     new ModuleExtensionRepoMappingEntriesFunction())

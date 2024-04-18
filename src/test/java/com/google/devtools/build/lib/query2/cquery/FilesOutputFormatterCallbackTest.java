@@ -89,16 +89,20 @@ public class FilesOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
     writeFile("defs/BUILD", "exports_files(['rules.bzl'])");
     writeFile(
         "pkg/BUILD",
-        "load('//defs:rules.bzl', 'r')",
-        "r(",
-        "    name = 'main',",
-        "    explicit_source_dep = 'BUILD',",
-        ")",
-        "r(",
-        "    name = 'other',",
-        "    deps = [':main'],",
-        "    explicit_source_dep = 'BUILD',",
-        ")");
+        """
+        load("//defs:rules.bzl", "r")
+
+        r(
+            name = "main",
+            explicit_source_dep = "BUILD",
+        )
+
+        r(
+            name = "other",
+            explicit_source_dep = "BUILD",
+            deps = [":main"],
+        )
+        """);
   }
 
   @Before

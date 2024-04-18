@@ -57,11 +57,10 @@ public class ObjectGraphTraverserTest {
 
     @Override
     public boolean equals(Object o) {
-      if (!(o instanceof Edge)) {
+      if (!(o instanceof Edge that)) {
         return false;
       }
 
-      Edge that = (Edge) o;
       return that.from == from && that.to == to && that.type == type;
     }
 
@@ -104,7 +103,7 @@ public class ObjectGraphTraverserTest {
     ImmutableList<DomainSpecificTraverser> traversers =
         domainSpecific == null ? ImmutableList.of() : ImmutableList.of(domainSpecific);
     return new ObjectGraphTraverser(
-        new FieldCache(traversers), seen, collectContext, receiver, null);
+        new FieldCache(traversers), true, seen, collectContext, receiver, null);
   }
 
   @Test

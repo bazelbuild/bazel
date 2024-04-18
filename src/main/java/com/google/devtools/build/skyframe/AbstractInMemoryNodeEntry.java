@@ -200,14 +200,21 @@ abstract class AbstractInMemoryNodeEntry<D extends DirtyBuildingState>
   }
 
   @Override
-  public final synchronized void markRebuilding() {
+  public synchronized void markRebuilding() {
     checkNotNull(dirtyBuildingState, this).markRebuilding();
   }
 
   final GroupedDeps newGroupedDeps() {
-    // If the key opts into partial reevaluation, tracking deps with a HashSet is worth the extra
-    // memory cost -- see SkyFunctionEnvironment.PartialReevaluation.
-    return key.supportsPartialReevaluation() ? new GroupedDeps.WithHashSet() : new GroupedDeps();
+    // If the key skips batch prefetching and possibly opts into partial reevaluation, there will be
+    // no environment-scoped map storing previously requested deps values after
+    // `SkyFunctionEnvironment` instantiation. So tracking deps with a HashSet is worth the extra
+    // memory cost for efficient query -- see SkyFunctionEnvironment.SkipsBatchPrefetch.
+    // TODO: b/324948927#comment8 - (1) Determine whether to skip batch prefetch using some logic
+    // other than the `SkyKey#skipBatchPrefetch()` method; (2) Consider creating and using the set
+    // on demand by calling `GroupedDeps#toSet()` when `SkyFunctionEnvironment#SkipsBatchPrefetch`
+    // is created. Whether calling `GroupedDeps#toSet()` introduces performance regression requires
+    // some benchmarkings.
+    return key.skipsBatchPrefetch() ? new GroupedDeps.WithHashSet() : new GroupedDeps();
   }
 
   abstract int getNumTemporaryDirectDeps();

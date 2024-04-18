@@ -257,10 +257,9 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof Symlink)) {
+      if (!(obj instanceof Symlink o)) {
         return false;
       }
-      Symlink o = (Symlink) obj;
       return linkName.equals(o.linkName) && unresolvedLinkTarget.equals(o.unresolvedLinkTarget);
     }
 
@@ -660,10 +659,9 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof RecursiveFilesystemTraversalValue)) {
+    if (!(obj instanceof RecursiveFilesystemTraversalValue o)) {
       return false;
     }
-    RecursiveFilesystemTraversalValue o = (RecursiveFilesystemTraversalValue) obj;
     return resolvedRoot.equals(o.resolvedRoot) && resolvedPaths.equals(o.resolvedPaths);
   }
 

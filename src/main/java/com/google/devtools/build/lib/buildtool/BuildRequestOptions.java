@@ -75,6 +75,17 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean useSemaphoreForJobs;
 
   @Option(
+      name = "experimental_async_execution",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If set to true, Bazel is allowed to run action in a virtual thread. The number of"
+              + " actions in flight is still capped with --jobs.")
+  public boolean useAsyncExecution;
+
+  @Option(
       name = "progress_report_interval",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.LOGGING,
@@ -322,21 +333,6 @@ public class BuildRequestOptions extends OptionsBase {
   public String getSymlinkPrefix(String productName) {
     return symlinkPrefix == null ? productName + "-" : symlinkPrefix;
   }
-
-  @Option(
-      name = "experimental_create_py_symlinks",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "If enabled, two convenience symlinks, `py2` and `py3`, will be created (with the"
-              + " appropriate prefix). These point to the output directories for the Python 2 and"
-              + " Python 3 configurations, respectively. This can be used to access outputs in the"
-              + " bin directory of a specific Python version. For instance, if --symlink_prefix is"
-              + " `foo-`, the path `foo-py2/bin` behaves like `foo-bin` except that it is"
-              + " guaranteed to contain artifacts built in the Python 2 configuration. IMPORTANT:"
-              + " This flag is not planned to be enabled by default, and should not be relied on.")
-  public boolean experimentalCreatePySymlinks;
 
   @Option(
       name = "use_action_cache",

@@ -32,12 +32,19 @@ public class PlatformInfoProducerTest extends ProducerTestCase {
   public void infoLookup() throws Exception {
     scratch.overwriteFile(
         "lookup/BUILD",
-        "constraint_setting(name = 'setting1')",
-        "constraint_value(name = 'value1', constraint_setting = ':setting1')",
-        "platform(",
-        "    name = 'basic',",
-        "    constraint_values = [':value1'],",
-        ")");
+        """
+        constraint_setting(name = "setting1")
+
+        constraint_value(
+            name = "value1",
+            constraint_setting = ":setting1",
+        )
+
+        platform(
+            name = "basic",
+            constraint_values = [":value1"],
+        )
+        """);
 
     Label platformLabel = Label.parseCanonicalUnchecked("//lookup:basic");
     PlatformInfo result = fetch(platformLabel);
@@ -50,13 +57,24 @@ public class PlatformInfoProducerTest extends ProducerTestCase {
   public void infoLookup_alias() throws Exception {
     scratch.overwriteFile(
         "lookup/BUILD",
-        "constraint_setting(name = 'setting1')",
-        "constraint_value(name = 'value1', constraint_setting = ':setting1')",
-        "platform(",
-        "    name = 'basic',",
-        "    constraint_values = [':value1'],",
-        ")",
-        "alias(name = 'alias', actual = ':basic')");
+        """
+        constraint_setting(name = "setting1")
+
+        constraint_value(
+            name = "value1",
+            constraint_setting = ":setting1",
+        )
+
+        platform(
+            name = "basic",
+            constraint_values = [":value1"],
+        )
+
+        alias(
+            name = "alias",
+            actual = ":basic",
+        )
+        """);
 
     Label platformLabel = Label.parseCanonicalUnchecked("//lookup:alias");
     PlatformInfo result = fetch(platformLabel);
@@ -67,7 +85,13 @@ public class PlatformInfoProducerTest extends ProducerTestCase {
 
   @Test
   public void infoLookup_error() throws Exception {
-    scratch.overwriteFile("lookup/BUILD", "filegroup(", "    name = 'basic',", ")");
+    scratch.overwriteFile(
+        "lookup/BUILD",
+        """
+        filegroup(
+            name = "basic",
+        )
+        """);
 
     Label platformLabel = Label.parseCanonicalUnchecked("//lookup:basic");
     assertThrows(InvalidPlatformException.class, () -> fetch(platformLabel));

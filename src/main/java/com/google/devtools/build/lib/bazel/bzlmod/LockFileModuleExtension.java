@@ -41,6 +41,9 @@ public abstract class LockFileModuleExtension implements Postable {
   @SuppressWarnings("mutable")
   public abstract byte[] getBzlTransitiveDigest();
 
+  @SuppressWarnings("mutable")
+  public abstract byte[] getUsagesDigest();
+
   public abstract ImmutableMap<RepoRecordedInput.File, String> getRecordedFileInputs();
 
   public abstract ImmutableMap<RepoRecordedInput.Dirents, String> getRecordedDirentsInputs();
@@ -66,6 +69,8 @@ public abstract class LockFileModuleExtension implements Postable {
   public abstract static class Builder {
 
     public abstract Builder setBzlTransitiveDigest(byte[] digest);
+
+    public abstract Builder setUsagesDigest(byte[] digest);
 
     public abstract Builder setRecordedFileInputs(
         ImmutableMap<RepoRecordedInput.File, String> value);

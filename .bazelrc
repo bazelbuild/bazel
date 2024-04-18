@@ -32,9 +32,6 @@ build:windows --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolch
 
 build:windows_arm64 --platforms=//:windows_arm64
 build:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows
-# When cross-compiling, the local Java runtime, which is used by default, will not be compatible
-# with the target.
-build:windows_arm64 --java_runtime_version=remotejdk_11
 
 # Check direct Bazel module dependencies are up-to-date
 common --check_direct_dependencies=error

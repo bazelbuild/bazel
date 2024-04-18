@@ -114,38 +114,47 @@ public class ConstraintCollectionApiTest extends PlatformTestCase {
 
     scratch.file(
         "verify/verify.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  platform = ctx.attr.platform[platform_common.PlatformInfo]",
-        "  constraint_setting = ctx.attr.constraint_setting[platform_common.ConstraintSettingInfo]",
-        "  constraint_collection = platform.constraints",
-        "  value_from_index = constraint_collection[constraint_setting]",
-        "  value_from_get = constraint_collection.get(constraint_setting)",
-        "  used_constraints = constraint_collection.constraint_settings",
-        "  has_constraint = constraint_collection.has(constraint_setting)",
-        "  has_constraint_value = constraint_collection.has_constraint_value(value_from_get)",
-        "  return [result(",
-        "    value_from_index = value_from_index,",
-        "    value_from_get = value_from_get,",
-        "    used_constraints = used_constraints,",
-        "    has_constraint = has_constraint,",
-        "    has_constraint_value = has_constraint_value,",
-        "  )]",
-        "verify = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'platform': attr.label(providers = [platform_common.PlatformInfo]),",
-        "    'constraint_setting': attr.label(",
-        "        providers = [platform_common.ConstraintSettingInfo]),",
-        "  },",
-        ")");
+        """
+        result = provider()
+
+        def _impl(ctx):
+            platform = ctx.attr.platform[platform_common.PlatformInfo]
+            constraint_setting = ctx.attr.constraint_setting[platform_common.ConstraintSettingInfo]
+            constraint_collection = platform.constraints
+            value_from_index = constraint_collection[constraint_setting]
+            value_from_get = constraint_collection.get(constraint_setting)
+            used_constraints = constraint_collection.constraint_settings
+            has_constraint = constraint_collection.has(constraint_setting)
+            has_constraint_value = constraint_collection.has_constraint_value(value_from_get)
+            return [result(
+                value_from_index = value_from_index,
+                value_from_get = value_from_get,
+                used_constraints = used_constraints,
+                has_constraint = has_constraint,
+                has_constraint_value = has_constraint_value,
+            )]
+
+        verify = rule(
+            implementation = _impl,
+            attrs = {
+                "platform": attr.label(providers = [platform_common.PlatformInfo]),
+                "constraint_setting": attr.label(
+                    providers = [platform_common.ConstraintSettingInfo],
+                ),
+            },
+        )
+        """);
     scratch.file(
         "verify/BUILD",
-        "load(':verify.bzl', 'verify')",
-        "verify(name = 'verify',",
-        "  platform = '//foo:my_platform',",
-        "  constraint_setting = '//foo:s1',",
-        ")");
+        """
+        load(":verify.bzl", "verify")
+
+        verify(
+            name = "verify",
+            constraint_setting = "//foo:s1",
+            platform = "//foo:my_platform",
+        )
+        """);
 
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//verify:verify");
     StructImpl info =

@@ -64,16 +64,12 @@ public final class StarlarkCallbackHelper {
   public Object call(EventHandler eventHandler, Structure struct, Object... arguments)
       throws EvalException, InterruptedException {
     try (Mutability mu = Mutability.create("callback", callback)) {
-      StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
+      // TODO(brandjon): In principle, if we're creating a new symbol generator here, we should have
+      // a unique owner object to associate it with for distinguishing reference-equality objects.
+      // But I don't think implicit outputs or computed defaults care about identity.
+      StarlarkThread thread = StarlarkThread.createTransient(mu, starlarkSemantics);
       thread.setPrintHandler(Event.makeDebugPrintHandler(eventHandler));
-      new BazelStarlarkContext(
-              BazelStarlarkContext.Phase.LOADING,
-              // TODO(brandjon): In principle, if we're creating a new symbol generator here, we
-              // should have a unique owner object to associate it with for distinguishing
-              // reference-equality objects. But I don't think implicit outputs or computed defaults
-              // care about identity.
-              new SymbolGenerator<>(new Object()))
-          .storeInThread(thread);
+      new BazelStarlarkContext(BazelStarlarkContext.Phase.LOADING).storeInThread(thread);
       return Starlark.call(
           thread, callback, buildArgumentList(struct, arguments), /*kwargs=*/ ImmutableMap.of());
     } catch (ClassCastException | IllegalArgumentException e) { // TODO(adonovan): investigate

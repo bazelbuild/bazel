@@ -16,9 +16,13 @@ package com.google.devtools.build.lib.rules.apple;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StructImpl;
+import net.starlark.java.eval.Sequence;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -26,70 +30,94 @@ import org.junit.runners.JUnit4;
 /** Unit tests for the {@code available_xcodes} rule. */
 @RunWith(JUnit4.class)
 public final class AvailableXcodesTest extends BuildViewTestCase {
+  private static final Provider.Key AVAILABLE_XCODES_PROVIDER_KEY =
+      new StarlarkProvider.Key(
+          Label.parseCanonicalUnchecked("@_builtins//:common/xcode/providers.bzl"),
+          "AvailableXcodesInfo");
+
+  private static final Provider.Key XCODE_VERSION_PROPERTIES_PROVIDER_KEY =
+      new StarlarkProvider.Key(
+          Label.parseCanonicalUnchecked("@_builtins//:common/xcode/providers.bzl"),
+          "XcodeVersionPropertiesInfo");
+
   @Test
   public void testXcodeVersionCanBeReadFromNative() throws Exception {
     scratch.file(
         "examples/apple/BUILD",
-        "package(default_visibility = ['//visibility:public'])",
-        "available_xcodes(",
-        "    name = 'my_xcodes',",
-        "    default = ':xcode_8',",
-        "    versions = [':xcode_8', ':xcode_9'],",
-        ")",
-        "xcode_version(",
-        "    name = 'xcode_8',",
-        "    version = '8',",
-        "    default_ios_sdk_version = '9.0',",
-        "    default_watchos_sdk_version = '9.1',",
-        "    default_tvos_sdk_version = '9.2',",
-        "    default_macos_sdk_version = '9.3',",
-        ")",
-        "xcode_version(",
-        "    name = 'xcode_9',",
-        "    version = '9',",
-        "    default_ios_sdk_version = '10.0',",
-        "    default_watchos_sdk_version = '10.1',",
-        "    default_tvos_sdk_version = '10.2',",
-        "    default_macos_sdk_version = '10.3',",
-        ")");
+        """
+        package(default_visibility = ["//visibility:public"])
+
+        available_xcodes(
+            name = "my_xcodes",
+            default = ":xcode_8",
+            versions = [
+                ":xcode_8",
+                ":xcode_9",
+            ],
+        )
+
+        xcode_version(
+            name = "xcode_8",
+            default_ios_sdk_version = "9.0",
+            default_macos_sdk_version = "9.3",
+            default_tvos_sdk_version = "9.2",
+            default_watchos_sdk_version = "9.1",
+            version = "8",
+        )
+
+        xcode_version(
+            name = "xcode_9",
+            default_ios_sdk_version = "10.0",
+            default_macos_sdk_version = "10.3",
+            default_tvos_sdk_version = "10.2",
+            default_watchos_sdk_version = "10.1",
+            version = "9",
+        )
+        """);
 
     ConfiguredTarget nativeTarget = getConfiguredTarget("//examples/apple:my_xcodes");
-    AvailableXcodesInfo availableXcodesInfo = nativeTarget.get(AvailableXcodesInfo.PROVIDER);
+    StructImpl availableXcodesInfo = (StructImpl) nativeTarget.get(AVAILABLE_XCODES_PROVIDER_KEY);
     ConfiguredTarget version8 = getConfiguredTarget("//examples/apple:xcode_8");
-    XcodeVersionProperties version8properties = version8.get(XcodeVersionProperties.PROVIDER);
+    StructImpl version8properties =
+        (StructImpl) version8.get(XCODE_VERSION_PROPERTIES_PROVIDER_KEY);
     ConfiguredTarget version9 = getConfiguredTarget("//examples/apple:xcode_9");
-    XcodeVersionProperties version9properties = version9.get(XcodeVersionProperties.PROVIDER);
-    assertThat(availableXcodesInfo.getAvailableVersions()).hasSize(2);
-    assertThat(
-            Iterables.get(availableXcodesInfo.getAvailableVersions(), 0)
-                .getXcodeVersionProperties())
+    StructImpl version9properties =
+        (StructImpl) version9.get(XCODE_VERSION_PROPERTIES_PROVIDER_KEY);
+    Sequence<StructImpl> availableVersions =
+        Sequence.cast(
+            availableXcodesInfo.getValue("available_versions"),
+            StructImpl.class,
+            "available_versions");
+    assertThat(availableVersions).hasSize(2);
+    assertThat(availableVersions.get(0).getValue("xcode_version_properties"))
         .isEqualTo(version8properties);
-    assertThat(
-            Iterables.get(availableXcodesInfo.getAvailableVersions(), 1)
-                .getXcodeVersionProperties())
+    assertThat(availableVersions.get(1).getValue("xcode_version_properties"))
         .isEqualTo(version9properties);
-    assertThat(availableXcodesInfo.getDefaultVersion().getVersion().toString()).isEqualTo("8");
-    assertThat(availableXcodesInfo.getDefaultVersion().getXcodeVersionProperties())
-        .isEqualTo(version8properties);
+    StructImpl defaultVersion = availableXcodesInfo.getValue("default_version", StructImpl.class);
+    assertThat(defaultVersion.getValue("xcode_version_properties")).isEqualTo(version8properties);
   }
 
   @Test
   public void testXcodeVersionRequiresDefault() throws Exception {
     scratch.file(
         "examples/apple/BUILD",
-        "package(default_visibility = ['//visibility:public'])",
-        "available_xcodes(",
-        "    name = 'my_xcodes',",
-        "    versions = [':my_xcode'],",
-        ")",
-        "xcode_version(",
-        "    name = 'my_xcode',",
-        "    version = '8',",
-        "    default_ios_sdk_version = '9.0',",
-        "    default_watchos_sdk_version = '9.1',",
-        "    default_tvos_sdk_version = '9.2',",
-        "    default_macos_sdk_version = '9.3',",
-        ")");
+        """
+        package(default_visibility = ["//visibility:public"])
+
+        available_xcodes(
+            name = "my_xcodes",
+            versions = [":my_xcode"],
+        )
+
+        xcode_version(
+            name = "my_xcode",
+            default_ios_sdk_version = "9.0",
+            default_macos_sdk_version = "9.3",
+            default_tvos_sdk_version = "9.2",
+            default_watchos_sdk_version = "9.1",
+            version = "8",
+        )
+        """);
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//examples/apple:my_xcodes");
     assertContainsEvent(

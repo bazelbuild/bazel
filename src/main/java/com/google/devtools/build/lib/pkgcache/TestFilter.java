@@ -97,10 +97,9 @@ public final class TestFilter implements com.google.common.base.Predicate<Target
     if (o == this) {
       return true;
     }
-    if (!(o instanceof TestFilter)) {
+    if (!(o instanceof TestFilter f)) {
       return false;
     }
-    TestFilter f = (TestFilter) o;
     return f.testSizeFilterSet.equals(testSizeFilterSet)
         && f.testTimeoutFilterSet.equals(testTimeoutFilterSet)
         && f.testTagFilterList.equals(testTagFilterList)

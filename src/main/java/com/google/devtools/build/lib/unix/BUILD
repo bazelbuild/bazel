@@ -21,6 +21,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/util:blocker",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",

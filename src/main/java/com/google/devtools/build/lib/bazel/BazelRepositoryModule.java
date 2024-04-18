@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.RegistryFactoryImpl;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpecFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionUsagesFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.commands.FetchCommand;
 import com.google.devtools.build.lib.bazel.commands.ModCommand;
@@ -77,6 +78,7 @@ import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRul
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryFunction;
@@ -121,6 +123,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -254,7 +257,11 @@ public class BazelRepositoryModule extends BlazeModule {
         .addSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY, repositoryDelegatorFunction)
         .addSkyFunction(
             SkyFunctions.MODULE_FILE,
-            new ModuleFileFunction(registryFactory, directories.getWorkspace(), builtinModules))
+            new ModuleFileFunction(
+                runtime.getRuleClassProvider().getBazelStarlarkEnvironment(),
+                registryFactory,
+                directories.getWorkspace(),
+                builtinModules))
         .addSkyFunction(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
         .addSkyFunction(
             SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(directories.getWorkspace()))
@@ -265,6 +272,7 @@ public class BazelRepositoryModule extends BlazeModule {
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_EVAL, singleExtensionEvalFunction)
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
         .addSkyFunction(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory))
+        .addSkyFunction(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction(registryFactory))
         .addSkyFunction(
             SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
             new ModuleExtensionRepoMappingEntriesFunction());
@@ -321,8 +329,11 @@ public class BazelRepositoryModule extends BlazeModule {
             starlarkRepositoryFunction.setWorkerExecutorService(
                 (ExecutorService)
                     Executors.class
-                        .getDeclaredMethod("newVirtualThreadPerTaskExecutor")
-                        .invoke(null));
+                        .getDeclaredMethod("newThreadPerTaskExecutor", ThreadFactory.class)
+                        .invoke(
+                            null,
+                            Profiler.instance()
+                                .profileableVirtualThreadFactory("starlark-repository-")));
           } catch (ReflectiveOperationException e) {
             if (repoOptions.workerForRepoFetching == RepositoryOptions.WorkerForRepoFetching.AUTO) {
               starlarkRepositoryFunction.setWorkerExecutorService(null);

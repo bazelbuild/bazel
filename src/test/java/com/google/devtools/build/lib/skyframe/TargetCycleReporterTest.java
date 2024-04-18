@@ -43,9 +43,29 @@ public final class TargetCycleReporterTest extends BuildViewTestCase {
   public void loadingPhaseCycleWithDifferentTopLevelKeyTypes() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "genrule(name = 'a', srcs = [], outs = ['a.o'], cmd = 'echo uh > $@')",
-        "genrule(name = 'b', srcs = [], outs = ['b.o'], cmd = 'echo hi > $@', visibility = [':c'])",
-        "genrule(name = 'c', srcs = [], outs = ['c.o'], cmd = 'echo hi > $@')");
+        """
+        genrule(
+            name = "a",
+            srcs = [],
+            outs = ["a.o"],
+            cmd = "echo uh > $@",
+        )
+
+        genrule(
+            name = "b",
+            srcs = [],
+            outs = ["b.o"],
+            cmd = "echo hi > $@",
+            visibility = [":c"],
+        )
+
+        genrule(
+            name = "c",
+            srcs = [],
+            outs = ["c.o"],
+            cmd = "echo hi > $@",
+        )
+        """);
     TargetCycleReporter cycleReporter = new TargetCycleReporter(getPackageManager());
     CycleInfo cycle =
         new CycleInfo(

@@ -55,85 +55,82 @@ public class AarImportTest extends AndroidBuildViewTestCase {
   @Before
   public void setup() throws Exception {
     scratch.file(
-        "aapt2/sdk/BUILD",
-        "android_sdk(",
-        "    name = 'sdk',",
-        "    aapt = 'aapt',",
-        "    aapt2 = 'aapt2',",
-        "    adb = 'adb',",
-        "    aidl = 'aidl',",
-        "    android_jar = 'android.jar',",
-        "    apksigner = 'apksigner',",
-        "    dx = 'dx',",
-        "    framework_aidl = 'framework_aidl',",
-        "    main_dex_classes = 'main_dex_classes',",
-        "    main_dex_list_creator = 'main_dex_list_creator',",
-        "    proguard = 'proguard',",
-        "    shrinked_android_jar = 'shrinked_android_jar',",
-        "    zipalign = 'zipalign',",
-        "    tags = ['__ANDROID_RULES_MIGRATION__'],",
-        ")");
-    scratch.file(
         "a/BUILD",
-        "java_import(",
-        "    name = 'foo_src',",
-        "    jars = ['foo-src.jar'],",
-        ")",
-        "aar_import(",
-        "    name = 'foo',",
-        "    aar = 'foo.aar',",
-        "    srcjar = ':foo_src',",
-        ")",
-        "aar_import(",
-        "    name = 'baz',",
-        "    aar = 'baz.aar',",
-        ")",
-        "java_import(",
-        "    name = 'bar_src',",
-        "    jars = ['bar-src.jar'],",
-        ")",
-        "aar_import(",
-        "    name = 'bar',",
-        "    aar = 'bar.aar',",
-        "    srcjar = ':bar_src',",
-        "    deps = [':baz'],",
-        "    exports = [':foo', '//java:baz'],",
-        ")",
-        "aar_import(",
-        "    name = 'intermediate',",
-        "    aar = 'intermediate.aar',",
-        "    deps = [':bar']",
-        ")",
-        "aar_import(",
-        "    name = 'last',",
-        "    aar = 'last.aar',",
-        "    deps = [':intermediate'],",
-        ")",
-        "android_library(",
-        "    name = 'library',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    custom_package = 'com.google.arrimport',",
-        "    resource_files = ['res/values/values.xml'],",
-        "    srcs = ['App.java'],",
-        "    deps = [':foo'],",
-        ")");
+        """
+        java_import(
+            name = "foo_src",
+            jars = ["foo-src.jar"],
+        )
+
+        aar_import(
+            name = "foo",
+            aar = "foo.aar",
+            srcjar = ":foo_src",
+        )
+
+        aar_import(
+            name = "baz",
+            aar = "baz.aar",
+        )
+
+        java_import(
+            name = "bar_src",
+            jars = ["bar-src.jar"],
+        )
+
+        aar_import(
+            name = "bar",
+            aar = "bar.aar",
+            srcjar = ":bar_src",
+            exports = [
+                ":foo",
+                "//java:baz",
+            ],
+            deps = [":baz"],
+        )
+
+        aar_import(
+            name = "intermediate",
+            aar = "intermediate.aar",
+            deps = [":bar"],
+        )
+
+        aar_import(
+            name = "last",
+            aar = "last.aar",
+            deps = [":intermediate"],
+        )
+
+        android_library(
+            name = "library",
+            srcs = ["App.java"],
+            custom_package = "com.google.arrimport",
+            manifest = "AndroidManifest.xml",
+            resource_files = ["res/values/values.xml"],
+            deps = [":foo"],
+        )
+        """);
     scratch.file(
         "java/BUILD",
-        "android_binary(",
-        "    name = 'app',",
-        "    manifest = 'AndroidManifest.xml',",
-        "    srcs = ['App.java'],",
-        "    deps = ['//a:bar'],",
-        ")",
-        "android_library(",
-        "    name = 'lib',",
-        "    exports = ['//a:bar'],",
-        ")",
-        "java_import(",
-        "    name = 'baz',",
-        "    jars = ['baz.jar'],",
-        "    constraints = ['android'],",
-        ")");
+        """
+        android_binary(
+            name = "app",
+            srcs = ["App.java"],
+            manifest = "AndroidManifest.xml",
+            deps = ["//a:bar"],
+        )
+
+        android_library(
+            name = "lib",
+            exports = ["//a:bar"],
+        )
+
+        java_import(
+            name = "baz",
+            constraints = ["android"],
+            jars = ["baz.jar"],
+        )
+        """);
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
   }
 
@@ -177,8 +174,6 @@ public class AarImportTest extends AndroidBuildViewTestCase {
 
   @Test
   public void aapt2RTxtProvided() throws Exception {
-    useConfiguration("--android_sdk=//aapt2/sdk:sdk");
-
     ConfiguredTarget libTarget = getConfiguredTarget("//a:library");
 
     NestedSet<Artifact> transitiveCompiledSymbols =
@@ -443,16 +438,19 @@ public class AarImportTest extends AndroidBuildViewTestCase {
   public void testNativeLibsMakesItIntoApk() throws Exception {
     scratch.file(
         "java/com/google/android/hello/BUILD",
-        "aar_import(",
-        "    name = 'my_aar',",
-        "    aar = 'my_aar.aar',",
-        ")",
-        "android_binary(",
-        "    name = 'my_app',",
-        "    srcs = ['HelloApp.java'],",
-        "    deps = [':my_aar'],",
-        "    manifest = 'AndroidManifest.xml',",
-        ")");
+        """
+        aar_import(
+            name = "my_aar",
+            aar = "my_aar.aar",
+        )
+
+        android_binary(
+            name = "my_app",
+            srcs = ["HelloApp.java"],
+            manifest = "AndroidManifest.xml",
+            deps = [":my_aar"],
+        )
+        """);
     ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:my_app");
     SpawnAction apkBuilderAction =
         (SpawnAction)

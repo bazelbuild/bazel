@@ -101,6 +101,7 @@ import java.util.Optional;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.SymbolGenerator;
 
 /** Queries the Bzlmod external dependency graph. */
 @Command(
@@ -643,7 +644,10 @@ public final class ModCommand implements BlazeCommand {
                 modTidyValue.moduleOverrides(),
                 modTidyValue.ignoreDevDeps(),
                 modTidyValue.starlarkSemantics(),
-                env.getReporter());
+                env.getRuntime().getRuleClassProvider().getBazelStarlarkEnvironment(),
+                env.getReporter(),
+                // Not persisted to Skyframe.
+                SymbolGenerator.createTransient());
       } catch (SkyFunctionException | InterruptedException e) {
         return reportAndCreateFailureResult(
             env,

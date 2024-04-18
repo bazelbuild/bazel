@@ -17,7 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.createRandomLeafArray;
-import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructure;
+import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructureWithEquivalenceReduction;
 import static com.google.devtools.build.lib.unsafe.UnsafeProvider.getFieldOffset;
 
 import com.google.common.util.concurrent.ListenableFuture;
@@ -309,13 +309,8 @@ public final class SharedValueDeserializationContextTest {
 
   private static void verifyDeserializedNotNestedSet(
       NotNestedSet original, NotNestedSet deserialized) {
-    // This test could be brittle because when `original` contains values that are deep-equals but
-    // not reference-equals, the round tripping process deduplicates and the result is no longer
-    // structurally equivalent. However, failures should be rare for the following reasons.
-    //
-    // 1. The empty array uses a singleton instance.
-    // 2. Random integers are present in all non-empty arrays and almost never collide.
-    assertThat(dumpStructure(deserialized)).isEqualTo(dumpStructure(original));
+    assertThat(dumpStructureWithEquivalenceReduction(deserialized))
+        .isEqualTo(dumpStructureWithEquivalenceReduction(original));
   }
 
   private static void verifyDeserializedNotNestedSetContainer(

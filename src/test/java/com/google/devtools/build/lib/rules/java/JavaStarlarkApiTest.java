@@ -130,16 +130,20 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     scratch.file(
         "a/rule.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "  provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]",
-        "  return MyInfo(",
-        "    java_home_exec_path = provider.java_home,",
-        "    java_executable_exec_path = provider.java_executable_exec_path,",
-        "    java_home_runfiles_path = provider.java_home_runfiles_path,",
-        "    java_executable_runfiles_path = provider.java_executable_runfiles_path,",
-        "  )",
-        "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
+
+        def _impl(ctx):
+            provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
+            return MyInfo(
+                java_home_exec_path = provider.java_home,
+                java_executable_exec_path = provider.java_executable_exec_path,
+                java_home_runfiles_path = provider.java_home_runfiles_path,
+                java_executable_runfiles_path = provider.java_executable_runfiles_path,
+            )
+
+        jrule = rule(_impl, attrs = {"_java_runtime": attr.label(default = Label("//a:alias"))})
+        """);
 
     useConfiguration("--extra_toolchains=//a:all");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
@@ -175,16 +179,20 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     scratch.file(
         "a/rule.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "  provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]",
-        "  return MyInfo(",
-        "    java_home_exec_path = provider.java_home,",
-        "    java_executable_exec_path = provider.java_executable_exec_path,",
-        "    java_home_runfiles_path = provider.java_home_runfiles_path,",
-        "    java_executable_runfiles_path = provider.java_executable_runfiles_path,",
-        "  )",
-        "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
+
+        def _impl(ctx):
+            provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
+            return MyInfo(
+                java_home_exec_path = provider.java_home,
+                java_executable_exec_path = provider.java_executable_exec_path,
+                java_home_runfiles_path = provider.java_home_runfiles_path,
+                java_executable_runfiles_path = provider.java_executable_runfiles_path,
+            )
+
+        jrule = rule(_impl, attrs = {"_java_runtime": attr.label(default = Label("//a:alias"))})
+        """);
 
     useConfiguration("--extra_toolchains=//a:all");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
@@ -221,16 +229,20 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     scratch.file(
         "a/rule.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "  provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]",
-        "  return MyInfo(",
-        "    java_home_exec_path = provider.java_home,",
-        "    java_executable_exec_path = provider.java_executable_exec_path,",
-        "    java_home_runfiles_path = provider.java_home_runfiles_path,",
-        "    java_executable_runfiles_path = provider.java_executable_runfiles_path,",
-        "  )",
-        "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
+
+        def _impl(ctx):
+            provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
+            return MyInfo(
+                java_home_exec_path = provider.java_home,
+                java_executable_exec_path = provider.java_executable_exec_path,
+                java_home_runfiles_path = provider.java_home_runfiles_path,
+                java_executable_runfiles_path = provider.java_executable_runfiles_path,
+            )
+
+        jrule = rule(_impl, attrs = {"_java_runtime": attr.label(default = Label("//a:alias"))})
+        """);
 
     useConfiguration("--extra_toolchains=//a:all");
     ConfiguredTarget genrule = getConfiguredTarget("//a:gen");
@@ -252,29 +264,37 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void testExposesJavaCommonProvider() throws Exception {
     scratch.file(
         "java/test/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "java_library(",
-        "  name = 'dep',",
-        "  srcs = [ 'Dep.java'],",
-        ")",
-        "my_rule(",
-        "  name = 'my',",
-        "  dep = ':dep',",
-        ")");
+        """
+        load(":extension.bzl", "my_rule")
+
+        java_library(
+            name = "dep",
+            srcs = ["Dep.java"],
+        )
+
+        my_rule(
+            name = "my",
+            dep = ":dep",
+        )
+        """);
     scratch.file(
         "java/test/extension.bzl",
-        "result = provider()",
-        "def impl(ctx):",
-        "   depj = ctx.attr.dep[java_common.provider]",
-        "   return [result(",
-        "             transitive_runtime_jars = depj.transitive_runtime_jars,",
-        "             transitive_compile_time_jars = depj.transitive_compile_time_jars,",
-        "             compile_jars = depj.compile_jars,",
-        "             full_compile_jars = depj.full_compile_jars,",
-        "             source_jars = depj.source_jars,",
-        "             outputs = depj.outputs,",
-        "          )]",
-        "my_rule = rule(impl, attrs = { 'dep' : attr.label() })");
+        """
+        result = provider()
+
+        def impl(ctx):
+            depj = ctx.attr.dep[java_common.provider]
+            return [result(
+                transitive_runtime_jars = depj.transitive_runtime_jars,
+                transitive_compile_time_jars = depj.transitive_compile_time_jars,
+                compile_jars = depj.compile_jars,
+                full_compile_jars = depj.full_compile_jars,
+                source_jars = depj.source_jars,
+                outputs = depj.outputs,
+            )]
+
+        my_rule = rule(impl, attrs = {"dep": attr.label()})
+        """);
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:my");
     StructImpl info =
@@ -315,29 +335,38 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void javaPlugin_exposesJavaOutputs() throws Exception {
     scratch.file(
         "java/test/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "java_library(",
-        "  name = 'lib',",
-        "  srcs = [ 'Lib.java'],",
-        ")",
-        "java_plugin(",
-        "  name = 'dep',",
-        "  srcs = [ 'Dep.java'],",
-        "  deps = [':lib'],",
-        ")",
-        "my_rule(",
-        "  name = 'my',",
-        "  dep = ':dep',",
-        ")");
+        """
+        load(":extension.bzl", "my_rule")
+
+        java_library(
+            name = "lib",
+            srcs = ["Lib.java"],
+        )
+
+        java_plugin(
+            name = "dep",
+            srcs = ["Dep.java"],
+            deps = [":lib"],
+        )
+
+        my_rule(
+            name = "my",
+            dep = ":dep",
+        )
+        """);
     scratch.file(
         "java/test/extension.bzl",
-        "result = provider()",
-        "def impl(ctx):",
-        "   depj = ctx.attr.dep[JavaPluginInfo]",
-        "   return [result(",
-        "             outputs = depj.java_outputs,",
-        "          )]",
-        "my_rule = rule(impl, attrs = { 'dep' : attr.label() })");
+        """
+        result = provider()
+
+        def impl(ctx):
+            depj = ctx.attr.dep[JavaPluginInfo]
+            return [result(
+                outputs = depj.java_outputs,
+            )]
+
+        my_rule = rule(impl, attrs = {"dep": attr.label()})
+        """);
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:my");
     StructImpl info =
@@ -365,24 +394,30 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file("java/test/B.jar");
     scratch.file(
         "java/test/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(name = 'dep')");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(name = "dep")
+        """);
     scratch.file(
         "java/test/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  jacoco = ctx.attr._java_toolchain[java_common.JavaToolchainInfo].jacocorunner",
-        "  return [",
-        "      DefaultInfo(",
-        "          files = depset([jacoco.executable]),",
-        "      ),",
-        "  ]",
-        "java_custom_library = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
-        "  },",
-        "  fragments = ['java']",
-        ")");
+        """
+        def _impl(ctx):
+            jacoco = ctx.attr._java_toolchain[java_common.JavaToolchainInfo].jacocorunner
+            return [
+                DefaultInfo(
+                    files = depset([jacoco.executable]),
+                ),
+            ]
+
+        java_custom_library = rule(
+            implementation = _impl,
+            attrs = {
+                "_java_toolchain": attr.label(default = Label("//java/com/google/test:toolchain")),
+            },
+            fragments = ["java"],
+        )
+        """);
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:dep");
 
@@ -396,31 +431,39 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file("java/test/B.jar");
     scratch.file(
         "java/test/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(",
-        "name = 'dep',",
-        "srcs = ['Main.java'],",
-        "sourcepath = [':B.jar']",
-        ")",
-        "my_rule(",
-        "  name = 'my',",
-        "  dep = ':dep',",
-        ")");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+        load(":extension.bzl", "my_rule")
+
+        java_custom_library(
+            name = "dep",
+            srcs = ["Main.java"],
+            sourcepath = [":B.jar"],
+        )
+
+        my_rule(
+            name = "my",
+            dep = ":dep",
+        )
+        """);
     scratch.file(
         "java/test/extension.bzl",
-        "result = provider()",
-        "def impl(ctx):",
-        "   depj = ctx.attr.dep[java_common.provider]",
-        "   return [result(",
-        "             transitive_runtime_jars = depj.transitive_runtime_jars,",
-        "             transitive_compile_time_jars = depj.transitive_compile_time_jars,",
-        "             compile_jars = depj.compile_jars,",
-        "             full_compile_jars = depj.full_compile_jars,",
-        "             source_jars = depj.source_jars,",
-        "             outputs = depj.outputs,",
-        "          )]",
-        "my_rule = rule(impl, attrs = { 'dep' : attr.label() })");
+        """
+        result = provider()
+
+        def impl(ctx):
+            depj = ctx.attr.dep[java_common.provider]
+            return [result(
+                transitive_runtime_jars = depj.transitive_runtime_jars,
+                transitive_compile_time_jars = depj.transitive_compile_time_jars,
+                compile_jars = depj.compile_jars,
+                full_compile_jars = depj.full_compile_jars,
+                source_jars = depj.source_jars,
+                outputs = depj.outputs,
+            )]
+
+        my_rule = rule(impl, attrs = {"dep": attr.label()})
+        """);
     scratch.file(
         "java/test/custom_rule.bzl",
         "def _impl(ctx):",
@@ -481,21 +524,26 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(",
-        "  name = 'custom',",
-        "  srcs = ['Main.java'],",
-        "  deps = [':dep'],",
-        "  runtime_deps = [':runtime'],",
-        ")",
-        "java_library(",
-        "  name = 'dep',",
-        "  srcs = [ 'Dep.java'],",
-        ")",
-        "java_library(",
-        "  name = 'runtime',",
-        "  srcs = [ 'Runtime.java'],",
-        ")");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(
+            name = "custom",
+            srcs = ["Main.java"],
+            runtime_deps = [":runtime"],
+            deps = [":dep"],
+        )
+
+        java_library(
+            name = "dep",
+            srcs = ["Dep.java"],
+        )
+
+        java_library(
+            name = "runtime",
+            srcs = ["Runtime.java"],
+        )
+        """);
     scratch.file(
         "java/test/custom_rule.bzl",
         "def _impl(ctx):",
@@ -637,14 +685,20 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "java/test/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_library(name = 'dep',",
-        "    srcs = [ 'ProcessorDep.java'])",
-        "java_custom_library(",
-        "    name = 'to_be_processed',",
-        "    deps = [':dep'],",
-        "    srcs = ['ToBeProcessed.java'],",
-        ")");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_library(
+            name = "dep",
+            srcs = ["ProcessorDep.java"],
+        )
+
+        java_custom_library(
+            name = "to_be_processed",
+            srcs = ["ToBeProcessed.java"],
+            deps = [":dep"],
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//java/test:to_be_processed");
@@ -657,16 +711,20 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(",
-        "  name = 'custom',",
-        "  srcs = ['Main.java'],",
-        "  deps = [':dep']",
-        ")",
-        "java_library(",
-        "  name = 'dep',",
-        "  srcs = [ 'Dep.java'],",
-        ")");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(
+            name = "custom",
+            srcs = ["Main.java"],
+            deps = [":dep"],
+        )
+
+        java_library(
+            name = "dep",
+            srcs = ["Dep.java"],
+        )
+        """);
     scratch.file(
         "java/test/custom_rule.bzl",
         "def _impl(ctx):",
@@ -719,16 +777,20 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(",
-        "  name = 'custom',",
-        "  srcs = ['Main.java'],",
-        "  deps = [':dep']",
-        ")",
-        "java_library(",
-        "  name = 'dep',",
-        "  srcs = [ 'Dep.java'],",
-        ")");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(
+            name = "custom",
+            srcs = ["Main.java"],
+            deps = [":dep"],
+        )
+
+        java_library(
+            name = "dep",
+            srcs = ["Dep.java"],
+        )
+        """);
     scratch.file(
         "java/test/custom_rule.bzl",
         "def _impl(ctx):",
@@ -779,16 +841,20 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(",
-        "  name = 'custom',",
-        "  srcs = ['Main.java'],",
-        "  deps = [':dep']",
-        ")",
-        "java_library(",
-        "  name = 'dep',",
-        "  srcs = [ 'Dep.java'],",
-        ")");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(
+            name = "custom",
+            srcs = ["Main.java"],
+            deps = [":dep"],
+        )
+
+        java_library(
+            name = "dep",
+            srcs = ["Dep.java"],
+        )
+        """);
     scratch.file(
         "java/test/custom_rule.bzl",
         "def _impl(ctx):",
@@ -847,11 +913,14 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(",
-        "  name = 'custom',",
-        "  srcs = ['myjar-src.jar'],",
-        ")");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(
+            name = "custom",
+            srcs = ["myjar-src.jar"],
+        )
+        """);
     scratch.file(
         "java/test/custom_rule.bzl",
         "def _impl(ctx):",
@@ -900,10 +969,13 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(",
-        "  name = 'custom',",
-        ")");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(
+            name = "custom",
+        )
+        """);
     scratch.file(
         "java/test/custom_rule.bzl",
         "def _impl(ctx):",
@@ -947,11 +1019,14 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(",
-        "  name = 'custom',",
-        "  srcs = ['myjar-src.jar'],",
-        ")");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(
+            name = "custom",
+            srcs = ["myjar-src.jar"],
+        )
+        """);
     scratch.file(
         "java/test/custom_rule.bzl",
         "def _impl(ctx):",
@@ -1002,12 +1077,15 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(",
-        "  name = 'custom',",
-        "  srcs = ['myjar-src.jar'],",
-        "  additional_inputs = ['additional_input.bin'],",
-        ")");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(
+            name = "custom",
+            srcs = ["myjar-src.jar"],
+            additional_inputs = ["additional_input.bin"],
+        )
+        """);
     scratch.file(
         "java/test/custom_rule.bzl",
         "def _impl(ctx):",
@@ -1072,21 +1150,25 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
       String toBeProcessedRuleName, String extraLoad) throws Exception {
     scratch.file(
         "java/test/extension.bzl",
-        "result = provider()",
-        "def impl(ctx):",
-        "   depj = ctx.attr.dep[JavaInfo]",
-        "   return [result(",
-        "             enabled = depj.annotation_processing.enabled,",
-        "             class_jar = depj.outputs.jars[0].generated_class_jar,",
-        "             source_jar = depj.outputs.jars[0].generated_source_jar,",
-        "             old_class_jar = depj.annotation_processing.class_jar,",
-        "             old_source_jar = depj.annotation_processing.source_jar,",
-        "             processor_classpath = depj.annotation_processing.processor_classpath,",
-        "             processor_classnames = depj.annotation_processing.processor_classnames,",
-        "             transitive_class_jars = depj.annotation_processing.transitive_class_jars,",
-        "             transitive_source_jars = depj.annotation_processing.transitive_source_jars,",
-        "          )]",
-        "my_rule = rule(impl, attrs = { 'dep' : attr.label() })");
+        """
+        result = provider()
+
+        def impl(ctx):
+            depj = ctx.attr.dep[JavaInfo]
+            return [result(
+                enabled = depj.annotation_processing.enabled,
+                class_jar = depj.outputs.jars[0].generated_class_jar,
+                source_jar = depj.outputs.jars[0].generated_source_jar,
+                old_class_jar = depj.annotation_processing.class_jar,
+                old_source_jar = depj.annotation_processing.source_jar,
+                processor_classpath = depj.annotation_processing.processor_classpath,
+                processor_classnames = depj.annotation_processing.processor_classnames,
+                transitive_class_jars = depj.annotation_processing.transitive_class_jars,
+                transitive_source_jars = depj.annotation_processing.transitive_source_jars,
+            )]
+
+        my_rule = rule(impl, attrs = {"dep": attr.label()})
+        """);
     scratch.file(
         "java/test/BUILD",
         "load(':extension.bzl', 'my_rule')",
@@ -1188,18 +1270,21 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void javaPlugin_exposesPluginsToStarlark() throws Exception {
     scratch.file(
         "java/test/BUILD",
-        "java_library(",
-        "    name = 'plugin_dep',",
-        "    srcs = ['ProcessorDep.java'],",
-        "    data = ['depfile.dat'],",
-        ")",
-        "java_plugin(",
-        "    name = 'plugin',",
-        "    srcs = ['AnnotationProcessor.java'],",
-        "    processor_class = 'com.google.process.stuff',",
-        "    deps = [':plugin_dep'],",
-        "    data = ['pluginfile.dat'],",
-        ")");
+        """
+        java_library(
+            name = "plugin_dep",
+            srcs = ["ProcessorDep.java"],
+            data = ["depfile.dat"],
+        )
+
+        java_plugin(
+            name = "plugin",
+            srcs = ["AnnotationProcessor.java"],
+            data = ["pluginfile.dat"],
+            processor_class = "com.google.process.stuff",
+            deps = [":plugin_dep"],
+        )
+        """);
 
     JavaPluginData pluginData =
         retrieveStarlarkPluginData(
@@ -1221,19 +1306,22 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void apiGeneratingjavaPlugin_exposesPluginsToStarlark() throws Exception {
     scratch.file(
         "java/test/BUILD",
-        "java_library(",
-        "    name = 'plugin_dep',",
-        "    srcs = ['ProcessorDep.java'],",
-        "    data = ['depfile.dat'],",
-        ")",
-        "java_plugin(",
-        "    name = 'plugin',",
-        "    generates_api = True,",
-        "    srcs = ['AnnotationProcessor.java'],",
-        "    processor_class = 'com.google.process.stuff',",
-        "    deps = [':plugin_dep'],",
-        "    data = ['pluginfile.dat'],",
-        ")");
+        """
+        java_library(
+            name = "plugin_dep",
+            srcs = ["ProcessorDep.java"],
+            data = ["depfile.dat"],
+        )
+
+        java_plugin(
+            name = "plugin",
+            srcs = ["AnnotationProcessor.java"],
+            data = ["pluginfile.dat"],
+            generates_api = True,
+            processor_class = "com.google.process.stuff",
+            deps = [":plugin_dep"],
+        )
+        """);
 
     JavaPluginData pluginData =
         retrieveStarlarkPluginData(
@@ -1256,27 +1344,44 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void javaLibrary_exposesPluginsToStarlark() throws Exception {
     scratch.file(
         "java/test/BUILD",
-        "java_library(name = 'plugin_dep1', srcs = ['A.java'], data = ['depfile1.dat'])",
-        "java_library(name = 'plugin_dep2', srcs = ['B.java'], data = ['depfile2.dat'])",
-        "java_plugin(",
-        "    name = 'plugin',",
-        "    srcs = ['AnnotationProcessor1.java'],",
-        "    processor_class = 'com.google.process.stuff',",
-        "    deps = [':plugin_dep1'],",
-        "    data = ['pluginfile1.dat'],",
-        ")",
-        "java_plugin(",
-        "    name = 'apiplugin',",
-        "    generates_api = True,",
-        "    srcs = ['AnnotationProcessor2.java'],",
-        "    processor_class = 'com.google.process.apistuff',",
-        "    deps = [':plugin_dep2'],",
-        "    data = ['pluginfile2.dat'],",
-        ")",
-        "java_library(",
-        "    name = 'library',",
-        "    exported_plugins = [':plugin', ':apiplugin']",
-        ")");
+        """
+        java_library(
+            name = "plugin_dep1",
+            srcs = ["A.java"],
+            data = ["depfile1.dat"],
+        )
+
+        java_library(
+            name = "plugin_dep2",
+            srcs = ["B.java"],
+            data = ["depfile2.dat"],
+        )
+
+        java_plugin(
+            name = "plugin",
+            srcs = ["AnnotationProcessor1.java"],
+            data = ["pluginfile1.dat"],
+            processor_class = "com.google.process.stuff",
+            deps = [":plugin_dep1"],
+        )
+
+        java_plugin(
+            name = "apiplugin",
+            srcs = ["AnnotationProcessor2.java"],
+            data = ["pluginfile2.dat"],
+            generates_api = True,
+            processor_class = "com.google.process.apistuff",
+            deps = [":plugin_dep2"],
+        )
+
+        java_library(
+            name = "library",
+            exported_plugins = [
+                ":plugin",
+                ":apiplugin",
+            ],
+        )
+        """);
 
     JavaPluginData pluginData =
         retrieveStarlarkPluginData(
@@ -1305,32 +1410,48 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void javaPluginInfo_create() throws Exception {
     scratch.file(
         "java/test/myplugin.bzl",
-        "def _impl(ctx):",
-        "  output_jar = ctx.actions.declare_file('lib.jar')",
-        "  ctx.actions.write(output_jar, '')",
-        "  dep = JavaInfo(output_jar = output_jar, compile_jar = None,",
-        "    deps = [d[JavaInfo] for d in ctx.attr.deps])",
-        "  return [JavaPluginInfo(",
-        "    runtime_deps = [dep],",
-        "    processor_class = ctx.attr.processor_class,",
-        "    data = ctx.files.data,",
-        "  )]",
-        "myplugin = rule(implementation = _impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(),",
-        "    'processor_class': attr.string(),",
-        "    'data': attr.label_list(allow_files = True),",
-        "  })");
+        """
+        def _impl(ctx):
+            output_jar = ctx.actions.declare_file("lib.jar")
+            ctx.actions.write(output_jar, "")
+            dep = JavaInfo(
+                output_jar = output_jar,
+                compile_jar = None,
+                deps = [d[JavaInfo] for d in ctx.attr.deps],
+            )
+            return [JavaPluginInfo(
+                runtime_deps = [dep],
+                processor_class = ctx.attr.processor_class,
+                data = ctx.files.data,
+            )]
+
+        myplugin = rule(
+            implementation = _impl,
+            attrs = {
+                "deps": attr.label_list(),
+                "processor_class": attr.string(),
+                "data": attr.label_list(allow_files = True),
+            },
+        )
+        """);
     scratch.file(
         "java/test/BUILD",
-        "load(':myplugin.bzl', 'myplugin')",
-        "java_library(name = 'plugin_dep1', srcs = ['A.java'], data = ['depfile1.dat'])",
-        "myplugin(",
-        "    name = 'plugin',",
-        "    processor_class = 'com.google.process.stuff',",
-        "    deps = [':plugin_dep1'],",
-        "    data = ['pluginfile1.dat'],",
-        ")");
+        """
+        load(":myplugin.bzl", "myplugin")
+
+        java_library(
+            name = "plugin_dep1",
+            srcs = ["A.java"],
+            data = ["depfile1.dat"],
+        )
+
+        myplugin(
+            name = "plugin",
+            data = ["pluginfile1.dat"],
+            processor_class = "com.google.process.stuff",
+            deps = [":plugin_dep1"],
+        )
+        """);
 
     JavaPluginInfo pluginInfo =
         getConfiguredTarget("//java/test:plugin").get(JavaPluginInfo.PROVIDER);
@@ -1352,33 +1473,49 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void javaPluginInfo_createApiPlugin() throws Exception {
     scratch.file(
         "java/test/myplugin.bzl",
-        "def _impl(ctx):",
-        "  output_jar = ctx.actions.declare_file('lib.jar')",
-        "  ctx.actions.write(output_jar, '')",
-        "  dep = JavaInfo(output_jar = output_jar, compile_jar = None,",
-        "    deps = [d[JavaInfo] for d in ctx.attr.deps])",
-        "  return [JavaPluginInfo(",
-        "    runtime_deps = [dep],",
-        "    processor_class = ctx.attr.processor_class,",
-        "    data = ctx.files.data,",
-        "    generates_api = True,",
-        "  )]",
-        "myplugin = rule(implementation = _impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(),",
-        "    'processor_class': attr.string(),",
-        "    'data': attr.label_list(allow_files = True),",
-        "  })");
+        """
+        def _impl(ctx):
+            output_jar = ctx.actions.declare_file("lib.jar")
+            ctx.actions.write(output_jar, "")
+            dep = JavaInfo(
+                output_jar = output_jar,
+                compile_jar = None,
+                deps = [d[JavaInfo] for d in ctx.attr.deps],
+            )
+            return [JavaPluginInfo(
+                runtime_deps = [dep],
+                processor_class = ctx.attr.processor_class,
+                data = ctx.files.data,
+                generates_api = True,
+            )]
+
+        myplugin = rule(
+            implementation = _impl,
+            attrs = {
+                "deps": attr.label_list(),
+                "processor_class": attr.string(),
+                "data": attr.label_list(allow_files = True),
+            },
+        )
+        """);
     scratch.file(
         "java/test/BUILD",
-        "load(':myplugin.bzl', 'myplugin')",
-        "java_library(name = 'plugin_dep1', srcs = ['A.java'], data = ['depfile1.dat'])",
-        "myplugin(",
-        "    name = 'plugin',",
-        "    processor_class = 'com.google.process.stuff',",
-        "    deps = [':plugin_dep1'],",
-        "    data = ['pluginfile1.dat'],",
-        ")");
+        """
+        load(":myplugin.bzl", "myplugin")
+
+        java_library(
+            name = "plugin_dep1",
+            srcs = ["A.java"],
+            data = ["depfile1.dat"],
+        )
+
+        myplugin(
+            name = "plugin",
+            data = ["pluginfile1.dat"],
+            processor_class = "com.google.process.stuff",
+            deps = [":plugin_dep1"],
+        )
+        """);
 
     JavaPluginInfo pluginInfo =
         getConfiguredTarget("//java/test:plugin").get(JavaPluginInfo.PROVIDER);
@@ -1399,30 +1536,46 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void javaPluginInfo_createWithoutProcessorClass() throws Exception {
     scratch.file(
         "java/test/myplugin.bzl",
-        "def _impl(ctx):",
-        "  output_jar = ctx.actions.declare_file('lib.jar')",
-        "  ctx.actions.write(output_jar, '')",
-        "  dep = JavaInfo(output_jar = output_jar, compile_jar = None,",
-        "    deps = [d[JavaInfo] for d in ctx.attr.deps])",
-        "  return [JavaPluginInfo(",
-        "    runtime_deps = [dep],",
-        "    processor_class = None,",
-        "    data = ctx.files.data,",
-        "  )]",
-        "myplugin = rule(implementation = _impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(),",
-        "    'data': attr.label_list(allow_files = True),",
-        "  })");
+        """
+        def _impl(ctx):
+            output_jar = ctx.actions.declare_file("lib.jar")
+            ctx.actions.write(output_jar, "")
+            dep = JavaInfo(
+                output_jar = output_jar,
+                compile_jar = None,
+                deps = [d[JavaInfo] for d in ctx.attr.deps],
+            )
+            return [JavaPluginInfo(
+                runtime_deps = [dep],
+                processor_class = None,
+                data = ctx.files.data,
+            )]
+
+        myplugin = rule(
+            implementation = _impl,
+            attrs = {
+                "deps": attr.label_list(),
+                "data": attr.label_list(allow_files = True),
+            },
+        )
+        """);
     scratch.file(
         "java/test/BUILD",
-        "load(':myplugin.bzl', 'myplugin')",
-        "java_library(name = 'plugin_dep1', srcs = ['A.java'], data = ['depfile1.dat'])",
-        "myplugin(",
-        "    name = 'plugin',",
-        "    deps = [':plugin_dep1'],",
-        "    data = ['pluginfile1.dat'],",
-        ")");
+        """
+        load(":myplugin.bzl", "myplugin")
+
+        java_library(
+            name = "plugin_dep1",
+            srcs = ["A.java"],
+            data = ["depfile1.dat"],
+        )
+
+        myplugin(
+            name = "plugin",
+            data = ["pluginfile1.dat"],
+            deps = [":plugin_dep1"],
+        )
+        """);
 
     JavaPluginInfo pluginInfo =
         getConfiguredTarget("//java/test:plugin").get(JavaPluginInfo.PROVIDER);
@@ -1444,32 +1597,48 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void javaPluginInfo_createWithDataDepset() throws Exception {
     scratch.file(
         "java/test/myplugin.bzl",
-        "def _impl(ctx):",
-        "  output_jar = ctx.actions.declare_file('lib.jar')",
-        "  ctx.actions.write(output_jar, '')",
-        "  dep = JavaInfo(output_jar = output_jar, compile_jar = None,",
-        "    deps = [d[JavaInfo] for d in ctx.attr.deps])",
-        "  return [JavaPluginInfo(",
-        "    runtime_deps = [dep],",
-        "    processor_class = ctx.attr.processor_class,",
-        "    data = depset(ctx.files.data),",
-        "  )]",
-        "myplugin = rule(implementation = _impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(),",
-        "    'processor_class': attr.string(),",
-        "    'data': attr.label_list(allow_files = True),",
-        "  })");
+        """
+        def _impl(ctx):
+            output_jar = ctx.actions.declare_file("lib.jar")
+            ctx.actions.write(output_jar, "")
+            dep = JavaInfo(
+                output_jar = output_jar,
+                compile_jar = None,
+                deps = [d[JavaInfo] for d in ctx.attr.deps],
+            )
+            return [JavaPluginInfo(
+                runtime_deps = [dep],
+                processor_class = ctx.attr.processor_class,
+                data = depset(ctx.files.data),
+            )]
+
+        myplugin = rule(
+            implementation = _impl,
+            attrs = {
+                "deps": attr.label_list(),
+                "processor_class": attr.string(),
+                "data": attr.label_list(allow_files = True),
+            },
+        )
+        """);
     scratch.file(
         "java/test/BUILD",
-        "load(':myplugin.bzl', 'myplugin')",
-        "java_library(name = 'plugin_dep1', srcs = ['A.java'], data = ['depfile1.dat'])",
-        "myplugin(",
-        "    name = 'plugin',",
-        "    processor_class = 'com.google.process.stuff',",
-        "    deps = [':plugin_dep1'],",
-        "    data = ['pluginfile1.dat'],",
-        ")");
+        """
+        load(":myplugin.bzl", "myplugin")
+
+        java_library(
+            name = "plugin_dep1",
+            srcs = ["A.java"],
+            data = ["depfile1.dat"],
+        )
+
+        myplugin(
+            name = "plugin",
+            data = ["pluginfile1.dat"],
+            processor_class = "com.google.process.stuff",
+            deps = [":plugin_dep1"],
+        )
+        """);
 
     JavaPluginInfo pluginInfo =
         getConfiguredTarget("//java/test:plugin").get(JavaPluginInfo.PROVIDER);
@@ -1493,28 +1662,46 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     // the expected number of entries.
     scratch.file(
         "java/test/extension.bzl",
-        "result = provider()",
-        "def impl(ctx):",
-        "   java_provider = ctx.attr.dep[JavaInfo]",
-        "   return [result(",
-        "             compile_jars = java_provider.compile_jars,",
-        "             transitive_runtime_jars = java_provider.transitive_runtime_jars,",
-        "             transitive_compile_time_jars = java_provider.transitive_compile_time_jars,",
-        "          )]",
-        "my_rule = rule(impl, attrs = { ",
-        "  'dep' : attr.label(), ",
-        "  'cnt_cjar' : attr.int(), ",
-        "  'cnt_rjar' : attr.int(), ",
-        "})");
+        """
+        result = provider()
+
+        def impl(ctx):
+            java_provider = ctx.attr.dep[JavaInfo]
+            return [result(
+                compile_jars = java_provider.compile_jars,
+                transitive_runtime_jars = java_provider.transitive_runtime_jars,
+                transitive_compile_time_jars = java_provider.transitive_compile_time_jars,
+            )]
+
+        my_rule = rule(impl, attrs = {
+            "dep": attr.label(),
+            "cnt_cjar": attr.int(),
+            "cnt_rjar": attr.int(),
+        })
+        """);
     scratch.file(
         "java/test/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "java_library(name = 'parent',",
-        "    srcs = [ 'Parent.java'])",
-        "java_library(name = 'jl',",
-        "    srcs = ['Jl.java'],",
-        "    deps = [ ':parent' ])",
-        "my_rule(name = 'my', dep = ':jl', cnt_cjar = 1, cnt_rjar = 2)");
+        """
+        load(":extension.bzl", "my_rule")
+
+        java_library(
+            name = "parent",
+            srcs = ["Parent.java"],
+        )
+
+        java_library(
+            name = "jl",
+            srcs = ["Jl.java"],
+            deps = [":parent"],
+        )
+
+        my_rule(
+            name = "my",
+            cnt_cjar = 1,
+            cnt_rjar = 2,
+            dep = ":jl",
+        )
+        """);
     // Now, get that information and ensure it is equal to what the jl java_library
     // was presenting
     ConfiguredTarget myConfiguredTarget = getConfiguredTarget("//java/test:my");
@@ -1554,16 +1741,30 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void javaProviderExposedOnJavaLibrary() throws Exception {
     scratch.file(
         "foo/extension.bzl",
-        "my_provider = provider()",
-        "def _impl(ctx):",
-        "  dep_params = ctx.attr.dep[JavaInfo]",
-        "  return [my_provider(p = dep_params)]",
-        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+        """
+        my_provider = provider()
+
+        def _impl(ctx):
+            dep_params = ctx.attr.dep[JavaInfo]
+            return [my_provider(p = dep_params)]
+
+        my_rule = rule(_impl, attrs = {"dep": attr.label()})
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "java_library(name = 'jl', srcs = ['java/A.java'])",
-        "my_rule(name = 'r', dep = ':jl')");
+        """
+        load(":extension.bzl", "my_rule")
+
+        java_library(
+            name = "jl",
+            srcs = ["java/A.java"],
+        )
+
+        my_rule(
+            name = "r",
+            dep = ":jl",
+        )
+        """);
 
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:r");
     ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//foo:jl");
@@ -1582,16 +1783,34 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void javaProviderPropagation() throws Exception {
     scratch.file(
         "foo/extension.bzl",
-        "def _impl(ctx):",
-        "  dep_params = ctx.attr.dep[JavaInfo]",
-        "  return [dep_params]",
-        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+        """
+        def _impl(ctx):
+            dep_params = ctx.attr.dep[JavaInfo]
+            return [dep_params]
+
+        my_rule = rule(_impl, attrs = {"dep": attr.label()})
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "java_library(name = 'jl', srcs = ['java/A.java'])",
-        "my_rule(name = 'r', dep = ':jl')",
-        "java_library(name = 'jl_top', srcs = ['java/C.java'], deps = [':r'])");
+        """
+        load(":extension.bzl", "my_rule")
+
+        java_library(
+            name = "jl",
+            srcs = ["java/A.java"],
+        )
+
+        my_rule(
+            name = "r",
+            dep = ":jl",
+        )
+
+        java_library(
+            name = "jl_top",
+            srcs = ["java/C.java"],
+            deps = [":r"],
+        )
+        """);
 
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:r");
     ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//foo:jl");
@@ -1617,23 +1836,68 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void starlarkJavaToJavaLibraryAttributes() throws Exception {
     scratch.file(
         "foo/extension.bzl",
-        "def _impl(ctx):",
-        "  dep_params = ctx.attr.dep[JavaInfo]",
-        "  return [dep_params]",
-        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+        """
+        def _impl(ctx):
+            dep_params = ctx.attr.dep[JavaInfo]
+            return [dep_params]
+
+        my_rule = rule(_impl, attrs = {"dep": attr.label()})
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "java_library(name = 'jl_bottom_for_deps', srcs = ['java/A.java'])",
-        "java_library(name = 'jl_bottom_for_exports', srcs = ['java/A2.java'])",
-        "java_library(name = 'jl_bottom_for_runtime_deps', srcs = ['java/A2.java'])",
-        "my_rule(name = 'mya', dep = ':jl_bottom_for_deps')",
-        "my_rule(name = 'myb', dep = ':jl_bottom_for_exports')",
-        "my_rule(name = 'myc', dep = ':jl_bottom_for_runtime_deps')",
-        "java_library(name = 'lib_exports', srcs = ['java/B.java'], deps = [':mya'],",
-        "  exports = [':myb'], runtime_deps = [':myc'])",
-        "java_library(name = 'lib_interm', srcs = ['java/C.java'], deps = [':lib_exports'])",
-        "java_library(name = 'lib_top', srcs = ['java/D.java'], deps = [':lib_interm'])");
+        """
+        load(":extension.bzl", "my_rule")
+
+        java_library(
+            name = "jl_bottom_for_deps",
+            srcs = ["java/A.java"],
+        )
+
+        java_library(
+            name = "jl_bottom_for_exports",
+            srcs = ["java/A2.java"],
+        )
+
+        java_library(
+            name = "jl_bottom_for_runtime_deps",
+            srcs = ["java/A2.java"],
+        )
+
+        my_rule(
+            name = "mya",
+            dep = ":jl_bottom_for_deps",
+        )
+
+        my_rule(
+            name = "myb",
+            dep = ":jl_bottom_for_exports",
+        )
+
+        my_rule(
+            name = "myc",
+            dep = ":jl_bottom_for_runtime_deps",
+        )
+
+        java_library(
+            name = "lib_exports",
+            srcs = ["java/B.java"],
+            exports = [":myb"],
+            runtime_deps = [":myc"],
+            deps = [":mya"],
+        )
+
+        java_library(
+            name = "lib_interm",
+            srcs = ["java/C.java"],
+            deps = [":lib_exports"],
+        )
+
+        java_library(
+            name = "lib_top",
+            srcs = ["java/D.java"],
+            deps = [":lib_interm"],
+        )
+        """);
     assertNoEvents();
 
     // Test that all bottom jars are on the runtime classpath of lib_exports.
@@ -1658,19 +1922,46 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void starlarkJavaToJavaBinaryAttributes() throws Exception {
     scratch.file(
         "foo/extension.bzl",
-        "def _impl(ctx):",
-        "  dep_params = ctx.attr.dep[JavaInfo]",
-        "  return [dep_params]",
-        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+        """
+        def _impl(ctx):
+            dep_params = ctx.attr.dep[JavaInfo]
+            return [dep_params]
+
+        my_rule = rule(_impl, attrs = {"dep": attr.label()})
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "java_library(name = 'jl_bottom_for_deps', srcs = ['java/A.java'])",
-        "java_library(name = 'jl_bottom_for_runtime_deps', srcs = ['java/A2.java'])",
-        "my_rule(name = 'mya', dep = ':jl_bottom_for_deps')",
-        "my_rule(name = 'myb', dep = ':jl_bottom_for_runtime_deps')",
-        "java_binary(name = 'binary', srcs = ['java/B.java'], main_class = 'foo.A',",
-        "  deps = [':mya'], runtime_deps = [':myb'])");
+        """
+        load(":extension.bzl", "my_rule")
+
+        java_library(
+            name = "jl_bottom_for_deps",
+            srcs = ["java/A.java"],
+        )
+
+        java_library(
+            name = "jl_bottom_for_runtime_deps",
+            srcs = ["java/A2.java"],
+        )
+
+        my_rule(
+            name = "mya",
+            dep = ":jl_bottom_for_deps",
+        )
+
+        my_rule(
+            name = "myb",
+            dep = ":jl_bottom_for_runtime_deps",
+        )
+
+        java_binary(
+            name = "binary",
+            srcs = ["java/B.java"],
+            main_class = "foo.A",
+            runtime_deps = [":myb"],
+            deps = [":mya"],
+        )
+        """);
     assertNoEvents();
 
     setBuildLanguageOptions("--experimental_google_legacy_api");
@@ -1690,18 +1981,45 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void starlarkJavaToJavaImportAttributes() throws Exception {
     scratch.file(
         "foo/extension.bzl",
-        "def _impl(ctx):",
-        "  dep_params = ctx.attr.dep[JavaInfo]",
-        "  return [dep_params]",
-        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+        """
+        def _impl(ctx):
+            dep_params = ctx.attr.dep[JavaInfo]
+            return [dep_params]
+
+        my_rule = rule(_impl, attrs = {"dep": attr.label()})
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "java_library(name = 'jl_bottom_for_deps', srcs = ['java/A.java'])",
-        "java_library(name = 'jl_bottom_for_runtime_deps', srcs = ['java/A2.java'])",
-        "my_rule(name = 'mya', dep = ':jl_bottom_for_deps')",
-        "my_rule(name = 'myb', dep = ':jl_bottom_for_runtime_deps')",
-        "java_import(name = 'import', jars = ['B.jar'], deps = [':mya'], runtime_deps = [':myb'])");
+        """
+        load(":extension.bzl", "my_rule")
+
+        java_library(
+            name = "jl_bottom_for_deps",
+            srcs = ["java/A.java"],
+        )
+
+        java_library(
+            name = "jl_bottom_for_runtime_deps",
+            srcs = ["java/A2.java"],
+        )
+
+        my_rule(
+            name = "mya",
+            dep = ":jl_bottom_for_deps",
+        )
+
+        my_rule(
+            name = "myb",
+            dep = ":jl_bottom_for_runtime_deps",
+        )
+
+        java_import(
+            name = "import",
+            jars = ["B.jar"],
+            runtime_deps = [":myb"],
+            deps = [":mya"],
+        )
+        """);
     assertNoEvents();
 
     // Test that all bottom jars are on the runtime classpath.
@@ -1716,33 +2034,46 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void testJavaInfoSequenceParametersTypeChecked() throws Exception {
     scratch.file(
         "foo/bad_rules.bzl",
-        "def make_file(ctx):",
-        "  f = ctx.actions.declare_file('out')",
-        "  ctx.actions.write(f, 'out')",
-        "  return f",
-        "def _deps_impl(ctx):",
-        "  f = make_file(ctx)",
-        "  return JavaInfo(output_jar=f, compile_jar=f, deps=[f])",
-        "def _runtime_deps_impl(ctx):",
-        "  f = make_file(ctx)",
-        "  return JavaInfo(output_jar=f, compile_jar=f, runtime_deps=[f])",
-        "def _exports_impl(ctx):",
-        "  f = make_file(ctx)",
-        "  return JavaInfo(output_jar=f, compile_jar=f, exports=[f])",
-        "def _nativelibs_impl(ctx):",
-        "  f = make_file(ctx)",
-        "  return JavaInfo(output_jar=f, compile_jar=f, native_libraries=[f])",
-        "bad_deps = rule(_deps_impl)",
-        "bad_runtime_deps = rule(_runtime_deps_impl)",
-        "bad_exports = rule(_exports_impl)",
-        "bad_libs = rule(_nativelibs_impl)");
+        """
+        def make_file(ctx):
+            f = ctx.actions.declare_file("out")
+            ctx.actions.write(f, "out")
+            return f
+
+        def _deps_impl(ctx):
+            f = make_file(ctx)
+            return JavaInfo(output_jar = f, compile_jar = f, deps = [f])
+
+        def _runtime_deps_impl(ctx):
+            f = make_file(ctx)
+            return JavaInfo(output_jar = f, compile_jar = f, runtime_deps = [f])
+
+        def _exports_impl(ctx):
+            f = make_file(ctx)
+            return JavaInfo(output_jar = f, compile_jar = f, exports = [f])
+
+        def _nativelibs_impl(ctx):
+            f = make_file(ctx)
+            return JavaInfo(output_jar = f, compile_jar = f, native_libraries = [f])
+
+        bad_deps = rule(_deps_impl)
+        bad_runtime_deps = rule(_runtime_deps_impl)
+        bad_exports = rule(_exports_impl)
+        bad_libs = rule(_nativelibs_impl)
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':bad_rules.bzl', 'bad_deps', 'bad_runtime_deps', 'bad_exports', 'bad_libs')",
-        "bad_deps(name='bad_deps')",
-        "bad_runtime_deps(name='bad_runtime_deps')",
-        "bad_exports(name='bad_exports')",
-        "bad_libs(name='bad_libs')");
+        """
+        load(":bad_rules.bzl", "bad_deps", "bad_exports", "bad_libs", "bad_runtime_deps")
+
+        bad_deps(name = "bad_deps")
+
+        bad_runtime_deps(name = "bad_runtime_deps")
+
+        bad_exports(name = "bad_exports")
+
+        bad_libs(name = "bad_libs")
+        """);
 
     checkError("//foo:bad_deps", "at index 0 of deps, got element of type File, want JavaInfo");
     checkError(
@@ -1758,15 +2089,25 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void javaInfo_compileJarSet() throws Exception {
     scratch.file(
         "foo/javainfo_rules.bzl",
-        "def make_file(ctx):",
-        "  f = ctx.actions.declare_file('out')",
-        "  ctx.actions.write(f, 'out')",
-        "  return f",
-        "def _bothset_impl(ctx):",
-        "  f = make_file(ctx)",
-        "  return [JavaInfo(output_jar=f, compile_jar=f)]",
-        "bothset = rule(_bothset_impl)");
-    scratch.file("foo/BUILD", "load(':javainfo_rules.bzl', 'bothset')", "bothset(name='bothset')");
+        """
+        def make_file(ctx):
+            f = ctx.actions.declare_file("out")
+            ctx.actions.write(f, "out")
+            return f
+
+        def _bothset_impl(ctx):
+            f = make_file(ctx)
+            return [JavaInfo(output_jar = f, compile_jar = f)]
+
+        bothset = rule(_bothset_impl)
+        """);
+    scratch.file(
+        "foo/BUILD",
+        """
+        load(":javainfo_rules.bzl", "bothset")
+
+        bothset(name = "bothset")
+        """);
 
     getConfiguredTarget("//foo:bothset");
     assertNoEvents();
@@ -1776,18 +2117,25 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void javaInfo_compileJarNotSet() throws Exception {
     scratch.file(
         "foo/javainfo_rules.bzl",
-        "def make_file(ctx):",
-        "  f = ctx.actions.declare_file('out')",
-        "  ctx.actions.write(f, 'out')",
-        "  return f",
-        "def _only_outputjar_impl(ctx):",
-        "  f = make_file(ctx)",
-        "  return [JavaInfo(output_jar=f)]",
-        "only_outputjar = rule(_only_outputjar_impl)");
+        """
+        def make_file(ctx):
+            f = ctx.actions.declare_file("out")
+            ctx.actions.write(f, "out")
+            return f
+
+        def _only_outputjar_impl(ctx):
+            f = make_file(ctx)
+            return [JavaInfo(output_jar = f)]
+
+        only_outputjar = rule(_only_outputjar_impl)
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':javainfo_rules.bzl', 'only_outputjar')",
-        "only_outputjar(name='only_outputjar')");
+        """
+        load(":javainfo_rules.bzl", "only_outputjar")
+
+        only_outputjar(name = "only_outputjar")
+        """);
 
     checkError("//foo:only_outputjar", "missing 1 required positional argument: compile_jar");
   }
@@ -1796,18 +2144,25 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void javaInfo_compileJarSetToNone() throws Exception {
     scratch.file(
         "foo/javainfo_rules.bzl",
-        "def make_file(ctx):",
-        "  f = ctx.actions.declare_file('out')",
-        "  ctx.actions.write(f, 'out')",
-        "  return f",
-        "def _compilejar_none_impl(ctx):",
-        "  f = make_file(ctx)",
-        "  return [JavaInfo(output_jar=f, compile_jar=None)]",
-        "compilejar_none = rule(_compilejar_none_impl)");
+        """
+        def make_file(ctx):
+            f = ctx.actions.declare_file("out")
+            ctx.actions.write(f, "out")
+            return f
+
+        def _compilejar_none_impl(ctx):
+            f = make_file(ctx)
+            return [JavaInfo(output_jar = f, compile_jar = None)]
+
+        compilejar_none = rule(_compilejar_none_impl)
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':javainfo_rules.bzl', 'compilejar_none')",
-        "compilejar_none(name='compilejar_none')");
+        """
+        load(":javainfo_rules.bzl", "compilejar_none")
+
+        compilejar_none(name = "compilejar_none")
+        """);
 
     getConfiguredTarget("//foo:compilejar_none");
 
@@ -1818,16 +2173,35 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void javaInfoSourceJarsExposed() throws Exception {
     scratch.file(
         "foo/extension.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  return [result(source_jars = ctx.attr.dep[JavaInfo].source_jars)]",
-        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+        """
+        result = provider()
+
+        def _impl(ctx):
+            return [result(source_jars = ctx.attr.dep[JavaInfo].source_jars)]
+
+        my_rule = rule(_impl, attrs = {"dep": attr.label()})
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "java_library(name = 'my_java_lib_b', srcs = ['java/B.java'])",
-        "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'] , deps = [':my_java_lib_b'])",
-        "my_rule(name = 'my_starlark_rule', dep = ':my_java_lib_a')");
+        """
+        load(":extension.bzl", "my_rule")
+
+        java_library(
+            name = "my_java_lib_b",
+            srcs = ["java/B.java"],
+        )
+
+        java_library(
+            name = "my_java_lib_a",
+            srcs = ["java/A.java"],
+            deps = [":my_java_lib_b"],
+        )
+
+        my_rule(
+            name = "my_starlark_rule",
+            dep = ":my_java_lib_a",
+        )
+        """);
     assertNoEvents();
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
     StructImpl info =
@@ -1845,18 +2219,42 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void testJavaInfoGetTransitiveSourceJars() throws Exception {
     scratch.file(
         "foo/extension.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  return [result(property = ctx.attr.dep[JavaInfo].transitive_source_jars)]",
-        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+        """
+        result = provider()
+
+        def _impl(ctx):
+            return [result(property = ctx.attr.dep[JavaInfo].transitive_source_jars)]
+
+        my_rule = rule(_impl, attrs = {"dep": attr.label()})
+        """);
 
     scratch.file(
         "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "java_library(name = 'my_java_lib_c', srcs = ['java/C.java'])",
-        "java_library(name = 'my_java_lib_b', srcs = ['java/B.java'], deps = [':my_java_lib_c'])",
-        "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'], deps = [':my_java_lib_b'])",
-        "my_rule(name = 'my_starlark_rule', dep = ':my_java_lib_a')");
+        """
+        load(":extension.bzl", "my_rule")
+
+        java_library(
+            name = "my_java_lib_c",
+            srcs = ["java/C.java"],
+        )
+
+        java_library(
+            name = "my_java_lib_b",
+            srcs = ["java/B.java"],
+            deps = [":my_java_lib_c"],
+        )
+
+        java_library(
+            name = "my_java_lib_a",
+            srcs = ["java/A.java"],
+            deps = [":my_java_lib_b"],
+        )
+
+        my_rule(
+            name = "my_starlark_rule",
+            dep = ":my_java_lib_a",
+        )
+        """);
     assertNoEvents();
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
     StructImpl info =
@@ -1877,18 +2275,42 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void testJavaInfoGetTransitiveDeps() throws Exception {
     scratch.file(
         "foo/extension.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  return [result(property = ctx.attr.dep[JavaInfo].transitive_compile_time_jars)]",
-        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+        """
+        result = provider()
+
+        def _impl(ctx):
+            return [result(property = ctx.attr.dep[JavaInfo].transitive_compile_time_jars)]
+
+        my_rule = rule(_impl, attrs = {"dep": attr.label()})
+        """);
 
     scratch.file(
         "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "java_library(name = 'my_java_lib_c', srcs = ['java/C.java'])",
-        "java_library(name = 'my_java_lib_b', srcs = ['java/B.java'], deps = [':my_java_lib_c'])",
-        "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'], deps = [':my_java_lib_b'])",
-        "my_rule(name = 'my_starlark_rule', dep = ':my_java_lib_a')");
+        """
+        load(":extension.bzl", "my_rule")
+
+        java_library(
+            name = "my_java_lib_c",
+            srcs = ["java/C.java"],
+        )
+
+        java_library(
+            name = "my_java_lib_b",
+            srcs = ["java/B.java"],
+            deps = [":my_java_lib_c"],
+        )
+
+        java_library(
+            name = "my_java_lib_a",
+            srcs = ["java/A.java"],
+            deps = [":my_java_lib_b"],
+        )
+
+        my_rule(
+            name = "my_starlark_rule",
+            dep = ":my_java_lib_a",
+        )
+        """);
     assertNoEvents();
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
     StructImpl info =
@@ -1909,18 +2331,42 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void testJavaInfoGetTransitiveRuntimeDeps() throws Exception {
     scratch.file(
         "foo/extension.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  return [result(property = ctx.attr.dep[JavaInfo].transitive_runtime_jars)]",
-        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+        """
+        result = provider()
+
+        def _impl(ctx):
+            return [result(property = ctx.attr.dep[JavaInfo].transitive_runtime_jars)]
+
+        my_rule = rule(_impl, attrs = {"dep": attr.label()})
+        """);
 
     scratch.file(
         "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "java_library(name = 'my_java_lib_c', srcs = ['java/C.java'])",
-        "java_library(name = 'my_java_lib_b', srcs = ['java/B.java'], deps = [':my_java_lib_c'])",
-        "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'], deps = [':my_java_lib_b'])",
-        "my_rule(name = 'my_starlark_rule', dep = ':my_java_lib_a')");
+        """
+        load(":extension.bzl", "my_rule")
+
+        java_library(
+            name = "my_java_lib_c",
+            srcs = ["java/C.java"],
+        )
+
+        java_library(
+            name = "my_java_lib_b",
+            srcs = ["java/B.java"],
+            deps = [":my_java_lib_c"],
+        )
+
+        java_library(
+            name = "my_java_lib_a",
+            srcs = ["java/A.java"],
+            deps = [":my_java_lib_b"],
+        )
+
+        my_rule(
+            name = "my_starlark_rule",
+            dep = ":my_java_lib_a",
+        )
+        """);
     assertNoEvents();
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
     StructImpl info =
@@ -1940,22 +2386,62 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void javaInfo_getTransitiveNativeLibraries() throws Exception {
     scratch.file(
         "foo/extension.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  return [result(property = ctx.attr.dep[JavaInfo].transitive_native_libraries)]",
-        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+        """
+        result = provider()
+
+        def _impl(ctx):
+            return [result(property = ctx.attr.dep[JavaInfo].transitive_native_libraries)]
+
+        my_rule = rule(_impl, attrs = {"dep": attr.label()})
+        """);
 
     scratch.file(
         "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "cc_library(name = 'my_cc_lib_c.so', srcs = ['cc/c.cc'])",
-        "cc_library(name = 'my_cc_lib_b.so', srcs = ['cc/b.cc'])",
-        "cc_library(name = 'my_cc_lib_a.so', srcs = ['cc/a.cc'])",
-        "java_library(name = 'my_java_lib_c', srcs = ['java/C.java'], deps = ['my_cc_lib_c.so'])",
-        "java_library(name = 'my_java_lib_b', srcs = ['java/B.java'], deps = ['my_cc_lib_b.so'])",
-        "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'], ",
-        "             deps = [':my_java_lib_b', ':my_java_lib_c', 'my_cc_lib_a.so'])",
-        "my_rule(name = 'my_starlark_rule', dep = ':my_java_lib_a')");
+        """
+        load(":extension.bzl", "my_rule")
+
+        cc_library(
+            name = "my_cc_lib_c.so",
+            srcs = ["cc/c.cc"],
+        )
+
+        cc_library(
+            name = "my_cc_lib_b.so",
+            srcs = ["cc/b.cc"],
+        )
+
+        cc_library(
+            name = "my_cc_lib_a.so",
+            srcs = ["cc/a.cc"],
+        )
+
+        java_library(
+            name = "my_java_lib_c",
+            srcs = ["java/C.java"],
+            deps = ["my_cc_lib_c.so"],
+        )
+
+        java_library(
+            name = "my_java_lib_b",
+            srcs = ["java/B.java"],
+            deps = ["my_cc_lib_b.so"],
+        )
+
+        java_library(
+            name = "my_java_lib_a",
+            srcs = ["java/A.java"],
+            deps = [
+                "my_cc_lib_a.so",
+                ":my_java_lib_b",
+                ":my_java_lib_c",
+            ],
+        )
+
+        my_rule(
+            name = "my_starlark_rule",
+            dep = ":my_java_lib_a",
+        )
+        """);
     assertNoEvents();
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
     StructImpl info =
@@ -1978,22 +2464,52 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void javaLibrary_propagatesDirectNativeLibrariesInJavaInfo() throws Exception {
     scratch.file(
         "foo/extension.bzl",
-        "def _impl(ctx):",
-        "  dep_params = ctx.attr.dep[JavaInfo]",
-        "  cc_dep_params = ctx.attr.cc_dep[CcInfo]",
-        "  java_info = JavaInfo(output_jar = dep_params.java_outputs[0].class_jar,",
-        "    compile_jar = None,",
-        "    native_libraries = [cc_dep_params])",
-        "  return [java_common.merge([dep_params, java_info])]",
-        "my_rule = rule(_impl, attrs = { 'dep': attr.label(), 'cc_dep': attr.label() })");
+        """
+        def _impl(ctx):
+            dep_params = ctx.attr.dep[JavaInfo]
+            cc_dep_params = ctx.attr.cc_dep[CcInfo]
+            java_info = JavaInfo(
+                output_jar = dep_params.java_outputs[0].class_jar,
+                compile_jar = None,
+                native_libraries = [cc_dep_params],
+            )
+            return [java_common.merge([dep_params, java_info])]
+
+        my_rule = rule(_impl, attrs = {"dep": attr.label(), "cc_dep": attr.label()})
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "cc_library(name = 'native', srcs = ['cc/x.cc'])",
-        "java_library(name = 'jl', srcs = ['java/A.java'], deps = [':native'])",
-        "cc_library(name = 'ccl', srcs = ['cc/x.cc'])",
-        "my_rule(name = 'r', dep = ':jl', cc_dep = ':ccl')",
-        "java_library(name = 'jl_top', srcs = ['java/C.java'], deps = [':r'])");
+        """
+        load(":extension.bzl", "my_rule")
+
+        cc_library(
+            name = "native",
+            srcs = ["cc/x.cc"],
+        )
+
+        java_library(
+            name = "jl",
+            srcs = ["java/A.java"],
+            deps = [":native"],
+        )
+
+        cc_library(
+            name = "ccl",
+            srcs = ["cc/x.cc"],
+        )
+
+        my_rule(
+            name = "r",
+            cc_dep = ":ccl",
+            dep = ":jl",
+        )
+
+        java_library(
+            name = "jl_top",
+            srcs = ["java/C.java"],
+            deps = [":r"],
+        )
+        """);
 
     ConfiguredTarget topJavaLibrary = getConfiguredTarget("//foo:jl_top");
 
@@ -2009,22 +2525,57 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void javaBinary_propagatesDirectNativeLibrariesInJavaInfo() throws Exception {
     scratch.file(
         "foo/extension.bzl",
-        "def _impl(ctx):",
-        "  dep_params = ctx.attr.dep[JavaInfo]",
-        "  cc_dep_params = ctx.attr.cc_dep[CcInfo]",
-        "  java_info = JavaInfo(output_jar = dep_params.java_outputs[0].class_jar,",
-        "    compile_jar = None,",
-        "    native_libraries = [cc_dep_params])",
-        "  return [java_common.merge([dep_params, java_info])]",
-        "my_rule = rule(_impl, attrs = { 'dep': attr.label(), 'cc_dep': attr.label() })");
+        """
+        def _impl(ctx):
+            dep_params = ctx.attr.dep[JavaInfo]
+            cc_dep_params = ctx.attr.cc_dep[CcInfo]
+            java_info = JavaInfo(
+                output_jar = dep_params.java_outputs[0].class_jar,
+                compile_jar = None,
+                native_libraries = [cc_dep_params],
+            )
+            return [java_common.merge([dep_params, java_info])]
+
+        my_rule = rule(_impl, attrs = {"dep": attr.label(), "cc_dep": attr.label()})
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "cc_binary(name = 'native', srcs = ['cc/x.cc'], linkshared=1, linkstatic=1)",
-        "java_library(name = 'jl', srcs = ['java/A.java'], data = [':native'])",
-        "cc_binary(name = 'ccl', srcs = ['cc/x.cc'], linkshared=1, linkstatic=1)",
-        "my_rule(name = 'r', dep = ':jl', cc_dep = ':ccl')",
-        "java_binary(name = 'binary', main_class = 'C', srcs = ['java/C.java'], deps = [':r'])");
+        """
+        load(":extension.bzl", "my_rule")
+
+        cc_binary(
+            name = "native",
+            srcs = ["cc/x.cc"],
+            linkshared = 1,
+            linkstatic = 1,
+        )
+
+        java_library(
+            name = "jl",
+            srcs = ["java/A.java"],
+            data = [":native"],
+        )
+
+        cc_binary(
+            name = "ccl",
+            srcs = ["cc/x.cc"],
+            linkshared = 1,
+            linkstatic = 1,
+        )
+
+        my_rule(
+            name = "r",
+            cc_dep = ":ccl",
+            dep = ":jl",
+        )
+
+        java_binary(
+            name = "binary",
+            srcs = ["java/C.java"],
+            main_class = "C",
+            deps = [":r"],
+        )
+        """);
 
     setBuildLanguageOptions("--experimental_google_legacy_api");
     ConfiguredTarget testTarget = getConfiguredTarget("//foo:binary");
@@ -2041,22 +2592,57 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void javaTest_propagatesDirectNativeLibrariesInJavaInfo() throws Exception {
     scratch.file(
         "foo/extension.bzl",
-        "def _impl(ctx):",
-        "  dep_params = ctx.attr.dep[JavaInfo]",
-        "  cc_dep_params = ctx.attr.cc_dep[CcInfo]",
-        "  java_info = JavaInfo(output_jar = dep_params.java_outputs[0].class_jar,",
-        "    compile_jar = None,",
-        "    native_libraries = [cc_dep_params])",
-        "  return [java_common.merge([dep_params, java_info])]",
-        "my_rule = rule(_impl, attrs = { 'dep': attr.label(), 'cc_dep': attr.label() })");
+        """
+        def _impl(ctx):
+            dep_params = ctx.attr.dep[JavaInfo]
+            cc_dep_params = ctx.attr.cc_dep[CcInfo]
+            java_info = JavaInfo(
+                output_jar = dep_params.java_outputs[0].class_jar,
+                compile_jar = None,
+                native_libraries = [cc_dep_params],
+            )
+            return [java_common.merge([dep_params, java_info])]
+
+        my_rule = rule(_impl, attrs = {"dep": attr.label(), "cc_dep": attr.label()})
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "cc_binary(name = 'native', srcs = ['cc/x.cc'], linkshared=1, linkstatic=1)",
-        "java_library(name = 'jl', srcs = ['java/A.java'], data = [':native'])",
-        "cc_binary(name = 'ccl', srcs = ['cc/x.cc'], linkshared=1, linkstatic=1)",
-        "my_rule(name = 'r', dep = ':jl', cc_dep = ':ccl')",
-        "java_test(name = 'test', test_class='test', srcs = ['Test.java'], deps = [':r'])");
+        """
+        load(":extension.bzl", "my_rule")
+
+        cc_binary(
+            name = "native",
+            srcs = ["cc/x.cc"],
+            linkshared = 1,
+            linkstatic = 1,
+        )
+
+        java_library(
+            name = "jl",
+            srcs = ["java/A.java"],
+            data = [":native"],
+        )
+
+        cc_binary(
+            name = "ccl",
+            srcs = ["cc/x.cc"],
+            linkshared = 1,
+            linkstatic = 1,
+        )
+
+        my_rule(
+            name = "r",
+            cc_dep = ":ccl",
+            dep = ":jl",
+        )
+
+        java_test(
+            name = "test",
+            srcs = ["Test.java"],
+            test_class = "test",
+            deps = [":r"],
+        )
+        """);
 
     ConfiguredTarget testTarget = getConfiguredTarget("//foo:test");
     // Check that the directory name is on the java.library.path
@@ -2071,17 +2657,37 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void javaLibrary_exposesNativeLibraryInfoToStarlark() throws Exception {
     scratch.file(
         "foo/extension.bzl",
-        "my_provider = provider()",
-        "def _impl(ctx):",
-        "  dep_params = ctx.attr.dep[JavaInfo].transitive_native_libraries",
-        "  return [my_provider(p = dep_params)]",
-        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+        """
+        my_provider = provider()
+
+        def _impl(ctx):
+            dep_params = ctx.attr.dep[JavaInfo].transitive_native_libraries
+            return [my_provider(p = dep_params)]
+
+        my_rule = rule(_impl, attrs = {"dep": attr.label()})
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "cc_binary(name = 'native.so', srcs = ['cc/x.cc'], linkshared = True)",
-        "java_library(name = 'jl', srcs = ['java/A.java'], deps = [':native.so'])",
-        "my_rule(name = 'r', dep = ':jl')");
+        """
+        load(":extension.bzl", "my_rule")
+
+        cc_binary(
+            name = "native.so",
+            srcs = ["cc/x.cc"],
+            linkshared = True,
+        )
+
+        java_library(
+            name = "jl",
+            srcs = ["java/A.java"],
+            deps = [":native.so"],
+        )
+
+        my_rule(
+            name = "r",
+            dep = ":jl",
+        )
+        """);
 
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:r");
     ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//foo:jl");
@@ -2108,49 +2714,82 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(",
-        "  name = 'custom',",
-        "  srcs = ['A.java'],",
-        "  deps = [':lib_deps'],",
-        "  runtime_deps = [':lib_runtime_deps'],",
-        "  exports = [':lib_exports'],",
-        ")",
-        "java_library(name = 'lib_deps', srcs = ['B.java'], deps = [':native_deps1.so'])",
-        "cc_library(name = 'native_deps1.so', srcs = ['a.cc'])",
-        "java_library(name = 'lib_runtime_deps', srcs = ['C.java'], deps = [':native_rdeps1.so'])",
-        "cc_library(name = 'native_rdeps1.so', srcs = ['c.cc'])",
-        "java_library(name = 'lib_exports', srcs = ['D.java'], deps = [':native_exports1.so'])",
-        "cc_library(name = 'native_exports1.so', srcs = ['e.cc'])");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(
+            name = "custom",
+            srcs = ["A.java"],
+            exports = [":lib_exports"],
+            runtime_deps = [":lib_runtime_deps"],
+            deps = [":lib_deps"],
+        )
+
+        java_library(
+            name = "lib_deps",
+            srcs = ["B.java"],
+            deps = [":native_deps1.so"],
+        )
+
+        cc_library(
+            name = "native_deps1.so",
+            srcs = ["a.cc"],
+        )
+
+        java_library(
+            name = "lib_runtime_deps",
+            srcs = ["C.java"],
+            deps = [":native_rdeps1.so"],
+        )
+
+        cc_library(
+            name = "native_rdeps1.so",
+            srcs = ["c.cc"],
+        )
+
+        java_library(
+            name = "lib_exports",
+            srcs = ["D.java"],
+            deps = [":native_exports1.so"],
+        )
+
+        cc_library(
+            name = "native_exports1.so",
+            srcs = ["e.cc"],
+        )
+        """);
     scratch.file(
         "java/test/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
-        "  ctx.actions.write(output_jar, '')",
-        "  compilation_provider = JavaInfo(",
-        "    output_jar = output_jar,",
-        "    compile_jar = None,",
-        "    deps = [dep[JavaInfo] for dep in ctx.attr.deps if JavaInfo in dep],",
-        "    runtime_deps = [dep[JavaInfo] for dep in ctx.attr.runtime_deps if JavaInfo in dep],",
-        "    exports = [dep[JavaInfo] for dep in ctx.attr.exports if JavaInfo in dep],",
-        "  )",
-        "  return [",
-        "      compilation_provider",
-        "  ]",
-        "java_custom_library = rule(",
-        "  implementation = _impl,",
-        "  outputs = {",
-        "    'my_output': 'lib%{name}.jar'",
-        "  },",
-        "  attrs = {",
-        "    'srcs': attr.label_list(allow_files=True),",
-        "    'deps': attr.label_list(),",
-        "    'runtime_deps': attr.label_list(),",
-        "    'exports': attr.label_list(),",
-        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
-        "  },",
-        "  fragments = ['java']",
-        ")");
+        """
+        def _impl(ctx):
+            output_jar = ctx.actions.declare_file("lib" + ctx.label.name + ".jar")
+            ctx.actions.write(output_jar, "")
+            compilation_provider = JavaInfo(
+                output_jar = output_jar,
+                compile_jar = None,
+                deps = [dep[JavaInfo] for dep in ctx.attr.deps if JavaInfo in dep],
+                runtime_deps = [dep[JavaInfo] for dep in ctx.attr.runtime_deps if JavaInfo in dep],
+                exports = [dep[JavaInfo] for dep in ctx.attr.exports if JavaInfo in dep],
+            )
+            return [
+                compilation_provider,
+            ]
+
+        java_custom_library = rule(
+            implementation = _impl,
+            outputs = {
+                "my_output": "lib%{name}.jar",
+            },
+            attrs = {
+                "srcs": attr.label_list(allow_files = True),
+                "deps": attr.label_list(),
+                "runtime_deps": attr.label_list(),
+                "exports": attr.label_list(),
+                "_java_toolchain": attr.label(default = Label("//java/com/google/test:toolchain")),
+            },
+            fragments = ["java"],
+        )
+        """);
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:custom");
 
@@ -2168,17 +2807,31 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void testJavaInfoGetGenJarsProvider() throws Exception {
     scratch.file(
         "foo/extension.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  return [result(property = ctx.attr.dep[JavaInfo].annotation_processing)]",
-        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+        """
+        result = provider()
+
+        def _impl(ctx):
+            return [result(property = ctx.attr.dep[JavaInfo].annotation_processing)]
+
+        my_rule = rule(_impl, attrs = {"dep": attr.label()})
+        """);
 
     scratch.file(
         "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'], ",
-        "             javacopts = ['-processor com.google.process.Processor'])",
-        "my_rule(name = 'my_starlark_rule', dep = ':my_java_lib_a')");
+        """
+        load(":extension.bzl", "my_rule")
+
+        java_library(
+            name = "my_java_lib_a",
+            srcs = ["java/A.java"],
+            javacopts = ["-processor com.google.process.Processor"],
+        )
+
+        my_rule(
+            name = "my_starlark_rule",
+            dep = ":my_java_lib_a",
+        )
+        """);
     assertNoEvents();
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
     StructImpl info =
@@ -2198,16 +2851,31 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void javaInfoGetCompilationInfoProvider() throws Exception {
     scratch.file(
         "foo/extension.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  return [result(property = ctx.attr.dep[JavaInfo].compilation_info)]",
-        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+        """
+        result = provider()
+
+        def _impl(ctx):
+            return [result(property = ctx.attr.dep[JavaInfo].compilation_info)]
+
+        my_rule = rule(_impl, attrs = {"dep": attr.label()})
+        """);
 
     scratch.file(
         "foo/BUILD",
-        "load(':extension.bzl', 'my_rule')",
-        "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'], javacopts = ['opt1'])",
-        "my_rule(name = 'my_starlark_rule', dep = ':my_java_lib_a')");
+        """
+        load(":extension.bzl", "my_rule")
+
+        java_library(
+            name = "my_java_lib_a",
+            srcs = ["java/A.java"],
+            javacopts = ["opt1"],
+        )
+
+        my_rule(
+            name = "my_starlark_rule",
+            dep = ":my_java_lib_a",
+        )
+        """);
     assertNoEvents();
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
     StructImpl info =
@@ -2230,10 +2898,14 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void javaInfoStarlarkCompilationInfoJavacOpts() throws Exception {
     scratch.file(
         "foo/extension.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  return [result(property = ctx.attr.dep[JavaInfo].compilation_info.javac_options)]",
-        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+        """
+        result = provider()
+
+        def _impl(ctx):
+            return [result(property = ctx.attr.dep[JavaInfo].compilation_info.javac_options)]
+
+        my_rule = rule(_impl, attrs = {"dep": attr.label()})
+        """);
     scratch.file(
         "foo/BUILD",
         "load(':extension.bzl', 'my_rule')",
@@ -2260,17 +2932,28 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_binary(name = 'plugin',",
-        "    deps = [ ':somedep'],",
-        "    srcs = [ 'Plugin.java'],",
-        "    main_class = 'plugin.start')",
-        "java_custom_library(name = 'somedep',",
-        "    srcs = ['Dependency.java'],",
-        "    deps = [ ':eclipse' ])",
-        "java_custom_library(name = 'eclipse',",
-        "    neverlink = 1,",
-        "    srcs = ['EclipseDependency.java'])");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_binary(
+            name = "plugin",
+            srcs = ["Plugin.java"],
+            main_class = "plugin.start",
+            deps = [":somedep"],
+        )
+
+        java_custom_library(
+            name = "somedep",
+            srcs = ["Dependency.java"],
+            deps = [":eclipse"],
+        )
+
+        java_custom_library(
+            name = "eclipse",
+            srcs = ["EclipseDependency.java"],
+            neverlink = 1,
+        )
+        """);
     scratch.file(
         "java/test/custom_rule.bzl",
         "def _impl(ctx):",
@@ -2323,26 +3006,32 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(name = 'somedep')");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(name = "somedep")
+        """);
     scratch.file(
         "java/test/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
-        "  ctx.actions.write(output_jar, '')",
-        "  java_info = JavaInfo(",
-        "    output_jar = output_jar,",
-        "    compile_jar = None,",
-        "    neverlink = True,",
-        "  )",
-        "  return [",
-        "      java_info",
-        "  ]",
-        "java_custom_library = rule(",
-        "  implementation = _impl,",
-        "  fragments = ['java'],",
-        "  provides = [JavaInfo],",
-        ")");
+        """
+        def _impl(ctx):
+            output_jar = ctx.actions.declare_file("lib" + ctx.label.name + ".jar")
+            ctx.actions.write(output_jar, "")
+            java_info = JavaInfo(
+                output_jar = output_jar,
+                compile_jar = None,
+                neverlink = True,
+            )
+            return [
+                java_info,
+            ]
+
+        java_custom_library = rule(
+            implementation = _impl,
+            fragments = ["java"],
+            provides = [JavaInfo],
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//java/test:somedep");
 
@@ -2355,31 +3044,37 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(name = 'somedep')");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(name = "somedep")
+        """);
     scratch.file(
         "java/test/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
-        "  ctx.actions.write(output_jar, '')",
-        "  java_info_with_neverlink = JavaInfo(",
-        "    output_jar = output_jar,",
-        "    compile_jar = None,",
-        "    neverlink = True,",
-        "  )",
-        "  java_info_without_neverlink = JavaInfo(",
-        "    output_jar = output_jar,",
-        "    compile_jar = None,",
-        "  )",
-        "  java_info = java_common.merge([java_info_with_neverlink, java_info_without_neverlink])",
-        "  return [",
-        "      java_info",
-        "  ]",
-        "java_custom_library = rule(",
-        "  implementation = _impl,",
-        "  fragments = ['java'],",
-        "  provides = [JavaInfo],",
-        ")");
+        """
+        def _impl(ctx):
+            output_jar = ctx.actions.declare_file("lib" + ctx.label.name + ".jar")
+            ctx.actions.write(output_jar, "")
+            java_info_with_neverlink = JavaInfo(
+                output_jar = output_jar,
+                compile_jar = None,
+                neverlink = True,
+            )
+            java_info_without_neverlink = JavaInfo(
+                output_jar = output_jar,
+                compile_jar = None,
+            )
+            java_info = java_common.merge([java_info_with_neverlink, java_info_without_neverlink])
+            return [
+                java_info,
+            ]
+
+        java_custom_library = rule(
+            implementation = _impl,
+            fragments = ["java"],
+            provides = [JavaInfo],
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//java/test:somedep");
 
@@ -2392,9 +3087,14 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(name = 'somedep',",
-        "    srcs = ['Dependency.java'])");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(
+            name = "somedep",
+            srcs = ["Dependency.java"],
+        )
+        """);
     scratch.file(
         "java/test/custom_rule.bzl",
         "def _impl(ctx):",
@@ -2435,20 +3135,50 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(",
-        "  name = 'custom',",
-        "  srcs = ['A.java'],",
-        "  deps = [':lib_deps'],",
-        "  runtime_deps = [':lib_runtime_deps'],",
-        "  exports = [':lib_exports'],",
-        ")",
-        "java_library(name = 'lib_deps', srcs = ['B.java'], deps = [':native_deps1.so'])",
-        "cc_library(name = 'native_deps1.so', srcs = ['a.cc'])",
-        "java_library(name = 'lib_runtime_deps', srcs = ['C.java'], deps = [':native_rdeps1.so'])",
-        "cc_library(name = 'native_rdeps1.so', srcs = ['c.cc'])",
-        "java_library(name = 'lib_exports', srcs = ['D.java'], deps = [':native_exports1.so'])",
-        "cc_library(name = 'native_exports1.so', srcs = ['e.cc'])");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(
+            name = "custom",
+            srcs = ["A.java"],
+            exports = [":lib_exports"],
+            runtime_deps = [":lib_runtime_deps"],
+            deps = [":lib_deps"],
+        )
+
+        java_library(
+            name = "lib_deps",
+            srcs = ["B.java"],
+            deps = [":native_deps1.so"],
+        )
+
+        cc_library(
+            name = "native_deps1.so",
+            srcs = ["a.cc"],
+        )
+
+        java_library(
+            name = "lib_runtime_deps",
+            srcs = ["C.java"],
+            deps = [":native_rdeps1.so"],
+        )
+
+        cc_library(
+            name = "native_rdeps1.so",
+            srcs = ["c.cc"],
+        )
+
+        java_library(
+            name = "lib_exports",
+            srcs = ["D.java"],
+            deps = [":native_exports1.so"],
+        )
+
+        cc_library(
+            name = "native_exports1.so",
+            srcs = ["e.cc"],
+        )
+        """);
     scratch.file(
         "java/test/custom_rule.bzl",
         "def _impl(ctx):",
@@ -2501,16 +3231,20 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(",
-        "  name = 'custom',",
-        "  srcs = ['A.java'],",
-        "  ccdeps = [':native.so'],",
-        ")",
-        "cc_library(",
-        "  name = 'native.so',",
-        "  srcs = ['a.cc'],",
-        ")");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(
+            name = "custom",
+            srcs = ["A.java"],
+            ccdeps = [":native.so"],
+        )
+
+        cc_library(
+            name = "native.so",
+            srcs = ["a.cc"],
+        )
+        """);
     scratch.file(
         "java/test/custom_rule.bzl",
         "def _impl(ctx):",
@@ -2552,24 +3286,43 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void strictDepsEnabled() throws Exception {
     scratch.file(
         "foo/custom_library.bzl",
-        "def _impl(ctx):",
-        "  java_provider = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps])",
-        "  if not ctx.attr.strict_deps:",
-        "    java_provider = java_common.make_non_strict(java_provider)",
-        "  return [java_provider]",
-        "custom_library = rule(",
-        "  attrs = {",
-        "    'deps': attr.label_list(),",
-        "    'strict_deps': attr.bool()",
-        "  },",
-        "  implementation = _impl",
-        ")");
+        """
+        def _impl(ctx):
+            java_provider = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps])
+            if not ctx.attr.strict_deps:
+                java_provider = java_common.make_non_strict(java_provider)
+            return [java_provider]
+
+        custom_library = rule(
+            attrs = {
+                "deps": attr.label_list(),
+                "strict_deps": attr.bool(),
+            },
+            implementation = _impl,
+        )
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':custom_library.bzl', 'custom_library')",
-        "custom_library(name = 'custom', deps = [':a'], strict_deps = True)",
-        "java_library(name = 'a', srcs = ['java/A.java'], deps = [':b'])",
-        "java_library(name = 'b', srcs = ['java/B.java'])");
+        """
+        load(":custom_library.bzl", "custom_library")
+
+        custom_library(
+            name = "custom",
+            strict_deps = True,
+            deps = [":a"],
+        )
+
+        java_library(
+            name = "a",
+            srcs = ["java/A.java"],
+            deps = [":b"],
+        )
+
+        java_library(
+            name = "b",
+            srcs = ["java/B.java"],
+        )
+        """);
 
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:custom");
     JavaCompilationArgsProvider javaCompilationArgsProvider =
@@ -2583,24 +3336,43 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void strictDepsDisabled() throws Exception {
     scratch.file(
         "foo/custom_library.bzl",
-        "def _impl(ctx):",
-        "  java_provider = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps])",
-        "  if not ctx.attr.strict_deps:",
-        "    java_provider = java_common.make_non_strict(java_provider)",
-        "  return [java_provider]",
-        "custom_library = rule(",
-        "  attrs = {",
-        "    'deps': attr.label_list(),",
-        "    'strict_deps': attr.bool()",
-        "  },",
-        "  implementation = _impl",
-        ")");
+        """
+        def _impl(ctx):
+            java_provider = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps])
+            if not ctx.attr.strict_deps:
+                java_provider = java_common.make_non_strict(java_provider)
+            return [java_provider]
+
+        custom_library = rule(
+            attrs = {
+                "deps": attr.label_list(),
+                "strict_deps": attr.bool(),
+            },
+            implementation = _impl,
+        )
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':custom_library.bzl', 'custom_library')",
-        "custom_library(name = 'custom', deps = [':a'], strict_deps = False)",
-        "java_library(name = 'a', srcs = ['java/A.java'], deps = [':b'])",
-        "java_library(name = 'b', srcs = ['java/B.java'])");
+        """
+        load(":custom_library.bzl", "custom_library")
+
+        custom_library(
+            name = "custom",
+            strict_deps = False,
+            deps = [":a"],
+        )
+
+        java_library(
+            name = "a",
+            srcs = ["java/A.java"],
+            deps = [":b"],
+        )
+
+        java_library(
+            name = "b",
+            srcs = ["java/B.java"],
+        )
+        """);
 
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:custom");
     JavaCompilationArgsProvider javaCompilationArgsProvider =
@@ -2613,14 +3385,24 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void strictJavaDepsFlagExposed_default() throws Exception {
     scratch.file(
         "foo/rule.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  return [result(strict_java_deps=ctx.fragments.java.strict_java_deps)]",
-        "myrule = rule(",
-        "  implementation=_impl,",
-        "  fragments = ['java']",
-        ")");
-    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
+        """
+        result = provider()
+
+        def _impl(ctx):
+            return [result(strict_java_deps = ctx.fragments.java.strict_java_deps)]
+
+        myrule = rule(
+            implementation = _impl,
+            fragments = ["java"],
+        )
+        """);
+    scratch.file(
+        "foo/BUILD",
+        """
+        load(":rule.bzl", "myrule")
+
+        myrule(name = "myrule")
+        """);
     ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:myrule");
     StructImpl info =
         (StructImpl)
@@ -2633,14 +3415,24 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void strictJavaDepsFlagExposed_error() throws Exception {
     scratch.file(
         "foo/rule.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  return [result(strict_java_deps=ctx.fragments.java.strict_java_deps)]",
-        "myrule = rule(",
-        "  implementation=_impl,",
-        "  fragments = ['java']",
-        ")");
-    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
+        """
+        result = provider()
+
+        def _impl(ctx):
+            return [result(strict_java_deps = ctx.fragments.java.strict_java_deps)]
+
+        myrule = rule(
+            implementation = _impl,
+            fragments = ["java"],
+        )
+        """);
+    scratch.file(
+        "foo/BUILD",
+        """
+        load(":rule.bzl", "myrule")
+
+        myrule(name = "myrule")
+        """);
     useConfiguration("--strict_java_deps=ERROR");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:myrule");
     StructImpl info =
@@ -2654,22 +3446,42 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void mergeRuntimeOutputJarsTest() throws Exception {
     scratch.file(
         "foo/custom_library.bzl",
-        "def _impl(ctx):",
-        "  java_provider = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps])",
-        "  return [java_provider]",
-        "custom_library = rule(",
-        "  attrs = {",
-        "    'deps': attr.label_list(),",
-        "    'strict_deps': attr.bool()",
-        "  },",
-        "  implementation = _impl",
-        ")");
+        """
+        def _impl(ctx):
+            java_provider = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps])
+            return [java_provider]
+
+        custom_library = rule(
+            attrs = {
+                "deps": attr.label_list(),
+                "strict_deps": attr.bool(),
+            },
+            implementation = _impl,
+        )
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':custom_library.bzl', 'custom_library')",
-        "custom_library(name = 'custom', deps = [':a', ':b'])",
-        "java_library(name = 'a', srcs = ['java/A.java'])",
-        "java_library(name = 'b', srcs = ['java/B.java'])");
+        """
+        load(":custom_library.bzl", "custom_library")
+
+        custom_library(
+            name = "custom",
+            deps = [
+                ":a",
+                ":b",
+            ],
+        )
+
+        java_library(
+            name = "a",
+            srcs = ["java/A.java"],
+        )
+
+        java_library(
+            name = "b",
+            srcs = ["java/B.java"],
+        )
+        """);
 
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:custom");
     JavaInfo javaInfo = myRuleTarget.get(JavaInfo.PROVIDER);
@@ -2682,14 +3494,18 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/rule.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  return [result(java_toolchain_label=ctx.attr._java_toolchain)]",
-        "myrule = rule(",
-        "  implementation=_impl,",
-        "  fragments = ['java'],",
-        "  attrs = { '_java_toolchain': attr.label(default=Label('//foo:alias')) }",
-        ")");
+        """
+        result = provider()
+
+        def _impl(ctx):
+            return [result(java_toolchain_label = ctx.attr._java_toolchain)]
+
+        myrule = rule(
+            implementation = _impl,
+            fragments = ["java"],
+            attrs = {"_java_toolchain": attr.label(default = Label("//foo:alias"))},
+        )
+        """);
     scratch.file(
         "foo/BUILD",
         "load(':rule.bzl', 'myrule')",
@@ -2719,14 +3535,18 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "foo/rule.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  return [result(java_toolchain_label=ctx.attr._java_toolchain)]",
-        "myrule = rule(",
-        "  implementation=_impl,",
-        "  fragments = ['java'],",
-        "  attrs = { '_java_toolchain': attr.label(default=Label('//foo:alias')) }",
-        ")");
+        """
+        result = provider()
+
+        def _impl(ctx):
+            return [result(java_toolchain_label = ctx.attr._java_toolchain)]
+
+        myrule = rule(
+            implementation = _impl,
+            fragments = ["java"],
+            attrs = {"_java_toolchain": attr.label(default = Label("//foo:alias"))},
+        )
+        """);
     scratch.file(
         "foo/BUILD",
         "load(':rule.bzl', 'myrule')",
@@ -2784,16 +3604,20 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "java/test/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(",
-        "  name = 'custom',",
-        "  srcs = ['Main.java'],",
-        "  exports = [':dep']",
-        ")",
-        "java_library(",
-        "  name = 'dep',",
-        "  srcs = [ 'Dep.java'],",
-        ")");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(
+            name = "custom",
+            srcs = ["Main.java"],
+            exports = [":dep"],
+        )
+
+        java_library(
+            name = "dep",
+            srcs = ["Dep.java"],
+        )
+        """);
     scratch.file(
         "java/test/custom_rule.bzl",
         "def _impl(ctx):",
@@ -2861,8 +3685,14 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "foo/BUILD",
-        "load(':java_custom_library.bzl', 'java_custom_library')",
-        "java_custom_library(name = 'b', srcs = ['java/B.java'])");
+        """
+        load(":java_custom_library.bzl", "java_custom_library")
+
+        java_custom_library(
+            name = "b",
+            srcs = ["java/B.java"],
+        )
+        """);
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:b");
     JavaInfo info = configuredTarget.get(JavaInfo.PROVIDER);
@@ -2900,9 +3730,21 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "foo/BUILD",
-        "load(':java_custom_library.bzl', 'java_custom_library')",
-        "java_library(name = 'b', srcs = ['java/B.java'], neverlink = 1)",
-        "java_custom_library(name = 'a', srcs = ['java/A.java'], deps = [':b'])");
+        """
+        load(":java_custom_library.bzl", "java_custom_library")
+
+        java_library(
+            name = "b",
+            srcs = ["java/B.java"],
+            neverlink = 1,
+        )
+
+        java_custom_library(
+            name = "a",
+            srcs = ["java/A.java"],
+            deps = [":b"],
+        )
+        """);
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:a");
     JavaInfo info = configuredTarget.get(JavaInfo.PROVIDER);
@@ -2942,9 +3784,20 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "foo/BUILD",
-        "load(':java_custom_library.bzl', 'java_custom_library')",
-        "java_library(name = 'b', srcs = ['java/B.java'])",
-        "java_custom_library(name = 'c', srcs = [], exports = [':b'])");
+        """
+        load(":java_custom_library.bzl", "java_custom_library")
+
+        java_library(
+            name = "b",
+            srcs = ["java/B.java"],
+        )
+
+        java_custom_library(
+            name = "c",
+            srcs = [],
+            exports = [":b"],
+        )
+        """);
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:c");
     JavaInfo info = configuredTarget.get(JavaInfo.PROVIDER);
@@ -2965,9 +3818,20 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     scratch.file(
         "a/BUILD",
-        "load(':rule.bzl', 'jrule')",
-        "java_runtime(name='jvm', srcs=[], java_home='/foo/bar')",
-        "jrule(name='r', srcs=['S.java'])");
+        """
+        load(":rule.bzl", "jrule")
+
+        java_runtime(
+            name = "jvm",
+            srcs = [],
+            java_home = "/foo/bar",
+        )
+
+        jrule(
+            name = "r",
+            srcs = ["S.java"],
+        )
+        """);
 
     scratch.file(
         "a/rule.bzl",
@@ -3002,20 +3866,31 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "a/rule.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "  return MyInfo(",
-        "    javac_opts = java_common.default_javac_opts(",
-        "        java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo])",
-        "    )",
-        "get_javac_opts = rule(",
-        "  _impl,",
-        "  attrs = {",
-        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
-        "  }",
-        ");");
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
 
-    scratch.file("a/BUILD", "load(':rule.bzl', 'get_javac_opts')", "get_javac_opts(name='r')");
+        def _impl(ctx):
+            return MyInfo(
+                javac_opts = java_common.default_javac_opts(
+                    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
+                ),
+            )
+
+        get_javac_opts = rule(
+            _impl,
+            attrs = {
+                "_java_toolchain": attr.label(default = Label("//java/com/google/test:toolchain")),
+            },
+        )
+        """);
+
+    scratch.file(
+        "a/BUILD",
+        """
+        load(":rule.bzl", "get_javac_opts")
+
+        get_javac_opts(name = "r")
+        """);
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     @SuppressWarnings("unchecked") // Use an extra variable in order to suppress the warning.
@@ -3028,20 +3903,31 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "a/rule.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "  return MyInfo(",
-        "    javac_opts = java_common.default_javac_opts_depset(",
-        "        java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],",
-        "    ))",
-        "get_javac_opts = rule(",
-        "  _impl,",
-        "  attrs = {",
-        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
-        "  }",
-        ");");
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
 
-    scratch.file("a/BUILD", "load(':rule.bzl', 'get_javac_opts')", "get_javac_opts(name='r')");
+        def _impl(ctx):
+            return MyInfo(
+                javac_opts = java_common.default_javac_opts_depset(
+                    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
+                ),
+            )
+
+        get_javac_opts = rule(
+            _impl,
+            attrs = {
+                "_java_toolchain": attr.label(default = Label("//java/com/google/test:toolchain")),
+            },
+        )
+        """);
+
+    scratch.file(
+        "a/BUILD",
+        """
+        load(":rule.bzl", "get_javac_opts")
+
+        get_javac_opts(name = "r")
+        """);
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     NestedSet<String> javacopts =
@@ -3055,20 +3941,31 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     JavaTestUtil.writeBuildFileForJavaToolchain(scratch);
     scratch.file(
         "a/rule.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "  return MyInfo(",
-        "    javac_opts = java_common.default_javac_opts(",
-        "        java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo])",
-        "    )",
-        "get_javac_opts = rule(",
-        "  _impl,",
-        "  attrs = {",
-        "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
-        "  }",
-        ");");
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
 
-    scratch.file("a/BUILD", "load(':rule.bzl', 'get_javac_opts')", "get_javac_opts(name='r')");
+        def _impl(ctx):
+            return MyInfo(
+                javac_opts = java_common.default_javac_opts(
+                    java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
+                ),
+            )
+
+        get_javac_opts = rule(
+            _impl,
+            attrs = {
+                "_java_toolchain": attr.label(default = Label("//java/com/google/test:toolchain")),
+            },
+        )
+        """);
+
+    scratch.file(
+        "a/BUILD",
+        """
+        load(":rule.bzl", "get_javac_opts")
+
+        get_javac_opts(name = "r")
+        """);
 
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     @SuppressWarnings("unchecked") // Use an extra variable in order to suppress the warning.
@@ -3098,12 +3995,15 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     scratch.file(
         "a/rule.bzl",
-        "def _impl(ctx):",
-        "  provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]",
-        "  return DefaultInfo(",
-        "    files = provider.files,",
-        "  )",
-        "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
+        """
+        def _impl(ctx):
+            provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
+            return DefaultInfo(
+                files = provider.files,
+            )
+
+        jrule = rule(_impl, attrs = {"_java_runtime": attr.label(default = Label("//a:alias"))})
+        """);
 
     useConfiguration("--extra_toolchains=//a:all");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
@@ -3117,16 +4017,18 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     scratch.file(
         "java/BUILD",
-        "java_library(",
-        "    name = 'lib',",
-        "    resources = [':libjni.so'],",
-        ")",
-        "",
-        "cc_binary(",
-        "    name = 'libjni.so',",
-        "    srcs = ['jni.cc'],",
-        "    linkshared = 1,",
-        ")");
+        """
+        java_library(
+            name = "lib",
+            resources = [":libjni.so"],
+        )
+
+        cc_binary(
+            name = "libjni.so",
+            srcs = ["jni.cc"],
+            linkshared = 1,
+        )
+        """);
 
     InstrumentedFilesInfo target = getInstrumentedFilesProvider("//java:lib");
 
@@ -3151,10 +4053,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    plugins = [p[JavaPluginInfo] for p in ctx.attr.plugins],",
         "    enable_annotation_processing = False,",
         "  )",
-        "  return struct(",
-        "    files = depset([output_jar]),",
-        "    providers = [compilation_provider]",
-        "  )",
+        "  return [DefaultInfo(files = depset([output_jar])), compilation_provider]",
         "java_custom_library = rule(",
         "  implementation = _impl,",
         "  outputs = {",
@@ -3171,28 +4070,34 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "foo/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_plugin(",
-        "  name = 'processor',",
-        "  srcs = ['processor.java'],",
-        "  processor_class = 'Foo',",
-        "  generates_api = 1,", // so Turbine would normally run it
-        "  data = ['processor_data.txt'],",
-        ")",
-        "java_library(",
-        "  name = 'exports_processor',",
-        "  exported_plugins = [':processor'],",
-        ")",
-        "java_custom_library(",
-        "  srcs = ['custom.java'],",
-        "  name = 'custom',",
-        "  deps = [':exports_processor'],",
-        "  plugins = [':processor'],",
-        ")",
-        "java_custom_library(",
-        "  srcs = ['custom.java'],",
-        "  name = 'custom_noproc',",
-        ")");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_plugin(
+            name = "processor",
+            srcs = ["processor.java"],
+            data = ["processor_data.txt"],
+            generates_api = 1,  # so Turbine would normally run it
+            processor_class = "Foo",
+        )
+
+        java_library(
+            name = "exports_processor",
+            exported_plugins = [":processor"],
+        )
+
+        java_custom_library(
+            name = "custom",
+            srcs = ["custom.java"],
+            plugins = [":processor"],
+            deps = [":exports_processor"],
+        )
+
+        java_custom_library(
+            name = "custom_noproc",
+            srcs = ["custom.java"],
+        )
+        """);
 
     ConfiguredTarget custom = getConfiguredTarget("//foo:custom");
     ConfiguredTarget customNoproc = getConfiguredTarget("//foo:custom_noproc");
@@ -3244,8 +4149,11 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "foo/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(name = 'custom')");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(name = "custom")
+        """);
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//foo:custom");
@@ -3279,8 +4187,14 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "foo/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(name = 'custom', classpath_resources = ['resource.txt'])");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(
+            name = "custom",
+            classpath_resources = ["resource.txt"],
+        )
+        """);
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//foo:custom");
@@ -3312,8 +4226,11 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "foo/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(name = 'custom')");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(name = "custom")
+        """);
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//foo:custom");
@@ -3345,8 +4262,11 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "foo/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(name = 'custom')");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(name = "custom")
+        """);
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//foo:custom");
@@ -3358,21 +4278,28 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void testMergeJavaOutputsIsPrivateApi() throws Exception {
     scratch.file(
         "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  output_jar = ctx.actions.declare_file('lib.jar')",
-        "  java_info = JavaInfo(output_jar = output_jar, compile_jar = None)",
-        "  java_common.merge([java_info],",
-        "    merge_java_outputs = False",
-        "  )",
-        "  return []",
-        "java_custom_library = rule(",
-        "  implementation = _impl,",
-        "  fragments = ['java']",
-        ")");
+        """
+        def _impl(ctx):
+            output_jar = ctx.actions.declare_file("lib.jar")
+            java_info = JavaInfo(output_jar = output_jar, compile_jar = None)
+            java_common.merge(
+                [java_info],
+                merge_java_outputs = False,
+            )
+            return []
+
+        java_custom_library = rule(
+            implementation = _impl,
+            fragments = ["java"],
+        )
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(name = 'custom')");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(name = "custom")
+        """);
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//foo:custom");
@@ -3384,21 +4311,28 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void testMergeSourceJarsIsPrivateApi() throws Exception {
     scratch.file(
         "foo/custom_rule.bzl",
-        "def _impl(ctx):",
-        "  output_jar = ctx.actions.declare_file('lib.jar')",
-        "  java_info = JavaInfo(output_jar = output_jar, compile_jar = None)",
-        "  java_common.merge([java_info],",
-        "    merge_source_jars = False",
-        "  )",
-        "  return []",
-        "java_custom_library = rule(",
-        "  implementation = _impl,",
-        "  fragments = ['java']",
-        ")");
+        """
+        def _impl(ctx):
+            output_jar = ctx.actions.declare_file("lib.jar")
+            java_info = JavaInfo(output_jar = output_jar, compile_jar = None)
+            java_common.merge(
+                [java_info],
+                merge_source_jars = False,
+            )
+            return []
+
+        java_custom_library = rule(
+            implementation = _impl,
+            fragments = ["java"],
+        )
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(name = 'custom')");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(name = "custom")
+        """);
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//foo:custom");
@@ -3430,8 +4364,11 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "foo/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(name = 'custom')");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(name = "custom")
+        """);
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//foo:custom");
@@ -3464,8 +4401,11 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "foo/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(name = 'custom')");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(name = "custom")
+        """);
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//foo:custom");
@@ -3477,15 +4417,25 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void disallowJavaImportEmptyJars_fails() throws Exception {
     scratch.file(
         "foo/rule.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  ctx.fragments.java.disallow_java_import_empty_jars()",
-        "  return []",
-        "myrule = rule(",
-        "  implementation=_impl,",
-        "  fragments = ['java']",
-        ")");
-    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
+        """
+        result = provider()
+
+        def _impl(ctx):
+            ctx.fragments.java.disallow_java_import_empty_jars()
+            return []
+
+        myrule = rule(
+            implementation = _impl,
+            fragments = ["java"],
+        )
+        """);
+    scratch.file(
+        "foo/BUILD",
+        """
+        load(":rule.bzl", "myrule")
+
+        myrule(name = "myrule")
+        """);
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//foo:myrule");
@@ -3517,8 +4467,11 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "foo/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(name = 'custom')");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(name = "custom")
+        """);
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//foo:custom");
@@ -3556,14 +4509,17 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     rewriteWorkspace("local_repository(name = 'other_repo', path = './my_other_repo')");
     scratch.file(
         "foo/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(",
-        "  name = 'custom',",
-        "  srcs = [",
-        "    'internal-file.txt',",
-        "    '@other_repo//:external-file.txt',",
-        "  ]",
-        ")");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(
+            name = "custom",
+            srcs = [
+                "internal-file.txt",
+                "@other_repo//:external-file.txt",
+            ],
+        )
+        """);
 
     List<String> arguments =
         ((SpawnAction) getGeneratingAction(getConfiguredTarget("//foo:custom"), "foo/output.jar"))
@@ -3581,20 +4537,34 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void mergeAddExports() throws Exception {
     scratch.file(
         "foo/custom_library.bzl",
-        "def _impl(ctx):",
-        "  java_provider = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps])",
-        "  return [java_provider]",
-        "custom_library = rule(",
-        "  attrs = {",
-        "    'deps': attr.label_list(),",
-        "  },",
-        "  implementation = _impl",
-        ")");
+        """
+        def _impl(ctx):
+            java_provider = java_common.merge([dep[JavaInfo] for dep in ctx.attr.deps])
+            return [java_provider]
+
+        custom_library = rule(
+            attrs = {
+                "deps": attr.label_list(),
+            },
+            implementation = _impl,
+        )
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':custom_library.bzl', 'custom_library')",
-        "custom_library(name = 'custom', deps = [':a'])",
-        "java_library(name = 'a', srcs = ['java/A.java'], add_exports = ['java.base/java.lang'])");
+        """
+        load(":custom_library.bzl", "custom_library")
+
+        custom_library(
+            name = "custom",
+            deps = [":a"],
+        )
+
+        java_library(
+            name = "a",
+            srcs = ["java/A.java"],
+            add_exports = ["java.base/java.lang"],
+        )
+        """);
 
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:custom");
     JavaModuleFlagsProvider provider =
@@ -3631,13 +4601,17 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "a/rule.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "  provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]",
-        "  return MyInfo(",
-        "    hermetic_static_libs = provider.hermetic_static_libs,",
-        "  )",
-        "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
+
+        def _impl(ctx):
+            provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
+            return MyInfo(
+                hermetic_static_libs = provider.hermetic_static_libs,
+            )
+
+        jrule = rule(_impl, attrs = {"_java_runtime": attr.label(default = Label("//a:alias"))})
+        """);
 
     useConfiguration("--extra_toolchains=//a:all");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
@@ -3680,13 +4654,17 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "a/rule.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "  provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]",
-        "  return MyInfo(",
-        "    lib_ct_sym = provider.lib_ct_sym,",
-        "  )",
-        "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
+
+        def _impl(ctx):
+            provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
+            return MyInfo(
+                lib_ct_sym = provider.lib_ct_sym,
+            )
+
+        jrule = rule(_impl, attrs = {"_java_runtime": attr.label(default = Label("//a:alias"))})
+        """);
 
     useConfiguration("--extra_toolchains=//a:all");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
@@ -3725,13 +4703,17 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "a/rule.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "  provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]",
-        "  return MyInfo(",
-        "    lib_ct_sym = provider.lib_ct_sym,",
-        "  )",
-        "jrule = rule(_impl, attrs = { '_java_runtime': attr.label(default=Label('//a:alias'))})");
+        """
+        load("//myinfo:myinfo.bzl", "MyInfo")
+
+        def _impl(ctx):
+            provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
+            return MyInfo(
+                lib_ct_sym = provider.lib_ct_sym,
+            )
+
+        jrule = rule(_impl, attrs = {"_java_runtime": attr.label(default = Label("//a:alias"))})
+        """);
 
     useConfiguration("--extra_toolchains=//a:all");
     ConfiguredTarget ct = getConfiguredTarget("//a:r");
@@ -3767,8 +4749,11 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "foo/BUILD",
-        "load(':custom_rule.bzl', 'java_custom_library')",
-        "java_custom_library(name = 'custom')");
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_custom_library(name = "custom")
+        """);
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//foo:custom");
@@ -3807,9 +4792,11 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "custom_rule = rule(implementation = _impl)");
     scratch.file(
         "foo/BUILD",
-        //
-        "load(':custom_rule.bzl', 'custom_rule')",
-        "custom_rule(name = 'custom')");
+        """
+        load(":custom_rule.bzl", "custom_rule")
+
+        custom_rule(name = "custom")
+        """);
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//foo:custom");
@@ -3821,22 +4808,30 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   public void testProviderValidationPrintsProviderName() throws Exception {
     scratch.file(
         "foo/rule.bzl",
-        "def _impl(ctx):",
-        "  cc_info = ctx.attr.dep[CcInfo]",
-        "  JavaInfo(output_jar = None, compile_jar = None, deps = [cc_info])",
-        "  return []",
-        "myrule = rule(",
-        "  implementation=_impl,",
-        "  attrs = {'dep' : attr.label()},",
-        "  fragments = []",
-        ")");
+        """
+        def _impl(ctx):
+            cc_info = ctx.attr.dep[CcInfo]
+            JavaInfo(output_jar = None, compile_jar = None, deps = [cc_info])
+            return []
+
+        myrule = rule(
+            implementation = _impl,
+            attrs = {"dep": attr.label()},
+            fragments = [],
+        )
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':rule.bzl', 'myrule')",
-        "cc_library(name = 'cc_lib')",
-        "myrule(name='myrule',",
-        "    dep = ':cc_lib',",
-        ")");
+        """
+        load(":rule.bzl", "myrule")
+
+        cc_library(name = "cc_lib")
+
+        myrule(
+            name = "myrule",
+            dep = ":cc_lib",
+        )
+        """);
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//foo:myrule");

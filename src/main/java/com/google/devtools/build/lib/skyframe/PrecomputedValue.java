@@ -122,10 +122,9 @@ public final class PrecomputedValue implements SkyValue {
 
   @Override
   public boolean equals(Object obj) {
-    if (!(obj instanceof PrecomputedValue)) {
+    if (!(obj instanceof PrecomputedValue other)) {
       return false;
     }
-    PrecomputedValue other = (PrecomputedValue) obj;
     return value.equals(other.value);
   }
 

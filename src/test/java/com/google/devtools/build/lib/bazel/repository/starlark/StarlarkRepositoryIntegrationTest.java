@@ -67,13 +67,16 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
     scratch.file("/repo2/BUILD", "filegroup(name='bar', srcs=['bar.txt'], path='foo')");
     scratch.file(
         "def.bzl",
-        "def _impl(repository_ctx):",
-        "  repository_ctx.symlink(repository_ctx.attr.path, '')",
-        "",
-        "repo = repository_rule(",
-        "    implementation=_impl,",
-        "    local=True,",
-        "    attrs={'path': attr.string(mandatory=True)})");
+        """
+        def _impl(repository_ctx):
+            repository_ctx.symlink(repository_ctx.attr.path, "")
+
+        repo = repository_rule(
+            implementation = _impl,
+            local = True,
+            attrs = {"path": attr.string(mandatory = True)},
+        )
+        """);
     scratch.file(rootDirectory.getRelative("BUILD").getPathString());
     scratch.overwriteFile(
         rootDirectory.getRelative("WORKSPACE").getPathString(),
@@ -97,17 +100,24 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
     scratch.file("/repo/BUILD");
     scratch.file(
         "def.bzl",
-        "def _impl(ctx): pass",
-        "rule1 = repository_rule(implementation=_impl)",
-        "def f():",
-        "  # exported",
-        "  a = rule1(name='a')",
-        "  # unexported",
-        "  rule2 = repository_rule(implementation=_impl)",
-        "  b = rule2(name='b')",
-        "  fail('a.kind=%s b.kind=%s' % (",
-        "    native.existing_rule('a')['kind'],",
-        "    native.existing_rule('b')['kind']))");
+        """
+        def _impl(ctx):
+            pass
+
+        rule1 = repository_rule(implementation = _impl)
+
+        def f():
+            # exported
+            a = rule1(name = "a")
+
+            # unexported
+            rule2 = repository_rule(implementation = _impl)
+            b = rule2(name = "b")
+            fail("a.kind=%s b.kind=%s" % (
+                native.existing_rule("a")["kind"],
+                native.existing_rule("b")["kind"],
+            ))
+        """);
     scratch.file(rootDirectory.getRelative("BUILD").getPathString());
     scratch.overwriteFile(
         rootDirectory.getRelative("WORKSPACE").getPathString(), "load('//:def.bzl', 'f')", "f()");
@@ -126,14 +136,18 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
     scratch.file("/repo2/BUILD", "filegroup(name='bar', srcs=['bar.txt'], path='foo')");
     scratch.file(
         "def.bzl",
-        "__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()",
-        "def _impl(repository_ctx):",
-        "  repository_ctx.symlink(repository_ctx.attr.path, '')",
-        "",
-        "repo = repository_rule(",
-        "    implementation=_impl,",
-        "    local=True,",
-        "    attrs={'path': attr.string(mandatory=True)})");
+        """
+        __do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc()
+
+        def _impl(repository_ctx):
+            repository_ctx.symlink(repository_ctx.attr.path, "")
+
+        repo = repository_rule(
+            implementation = _impl,
+            local = True,
+            attrs = {"path": attr.string(mandatory = True)},
+        )
+        """);
     scratch.file(rootDirectory.getRelative("BUILD").getPathString());
     scratch.overwriteFile(
         rootDirectory.getRelative("WORKSPACE").getPathString(),
@@ -156,13 +170,16 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
     scratch.file("/repo2/WORKSPACE");
     scratch.file(
         "def.bzl",
-        "def _impl(repository_ctx):",
-        "  repository_ctx.symlink(Label('@repo2//:bar.txt'), 'BUILD')",
-        "  repository_ctx.file('foo.txt', 'foo')",
-        "",
-        "repo = repository_rule(",
-        "    implementation=_impl,",
-        "    local=True)");
+        """
+        def _impl(repository_ctx):
+            repository_ctx.symlink(Label("@repo2//:bar.txt"), "BUILD")
+            repository_ctx.file("foo.txt", "foo")
+
+        repo = repository_rule(
+            implementation = _impl,
+            local = True,
+        )
+        """);
     scratch.file(rootDirectory.getRelative("BUILD").getPathString());
     scratch.overwriteFile(
         rootDirectory.getRelative("WORKSPACE").getPathString(),
@@ -244,7 +261,12 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file("/repo2/data.txt", "data");
     scratch.file("/repo2/BUILD", "exports_files_(['data.txt'])");
-    scratch.file("/repo2/def.bzl", "def macro():", "  print('bleh')");
+    scratch.file(
+        "/repo2/def.bzl",
+        """
+        def macro():
+            print("bleh")
+        """);
     scratch.file("/repo2/WORKSPACE");
     scratch.overwriteFile(
         rootDirectory.getRelative("WORKSPACE").getPathString(),
@@ -273,7 +295,12 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file("/repo2/data.txt", "data");
     scratch.file("/repo2/BUILD", "exports_files_(['data.txt'])");
-    scratch.file("/repo2/def.bzl", "def macro():", "  print('bleh')");
+    scratch.file(
+        "/repo2/def.bzl",
+        """
+        def macro():
+            print("bleh")
+        """);
     scratch.file("/repo2/WORKSPACE");
     scratch.overwriteFile(
         rootDirectory.getRelative("WORKSPACE").getPathString(),
@@ -307,8 +334,11 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
     scratch.file("foo/BUILD", "");
     scratch.file(
         "foo/bar.bzl",
-        "load('@git_repo//xyz:foo.bzl', 'rule_from_git')",
-        "rule_from_git(name = 'foobar')");
+        """
+        load("@git_repo//xyz:foo.bzl", "rule_from_git")
+
+        rule_from_git(name = "foobar")
+        """);
 
     invalidatePackages();
     AssertionError expected = assertThrows(AssertionError.class, () -> getTarget("@//:git_repo"));
@@ -326,7 +356,12 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file("/repo2/data.txt", "data");
     scratch.file("/repo2/BUILD", "exports_files_(['data.txt'])");
-    scratch.file("/repo2/def.bzl", "def macro():", "  print('bleh')");
+    scratch.file(
+        "/repo2/def.bzl",
+        """
+        def macro():
+            print("bleh")
+        """);
     scratch.file("/repo2/WORKSPACE");
 
     scratch.overwriteFile(
@@ -351,7 +386,12 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testLoadDoesNotHideWorkspaceFunction() throws Exception {
-    scratch.file("def.bzl", "def macro():", "  print('bleh')");
+    scratch.file(
+        "def.bzl",
+        """
+        def macro():
+            print("bleh")
+        """);
     scratch.overwriteFile(
         rootDirectory.getRelative("WORKSPACE").getPathString(),
         new ImmutableList.Builder<String>()
@@ -369,12 +409,15 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
   public void testStarlarkRepositoryCannotOverrideBuiltInAttribute() throws Exception {
     scratch.file(
         "def.bzl",
-        "def _impl(ctx):",
-        "  print(ctx.attr.name)",
-        "",
-        "repo = repository_rule(",
-        "    implementation=_impl,",
-        "    attrs={'name': attr.string(mandatory=True)})");
+        """
+        def _impl(ctx):
+            print(ctx.attr.name)
+
+        repo = repository_rule(
+            implementation = _impl,
+            attrs = {"name": attr.string(mandatory = True)},
+        )
+        """);
     scratch.file(rootDirectory.getRelative("BUILD").getPathString());
     scratch.overwriteFile(
         rootDirectory.getRelative("WORKSPACE").getPathString(),
@@ -420,14 +463,23 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
   public void testBindAndRepoSameNameDoesNotCrash() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("/repo2/data.txt", "data");
-    scratch.file("/repo2/BUILD", "load('@//:rulez.bzl', 'r')", "r(name = 'z')");
+    scratch.file(
+        "/repo2/BUILD",
+        """
+        load("@//:rulez.bzl", "r")
+
+        r(name = "z")
+        """);
     scratch.file("/repo2/WORKSPACE");
 
     scratch.file(
         "rulez.bzl",
-        "def _impl(ctx):",
-        "    pass",
-        "r = rule(_impl, attrs = { 'deps' : attr.label_list() })");
+        """
+        def _impl(ctx):
+            pass
+
+        r = rule(_impl, attrs = {"deps": attr.label_list()})
+        """);
     scratch.file("BUILD", "load(':rulez.bzl', 'r')", "r(name = 'x', deps = ['//external:zlib'])");
 
     scratch.overwriteFile(
@@ -452,10 +504,12 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "repo.bzl",
-        "def _impl(ctx):",
-        "    pass",
-        "",
-        "repo = repository_rule(implementation = _impl)");
+        """
+        def _impl(ctx):
+            pass
+
+        repo = repository_rule(implementation = _impl)
+        """);
     scratch.file("BUILD", "load('repo.bzl', 'repo')", "repo(name = 'repository_rule')");
 
     invalidatePackages();

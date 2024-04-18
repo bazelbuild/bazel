@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.DotBazelFileSyntaxChecker;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -66,6 +67,7 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
@@ -84,6 +86,7 @@ public class ModuleFileFunction implements SkyFunction {
   public static final Precomputed<Map<String, ModuleOverride>> MODULE_OVERRIDES =
       new Precomputed<>("module_overrides");
 
+  private final BazelStarlarkEnvironment starlarkEnv;
   private final RegistryFactory registryFactory;
   private final Path workspaceRoot;
   private final ImmutableMap<String, NonRegistryOverride> builtinModules;
@@ -103,12 +106,18 @@ public class ModuleFileFunction implements SkyFunction {
    *     non-registry overrides.
    */
   public ModuleFileFunction(
+      BazelStarlarkEnvironment starlarkEnv,
       RegistryFactory registryFactory,
       Path workspaceRoot,
       ImmutableMap<String, NonRegistryOverride> builtinModules) {
+    this.starlarkEnv = starlarkEnv;
     this.registryFactory = registryFactory;
     this.workspaceRoot = workspaceRoot;
     this.builtinModules = builtinModules;
+  }
+
+  private static class State implements Environment.SkyKeyComputeState {
+    GetModuleFileResult getModuleFileResult;
   }
 
   @Nullable
@@ -121,7 +130,7 @@ public class ModuleFileFunction implements SkyFunction {
     }
 
     if (skyKey.equals(ModuleFileValue.KEY_FOR_ROOT_MODULE)) {
-      return computeForRootModule(starlarkSemantics, env);
+      return computeForRootModule(starlarkSemantics, env, SymbolGenerator.create(skyKey));
     }
 
     ClientEnvironmentValue allowedYankedVersionsFromEnv =
@@ -145,35 +154,56 @@ public class ModuleFileFunction implements SkyFunction {
 
     ModuleFileValue.Key moduleFileKey = (ModuleFileValue.Key) skyKey;
     ModuleKey moduleKey = moduleFileKey.getModuleKey();
-    GetModuleFileResult getModuleFileResult;
-    try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.BZLMOD, () -> "fetch module file: " + moduleKey)) {
-      getModuleFileResult =
-          getModuleFile(moduleKey, moduleFileKey.getOverride(), allowedYankedVersions, env);
+    State state = env.getState(State::new);
+    if (state.getModuleFileResult == null) {
+      try (SilentCloseable c =
+          Profiler.instance()
+              .profile(ProfilerTask.BZLMOD, () -> "fetch module file: " + moduleKey)) {
+        state.getModuleFileResult = getModuleFile(moduleKey, moduleFileKey.getOverride(), env);
+      }
+      if (state.getModuleFileResult == null) {
+        return null;
+      }
     }
-    if (getModuleFileResult == null) {
-      return null;
+    Optional<String> yankedInfo;
+    if (state.getModuleFileResult.registry != null) {
+      YankedVersionsValue yankedVersionsValue =
+          (YankedVersionsValue)
+              env.getValue(
+                  YankedVersionsValue.Key.create(
+                      moduleKey.getName(), state.getModuleFileResult.registry.getUrl()));
+      if (yankedVersionsValue == null) {
+        return null;
+      }
+      yankedInfo =
+          YankedVersionsUtil.getYankedInfo(moduleKey, yankedVersionsValue, allowedYankedVersions);
+    } else {
+      yankedInfo = Optional.empty();
     }
     String moduleFileHash =
-        new Fingerprint().addBytes(getModuleFileResult.moduleFile.getContent()).hexDigestAndReset();
+        new Fingerprint()
+            .addBytes(state.getModuleFileResult.moduleFile.getContent())
+            .hexDigestAndReset();
 
-    ModuleFileGlobals moduleFileGlobals =
+    ModuleThreadContext moduleThreadContext =
         execModuleFile(
-            getModuleFileResult.moduleFile,
-            getModuleFileResult.registry,
+            state.getModuleFileResult.moduleFile,
+            state.getModuleFileResult.registry,
             moduleKey,
             // Dev dependencies should always be ignored if the current module isn't the root module
             /* ignoreDevDeps= */ true,
             builtinModules,
             // We try to prevent most side effects of yanked modules, in particular print().
-            /* printIsNoop= */ getModuleFileResult.yankedInfo != null,
+            /* printIsNoop= */ yankedInfo.isPresent(),
             starlarkSemantics,
-            env.getListener());
+            starlarkEnv,
+            env.getListener(),
+            SymbolGenerator.create(skyKey));
 
     // Perform some sanity checks.
     InterimModule module;
     try {
-      module = moduleFileGlobals.buildModule();
+      module = moduleThreadContext.buildModule();
     } catch (EvalException e) {
       env.getListener().handle(Event.error(e.getMessageWithStack()));
       throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for %s", moduleKey);
@@ -193,7 +223,7 @@ public class ModuleFileFunction implements SkyFunction {
           module.getVersion());
     }
 
-    if (getModuleFileResult.yankedInfo != null) {
+    if (yankedInfo.isPresent()) {
       // Yanked modules should not have observable side effects such as adding dependency
       // requirements, so we drop those from the constructed module. We do have to preserve the
       // compatibility level as it influences the set of versions the yanked version can be updated
@@ -205,7 +235,7 @@ public class ModuleFileFunction implements SkyFunction {
               .setVersion(module.getVersion())
               .setCompatibilityLevel(module.getCompatibilityLevel())
               .setRegistry(module.getRegistry())
-              .setYankedInfo(Optional.of(getModuleFileResult.yankedInfo))
+              .setYankedInfo(yankedInfo)
               .build(),
           moduleFileHash);
     }
@@ -214,7 +244,8 @@ public class ModuleFileFunction implements SkyFunction {
   }
 
   @Nullable
-  private SkyValue computeForRootModule(StarlarkSemantics starlarkSemantics, Environment env)
+  private SkyValue computeForRootModule(
+      StarlarkSemantics starlarkSemantics, Environment env, SymbolGenerator<?> symbolGenerator)
       throws ModuleFileFunctionException, InterruptedException {
     RootedPath moduleFilePath = getModuleFilePath(workspaceRoot);
     if (env.getValue(FileValue.key(moduleFilePath)) == null) {
@@ -242,7 +273,9 @@ public class ModuleFileFunction implements SkyFunction {
         MODULE_OVERRIDES.get(env),
         IGNORE_DEV_DEPS.get(env),
         starlarkSemantics,
-        env.getListener());
+        starlarkEnv,
+        env.getListener(),
+        symbolGenerator);
   }
 
   public static RootedPath getModuleFilePath(Path workspaceRoot) {
@@ -257,22 +290,26 @@ public class ModuleFileFunction implements SkyFunction {
       Map<String, ModuleOverride> commandOverrides,
       boolean ignoreDevDeps,
       StarlarkSemantics starlarkSemantics,
-      ExtendedEventHandler eventHandler)
+      BazelStarlarkEnvironment starlarkEnv,
+      ExtendedEventHandler eventHandler,
+      SymbolGenerator<?> symbolGenerator)
       throws ModuleFileFunctionException, InterruptedException {
     String moduleFileHash = new Fingerprint().addBytes(moduleFileContents).hexDigestAndReset();
-    ModuleFileGlobals moduleFileGlobals =
+    ModuleThreadContext moduleThreadContext =
         execModuleFile(
             ModuleFile.create(moduleFileContents, moduleFilePath.asPath().toString()),
             /* registry= */ null,
             ModuleKey.ROOT,
             ignoreDevDeps,
-            /* printIsNoop= */ builtinModules,
-            false,
+            builtinModules,
+            /* printIsNoop= */ false,
             starlarkSemantics,
-            eventHandler);
+            starlarkEnv,
+            eventHandler,
+            symbolGenerator);
     InterimModule module;
     try {
-      module = moduleFileGlobals.buildModule();
+      module = moduleThreadContext.buildModule();
     } catch (EvalException e) {
       eventHandler.handle(Event.error(e.getMessageWithStack()));
       throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for the root module");
@@ -290,7 +327,7 @@ public class ModuleFileFunction implements SkyFunction {
       }
     }
 
-    ImmutableMap<String, ModuleOverride> moduleOverrides = moduleFileGlobals.buildOverrides();
+    ImmutableMap<String, ModuleOverride> moduleOverrides = moduleThreadContext.buildOverrides();
     ImmutableMap<String, ModuleOverride> overrides =
         ImmutableMap.<String, ModuleOverride>builder()
             .putAll(moduleOverrides)
@@ -317,7 +354,7 @@ public class ModuleFileFunction implements SkyFunction {
         module, moduleFileHash, overrides, nonRegistryOverrideCanonicalRepoNameLookup);
   }
 
-  private static ModuleFileGlobals execModuleFile(
+  private static ModuleThreadContext execModuleFile(
       ModuleFile moduleFile,
       @Nullable Registry registry,
       ModuleKey moduleKey,
@@ -325,7 +362,9 @@ public class ModuleFileFunction implements SkyFunction {
       ImmutableMap<String, NonRegistryOverride> builtinModules,
       boolean printIsNoop,
       StarlarkSemantics starlarkSemantics,
-      ExtendedEventHandler eventHandler)
+      BazelStarlarkEnvironment starlarkEnv,
+      ExtendedEventHandler eventHandler,
+      SymbolGenerator<?> symbolGenerator)
       throws ModuleFileFunctionException, InterruptedException {
     StarlarkFile starlarkFile =
         StarlarkFile.parse(ParserInput.fromUTF8(moduleFile.getContent(), moduleFile.getLocation()));
@@ -334,8 +373,8 @@ public class ModuleFileFunction implements SkyFunction {
       throw errorf(Code.BAD_MODULE, "error parsing MODULE.bazel file for %s", moduleKey);
     }
 
-    ModuleFileGlobals moduleFileGlobals =
-        new ModuleFileGlobals(builtinModules, moduleKey, registry, ignoreDevDeps);
+    ModuleThreadContext context =
+        new ModuleThreadContext(builtinModules, moduleKey, registry, ignoreDevDeps);
     try (SilentCloseable c =
             Profiler.instance()
                 .profile(ProfilerTask.BZLMOD, () -> "evaluate module file: " + moduleKey);
@@ -343,9 +382,13 @@ public class ModuleFileFunction implements SkyFunction {
       new DotBazelFileSyntaxChecker("MODULE.bazel files", /* canLoadBzl= */ false)
           .check(starlarkFile);
       net.starlark.java.eval.Module predeclaredEnv =
-          getPredeclaredEnv(moduleFileGlobals, starlarkSemantics);
+          net.starlark.java.eval.Module.withPredeclared(
+              starlarkSemantics, starlarkEnv.getStarlarkGlobals().getModuleToplevels());
       Program program = Program.compileFile(starlarkFile, predeclaredEnv);
-      StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
+      StarlarkThread thread =
+          StarlarkThread.create(
+              mu, starlarkSemantics, /* contextDescription= */ "", symbolGenerator);
+      context.storeInThread(thread);
       if (printIsNoop) {
         thread.setPrintHandler((t, msg) -> {});
       } else {
@@ -353,8 +396,7 @@ public class ModuleFileFunction implements SkyFunction {
       }
       thread.setPostAssignHook(
           (name, value) -> {
-            if (value instanceof StarlarkExportable) {
-              StarlarkExportable exportable = (StarlarkExportable) value;
+            if (value instanceof StarlarkExportable exportable) {
               if (!exportable.isExported()) {
                 exportable.export(eventHandler, null, name);
               }
@@ -368,24 +410,18 @@ public class ModuleFileFunction implements SkyFunction {
       eventHandler.handle(Event.error(e.getMessageWithStack()));
       throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for %s", moduleKey);
     }
-    return moduleFileGlobals;
+    return context;
   }
 
   private static class GetModuleFileResult {
     ModuleFile moduleFile;
-    // `yankedInfo` is non-null if and only if the module has been yanked and hasn't been
-    // allowlisted.
-    @Nullable String yankedInfo;
     // `registry` can be null if this module has a non-registry override.
     @Nullable Registry registry;
   }
 
   @Nullable
   private GetModuleFileResult getModuleFile(
-      ModuleKey key,
-      @Nullable ModuleOverride override,
-      Optional<ImmutableSet<ModuleKey>> allowedYankedVersions,
-      Environment env)
+      ModuleKey key, @Nullable ModuleOverride override, Environment env)
       throws ModuleFileFunctionException, InterruptedException {
     // If there is a non-registry override for this module, we need to fetch the corresponding repo
     // first and read the module file from there.
@@ -462,10 +498,6 @@ public class ModuleFileFunction implements SkyFunction {
         }
         result.moduleFile = moduleFile.get();
         result.registry = registry;
-        result.yankedInfo =
-            YankedVersionsUtil.getYankedInfo(
-                    registry, key, allowedYankedVersions, env.getListener())
-                .orElse(null);
         return result;
       } catch (IOException e) {
         throw errorf(
@@ -498,13 +530,6 @@ public class ModuleFileFunction implements SkyFunction {
           path,
           e.getMessage());
     }
-  }
-
-  private static net.starlark.java.eval.Module getPredeclaredEnv(
-      ModuleFileGlobals moduleFileGlobals, StarlarkSemantics starlarkSemantics) {
-    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    Starlark.addMethods(env, moduleFileGlobals, starlarkSemantics);
-    return net.starlark.java.eval.Module.withPredeclared(starlarkSemantics, env.buildOrThrow());
   }
 
   @FormatMethod

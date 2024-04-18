@@ -340,6 +340,18 @@ public interface NodeEntry {
       throws InterruptedException;
 
   /**
+   * Sets the max transitive source version of this node so far while it is being evaluated. May
+   * only be called when {@link #isDirty()} is {@code true}.
+   *
+   * <p>This method helps to track the in-progress max transitive source version across Skyframe
+   * restarts. The eventual max transitive source version is set when {@link #setValue} is called.
+   *
+   * <p>This function is a no-op if source versions are not being tracked.
+   */
+  default void setTemporaryMaxTransitiveSourceVersion(
+      @Nullable Version maxTransitiveSourceVersion) {}
+
+  /**
    * Queries if the node is done and adds the given key as a reverse dependency. The return code
    * indicates whether a) the node is done, b) the reverse dependency is the first one, so the node
    * needs to be scheduled, or c) the reverse dependency was added, and the node does not need to be

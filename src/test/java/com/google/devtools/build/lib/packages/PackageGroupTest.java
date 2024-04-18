@@ -33,10 +33,12 @@ public class PackageGroupTest extends PackageLoadingTestCase {
   public void testDoesNotFailHorribly() throws Exception {
     scratch.file(
         "fruits/BUILD",
-        "package_group(",
-        "    name = 'apple',",
-        "    packages = ['//random'],",
-        ")");
+        """
+        package_group(
+            name = "apple",
+            packages = ["//random"],
+        )
+        """);
     // Note that, for our purposes, the packages listed in the package_group need not exist.
 
     getPackageGroup("fruits", "apple");
@@ -46,11 +48,13 @@ public class PackageGroupTest extends PackageLoadingTestCase {
   @Test
   public void testEmptyPackageGroupNameDoesNotThrow() throws Exception {
     scratch.file(
-        "strawberry/BUILD", //
-        "package_group(",
-        "    name = '',",
-        "    packages=[],",
-        ")");
+        "strawberry/BUILD",
+        """
+        package_group(
+            name = "",
+            packages = [],
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     // Call getTarget() directly since getPackageGroup() requires a name.
@@ -62,10 +66,12 @@ public class PackageGroupTest extends PackageLoadingTestCase {
   public void testAbsolutePackagesWork() throws Exception {
     scratch.file(
         "fruits/BUILD",
-        "package_group(",
-        "    name = 'apple',",
-        "    packages = ['//vegetables'],",
-        ")");
+        """
+        package_group(
+            name = "apple",
+            packages = ["//vegetables"],
+        )
+        """);
 
     PackageGroup grp = getPackageGroup("fruits", "apple");
     assertThat(grp.contains(pkgId("vegetables"))).isTrue();
@@ -76,10 +82,12 @@ public class PackageGroupTest extends PackageLoadingTestCase {
   public void testPackagesWithoutDoubleSlashDoNotWork() throws Exception {
     scratch.file(
         "fruits/BUILD",
-        "package_group(",
-        "    name = 'apple',",
-        "    packages = ['vegetables'],",
-        ")");
+        """
+        package_group(
+            name = "apple",
+            packages = ["vegetables"],
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getPackageGroup("fruits", "apple");
@@ -90,10 +98,12 @@ public class PackageGroupTest extends PackageLoadingTestCase {
   public void testPackagesWithRepositoryDoNotWork() throws Exception {
     scratch.file(
         "fruits/BUILD",
-        "package_group(",
-        "    name = 'banana',",
-        "    packages = ['@veggies//:cucumber'],",
-        ")");
+        """
+        package_group(
+            name = "banana",
+            packages = ["@veggies//:cucumber"],
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getPackageGroup("fruits", "banana");
@@ -103,11 +113,13 @@ public class PackageGroupTest extends PackageLoadingTestCase {
   @Test
   public void testAllPackagesInMainRepositoryDoesNotWork() throws Exception {
     scratch.file(
-        "fruits/BUILD", //
-        "package_group(",
-        "    name = 'apple',",
-        "    packages = ['@//...'],",
-        ")");
+        "fruits/BUILD",
+        """
+        package_group(
+            name = "apple",
+            packages = ["@//..."],
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getPackageGroup("fruits", "apple");
@@ -124,10 +136,12 @@ public class PackageGroupTest extends PackageLoadingTestCase {
   public void testTargetNameAsPackageDoesNotWork1() throws Exception {
     scratch.file(
         "fruits/BUILD",
-        "package_group(",
-        "    name = 'apple',",
-        "    packages = ['//vegetables:carrot'],",
-        ")");
+        """
+        package_group(
+            name = "apple",
+            packages = ["//vegetables:carrot"],
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getPackageGroup("fruits", "apple");
@@ -138,10 +152,12 @@ public class PackageGroupTest extends PackageLoadingTestCase {
   public void testTargetNameAsPackageDoesNotWork2() throws Exception {
     scratch.file(
         "fruits/BUILD",
-        "package_group(",
-        "    name = 'apple',",
-        "    packages = [':carrot'],",
-        ")");
+        """
+        package_group(
+            name = "apple",
+            packages = [":carrot"],
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getPackageGroup("fruits", "apple");
@@ -152,10 +168,12 @@ public class PackageGroupTest extends PackageLoadingTestCase {
   public void testAllBeneathSpecificationWorks() throws Exception {
     scratch.file(
         "fruits/BUILD",
-        "package_group(",
-        "    name = 'maracuja',",
-        "    packages = ['//tropics/...'],",
-        ")");
+        """
+        package_group(
+            name = "maracuja",
+            packages = ["//tropics/..."],
+        )
+        """);
 
     getPackageGroup("fruits", "maracuja");
   }
@@ -164,15 +182,17 @@ public class PackageGroupTest extends PackageLoadingTestCase {
   public void testNegative() throws Exception {
     scratch.file(
         "test/BUILD",
-        "package_group(",
-        "    name = 'packages',",
-        "    packages = [",
-        "        '//one',",
-        "        '//two',",
-        "        '-//three',",
-        "        '-//four',",
-        "    ],",
-        ")");
+        """
+        package_group(
+            name = "packages",
+            packages = [
+                "-//four",
+                "-//three",
+                "//one",
+                "//two",
+            ],
+        )
+        """);
 
     PackageGroup grp = getPackageGroup("test", "packages");
     assertThat(grp.contains(pkgId("one"))).isTrue();
@@ -185,13 +205,15 @@ public class PackageGroupTest extends PackageLoadingTestCase {
   public void testNegative_noSubpackages() throws Exception {
     scratch.file(
         "test/BUILD",
-        "package_group(",
-        "    name = 'packages',",
-        "    packages = [",
-        "        '//pkg/...',",
-        "        '-//pkg/one',",
-        "    ],",
-        ")");
+        """
+        package_group(
+            name = "packages",
+            packages = [
+                "-//pkg/one",
+                "//pkg/...",
+            ],
+        )
+        """);
 
     PackageGroup grp = getPackageGroup("test", "packages");
     assertThat(grp.contains(pkgId("pkg"))).isTrue();
@@ -203,13 +225,15 @@ public class PackageGroupTest extends PackageLoadingTestCase {
   public void testNegative_subpackages() throws Exception {
     scratch.file(
         "test/BUILD",
-        "package_group(",
-        "    name = 'packages',",
-        "    packages = [",
-        "        '//pkg/...',",
-        "        '-//pkg/one/...',",
-        "    ],",
-        ")");
+        """
+        package_group(
+            name = "packages",
+            packages = [
+                "-//pkg/one/...",
+                "//pkg/...",
+            ],
+        )
+        """);
 
     PackageGroup grp = getPackageGroup("test", "packages");
     assertThat(grp.contains(pkgId("pkg"))).isTrue();
@@ -222,11 +246,13 @@ public class PackageGroupTest extends PackageLoadingTestCase {
     setBuildLanguageOptions("--incompatible_package_group_has_public_syntax=true");
 
     scratch.file(
-        "fruits/BUILD", //
-        "package_group(",
-        "    name = 'mango',",
-        "    packages = ['public'],",
-        ")");
+        "fruits/BUILD",
+        """
+        package_group(
+            name = "mango",
+            packages = ["public"],
+        )
+        """);
     PackageGroup grp = getPackageGroup("fruits", "mango");
 
     // Assert that we're using the right package spec.
@@ -241,11 +267,13 @@ public class PackageGroupTest extends PackageLoadingTestCase {
     setBuildLanguageOptions("--incompatible_package_group_has_public_syntax=true");
 
     scratch.file(
-        "fruits/BUILD", //
-        "package_group(",
-        "    name = 'mango',",
-        "    packages = ['private'],",
-        ")");
+        "fruits/BUILD",
+        """
+        package_group(
+            name = "mango",
+            packages = ["private"],
+        )
+        """);
     PackageGroup grp = getPackageGroup("fruits", "mango");
 
     // Assert that we're using the right package spec.
@@ -262,17 +290,21 @@ public class PackageGroupTest extends PackageLoadingTestCase {
         "--incompatible_fix_package_group_reporoot_syntax=false");
 
     scratch.file(
-        "foo/BUILD", //
-        "package_group(",
-        "    name = 'grp1',",
-        "    packages = ['public'],",
-        ")");
+        "foo/BUILD",
+        """
+        package_group(
+            name = "grp1",
+            packages = ["public"],
+        )
+        """);
     scratch.file(
-        "bar/BUILD", //
-        "package_group(",
-        "    name = 'grp2',",
-        "    packages = ['private'],",
-        ")");
+        "bar/BUILD",
+        """
+        package_group(
+            name = "grp2",
+            packages = ["private"],
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getPackageGroup("foo", "grp1");
@@ -290,11 +322,13 @@ public class PackageGroupTest extends PackageLoadingTestCase {
     setBuildLanguageOptions("--incompatible_fix_package_group_reporoot_syntax=false");
 
     scratch.file(
-        "fruits/BUILD", //
-        "package_group(",
-        "    name = 'mango',",
-        "    packages = ['//...'],",
-        ")");
+        "fruits/BUILD",
+        """
+        package_group(
+            name = "mango",
+            packages = ["//..."],
+        )
+        """);
     PackageGroup grp = getPackageGroup("fruits", "mango");
 
     // Use includeDoubleSlash=true to make package spec stringification distinguish AllPackages from
@@ -313,11 +347,13 @@ public class PackageGroupTest extends PackageLoadingTestCase {
         "--incompatible_fix_package_group_reporoot_syntax=true");
 
     scratch.file(
-        "fruits/BUILD", //
-        "package_group(",
-        "    name = 'mango',",
-        "    packages = ['//...'],",
-        ")");
+        "fruits/BUILD",
+        """
+        package_group(
+            name = "mango",
+            packages = ["//..."],
+        )
+        """);
     PackageGroup grp = getPackageGroup("fruits", "mango");
 
     // Use includeDoubleSlash=true to make package spec stringification distinguish AllPackages from
@@ -336,11 +372,13 @@ public class PackageGroupTest extends PackageLoadingTestCase {
         "--incompatible_fix_package_group_reporoot_syntax=true");
 
     scratch.file(
-        "fruits/BUILD", //
-        "package_group(",
-        "    name = 'mango',",
-        "    packages = ['//something'],",
-        ")");
+        "fruits/BUILD",
+        """
+        package_group(
+            name = "mango",
+            packages = ["//something"],
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getPackageGroup("fruits", "mango");
@@ -351,13 +389,15 @@ public class PackageGroupTest extends PackageLoadingTestCase {
   public void testNegative_repoRootSubpackages() throws Exception {
     scratch.file(
         "test/BUILD",
-        "package_group(",
-        "    name = 'packages',",
-        "    packages = [",
-        "        '//pkg/one',",
-        "        '-//...',",
-        "    ],",
-        ")");
+        """
+        package_group(
+            name = "packages",
+            packages = [
+                "-//...",
+                "//pkg/one",
+            ],
+        )
+        """);
 
     PackageGroup grp = getPackageGroup("test", "packages");
     assertThat(grp.contains(pkgId("pkg"))).isFalse();
@@ -371,10 +411,12 @@ public class PackageGroupTest extends PackageLoadingTestCase {
 
     scratch.file(
         "fruits/BUILD",
-        "package_group(",
-        "    name = 'apple',",
-        "    packages = ['-public'],",
-        ")");
+        """
+        package_group(
+            name = "apple",
+            packages = ["-public"],
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getPackageGroup("fruits", "apple");
@@ -387,10 +429,12 @@ public class PackageGroupTest extends PackageLoadingTestCase {
 
     scratch.file(
         "fruits/BUILD",
-        "package_group(",
-        "    name = 'apple',",
-        "    packages = ['-private'],",
-        ")");
+        """
+        package_group(
+            name = "apple",
+            packages = ["-private"],
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     getPackageGroup("fruits", "apple");
@@ -401,13 +445,12 @@ public class PackageGroupTest extends PackageLoadingTestCase {
   public void testDuplicatePackage() throws Exception {
     scratch.file(
         "test/BUILD",
-        "package_group(",
-        "    name = 'packages',",
-        "    packages = [",
-        "        '//one/two',",
-        "        '//one/two',",
-        "    ],",
-        ")");
+        """
+        package_group(
+            name = "packages",
+            packages = ["//one/two"],
+        )
+        """);
 
     PackageGroup grp = getPackageGroup("test", "packages");
     assertThat(grp.contains(pkgId("one/two"))).isTrue();
@@ -482,14 +525,17 @@ public class PackageGroupTest extends PackageLoadingTestCase {
 
     scratch.file(
         "fruits/BUILD",
-        "package_group(",
-        "    name = 'apple',",
-        "    packages = ['//vegetables'],",
-        ")",
-        "package_group(",
-        "    name = 'mango',",
-        "    packages = ['public'],",
-        ")");
+        """
+        package_group(
+            name = "apple",
+            packages = ["//vegetables"],
+        )
+
+        package_group(
+            name = "mango",
+            packages = ["public"],
+        )
+        """);
     PackageGroup grp = getPackageGroup("fruits", "apple");
     assertThat(grp).hasSamePropertiesAs(grp.reduceForSerialization());
 

@@ -82,11 +82,14 @@ public class LateBoundAliasTest extends BuildViewTestCase {
   public void testNullTargetCanBeDependant() throws Exception {
     scratch.file(
         "a/BUILD",
-        "test_rule_name(name='alias')",
-        "filegroup(",
-        "    name = 'my_filegroup',",
-        "    srcs = [':alias']",
-        ")");
+        """
+        test_rule_name(name = "alias")
+
+        filegroup(
+            name = "my_filegroup",
+            srcs = [":alias"],
+        )
+        """);
 
     ConfiguredTarget myFilegroup = getConfiguredTarget("//a:my_filegroup");
 

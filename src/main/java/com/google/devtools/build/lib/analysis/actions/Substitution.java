@@ -113,8 +113,7 @@ public abstract class Substitution {
     if (this == object) {
       return true;
     }
-    if (object instanceof Substitution) {
-      Substitution substitution = (Substitution) object;
+    if (object instanceof Substitution substitution) {
       return substitution.getKey().equals(this.getKey())
           && substitution.getValueUnchecked().equals(this.getValueUnchecked());
     }

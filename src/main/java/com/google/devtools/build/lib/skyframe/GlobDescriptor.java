@@ -131,10 +131,9 @@ public final class GlobDescriptor implements SkyKey {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof GlobDescriptor)) {
+    if (!(obj instanceof GlobDescriptor other)) {
       return false;
     }
-    GlobDescriptor other = (GlobDescriptor) obj;
     return packageId.equals(other.packageId)
         && packageRoot.equals(other.packageRoot)
         && subdir.equals(other.subdir)

@@ -99,6 +99,7 @@ java_library(
         ":build_driver_value",
         ":build_result_listener",
         ":bzl_compile",
+        ":bzl_compile_value",
         ":bzl_load_cycle_reporter",
         ":bzl_load_failed_exception",
         ":bzl_load_value",
@@ -115,6 +116,7 @@ java_library(
         ":configured_target_key",
         ":configured_target_progress_receiver",
         ":configured_value_creation_exception",
+        ":conflict_checking_mode",
         ":consumed_artifacts_tracker",
         ":containing_package_lookup_function",
         ":containing_package_lookup_value",
@@ -171,6 +173,9 @@ java_library(
         ":rule_configured_target_value",
         ":sky_functions",
         ":sky_value_dirtiness_checker",
+        ":skyfocus",
+        ":skyfocus_options",
+        ":skyfocus_state",
         ":skyframe_action_executor",
         ":skyframe_aware_action",
         ":skyframe_error_processor",
@@ -233,6 +238,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/additional_configuration_change_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/common_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/config_conditions",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
@@ -298,6 +304,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
         "//src/main/java/com/google/devtools/build/lib/io:process_package_directory_exception",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:bzl_visibility",
         "//src/main/java/com/google/devtools/build/lib/packages:globber",
         "//src/main/java/com/google/devtools/build/lib/packages:globber_utils",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
@@ -325,6 +332,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:platform_lookup_util",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:registered_execution_platforms_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:registered_toolchains_cycle_reporter",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:registered_toolchains_function",
@@ -337,7 +345,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/util:heap_offset_helper",
         "//src/main/java/com/google/devtools/build/lib/util:resource_usage",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
@@ -603,7 +613,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:auto_value",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -751,25 +760,36 @@ java_library(
 
 java_library(
     name = "bzl_compile",
-    srcs = [
-        "BzlCompileFunction.java",
-        "BzlCompileValue.java",
-    ],
+    srcs = ["BzlCompileFunction.java"],
     deps = [
+        ":bzl_compile_value",
         ":precomputed_value",
-        ":sky_functions",
         ":starlark_builtins_value",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "bzl_compile_value",
+    srcs = ["BzlCompileValue.java"],
+    deps = [
+        ":sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
@@ -841,7 +861,6 @@ java_library(
     name = "build_driver_function",
     srcs = ["BuildDriverFunction.java"],
     deps = [
-        ":artifact_conflict_finder",
         ":aspect_completion_value",
         ":aspect_key_creator",
         ":build_driver_key",
@@ -1114,6 +1133,11 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:jsr305",
     ],
+)
+
+java_library(
+    name = "conflict_checking_mode",
+    srcs = ["ConflictCheckingMode.java"],
 )
 
 java_library(
@@ -1789,6 +1813,7 @@ java_library(
     deps = [
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
@@ -2416,7 +2441,6 @@ java_library(
     srcs = ["SkyframeErrorProcessor.java"],
     deps = [
         ":action_artifact_cycle_reporter",
-        ":artifact_conflict_finder",
         ":artifact_nested_set_function",
         ":aspect_key_creator",
         ":build_driver_key",
@@ -2489,35 +2513,46 @@ java_library(
 )
 
 java_library(
-    name = "skyfocus_module",
+    name = "skyfocus_options",
+    srcs = ["SkyfocusOptions.java"],
+    deps = ["//src/main/java/com/google/devtools/common/options"],
+)
+
+java_library(
+    name = "skyfocus_state",
     srcs = [
-        "SkyfocusModule.java",
+        "SkyfocusState.java",
+    ],
+    deps = [
+        ":skyfocus_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "skyfocus",
+    srcs = [
         "SkyframeFocuser.java",
     ],
     deps = [
         ":directory_listing_state_value",
-        ":precomputed_value",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_complete_event",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset:artifact_nested_set_key",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
-        "//src/main/java/com/google/devtools/build/lib/runtime/commands/info",
-        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
-        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:error_prone_annotations",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -2578,12 +2613,12 @@ java_library(
     name = "bzl_load_value",
     srcs = ["BzlLoadValue.java"],
     deps = [
-        ":bzl_compile",
+        ":bzl_compile_value",
         ":sky_functions",
         ":starlark_builtins_value",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:bzl_visibility",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -3102,12 +3137,14 @@ java_library(
 java_library(
     name = "rule_configured_target_value",
     srcs = [
+        "BaseRuleConfiguredTargetValue.java",
         "NonRuleConfiguredTargetValue.java",
         "RuleConfiguredTargetValue.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/common_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_configured_object_value",

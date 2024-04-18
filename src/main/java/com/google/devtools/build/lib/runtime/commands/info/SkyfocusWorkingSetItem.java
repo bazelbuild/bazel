@@ -24,8 +24,7 @@ import java.util.TreeSet;
 
 /**
  * The info entry to print out the working set of files used for Skyfocus. See also {@link
- * com.google.devtools.build.lib.skyframe.SkyframeFocuser} and {@link
- * com.google.devtools.build.lib.skyframe.SkyfocusModule}.
+ * com.google.devtools.build.lib.skyframe.SkyframeFocuser}.
  */
 public class SkyfocusWorkingSetItem extends InfoItem {
 
@@ -37,7 +36,7 @@ public class SkyfocusWorkingSetItem extends InfoItem {
   public byte[] get(Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env)
       throws AbruptExitException, InterruptedException {
 
-    ImmutableSet<String> workingSet = env.getSkyframeExecutor().getWorkingSet();
+    ImmutableSet<String> workingSet = env.getSkyframeExecutor().getSkyfocusState().workingSet();
     if (workingSet.isEmpty()) {
       return print("No working set found.");
     }

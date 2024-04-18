@@ -55,7 +55,7 @@ public class PlatformOptions extends FragmentOptions {
       name = "host_platform",
       oldName = "experimental_host_platform",
       converter = EmptyToNullLabelConverter.class,
-      defaultValue = "@local_config_platform//:host",
+      defaultValue = "@bazel_tools//tools:host_platform",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
         OptionEffectTag.AFFECTS_OUTPUTS,

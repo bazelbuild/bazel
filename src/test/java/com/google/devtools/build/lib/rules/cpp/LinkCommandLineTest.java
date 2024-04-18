@@ -19,7 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.Artifact;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
-import java.util.Collection;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -52,8 +51,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class LinkCommandLineTest extends BuildViewTestCase {
 
-  private CcToolchainVariables.Builder getMockBuildVariables() {
-    return getMockBuildVariables(ImmutableList.<String>of());
+  private static CcToolchainVariables.Builder getMockBuildVariables() {
+    return getMockBuildVariables(ImmutableList.of());
   }
 
   private static CcToolchainVariables.Builder getMockBuildVariables(
@@ -73,7 +72,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     return result;
   }
 
-  private FeatureConfiguration getMockFeatureConfiguration() throws Exception {
+  private static FeatureConfiguration getMockFeatureConfiguration() throws Exception {
     ImmutableList<CToolchain.Feature> features =
         new ImmutableList.Builder<CToolchain.Feature>()
             .addAll(
@@ -109,14 +108,14 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
                 CppRuleClasses.PIC));
   }
 
-  private LinkCommandLine.Builder minimalConfiguration(CcToolchainVariables.Builder variables)
-      throws Exception {
+  private static LinkCommandLine.Builder minimalConfiguration(
+      CcToolchainVariables.Builder variables) throws Exception {
     return new LinkCommandLine.Builder()
         .setBuildVariables(variables.build())
         .setFeatureConfiguration(getMockFeatureConfiguration());
   }
 
-  private LinkCommandLine.Builder minimalConfiguration() throws Exception {
+  private static LinkCommandLine.Builder minimalConfiguration() throws Exception {
     return minimalConfiguration(getMockBuildVariables());
   }
 
@@ -218,12 +217,12 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     assertThat(linkConfig.getCommandLines().unpack().get(1).paramFileInfo.always()).isTrue();
   }
 
-  private List<String> basicArgv(LinkTargetType targetType) throws Exception {
+  private static List<String> basicArgv(LinkTargetType targetType) throws Exception {
     return basicArgv(targetType, getMockBuildVariables());
   }
 
-  private List<String> basicArgv(LinkTargetType targetType, CcToolchainVariables.Builder variables)
-      throws Exception {
+  private static List<String> basicArgv(
+      LinkTargetType targetType, CcToolchainVariables.Builder variables) throws Exception {
     LinkCommandLine linkConfig =
         minimalConfiguration(variables)
             .setActionName(targetType.getActionName())
@@ -364,7 +363,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
         ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out"), execPath);
   }
 
-  private void verifyArguments(
+  private static void verifyArguments(
       Iterable<String> arguments,
       Iterable<String> allowedArguments,
       Iterable<String> disallowedArguments) {
@@ -380,15 +379,10 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     TreeFileArtifact library1 = TreeFileArtifact.createTreeOutput(testTreeArtifact, "library1.o");
 
     ArtifactExpander expander =
-        new ArtifactExpander() {
-          @Override
-          public void expand(Artifact artifact, Collection<? super Artifact> output) {
-            if (artifact.equals(testTreeArtifact)) {
-              output.add(library0);
-              output.add(library1);
-            }
-          };
-        };
+        treeArtifact ->
+            treeArtifact.equals(testTreeArtifact)
+                ? ImmutableSortedSet.of(library0, library1)
+                : ImmutableSortedSet.of();
 
     Iterable<String> treeArtifactsPaths = ImmutableList.of(testTreeArtifact.getExecPathString());
     Iterable<String> treeFileArtifactsPaths =

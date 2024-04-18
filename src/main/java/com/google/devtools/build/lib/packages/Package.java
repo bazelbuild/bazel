@@ -81,6 +81,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -763,7 +764,7 @@ public class Package {
       @Nullable Globber globber) {
     return new Builder(
         BazelStarlarkContext.Phase.LOADING,
-        new SymbolGenerator<>(id),
+        SymbolGenerator.create(id),
         packageSettings,
         id,
         filename,
@@ -790,7 +791,7 @@ public class Package {
         BazelStarlarkContext.Phase.WORKSPACE,
         // The SymbolGenerator is based on workspaceFileKey rather than a package id or path,
         // in order to distinguish different chunks of the same WORKSPACE file.
-        new SymbolGenerator<>(workspaceFileKey),
+        SymbolGenerator.create(workspaceFileKey),
         packageSettings,
         LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
         /* filename= */ workspaceFileKey.getPath(),
@@ -813,7 +814,7 @@ public class Package {
       RepositoryMapping repoMapping) {
     return new Builder(
             BazelStarlarkContext.Phase.LOADING,
-            new SymbolGenerator<>(basePackageId),
+            SymbolGenerator.create(basePackageId),
             PackageSettings.DEFAULTS,
             basePackageId,
             /* filename= */ moduleFilePath,
@@ -885,6 +886,8 @@ public class Package {
 
       PackageSettings DEFAULTS = new PackageSettings() {};
     }
+
+    private final SymbolGenerator<?> symbolGenerator;
 
     /**
      * The output instance for this builder. Needs to be instantiated and available with name info
@@ -1066,7 +1069,8 @@ public class Package {
         // Maybe convert null -> LEGACY_OFF, assuming that's the correct default.
         @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
         @Nullable Globber globber) {
-      super(phase, symbolGenerator);
+      super(phase);
+      this.symbolGenerator = symbolGenerator;
 
       Metadata metadata = new Metadata();
       metadata.packageIdentifier = Preconditions.checkNotNull(id);
@@ -1105,6 +1109,10 @@ public class Package {
       addInputFile(
           new InputFile(
               pkg, metadata.buildFileLabel, Location.fromFile(filename.asPath().toString())));
+    }
+
+    SymbolGenerator<?> getSymbolGenerator() {
+      return symbolGenerator;
     }
 
     /** Retrieves this object from a Starlark thread. Returns null if not present. */

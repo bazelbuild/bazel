@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
@@ -94,21 +93,24 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
   /**
    * An {@link InputMetadataProvider} wrapping another while overriding the materialization path of
-   * the single runfiles tree it contains.
+   * a chosen runfiles tree.
    *
-   * <p>The wrapped input metadata provider must contain exactly one runfiles tree.
+   * <p>The choice is made by passing in the runfiles middleman which represents the tree whose path
+   * is to be overridden.
    */
   private static class OverriddenRunfilesPathInputMetadataProvider
       implements InputMetadataProvider {
     private final InputMetadataProvider wrapped;
+    private final ActionInput wrappedMiddleman;
     private final OverriddenPathRunfilesTree overriddenTree;
 
     private OverriddenRunfilesPathInputMetadataProvider(
-        InputMetadataProvider wrapped, PathFragment execPath) {
+        InputMetadataProvider wrapped, ActionInput wrappedMiddleman, PathFragment execPath) {
       this.wrapped = wrapped;
+      this.wrappedMiddleman = wrappedMiddleman;
       this.overriddenTree =
           new OverriddenPathRunfilesTree(
-              Iterables.getOnlyElement(wrapped.getRunfilesTrees()), execPath);
+              wrapped.getRunfilesMetadata(wrappedMiddleman).getRunfilesTree(), execPath);
     }
 
     @Nullable
@@ -127,9 +129,11 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     @Override
     public RunfilesArtifactValue getRunfilesMetadata(ActionInput input) {
       RunfilesArtifactValue original = wrapped.getRunfilesMetadata(input);
-      // There is only one runfiles tree in the wrapped metadata provider so we can be sure that
-      // we need to override this.
-      return original == null ? null : original.withOverriddenRunfilesTree(overriddenTree);
+      if (wrappedMiddleman.equals(input)) {
+        return original.withOverriddenRunfilesTree(overriddenTree);
+      } else {
+        return original;
+      }
     }
 
     @Override
@@ -556,10 +560,11 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         new DelegatingPairInputMetadataProvider(additionalInputMetadata, inputMetadataProvider));
   }
 
-  public ActionExecutionContext withOverriddenRunfilesPath(PathFragment overrideRunfilesPath) {
+  public ActionExecutionContext withOverriddenRunfilesPath(
+      ActionInput overriddenMiddleman, PathFragment overrideRunfilesPath) {
     return withInputMetadataProvider(
         new OverriddenRunfilesPathInputMetadataProvider(
-            inputMetadataProvider, overrideRunfilesPath));
+            inputMetadataProvider, overriddenMiddleman, overrideRunfilesPath));
   }
 
   /**

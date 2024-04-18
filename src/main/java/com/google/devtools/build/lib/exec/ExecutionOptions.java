@@ -34,6 +34,7 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -379,6 +380,28 @@ public class ExecutionOptions extends OptionsBase {
               + "Overrides resources specified by --local_{cpu|ram|extra}_resources.",
       converter = ResourceConverter.AssignmentConverter.class)
   public List<Map.Entry<String, Double>> localResources;
+
+  @Option(
+      name = "experimental_cpu_load_scheduling",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Enables the experimental local execution scheduling based on CPU load, not estimation of"
+              + " actions one by one.  Experimental scheduling have showed the large benefit on a"
+              + " large local builds on a powerful machines with the large number of cores."
+              + " Reccommended to use with --local_resources=cpu=HOST_CPUS")
+  public boolean experimentalCpuLoadScheduling;
+
+  @Option(
+      name = "experimental_cpu_load_scheduling_window_size",
+      defaultValue = "5000ms",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "The size of window during experimental scheduling of action based on CPU load. Make"
+              + " sense to define only when flag --experimental_cpu_load_scheduling is enabled.")
+  public Duration experimentalCpuLoadSchedulingWindowSize;
 
   @Option(
       name = "local_test_jobs",

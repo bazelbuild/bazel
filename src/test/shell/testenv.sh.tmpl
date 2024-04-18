@@ -92,7 +92,8 @@ distdir_bzl_file="${BAZEL_RUNFILES}/distdir.bzl"
 tools_dir="$(dirname $(rlocation io_bazel/tools/BUILD))"
 
 # Platforms
-default_host_platform="@@local_config_platform//:host"
+default_host_platform="@@platforms//host:host"
+default_host_platform_alias="@@bazel_tools//tools:host_platform"
 
 # Sandbox tools
 process_wrapper="${BAZEL_RUNFILES}/src/main/tools/process-wrapper"

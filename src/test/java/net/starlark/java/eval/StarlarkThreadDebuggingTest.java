@@ -36,7 +36,7 @@ public class StarlarkThreadDebuggingTest {
   // TODO(adonovan): rewrite these tests at a higher level.
 
   private static StarlarkThread newThread() {
-    return new StarlarkThread(Mutability.create("test"), StarlarkSemantics.DEFAULT);
+    return StarlarkThread.createTransient(Mutability.create("test"), StarlarkSemantics.DEFAULT);
   }
 
   // Executes the definition of a trivial function f and returns the function value.

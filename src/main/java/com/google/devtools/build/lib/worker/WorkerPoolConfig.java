@@ -69,10 +69,9 @@ public class WorkerPoolConfig {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof WorkerPoolConfig)) {
+    if (!(o instanceof WorkerPoolConfig that)) {
       return false;
     }
-    WorkerPoolConfig that = (WorkerPoolConfig) o;
     return workerFactory.equals(that.workerFactory)
         && useNewWorkerPool == that.useNewWorkerPool
         && workerMaxInstances.equals(that.workerMaxInstances)

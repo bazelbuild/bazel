@@ -23,14 +23,14 @@ jobs:
           egress-policy: audit
       - if: github.event.pull_request
         name: Run cherrypicker on closed PR
-        uses: bazelbuild/continuous-integration/actions/cherry_picker@a17d548ac97333ace5446d412ce7ca7782f5bcd5
+        uses: bazelbuild/continuous-integration/actions/cherry_picker@35fc1da116a96631f83b45217ceb84e6ccee0106
         with:
           triggered-on: closed
           pr-number: ${{ github.event.number }}
           is-prod: True
       - if: github.event.issue
         name: Run cherrypicker on closed issue
-        uses: bazelbuild/continuous-integration/actions/cherry_picker@a17d548ac97333ace5446d412ce7ca7782f5bcd5
+        uses: bazelbuild/continuous-integration/actions/cherry_picker@35fc1da116a96631f83b45217ceb84e6ccee0106
         with:
           triggered-on: closed
           pr-number: ${{ github.event.issue.number }}
@@ -45,7 +45,7 @@ jobs:
           egress-policy: audit
       - if: startsWith(github.event.issue.body, 'Forked from')
         name: Run cherrypicker on comment
-        uses: bazelbuild/continuous-integration/actions/cherry_picker@a17d548ac97333ace5446d412ce7ca7782f5bcd5
+        uses: bazelbuild/continuous-integration/actions/cherry_picker@35fc1da116a96631f83b45217ceb84e6ccee0106
         with:
           triggered-on: commented
           pr-number: ${{ github.event.issue.body }}
@@ -54,7 +54,7 @@ jobs:
           is-prod: True
       - if: startsWith(github.event.issue.body, '### Commit IDs')
         name: Run cherrypicker on demand
-        uses: bazelbuild/continuous-integration/actions/cherry_picker@a17d548ac97333ace5446d412ce7ca7782f5bcd5
+        uses: bazelbuild/continuous-integration/actions/cherry_picker@35fc1da116a96631f83b45217ceb84e6ccee0106
         with:
           triggered-on: ondemand
           milestone-title: ${{ github.event.milestone.title }}

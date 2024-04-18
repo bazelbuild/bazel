@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.devtools.build.lib.actions.Artifact;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -22,21 +22,17 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.packages.util.MockJ2ObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import java.util.Collection;
 import org.junit.Before;
 
-/**
- * Setup for unit tests for j2objc transpilation.
- */
+/** Setup for unit tests for j2objc transpilation. */
 public class J2ObjcLibraryTest extends ObjcRuleTestCase {
-  protected static final ArtifactExpander DUMMY_ARTIFACT_EXPANDER =
-      new ArtifactExpander() {
-        @Override
-        public void expand(Artifact artifact, Collection<? super Artifact> output) {
-          SpecialArtifact parent = (SpecialArtifact) artifact;
-          output.add(TreeFileArtifact.createTreeOutput(parent, "children1"));
-          output.add(TreeFileArtifact.createTreeOutput(parent, "children2"));
-        }
+
+  static final ArtifactExpander DUMMY_ARTIFACT_EXPANDER =
+      treeArtifact -> {
+        SpecialArtifact parent = (SpecialArtifact) treeArtifact;
+        return ImmutableSortedSet.of(
+            TreeFileArtifact.createTreeOutput(parent, "children1"),
+            TreeFileArtifact.createTreeOutput(parent, "children2"));
       };
 
   /**
@@ -64,15 +60,20 @@ public class J2ObjcLibraryTest extends ObjcRuleTestCase {
     scratch.file("java/com/google/dummy/test/test.java");
     scratch.file(
         "java/com/google/dummy/test/BUILD",
-        "package(default_visibility=['//visibility:public'])",
-        "java_library(",
-        "    name = 'test',",
-        "    srcs = ['test.java'])",
-        "",
-        "j2objc_library(",
-        "    name = 'transpile',",
-        "    tags = ['__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
-        "    deps = ['test'])");
+        """
+        package(default_visibility = ["//visibility:public"])
+
+        java_library(
+            name = "test",
+            srcs = ["test.java"],
+        )
+
+        j2objc_library(
+            name = "transpile",
+            tags = ["__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__"],
+            deps = ["test"],
+        )
+        """);
     MockJ2ObjcSupport.setup(mockToolsConfig);
     MockProtoSupport.setup(mockToolsConfig);
 

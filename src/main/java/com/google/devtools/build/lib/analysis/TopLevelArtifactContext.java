@@ -61,8 +61,7 @@ public final class TopLevelArtifactContext {
   // so equals() and hashCode() need to work.
   @Override
   public boolean equals(Object other) {
-    if (other instanceof TopLevelArtifactContext) {
-      TopLevelArtifactContext otherContext = (TopLevelArtifactContext) other;
+    if (other instanceof TopLevelArtifactContext otherContext) {
       return runTestsExclusively == otherContext.runTestsExclusively
           && expandFilesets == otherContext.expandFilesets
           && fullyResolveFilesetSymlinks == otherContext.fullyResolveFilesetSymlinks

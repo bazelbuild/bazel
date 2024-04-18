@@ -44,27 +44,35 @@ public final class ConfigFeatureFlagNamingTest extends BuildViewTestCase {
   public void featureFlagSetter_sameSettingYieldsSameMnemonic_legacy() throws Exception {
     scratch.file(
         "test/BUILD",
-        "feature_flag_setter(",
-        "    name = 'top_a',",
-        "    exports_flag = ':flag',",
-        "    flag_values = {",
-        "        ':flag': 'configured',",
-        "    },",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "feature_flag_setter(",
-        "    name = 'top_b',",
-        "    exports_flag = ':flag',",
-        "    flag_values = {",
-        "        ':flag': 'configured',",
-        "    },",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        feature_flag_setter(
+            name = "top_a",
+            exports_flag = ":flag",
+            flag_values = {
+                ":flag": "configured",
+            },
+            transitive_configs = [":flag"],
+        )
+
+        feature_flag_setter(
+            name = "top_b",
+            exports_flag = ":flag",
+            flag_values = {
+                ":flag": "configured",
+            },
+            transitive_configs = [":flag"],
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
     useConfiguration(
         "--enforce_transitive_configs_for_config_feature_flag",
         "--experimental_output_directory_naming_scheme=legacy");
@@ -77,27 +85,35 @@ public final class ConfigFeatureFlagNamingTest extends BuildViewTestCase {
   public void featureFlagSetter_diffSettingYieldsDiffMnemonic_legacy() throws Exception {
     scratch.file(
         "test/BUILD",
-        "feature_flag_setter(",
-        "    name = 'top_a',",
-        "    exports_flag = ':flag',",
-        "    flag_values = {",
-        "        ':flag': 'configured',",
-        "    },",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "feature_flag_setter(",
-        "    name = 'top_b',",
-        "    exports_flag = ':flag',",
-        "    flag_values = {",
-        "        ':flag': 'other',",
-        "    },",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        feature_flag_setter(
+            name = "top_a",
+            exports_flag = ":flag",
+            flag_values = {
+                ":flag": "configured",
+            },
+            transitive_configs = [":flag"],
+        )
+
+        feature_flag_setter(
+            name = "top_b",
+            exports_flag = ":flag",
+            flag_values = {
+                ":flag": "other",
+            },
+            transitive_configs = [":flag"],
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
     useConfiguration(
         "--enforce_transitive_configs_for_config_feature_flag",
         "--experimental_output_directory_naming_scheme=legacy");
@@ -110,27 +126,35 @@ public final class ConfigFeatureFlagNamingTest extends BuildViewTestCase {
   public void featureFlagSetter_sameSettingYieldsSameMnemonic_diff() throws Exception {
     scratch.file(
         "test/BUILD",
-        "feature_flag_setter(",
-        "    name = 'top_a',",
-        "    exports_flag = ':flag',",
-        "    flag_values = {",
-        "        ':flag': 'configured',",
-        "    },",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "feature_flag_setter(",
-        "    name = 'top_b',",
-        "    exports_flag = ':flag',",
-        "    flag_values = {",
-        "        ':flag': 'configured',",
-        "    },",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        feature_flag_setter(
+            name = "top_a",
+            exports_flag = ":flag",
+            flag_values = {
+                ":flag": "configured",
+            },
+            transitive_configs = [":flag"],
+        )
+
+        feature_flag_setter(
+            name = "top_b",
+            exports_flag = ":flag",
+            flag_values = {
+                ":flag": "configured",
+            },
+            transitive_configs = [":flag"],
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
     useConfiguration(
         "--enforce_transitive_configs_for_config_feature_flag",
         "--experimental_output_directory_naming_scheme=diff_against_dynamic_baseline");
@@ -143,27 +167,35 @@ public final class ConfigFeatureFlagNamingTest extends BuildViewTestCase {
   public void featureFlagSetter_diffSettingYieldsDiffMnemonic_diff() throws Exception {
     scratch.file(
         "test/BUILD",
-        "feature_flag_setter(",
-        "    name = 'top_a',",
-        "    exports_flag = ':flag',",
-        "    flag_values = {",
-        "        ':flag': 'configured',",
-        "    },",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "feature_flag_setter(",
-        "    name = 'top_b',",
-        "    exports_flag = ':flag',",
-        "    flag_values = {",
-        "        ':flag': 'other',",
-        "    },",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        feature_flag_setter(
+            name = "top_a",
+            exports_flag = ":flag",
+            flag_values = {
+                ":flag": "configured",
+            },
+            transitive_configs = [":flag"],
+        )
+
+        feature_flag_setter(
+            name = "top_b",
+            exports_flag = ":flag",
+            flag_values = {
+                ":flag": "other",
+            },
+            transitive_configs = [":flag"],
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
     useConfiguration(
         "--enforce_transitive_configs_for_config_feature_flag",
         "--experimental_output_directory_naming_scheme=diff_against_dynamic_baseline");
@@ -176,26 +208,34 @@ public final class ConfigFeatureFlagNamingTest extends BuildViewTestCase {
   public void untrimmedFlag_doesNothing_legacy() throws Exception {
     scratch.file(
         "test/BUILD",
-        "feature_flag_setter(",
-        "    name = 'via_setter',",
-        "    deps = [':via_consumer'],",
-        "    exports_flag = ':flag',",
-        "    flag_values = {",
-        "        ':flag': 'configured',",
-        "    },",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "genrule(",
-        "    name = 'via_consumer',",
-        "    outs = ['out'],",
-        "    cmd = 'touch $@',",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        feature_flag_setter(
+            name = "via_setter",
+            exports_flag = ":flag",
+            flag_values = {
+                ":flag": "configured",
+            },
+            transitive_configs = [":flag"],
+            deps = [":via_consumer"],
+        )
+
+        genrule(
+            name = "via_consumer",
+            outs = ["out"],
+            cmd = "touch $@",
+            transitive_configs = [":flag"],
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
     useConfiguration(
         "--enforce_transitive_configs_for_config_feature_flag",
         "--experimental_output_directory_naming_scheme=legacy");
@@ -208,26 +248,34 @@ public final class ConfigFeatureFlagNamingTest extends BuildViewTestCase {
   public void trimmedFlag_causesDiff_legacy() throws Exception {
     scratch.file(
         "test/BUILD",
-        "feature_flag_setter(",
-        "    name = 'via_setter',",
-        "    deps = [':via_consumer'],",
-        "    exports_flag = ':flag',",
-        "    flag_values = {",
-        "        ':flag': 'configured',",
-        "    },",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "genrule(",
-        "    name = 'via_consumer',",
-        "    outs = ['out'],",
-        "    cmd = 'touch $@',",
-        "    transitive_configs = [],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        feature_flag_setter(
+            name = "via_setter",
+            exports_flag = ":flag",
+            flag_values = {
+                ":flag": "configured",
+            },
+            transitive_configs = [":flag"],
+            deps = [":via_consumer"],
+        )
+
+        genrule(
+            name = "via_consumer",
+            outs = ["out"],
+            cmd = "touch $@",
+            transitive_configs = [],
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
     useConfiguration(
         "--enforce_transitive_configs_for_config_feature_flag",
         "--experimental_output_directory_naming_scheme=legacy");
@@ -240,26 +288,34 @@ public final class ConfigFeatureFlagNamingTest extends BuildViewTestCase {
   public void untrimmedFlag_doesNothing_diff() throws Exception {
     scratch.file(
         "test/BUILD",
-        "feature_flag_setter(",
-        "    name = 'via_setter',",
-        "    deps = [':via_consumer'],",
-        "    exports_flag = ':flag',",
-        "    flag_values = {",
-        "        ':flag': 'configured',",
-        "    },",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "genrule(",
-        "    name = 'via_consumer',",
-        "    outs = ['out'],",
-        "    cmd = 'touch $@',",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        feature_flag_setter(
+            name = "via_setter",
+            exports_flag = ":flag",
+            flag_values = {
+                ":flag": "configured",
+            },
+            transitive_configs = [":flag"],
+            deps = [":via_consumer"],
+        )
+
+        genrule(
+            name = "via_consumer",
+            outs = ["out"],
+            cmd = "touch $@",
+            transitive_configs = [":flag"],
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
     useConfiguration(
         "--enforce_transitive_configs_for_config_feature_flag",
         "--experimental_output_directory_naming_scheme=diff_against_dynamic_baseline");
@@ -272,26 +328,34 @@ public final class ConfigFeatureFlagNamingTest extends BuildViewTestCase {
   public void trimmedFlag_causesDiff_diff() throws Exception {
     scratch.file(
         "test/BUILD",
-        "feature_flag_setter(",
-        "    name = 'via_setter',",
-        "    deps = [':via_consumer'],",
-        "    exports_flag = ':flag',",
-        "    flag_values = {",
-        "        ':flag': 'configured',",
-        "    },",
-        "    transitive_configs = [':flag'],",
-        ")",
-        "genrule(",
-        "    name = 'via_consumer',",
-        "    outs = ['out'],",
-        "    cmd = 'touch $@',",
-        "    transitive_configs = [],",
-        ")",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['default', 'configured', 'other'],",
-        "    default_value = 'default',",
-        ")");
+        """
+        feature_flag_setter(
+            name = "via_setter",
+            exports_flag = ":flag",
+            flag_values = {
+                ":flag": "configured",
+            },
+            transitive_configs = [":flag"],
+            deps = [":via_consumer"],
+        )
+
+        genrule(
+            name = "via_consumer",
+            outs = ["out"],
+            cmd = "touch $@",
+            transitive_configs = [],
+        )
+
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "default",
+                "configured",
+                "other",
+            ],
+            default_value = "default",
+        )
+        """);
     useConfiguration(
         "--enforce_transitive_configs_for_config_feature_flag",
         "--experimental_output_directory_naming_scheme=diff_against_dynamic_baseline");

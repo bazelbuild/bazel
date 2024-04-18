@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
-import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -31,13 +30,10 @@ public class BazelRuleAnalysisThreadContext extends BazelStarlarkContext {
   /**
    * Constructs a {@link BazelRuleAnalysisThreadContext}.
    *
-   * @param symbolGenerator a {@link SymbolGenerator} to be used when creating objects to be
-   *     compared using reference equality.
    * @param ruleContext is the {@link RuleContext} of the rule for analysis of a rule or aspect
    */
-  public BazelRuleAnalysisThreadContext(
-      SymbolGenerator<?> symbolGenerator, RuleContext ruleContext) {
-    super(Phase.ANALYSIS, symbolGenerator);
+  public BazelRuleAnalysisThreadContext(RuleContext ruleContext) {
+    super(Phase.ANALYSIS);
     this.ruleContext = ruleContext;
   }
 

@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.FunctionHermeticity;
@@ -78,10 +79,19 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
 /**
- * A helper class to find dirty values by accessing the filesystem directly (contrast with
- * {@link DiffAwareness}).
+ * A helper class to find dirty values by accessing the filesystem directly (contrast with {@link
+ * DiffAwareness}).
  */
 public class FilesystemValueChecker {
+
+  /**
+   * Allows to override the {@link XattrProvider} when getting xattr (or digest) for output files.
+   */
+  public interface XattrProviderOverrider {
+    XattrProvider getXattrProvider(SyscallCache syscallCache);
+
+    XattrProviderOverrider NO_OVERRIDE = syscallCache -> syscallCache;
+  }
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -90,16 +100,20 @@ public class FilesystemValueChecker {
 
   @Nullable private final TimestampGranularityMonitor tsgm;
   private final SyscallCache syscallCache;
+  private final XattrProviderOverrider xattrProviderOverrider;
   private final int numThreads;
 
   public FilesystemValueChecker(
       @Nullable TimestampGranularityMonitor tsgm,
       SyscallCache syscallCache,
+      XattrProviderOverrider xattrProviderOverrider,
       int numThreads) {
     this.tsgm = tsgm;
     this.syscallCache = syscallCache;
+    this.xattrProviderOverrider = xattrProviderOverrider;
     this.numThreads = numThreads;
   }
+
   /**
    * Returns a {@link Differencer.DiffWithDelta} containing keys from the give map that are dirty
    * according to the passed-in {@code dirtinessChecker}.
@@ -226,9 +240,12 @@ public class FilesystemValueChecker {
     }
     logger.atInfo().log("Sharded action values for batching");
 
-    ExecutorService executor = Executors.newFixedThreadPool(
-        numOutputJobs,
-        new ThreadFactoryBuilder().setNameFormat("FileSystem Output File Invalidator %d").build());
+    ExecutorService executor =
+        Executors.newFixedThreadPool(
+            numOutputJobs,
+            new ThreadFactoryBuilder()
+                .setNameFormat("FileSystem Output File Invalidator %d")
+                .build());
 
     Collection<SkyKey> dirtyKeys = Sets.newConcurrentHashSet();
 
@@ -377,7 +394,7 @@ public class FilesystemValueChecker {
         try {
           FileArtifactValue newData =
               ActionOutputMetadataStore.fileArtifactValueFromArtifact(
-                  artifact, stat, syscallCache, tsgm);
+                  artifact, stat, xattrProviderOverrider.getXattrProvider(syscallCache), tsgm);
           if (newData.couldBeModifiedSince(lastKnownData)) {
             modifiedOutputsReceiver.reportModifiedOutputFile(
                 stat != null ? stat.getLastChangeTime() : -1, artifact);
@@ -488,7 +505,8 @@ public class FilesystemValueChecker {
     }
     try {
       FileArtifactValue fileMetadata =
-          ActionOutputMetadataStore.fileArtifactValueFromArtifact(file, null, syscallCache, tsgm);
+          ActionOutputMetadataStore.fileArtifactValueFromArtifact(
+              file, null, xattrProviderOverrider.getXattrProvider(syscallCache), tsgm);
       boolean trustRemoteValue =
           fileMetadata.getType() == FileStateType.NONEXISTENT
               && lastKnownData.isRemote()
@@ -505,7 +523,7 @@ public class FilesystemValueChecker {
       return false;
     } catch (IOException e) {
       // This is an unexpected failure getting a digest or symlink target.
-      modifiedOutputsReceiver.reportModifiedOutputFile(/*maybeModifiedTime=*/ -1, file);
+      modifiedOutputsReceiver.reportModifiedOutputFile(/* maybeModifiedTime= */ -1, file);
       return true;
     }
   }
@@ -573,8 +591,8 @@ public class FilesystemValueChecker {
     }
   }
 
-  private static boolean shouldCheckFile(ImmutableSet<PathFragment> knownModifiedOutputFiles,
-      Artifact artifact) {
+  private static boolean shouldCheckFile(
+      ImmutableSet<PathFragment> knownModifiedOutputFiles, Artifact artifact) {
     return knownModifiedOutputFiles == null
         || knownModifiedOutputFiles.contains(artifact.getExecPath());
   }
@@ -737,5 +755,4 @@ public class FilesystemValueChecker {
           numChecked.get());
     }
   }
-
 }

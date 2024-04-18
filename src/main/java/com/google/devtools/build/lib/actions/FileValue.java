@@ -212,20 +212,11 @@ public abstract class FileValue implements SkyValue {
       return new RegularFileValue(originalRootedPath, fileStateValueFromAncestors);
     }
 
-    boolean shouldStoreChain;
-    switch (realFileStateValue.getType()) {
-      case REGULAR_FILE:
-      case SPECIAL_FILE:
-      case NONEXISTENT:
-        shouldStoreChain = false;
-        break;
-      case SYMLINK:
-      case DIRECTORY:
-        shouldStoreChain = true;
-        break;
-      default:
-        throw new IllegalStateException(realFileStateValue.getType().toString());
-    }
+    boolean shouldStoreChain =
+        switch (realFileStateValue.getType()) {
+          case REGULAR_FILE, SPECIAL_FILE, NONEXISTENT -> false;
+          case SYMLINK, DIRECTORY -> true;
+        };
 
     if (fileStateValueFromAncestors.getType() == FileStateType.SYMLINK) {
       PathFragment symlinkTarget = fileStateValueFromAncestors.getSymlinkTarget();
@@ -310,10 +301,9 @@ public abstract class FileValue implements SkyValue {
       if (obj == null) {
         return false;
       }
-      if (!(obj instanceof RegularFileValue)) {
+      if (!(obj instanceof RegularFileValue other)) {
         return false;
       }
-      RegularFileValue other = (RegularFileValue) obj;
       return rootedPath.equals(other.rootedPath) && fileStateValue.equals(other.fileStateValue);
     }
 
@@ -657,10 +647,9 @@ public abstract class FileValue implements SkyValue {
       if (obj == null) {
         return false;
       }
-      if (!(obj instanceof SymlinkFileValueWithStoredChain)) {
+      if (!(obj instanceof SymlinkFileValueWithStoredChain other)) {
         return false;
       }
-      SymlinkFileValueWithStoredChain other = (SymlinkFileValueWithStoredChain) obj;
       return realRootedPath.equals(other.realRootedPath)
           && realFileStateValue.equals(other.realFileStateValue)
           && logicalChainDuringResolution.equals(other.logicalChainDuringResolution)
@@ -712,10 +701,9 @@ public abstract class FileValue implements SkyValue {
       if (obj == null) {
         return false;
       }
-      if (!(obj instanceof SymlinkFileValueWithoutStoredChain)) {
+      if (!(obj instanceof SymlinkFileValueWithoutStoredChain other)) {
         return false;
       }
-      SymlinkFileValueWithoutStoredChain other = (SymlinkFileValueWithoutStoredChain) obj;
       return realRootedPath.equals(other.realRootedPath)
           && realFileStateValue.equals(other.realFileStateValue)
           && linkTarget.equals(other.linkTarget);

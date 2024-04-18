@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.MacroFunction;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtension;
 import com.google.devtools.build.lib.bazel.bzlmod.TagClass;
@@ -40,6 +41,7 @@ import com.google.devtools.build.skydoc.rendering.StarlarkFunctionInfoExtractor;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.MacroInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleExtensionInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleExtensionTagClassInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
@@ -60,7 +62,7 @@ import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.Structure;
 
 /** API documentation extractor for a compiled, loaded Starlark module. */
-final class ModuleInfoExtractor {
+public final class ModuleInfoExtractor {
   private final Predicate<String> isWantedQualifiedName;
   private final LabelRenderer labelRenderer;
 
@@ -191,6 +193,8 @@ final class ModuleInfoExtractor {
       if (shouldVisitVerifiedForAncestor || shouldVisit(qualifiedName)) {
         if (value instanceof StarlarkRuleFunction) {
           visitRule(qualifiedName, (StarlarkRuleFunction) value);
+        } else if (value instanceof MacroFunction) {
+          visitMacroFunction(qualifiedName, (MacroFunction) value);
         } else if (value instanceof StarlarkProvider) {
           visitProvider(qualifiedName, (StarlarkProvider) value);
         } else if (value instanceof StarlarkFunction) {
@@ -216,23 +220,38 @@ final class ModuleInfoExtractor {
       // of traversed entities.
     }
 
-    protected void visitRule(String qualifiedName, StarlarkRuleFunction value)
+    protected void visitRule(
+        @SuppressWarnings("unused") String qualifiedName,
+        @SuppressWarnings("unused") StarlarkRuleFunction value)
         throws ExtractionException {}
 
-    protected void visitProvider(String qualifiedName, StarlarkProvider value)
+    protected void visitMacroFunction(
+        @SuppressWarnings("unused") String qualifiedName,
+        @SuppressWarnings("unused") MacroFunction value) {}
+
+    protected void visitProvider(
+        @SuppressWarnings("unused") String qualifiedName,
+        @SuppressWarnings("unused") StarlarkProvider value)
         throws ExtractionException {}
 
-    protected void visitFunction(String qualifiedName, StarlarkFunction value)
+    protected void visitFunction(
+        @SuppressWarnings("unused") String qualifiedName,
+        @SuppressWarnings("unused") StarlarkFunction value)
         throws ExtractionException {}
 
-    protected void visitAspect(String qualifiedName, StarlarkDefinedAspect aspect)
+    protected void visitAspect(
+        @SuppressWarnings("unused") String qualifiedName,
+        @SuppressWarnings("unused") StarlarkDefinedAspect aspect)
         throws ExtractionException {}
 
-    protected void visitModuleExtension(String qualifiedName, ModuleExtension moduleExtension)
+    protected void visitModuleExtension(
+        @SuppressWarnings("unused") String qualifiedName,
+        @SuppressWarnings("unused") ModuleExtension moduleExtension)
         throws ExtractionException {}
 
     protected void visitRepositoryRule(
-        String qualifiedName, RepositoryRuleFunction repositoryRuleFunction)
+        @SuppressWarnings("unused") String qualifiedName,
+        @SuppressWarnings("unused") RepositoryRuleFunction repositoryRuleFunction)
         throws ExtractionException {}
 
     private void recurseIntoStructure(
@@ -375,6 +394,22 @@ final class ModuleInfoExtractor {
         ruleInfoBuilder.setAdvertisedProviders(buildProviderNameGroup(advertisedProviders));
       }
       moduleInfoBuilder.addRuleInfo(ruleInfoBuilder);
+    }
+
+    @Override
+    protected void visitMacroFunction(String qualifiedName, MacroFunction macroFunction) {
+      MacroInfo.Builder macroInfoBuilder = MacroInfo.newBuilder();
+      // Record the name under which this symbol is made accessible, which may differ from the
+      // symbol's exported name
+      macroInfoBuilder.setMacroName(qualifiedName);
+      // ... but record the origin rule key for cross references.
+      macroInfoBuilder.setOriginKey(
+          OriginKey.newBuilder()
+              .setName(macroFunction.getName())
+              .setFile(labelRenderer.render(macroFunction.getExtensionLabel())));
+      macroFunction.getDocumentation().ifPresent(macroInfoBuilder::setDocString);
+      // TODO(#19922): add and document macro attributes
+      moduleInfoBuilder.addMacroInfo(macroInfoBuilder);
     }
 
     @Override

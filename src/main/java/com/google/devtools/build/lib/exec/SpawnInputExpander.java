@@ -143,9 +143,7 @@ public final class SpawnInputExpander {
       Preconditions.checkArgument(!artifact.isMiddlemanArtifact(), artifact);
       if (artifact.isTreeArtifact()) {
         ArchivedTreeArtifact archivedTreeArtifact =
-            expandArchivedTreeArtifacts
-                ? null
-                : artifactExpander.getArchivedTreeArtifact((SpecialArtifact) artifact);
+            expandArchivedTreeArtifacts ? null : artifactExpander.getArchivedTreeArtifact(artifact);
         if (archivedTreeArtifact != null) {
           // TODO(bazel-team): Add path mapping support for archived tree artifacts.
           addMapping(inputSink, location, archivedTreeArtifact, baseDirectory, artifact);
@@ -169,7 +167,7 @@ public final class SpawnInputExpander {
       } else if (artifact.isFileset()) {
         ImmutableList<FilesetOutputSymlink> filesetLinks;
         try {
-          filesetLinks = artifactExpander.getFileset(artifact);
+          filesetLinks = artifactExpander.expandFileset(artifact);
         } catch (MissingExpansionException e) {
           throw new IllegalStateException(e);
         }

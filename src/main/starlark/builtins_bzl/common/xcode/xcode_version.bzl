@@ -14,9 +14,11 @@
 
 """Rule definition for the xcode_version rule."""
 
+load(":common/xcode/providers.bzl", "XcodeVersionPropertiesInfo", "XcodeVersionRuleInfo")
+
 def _xcode_version_impl(ctx):
-    xcode_version_properties = _builtins.internal.XcodeProperties(
-        version = ctx.attr.version,
+    xcode_version_properties = XcodeVersionPropertiesInfo(
+        xcode_version = ctx.attr.version,
         default_ios_sdk_version = ctx.attr.default_ios_sdk_version,
         default_visionos_sdk_version = ctx.attr.default_visionos_sdk_version,
         default_watchos_sdk_version = ctx.attr.default_watchos_sdk_version,
@@ -25,9 +27,9 @@ def _xcode_version_impl(ctx):
     )
     return [
         xcode_version_properties,
-        _builtins.internal.XcodeVersionRuleData(
+        XcodeVersionRuleInfo(
             label = ctx.label,
-            xcode_properties = xcode_version_properties,
+            xcode_version_properties = xcode_version_properties,
             aliases = ctx.attr.aliases,
         ),
         DefaultInfo(runfiles = ctx.runfiles()),
@@ -36,12 +38,12 @@ def _xcode_version_impl(ctx):
 xcode_version = rule(
     attrs = {
         "version": attr.string(doc = "The official version number of a version of Xcode.", mandatory = True),
-        "aliases": attr.string_list(doc = "Accepted aliases for this version of Xcode. If the value of the xcode_version build flag matches any of the given alias strings, this xcode version will be used.", allow_empty = True, mandatory = False),
-        "default_ios_sdk_version": attr.string(default = "8.4", doc = "The ios sdk version that is used by default when this version of xcode is being used. The --ios_sdk_version build flag will override the value specified here.", mandatory = False),
-        "default_visionos_sdk_version": attr.string(default = "1.0", doc = "The visionos sdk version that is used by default when this version of xcode is being used. The --visionos_sdk_version build flag will override the value specified here.", mandatory = False),
-        "default_watchos_sdk_version": attr.string(default = "2.0", doc = "The watchos sdk version that is used by default when this version of xcode is being used. The --watchos_sdk_version build flag will override the value specified here.", mandatory = False),
-        "default_tvos_sdk_version": attr.string(default = "10.11", doc = "The tvos sdk version that is used by default when this version of xcode is being used. The --tvos_sdk_version build flag will override the value specified here.", mandatory = False),
-        "default_macos_sdk_version": attr.string(default = "9.0", doc = "The macos sdk version that is used by default when this version of xcode is being used. The --macos_sdk_version build flag will override the value specified here.", mandatory = False),
+        "aliases": attr.string_list(doc = "Accepted aliases for this version of Xcode. If the value of the xcode_version build flag matches any of the given alias strings, this Xcode version will be used.", allow_empty = True, mandatory = False),
+        "default_ios_sdk_version": attr.string(default = "8.4", doc = "The iOS SDK version that is used by default when this version of Xcode is being used. The `--ios_sdk_version` build flag will override the value specified here.", mandatory = False),
+        "default_visionos_sdk_version": attr.string(default = "1.0", doc = "The visionOS SDK version that is used by default when this version of Xcode is being used.", mandatory = False),
+        "default_watchos_sdk_version": attr.string(default = "2.0", doc = "The watchOS SDK version that is used by default when this version of Xcode is being used. The `--watchos_sdk_version` build flag will override the value specified here.", mandatory = False),
+        "default_tvos_sdk_version": attr.string(default = "10.11", doc = "The tvOS SDK version that is used by default when this version of Xcode is being used. The `--tvos_sdk_version` build flag will override the value specified here.", mandatory = False),
+        "default_macos_sdk_version": attr.string(default = "9.0", doc = "The macOS SDK version that is used by default when this version of Xcode is being used. The `--macos_sdk_version` build flag will override the value specified here.", mandatory = False),
     },
     implementation = _xcode_version_impl,
 )

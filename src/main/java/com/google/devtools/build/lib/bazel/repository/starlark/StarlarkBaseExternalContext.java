@@ -1444,8 +1444,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
         ImmutableSortedMap.naturalOrder();
     ImmutableList.Builder<String> argumentsBuilder = ImmutableList.builder();
     for (Object argumentUnchecked : argumentsUnchecked) {
-      if (argumentUnchecked instanceof Label) {
-        Label label = (Label) argumentUnchecked;
+      if (argumentUnchecked instanceof Label label) {
         Map.Entry<PathFragment, Path> remotePath = getRemotePathFromLabel(label);
         argumentsBuilder.add(remotePath.getKey().toString());
         inputsBuilder.put(remotePath);

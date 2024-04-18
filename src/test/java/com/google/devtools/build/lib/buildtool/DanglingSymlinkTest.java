@@ -63,8 +63,19 @@ public class DanglingSymlinkTest extends BuildIntegrationTestCase {
     Path fooBuildFile =
         write(
             "foo/BUILD",
-            "sh_binary(name = 'foo', srcs = ['foo.sh'])",
-            "genrule(name = 'top', srcs = [':foo'], outs = ['out'], cmd = 'touch $@')");
+            """
+            sh_binary(
+                name = "foo",
+                srcs = ["foo.sh"],
+            )
+
+            genrule(
+                name = "top",
+                srcs = [":foo"],
+                outs = ["out"],
+                cmd = "touch $@",
+            )
+            """);
     Path fooShFile = fooBuildFile.getParentDirectory().getRelative("foo.sh");
     fooShFile.createSymbolicLink(PathFragment.create("foo.sh"));
 
@@ -78,8 +89,19 @@ public class DanglingSymlinkTest extends BuildIntegrationTestCase {
     Path fooBuildFile =
         write(
             "foo/BUILD",
-            "sh_binary(name = 'foo', srcs = ['foo.sh'])",
-            "genrule(name = 'top', srcs = [':foo'], outs = ['out'], cmd = 'touch $@')");
+            """
+            sh_binary(
+                name = "foo",
+                srcs = ["foo.sh"],
+            )
+
+            genrule(
+                name = "top",
+                srcs = [":foo"],
+                outs = ["out"],
+                cmd = "touch $@",
+            )
+            """);
     Path fooShFile = fooBuildFile.getParentDirectory().getRelative("foo.sh");
     fooShFile.createSymbolicLink(PathFragment.create("doesnotexist"));
 

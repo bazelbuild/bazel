@@ -133,13 +133,11 @@ public class BzlmodRepoCycleReporter implements CyclesReporter.SingleCycleReport
             SkyKey input = (SkyKey) rawInput;
             if (input instanceof RepositoryDirectoryValue.Key) {
               return ((RepositoryDirectoryValue.Key) input).argument().toString();
-            } else if (input.argument() instanceof ModuleExtensionId) {
-              ModuleExtensionId id = (ModuleExtensionId) input.argument();
+            } else if (input.argument() instanceof ModuleExtensionId id) {
               return String.format(
                   "extension '%s' defined in %s",
                   id.getExtensionName(), id.getBzlFileLabel().getCanonicalForm());
-            } else if (input.argument() instanceof RepositoryMappingValue.Key) {
-              var key = (RepositoryMappingValue.Key) input.argument();
+            } else if (input.argument() instanceof RepositoryMappingValue.Key key) {
               if (key == RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS) {
                 return "repository mapping of @@ without WORKSPACE repos";
               }

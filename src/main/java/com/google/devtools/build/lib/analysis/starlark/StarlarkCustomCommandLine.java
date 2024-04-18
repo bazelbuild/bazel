@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -41,6 +42,8 @@ import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
@@ -256,7 +259,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
         int argi,
         PreprocessedCommandLine.Builder builder,
         @Nullable ArtifactExpander artifactExpander,
-        PathMapper pathMapper)
+        PathMapper pathMapper,
+        @Nullable RepositoryMapping mainRepoMapping)
         throws CommandLineExpansionException, InterruptedException {
       StarlarkCallable mapEach = null;
       StarlarkSemantics starlarkSemantics = null;
@@ -271,7 +275,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       if ((features & IS_NESTED_SET) != 0) {
         @SuppressWarnings("unchecked")
         NestedSet<Object> nestedSet = (NestedSet<Object>) arguments.get(argi++);
-        originalValues = nestedSet.toList();
+        originalValues = nestedSet.toListNoMemoUpdate();
       } else {
         int count = (Integer) arguments.get(argi++);
         originalValues = arguments.subList(argi, argi + count);
@@ -293,7 +297,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         int count = expandedValues.size();
         stringValues = new ArrayList<>(expandedValues.size());
         for (int i = 0; i < count; ++i) {
-          stringValues.add(expandToCommandLine(expandedValues.get(i), pathMapper));
+          stringValues.add(expandToCommandLine(expandedValues.get(i), pathMapper, mainRepoMapping));
         }
       }
       // It's safe to uniquify at this stage, any transformations after this
@@ -400,7 +404,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         if (isDirectory(object)) {
           Artifact artifact = (Artifact) object;
           if (artifact.isTreeArtifact()) {
-            artifactExpander.expand((Artifact) object, expandedValues);
+            expandedValues.addAll(artifactExpander.expandTreeArtifact(artifact));
           } else if (artifact.isFileset()) {
             expandFileset(artifactExpander, artifact, expandedValues, pathMapper);
           } else {
@@ -421,7 +425,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         throws CommandLineExpansionException {
       ImmutableList<FilesetOutputSymlink> expandedFileSet;
       try {
-        expandedFileSet = artifactExpander.getFileset(fileset);
+        expandedFileSet = artifactExpander.expandFileset(fileset);
       } catch (MissingExpansionException e) {
         throw new CommandLineExpansionException(
             String.format(
@@ -690,6 +694,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
      * @param builder the {@link PreprocessedCommandLine.Builder} in which to add a preprocessed
      *     representation of this arg
      * @param pathMapper mapper for exec paths
+     * @param mainRepoMapping the repository mapping to use for formatting labels if needed
      * @return index in {@code arguments} where the next arg begins, or {@code arguments.size()} if
      *     there are no more arguments
      */
@@ -697,10 +702,12 @@ public class StarlarkCustomCommandLine extends CommandLine {
         List<Object> arguments,
         int argi,
         PreprocessedCommandLine.Builder builder,
-        PathMapper pathMapper) {
+        PathMapper pathMapper,
+        @Nullable RepositoryMapping mainRepoMapping) {
       Object object = arguments.get(argi++);
       String formatStr = (String) arguments.get(argi++);
-      String stringValue = StarlarkCustomCommandLine.expandToCommandLine(object, pathMapper);
+      String stringValue =
+          StarlarkCustomCommandLine.expandToCommandLine(object, pathMapper, mainRepoMapping);
       builder.addPreprocessedArg(new PreprocessedSingleFormattedArg(formatStr, stringValue));
       return argi;
     }
@@ -754,11 +761,17 @@ public class StarlarkCustomCommandLine extends CommandLine {
       return this;
     }
 
-    CommandLine build(boolean flagPerLine) {
+    CommandLine build(boolean flagPerLine, @Nullable RepositoryMapping mainRepoMapping) {
       if (arguments.isEmpty()) {
         return CommandLine.empty();
       }
-      Object[] args = arguments.toArray();
+      Object[] args;
+      if (mainRepoMapping != null) {
+        args = arguments.toArray(new Object[arguments.size() + 1]);
+        args[arguments.size()] = mainRepoMapping;
+      } else {
+        args = arguments.toArray();
+      }
       return flagPerLine
           ? new StarlarkCustomCommandLineWithIndexes(args, argStartIndexes.build())
           : new StarlarkCustomCommandLine(args);
@@ -791,14 +804,29 @@ public class StarlarkCustomCommandLine extends CommandLine {
     PreprocessedCommandLine.Builder builder = new PreprocessedCommandLine.Builder();
     List<Object> arguments = rawArgsAsList();
 
-    for (int argi = 0; argi < arguments.size(); ) {
+    RepositoryMapping mainRepoMapping;
+    int size;
+    // Added in #build() if any labels in the command line require this to be formatted with an
+    // apparent repository name.
+    if (arguments.getLast() instanceof RepositoryMapping) {
+      mainRepoMapping = (RepositoryMapping) arguments.getLast();
+      size = arguments.size() - 1;
+    } else {
+      mainRepoMapping = null;
+      size = arguments.size();
+    }
+
+    for (int argi = 0; argi < size; ) {
       Object arg = arguments.get(argi++);
       if (arg instanceof VectorArg) {
-        argi = ((VectorArg) arg).preprocess(arguments, argi, builder, artifactExpander, pathMapper);
+        argi =
+            ((VectorArg) arg)
+                .preprocess(
+                    arguments, argi, builder, artifactExpander, pathMapper, mainRepoMapping);
       } else if (arg == SingleFormattedArg.MARKER) {
-        argi = SingleFormattedArg.preprocess(arguments, argi, builder, pathMapper);
+        argi = SingleFormattedArg.preprocess(arguments, argi, builder, pathMapper, mainRepoMapping);
       } else {
-        builder.addString(expandToCommandLine(arg, pathMapper));
+        builder.addString(expandToCommandLine(arg, pathMapper, mainRepoMapping));
       }
     }
     return pathMapper.mapCustomStarlarkArgs(builder.build());
@@ -816,7 +844,12 @@ public class StarlarkCustomCommandLine extends CommandLine {
     return expand(artifactExpander, pathMapper).arguments();
   }
 
-  private static String expandToCommandLine(Object object, PathMapper pathMapper) {
+  private static String expandToCommandLine(
+      Object object, PathMapper pathMapper, @Nullable RepositoryMapping mainRepoMapping) {
+    if (mainRepoMapping != null && object instanceof Label label) {
+      return label.getDisplayForm(mainRepoMapping);
+    }
+
     // It'd be nice to build this into DerivedArtifact's CommandLine interface so we don't have
     // to explicitly check if an object is a DerivedArtifact. Unfortunately that would require
     // a lot more dependencies on the Java library DerivedArtifact is built into.
@@ -848,20 +881,32 @@ public class StarlarkCustomCommandLine extends CommandLine {
       List<Object> arguments = ((StarlarkCustomCommandLine) this).rawArgsAsList();
       Iterator<Integer> startIndexIterator = argStartIndexes.iterator();
 
-      for (int argi = 0; argi < arguments.size(); ) {
-        int nextStartIndex =
-            startIndexIterator.hasNext() ? startIndexIterator.next() : arguments.size();
+      RepositoryMapping mainRepoMapping;
+      int size;
+      if (arguments.getLast() instanceof RepositoryMapping) {
+        mainRepoMapping = (RepositoryMapping) arguments.getLast();
+        size = arguments.size() - 1;
+      } else {
+        mainRepoMapping = null;
+        size = arguments.size();
+      }
+
+      for (int argi = 0; argi < size; ) {
+        int nextStartIndex = startIndexIterator.hasNext() ? startIndexIterator.next() : size;
         PreprocessedCommandLine.Builder line = new PreprocessedCommandLine.Builder();
 
         while (argi < nextStartIndex) {
           Object arg = arguments.get(argi++);
           if (arg instanceof VectorArg) {
             argi =
-                ((VectorArg) arg).preprocess(arguments, argi, line, artifactExpander, pathMapper);
+                ((VectorArg) arg)
+                    .preprocess(
+                        arguments, argi, line, artifactExpander, pathMapper, mainRepoMapping);
           } else if (arg == SingleFormattedArg.MARKER) {
-            argi = SingleFormattedArg.preprocess(arguments, argi, line, pathMapper);
+            argi =
+                SingleFormattedArg.preprocess(arguments, argi, line, pathMapper, mainRepoMapping);
           } else {
-            line.addString(expandToCommandLine(arg, pathMapper));
+            line.addString(expandToCommandLine(arg, pathMapper, mainRepoMapping));
           }
         }
 
@@ -879,7 +924,15 @@ public class StarlarkCustomCommandLine extends CommandLine {
       Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException {
     List<Object> arguments = rawArgsAsList();
-    for (int argi = 0; argi < arguments.size(); ) {
+    int size;
+    if (arguments.getLast() instanceof RepositoryMapping mainRepoMapping) {
+      fingerprint.addStringMap(
+          Maps.transformValues(mainRepoMapping.entries(), RepositoryName::getName));
+      size = arguments.size() - 1;
+    } else {
+      size = arguments.size();
+    }
+    for (int argi = 0; argi < size; ) {
       Object arg = arguments.get(argi++);
       if (arg instanceof VectorArg) {
         argi =
@@ -914,9 +967,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     public ImmutableList<FileApi> list(FileApi file) {
       Artifact artifact = (Artifact) file;
       if (artifact.isTreeArtifact()) {
-        List<Artifact> files = new ArrayList<>(1);
-        expander.expand((Artifact) file, files);
-        return ImmutableList.copyOf(files);
+        return ImmutableList.copyOf(expander.expandTreeArtifact(artifact));
       } else {
         return ImmutableList.of(file);
       }
@@ -932,7 +983,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
       StarlarkSemantics starlarkSemantics)
       throws CommandLineExpansionException, InterruptedException {
     try (Mutability mu = Mutability.create("map_each")) {
-      StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
+      // This computation produces only a String list, which doesn't require reference semantics,
+      // so createTransient() is safe.
+      StarlarkThread thread = StarlarkThread.createTransient(mu, starlarkSemantics);
       // TODO(b/77140311): Error if we issue print statements.
       thread.setPrintHandler((th, msg) -> {});
       int count = originalValues.size();
@@ -1027,10 +1080,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof CommandLineItemMapEachAdaptor)) {
+      if (!(obj instanceof CommandLineItemMapEachAdaptor other)) {
         return false;
       }
-      CommandLineItemMapEachAdaptor other = (CommandLineItemMapEachAdaptor) obj;
       // Instance compare intentional
       // The normal implementation uses location + name of function,
       // which can conceivably conflict in tests

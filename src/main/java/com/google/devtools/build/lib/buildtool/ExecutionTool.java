@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
+import com.google.devtools.build.lib.actions.MachineLoadProvider;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.actions.ResourceManager;
@@ -1031,6 +1032,12 @@ public class ExecutionTool {
     resourceMgr.setAvailableResources(
         ResourceSet.create(
             resources, options.usingLocalTestJobs() ? options.localTestJobs : Integer.MAX_VALUE));
+
+    resourceMgr.initializeCpuLoadFunctionality(
+        MachineLoadProvider.instance(),
+        options.experimentalCpuLoadScheduling,
+        options.experimentalCpuLoadSchedulingWindowSize);
+    resourceMgr.scheduleCpuLoadWindowUpdate();
   }
 
   /**

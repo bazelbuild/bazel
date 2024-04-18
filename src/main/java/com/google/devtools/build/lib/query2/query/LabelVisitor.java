@@ -355,11 +355,9 @@ final class LabelVisitor {
       // of *different* attributes. These visitations get culled later, but we still have to pay the
       // overhead for all that.
 
-      if (!(from instanceof Rule) || !(to instanceof Rule)) {
+      if (!(from instanceof Rule fromRule) || !(to instanceof Rule toRule)) {
         return;
       }
-      Rule fromRule = (Rule) from;
-      Rule toRule = (Rule) to;
       for (Aspect aspect : attribute.getAspects(fromRule)) {
         if (AspectDefinition.satisfies(
             aspect, toRule.getRuleClassObject().getAdvertisedProviders())) {

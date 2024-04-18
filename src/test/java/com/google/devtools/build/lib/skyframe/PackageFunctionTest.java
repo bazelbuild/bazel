@@ -371,8 +371,14 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Root pkgRoot = getSkyframeExecutor().getPathEntries().get(0);
     scratch.file(
         "foo/BUILD",
-        "sh_library(name = 'foo', srcs = glob(['bar/**/baz.sh']))",
-        "x = 1//0" // causes 'foo' to be marked in error
+        """
+        sh_library(
+            name = "foo",
+            srcs = glob(["bar/**/baz.sh"]),
+        )
+
+        x = 1 // 0
+        """ // causes 'foo' to be marked in error
         );
     Path bazFile = scratch.file("foo/bar/baz/baz.sh");
     Path bazDir = bazFile.getParentDirectory();
@@ -534,9 +540,22 @@ public class PackageFunctionTest extends BuildViewTestCase {
   public void testGlobWithExternalSymlink() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "sh_library(name = 'foo', srcs = glob(['*.sh']))",
-        "sh_library(name = 'bar', srcs = glob(['link.sh']))",
-        "sh_library(name = 'baz', srcs = glob(['subdir_link/*.txt']))");
+        """
+        sh_library(
+            name = "foo",
+            srcs = glob(["*.sh"]),
+        )
+
+        sh_library(
+            name = "bar",
+            srcs = glob(["link.sh"]),
+        )
+
+        sh_library(
+            name = "baz",
+            srcs = glob(["subdir_link/*.txt"]),
+        )
+        """);
     scratch.file("foo/ordinary.sh");
     Path externalTarget = scratch.file("../ops/target.txt");
     FileSystemUtils.ensureSymbolicLink(scratch.resolve("foo/link.sh"), externalTarget);
@@ -550,9 +569,22 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertSrcs(fooPkg, "baz", "//foo:subdir_link/target.txt");
     scratch.overwriteFile(
         "foo/BUILD",
-        "sh_library(name = 'foo', srcs = glob(['*.sh'])) #comment",
-        "sh_library(name = 'bar', srcs = glob(['link.sh']))",
-        "sh_library(name = 'baz', srcs = glob(['subdir_link/*.txt']))");
+        """
+        sh_library(
+            name = "foo",
+            srcs = glob(["*.sh"]),
+        )  #comment
+
+        sh_library(
+            name = "bar",
+            srcs = glob(["link.sh"]),
+        )
+
+        sh_library(
+            name = "baz",
+            srcs = glob(["subdir_link/*.txt"]),
+        )
+        """);
     getSkyframeExecutor()
         .invalidateFilesUnderPathForTesting(
             reporter,
@@ -584,8 +616,26 @@ public class PackageFunctionTest extends BuildViewTestCase {
   public void testOneNewElementInMultipleGlob() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "sh_library(name = 'foo', srcs = glob(['*.sh'], allow_empty = True))",
-        "sh_library(name = 'bar', srcs = glob(['*.sh', '*.txt'], allow_empty = True))");
+        """
+        sh_library(
+            name = "foo",
+            srcs = glob(
+                ["*.sh"],
+                allow_empty = True,
+            ),
+        )
+
+        sh_library(
+            name = "bar",
+            srcs = glob(
+                [
+                    "*.sh",
+                    "*.txt",
+                ],
+                allow_empty = True,
+            ),
+        )
+        """);
     preparePackageLoading(rootDirectory);
     SkyKey skyKey = PackageIdentifier.createInMainRepo("foo");
     Package pkg = validPackageWithoutErrors(skyKey);
@@ -602,8 +652,29 @@ public class PackageFunctionTest extends BuildViewTestCase {
   public void testNoNewElementInMultipleGlob() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "sh_library(name = 'foo', srcs = glob(['*.sh', '*.txt'], allow_empty = True))",
-        "sh_library(name = 'bar', srcs = glob(['*.sh', '*.txt'], allow_empty = True))");
+        """
+        sh_library(
+            name = "foo",
+            srcs = glob(
+                [
+                    "*.sh",
+                    "*.txt",
+                ],
+                allow_empty = True,
+            ),
+        )
+
+        sh_library(
+            name = "bar",
+            srcs = glob(
+                [
+                    "*.sh",
+                    "*.txt",
+                ],
+                allow_empty = True,
+            ),
+        )
+        """);
     preparePackageLoading(rootDirectory);
     SkyKey skyKey = PackageIdentifier.createInMainRepo("foo");
     Package pkg = validPackageWithoutErrors(skyKey);
@@ -620,7 +691,13 @@ public class PackageFunctionTest extends BuildViewTestCase {
   public void testTransitiveStarlarkDepsStoredInPackage() throws Exception {
     scratch.file("foo/BUILD", "load('//bar:ext.bzl', 'a')");
     scratch.file("bar/BUILD");
-    scratch.file("bar/ext.bzl", "load('//baz:ext.scl', 'b')", "a = b");
+    scratch.file(
+        "bar/ext.bzl",
+        """
+        load("//baz:ext.scl", "b")
+
+        a = b
+        """);
     scratch.file("baz/BUILD");
     scratch.file("baz/ext.scl", "b = 1");
     scratch.file("qux/BUILD");
@@ -636,7 +713,13 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .containsExactly(
             Label.parseCanonical("//bar:ext.bzl"), Label.parseCanonical("//baz:ext.scl"));
 
-    scratch.overwriteFile("bar/ext.bzl", "load('//qux:ext.bzl', 'c')", "a = c");
+    scratch.overwriteFile(
+        "bar/ext.bzl",
+        """
+        load("//qux:ext.bzl", "c")
+
+        a = c
+        """);
     getSkyframeExecutor()
         .invalidateFilesUnderPathForTesting(
             reporter,
@@ -668,8 +751,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
   public void testNonExistingStarlarkExtensionFromExtension() throws Exception {
     scratch.file(
         "test/starlark/extension.bzl",
-        "load('//test/starlark:bad_extension.bzl', 'some_symbol')",
-        "a = 'a'");
+        """
+        load("//test/starlark:bad_extension.bzl", "some_symbol")
+
+        a = "a"
+        """);
     scratch.file("test/starlark/BUILD", "load('//test/starlark:extension.bzl', 'a')");
     invalidatePackages();
 
@@ -689,10 +775,12 @@ public class PackageFunctionTest extends BuildViewTestCase {
     setBuildLanguageOptions("--experimental_builtins_bzl_path=tools/builtins_staging");
     scratch.file(
         "tools/builtins_staging/exports.bzl",
-        "1 // 0  # <-- dynamic error",
-        "exported_toplevels = {}",
-        "exported_rules = {}",
-        "exported_to_java = {}");
+        """
+        1 // 0  # <-- dynamic error
+        exported_toplevels = {}
+        exported_rules = {}
+        exported_to_java = {}
+        """);
     scratch.file("pkg/BUILD");
 
     Exception ex = evaluatePackageToException("pkg");
@@ -741,12 +829,13 @@ public class PackageFunctionTest extends BuildViewTestCase {
     scratch.file("p/subdir/a.bzl", "c = 1; e = 1");
     scratch.file(
         "p/BUILD",
-        //
-        "load(':a.bzl', 'a')",
-        "load('a.bzl', 'b')",
-        "load('subdir/a.bzl', 'c')",
-        "load('//p:a.bzl', 'd')",
-        "load('//p:subdir/a.bzl', 'e')");
+        """
+        load("//p:a.bzl", "d")
+        load("//p:subdir/a.bzl", "e")
+        load(":a.bzl", "a")
+        load("a.bzl", "b")
+        load("subdir/a.bzl", "c")
+        """);
     validPackageWithoutErrors(PackageIdentifier.createInMainRepo("p"));
   }
 
@@ -790,9 +879,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
         "load(\"//b:foo.bzl\", \"x\")");
     scratch.file("b/BUILD");
     scratch.file(
-        "b/foo.bzl", //
-        "visibility(\"private\")",
-        "x = 1");
+        "b/foo.bzl",
+        """
+        visibility("private")
+        x = 1
+        """);
 
     reporter.removeHandler(failFastHandler);
     Exception ex = evaluatePackageToException("a");
@@ -814,9 +905,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
         "load(\"//b:foo.bzl\", \"x\")");
     scratch.file("b/BUILD");
     scratch.file(
-        "b/foo.bzl", //
-        "visibility(\"private\")",
-        "x = 1");
+        "b/foo.bzl",
+        """
+        visibility("private")
+        x = 1
+        """);
 
     validPackageWithoutErrors(PackageIdentifier.createInMainRepo("a"));
     assertContainsEvent("Starlark file //b:foo.bzl is not visible for loading from package //a.");
@@ -848,13 +941,18 @@ public class PackageFunctionTest extends BuildViewTestCase {
     setBuildLanguageOptions("--experimental_bzl_visibility=true");
 
     scratch.file(
-        "a/BUILD", //
-        "load(\":helper.bzl\", \"helper\")",
-        "helper()");
+        "a/BUILD",
+        """
+        load(":helper.bzl", "helper")
+
+        helper()
+        """);
     scratch.file(
-        "a/helper.bzl", //
-        "def helper():",
-        "    visibility(\"public\")");
+        "a/helper.bzl",
+        """
+        def helper():
+            visibility("public")
+        """);
 
     reporter.removeHandler(failFastHandler);
     SkyframeExecutorTestUtils.evaluate(
@@ -904,7 +1002,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("dangling.txt"));
 
     scratch.overwriteFile(
-        "foo/BUILD", "exports_files(glob(['*.txt']))", "#some-irrelevant-comment");
+        "foo/BUILD",
+        """
+        exports_files(glob(["*.txt"]))
+        #some-irrelevant-comment
+        """);
 
     getSkyframeExecutor()
         .invalidateFilesUnderPathForTesting(
@@ -956,8 +1058,13 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     scratch.overwriteFile(
         "foo/BUILD",
-        "[sh_library(name = x + '-matched') for x in glob(['**'], exclude_directories = 0)]",
-        "#some-irrelevant-comment");
+        """
+        [sh_library(name = x + "-matched") for x in glob(
+            ["**"],
+            exclude_directories = 0,
+        )]
+        #some-irrelevant-comment
+        """);
     getSkyframeExecutor()
         .invalidateFilesUnderPathForTesting(
             reporter,
@@ -980,6 +1087,58 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(ex).hasMessageThat().contains("nope");
     assertThat(ex).isInstanceOf(NoSuchPackageException.class);
     assertThat(ex).hasCauseThat().isInstanceOf(IOException.class);
+    assertDetailedExitCode(ex, PackageLoading.Code.BUILD_FILE_MISSING, ExitCode.BUILD_FAILURE);
+  }
+
+  @Test
+  public void testPackageLoadingErrorOnMissingBuildFile_singlePackagePath() throws Exception {
+    scratch.file("foo/bar");
+
+    // There is no foo/BUILD file, but we enforce loading package 'foo'.
+    Exception ex = evaluatePackageToException("foo");
+    assertThat(ex)
+        .hasMessageThat()
+        .contains(
+            "BUILD file not found in any of the following directories. "
+                + "Add a BUILD file to a directory to mark it as a package.\n"
+                // Print the package_path relative directory path if only a single `package_path` is
+                // provided.
+                + " - foo");
+    assertThat(ex).isInstanceOf(BuildFileNotFoundException.class);
+    assertDetailedExitCode(ex, PackageLoading.Code.BUILD_FILE_MISSING, ExitCode.BUILD_FAILURE);
+  }
+
+  @Test
+  public void testPackageLoadingErrorOnMissingBuildFile_multiplePackagePath() throws Exception {
+    scratch.file("foo/bar");
+    Path otherRootDir = scratch.dir("/ws2");
+    scratch.file("/ws2/foo/bar");
+    getSkyframeExecutor()
+        .preparePackageLoading(
+            new PathPackageLocator(
+                outputBase,
+                ImmutableList.of(Root.fromPath(rootDirectory), Root.fromPath(otherRootDir)),
+                BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
+            Options.getDefaults(PackageOptions.class),
+            Options.getDefaults(BuildLanguageOptions.class),
+            UUID.randomUUID(),
+            ImmutableMap.of(),
+            QuiescingExecutorsImpl.forTesting(),
+            tsgm);
+
+    // There is no foo/BUILD file under both `package_path`s foo directory, but we enforce loading
+    // package 'foo'.
+    Exception ex = evaluatePackageToException("foo");
+
+    assertThat(ex)
+        .hasMessageThat()
+        .contains(
+            "BUILD file not found in any of the following directories. "
+                + "Add a BUILD file to a directory to mark it as a package.");
+    // Print the absolute directory paths if multiple `package_path`s are provided.
+    assertThat(ex).hasMessageThat().contains("- /workspace/foo");
+    assertThat(ex).hasMessageThat().contains("- /ws2/foo");
+    assertThat(ex).isInstanceOf(BuildFileNotFoundException.class);
     assertDetailedExitCode(ex, PackageLoading.Code.BUILD_FILE_MISSING, ExitCode.BUILD_FAILURE);
   }
 
@@ -1023,8 +1182,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     scratch.file(
         "pkg/foo/BUILD",
-        "exports_files(['sub11/sub12/blah1'])",
-        "exports_files(['sub21/sub22/blah2'])");
+        """
+        exports_files(["sub11/sub12/blah1"])
+
+        exports_files(["sub21/sub22/blah2"])
+        """);
     scratch.file("pkg/foo/sub11/BUILD");
     scratch.file("pkg/foo/sub11/sub12/BUILD");
     scratch.file("pkg/foo/sub21/BUILD");
@@ -1081,8 +1243,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Path pkgBUILDPath =
         scratch.file(
             "pkg/BUILD",
-            "exports_files(['sub/blah'])  # label crossing subpackage boundaries",
-            "glob(['globcycle/**/foo.txt'])  # triggers non-Skyframe globbing error");
+            """
+            exports_files(["sub/blah"])  # label crossing subpackage boundaries
+
+            glob(["globcycle/**/foo.txt"])  # triggers non-Skyframe globbing error
+            """);
     scratch.file("pkg/sub/BUILD");
     Path pkgGlobcyclePath = pkgBUILDPath.getParentDirectory().getChild("globcycle");
     FileSystemUtils.ensureSymbolicLink(pkgGlobcyclePath, pkgGlobcyclePath);
@@ -1644,9 +1809,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
       setBuildLanguageOptions("--experimental_builtins_bzl_path=tools/builtins_staging");
       scratch.file(
           "tools/builtins_staging/exports.bzl",
-          "exported_toplevels = {}",
-          "exported_rules = {'cc_library': 'BAR'}",
-          "exported_to_java = {}");
+          """
+          exported_toplevels = {}
+          exported_rules = {"cc_library": "BAR"}
+          exported_to_java = {}
+          """);
       scratch.file("tools/build_rules/BUILD");
       scratch.file(
           "tools/build_rules/test_prelude", //

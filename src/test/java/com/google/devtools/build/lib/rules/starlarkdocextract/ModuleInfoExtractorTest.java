@@ -32,6 +32,7 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Attr
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionDeprecationInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionParamInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionReturnInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.MacroInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.OriginKey;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderFieldInfo;
@@ -730,6 +731,39 @@ public final class ModuleInfoExtractorTest {
                 .setType(AttributeType.OUTPUT_LIST)
                 .setDefaultValue("[]")
                 .setNonconfigurable(true)
+                .build());
+  }
+
+  @Test
+  public void macroDocstring() throws Exception {
+    Module module =
+        execWithOptions(
+            ImmutableList.of("--experimental_enable_first_class_macros"),
+            """
+            def _my_impl(name):
+                pass
+
+            documented_macro = macro(
+                doc = "My doc",
+                implementation = _my_impl,
+            )
+            undocumented_macro = macro(
+                implementation = _my_impl,
+            )
+            """);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
+    assertThat(moduleInfo.getMacroInfoList())
+        .containsExactly(
+            MacroInfo.newBuilder()
+                .setMacroName("documented_macro")
+                .setDocString("My doc")
+                .setOriginKey(
+                    OriginKey.newBuilder().setName("documented_macro").setFile(fakeLabelString))
+                .build(),
+            MacroInfo.newBuilder()
+                .setMacroName("undocumented_macro")
+                .setOriginKey(
+                    OriginKey.newBuilder().setName("undocumented_macro").setFile(fakeLabelString))
                 .build());
   }
 

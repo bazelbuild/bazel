@@ -65,35 +65,46 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
     dispatcher = new BlazeCommandDispatcher(getRuntime());
     write(
         "tools/allowlists/function_transition_allowlist/BUILD",
-        "package_group(",
-        "    name = 'function_transition_allowlist',",
-        "    packages = ['//...'],",
-        ")");
+        """
+        package_group(
+            name = "function_transition_allowlist",
+            packages = ["//..."],
+        )
+        """);
     write(
         "test/defs.bzl",
-        "def _simple_rule_impl(ctx):",
-        "  pass",
-        "simple_rule = rule(",
-        "  implementation = _simple_rule_impl,",
-        "  attrs = {},",
-        ")",
-        "def _sometransition_impl(settings, attr):",
-        "  _ignore = (settings, attr)",
-        "  return {'//command_line_option:platform_suffix': 'transitioned'}",
-        "_sometransition = transition(",
-        "  implementation = _sometransition_impl,",
-        "  inputs = [],",
-        "  outputs = ['//command_line_option:platform_suffix'],",
-        ")",
-        "rule_with_transition = rule(",
-        "  implementation = _simple_rule_impl,",
-        "  cfg = _sometransition,",
-        ")");
+        """
+        def _simple_rule_impl(ctx):
+            pass
+
+        simple_rule = rule(
+            implementation = _simple_rule_impl,
+            attrs = {},
+        )
+
+        def _sometransition_impl(settings, attr):
+            _ignore = (settings, attr)
+            return {"//command_line_option:platform_suffix": "transitioned"}
+
+        _sometransition = transition(
+            implementation = _sometransition_impl,
+            inputs = [],
+            outputs = ["//command_line_option:platform_suffix"],
+        )
+        rule_with_transition = rule(
+            implementation = _simple_rule_impl,
+            cfg = _sometransition,
+        )
+        """);
     write(
         "test/BUILD",
-        "load('//test:defs.bzl', 'simple_rule', 'rule_with_transition')",
-        "simple_rule(name='buildme')",
-        "rule_with_transition(name='buildme_with_transition')");
+        """
+        load("//test:defs.bzl", "rule_with_transition", "simple_rule")
+
+        simple_rule(name = "buildme")
+
+        rule_with_transition(name = "buildme_with_transition")
+        """);
   }
 
   /**
@@ -408,22 +419,29 @@ public class ConfigCommandTest extends BuildIntegrationTestCase {
   public void starlarkFlagsInUserDefinedFragment() throws Exception {
     write(
         "test/flagdef.bzl",
-        "def _rule_impl(ctx):",
-        "    return []",
-        "string_flag = rule(",
-        "    implementation = _rule_impl,",
-        "    build_setting = config.string(flag = True)",
-        ")",
-        "simple_rule = rule(",
-        "    implementation = _rule_impl,",
-        "    attrs = {}",
-        ")");
+        """
+        def _rule_impl(ctx):
+            return []
+
+        string_flag = rule(
+            implementation = _rule_impl,
+            build_setting = config.string(flag = True),
+        )
+        simple_rule = rule(
+            implementation = _rule_impl,
+            attrs = {},
+        )
+        """);
     write(
         "custom_flags/BUILD",
-        "load('//test:flagdef.bzl', 'string_flag')",
-        "string_flag(",
-        "    name = 'my_flag',",
-        "    build_setting_default = '')");
+        """
+        load("//test:flagdef.bzl", "string_flag")
+
+        string_flag(
+            name = "my_flag",
+            build_setting_default = "",
+        )
+        """);
 
     analyzeTarget("--//custom_flags:my_flag=hello");
 

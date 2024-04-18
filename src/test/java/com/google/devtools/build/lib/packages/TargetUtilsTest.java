@@ -42,9 +42,25 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
   public void testFilterByTag() throws Exception {
     scratch.file(
         "tests/BUILD",
-        "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['tag1'])",
-        "sh_binary(name = 'tag2', srcs=['sh.sh'], tags=['tag2'])",
-        "sh_binary(name = 'tag1b', srcs=['sh.sh'], tags=['tag1'])");
+        """
+        sh_binary(
+            name = "tag1",
+            srcs = ["sh.sh"],
+            tags = ["tag1"],
+        )
+
+        sh_binary(
+            name = "tag2",
+            srcs = ["sh.sh"],
+            tags = ["tag2"],
+        )
+
+        sh_binary(
+            name = "tag1b",
+            srcs = ["sh.sh"],
+            tags = ["tag1"],
+        )
+        """);
 
     Target tag1 = getTarget("//tests:tag1");
     Target tag2 = getTarget("//tests:tag2");
@@ -83,9 +99,31 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
   public void testExecutionInfo() throws Exception {
     scratch.file(
         "tests/BUILD",
-        "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['supports-workers', 'no-cache'])",
-        "sh_binary(name = 'tag2', srcs=['sh.sh'], tags=['disable-local-prefetch'])",
-        "sh_binary(name = 'tag1b', srcs=['sh.sh'], tags=['local', 'cpu:4'])");
+        """
+        sh_binary(
+            name = "tag1",
+            srcs = ["sh.sh"],
+            tags = [
+                "no-cache",
+                "supports-workers",
+            ],
+        )
+
+        sh_binary(
+            name = "tag2",
+            srcs = ["sh.sh"],
+            tags = ["disable-local-prefetch"],
+        )
+
+        sh_binary(
+            name = "tag1b",
+            srcs = ["sh.sh"],
+            tags = [
+                "cpu:4",
+                "local",
+            ],
+        )
+        """);
 
     Rule tag1 = (Rule) getTarget("//tests:tag1");
     Rule tag2 = (Rule) getTarget("//tests:tag2");
@@ -303,42 +341,94 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
     // TODO(anyone): remove tests here that are redundant w.r.t. the other tests in this file.
     scratch.file(
         "x/BUILD",
-        "cc_test(name = 'y',",
-        "          srcs = ['a'],",
-        "          size = 'small',",
-        "          tags = ['manual','local','exclusive'])",
-        "cc_test(name = 'z',",
-        "          srcs = ['a'],",
-        "          size = 'small',",
-        "          tags = ['othertag', 'requires-feature2'])",
-        "cc_test(name = 'k',",
-        "          srcs = ['a'],",
-        "          size = 'small',",
-        "          tags = ['requires-feature1'])",
-        "cc_test(name = 'exclusive_if_local',",
-        "          srcs = ['a'],",
-        "          size = 'small',",
-        "          tags = ['exclusive-if-local'])",
-        "cc_test(name = 'exclusive_only',",
-        "          srcs = ['a'],",
-        "          size = 'small',",
-        "          tags = ['exclusive'])",
-        "test_suite(name = 'ts',",
-        "          tests = ['z'])",
-        "cc_binary(name = 'x',",
-        "          srcs = ['a', 'b', 'c'],",
-        "          defines = ['-Da', '-Db'])",
-        "cc_binary(name = 'lib1',",
-        "          srcs = ['a', 'b', 'c'],",
-        "          linkshared = 1)",
-        "genrule(name = 'gen1',",
-        "          srcs = [],",
-        "          outs = ['t1', 't2'],",
-        "          cmd = 'my cmd')",
-        "genrule(name = 'gen2',",
-        "          srcs = ['liba.so'],",
-        "          outs = ['libnewa.so'],",
-        "          cmd = 'my cmd')");
+        """
+        cc_test(
+            name = "y",
+            size = "small",
+            srcs = ["a"],
+            tags = [
+                "exclusive",
+                "local",
+                "manual",
+            ],
+        )
+
+        cc_test(
+            name = "z",
+            size = "small",
+            srcs = ["a"],
+            tags = [
+                "othertag",
+                "requires-feature2",
+            ],
+        )
+
+        cc_test(
+            name = "k",
+            size = "small",
+            srcs = ["a"],
+            tags = ["requires-feature1"],
+        )
+
+        cc_test(
+            name = "exclusive_if_local",
+            size = "small",
+            srcs = ["a"],
+            tags = ["exclusive-if-local"],
+        )
+
+        cc_test(
+            name = "exclusive_only",
+            size = "small",
+            srcs = ["a"],
+            tags = ["exclusive"],
+        )
+
+        test_suite(
+            name = "ts",
+            tests = ["z"],
+        )
+
+        cc_binary(
+            name = "x",
+            srcs = [
+                "a",
+                "b",
+                "c",
+            ],
+            defines = [
+                "-Da",
+                "-Db",
+            ],
+        )
+
+        cc_binary(
+            name = "lib1",
+            srcs = [
+                "a",
+                "b",
+                "c",
+            ],
+            linkshared = 1,
+        )
+
+        genrule(
+            name = "gen1",
+            srcs = [],
+            outs = [
+                "t1",
+                "t2",
+            ],
+            cmd = "my cmd",
+        )
+
+        genrule(
+            name = "gen2",
+            srcs = ["liba.so"],
+            outs = ["libnewa.so"],
+            cmd = "my cmd",
+        )
+        """);
     Rule x = (Rule) getTarget("//x:x");
     assertThat(TargetUtils.isTestRule(x)).isFalse();
     Rule ts = (Rule) getTarget("//x:ts");

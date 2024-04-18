@@ -361,15 +361,6 @@ public final class AttributeTest {
         .addEqualityGroup(
             attr("foo", LABEL)
                 .value(Label.parseCanonicalUnchecked("//a:b"))
-                .validityPredicate(Attribute.ANY_EDGE)
-                .buildPartial(),
-            attr("foo", LABEL)
-                .value(Label.parseCanonicalUnchecked("//a:b"))
-                .validityPredicate(Attribute.ANY_EDGE)
-                .buildPartial())
-        .addEqualityGroup(
-            attr("foo", LABEL)
-                .value(Label.parseCanonicalUnchecked("//a:b"))
                 .allowedRuleClasses("java_binary")
                 .buildPartial(),
             attr("foo", LABEL)

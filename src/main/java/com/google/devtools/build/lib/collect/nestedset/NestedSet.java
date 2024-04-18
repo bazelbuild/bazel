@@ -85,6 +85,8 @@ public final class NestedSet<E> {
    */
   private static final byte[] NO_MEMO = {};
 
+  private static final int INITIAL_CAPACITY = 128;
+
   @VisibleForSerialization @SerializationConstant static final Object[] EMPTY_CHILDREN = {};
 
   /**
@@ -209,8 +211,7 @@ public final class NestedSet<E> {
           approxDepth = Math.max(approxDepth, 1 + subset.getApproxDepth());
           // If this is a deserialization future, this call blocks.
           Object c = subset.getChildrenInternal(interruptStrategy);
-          if (c instanceof Object[]) {
-            Object[] a = (Object[]) c;
+          if (c instanceof Object[] a) {
             if (a.length < 2) {
               throw new AssertionError(a.length);
             }
@@ -423,7 +424,7 @@ public final class NestedSet<E> {
     } else {
       actualChildren = children;
     }
-    return actualChildrenToList(actualChildren);
+    return actualChildrenToList(actualChildren, /* updateMemo= */ true);
   }
 
   /**
@@ -454,7 +455,7 @@ public final class NestedSet<E> {
     } else {
       actualChildren = children;
     }
-    return actualChildrenToList(actualChildren);
+    return actualChildrenToList(actualChildren, /* updateMemo= */ true);
   }
 
   /**
@@ -465,21 +466,47 @@ public final class NestedSet<E> {
    * efficiency, as it saves an iteration.
    */
   public ImmutableList<E> toList() {
-    return actualChildrenToList(getChildrenUninterruptibly());
+    return actualChildrenToList(getChildrenUninterruptibly(), /* updateMemo= */ true);
+  }
+
+  /**
+   * A memory optimization (in certain cases) for {@link #toList()}.
+   *
+   * <p>Should be used in cases where there's no benefit to retaining the memoization in the build.
+   * Usually it's when a NestedSet instance isn't expected to be flattened more than once.
+   *
+   * <p>It's strongly recommended to back up the usage of this method with some profiling data.
+   */
+  public ImmutableList<E> toListNoMemoUpdate() {
+    return actualChildrenToList(getChildrenUninterruptibly(), /* updateMemo= */ false);
+  }
+
+  /** Similar to {@link #walk}, but without touching {@link #memo}. */
+  private void walkNoMemo(
+      CompactHashSet<Object> sets, CompactHashSet<E> members, Object[] children) {
+    for (Object child : children) {
+      if (child instanceof Object[]) {
+        if (sets.add(child)) {
+          walkNoMemo(sets, members, (Object[]) child);
+        }
+      } else {
+        members.add((E) child);
+      }
+    }
   }
 
   /**
    * Private implementation of toList which takes the actual children (the deserialized {@code
    * Object[]} if {@link #children} is a {@link ListenableFuture}).
    */
-  private ImmutableList<E> actualChildrenToList(Object actualChildren) {
+  private ImmutableList<E> actualChildrenToList(Object actualChildren, boolean updateMemo) {
     if (actualChildren == EMPTY_CHILDREN) {
       return ImmutableList.of();
     }
     if (!(actualChildren instanceof Object[])) {
       return ImmutableList.of((E) actualChildren);
     }
-    ImmutableList<E> list = expand((Object[]) actualChildren);
+    ImmutableList<E> list = expand((Object[]) actualChildren, updateMemo);
     return getOrder() == Order.LINK_ORDER ? list.reverse() : list;
   }
 
@@ -513,16 +540,20 @@ public final class NestedSet<E> {
       if (memo == null) {
         return toList().size(); // side effect: set memo
       }
-      int size = 0;
-      for (int i = memo.length - 1; ; i--) {
-        size = (size << 7) | (memo[i] & 0x7f);
-        if (size < 0) {
-          throw new IllegalStateException(
-              "int overflow calculating size (" + size + "), memo: " + Arrays.toString(memo));
-        }
-        if ((memo[i] & 0x80) != 0) {
-          return size;
-        }
+      return getSizeFromMemo(memo);
+    }
+  }
+
+  private int getSizeFromMemo(byte[] memo) {
+    int size = 0;
+    for (int i = memo.length - 1; ; i--) {
+      size = (size << 7) | (memo[i] & 0x7f);
+      if (size < 0) {
+        throw new IllegalStateException(
+            "int overflow calculating size (" + size + "), memo: " + Arrays.toString(memo));
+      }
+      if ((memo[i] & 0x80) != 0) {
+        return size;
       }
     }
   }
@@ -593,7 +624,7 @@ public final class NestedSet<E> {
    * this.memo}: wrap our direct items in a list, call {@link #lockedExpand} to perform the initial
    * {@link #walk}, or call {@link #replay} if we have a nontrivial memo.
    */
-  private ImmutableList<E> expand(Object[] children) {
+  private ImmutableList<E> expand(Object[] children, boolean updateMemo) {
     // This special value NO_MEMO is only set in the constructor and is immutable once set, so
     // it's safe to test here with no lock.
     if (memo == NO_MEMO) {
@@ -603,13 +634,25 @@ public final class NestedSet<E> {
     byte[] memoRef;
     ImmutableList.Builder<E> output;
     // memo might have been cleared by another thread, hence synchronization is required here.
+    // 3 scenarios:
+    // - Memoization was requested but memo not present. Compute it.
+    // - Memoized walk found. Use it.
+    // - No memoized walk was found and no memoization was requested. Walk the nested set naively.
     synchronized (this) {
-      if (memo == null) {
+      if (memo == null && updateMemo) {
         return ImmutableList.copyOf(lockedExpand(children));
       } else {
         memoRef = memo;
         output = ImmutableList.builderWithExpectedSize(memoizedFlattenAndGetSize());
       }
+    }
+    if (memoRef == null) {
+      CompactHashSet<E> uniqueElems = CompactHashSet.createWithExpectedSize(INITIAL_CAPACITY);
+      walkNoMemo(
+          /* sets= */ CompactHashSet.createWithExpectedSize(INITIAL_CAPACITY),
+          uniqueElems,
+          children);
+      return ImmutableList.copyOf(uniqueElems);
     }
 
     // With a non-null local ref of memo, it's safe to proceed without synchronization.
@@ -653,8 +696,8 @@ public final class NestedSet<E> {
   private CompactHashSet<E> lockedExpand(Object[] children) {
     // Precondition: this is a non-leaf node with non-leaf successors (depth > 2).
     // Postcondition: memo is completely populated.
-    CompactHashSet<E> members = CompactHashSet.createWithExpectedSize(128);
-    CompactHashSet<Object> sets = CompactHashSet.createWithExpectedSize(128);
+    CompactHashSet<E> members = CompactHashSet.createWithExpectedSize(INITIAL_CAPACITY);
+    CompactHashSet<Object> sets = CompactHashSet.createWithExpectedSize(INITIAL_CAPACITY);
     sets.add(children);
     memo = new byte[3 + Math.min(ceildiv(children.length, 8), 8)]; // (+3 for size: a guess)
     int pos = walk(sets, members, children, /*pos=*/ 0);
@@ -771,10 +814,9 @@ public final class NestedSet<E> {
   public NestedSet<E> splitIfExceedsMaximumSize(int maxDegree) {
     Preconditions.checkArgument(maxDegree >= 2, "maxDegree must be at least 2");
     Object children = getChildren(); // may wait for a future
-    if (!(children instanceof Object[])) {
+    if (!(children instanceof Object[] succs)) {
       return this;
     }
-    Object[] succs = (Object[]) children;
     int nsuccs = succs.length;
     if (nsuccs <= maxDegree) {
       return this;

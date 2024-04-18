@@ -218,8 +218,13 @@ public final class SandboxModule extends BlazeModule {
         treeDeleter = new SynchronousTreeDeleter();
       }
     } else {
-      if (!(treeDeleter instanceof AsynchronousTreeDeleter)) {
+      if (!(treeDeleter instanceof AsynchronousTreeDeleter treeDeleter)
+          || !treeDeleter.getTrashBase().equals(trashBase)) {
+        if (treeDeleter != null) {
+          treeDeleter.shutdown();
+        }
         treeDeleter = new AsynchronousTreeDeleter(trashBase);
+        firstBuild = true;
       }
     }
     SandboxStash.initialize(env.getWorkspaceName(), sandboxBase, options);
@@ -528,13 +533,19 @@ public final class SandboxModule extends BlazeModule {
    */
   private static void checkSandboxBaseTopOnlyContainsPersistentDirs(Path sandboxBase) {
     try {
-      Preconditions.checkState(
-          SANDBOX_BASE_PERSISTENT_DIRS.containsAll(
-              sandboxBase.getDirectoryEntries().stream()
-                  .map(Path::getBaseName)
-                  .collect(toImmutableList())),
-          "Found unexpected files in sandbox base. Please report this in"
-              + " https://github.com/bazelbuild/bazel/issues.");
+      ImmutableList<String> directoryEntries =
+          sandboxBase.getDirectoryEntries().stream()
+              .map(Path::getBaseName)
+              .collect(toImmutableList());
+      if (!SANDBOX_BASE_PERSISTENT_DIRS.containsAll(directoryEntries)) {
+        StringBuilder message =
+            new StringBuilder(
+                "Found unexpected entries in sandbox base. Please report this in"
+                    + " https://github.com/bazelbuild/bazel/issues.");
+        message.append(" The entries are: ");
+        Joiner.on(", ").appendTo(message, directoryEntries);
+        throw new IllegalStateException(message.toString());
+      }
     } catch (IOException e) {
       logger.atWarning().withCause(e).log("Failed to clean up sandbox base %s", sandboxBase);
     }

@@ -145,11 +145,10 @@ public class ParsedAndroidResources extends AndroidResources {
 
   @Override
   public boolean equals(Object object) {
-    if (!super.equals(object) || !(object instanceof ParsedAndroidResources)) {
+    if (!super.equals(object) || !(object instanceof ParsedAndroidResources other)) {
       return false;
     }
 
-    ParsedAndroidResources other = (ParsedAndroidResources) object;
     return Objects.equals(symbols, other.symbols)
         && Objects.equals(compiledSymbols, other.compiledSymbols)
         && label.equals(other.label)

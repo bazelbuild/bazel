@@ -66,16 +66,29 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
 
     writeFile(
         "test/BUILD",
-        "my_rule(name = 'rule_with_patch',",
-        "  patched = [':foo', ':foo2', ':trimmed_foo'],",
-        ")",
-        "my_rule(name = 'rule_with_split',",
-        "  split = ':bar',",
-        ")",
-        "simple_rule(name = 'foo')",
-        "simple_rule(name = 'foo2')",
-        "simple_rule(name = 'trimmed_foo')",
-        "simple_rule(name = 'bar')");
+        """
+        my_rule(
+            name = "rule_with_patch",
+            patched = [
+                ":foo",
+                ":foo2",
+                ":trimmed_foo",
+            ],
+        )
+
+        my_rule(
+            name = "rule_with_split",
+            split = ":bar",
+        )
+
+        simple_rule(name = "foo")
+
+        simple_rule(name = "foo2")
+
+        simple_rule(name = "trimmed_foo")
+
+        simple_rule(name = "bar")
+        """);
 
     List<String> result = getOutput("deps(//test:rule_with_patch)", Transitions.FULL);
 
@@ -102,15 +115,26 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
 
     writeFile(
         "test/BUILD",
-        "my_rule(name = 'rule_with_patch',",
-        "  patched = [':foo', ':foo2'],",
-        ")",
-        "my_rule(name = 'rule_with_split',",
-        "  split = ':bar',",
-        ")",
-        "simple_rule(name = 'foo')",
-        "simple_rule(name = 'foo2')",
-        "simple_rule(name = 'bar')");
+        """
+        my_rule(
+            name = "rule_with_patch",
+            patched = [
+                ":foo",
+                ":foo2",
+            ],
+        )
+
+        my_rule(
+            name = "rule_with_split",
+            split = ":bar",
+        )
+
+        simple_rule(name = "foo")
+
+        simple_rule(name = "foo2")
+
+        simple_rule(name = "bar")
+        """);
 
     List<String> result = getOutput("deps(//test:rule_with_patch)", Transitions.LITE);
 
@@ -129,10 +153,14 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
 
     writeFile(
         "test/BUILD",
-        "my_rule(name = 'rule_with_patch',",
-        "  patched = [':foo'],",
-        ")",
-        "simple_rule(name = 'foo')");
+        """
+        my_rule(
+            name = "rule_with_patch",
+            patched = [":foo"],
+        )
+
+        simple_rule(name = "foo")
+        """);
 
     List<String> result = getOutput("deps(//test:rule_with_patch)", Transitions.LITE);
     String depEntry = result.get(2);
@@ -168,18 +196,22 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
 
     writeFile(
         "test/BUILD",
-        "package_group(",
-        "    name = 'custom_visibility',",
-        "    packages = ['//test/...'],",
-        ")",
-        "simple_rule(",
-        "    name = 'child',",
-        ")",
-        "simple_rule(",
-        "    name = 'parent',",
-        "    deps = [':child'],",
-        "    visibility = [':custom_visibility'],",
-        ")");
+        """
+        package_group(
+            name = "custom_visibility",
+            packages = ["//test/..."],
+        )
+
+        simple_rule(
+            name = "child",
+        )
+
+        simple_rule(
+            name = "parent",
+            visibility = [":custom_visibility"],
+            deps = [":child"],
+        )
+        """);
 
     assertThat(getOutput("deps(//test:parent)", Transitions.LITE)).isNotNull();
     assertThat(events).isEmpty();

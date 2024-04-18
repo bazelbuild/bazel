@@ -120,8 +120,7 @@ public class DynamicSpawnStrategyUnitTest {
             (Answer<Void>)
                 inv -> {
                   Object event = inv.getArgument(0);
-                  if (event instanceof DynamicExecutionFinishedEvent) {
-                    DynamicExecutionFinishedEvent newEvent = (DynamicExecutionFinishedEvent) event;
+                  if (event instanceof DynamicExecutionFinishedEvent newEvent) {
                     events.add(newEvent);
                   }
                   return null;

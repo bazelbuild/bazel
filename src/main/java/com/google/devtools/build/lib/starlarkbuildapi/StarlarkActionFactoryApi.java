@@ -302,7 +302,8 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             doc = "Whether the output file should be executable.",
             named = true)
       })
-  void write(FileApi output, Object content, Boolean isExecutable) throws EvalException;
+  void write(FileApi output, Object content, Boolean isExecutable)
+      throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "run",
@@ -553,7 +554,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       Object shadowedAction,
       Object resourceSetUnchecked,
       Object toolchainUnchecked)
-      throws EvalException;
+      throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "run_shell",
@@ -804,7 +805,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       Object shadowedAction,
       Object resourceSetUnchecked,
       Object toolchainUnchecked)
-      throws EvalException;
+      throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "expand_template",

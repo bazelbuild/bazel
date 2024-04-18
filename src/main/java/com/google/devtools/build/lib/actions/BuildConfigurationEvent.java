@@ -54,10 +54,9 @@ public final class BuildConfigurationEvent implements BuildEvent {
 
   @Override
   public boolean equals(Object other) {
-    if (!(other instanceof BuildConfigurationEvent)) {
+    if (!(other instanceof BuildConfigurationEvent that)) {
       return false;
     }
-    BuildConfigurationEvent that = (BuildConfigurationEvent) other;
     return Objects.equals(eventId, that.eventId) && Objects.equals(eventProto, that.eventProto);
   }
 

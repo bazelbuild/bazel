@@ -46,8 +46,7 @@ public final class ContextGuardedValue {
           StarlarkSemantics semantics, @Nullable Object clientData) {
         // Filtering of predeclareds is only done at compile time, when the client data is
         // BazelCompileContext and not BazelModuleContext.
-        if (clientData != null && clientData instanceof BazelCompileContext) {
-          BazelCompileContext context = (BazelCompileContext) clientData;
+        if (clientData != null && clientData instanceof BazelCompileContext context) {
           Label label = context.label();
 
           for (PackageIdentifier entry : allowedEntries) {

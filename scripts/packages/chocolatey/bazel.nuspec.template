@@ -60,7 +60,7 @@ Bazel has built-in support for building both client and server software, includi
 
 Supply like `--params="/option:'value' ..."` ([see docs for --params](https://github.com/chocolatey/choco/wiki/CommandsInstall#options-and-switches))
 
-* `msys2Path` (optional, defaults to c:\tools\msys64) - override this if msys2 is installed elsewhere.
+* `msys2Path` (optional, defaults to c:\msys64) - override this if msys2 is installed elsewhere.
 </description>
     <releaseNotes>$tvReleaseNotesUri</releaseNotes>
     <!-- =============================== -->

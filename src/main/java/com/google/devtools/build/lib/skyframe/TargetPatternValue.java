@@ -261,10 +261,9 @@ public final class TargetPatternValue implements SkyValue {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof TargetPatternKey)) {
+      if (!(obj instanceof TargetPatternKey other)) {
         return false;
       }
-      TargetPatternKey other = (TargetPatternKey) obj;
 
       return other.signedParsedPattern.equals(this.signedParsedPattern)
           && other.policy.equals(this.policy)

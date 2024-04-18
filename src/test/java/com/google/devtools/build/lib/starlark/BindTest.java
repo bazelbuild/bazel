@@ -28,6 +28,7 @@ import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.util.function.Function;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -39,16 +40,24 @@ public class BindTest extends BuildViewTestCase {
 
   @Before
   public final void createFiles() throws Exception {
+    analysisMock.javaSupport().setupRulesJava(mockToolsConfig, Function.identity());
     setupStarlarkRules(scratch);
-    scratch.file("test/BUILD",
-        "load('//rules:java_rules_skylark.bzl', 'java_library')",
-        "java_library(name = 'giraffe',",
-        "    srcs = ['Giraffe.java'],",
-        ")",
-        "java_library(name = 'safari',",
-        "    srcs = ['Safari.java'],",
-        "    deps = ['//external:long-horse'],",
-        ")");
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//rules:java_rules_skylark.bzl", "java_library")
+
+        java_library(
+            name = "giraffe",
+            srcs = ["Giraffe.java"],
+        )
+
+        java_library(
+            name = "safari",
+            srcs = ["Safari.java"],
+            deps = ["//external:long-horse"],
+        )
+        """);
 
     // We need to overwrite the Jdk BUILD file because the Starlark rules also depend on having a
     // jar target here, which the built-in rules don't need, and which therefore isn't part of the
@@ -87,8 +96,10 @@ public class BindTest extends BuildViewTestCase {
     Artifact giraffeArtifact =
         ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(giraffeTarget), "giraffe.jar");
     ConfiguredTarget safariTarget = getConfiguredTarget("//test:safari");
-    Action safariAction = getGeneratingAction(
-        ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(safariTarget), "safari.jar"));
+    Action safariAction =
+        getGeneratingAction(
+            ActionsTestUtil.getFirstArtifactEndingWith(
+                getFilesToBuild(safariTarget), "safari.jar"));
     assertThat(safariAction.getInputs().toList()).contains(giraffeArtifact);
   }
 

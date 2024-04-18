@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
@@ -44,6 +43,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.SymbolGenerator;
 
 /**
  * A class to create C/C++ link actions in a way that is consistent with cc_library. Rules that
@@ -389,7 +389,7 @@ public final class CcLinkingHelper {
                         ? ImmutableList.of()
                         : ImmutableList.of(
                             CcLinkingContext.LinkOptions.of(
-                                ImmutableList.copyOf(linkopts), symbolGenerator)))
+                                ImmutableList.copyOf(linkopts), symbolGenerator.generate())))
                 .addLibraries(librariesToLink)
                 // additionalLinkerInputsBuilder not expected to be a big list for now.
                 .addNonCodeInputs(additionalLinkerInputsBuilder.build().toList())
@@ -751,9 +751,9 @@ public final class CcLinkingHelper {
     if (dynamicLinkActionBuilder.hasLtoBitcodeInputs()
         && featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)) {
       if (featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_START_END_LIB)) {
-        dynamicLinkActionBuilder.setLtoIndexing(true);
         dynamicLinkActionBuilder.setUsePicForLtoBackendActions(usePic);
-        CppLinkAction indexAction = dynamicLinkActionBuilder.build();
+        dynamicLinkActionBuilder.buildAllLtoArtifacts();
+        CppLinkAction indexAction = dynamicLinkActionBuilder.buildLtoIndexingAction();
         if (indexAction != null) {
           linkActionConstruction.getContext().registerAction(indexAction);
         }
@@ -763,8 +763,6 @@ public final class CcLinkingHelper {
                 + CppRuleClasses.SUPPORTS_START_END_LIB
                 + " must be enabled.");
       }
-
-      dynamicLinkActionBuilder.setLtoIndexing(false);
     }
 
     if (shouldPassPropellerProfiles()) {

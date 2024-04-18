@@ -15,9 +15,11 @@
 package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkValue;
 
 /** An interface for a configuration type containing info for Apple platforms and tools. */
@@ -61,4 +63,82 @@ public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfo
             doc = "The apple platform type.")
       })
   ApplePlatformApi getMultiArchPlatform(ApplePlatformTypeApiT platformType);
+
+  @Nullable
+  @StarlarkMethod(
+      name = "xcode_version_flag",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  String getXcodeVersionFlag() throws EvalException;
+
+  @StarlarkMethod(
+      name = "ios_sdk_version_flag",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  DottedVersionApi<?> iosSdkVersionFlag() throws EvalException;
+
+  @StarlarkMethod(
+      name = "macos_sdk_version_flag",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  DottedVersionApi<?> macOsSdkVersionFlag() throws EvalException;
+
+  @StarlarkMethod(
+      name = "tvos_sdk_version_flag",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  DottedVersionApi<?> tvOsSdkVersionFlag() throws EvalException;
+
+  @StarlarkMethod(
+      name = "watchos_sdk_version_flag",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  DottedVersionApi<?> watchOsSdkVersionFlag() throws EvalException;
+
+  @StarlarkMethod(
+      name = "ios_minimum_os_flag",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  DottedVersionApi<?> iosMinimumOsFlag() throws EvalException;
+
+  @StarlarkMethod(
+      name = "macos_minimum_os_flag",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  DottedVersionApi<?> macOsMinimumOsFlag() throws EvalException;
+
+  @StarlarkMethod(
+      name = "tvos_minimum_os_flag",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  DottedVersionApi<?> tvOsMinimumOsFlag() throws EvalException;
+
+  @StarlarkMethod(
+      name = "watchos_minimum_os_flag",
+      documented = false,
+      structField = true,
+      allowReturnNones = true)
+  @Nullable
+  DottedVersionApi<?> watchOsMinimumOsFlag() throws EvalException;
+
+  @StarlarkMethod(name = "prefer_mutual_xcode", documented = false, structField = true)
+  public boolean shouldPreferMutualXcode() throws EvalException;
+
+  @StarlarkMethod(name = "include_xcode_exec_requirements", documented = false, structField = true)
+  public boolean includeXcodeExecRequirementsFlag() throws EvalException;
 }

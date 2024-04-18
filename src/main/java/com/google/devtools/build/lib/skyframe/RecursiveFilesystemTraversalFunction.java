@@ -186,8 +186,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       if (rootInfo.type.isFile()) {
         return resultForFileRoot(traversal.root().asRootedPath(), rootInfo);
       }
-      if (rootInfo.type.isDirectory() && rootInfo.metadata instanceof TreeArtifactValue) {
-        TreeArtifactValue value = (TreeArtifactValue) rootInfo.metadata;
+      if (rootInfo.type.isDirectory() && rootInfo.metadata instanceof TreeArtifactValue value) {
         ImmutableList.Builder<RecursiveFilesystemTraversalValue> traversalValues =
             ImmutableList.builderWithExpectedSize(value.getChildValues().size());
         for (Map.Entry<TreeFileArtifact, FileArtifactValue> entry
@@ -457,19 +456,15 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
   @VisibleForTesting
   static HasDigest withDigest(HasDigest fsVal, Path path, XattrProvider syscallCache)
       throws IOException {
-    if (fsVal instanceof FileStateValue) {
-      FileStateValue fsv = (FileStateValue) fsVal;
-      if (fsv instanceof RegularFileStateValueWithDigest) {
-        RegularFileStateValueWithDigest rfsv = (RegularFileStateValueWithDigest) fsv;
+    if (fsVal instanceof FileStateValue fsv) {
+      if (fsv instanceof RegularFileStateValueWithDigest rfsv) {
         return FileArtifactValue.createForVirtualActionInput(rfsv.getDigest(), rfsv.getSize());
-      } else if (fsv instanceof RegularFileStateValueWithContentsProxy) {
-        RegularFileStateValueWithContentsProxy rfsv = (RegularFileStateValueWithContentsProxy) fsv;
+      } else if (fsv instanceof RegularFileStateValueWithContentsProxy rfsv) {
         return FileArtifactValue.createForNormalFileUsingPath(path, rfsv.getSize(), syscallCache);
       }
 
       return new HasDigest.ByteStringDigest(fsv.getValueFingerprint());
-    } else if (fsVal instanceof FileArtifactValue) {
-      FileArtifactValue fav = ((FileArtifactValue) fsVal);
+    } else if (fsVal instanceof FileArtifactValue fav) {
       if (fav.getDigest() != null) {
         return fav;
       }
@@ -718,8 +713,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       if (value == null) {
         continue;
       }
-      if (key instanceof FileValue.Key) {
-        FileValue.Key fileKey = (FileValue.Key) key;
+      if (key instanceof FileValue.Key fileKey) {
         FileInfo fileInfo =
             toFileInfo((FileValue) value, env, fileKey.argument().asPath(), syscallCache);
         if (fileInfo != null) {

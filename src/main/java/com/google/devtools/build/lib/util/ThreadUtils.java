@@ -122,10 +122,9 @@ public class ThreadUtils {
       if (obj == this) {
         return true;
       }
-      if (!(obj instanceof StackTraceAndState)) {
+      if (!(obj instanceof StackTraceAndState that)) {
         return false;
       }
-      StackTraceAndState that = (StackTraceAndState) obj;
       return Arrays.equals(this.trace, that.trace) && this.state.equals(that.state);
     }
 

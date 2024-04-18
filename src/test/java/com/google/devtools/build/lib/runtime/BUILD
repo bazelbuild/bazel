@@ -16,6 +16,7 @@ java_library(
         exclude = [
             "commands/ConfigCommandTest.java",
             "commands/DumpCommandTest.java",
+            "commands/RunCommandLineTest.java",
         ],
     ),
     deps = [
@@ -83,7 +84,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -155,6 +155,17 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "RunCommandLineTest",
+    srcs = ["commands/RunCommandLineTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

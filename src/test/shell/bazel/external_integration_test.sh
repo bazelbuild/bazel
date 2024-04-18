@@ -2547,7 +2547,7 @@ EOF
       && fail "Expected failure" || :
 
   expect_log 'BUILD file not found'
-  expect_log 'path/to/workspace/path/to'
+  expect_log '- path/to'
 }
 
 function test_report_package_external() {

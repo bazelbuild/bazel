@@ -110,11 +110,9 @@ public abstract class ValueWithMetadata implements SkyValue {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof ValueWithEvents)) {
+      if (!(o instanceof ValueWithEvents that)) {
         return false;
       }
-
-      ValueWithEvents that = (ValueWithEvents) o;
 
       // Shallow equals is a middle ground between using default equals, which might miss
       // nested sets with the same elements, and deep equality checking, which would be expensive.

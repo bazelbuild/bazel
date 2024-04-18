@@ -50,51 +50,64 @@ public class NoConfigTransitionTest extends BuildViewTestCase {
     // no_config_rule. We expect there to be only one instance of the no_config_rule.
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
-        "package_group(",
-        "    name = 'function_transition_allowlist',",
-        "    packages = [",
-        "        '//...',",
-        "    ],",
-        ")");
+        """
+        package_group(
+            name = "function_transition_allowlist",
+            packages = [
+                "//...",
+            ],
+        )
+        """);
     scratch.file(
         "foo/defs.bzl",
-        // Define the flag to transition on:
-        "FlagInfo = provider(fields = {'value': 'The value.'})",
-        "custom_flag = rule(",
-        "  implementation = lambda ctx: FlagInfo(value = ctx.build_setting_value) ,",
-        "  build_setting = config.string(flag = True),",
-        ")",
-        "",
-        // Define the transitioning rule:
-        "my_transition = transition(",
-        "  implementation = lambda settings, attr: {'//foo:my_flag': attr.flag_value} ,",
-        "  inputs = [],",
-        "  outputs = ['//foo:my_flag'],",
-        ")",
-        "",
-        "transition_rule = rule(",
-        "  implementation = lambda ctx: [],",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    'flag_value': attr.string(),",
-        "    'dep': attr.label(),",
-        "  },",
-        ")");
+        """
+        # Define the flag to transition on:
+        FlagInfo = provider(fields = {"value": "The value."})
+        custom_flag = rule(
+            implementation = lambda ctx: FlagInfo(value = ctx.build_setting_value),
+            build_setting = config.string(flag = True),
+        )
+
+        # Define the transitioning rule:
+        my_transition = transition(
+            implementation = lambda settings, attr: {"//foo:my_flag": attr.flag_value},
+            inputs = [],
+            outputs = ["//foo:my_flag"],
+        )
+
+        transition_rule = rule(
+            implementation = lambda ctx: [],
+            cfg = my_transition,
+            attrs = {
+                "flag_value": attr.string(),
+                "dep": attr.label(),
+            },
+        )
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':defs.bzl', 'custom_flag', 'transition_rule')",
-        "custom_flag(name = 'my_flag', build_setting_default = 'default flag value')",
-        "no_config_rule(name = 'config_free_target')",
-        "transition_rule(",
-        "    name = 'parent1',",
-        "    flag_value = 'parent1 setting',",
-        "    dep = ':config_free_target',",
-        ")",
-        "transition_rule(",
-        "    name = 'parent2',",
-        "    flag_value = 'parent2 different setting',",
-        "    dep = ':config_free_target',",
-        ")");
+        """
+        load(":defs.bzl", "custom_flag", "transition_rule")
+
+        custom_flag(
+            name = "my_flag",
+            build_setting_default = "default flag value",
+        )
+
+        no_config_rule(name = "config_free_target")
+
+        transition_rule(
+            name = "parent1",
+            dep = ":config_free_target",
+            flag_value = "parent1 setting",
+        )
+
+        transition_rule(
+            name = "parent2",
+            dep = ":config_free_target",
+            flag_value = "parent2 different setting",
+        )
+        """);
 
     ConfiguredTarget parent1 = getConfiguredTarget("//foo:parent1");
     ConfiguredTarget parent2 = getConfiguredTarget("//foo:parent2");
@@ -112,44 +125,54 @@ public class NoConfigTransitionTest extends BuildViewTestCase {
     // So we still expect config forking to be impossible.
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
-        "package_group(",
-        "    name = 'function_transition_allowlist',",
-        "    packages = [",
-        "        '//...',",
-        "    ],",
-        ")");
+        """
+        package_group(
+            name = "function_transition_allowlist",
+            packages = [
+                "//...",
+            ],
+        )
+        """);
     scratch.file(
         "foo/defs.bzl",
-        "def _my_transition_impl(settings, attr):",
-        "  return {'//command_line_option:features': [attr.feature]}",
-        "my_transition = transition(",
-        "  implementation = _my_transition_impl,",
-        "  inputs = [],",
-        "  outputs = ['//command_line_option:features'],",
-        ")",
-        "",
-        "transition_features_rule = rule(",
-        "  implementation = lambda ctx: [],",
-        "  cfg = my_transition,",
-        "  attrs = {",
-        "    'feature': attr.string(),",
-        "    'dep': attr.label(),",
-        "  },",
-        ")");
+        """
+        def _my_transition_impl(settings, attr):
+            return {"//command_line_option:features": [attr.feature]}
+
+        my_transition = transition(
+            implementation = _my_transition_impl,
+            inputs = [],
+            outputs = ["//command_line_option:features"],
+        )
+
+        transition_features_rule = rule(
+            implementation = lambda ctx: [],
+            cfg = my_transition,
+            attrs = {
+                "feature": attr.string(),
+                "dep": attr.label(),
+            },
+        )
+        """);
     scratch.file(
         "foo/BUILD",
-        "load(':defs.bzl', 'transition_features_rule')",
-        "no_config_rule(name = 'config_free_target')",
-        "transition_features_rule(",
-        "    name = 'parent1',",
-        "    feature = 'one',",
-        "    dep = ':config_free_target',",
-        ")",
-        "transition_features_rule(",
-        "    name = 'parent2',",
-        "    feature = 'two',",
-        "    dep = ':config_free_target',",
-        ")");
+        """
+        load(":defs.bzl", "transition_features_rule")
+
+        no_config_rule(name = "config_free_target")
+
+        transition_features_rule(
+            name = "parent1",
+            dep = ":config_free_target",
+            feature = "one",
+        )
+
+        transition_features_rule(
+            name = "parent2",
+            dep = ":config_free_target",
+            feature = "two",
+        )
+        """);
 
     ConfiguredTarget parent1 = getConfiguredTarget("//foo:parent1");
     ConfiguredTarget parent2 = getConfiguredTarget("//foo:parent2");

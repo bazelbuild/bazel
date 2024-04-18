@@ -53,17 +53,30 @@ public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
   private void setupEmptyProcessorClass() throws Exception {
     scratch.file(
         "java/com/google/test/BUILD",
-        "java_library(name = 'deps',",
-        "    srcs = ['Deps.java'])",
-        "java_plugin(name = 'processor',",
-        "    processor_class = 'com.google.test.Processor',",
-        "    srcs = ['Processor.java'],",
-        "    deps = [':deps'])",
-        "java_plugin(name = 'bugchecker',",
-        "    srcs = ['BugChecker.java'],",
-        "    deps = [':deps'])",
-        "java_library(name = 'empty',",
-        "    plugins = [':bugchecker'])");
+        """
+        java_library(
+            name = "deps",
+            srcs = ["Deps.java"],
+        )
+
+        java_plugin(
+            name = "processor",
+            srcs = ["Processor.java"],
+            processor_class = "com.google.test.Processor",
+            deps = [":deps"],
+        )
+
+        java_plugin(
+            name = "bugchecker",
+            srcs = ["BugChecker.java"],
+            deps = [":deps"],
+        )
+
+        java_library(
+            name = "empty",
+            plugins = [":bugchecker"],
+        )
+        """);
   }
 
   @Test
@@ -118,17 +131,27 @@ public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
   public void testJavaPluginExportsTransitiveProguardSpecs() throws Exception {
     scratch.file(
         "java/com/google/android/hello/BUILD",
-        "java_plugin(name = 'plugin',",
-        "            srcs = ['Plugin.java'],",
-        "            proguard_specs = ['plugin.pro'])",
-        "java_library(name = 'dep',",
-        "             srcs = ['Dep.java'],",
-        "             proguard_specs = ['dep.pro'])",
-        "java_plugin(name = 'top',",
-        "            srcs = ['Top.java'],",
-        "            proguard_specs = ['top.pro'],",
-        "            plugins = [':plugin'],",
-        "            deps = [':dep'])");
+        """
+        java_plugin(
+            name = "plugin",
+            srcs = ["Plugin.java"],
+            proguard_specs = ["plugin.pro"],
+        )
+
+        java_library(
+            name = "dep",
+            srcs = ["Dep.java"],
+            proguard_specs = ["dep.pro"],
+        )
+
+        java_plugin(
+            name = "top",
+            srcs = ["Top.java"],
+            plugins = [":plugin"],
+            proguard_specs = ["top.pro"],
+            deps = [":dep"],
+        )
+        """);
     NestedSet<Artifact> providedSpecs =
         getConfiguredTarget("//java/com/google/android/hello:top")
             .get(ProguardSpecProvider.PROVIDER)
@@ -142,9 +165,13 @@ public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
   public void testJavaPluginValidatesProguardSpecs() throws Exception {
     scratch.file(
         "java/com/google/android/hello/BUILD",
-        "java_plugin(name = 'plugin',",
-        "            srcs = ['Plugin.java'],",
-        "            proguard_specs = ['plugin.pro'])");
+        """
+        java_plugin(
+            name = "plugin",
+            srcs = ["Plugin.java"],
+            proguard_specs = ["plugin.pro"],
+        )
+        """);
     SpawnAction action =
         (SpawnAction)
             actionsTestUtil()
@@ -163,12 +190,19 @@ public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
   public void testJavaPluginValidatesTransitiveProguardSpecs() throws Exception {
     scratch.file(
         "java/com/google/android/hello/BUILD",
-        "java_library(name = 'transitive',",
-        "             srcs = ['Transitive.java'],",
-        "             proguard_specs = ['transitive.pro'])",
-        "java_plugin(name = 'plugin',",
-        "            srcs = ['Plugin.java'],",
-        "            deps = [':transitive'])");
+        """
+        java_library(
+            name = "transitive",
+            srcs = ["Transitive.java"],
+            proguard_specs = ["transitive.pro"],
+        )
+
+        java_plugin(
+            name = "plugin",
+            srcs = ["Plugin.java"],
+            deps = [":transitive"],
+        )
+        """);
     SpawnAction action =
         (SpawnAction)
             actionsTestUtil()
@@ -187,12 +221,14 @@ public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
   public void generatesApi() throws Exception {
     scratch.file(
         "java/com/google/test/BUILD",
-        "java_plugin(",
-        "    name = 'api_generating',",
-        "    srcs = ['ApiGeneratingPlugin.java'],",
-        "    processor_class = 'ApiGeneratingPlugin',",
-        "    generates_api = True,",
-        ")");
+        """
+        java_plugin(
+            name = "api_generating",
+            srcs = ["ApiGeneratingPlugin.java"],
+            generates_api = True,
+            processor_class = "ApiGeneratingPlugin",
+        )
+        """);
 
     JavaPluginInfo plugin =
         getConfiguredTarget("//java/com/google/test:api_generating").get(JavaPluginInfo.PROVIDER);
@@ -210,12 +246,14 @@ public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
   public void generatesImplementation() throws Exception {
     scratch.file(
         "java/com/google/test/BUILD",
-        "java_plugin(",
-        "    name = 'impl_generating',",
-        "    srcs = ['ImplGeneratingPlugin.java'],",
-        "    processor_class = 'ImplGeneratingPlugin',",
-        "    generates_api = False,",
-        ")");
+        """
+        java_plugin(
+            name = "impl_generating",
+            srcs = ["ImplGeneratingPlugin.java"],
+            generates_api = False,
+            processor_class = "ImplGeneratingPlugin",
+        )
+        """);
 
     JavaPluginInfo plugin =
         getConfiguredTarget("//java/com/google/test:impl_generating").get(JavaPluginInfo.PROVIDER);
@@ -233,17 +271,20 @@ public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
   public void pluginData() throws Exception {
     scratch.file(
         "java/com/google/test/BUILD",
-        "java_plugin(",
-        "    name = 'impl_generating',",
-        "    srcs = ['ImplGeneratingPlugin.java'],",
-        "    processor_class = 'ImplGeneratingPlugin',",
-        "    generates_api = False,",
-        "    data = ['data.txt'],",
-        ")",
-        "java_library(",
-        "    name = 'lib',",
-        "    plugins = [':impl_generating'],",
-        ")");
+        """
+        java_plugin(
+            name = "impl_generating",
+            srcs = ["ImplGeneratingPlugin.java"],
+            data = ["data.txt"],
+            generates_api = False,
+            processor_class = "ImplGeneratingPlugin",
+        )
+
+        java_library(
+            name = "lib",
+            plugins = [":impl_generating"],
+        )
+        """);
 
     JavaPluginInfo plugin =
         getConfiguredTarget("//java/com/google/test:impl_generating").get(JavaPluginInfo.PROVIDER);

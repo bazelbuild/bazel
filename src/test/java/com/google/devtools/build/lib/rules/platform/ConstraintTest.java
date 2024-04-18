@@ -38,13 +38,19 @@ public class ConstraintTest extends BuildViewTestCase {
   public void createConstraints() throws Exception {
     scratch.file(
         "constraint/BUILD",
-        "constraint_setting(name = 'basic')",
-        "constraint_value(name = 'foo',",
-        "    constraint_setting = ':basic',",
-        "    )",
-        "constraint_value(name = 'bar',",
-        "    constraint_setting = ':basic',",
-        "    )");
+        """
+        constraint_setting(name = "basic")
+
+        constraint_value(
+            name = "foo",
+            constraint_setting = ":basic",
+        )
+
+        constraint_value(
+            name = "bar",
+            constraint_setting = ":basic",
+        )
+        """);
   }
 
   @Test
@@ -81,15 +87,22 @@ public class ConstraintTest extends BuildViewTestCase {
   public void testConstraint_defaultValue() throws Exception {
     scratch.file(
         "constraint_default/BUILD",
-        "constraint_setting(name = 'basic',",
-        "    default_constraint_value = ':foo',",
-        ")",
-        "constraint_value(name = 'foo',",
-        "    constraint_setting = ':basic',",
-        ")",
-        "constraint_value(name = 'bar',",
-        "    constraint_setting = ':basic',",
-        ")");
+        """
+        constraint_setting(
+            name = "basic",
+            default_constraint_value = ":foo",
+        )
+
+        constraint_value(
+            name = "foo",
+            constraint_setting = ":basic",
+        )
+
+        constraint_value(
+            name = "bar",
+            constraint_setting = ":basic",
+        )
+        """);
 
     ConfiguredTarget setting = getConfiguredTarget("//constraint_default:basic");
     assertThat(setting).isNotNull();
@@ -109,9 +122,12 @@ public class ConstraintTest extends BuildViewTestCase {
   public void testConstraint_defaultValue_differentPackageFails() throws Exception {
     scratch.file(
         "other/BUILD",
-        "constraint_value(name = 'other',",
-        "    constraint_setting = '//constraint_default:basic',",
-        ")");
+        """
+        constraint_value(
+            name = "other",
+            constraint_setting = "//constraint_default:basic",
+        )
+        """);
     checkError(
         "constraint_default",
         "basic",
@@ -140,37 +156,51 @@ public class ConstraintTest extends BuildViewTestCase {
     setBuildLanguageOptions("--experimental_platforms_api=true");
     scratch.file(
         "constraint_default/BUILD",
-        "constraint_setting(name = 'basic',",
-        "    default_constraint_value = ':foo',",
-        ")",
-        "constraint_value(name = 'foo',",
-        "    constraint_setting = ':basic',",
-        ")");
+        """
+        constraint_setting(
+            name = "basic",
+            default_constraint_value = ":foo",
+        )
+
+        constraint_value(
+            name = "foo",
+            constraint_setting = ":basic",
+        )
+        """);
 
     scratch.file(
         "verify/verify.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  constraint_setting = ctx.attr.constraint_setting[platform_common.ConstraintSettingInfo]",
-        "  default_value = constraint_setting.default_constraint_value",
-        "  has_default_value = constraint_setting.has_default_constraint_value",
-        "  return [result(",
-        "    default_value = default_value,",
-        "    has_default_value = has_default_value,",
-        "  )]",
-        "verify = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'constraint_setting': attr.label(",
-        "        providers = [platform_common.ConstraintSettingInfo]),",
-        "  },",
-        ")");
+        """
+        result = provider()
+
+        def _impl(ctx):
+            constraint_setting = ctx.attr.constraint_setting[platform_common.ConstraintSettingInfo]
+            default_value = constraint_setting.default_constraint_value
+            has_default_value = constraint_setting.has_default_constraint_value
+            return [result(
+                default_value = default_value,
+                has_default_value = has_default_value,
+            )]
+
+        verify = rule(
+            implementation = _impl,
+            attrs = {
+                "constraint_setting": attr.label(
+                    providers = [platform_common.ConstraintSettingInfo],
+                ),
+            },
+        )
+        """);
     scratch.file(
         "verify/BUILD",
-        "load(':verify.bzl', 'verify')",
-        "verify(name = 'verify',",
-        "  constraint_setting = '//constraint_default:basic',",
-        ")");
+        """
+        load(":verify.bzl", "verify")
+
+        verify(
+            name = "verify",
+            constraint_setting = "//constraint_default:basic",
+        )
+        """);
 
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//verify:verify");
     StructImpl info =
@@ -198,28 +228,37 @@ public class ConstraintTest extends BuildViewTestCase {
 
     scratch.file(
         "verify/verify.bzl",
-        "result = provider()",
-        "def _impl(ctx):",
-        "  constraint_setting = ctx.attr.constraint_setting[platform_common.ConstraintSettingInfo]",
-        "  default_value = constraint_setting.default_constraint_value",
-        "  has_default_value = constraint_setting.has_default_constraint_value",
-        "  return [result(",
-        "    default_value = default_value,",
-        "    has_default_value = has_default_value,",
-        "  )]",
-        "verify = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'constraint_setting': attr.label(",
-        "        providers = [platform_common.ConstraintSettingInfo]),",
-        "  },",
-        ")");
+        """
+        result = provider()
+
+        def _impl(ctx):
+            constraint_setting = ctx.attr.constraint_setting[platform_common.ConstraintSettingInfo]
+            default_value = constraint_setting.default_constraint_value
+            has_default_value = constraint_setting.has_default_constraint_value
+            return [result(
+                default_value = default_value,
+                has_default_value = has_default_value,
+            )]
+
+        verify = rule(
+            implementation = _impl,
+            attrs = {
+                "constraint_setting": attr.label(
+                    providers = [platform_common.ConstraintSettingInfo],
+                ),
+            },
+        )
+        """);
     scratch.file(
         "verify/BUILD",
-        "load(':verify.bzl', 'verify')",
-        "verify(name = 'verify',",
-        "  constraint_setting = '//constraint_default:basic',",
-        ")");
+        """
+        load(":verify.bzl", "verify")
+
+        verify(
+            name = "verify",
+            constraint_setting = "//constraint_default:basic",
+        )
+        """);
 
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//verify:verify");
     StructImpl info =

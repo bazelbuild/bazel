@@ -409,7 +409,9 @@ public final class PackageFactory {
 
     try (Mutability mu = Mutability.create("package", pkgBuilder.getFilename())) {
       Module module = Module.withPredeclared(semantics, predeclared);
-      StarlarkThread thread = new StarlarkThread(mu, semantics);
+      StarlarkThread thread =
+          StarlarkThread.create(
+              mu, semantics, /* contextDescription= */ "", pkgBuilder.getSymbolGenerator());
       thread.setLoader(loadedModules::get);
       thread.setPrintHandler(Event.makeDebugPrintHandler(pkgBuilder.getLocalEventHandler()));
       pkgBuilder.storeInThread(thread);

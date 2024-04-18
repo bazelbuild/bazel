@@ -65,6 +65,9 @@ public interface StarlarkGlobals {
   /** Returns the top-levels for .scl files. */
   ImmutableMap<String, Object> getSclToplevels();
 
+  /** Returns the top-levels for MODULE.bazel files and their imports. */
+  ImmutableMap<String, Object> getModuleToplevels();
+
   /** Returns the top-levels for REPO.bazel files. */
   ImmutableMap<String, Object> getRepoToplevels();
 }

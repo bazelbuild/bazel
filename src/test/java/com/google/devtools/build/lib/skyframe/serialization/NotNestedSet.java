@@ -107,7 +107,7 @@ final class NotNestedSet {
           continue;
         }
         // Inserts additional random integer elements into each non-leaf node.
-        int randomElementCount = rng.nextInt(MAX_RANDOM_ELEMENTS - 1) + 1;
+        int randomElementCount = rng.nextInt(MAX_RANDOM_ELEMENTS);
         ArrayList<Object> values = new ArrayList<>(builder.children.size() + randomElementCount);
         for (Coordinate child : builder.children) {
           values.add(layers.get(child.layer()).get(child.index()).value);

@@ -105,7 +105,6 @@ import com.google.devtools.build.lib.rules.objc.ObjcStarlarkInternal;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.proto.BazelProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
-import com.google.devtools.build.lib.rules.python.PyRuleClasses.Py3Symlink;
 import com.google.devtools.build.lib.rules.python.PyRuntimeRule;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
@@ -154,7 +153,7 @@ public class BazelRuleClassProvider {
 
   public static final ImmutableMap<OS, PathFragment> SHELL_EXECUTABLE =
       ImmutableMap.<OS, PathFragment>builder()
-          .put(OS.WINDOWS, PathFragment.create("c:/tools/msys64/usr/bin/bash.exe"))
+          .put(OS.WINDOWS, PathFragment.create("c:/msys64/usr/bin/bash.exe"))
           .put(OS.FREEBSD, PathFragment.create("/usr/local/bin/bash"))
           .put(OS.OPENBSD, PathFragment.create("/usr/local/bin/bash"))
           .put(OS.UNKNOWN, FALLBACK_SHELL)
@@ -445,7 +444,6 @@ public class BazelRuleClassProvider {
                   Starlark.NONE, PyBootstrap.allowedRepositories));
           builder.addStarlarkBuiltinsInternal(BazelPyBuiltins.NAME, new BazelPyBuiltins());
           builder.addStarlarkBootstrap(new PyBootstrap());
-          builder.addSymlinkDefinition(Py3Symlink.INSTANCE);
 
           try {
             builder.addWorkspaceFileSuffix(

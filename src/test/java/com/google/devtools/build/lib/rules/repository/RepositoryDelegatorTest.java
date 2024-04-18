@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionRepoMappingEntriesFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpecFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
@@ -136,8 +137,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         new RepositoryDelegatorFunction(
             repositoryHandlers,
             new StarlarkRepositoryFunction(downloader),
-            /*isFetch=*/ new AtomicBoolean(true),
-            /*clientEnvironmentSupplier=*/ ImmutableMap::of,
+            /* isFetch= */ new AtomicBoolean(true),
+            /* clientEnvironmentSupplier= */ ImmutableMap::of,
             directories,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
     AtomicReference<PathPackageLocator> pkgLocator =
@@ -235,7 +236,11 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                     new RepositoryMappingFunction(ruleClassProvider))
                 .put(
                     SkyFunctions.MODULE_FILE,
-                    new ModuleFileFunction(registryFactory, rootPath, ImmutableMap.of()))
+                    new ModuleFileFunction(
+                        ruleClassProvider.getBazelStarlarkEnvironment(),
+                        registryFactory,
+                        rootPath,
+                        ImmutableMap.of()))
                 .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
                 .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(rootDirectory))
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
@@ -243,6 +248,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
                     new BzlmodRepoRuleFunction(ruleClassProvider, directories))
                 .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory))
+                .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction(registryFactory))
                 .put(
                     SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
                     new ModuleExtensionRepoMappingEntriesFunction())

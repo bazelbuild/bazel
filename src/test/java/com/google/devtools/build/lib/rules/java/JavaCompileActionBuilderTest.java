@@ -35,9 +35,14 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
 
   @Test
   public void testClassdirIsInBlazeOut() throws Exception {
-    scratch.file("java/com/google/test/BUILD",
-        "java_binary(name = 'a',",
-        "    srcs = ['a.java'])");
+    scratch.file(
+        "java/com/google/test/BUILD",
+        """
+        java_binary(
+            name = "a",
+            srcs = ["a.java"],
+        )
+        """);
     JavaCompileAction action =
         (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:a.jar");
     List<String> command = new ArrayList<>();
@@ -55,8 +60,15 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
   public void progressMessage() throws Exception {
     scratch.file(
         "java/com/google/test/BUILD",
-        "java_library(name = 'a',",
-        "    srcs = ['a.java', 'b.java'])");
+        """
+        java_library(
+            name = "a",
+            srcs = [
+                "a.java",
+                "b.java",
+            ],
+        )
+        """);
     JavaCompileAction action =
         (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:liba.jar");
     assertThat(action.getProgressMessage())
@@ -67,8 +79,16 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
   public void progressMessageWithSourceJars() throws Exception {
     scratch.file(
         "java/com/google/test/BUILD",
-        "java_library(name = 'a',",
-        "    srcs = ['a.java', 'b.java', 'archive.srcjar'])");
+        """
+        java_library(
+            name = "a",
+            srcs = [
+                "a.java",
+                "archive.srcjar",
+                "b.java",
+            ],
+        )
+        """);
     JavaCompileAction action =
         (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:liba.jar");
     assertThat(action.getProgressMessage())
@@ -79,21 +99,32 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
   public void progressMessageAnnotationProcessors() throws Exception {
     scratch.file(
         "java/com/google/test/BUILD",
-        "java_plugin(",
-        "    name = 'foo',",
-        "    srcs = ['Foo.java'],",
-        "    processor_class = 'Foo',",
-        ")",
-        "java_plugin(",
-        "    name = 'bar',",
-        "    srcs = ['Bar.java'],",
-        "    processor_class = 'com.google.Bar',",
-        ")",
-        "java_library(",
-        "    name = 'a',",
-        "    srcs = ['a.java', 'b.java', 'archive.srcjar'],",
-        "    plugins = [':foo', ':bar'],",
-        ")");
+        """
+        java_plugin(
+            name = "foo",
+            srcs = ["Foo.java"],
+            processor_class = "Foo",
+        )
+
+        java_plugin(
+            name = "bar",
+            srcs = ["Bar.java"],
+            processor_class = "com.google.Bar",
+        )
+
+        java_library(
+            name = "a",
+            srcs = [
+                "a.java",
+                "archive.srcjar",
+                "b.java",
+            ],
+            plugins = [
+                ":foo",
+                ":bar",
+            ],
+        )
+        """);
     JavaCompileAction action =
         (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:liba.jar");
     assertThat(action.getProgressMessage())
@@ -105,11 +136,13 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
   @Test
   public void testLocale() throws Exception {
     scratch.file(
-        "java/com/google/test/BUILD", //
-        "java_library(",
-        "  name = 'a',",
-        "  srcs = ['A.java'],",
-        ")");
+        "java/com/google/test/BUILD",
+        """
+        java_library(
+            name = "a",
+            srcs = ["A.java"],
+        )
+        """);
     JavaCompileAction action =
         (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:liba.jar");
     assertThat(action.getIncompleteEnvironmentForTesting())
@@ -120,10 +153,32 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
   public void testClasspathReduction() throws Exception {
     scratch.file(
         "java/com/google/test/BUILD",
-        "java_library(name = 'a', srcs = ['A.java'], deps = [':b'])",
-        "java_library(name = 'b', srcs = ['B.java'], deps = [':c', ':d'])",
-        "java_library(name = 'c', srcs = ['C.java'])",
-        "java_library(name = 'd', srcs = ['D.java'])");
+        """
+        java_library(
+            name = "a",
+            srcs = ["A.java"],
+            deps = [":b"],
+        )
+
+        java_library(
+            name = "b",
+            srcs = ["B.java"],
+            deps = [
+                ":c",
+                ":d",
+            ],
+        )
+
+        java_library(
+            name = "c",
+            srcs = ["C.java"],
+        )
+
+        java_library(
+            name = "d",
+            srcs = ["D.java"],
+        )
+        """);
     Artifact bJdeps =
         getBinArtifact("libb-hjar.jdeps", getConfiguredTarget("//java/com/google/test:b"));
     Artifact cHjar =

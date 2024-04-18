@@ -90,7 +90,7 @@ class EvaluationTestCase {
   StarlarkThread getStarlarkThread() {
     if (this.thread == null) {
       Mutability mu = Mutability.create("test");
-      this.thread = new StarlarkThread(mu, semantics);
+      this.thread = StarlarkThread.createTransient(mu, semantics);
     }
     return this.thread;
   }

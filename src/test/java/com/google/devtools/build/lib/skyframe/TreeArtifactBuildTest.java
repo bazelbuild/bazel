@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -42,7 +43,6 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction;
@@ -74,9 +74,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -433,7 +431,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   @Test
-  public void symlinkLoopRejected() throws Exception {
+  public void symlinkLoopRejected() {
     // Failure expected
     EventCollector eventCollector = new EventCollector(EventKind.ERROR);
     reporter.removeHandler(failFastHandler);
@@ -579,7 +577,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   @Test
-  public void danglingRelativeSymlinkOutsideOfTreeArtifactRejected() throws Exception {
+  public void danglingRelativeSymlinkOutsideOfTreeArtifactRejected() {
     // Failure expected
     EventCollector eventCollector = new EventCollector(EventKind.ERROR);
     reporter.removeHandler(failFastHandler);
@@ -1022,9 +1020,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     @Override
     void run(ActionExecutionContext context) throws IOException {
-      List<Artifact> children = new ArrayList<>();
-      context.getArtifactExpander().expand(getPrimaryInput(), children);
-      for (Artifact child : children) {
+      for (Artifact child : context.getArtifactExpander().expandTreeArtifact(getPrimaryInput())) {
         Path newOutput = getPrimaryOutput().getPath().getRelative(child.getParentRelativePath());
         newOutput.createDirectoryAndParents();
         FileSystemUtils.copyFile(child.getPath(), newOutput);

@@ -259,14 +259,13 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
     boolean allowsMultiple = details.buildSettingIsAllowsMultiple().contains(setting);
     if (allowsMultiple) {
       // if this setting allows multiple settings
-      if (!(newValue instanceof List)) {
+      if (!(newValue instanceof List<?> rawNewValueAsList)) {
         throw new TransitionException(
             String.format(
                 "'%s' allows multiple values and must be set"
                     + " in transition using a starlark list instead of single value '%s'",
                 setting, newValue));
       }
-      List<?> rawNewValueAsList = (List<?>) newValue;
       List<Object> convertedValue = new ArrayList<>();
       Type<?> type = details.buildSettingToType().get(setting);
       for (Object value : rawNewValueAsList) {

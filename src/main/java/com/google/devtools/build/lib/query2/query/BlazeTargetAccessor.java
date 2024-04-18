@@ -151,9 +151,7 @@ public final class BlazeTargetAccessor implements TargetAccessor<Target> {
     }
     if (ruleVisibility.equals(RuleVisibility.PUBLIC)) {
       packageSpecifications.add(QueryVisibility.everything());
-    } else if (ruleVisibility instanceof PackageGroupsRuleVisibility) {
-      PackageGroupsRuleVisibility packageGroupsVisibility =
-          (PackageGroupsRuleVisibility) ruleVisibility;
+    } else if (ruleVisibility instanceof PackageGroupsRuleVisibility packageGroupsVisibility) {
       for (Label groupLabel : packageGroupsVisibility.getPackageGroups()) {
         try {
           maybeConvertGroupVisibility(groupLabel, packageSpecifications);

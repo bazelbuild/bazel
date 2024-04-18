@@ -41,8 +41,8 @@ public abstract class TargetDefinitionContext extends BazelStarlarkContext {
     }
   }
 
-  protected TargetDefinitionContext(Phase phase, SymbolGenerator<?> symbolGenerator) {
-    super(phase, symbolGenerator);
+  protected TargetDefinitionContext(Phase phase) {
+    super(phase);
   }
 
   /** Retrieves this object from a Starlark thread. Returns null if not present. */

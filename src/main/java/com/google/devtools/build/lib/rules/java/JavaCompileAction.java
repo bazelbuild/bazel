@@ -249,16 +249,18 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       ActionExecutionContext actionExecutionContext, JavaCompileActionContext context)
       throws IOException {
     HashSet<String> direct = new HashSet<>();
-    for (Artifact directJar : directJars.toList()) {
+    for (Artifact directJar : directJars.toListNoMemoUpdate()) {
       direct.add(directJar.getExecPathString());
     }
-    for (Artifact depArtifact : dependencyArtifacts.toList()) {
+    for (Artifact depArtifact : dependencyArtifacts.toListNoMemoUpdate()) {
       for (Deps.Dependency dep :
           context.getDependencies(depArtifact, actionExecutionContext).getDependencyList()) {
         direct.add(dep.getPath());
       }
     }
-    ImmutableList<Artifact> transitiveCollection = transitiveInputs.toList();
+    // Memory Optimization.
+    // The exact NestedSet instance isn't expected to be traversed more than once.
+    ImmutableList<Artifact> transitiveCollection = transitiveInputs.toListNoMemoUpdate();
     ImmutableList<Artifact> reducedJars =
         ImmutableList.copyOf(
             Iterables.filter(

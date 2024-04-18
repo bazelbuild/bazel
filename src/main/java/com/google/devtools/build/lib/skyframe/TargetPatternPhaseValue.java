@@ -119,10 +119,9 @@ public final class TargetPatternPhaseValue implements SkyValue {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof TargetPatternPhaseValue)) {
+    if (!(obj instanceof TargetPatternPhaseValue that)) {
       return false;
     }
-    TargetPatternPhaseValue that = (TargetPatternPhaseValue) obj;
     return Objects.equals(this.targetLabels, that.targetLabels)
         && Objects.equals(this.testsToRunLabels, that.testsToRunLabels)
         && Objects.equals(this.workspaceName, that.workspaceName)
@@ -290,10 +289,9 @@ public final class TargetPatternPhaseValue implements SkyValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof TargetPatternPhaseKey)) {
+      if (!(obj instanceof TargetPatternPhaseKey other)) {
         return false;
       }
-      TargetPatternPhaseKey other = (TargetPatternPhaseKey) obj;
       return other.targetPatterns.equals(this.targetPatterns)
           && other.offset.equals(this.offset)
           && other.compileOneDependency == compileOneDependency

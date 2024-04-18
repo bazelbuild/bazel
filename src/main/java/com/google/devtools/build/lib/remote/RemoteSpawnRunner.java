@@ -503,8 +503,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       return;
     }
     for (ActionInput actionInput : spawn.getInputFiles().toList()) {
-      if (actionInput instanceof ParamFileActionInput) {
-        ParamFileActionInput paramFileActionInput = (ParamFileActionInput) actionInput;
+      if (actionInput instanceof ParamFileActionInput paramFileActionInput) {
         paramFileActionInput.atomicallyWriteRelativeTo(execRoot, ".remote");
       }
     }
@@ -560,8 +559,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       RemoteAction action, IOException exception, SpawnExecutionContext context)
       throws ExecException, InterruptedException, IOException {
     boolean remoteCacheFailed = BulkTransferException.allCausedByCacheNotFoundException(exception);
-    if (exception.getCause() instanceof ExecutionStatusException) {
-      ExecutionStatusException e = (ExecutionStatusException) exception.getCause();
+    if (exception.getCause() instanceof ExecutionStatusException e) {
       RemoteActionResult result = null;
       if (e.getResponse() != null) {
         ExecuteResponse resp = e.getResponse();
@@ -630,8 +628,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
     String errorMessage = Utils.grpcAwareErrorMessage(exception, verboseFailures);
 
-    if (exception.getCause() instanceof ExecutionStatusException) {
-      ExecutionStatusException e = (ExecutionStatusException) exception.getCause();
+    if (exception.getCause() instanceof ExecutionStatusException e) {
       if (e.getResponse() != null) {
         if (!e.getResponse().getMessage().isEmpty()) {
           errorMessage += "\n" + e.getResponse().getMessage();

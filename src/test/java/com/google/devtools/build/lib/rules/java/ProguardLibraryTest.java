@@ -21,8 +21,8 @@ import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
@@ -221,12 +221,17 @@ public class ProguardLibraryTest extends BuildViewTestCase {
   public final void createBuildFile() throws Exception {
     scratch.file(
         "test/implicit/BUILD",
-        "standard_proguard_library(",
-        "    name = 'implicit_target',",
-        "    proguard_specs = ['implicit_target.cfg'])",
-        "standard_proguard_library(",
-        "    name = 'implicit_host',",
-        "    proguard_specs = ['implicit_host.cfg'])");
+        """
+        standard_proguard_library(
+            name = "implicit_target",
+            proguard_specs = ["implicit_target.cfg"],
+        )
+
+        standard_proguard_library(
+            name = "implicit_host",
+            proguard_specs = ["implicit_host.cfg"],
+        )
+        """);
   }
 
   /** Make the test rule class provider understand our rules in addition to the standard ones. */
@@ -246,9 +251,15 @@ public class ProguardLibraryTest extends BuildViewTestCase {
   public void testProguardSpecs_outputsAllowlistedVersions() throws Exception {
     scratch.file(
         "test/BUILD",
-        "standard_proguard_library(",
-        "    name = 'lib',",
-        "    proguard_specs = ['optimizations.cfg', 'configs.cfg'])");
+        """
+        standard_proguard_library(
+            name = "lib",
+            proguard_specs = [
+                "optimizations.cfg",
+                "configs.cfg",
+            ],
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//test:lib");
 
@@ -262,9 +273,15 @@ public class ProguardLibraryTest extends BuildViewTestCase {
   public void testProguardSpecs_originalConfigSentAsInputToAllowlister() throws Exception {
     scratch.file(
         "test/BUILD",
-        "standard_proguard_library(",
-        "    name = 'lib',",
-        "    proguard_specs = ['optimizations.cfg', 'configs.cfg'])");
+        """
+        standard_proguard_library(
+            name = "lib",
+            proguard_specs = [
+                "optimizations.cfg",
+                "configs.cfg",
+            ],
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//test:lib");
     Artifact output = getBinArtifact("validated_proguard/lib/test/optimizations.cfg_valid", target);
@@ -296,9 +313,15 @@ public class ProguardLibraryTest extends BuildViewTestCase {
   public void testProguardSpecs_allowlisterPathsPassedAsFlags() throws Exception {
     scratch.file(
         "test/BUILD",
-        "standard_proguard_library(",
-        "    name = 'lib',",
-        "    proguard_specs = ['optimizations.cfg', 'configs.cfg'])");
+        """
+        standard_proguard_library(
+            name = "lib",
+            proguard_specs = [
+                "optimizations.cfg",
+                "configs.cfg",
+            ],
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//test:lib");
     Artifact output = getBinArtifact("validated_proguard/lib/test/optimizations.cfg_valid", target);
@@ -316,21 +339,41 @@ public class ProguardLibraryTest extends BuildViewTestCase {
   public void testProguardSpecs_pickedUpFromDependencyAttributes() throws Exception {
     scratch.file(
         "test/BUILD",
-        "standard_proguard_library(",
-        "    name = 'lib',",
-        "    deps = [':dep'],",
-        "    exports = [':export'],",
-        "    runtime_deps = [':runtime'],",
-        "    plugins = [':plugin'],",
-        "    exported_plugins = [':exported_plugin'])",
-        "standard_proguard_library(name = 'dep', proguard_specs = ['dep.cfg'])",
-        "standard_proguard_library(name = 'export', proguard_specs = ['export.cfg'])",
-        "standard_proguard_library(name = 'runtime', proguard_specs = ['runtime.cfg'])",
-        "standard_proguard_library(name = 'plugin', proguard_specs = ['plugin.cfg'])",
-        "standard_proguard_library(",
-        "    name = 'exported_plugin',",
-        "    proguard_specs = ['exported_plugin.cfg']",
-        ")");
+        """
+        standard_proguard_library(
+            name = "lib",
+            exported_plugins = [":exported_plugin"],
+            plugins = [":plugin"],
+            exports = [":export"],
+            runtime_deps = [":runtime"],
+            deps = [":dep"],
+        )
+
+        standard_proguard_library(
+            name = "dep",
+            proguard_specs = ["dep.cfg"],
+        )
+
+        standard_proguard_library(
+            name = "export",
+            proguard_specs = ["export.cfg"],
+        )
+
+        standard_proguard_library(
+            name = "runtime",
+            proguard_specs = ["runtime.cfg"],
+        )
+
+        standard_proguard_library(
+            name = "plugin",
+            proguard_specs = ["plugin.cfg"],
+        )
+
+        standard_proguard_library(
+            name = "exported_plugin",
+            proguard_specs = ["exported_plugin.cfg"],
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//test:lib");
     Artifact validatedDep =
@@ -366,14 +409,31 @@ public class ProguardLibraryTest extends BuildViewTestCase {
   public void testProguardSpecs_customAttributes() throws Exception {
     scratch.file(
         "test/BUILD",
-        "custom_proguard_library(",
-        "    name = 'lib',",
-        "    target_libs = [':target'],",
-        "    host_libs = [':host'],",
-        "    target_attrs = ['target_libs', '$implicit_target'],",
-        "    host_attrs = ['host_libs', '$implicit_host'])",
-        "standard_proguard_library(name = 'target', proguard_specs = ['target.cfg'])",
-        "standard_proguard_library(name = 'host', proguard_specs = ['host.cfg'])");
+        """
+        custom_proguard_library(
+            name = "lib",
+            host_attrs = [
+                "host_libs",
+                "$implicit_host",
+            ],
+            host_libs = [":host"],
+            target_attrs = [
+                "target_libs",
+                "$implicit_target",
+            ],
+            target_libs = [":target"],
+        )
+
+        standard_proguard_library(
+            name = "target",
+            proguard_specs = ["target.cfg"],
+        )
+
+        standard_proguard_library(
+            name = "host",
+            proguard_specs = ["host.cfg"],
+        )
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//test:lib");
     Artifact validatedTarget =
@@ -402,14 +462,32 @@ public class ProguardLibraryTest extends BuildViewTestCase {
   public void testProguardSpecs_customAttributes_allowsAttributeMismatch() throws Exception {
     scratch.file(
         "test/BUILD",
-        "custom_proguard_library(",
-        "    name = 'lib',",
-        "    target_libs = [':target'],",
-        "    host_libs = [':host'],",
-        "    target_attrs = ['deps', 'exports', 'runtime_deps'],",
-        "    host_attrs = ['plugins', 'exported_plugins'])",
-        "standard_proguard_library(name = 'target', proguard_specs = ['target.cfg'])",
-        "standard_proguard_library(name = 'host', proguard_specs = ['host.cfg'])");
+        """
+        custom_proguard_library(
+            name = "lib",
+            host_attrs = [
+                "plugins",
+                "exported_plugins",
+            ],
+            host_libs = [":host"],
+            target_attrs = [
+                "deps",
+                "exports",
+                "runtime_deps",
+            ],
+            target_libs = [":target"],
+        )
+
+        standard_proguard_library(
+            name = "target",
+            proguard_specs = ["target.cfg"],
+        )
+
+        standard_proguard_library(
+            name = "host",
+            proguard_specs = ["host.cfg"],
+        )
+        """);
 
     // None of the attributes we have were specified, none of the attributes we specified exist.
     assertThat(getFilesToBuild(getConfiguredTarget("//test:lib")).toList()).isEmpty();
@@ -419,10 +497,14 @@ public class ProguardLibraryTest extends BuildViewTestCase {
   public void testProguardSpecs_aspectAttributes_detectedByProguardLibrary() throws Exception {
     scratch.file(
         "test/BUILD",
-        "aspect_proguard_library(",
-        "    name = 'lib',",
-        "    deps = [':child'])",
-        "sh_library(name = 'child')");
+        """
+        aspect_proguard_library(
+            name = "lib",
+            deps = [":child"],
+        )
+
+        sh_library(name = "child")
+        """);
 
     ConfiguredTarget target = getConfiguredTarget("//test:lib");
 

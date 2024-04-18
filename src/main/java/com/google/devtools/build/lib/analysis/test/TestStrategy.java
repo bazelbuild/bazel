@@ -465,10 +465,9 @@ public abstract class TestStrategy implements TestActionContext {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof ShardKey)) {
+      if (!(o instanceof ShardKey s)) {
         return false;
       }
-      ShardKey s = (ShardKey) o;
       return owner.equals(s.owner) && shard == s.shard;
     }
   }

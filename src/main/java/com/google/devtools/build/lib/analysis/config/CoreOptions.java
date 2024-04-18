@@ -19,7 +19,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelToStringEntryConverter;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -65,6 +64,17 @@ import java.util.TreeSet;
 public class CoreOptions extends FragmentOptions implements Cloneable {
   public static final OptionDefinition CPU =
       OptionsParser.getOptionDefinitionByName(CoreOptions.class, "cpu");
+
+  @Option(
+      name = "scl_config",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Name of the scl config defined in PROJECT.scl. Note that this feature is still under"
+              + " development b/324119879.")
+  public String sclConfig;
 
   @Option(
       name = "incompatible_merge_genfiles_directory",
@@ -720,18 +730,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "\"environment\" rule. If specified, all top-level targets must be "
               + "compatible with this environment.")
   public List<Label> targetEnvironments;
-
-  @Option(
-      name = "auto_cpu_environment_group",
-      converter = EmptyToNullLabelConverter.class,
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "Declare the environment_group to use for automatically mapping cpu values to "
-              + "target_environment values.")
-  public Label autoCpuEnvironmentGroup;
 
   @Option(
       name = "allow_unresolved_symlinks",

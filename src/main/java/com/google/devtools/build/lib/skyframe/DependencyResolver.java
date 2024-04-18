@@ -80,6 +80,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptio
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
+import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
@@ -494,8 +495,7 @@ public final class DependencyResolver {
   private void handleException(ExtendedEventHandler listener, Target target, Exception untyped)
       throws ReportedException {
 
-    if (untyped instanceof DependencyEvaluationException) {
-      DependencyEvaluationException e = (DependencyEvaluationException) untyped;
+    if (untyped instanceof DependencyEvaluationException e) {
       String errorMessage = e.getMessage();
       if (!e.depReportedOwnError()) {
         listener.handle(Event.error(e.getLocation(), e.getMessage()));
@@ -531,15 +531,13 @@ public final class DependencyResolver {
                   errorMessage,
                   null,
                   e.getDetailedExitCode()));
-    } else if (untyped instanceof ConfiguredValueCreationException) {
-      ConfiguredValueCreationException e = (ConfiguredValueCreationException) untyped;
+    } else if (untyped instanceof ConfiguredValueCreationException e) {
       if (!e.getMessage().isEmpty()) {
         // Report the error to the user.
         listener.handle(Event.error(e.getLocation(), e.getMessage()));
       }
       throw new ReportedException(e);
-    } else if (untyped instanceof AspectCreationException) {
-      AspectCreationException e = (AspectCreationException) untyped;
+    } else if (untyped instanceof AspectCreationException e) {
       if (!e.getMessage().isEmpty()) {
         // Report the error to the user.
         listener.handle(Event.error(null, e.getMessage()));
@@ -551,8 +549,7 @@ public final class DependencyResolver {
               e.getMessage(),
               e.getCauses(),
               e.getDetailedExitCode()));
-    } else if (untyped instanceof ToolchainException) {
-      ToolchainException e = (ToolchainException) untyped;
+    } else if (untyped instanceof ToolchainException e) {
       ConfiguredValueCreationException cvce =
           e.asConfiguredValueCreationException(targetAndConfiguration);
       listener.handle(Event.error(target.getLocation(), cvce.getMessage()));
@@ -705,8 +702,13 @@ public final class DependencyResolver {
           case ASPECT_CREATION:
             throw error.aspectCreation();
           case PLATFORM_MAPPING:
-            PlatformMappingException e = error.platformMapping();
-            throw new ConfiguredValueCreationException(ctgValue.getTarget(), e.getMessage());
+            PlatformMappingException platformMappingException = error.platformMapping();
+            throw new ConfiguredValueCreationException(
+                ctgValue.getTarget(), platformMappingException.getMessage());
+          case INVALID_PLATFORM:
+            InvalidPlatformException invalidPlatformException = error.invalidPlatform();
+            throw new ConfiguredValueCreationException(
+                ctgValue.getTarget(), invalidPlatformException.getMessage());
         }
       }
       if (!state.transitiveState.hasRootCause() && state.dependencyMap == null) {
@@ -754,11 +756,10 @@ public final class DependencyResolver {
       ExtendedEventHandler listener)
       throws InterruptedException {
     var target = targetAndConfiguration.getTarget();
-    if (!(target instanceof Rule)) {
+    if (!(target instanceof Rule rule)) {
       return UnloadedToolchainContextsInputs.empty();
     }
 
-    Rule rule = (Rule) target;
     var configuration = targetAndConfiguration.getConfiguration();
     boolean useAutoExecGroups =
         rule.isAttrDefined("$use_auto_exec_groups", Type.BOOLEAN)

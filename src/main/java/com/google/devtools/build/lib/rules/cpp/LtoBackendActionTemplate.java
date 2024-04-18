@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionKeyCacher;
+import com.google.devtools.build.lib.actions.ActionKeyComputer;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -47,7 +47,7 @@ import javax.annotation.Nullable;
  * An {@link ActionTemplate} that expands into {@link LtoBackendAction}s at execution time. Is is
  * similar to {@link com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate}.
  */
-public final class LtoBackendActionTemplate extends ActionKeyCacher
+public final class LtoBackendActionTemplate extends ActionKeyComputer
     implements ActionTemplate<LtoBackendAction> {
   private final LtoBackendAction.Builder ltoBackendActionbuilder;
   private final CcToolchainVariables buildVariables;

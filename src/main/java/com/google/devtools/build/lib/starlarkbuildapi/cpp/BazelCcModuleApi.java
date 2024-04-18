@@ -29,7 +29,6 @@ import net.starlark.java.annot.StarlarkBuiltin;
 public interface BazelCcModuleApi<
         StarlarkActionFactoryT extends StarlarkActionFactoryApi,
         FileT extends FileApi,
-        FdoContextT extends FdoContextApi<?>,
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         FeatureConfigurationT extends FeatureConfigurationApi,
@@ -47,7 +46,6 @@ public interface BazelCcModuleApi<
     extends CcModuleApi<
         StarlarkActionFactoryT,
         FileT,
-        FdoContextT,
         FeatureConfigurationT,
         CompilationContextT,
         LtoBackendArtifactsT,

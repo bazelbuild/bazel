@@ -448,6 +448,7 @@ public final class RemoteModule extends BlazeModule {
       outputService =
           new BazelOutputService(
               env.getOutputBase(),
+              env::getExecRoot,
               () -> env.getDirectories().getOutputPath(env.getWorkspaceName()),
               digestUtil.getDigestFunction(),
               remoteOptions,
@@ -634,7 +635,8 @@ public final class RemoteModule extends BlazeModule {
               buildRequestId,
               invocationId,
               remoteOptions.remoteInstanceName,
-              remoteOptions.remoteAcceptCached));
+              remoteOptions.remoteAcceptCached,
+              env.getReporter()));
     } else {
       if (enableDiskCache) {
         try {
@@ -855,11 +857,10 @@ public final class RemoteModule extends BlazeModule {
       ByteStreamBuildEventArtifactUploader uploader, ConfiguredTarget configuredTarget) {
     // This will either dereference an alias chain, or return the final ConfiguredTarget.
     ConfiguredTarget actualConfiguredTarget = configuredTarget.getActual();
-    if (!(actualConfiguredTarget instanceof RuleConfiguredTarget)) {
+    if (!(actualConfiguredTarget instanceof RuleConfiguredTarget ruleConfiguredTarget)) {
       return;
     }
 
-    RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) actualConfiguredTarget;
     for (ActionAnalysisMetadata action : ruleConfiguredTarget.getActions()) {
       boolean uploadLocalResults =
           Utils.shouldUploadLocalResultsToRemoteCache(remoteOptions, action.getExecutionInfo());
@@ -1052,6 +1053,7 @@ public final class RemoteModule extends BlazeModule {
               env.getSkyframeExecutor().getEvaluator(),
               env.getBlazeWorkspace().getPersistentActionCache(),
               leaseExtension);
+      env.getEventBus().register(leaseService);
 
       if (outputService instanceof RemoteOutputService remoteOutputService) {
         remoteOutputService.setRemoteOutputChecker(remoteOutputChecker);

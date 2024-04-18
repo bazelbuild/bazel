@@ -129,8 +129,7 @@ abstract class JavaModuleFlagsProvider
       return null;
     } else if (value instanceof JavaModuleFlagsProvider) {
       return (JavaModuleFlagsProvider) value;
-    } else if (value instanceof StructImpl) {
-      StructImpl moduleFlagsInfo = (StructImpl) value;
+    } else if (value instanceof StructImpl moduleFlagsInfo) {
       return JavaModuleFlagsProvider.create(
           moduleFlagsInfo.getValue("add_exports", Depset.class).toList(String.class),
           moduleFlagsInfo.getValue("add_opens", Depset.class).toList(String.class),

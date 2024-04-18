@@ -32,10 +32,15 @@ public class CorruptedActionCacheTest extends BuildIntegrationTestCase {
 
   @Test
   public void testCorruptionActionCacheErrorMessage() throws Exception {
-    write("foo/BUILD",
-          "genrule(name = 'foo', ",
-          "        outs = ['out'],  ",
-          "        cmd = 'echo 123 >$(OUTS)')");
+    write(
+        "foo/BUILD",
+        """
+        genrule(
+            name = "foo",
+            outs = ["out"],
+            cmd = "echo 123 >$(OUTS)",
+        )
+        """);
 
     buildTarget("//foo:foo");
 

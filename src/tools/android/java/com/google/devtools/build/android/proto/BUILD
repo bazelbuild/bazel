@@ -1,10 +1,9 @@
 # Protos of the Actions for Android rules.
 
 load("@rules_java//java:defs.bzl", "java_proto_library")
+load("@rules_proto//proto:defs.bzl", "proto_library")
 
 package(default_visibility = ["//visibility:public"])
-
-load("@rules_proto//proto:defs.bzl", "proto_library")
 
 java_proto_library(
     name = "serialize_format_java_pb",

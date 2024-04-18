@@ -27,23 +27,25 @@ public class AndroidSdkTest extends AndroidBuildViewTestCase {
   public void testSourcePropertiesProvided() throws Exception {
     scratch.file(
         "sdk/BUILD",
-        "android_sdk(",
-        "    name = 'sdk',",
-        "    aapt = 'static_aapt_tool',",
-        "    adb = 'static_adb_tool',",
-        "    aidl = 'static_aidl_tool',",
-        "    framework_aidl = 'framework_aidl',",
-        "    android_jar = 'android.jar',",
-        "    source_properties = 'platforms/android-25/source.properties',",
-        "    apksigner = 'apksigner',",
-        "    dx = 'dx',",
-        "    main_dex_classes = 'mainDexClasses.rules',",
-        "    main_dex_list_creator = 'main_dex_list_creator',",
-        "    proguard = 'ProGuard',",
-        "    shrinked_android_jar = 'android.jar',",
-        "    zipalign = 'zipalign',",
-        "    tags = ['__ANDROID_RULES_MIGRATION__'],",
-        ")");
+        """
+        android_sdk(
+            name = "sdk",
+            aapt = "static_aapt_tool",
+            adb = "static_adb_tool",
+            aidl = "static_aidl_tool",
+            android_jar = "android.jar",
+            apksigner = "apksigner",
+            dx = "dx",
+            framework_aidl = "framework_aidl",
+            main_dex_classes = "mainDexClasses.rules",
+            main_dex_list_creator = "main_dex_list_creator",
+            proguard = "ProGuard",
+            shrinked_android_jar = "android.jar",
+            source_properties = "platforms/android-25/source.properties",
+            tags = ["__ANDROID_RULES_MIGRATION__"],
+            zipalign = "zipalign",
+        )
+        """);
     AndroidSdkProvider sdkProvider = getConfiguredTarget("//sdk").get(AndroidSdkProvider.PROVIDER);
     assertThat(sdkProvider.getSourceProperties().toDetailString())
         .isEqualTo("[/workspace[source]]sdk/platforms/android-25/source.properties");

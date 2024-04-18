@@ -523,6 +523,90 @@ EOF
   expect_log "ENV_DATA=$pkg/t.dat"
 }
 
+function test_run_under_script() {
+  local -r pkg="pkg${LINENO}"
+  mkdir -p ${pkg}
+  cat > $pkg/BUILD <<'EOF'
+sh_binary(
+  name = 'greetings',
+  srcs = [':greetings.sh'],
+)
+EOF
+  cat > $pkg/greetings.sh <<'EOF'
+#!/bin/sh
+echo "hello there $@"
+EOF
+  chmod +x $pkg/greetings.sh
+  bazel run --run_under="echo -n 'why ' &&" -- "//$pkg:greetings" friend \
+      >$TEST_log || fail "expected test to pass"
+  expect_log "why hello there friend"
+}
+
+function test_run_under_script_script_path() {
+  if $is_windows; then
+    # TODO: https://github.com/bazelbuild/bazel/issues/21940 - Fix escaping, etc
+    # so that this test works on windows.
+    return
+  fi
+  local -r pkg="pkg${LINENO}"
+  mkdir -p "$pkg"
+  cat > $pkg/BUILD <<'EOF'
+sh_binary(
+  name = 'greetings',
+  srcs = [':greetings.sh'],
+)
+EOF
+  cat > "$pkg/greetings.sh" <<'EOF'
+#!/bin/sh
+echo "hello there $@"
+EOF
+  chmod +x "$pkg/greetings.sh"
+  bazel run --script_path="${TEST_TMPDIR}/script.sh" \
+      --run_under="echo -n 'why ' &&" \
+      -- "//$pkg:greetings" friend \
+      >"$TEST_log" || fail "expected build to succeed"
+  "${TEST_TMPDIR}/script.sh" >"$TEST_log" || fail "expected run script to succeed"
+  expect_log "why hello there friend"
+}
+
+function test_run_under_label() {
+  local -r pkg="pkg${LINENO}"
+  mkdir -p "${pkg}"
+  cat > "$pkg/BUILD" <<'EOF'
+sh_binary(
+  name = 'greetings',
+  srcs = ['greetings.sh'],
+)
+
+sh_binary(
+  name = 'farewell',
+  srcs = ['farewell.sh']
+)
+EOF
+  cat > "$pkg/greetings.sh" <<'EOF'
+#!/bin/sh
+echo "hello there $@"
+EOF
+  chmod +x "$pkg/greetings.sh"
+  cat > "$pkg/farewell.sh" <<'EOF'
+#!/bin/sh
+echo "goodbye $@"
+EOF
+  chmod +x "$pkg/farewell.sh"
+
+  bazel run --run_under="//$pkg:greetings friend &&" -- "//$pkg:farewell" buddy \
+      >$TEST_log || fail "expected test to pass"
+  # TODO: bazel-team - This is just demonstrating how things are, it's probably
+  # not how we want them to be.
+  if "$is_windows"; then
+    expect_log "hello there friend"
+    expect_log "goodbye buddy"
+  else
+    expect_log "hello there friend && .*bin/$pkg/farewell buddy"
+    expect_not_log "goodbye"
+  fi
+}
+
 # Usage: assert_starts_with PREFIX STRING_TO_CHECK.
 # Asserts that `$1` is a prefix of `$2`.
 function assert_starts_with() {

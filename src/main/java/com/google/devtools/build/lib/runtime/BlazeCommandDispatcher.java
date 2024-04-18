@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OpaqueOptionsData;
+import com.google.devtools.common.options.OptionAndRawValue;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.TriState;
@@ -333,7 +334,11 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     BlazeOptionHandler optionHandler =
         new BlazeOptionHandler(
             runtime, workspace, command, commandAnnotation, optionsParser, invocationPolicy);
-    DetailedExitCode earlyExitCode = optionHandler.parseOptions(args, storedEventHandler);
+    DetailedExitCode earlyExitCode =
+        optionHandler.parseOptions(
+            args,
+            storedEventHandler,
+            /* invocationPolicyFlagListBuilder= */ ImmutableList.builder());
     OptionsParsingResult options = optionHandler.getOptionsResult();
 
     // The initCommand call also records the start time for the timestamp granularity monitor.
@@ -626,7 +631,11 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           optionHandler =
               new BlazeOptionHandler(
                   runtime, workspace, command, commandAnnotation, optionsParser, invocationPolicy);
-          earlyExitCode = optionHandler.parseOptions(args, reporter);
+          ImmutableList.Builder<OptionAndRawValue> invocationPolicyFlagListBuilder =
+              ImmutableList.builder();
+          earlyExitCode =
+              optionHandler.parseOptions(args, reporter, invocationPolicyFlagListBuilder);
+          env.setInvocationPolicyFlags(invocationPolicyFlagListBuilder.build());
         }
         if (!earlyExitCode.isSuccess()) {
           reporter.post(

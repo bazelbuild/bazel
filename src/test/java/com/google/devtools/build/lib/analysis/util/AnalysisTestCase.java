@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -58,6 +59,8 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
@@ -724,5 +727,30 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
     useRuleClassProvider(builder.build());
     update();
+  }
+
+  /**
+   * Retrieves Starlark provider from a configured target.
+   *
+   * <p>Assuming that the provider is defined in the same bzl file as the rule.
+   */
+  protected StarlarkInfo getStarlarkProvider(ConfiguredTarget target, String providerSymbol)
+      throws Exception {
+    return getStarlarkProvider(
+        target,
+        getTarget(target.getLabel().toString())
+            .getAssociatedRule()
+            .getRuleClassObject()
+            .getRuleDefinitionEnvironmentLabel()
+            .toString(),
+        providerSymbol);
+  }
+
+  /** Retrieves Starlark provider from a configured target or aspect. */
+  protected StarlarkInfo getStarlarkProvider(
+      ProviderCollection target, String label, String providerSymbol) throws Exception {
+    StarlarkProvider.Key key =
+        new StarlarkProvider.Key(Label.parseCanonical(label), providerSymbol);
+    return (StarlarkInfo) target.get(key);
   }
 }

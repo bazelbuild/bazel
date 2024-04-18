@@ -234,8 +234,7 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
     List<List<String>> allNameGroups = new ArrayList<>();
     for (Object object : providers) {
       List<String> providerNameGroup;
-      if (object instanceof Sequence) {
-        Sequence<?> group = (Sequence<?>) object;
+      if (object instanceof Sequence<?> group) {
         providerNameGroup = parseProviderGroup(group, thread);
         allNameGroups.add(providerNameGroup);
       } else {
@@ -256,12 +255,10 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
   private static List<String> parseProviderGroup(Sequence<?> group, StarlarkThread thread) {
     List<String> providerNameGroup = new ArrayList<>();
     for (Object object : group) {
-      if (object instanceof ProviderApi) {
-        ProviderApi provider = (ProviderApi) object;
+      if (object instanceof ProviderApi provider) {
         String providerName = providerName(provider, thread);
         providerNameGroup.add(providerName);
-      } else if (object instanceof String) {
-        String legacyProvider = (String) object;
+      } else if (object instanceof String legacyProvider) {
         providerNameGroup.add(legacyProvider);
       }
     }

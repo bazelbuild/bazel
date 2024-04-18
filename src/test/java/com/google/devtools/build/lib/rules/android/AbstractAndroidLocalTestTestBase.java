@@ -45,10 +45,15 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
   public void testSimpleAndroidRobolectricConfiguredTarget() throws Exception {
     writeFile(
         "java/test/BUILD",
-        "load('//java/bar:foo.bzl', 'extra_deps')",
-        "android_local_test(name = 'dummyTest',",
-        "    srcs = ['test.java'],",
-        "    deps = extra_deps)");
+        """
+        load("//java/bar:foo.bzl", "extra_deps")
+
+        android_local_test(
+            name = "dummyTest",
+            srcs = ["test.java"],
+            deps = extra_deps,
+        )
+        """);
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
     assertThat(target).isNotNull();
     checkMainClass(target, "dummyTest", false);
@@ -58,11 +63,16 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
   public void testDataDependency() throws Exception {
     writeFile(
         "java/test/BUILD",
-        "load('//java/bar:foo.bzl', 'extra_deps')",
-        "android_local_test(name = 'dummyTest',",
-        "    srcs = ['test.java'],",
-        "    deps = extra_deps,",
-        "    data = ['data.dat'])");
+        """
+        load("//java/bar:foo.bzl", "extra_deps")
+
+        android_local_test(
+            name = "dummyTest",
+            srcs = ["test.java"],
+            data = ["data.dat"],
+            deps = extra_deps,
+        )
+        """);
 
     writeFile("java/test/data.dat", "this is a dummy data file");
 
@@ -95,47 +105,67 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     writeFile(
         "java/com/foo/BUILD",
-        "load('//java/bar:foo.bzl', 'extra_deps')",
-        "config_feature_flag(",
-        "  name = 'flag1',",
-        "  allowed_values = ['on', 'off'],",
-        "  default_value = 'off',",
-        ")",
-        "config_setting(",
-        "  name = 'flag1@on',",
-        "  flag_values = {':flag1': 'on'},",
-        "  transitive_configs = [':flag1'],",
-        ")",
-        "config_feature_flag(",
-        "  name = 'flag2',",
-        "  allowed_values = ['on', 'off'],",
-        "  default_value = 'off',",
-        ")",
-        "config_setting(",
-        "  name = 'flag2@on',",
-        "  flag_values = {':flag2': 'on'},",
-        "  transitive_configs = [':flag2'],",
-        ")",
-        "android_library(",
-        "  name = 'lib',",
-        "  srcs = select({",
-        "    ':flag1@on': ['Flag1On.java'],",
-        "    '//conditions:default': ['Flag1Off.java'],",
-        "  }) + select({",
-        "    ':flag2@on': ['Flag2On.java'],",
-        "    '//conditions:default': ['Flag2Off.java'],",
-        "  }),",
-        "  transitive_configs = [':flag1', ':flag2'],",
-        ")",
-        "android_local_test(",
-        "  name = 'foo',",
-        "  srcs = ['Test.java'],",
-        "  deps = [':lib'] + extra_deps,",
-        "  feature_flags = {",
-        "    'flag1': 'on',",
-        "  },",
-        "  transitive_configs = [':flag1', ':flag2'],",
-        ")");
+        """
+        load("//java/bar:foo.bzl", "extra_deps")
+
+        config_feature_flag(
+            name = "flag1",
+            allowed_values = [
+                "on",
+                "off",
+            ],
+            default_value = "off",
+        )
+
+        config_setting(
+            name = "flag1@on",
+            flag_values = {":flag1": "on"},
+            transitive_configs = [":flag1"],
+        )
+
+        config_feature_flag(
+            name = "flag2",
+            allowed_values = [
+                "on",
+                "off",
+            ],
+            default_value = "off",
+        )
+
+        config_setting(
+            name = "flag2@on",
+            flag_values = {":flag2": "on"},
+            transitive_configs = [":flag2"],
+        )
+
+        android_library(
+            name = "lib",
+            srcs = select({
+                ":flag1@on": ["Flag1On.java"],
+                "//conditions:default": ["Flag1Off.java"],
+            }) + select({
+                ":flag2@on": ["Flag2On.java"],
+                "//conditions:default": ["Flag2Off.java"],
+            }),
+            transitive_configs = [
+                ":flag1",
+                ":flag2",
+            ],
+        )
+
+        android_local_test(
+            name = "foo",
+            srcs = ["Test.java"],
+            feature_flags = {
+                "flag1": "on",
+            },
+            transitive_configs = [
+                ":flag1",
+                ":flag2",
+            ],
+            deps = [":lib"] + extra_deps,
+        )
+        """);
     ConfiguredTarget binary = getConfiguredTarget("//java/com/foo");
     List<String> inputs =
         ActionsTestUtil.prettyArtifactNames(
@@ -150,42 +180,58 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     writeFile(
         "java/com/foo/BUILD",
-        "load('//java/bar:foo.bzl', 'extra_deps')",
-        "config_feature_flag(",
-        "  name = 'flag1',",
-        "  allowed_values = ['on', 'off'],",
-        "  default_value = 'off',",
-        ")",
-        "config_setting(",
-        "  name = 'flag1@on',",
-        "  flag_values = {':flag1': 'on'},",
-        "  transitive_configs = [':flag1'],",
-        ")",
-        "config_feature_flag(",
-        "  name = 'flag2',",
-        "  allowed_values = ['on', 'off'],",
-        "  default_value = 'off',",
-        ")",
-        "config_setting(",
-        "  name = 'flag2@on',",
-        "  flag_values = {':flag2': 'on'},",
-        "  transitive_configs = [':flag2'],",
-        ")",
-        "android_local_test(",
-        "  name = 'foo',",
-        "  deps = extra_deps,",
-        "  srcs = ['Test.java'] + select({",
-        "    ':flag1@on': ['Flag1On.java'],",
-        "    '//conditions:default': ['Flag1Off.java'],",
-        "  }) + select({",
-        "    ':flag2@on': ['Flag2On.java'],",
-        "    '//conditions:default': ['Flag2Off.java'],",
-        "  }),",
-        "  feature_flags = {",
-        "    'flag1': 'on',",
-        "  },",
-        "  transitive_configs = [':flag1', ':flag2'],",
-        ")");
+        """
+        load("//java/bar:foo.bzl", "extra_deps")
+
+        config_feature_flag(
+            name = "flag1",
+            allowed_values = [
+                "on",
+                "off",
+            ],
+            default_value = "off",
+        )
+
+        config_setting(
+            name = "flag1@on",
+            flag_values = {":flag1": "on"},
+            transitive_configs = [":flag1"],
+        )
+
+        config_feature_flag(
+            name = "flag2",
+            allowed_values = [
+                "on",
+                "off",
+            ],
+            default_value = "off",
+        )
+
+        config_setting(
+            name = "flag2@on",
+            flag_values = {":flag2": "on"},
+            transitive_configs = [":flag2"],
+        )
+
+        android_local_test(
+            name = "foo",
+            srcs = ["Test.java"] + select({
+                ":flag1@on": ["Flag1On.java"],
+                "//conditions:default": ["Flag1Off.java"],
+            }) + select({
+                ":flag2@on": ["Flag2On.java"],
+                "//conditions:default": ["Flag2Off.java"],
+            }),
+            feature_flags = {
+                "flag1": "on",
+            },
+            transitive_configs = [
+                ":flag1",
+                ":flag2",
+            ],
+            deps = extra_deps,
+        )
+        """);
     ConfiguredTarget binary = getConfiguredTarget("//java/com/foo");
     List<String> inputs =
         ActionsTestUtil.prettyArtifactNames(
@@ -201,34 +247,43 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     writeFile(
         "java/com/foo/BUILD",
-        "load('//java/bar:foo.bzl', 'extra_deps')",
-        "config_feature_flag(",
-        "  name = 'flag1',",
-        "  allowed_values = ['on', 'off'],",
-        "  default_value = 'off',",
-        ")",
-        "config_setting(",
-        "  name = 'flag1@on',",
-        "  flag_values = {':flag1': 'on'},",
-        "  transitive_configs = [':flag1'],",
-        ")",
-        "android_library(",
-        "  name = 'lib',",
-        "  srcs = select({",
-        "    ':flag1@on': ['Flag1On.java'],",
-        "    '//conditions:default': ['Flag1Off.java'],",
-        "  }),",
-        "  transitive_configs = [':flag1'],",
-        ")",
-        "android_local_test(",
-        "  name = 'foo',",
-        "  srcs = ['Test.java'],",
-        "  deps = [':lib',] + extra_deps,",
-        "  feature_flags = {",
-        "    'flag1': 'invalid',",
-        "  },",
-        "  transitive_configs = [':flag1'],",
-        ")");
+        """
+        load("//java/bar:foo.bzl", "extra_deps")
+
+        config_feature_flag(
+            name = "flag1",
+            allowed_values = [
+                "on",
+                "off",
+            ],
+            default_value = "off",
+        )
+
+        config_setting(
+            name = "flag1@on",
+            flag_values = {":flag1": "on"},
+            transitive_configs = [":flag1"],
+        )
+
+        android_library(
+            name = "lib",
+            srcs = select({
+                ":flag1@on": ["Flag1On.java"],
+                "//conditions:default": ["Flag1Off.java"],
+            }),
+            transitive_configs = [":flag1"],
+        )
+
+        android_local_test(
+            name = "foo",
+            srcs = ["Test.java"],
+            feature_flags = {
+                "flag1": "invalid",
+            },
+            transitive_configs = [":flag1"],
+            deps = [":lib"] + extra_deps,
+        )
+        """);
     assertThat(getConfiguredTarget("//java/com/foo")).isNull();
     assertContainsEvent(
         "in config_feature_flag rule //java/com/foo:flag1: "
@@ -242,24 +297,32 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     writeFile(
         "java/com/foo/BUILD",
-        "load('//java/bar:foo.bzl', 'extra_deps')",
-        "config_feature_flag(",
-        "  name = 'flag1',",
-        "  allowed_values = ['on', 'off'],",
-        "  default_value = 'off',",
-        ")",
-        "config_setting(",
-        "  name = 'flag1@on',",
-        "  flag_values = {':flag1': 'on'},",
-        ")",
-        "android_local_test(",
-        "  name = 'foo',",
-        "  srcs = ['Test.java'],",
-        "  deps = extra_deps,",
-        "  feature_flags = {",
-        "    'flag1': 'invalid',",
-        "  }",
-        ")");
+        """
+        load("//java/bar:foo.bzl", "extra_deps")
+
+        config_feature_flag(
+            name = "flag1",
+            allowed_values = [
+                "on",
+                "off",
+            ],
+            default_value = "off",
+        )
+
+        config_setting(
+            name = "flag1@on",
+            flag_values = {":flag1": "on"},
+        )
+
+        android_local_test(
+            name = "foo",
+            srcs = ["Test.java"],
+            feature_flags = {
+                "flag1": "invalid",
+            },
+            deps = extra_deps,
+        )
+        """);
     assertThat(getConfiguredTarget("//java/com/foo")).isNull();
     assertContainsEvent(
         "in config_feature_flag rule //java/com/foo:flag1: "
@@ -271,46 +334,75 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     writeFile(
         "java/com/foo/reader.bzl",
-        "def _impl(ctx):",
-        "  ctx.actions.write(",
-        "      ctx.outputs.java,",
-        "      '\\n'.join([",
-        "          str(target.label) + ': ' + target[config_common.FeatureFlagInfo].value",
-        "          for target in ctx.attr.flags]))",
-        "  return struct(files=depset([ctx.outputs.java]))",
-        "flag_reader = rule(",
-        "  implementation=_impl,",
-        "  attrs={'flags': attr.label_list(providers=[config_common.FeatureFlagInfo])},",
-        "  outputs={'java': '%{name}.java'},",
-        ")");
+        """
+        def _impl(ctx):
+            ctx.actions.write(
+                ctx.outputs.java,
+                "\\n".join([
+                    str(target.label) + ": " + target[config_common.FeatureFlagInfo].value
+                    for target in ctx.attr.flags
+                ]),
+            )
+            return struct(files = depset([ctx.outputs.java]))
+
+        flag_reader = rule(
+            implementation = _impl,
+            attrs = {"flags": attr.label_list(providers = [config_common.FeatureFlagInfo])},
+            outputs = {"java": "%{name}.java"},
+        )
+        """);
     writeFile(
         "java/com/foo/BUILD",
-        "load('//java/bar:foo.bzl', 'extra_deps')",
-        "load('//java/com/foo:reader.bzl', 'flag_reader')",
-        "config_feature_flag(",
-        "  name = 'flag1',",
-        "  allowed_values = ['on', 'off'],",
-        "  default_value = 'off',",
-        ")",
-        "config_feature_flag(",
-        "  name = 'flag2',",
-        "  allowed_values = ['on', 'off'],",
-        "  default_value = 'off',",
-        ")",
-        "flag_reader(",
-        "  name = 'FooFlags',",
-        "  flags = [':flag1', ':flag2'],",
-        "  transitive_configs = [':flag1', ':flag2'],",
-        ")",
-        "android_local_test(",
-        "  name = 'foo',",
-        "  srcs = ['Test.java', ':FooFlags.java'],",
-        "  deps = extra_deps,",
-        "  feature_flags = {",
-        "    'flag1': 'on',",
-        "  },",
-        "  transitive_configs = [':flag1', ':flag2'],",
-        ")");
+        """
+        load("//java/bar:foo.bzl", "extra_deps")
+        load("//java/com/foo:reader.bzl", "flag_reader")
+
+        config_feature_flag(
+            name = "flag1",
+            allowed_values = [
+                "on",
+                "off",
+            ],
+            default_value = "off",
+        )
+
+        config_feature_flag(
+            name = "flag2",
+            allowed_values = [
+                "on",
+                "off",
+            ],
+            default_value = "off",
+        )
+
+        flag_reader(
+            name = "FooFlags",
+            flags = [
+                ":flag1",
+                ":flag2",
+            ],
+            transitive_configs = [
+                ":flag1",
+                ":flag2",
+            ],
+        )
+
+        android_local_test(
+            name = "foo",
+            srcs = [
+                "Test.java",
+                ":FooFlags.java",
+            ],
+            feature_flags = {
+                "flag1": "on",
+            },
+            transitive_configs = [
+                ":flag1",
+                ":flag2",
+            ],
+            deps = extra_deps,
+        )
+        """);
     Artifact flagList =
         ActionsTestUtil.getFirstArtifactEndingWith(
             actionsTestUtil()
@@ -329,26 +421,34 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     writeFile(
         "java/com/foo/BUILD",
-        "load('//java/bar:foo.bzl', 'extra_deps')",
-        "config_feature_flag(",
-        "  name = 'flag1',",
-        "  allowed_values = ['on', 'off'],",
-        "  default_value = 'off',",
-        ")",
-        "alias(",
-        "  name = 'alias',",
-        "  actual = 'flag1',",
-        "  transitive_configs = [':flag1'],",
-        ")",
-        "android_local_test(",
-        "  name = 'foo',",
-        "  srcs = ['Test.java'],",
-        "  deps = extra_deps,",
-        "  feature_flags = {",
-        "    'alias': 'on',",
-        "  },",
-        "  transitive_configs = [':flag1'],",
-        ")");
+        """
+        load("//java/bar:foo.bzl", "extra_deps")
+
+        config_feature_flag(
+            name = "flag1",
+            allowed_values = [
+                "on",
+                "off",
+            ],
+            default_value = "off",
+        )
+
+        alias(
+            name = "alias",
+            actual = "flag1",
+            transitive_configs = [":flag1"],
+        )
+
+        android_local_test(
+            name = "foo",
+            srcs = ["Test.java"],
+            feature_flags = {
+                "alias": "on",
+            },
+            transitive_configs = [":flag1"],
+            deps = extra_deps,
+        )
+        """);
     assertThat(getConfiguredTarget("//java/com/foo")).isNull();
     assertContainsEvent(
         String.format(
@@ -364,29 +464,43 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     overwriteFile(
         "tools/allowlists/config_feature_flag/BUILD",
-        "package_group(",
-        "    name = 'config_feature_flag',",
-        "    packages = ['//flag'])");
+        """
+        package_group(
+            name = "config_feature_flag",
+            packages = ["//flag"],
+        )
+        """);
     writeFile(
         "flag/BUILD",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right', 'wrong'],",
-        "    default_value = 'right',",
-        "    visibility = ['//java/com/google/android/foo:__pkg__'],",
-        ")");
+        """
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "right",
+                "wrong",
+            ],
+            default_value = "right",
+            visibility = ["//java/com/google/android/foo:__pkg__"],
+        )
+        """);
     writeFile(
         "java/com/google/android/foo/BUILD",
-        "load('//java/bar:foo.bzl', 'extra_deps')",
-        "android_local_test(",
-        "  name = 'foo',",
-        "  srcs = ['Test.java', ':FooFlags.java'],",
-        "  deps = extra_deps,",
-        "  feature_flags = {",
-        "    '//flag:flag': 'right',",
-        "  },",
-        "  transitive_configs = ['//flag:flag'],",
-        ")");
+        """
+        load("//java/bar:foo.bzl", "extra_deps")
+
+        android_local_test(
+            name = "foo",
+            srcs = [
+                "Test.java",
+                ":FooFlags.java",
+            ],
+            feature_flags = {
+                "//flag:flag": "right",
+            },
+            transitive_configs = ["//flag:flag"],
+            deps = extra_deps,
+        )
+        """);
     assertThat(getConfiguredTarget("//java/com/google/android/foo:foo")).isNull();
     assertContainsEvent(
         String.format(
@@ -400,29 +514,46 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     overwriteFile(
         "tools/allowlists/config_feature_flag/BUILD",
-        "package_group(",
-        "    name = 'config_feature_flag',",
-        "    packages = ['//flag', '//java/com/google/android/foo'])");
+        """
+        package_group(
+            name = "config_feature_flag",
+            packages = [
+                "//flag",
+                "//java/com/google/android/foo",
+            ],
+        )
+        """);
     writeFile(
         "flag/BUILD",
-        "config_feature_flag(",
-        "    name = 'flag',",
-        "    allowed_values = ['right', 'wrong'],",
-        "    default_value = 'right',",
-        "    visibility = ['//java/com/google/android/foo:__pkg__'],",
-        ")");
+        """
+        config_feature_flag(
+            name = "flag",
+            allowed_values = [
+                "right",
+                "wrong",
+            ],
+            default_value = "right",
+            visibility = ["//java/com/google/android/foo:__pkg__"],
+        )
+        """);
     writeFile(
         "java/com/google/android/foo/BUILD",
-        "load('//java/bar:foo.bzl', 'extra_deps')",
-        "android_local_test(",
-        "  name = 'foo',",
-        "  srcs = ['Test.java', ':FooFlags.java'],",
-        "  deps = extra_deps,",
-        "  feature_flags = {",
-        "    '//flag:flag': 'right',",
-        "  },",
-        "  transitive_configs = ['//flag:flag'],",
-        ")");
+        """
+        load("//java/bar:foo.bzl", "extra_deps")
+
+        android_local_test(
+            name = "foo",
+            srcs = [
+                "Test.java",
+                ":FooFlags.java",
+            ],
+            feature_flags = {
+                "//flag:flag": "right",
+            },
+            transitive_configs = ["//flag:flag"],
+            deps = extra_deps,
+        )
+        """);
     assertThat(getConfiguredTarget("//java/com/google/android/foo:foo")).isNotNull();
     assertNoEvents();
   }
@@ -431,15 +562,23 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
   public void testFeatureFlagPolicyIsNotUsedIfFlagValuesNotUsed() throws Exception {
     overwriteFile(
         "tools/allowlists/config_feature_flag/BUILD",
-        "package_group(",
-        "    name = 'config_feature_flag',",
-        "    packages = ['*super* busted package group'])");
+        """
+        package_group(
+            name = "config_feature_flag",
+            packages = ["*super* busted package group"],
+        )
+        """);
     writeFile(
         "java/com/google/android/foo/BUILD",
-        "android_local_test(",
-        "  name = 'foo',",
-        "  srcs = ['Test.java', ':FooFlags.java'],",
-        ")");
+        """
+        android_local_test(
+            name = "foo",
+            srcs = [
+                "Test.java",
+                ":FooFlags.java",
+            ],
+        )
+        """);
     assertThat(getConfiguredTarget("//java/com/google/android/foo:foo")).isNotNull();
     // the package_group is busted, so we would have failed to get this far if we depended on it
     assertNoEvents();
@@ -458,56 +597,73 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
         "--android_manifest_merger_order=alphabetical_by_configuration");
     scratch.overwriteFile(
         "java/android/BUILD",
-        "android_library(",
-        "    name = 'core',",
-        "    manifest = 'core/AndroidManifest.xml',",
-        "    exports_manifest = 1,",
-        "    resource_files = ['core/res/values/strings.xml'],",
-        ")",
-        "android_library(",
-        "    name = 'utility',",
-        "    manifest = 'utility/AndroidManifest.xml',",
-        "    exports_manifest = 1,",
-        "    resource_files = ['utility/res/values/values.xml'],",
-        "    deps = ['//java/common:common'],",
-        ")");
+        """
+        android_library(
+            name = "core",
+            exports_manifest = 1,
+            manifest = "core/AndroidManifest.xml",
+            resource_files = ["core/res/values/strings.xml"],
+        )
+
+        android_library(
+            name = "utility",
+            exports_manifest = 1,
+            manifest = "utility/AndroidManifest.xml",
+            resource_files = ["utility/res/values/values.xml"],
+            deps = ["//java/common"],
+        )
+        """);
     scratch.file(
         "java/binary/BUILD",
-        "android_binary(",
-        "    name = 'application',",
-        "    srcs = ['App.java'],",
-        "    manifest = 'app/AndroidManifest.xml',",
-        "    deps = [':library'],",
-        ")",
-        "android_library(",
-        "    name = 'library',",
-        "    manifest = 'library/AndroidManifest.xml',",
-        "    exports_manifest = 1,",
-        "    deps = ['//java/common:theme', '//java/android:utility'],",
-        ")");
+        """
+        android_binary(
+            name = "application",
+            srcs = ["App.java"],
+            manifest = "app/AndroidManifest.xml",
+            deps = [":library"],
+        )
+
+        android_library(
+            name = "library",
+            exports_manifest = 1,
+            manifest = "library/AndroidManifest.xml",
+            deps = [
+                "//java/android:utility",
+                "//java/common:theme",
+            ],
+        )
+        """);
     scratch.file(
         "java/test/BUILD",
-        "android_local_test(",
-        "    name = 'test',",
-        "    srcs = ['Test.java'],",
-        "    manifest = 'testing/AndroidManifest.xml',",
-        "    deps = ['//java/binary:application', '//java/binary:library'],",
-        ")");
+        """
+        android_local_test(
+            name = "test",
+            srcs = ["Test.java"],
+            manifest = "testing/AndroidManifest.xml",
+            deps = [
+                "//java/binary:application",
+                "//java/binary:library",
+            ],
+        )
+        """);
     scratch.file(
         "java/common/BUILD",
-        "android_library(",
-        "    name = 'common',",
-        "    manifest = 'common/AndroidManifest.xml',",
-        "    exports_manifest = 1,",
-        "    resource_files = ['common/res/values/common.xml'],",
-        "    deps = ['//java/android:core'],",
-        ")",
-        "android_library(",
-        "    name = 'theme',",
-        "    manifest = 'theme/AndroidManifest.xml',",
-        "    exports_manifest = 1,",
-        "    resource_files = ['theme/res/values/values.xml'],",
-        ")");
+        """
+        android_library(
+            name = "common",
+            exports_manifest = 1,
+            manifest = "common/AndroidManifest.xml",
+            resource_files = ["common/res/values/common.xml"],
+            deps = ["//java/android:core"],
+        )
+
+        android_library(
+            name = "theme",
+            exports_manifest = 1,
+            manifest = "theme/AndroidManifest.xml",
+            resource_files = ["theme/res/values/values.xml"],
+        )
+        """);
 
     ConfiguredTarget test = getConfiguredTarget("//java/test:test");
     assertNoEvents();
@@ -535,13 +691,18 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
   public void testDeployJar() throws Exception {
     writeFile(
         "java/com/google/android/foo/BUILD",
-        "android_local_test(name = 'test',",
-        "                srcs =['test.java'],",
-        "                )",
-        "android_library(name = 'lib',",
-        "                data = [':test_deploy.jar'],",
-        "                srcs =['lib.java'],",
-        "                )");
+        """
+        android_local_test(
+            name = "test",
+            srcs = ["test.java"],
+        )
+
+        android_library(
+            name = "lib",
+            srcs = ["lib.java"],
+            data = [":test_deploy.jar"],
+        )
+        """);
 
     Action deployJarAction =
         getGeneratingAction(

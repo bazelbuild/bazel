@@ -24,13 +24,13 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.eventbus.SubscriberExceptionContext;
 import com.google.common.eventbus.SubscriberExceptionHandler;
@@ -68,12 +68,17 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventCollector;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.integration.util.IntegrationMock;
+import com.google.devtools.build.lib.metrics.MetricsModule;
+import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.GcAfterBuildModule;
+import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.PostGCMemoryUseRecorderModule;
 import com.google.devtools.build.lib.network.ConnectivityStatusProvider;
 import com.google.devtools.build.lib.network.NoOpConnectivityModule;
 import com.google.devtools.build.lib.outputfilter.OutputFilteringModule;
@@ -91,6 +96,7 @@ import com.google.devtools.build.lib.runtime.NoSpawnCacheModule;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
+import com.google.devtools.build.lib.runtime.commands.CleanCommand;
 import com.google.devtools.build.lib.runtime.commands.CqueryCommand;
 import com.google.devtools.build.lib.runtime.commands.InfoCommand;
 import com.google.devtools.build.lib.runtime.commands.QueryCommand;
@@ -110,8 +116,8 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkymeldModule;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
+import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
 import com.google.devtools.build.lib.testutil.TestFileOutErr;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.CommandBuilder;
@@ -131,9 +137,12 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.lib.worker.WorkerModule;
 import com.google.devtools.build.skyframe.NotifyingHelper;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.ForOverride;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.Keep;
 import com.google.protobuf.ByteString;
@@ -187,7 +196,9 @@ public abstract class BuildIntegrationTestCase {
   }
 
   protected FileSystem fileSystem;
-  protected EventCollectionApparatus events = createEvents();
+  protected final EventCollectionApparatus events =
+      new EventCollectionApparatus(
+          Sets.union(EventKind.ERRORS_WARNINGS_AND_INFO, additionalEventsToCollect()));
   protected OutErr outErr = OutErr.SYSTEM_OUT_ERR;
   protected Path testRoot;
   protected ServerDirectories serverDirectories;
@@ -215,8 +226,16 @@ public abstract class BuildIntegrationTestCase {
           PrecomputedValue.injected(
               RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()));
 
-  protected EventCollectionApparatus createEvents() {
-    return new EventCollectionApparatus();
+  /**
+   * Returns additional types of events for {@link #events} to collect.
+   *
+   * <p>{@link EventKind#ERRORS_WARNINGS_AND_INFO} are always collected by default. Collected events
+   * can be asserted on using {@link #assertContainsEvent(String)} and {@link
+   * #assertDoesNotContainEvent(String)}.
+   */
+  @ForOverride
+  protected Set<EventKind> additionalEventsToCollect() {
+    return ImmutableSet.of();
   }
 
   @Before
@@ -274,23 +293,22 @@ public abstract class BuildIntegrationTestCase {
    * state.
    */
   public final void injectListenerAtStartOfNextBuild(NotifyingHelper.Listener listener) {
-    getRuntimeWrapper()
-        .registerSubscriber(
-            new Object() {
-              private boolean injected = false;
+    runtimeWrapper.registerSubscriber(
+        new Object() {
+          private boolean injected = false;
 
-              @Subscribe
-              @Keep
-              void buildStarting(@SuppressWarnings("unused") BuildStartingEvent event) {
-                if (!injected) {
-                  getSkyframeExecutor()
-                      .getEvaluator()
-                      .injectGraphTransformerForTesting(
-                          NotifyingHelper.makeNotifyingTransformer(listener));
-                  injected = true;
-                }
-              }
-            });
+          @Subscribe
+          @Keep
+          void buildStarting(@SuppressWarnings("unused") BuildStartingEvent event) {
+            if (!injected) {
+              getSkyframeExecutor()
+                  .getEvaluator()
+                  .injectGraphTransformerForTesting(
+                      NotifyingHelper.makeNotifyingTransformer(listener));
+              injected = true;
+            }
+          }
+        });
   }
 
   /**
@@ -477,10 +495,6 @@ public abstract class BuildIntegrationTestCase {
     return PathFragment.create(TestConstants.WORKSPACE_NAME);
   }
 
-  protected InternalTestExecutionMode getInternalTestExecutionMode() {
-    return InternalTestExecutionMode.NORMAL;
-  }
-
   /**
    * Called in #setUp before creating the workspace directory. Subclasses should override this if
    * they want to a non-standard filesystem setup, e.g. introduce symlinked directories.
@@ -623,6 +637,16 @@ public abstract class BuildIntegrationTestCase {
     } else {
       builder.addBlazeModule(getMockBazelRepositoryModule());
     }
+
+    // Modules that are involved in the collection of heap-related metrics of a
+    // build. They need to be last in the modules order, so when the GCs happen
+    // at the end of the build, we mitigate the risk that objects are still held
+    // onto by the other modules.
+    // TODO(b/253394502): remove this when we have a better solution.
+    builder.addBlazeModule(new PostGCMemoryUseRecorderModule());
+    builder.addBlazeModule(new GcAfterBuildModule());
+    builder.addBlazeModule(new MetricsModule());
+
     return builder;
   }
 
@@ -781,17 +805,25 @@ public abstract class BuildIntegrationTestCase {
     return getRequest().getTopLevelArtifactContext();
   }
 
-  /**
-   * Convenience wrapper around buildTool.syncPackageCache() and buildTool.build() that creates and
-   * executes a BuildRequest. Returns the BuildRequest on success (it is also subsequently
-   * accessible via {@link #getRequest}, even in case of abnormal termination). Also redirects the
-   * output from the reporter's event handler to go to this.OutErr during the build, and redirects
-   * System.out/System.err to go via the reporter (and hence to this.OutErr) during the build.
-   */
+  @CanIgnoreReturnValue
   public BuildResult buildTarget(String... targets) throws Exception {
-    events.setOutErr(this.outErr);
+    events.setOutErr(outErr);
     runtimeWrapper.executeBuild(Arrays.asList(targets));
     return runtimeWrapper.getLastResult();
+  }
+
+  /** Runs the {@code info} command. */
+  public void info() throws Exception {
+    events.setOutErr(outErr);
+    runtimeWrapper.newCommand(InfoCommand.class);
+    runtimeWrapper.executeNonBuildCommand();
+  }
+
+  /** Runs the {@code clean} command. */
+  public void clean() throws Exception {
+    events.setOutErr(outErr);
+    runtimeWrapper.newCommand(CleanCommand.class);
+    runtimeWrapper.executeNonBuildCommand();
   }
 
   /** Utility function: parse a string as a label. */
@@ -955,6 +987,16 @@ public abstract class BuildIntegrationTestCase {
     }
   }
 
+  protected void assertContents(String expectedContents, String target) throws Exception {
+    assertContents(expectedContents, Iterables.getOnlyElement(getArtifacts(target)).getPath());
+  }
+
+  protected void assertContents(String expectedContents, Path path) throws Exception {
+    String actualContents = new String(FileSystemUtils.readContentAsLatin1(path));
+    // .indent(0) doesn't change the indentation, but normalizes all OS-specific endings.
+    assertThat(actualContents.indent(0).trim()).isEqualTo(expectedContents);
+  }
+
   protected String readContentAsLatin1String(Artifact artifact) throws IOException {
     return new String(FileSystemUtils.readContentAsLatin1(artifact.getPath()));
   }
@@ -1079,14 +1121,27 @@ public abstract class BuildIntegrationTestCase {
         .collect(toImmutableList());
   }
 
-  /** Assertion-checks that the expected error was reported, */
+  @CanIgnoreReturnValue
+  public final Event assertContainsEvent(String expectedEvent) {
+    return assertContainsEvent(events.collector(), expectedEvent);
+  }
+
+  @CanIgnoreReturnValue
+  public static Event assertContainsEvent(EventCollector eventCollector, String expectedEvent) {
+    return MoreAsserts.assertContainsEvent(eventCollector, expectedEvent);
+  }
+
+  public final void assertDoesNotContainEvent(String unexpectedEvent) {
+    assertDoesNotContainEvent(events.collector(), unexpectedEvent);
+  }
+
+  public static void assertDoesNotContainEvent(
+      EventCollector eventCollector, String unexpectedEvent) {
+    MoreAsserts.assertDoesNotContainEvent(eventCollector, unexpectedEvent);
+  }
+
   public final void assertContainsError(String expectedError) {
-    for (Event error : events.errors()) {
-      if (error.getMessage().contains(expectedError)) {
-        return;
-      }
-    }
-    fail("didn't find expected error: \"" + expectedError + "\"");
+    events.assertContainsError(expectedError);
   }
 
   /** {@link BugReporter} that stores bug reports for later inspection. */
@@ -1190,5 +1245,9 @@ public abstract class BuildIntegrationTestCase {
 
   protected Formatter getFormatterForLogging() {
     return new SimpleFormatter();
+  }
+
+  protected Set<SkyKey> getAllKeysInGraph() {
+    return getSkyframeExecutor().getEvaluator().getValues().keySet();
   }
 }

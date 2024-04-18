@@ -66,8 +66,17 @@ public class JavaPluginsFlagAliasTest extends BuildViewTestCase {
   public void javaPluginFlagAlias_flagWithTwoPlugins() throws Exception {
     scratch.file(
         "java/BUILD",
-        "java_plugin(name = 'plugin1', srcs = ['A.java'])",
-        "java_plugin(name = 'plugin2', srcs = ['B.java'])");
+        """
+        java_plugin(
+            name = "plugin1",
+            srcs = ["A.java"],
+        )
+
+        java_plugin(
+            name = "plugin2",
+            srcs = ["B.java"],
+        )
+        """);
     useConfiguration("--plugin=//java:plugin1", "--plugin=//java:plugin2");
 
     ConfiguredTarget target =

@@ -89,10 +89,9 @@ public final class TestProgress implements BuildEvent {
 
   @Override
   public boolean equals(@Nullable Object object) {
-    if (!(object instanceof TestProgress)) {
+    if (!(object instanceof TestProgress other)) {
       return false;
     }
-    TestProgress other = (TestProgress) object;
     return label.equals(other.label)
         && configId.equals(other.configId)
         && run == other.run

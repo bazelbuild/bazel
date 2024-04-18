@@ -71,7 +71,6 @@ final class CounterSeriesTraceData implements TraceData {
     this.counterSeriesMap = counterSeriesMap;
     this.profileStart = profileStart;
     this.bucketDuration = bucketDuration;
-
   }
 
   // Pick acceptable counter colors manually, unfortunately we have to pick from these
@@ -79,6 +78,7 @@ final class CounterSeriesTraceData implements TraceData {
   // https://github.com/catapult-project/catapult/blob/master/tracing/tracing/base/color_scheme.html
   private static final ImmutableMap<ProfilerTask, String> COUNTER_TASK_TO_COLOR =
       ImmutableMap.ofEntries(
+          entry(ProfilerTask.LOCAL_ACTION_COUNTS, "detailed_memory_dump"),
           entry(ProfilerTask.LOCAL_CPU_USAGE, "good"),
           entry(ProfilerTask.SYSTEM_CPU_USAGE, "rail_load"),
           entry(ProfilerTask.LOCAL_MEMORY_USAGE, "olive"),
@@ -99,6 +99,7 @@ final class CounterSeriesTraceData implements TraceData {
       ImmutableMap.ofEntries(
           entry(ProfilerTask.ACTION_COUNTS, "action"),
           entry(ProfilerTask.ACTION_CACHE_COUNTS, "local action cache"),
+          entry(ProfilerTask.LOCAL_ACTION_COUNTS, "local action"),
           entry(ProfilerTask.LOCAL_CPU_USAGE, "cpu"),
           entry(ProfilerTask.SYSTEM_CPU_USAGE, "system cpu"),
           entry(ProfilerTask.LOCAL_MEMORY_USAGE, "memory"),
@@ -120,6 +121,7 @@ final class CounterSeriesTraceData implements TraceData {
     // See
     // https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview#heading=h.msg3086636uq
     // for how counter series are represented in the Chrome Trace Event format.
+    boolean recorded = false;
     for (int i = 0; i < len; i++) {
       long timeNanos = profileStart.plus(bucketDuration.multipliedBy(i)).toNanos();
       jsonWriter.setIndent("  ");
@@ -138,9 +140,11 @@ final class CounterSeriesTraceData implements TraceData {
       jsonWriter.beginObject();
       for (ProfilerTask profilerTask : counterSeriesMap.keySet()) {
         double value = counterSeriesMap.get(profilerTask)[i];
-        // Skip counts equal to zero. They will show up as a thin line in the profile.
-        if (Math.abs(value) > 0.00001) {
+        // Skip counts equal to zero. They will show up as a thin line in the profile. Once we
+        // record the profile task we need to post it until the end.
+        if (Math.abs(value) > 0.00001 || recorded) {
           jsonWriter.name(COUNTER_TASK_TO_SERIES_NAME.get(profilerTask)).value(value);
+          recorded = true;
         }
       }
       jsonWriter.endObject();

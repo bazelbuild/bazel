@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -25,6 +27,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 
 /**
  * Represents a symbolic macro, defined in a .bzl file, that may be instantiated during Package
@@ -85,7 +88,13 @@ public final class MacroClass {
       throws InterruptedException {
     try (Mutability mu =
         Mutability.create("macro", builder.getPackageIdentifier(), macro.getName())) {
-      StarlarkThread thread = new StarlarkThread(mu, semantics);
+      StarlarkThread thread =
+          StarlarkThread.create(
+              mu,
+              semantics,
+              /* contextDescription= */ "",
+              SymbolGenerator.create(
+                  MacroId.create(builder.getPackageIdentifier(), macro.getName())));
       thread.setPrintHandler(Event.makeDebugPrintHandler(builder.getLocalEventHandler()));
 
       // TODO: #19922 - Technically the embedded SymbolGenerator field should use a different key
@@ -113,5 +122,16 @@ public final class MacroClass {
         builder.setContainsErrors();
       }
     }
+  }
+
+  @AutoValue
+  abstract static class MacroId {
+    static MacroId create(PackageIdentifier id, String name) {
+      return new AutoValue_MacroClass_MacroId(id, name);
+    }
+
+    abstract PackageIdentifier packageId();
+
+    abstract String name();
   }
 }

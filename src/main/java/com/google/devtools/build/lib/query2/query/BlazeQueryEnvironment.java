@@ -191,13 +191,11 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       // a wildcard such as p:* are correctly ordered w.r.t. each other, so to
       // ensure this, we add edges between any pair of directly connected
       // targets in this set.
-      if (target instanceof OutputFile) {
-        OutputFile outputFile = (OutputFile) target;
+      if (target instanceof OutputFile outputFile) {
         if (targets.contains(outputFile.getGeneratingRule())) {
           makeEdge(outputFile, outputFile.getGeneratingRule());
         }
-      } else if (target instanceof Rule) {
-        Rule rule = (Rule) target;
+      } else if (target instanceof Rule rule) {
         for (Label label : rule.getSortedLabels(dependencyFilter)) {
           if (!packages.contains(label.getPackageIdentifier())) {
             continue; // don't cause additional package loading

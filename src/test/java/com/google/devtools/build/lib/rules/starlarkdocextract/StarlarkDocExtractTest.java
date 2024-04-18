@@ -95,26 +95,30 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
     // bzl_library with Bazel.
     scratch.file(
         "bzl_library.bzl",
-        "def _bzl_library_impl(ctx):",
-        "    deps_files = [x.files for x in ctx.attr.deps]",
-        "    all_files = depset(ctx.files.srcs, order = 'postorder', transitive = deps_files)",
-        "    return DefaultInfo(files = all_files)",
-        "",
-        "bzl_library = rule(",
-        "    implementation = _bzl_library_impl,",
-        "    attrs = {",
-        "        'srcs': attr.label_list(allow_files = ['.bzl', '.scl']),",
-        "        'deps': attr.label_list(),",
-        "    }",
-        ")");
+        """
+        def _bzl_library_impl(ctx):
+            deps_files = [x.files for x in ctx.attr.deps]
+            all_files = depset(ctx.files.srcs, order = 'postorder', transitive = deps_files)
+            return DefaultInfo(files = all_files)
+
+        bzl_library = rule(
+            implementation = _bzl_library_impl,
+            attrs = {
+                'srcs': attr.label_list(allow_files = ['.bzl', '.scl']),
+                'deps': attr.label_list(),
+            }
+        )
+        """);
   }
 
   @Test
   public void basicFunctionality() throws Exception {
     scratch.file(
-        "foo.bzl", //
-        "'''Module doc string'''",
-        "True");
+        "foo.bzl",
+        """
+        '''Module doc string'''
+        True
+        """);
     scratch.file(
         "BUILD", //
         "starlark_doc_extract(",
@@ -131,9 +135,11 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
   @Test
   public void textprotoOut() throws Exception {
     scratch.file(
-        "foo.bzl", //
-        "'''Module doc string'''",
-        "True");
+        "foo.bzl",
+        """
+        '''Module doc string'''
+        True
+        """);
     scratch.file(
         "BUILD", //
         "starlark_doc_extract(",
@@ -189,9 +195,11 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         "error.bzl", //
         "!!!");
     scratch.file(
-        "error_loader.bzl", //
-        "'''This is my module'''",
-        "load('error.bzl', 'x')");
+        "error_loader.bzl",
+        """
+        '''This is my module'''
+        load('error.bzl', 'x')
+        """);
     scratch.file(
         "BUILD", //
         "load('bzl_library.bzl', 'bzl_library')",
@@ -221,13 +229,15 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
   @Test
   public void symbolNames() throws Exception {
     scratch.file(
-        "foo.bzl", //
-        "def func1():",
-        "    pass",
-        "def func2():",
-        "    pass",
-        "def _hidden():",
-        "    pass");
+        "foo.bzl",
+        """
+        def func1():
+            pass
+        def func2():
+            pass
+        def _hidden():
+            pass
+        """);
     scratch.file(
         "BUILD", //
         "starlark_doc_extract(",
@@ -252,29 +262,33 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
   @Test
   public void originKey() throws Exception {
     scratch.file(
-        "origin.bzl", //
-        "def my_macro():",
-        "    pass",
-        "MyInfo = provider()",
-        "MyOtherInfo = provider()",
-        "my_rule = rule(",
-        "    implementation = lambda ctx: None,",
-        "    attrs = {'a': attr.label(providers = [MyInfo, MyOtherInfo])},",
-        "    provides = [MyInfo, MyOtherInfo],",
-        ")",
-        "my_aspect = aspect(implementation = lambda target, ctx: None)");
+        "origin.bzl",
+        """
+        def my_macro():
+            pass
+        MyInfo = provider()
+        MyOtherInfo = provider()
+        my_rule = rule(
+            implementation = lambda ctx: None,
+            attrs = {'a': attr.label(providers = [MyInfo, MyOtherInfo])},
+            provides = [MyInfo, MyOtherInfo],
+        )
+        my_aspect = aspect(implementation = lambda target, ctx: None)
+        """);
     scratch.file(
-        "renamer.bzl", //
-        "load(':origin.bzl', 'my_macro', 'MyInfo', 'MyOtherInfo', 'my_rule', 'my_aspect')",
-        "namespace = struct(",
-        "    renamed_macro = my_macro,",
-        "    RenamedInfo = MyInfo,",
-        "    renamed_rule = my_rule,",
-        "    renamed_aspect = my_aspect,",
-        ")",
-        "other_namespace = struct(",
-        "    RenamedOtherInfo = MyOtherInfo,",
-        ")");
+        "renamer.bzl",
+        """
+        load(':origin.bzl', 'my_macro', 'MyInfo', 'MyOtherInfo', 'my_rule', 'my_aspect')
+        namespace = struct(
+            renamed_macro = my_macro,
+            RenamedInfo = MyInfo,
+            renamed_rule = my_rule,
+            renamed_aspect = my_aspect,
+        )
+        other_namespace = struct(
+            RenamedOtherInfo = MyOtherInfo,
+        )
+        """);
     scratch.file(
         "BUILD", //
         "load('bzl_library.bzl', 'bzl_library')",
@@ -370,14 +384,16 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         ")",
         "my_aspect = aspect(implementation = lambda target, ctx: None)");
     scratch.file(
-        "renamer.bzl", //
-        "load('@origin_repo//:origin.bzl', 'my_macro', 'MyInfo', 'my_rule', 'my_aspect')",
-        "namespace = struct(",
-        "    renamed_macro = my_macro,",
-        "    RenamedInfo = MyInfo,",
-        "    renamed_rule = my_rule,",
-        "    renamed_aspect = my_aspect,",
-        ")");
+        "renamer.bzl",
+        """
+        load('@origin_repo//:origin.bzl', 'my_macro', 'MyInfo', 'my_rule', 'my_aspect')
+        namespace = struct(
+            renamed_macro = my_macro,
+            RenamedInfo = MyInfo,
+            renamed_rule = my_rule,
+            renamed_aspect = my_aspect,
+        )
+        """);
     scratch.file(
         "BUILD", //
         "load('bzl_library.bzl', 'bzl_library')",
@@ -426,20 +442,24 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
   @Test
   public void exportNestedFunctionsAndLambdas() throws Exception {
     scratch.file(
-        "origin.bzl", //
-        "def return_nested():",
-        "    def nested(x):",
-        "        '''My nested function'''",
-        "        pass",
-        "    return nested",
-        "",
-        "def return_lambda():",
-        "    return lambda y: y");
+        "origin.bzl",
+        """
+        def return_nested():
+            def nested(x):
+                '''My nested function'''
+                pass
+            return nested
+
+        def return_lambda():
+            return lambda y: y
+        """);
     scratch.file(
-        "exporter.bzl", //
-        "load(':origin.bzl', 'return_nested', 'return_lambda')",
-        "exported_nested = return_nested()",
-        "exported_lambda = return_lambda()");
+        "exporter.bzl",
+        """
+        load(':origin.bzl', 'return_nested', 'return_lambda')
+        exported_nested = return_nested()
+        exported_lambda = return_lambda()
+        """);
     scratch.file(
         "BUILD", //
         "load('bzl_library.bzl', 'bzl_library')",
@@ -477,16 +497,20 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
   @Test
   public void missingBzlLibraryDeps_fails() throws Exception {
     scratch.file(
-        "dep.bzl", //
-        "load('//:forgotten_dep_of_dep.bzl', 'g')",
-        "def f(): pass");
+        "dep.bzl",
+        """
+        load('//:forgotten_dep_of_dep.bzl', 'g')
+        def f(): pass
+        """);
     scratch.file(
         "forgotten_dep_of_dep.bzl", //
         "def g(): pass");
     scratch.file(
-        "forgotten_dep.bzl", //
-        "load('//:forgotten_dep_of_forgotten_dep.bzl', 'j')",
-        "def h(): pass");
+        "forgotten_dep.bzl",
+        """
+        load('//:forgotten_dep_of_forgotten_dep.bzl', 'j')
+        def h(): pass
+        """);
     scratch.file(
         "forgotten_dep2.bzl", //
         "def i(): pass");
@@ -494,10 +518,12 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         "forgotten_dep_of_forgotten_dep.bzl", //
         "def j(): pass");
     scratch.file(
-        "foo.bzl", //
-        "load('//:dep.bzl', 'f')",
-        "load('//:forgotten_dep.bzl', 'h')",
-        "load('//:forgotten_dep2.bzl', 'i')");
+        "foo.bzl",
+        """
+        load('//:dep.bzl', 'f')
+        load('//:forgotten_dep.bzl', 'h')
+        load('//:forgotten_dep2.bzl', 'i')
+        """);
     scratch.file(
         "BUILD", //
         "load('bzl_library.bzl', 'bzl_library')",
@@ -533,40 +559,44 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         "pkg/source_file_masked_by_rule_output_name.bzl", //
         "def g(): pass");
     scratch.file(
-        "pkg/foo.bzl", //
-        "load('//pkg:source_file_masked_by_rule_name.bzl', 'f')",
-        "load('//pkg:source_file_masked_by_rule_output_name.bzl', 'g')");
+        "pkg/foo.bzl",
+        """
+        load('//pkg:source_file_masked_by_rule_name.bzl', 'f')
+        load('//pkg:source_file_masked_by_rule_output_name.bzl', 'g')
+        """);
     scratch.file(
-        "pkg/BUILD", //
-        "load('//:bzl_library.bzl', 'bzl_library')",
-        "genrule(",
-        "    name = 'source_file_masked_by_rule_name.bzl',",
-        "    outs = ['some_output.bzl'],",
-        "    cmd = 'touch $@'",
-        ")",
-        "genrule(",
-        "    name = 'source_file_masked_by_rule_output_name_bzl_generator',",
-        "    outs = ['source_file_masked_by_rule_output_name.bzl'],",
-        "    cmd = 'touch $@'",
-        ")",
-        "genrule(",
-        "    name = 'some_rule',",
-        "    outs = ['ordinary_generated_file.bzl'],",
-        "    cmd = 'touch $@'",
-        ")",
-        "bzl_library(",
-        "    name = 'deps_bzl',",
-        "    srcs = [",
-        "        'source_file_masked_by_rule_name.bzl',",
-        "        'source_file_masked_by_rule_output_name.bzl',",
-        "        'ordinary_generated_file.bzl',",
-        "    ],",
-        ")",
-        "starlark_doc_extract(",
-        "    name = 'extract',",
-        "    src = 'foo.bzl',",
-        "    deps = ['deps_bzl']",
-        ")");
+        "pkg/BUILD",
+        """
+        load('//:bzl_library.bzl', 'bzl_library')
+        genrule(
+            name = 'source_file_masked_by_rule_name.bzl',
+            outs = ['some_output.bzl'],
+            cmd = 'touch $@'
+        )
+        genrule(
+            name = 'source_file_masked_by_rule_output_name_bzl_generator',
+            outs = ['source_file_masked_by_rule_output_name.bzl'],
+            cmd = 'touch $@'
+        )
+        genrule(
+            name = 'some_rule',
+            outs = ['ordinary_generated_file.bzl'],
+            cmd = 'touch $@'
+        )
+        bzl_library(
+            name = 'deps_bzl',
+            srcs = [
+                'source_file_masked_by_rule_name.bzl',
+                'source_file_masked_by_rule_output_name.bzl',
+                'ordinary_generated_file.bzl',
+            ],
+        )
+        starlark_doc_extract(
+            name = 'extract',
+            src = 'foo.bzl',
+            deps = ['deps_bzl']
+        )
+        """);
 
     AssertionError error =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//pkg:extract"));
@@ -589,14 +619,16 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
     scratch.file("BUILD");
     scratch.file(
         "util.bzl",
-        "def _impl(ctx):",
-        "    out = ctx.actions.declare_file(ctx.attr.out)",
-        "    ctx.actions.run_shell(command = 'touch $1', arguments = [out.path], outputs = [out])",
-        "    return DefaultInfo(files = depset([out]), runfiles = ctx.runfiles([out]))",
-        "generate_out_without_declaring_it_as_a_target = rule(",
-        "    attrs = {'out': attr.string()},",
-        "    implementation = _impl,",
-        ")");
+        """
+        def _impl(ctx):
+            out = ctx.actions.declare_file(ctx.attr.out)
+            ctx.actions.run_shell(command = 'touch $1', arguments = [out.path], outputs = [out])
+            return DefaultInfo(files = depset([out]), runfiles = ctx.runfiles([out]))
+        generate_out_without_declaring_it_as_a_target = rule(
+            attrs = {'out': attr.string()},
+            implementation = _impl,
+        )
+        """);
     scratch.file(
         "pkg/source_dep.bzl", //
         "def f(): pass");
@@ -604,33 +636,35 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         "pkg/foo.bzl", //
         "load('//pkg:source_dep.bzl', 'f')");
     scratch.file(
-        "pkg/BUILD", //
-        "load('//:bzl_library.bzl', 'bzl_library')",
-        "load('//:util.bzl', 'generate_out_without_declaring_it_as_a_target')",
-        "genrule(",
-        "    name = 'some_rule',",
-        "    outs = ['declared_derived_dep.bzl'],",
-        "    cmd = 'touch $@'",
-        ")",
-        // //pkg:generate_source_dep_without_declaring_it_as_a_target masks the source_dep.bzl
-        // source artifact with a non-target, derived artifact having the same root-relative path.
-        "generate_out_without_declaring_it_as_a_target(",
-        "    name = 'generate_source_dep_without_declaring_it_as_a_target',",
-        "    out = 'source_dep.bzl'",
-        ")",
-        "bzl_library(",
-        "    name = 'deps_bzl',",
-        "    srcs = [",
-        "        'declared_derived_dep.bzl',",
-        "        'source_dep.bzl',",
-        "        'generate_source_dep_without_declaring_it_as_a_target',",
-        "    ],",
-        ")",
-        "starlark_doc_extract(",
-        "    name = 'extract',",
-        "    src = 'foo.bzl',",
-        "    deps = ['deps_bzl']",
-        ")");
+        "pkg/BUILD",
+        """
+        load('//:bzl_library.bzl', 'bzl_library')
+        load('//:util.bzl', 'generate_out_without_declaring_it_as_a_target')
+        genrule(
+            name = 'some_rule',
+            outs = ['declared_derived_dep.bzl'],
+            cmd = 'touch $@'
+        )
+        # //pkg:generate_source_dep_without_declaring_it_as_a_target masks the source_dep.bzl
+        # source artifact with a non-target, derived artifact having the same root-relative path.
+        generate_out_without_declaring_it_as_a_target(
+            name = 'generate_source_dep_without_declaring_it_as_a_target',
+            out = 'source_dep.bzl'
+        )
+        bzl_library(
+            name = 'deps_bzl',
+            srcs = [
+                'declared_derived_dep.bzl',
+                'source_dep.bzl',
+                'generate_source_dep_without_declaring_it_as_a_target',
+            ],
+        )
+        starlark_doc_extract(
+            name = 'extract',
+            src = 'foo.bzl',
+            deps = ['deps_bzl']
+        )
+        """);
 
     getConfiguredTarget("//pkg:extract");
     assertNoEvents();
@@ -642,34 +676,36 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
     scratch.file("pkg/source_file_masked_by_rule_name.bzl");
     scratch.file("pkg/source_file_masked_by_rule_output_name.bzl");
     scratch.file(
-        "pkg/BUILD", //
-        "genrule(",
-        "    name = 'source_file_masked_by_rule_name.bzl',",
-        "    outs = ['some_output.bzl'],",
-        "    cmd = 'touch $@'",
-        ")",
-        "genrule(",
-        "    name = 'source_file_masked_by_rule_output_name_bzl_generator',",
-        "    outs = ['source_file_masked_by_rule_output_name.bzl'],",
-        "    cmd = 'touch $@'",
-        ")",
-        "genrule(",
-        "    name = 'some_rule',",
-        "    outs = ['ordinary_generated_file.bzl'],",
-        "    cmd = 'touch $@'",
-        ")",
-        "starlark_doc_extract(",
-        "    name = 'source_file_masked_by_rule_name_doc',",
-        "    src = 'source_file_masked_by_rule_name.bzl',",
-        ")",
-        "starlark_doc_extract(",
-        "    name = 'source_file_masked_by_rule_output_name_doc',",
-        "    src = 'source_file_masked_by_rule_output_name.bzl',",
-        ")",
-        "starlark_doc_extract(",
-        "    name = 'ordinary_generated_file_doc',",
-        "    src = 'ordinary_generated_file.bzl',",
-        ")");
+        "pkg/BUILD",
+        """
+        genrule(
+            name = 'source_file_masked_by_rule_name.bzl',
+            outs = ['some_output.bzl'],
+            cmd = 'touch $@'
+        )
+        genrule(
+            name = 'source_file_masked_by_rule_output_name_bzl_generator',
+            outs = ['source_file_masked_by_rule_output_name.bzl'],
+            cmd = 'touch $@'
+        )
+        genrule(
+            name = 'some_rule',
+            outs = ['ordinary_generated_file.bzl'],
+            cmd = 'touch $@'
+        )
+        starlark_doc_extract(
+            name = 'source_file_masked_by_rule_name_doc',
+            src = 'source_file_masked_by_rule_name.bzl',
+        )
+        starlark_doc_extract(
+            name = 'source_file_masked_by_rule_output_name_doc',
+            src = 'source_file_masked_by_rule_output_name.bzl',
+        )
+        starlark_doc_extract(
+            name = 'ordinary_generated_file_doc',
+            src = 'ordinary_generated_file.bzl',
+        )
+        """);
 
     AssertionError maskedByRuleError =
         assertThrows(
@@ -780,26 +816,30 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
   public void repositoryRule() throws Exception {
     scratch.file(
         "dep.bzl",
-        "def _impl(repository_ctx):",
-        "    pass",
-        "",
-        "my_repo_rule = repository_rule(",
-        "    implementation = _impl,",
-        "    doc = '''My repository rule",
-        "",
-        "    With details",
-        "    ''',",
-        "    attrs = {",
-        "        'a': attr.string(doc = 'My doc', default = 'foo'),",
-        "        'b': attr.string(mandatory = True),",
-        "        '_c': attr.string(doc = 'Hidden attribute'),",
-        "    },",
-        "    environ = ['FOO_PATH', 'BAR_COMPILER'],",
-        ")");
+        """
+        def _impl(repository_ctx):
+            pass
+
+        my_repo_rule = repository_rule(
+            implementation = _impl,
+            doc = '''My repository rule
+
+            With details
+            ''',
+            attrs = {
+                'a': attr.string(doc = 'My doc', default = 'foo'),
+                'b': attr.string(mandatory = True),
+                '_c': attr.string(doc = 'Hidden attribute'),
+            },
+            environ = ['FOO_PATH', 'BAR_COMPILER'],
+        )
+        """);
     scratch.file(
-        "foo.bzl", //
-        "load('//:dep.bzl', 'my_repo_rule')",
-        "foo = struct(repo_rule = my_repo_rule)");
+        "foo.bzl",
+        """
+        load('//:dep.bzl', 'my_repo_rule')
+        foo = struct(repo_rule = my_repo_rule)
+        """);
     scratch.file(
         "BUILD", //
         "load('bzl_library.bzl', 'bzl_library')",
@@ -841,40 +881,44 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
   public void moduleExtension() throws Exception {
     scratch.file(
         "dep.bzl",
-        "_install = tag_class(",
-        "    doc = '''Install",
-        "    ",
-        "    With details''',",
-        "    attrs = {",
-        "        'artifacts': attr.string_list(doc = 'Artifacts'),",
-        "        '_hidden': attr.bool(),",
-        "    },",
-        ")",
-        "",
-        "_artifact = tag_class(",
-        "    attrs = {",
-        "        'group': attr.string(),",
-        "        'artifact': attr.string(default = 'foo'),",
-        "    },",
-        ")",
-        "",
-        "def _impl(ctx):",
-        "    pass",
-        "",
-        "my_ext = module_extension(",
-        "    doc = '''My extension",
-        "",
-        "    With details''',",
-        "    tag_classes = {",
-        "        'install': _install,",
-        "        'artifact': _artifact,",
-        "    },",
-        "    implementation = _impl,",
-        ")");
+        """
+        _install = tag_class(
+            doc = '''Install
+
+            With details''',
+            attrs = {
+                'artifacts': attr.string_list(doc = 'Artifacts'),
+                '_hidden': attr.bool(),
+            },
+        )
+
+        _artifact = tag_class(
+            attrs = {
+                'group': attr.string(),
+                'artifact': attr.string(default = 'foo'),
+            },
+        )
+
+        def _impl(ctx):
+            pass
+
+        my_ext = module_extension(
+            doc = '''My extension
+
+            With details''',
+            tag_classes = {
+                'install': _install,
+                'artifact': _artifact,
+            },
+            implementation = _impl,
+        )
+        """);
     scratch.file(
-        "foo.bzl", //
-        "load('//:dep.bzl', 'my_ext')",
-        "foo = struct(ext = my_ext)");
+        "foo.bzl",
+        """
+        load('//:dep.bzl', 'my_ext')
+        foo = struct(ext = my_ext)
+        """);
     scratch.file(
         "BUILD", //
         "load('bzl_library.bzl', 'bzl_library')",
@@ -929,13 +973,15 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         "MODULE.bazel", //
         "module(name = 'my_module', repo_name = 'legacy_internal_repo_name')");
     scratch.file(
-        "foo.bzl", //
-        "def my_macro(arg = Label('//target:target')): pass",
-        "",
-        "my_rule = rule(",
-        "    implementation = lambda ctx: None,",
-        "    attrs = {'a': attr.label(default = '//target:target')},",
-        ")");
+        "foo.bzl",
+        """
+        def my_macro(arg = Label('//target:target')): pass
+
+        my_rule = rule(
+            implementation = lambda ctx: None,
+            attrs = {'a': attr.label(default = '//target:target')},
+        )
+        """);
     scratch.file(
         "BUILD", //
         "starlark_doc_extract(",
@@ -974,13 +1020,15 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
     setBuildLanguageOptions("--noenable_bzlmod");
     rewriteWorkspace("workspace(name = 'my_repo')");
     scratch.file(
-        "foo.bzl", //
-        "def my_macro(arg = Label('//target:target')): pass",
-        "",
-        "my_rule = rule(",
-        "    implementation = lambda ctx: None,",
-        "    attrs = {'a': attr.label(default = '//target:target')},",
-        ")");
+        "foo.bzl",
+        """
+        def my_macro(arg = Label('//target:target')): pass
+
+        my_rule = rule(
+            implementation = lambda ctx: None,
+            attrs = {'a': attr.label(default = '//target:target')},
+        )
+        """);
     scratch.file(
         "BUILD", //
         "starlark_doc_extract(",
@@ -1051,19 +1099,23 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
     rewriteWorkspace("local_repository(name = 'dep', path = 'dep_path')");
     scratch.file("dep_path/WORKSPACE", "workspace(name = 'dep')");
     scratch.file(
-        "dep_path/foo.bzl", //
-        "def my_macro(arg = Label('//target:target')): pass",
-        "",
-        "my_rule = rule(",
-        "    implementation = lambda ctx: None,",
-        "    attrs = {'a': attr.label(default = '//target:target')},",
-        ")");
+        "dep_path/foo.bzl",
+        """
+        def my_macro(arg = Label('//target:target')): pass
+
+        my_rule = rule(
+            implementation = lambda ctx: None,
+            attrs = {'a': attr.label(default = '//target:target')},
+        )
+        """);
     scratch.file(
-        "dep_path/BUILD", //
-        "starlark_doc_extract(",
-        "    name = 'extract',",
-        "    src = 'foo.bzl',",
-        ")");
+        "dep_path/BUILD",
+        """
+        starlark_doc_extract(
+            name = 'extract',
+            src = 'foo.bzl',
+        )
+        """);
 
     ModuleInfo moduleInfo = protoFromConfiguredTarget("@dep//:extract");
     assertThat(moduleInfo.getFile()).isEqualTo("@dep//:foo.bzl");

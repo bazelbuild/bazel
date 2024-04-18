@@ -85,8 +85,14 @@ public final class ConfiguredTargetTransitivePackagesTest extends AnalysisTestCa
     scratch.file("extra/BUILD", "base(name = 'extra')");
     scratch.file(
         "a/c/BUILD",
-        "rule_with_extra_deps_aspect(name = 'foo', foo = [ ':bar' ])",
-        "base(name = 'bar')");
+        """
+        rule_with_extra_deps_aspect(
+            name = "foo",
+            foo = [":bar"],
+        )
+
+        base(name = "bar")
+        """);
 
     ConfiguredTarget target = Iterables.getOnlyElement(update("//a/c:foo").getTargetsToBuild());
     BuildConfigurationValue config = getConfiguration(target);

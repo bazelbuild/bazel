@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
@@ -78,10 +79,12 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void simpleAspect() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   print('This aspect does nothing')",
-        "   return struct()",
-        "MyAspect = aspect(implementation=_impl)");
+        """
+        def _impl(target, ctx):
+           print('This aspect does nothing')
+           return []
+        MyAspect = aspect(implementation=_impl)
+        """);
     scratch.file("test/BUILD", "java_library(name = 'xxx',)");
 
     AnalysisResult analysisResult =
@@ -95,10 +98,12 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectWithSingleDeclaredProvider() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "foo = provider()",
-        "def _impl(target, ctx):",
-        "   return foo()",
-        "MyAspect = aspect(implementation=_impl)");
+        """
+        foo = provider()
+        def _impl(target, ctx):
+           return foo()
+        MyAspect = aspect(implementation=_impl)
+        """);
     scratch.file("test/BUILD", "java_library(name = 'xxx',)");
 
     AnalysisResult analysisResult =
@@ -119,11 +124,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectWithDeclaredProviders() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "foo = provider()",
-        "bar = provider()",
-        "def _impl(target, ctx):",
-        "   return [foo(), bar()]",
-        "MyAspect = aspect(implementation=_impl)");
+        """
+        foo = provider()
+        bar = provider()
+        def _impl(target, ctx):
+           return [foo(), bar()]
+        MyAspect = aspect(implementation=_impl)
+        """);
     scratch.file("test/BUILD", "java_library(name = 'xxx',)");
 
     AnalysisResult analysisResult =
@@ -147,11 +154,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectWithDeclaredProvidersInAStruct() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "foo = provider()",
-        "bar = provider()",
-        "def _impl(target, ctx):",
-        "   return struct(foobar='foobar', providers=[foo(), bar()])",
-        "MyAspect = aspect(implementation=_impl)");
+        """
+        foo = provider()
+        bar = provider()
+        def _impl(target, ctx):
+           return [foo(), bar()]
+        MyAspect = aspect(implementation=_impl)
+        """);
     scratch.file("test/BUILD", "java_library(name = 'xxx',)");
 
     AnalysisResult analysisResult =
@@ -183,10 +192,12 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectCommandLineLabel() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   print('This aspect does nothing')",
-        "   return struct()",
-        "MyAspect = aspect(implementation=_impl)");
+        """
+        def _impl(target, ctx):
+           print('This aspect does nothing')
+           return []
+        MyAspect = aspect(implementation=_impl)
+        """);
     scratch.file("test/BUILD", "java_library(name = 'xxx',)");
 
     AnalysisResult analysisResult =
@@ -205,10 +216,12 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file("local/repo/WORKSPACE");
     scratch.file(
         "local/repo/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   print('This aspect does nothing')",
-        "   return struct()",
-        "MyAspect = aspect(implementation=_impl)");
+        """
+        def _impl(target, ctx):
+           print('This aspect does nothing')
+           return []
+        MyAspect = aspect(implementation=_impl)
+        """);
     scratch.file("local/repo/BUILD");
 
     scratch.file("test/BUILD", "java_library(name = 'xxx',)");
@@ -230,10 +243,12 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectAllowsFragmentsToBeSpecified() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   print('This aspect does nothing')",
-        "   return struct()",
-        "MyAspect = aspect(implementation=_impl, fragments=['java'])");
+        """
+        def _impl(target, ctx):
+           print('This aspect does nothing')
+           return []
+        MyAspect = aspect(implementation=_impl, fragments=['java'])
+        """);
     scratch.file("test/BUILD", "java_library(name = 'xxx',)");
 
     AnalysisResult analysisResult =
@@ -258,42 +273,43 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectPropagating() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   s = depset([target.label], transitive = [i.target_labels for i in ctx.rule.attr.deps])",
-        "   c = depset([ctx.rule.kind], transitive = [i.rule_kinds for i in ctx.rule.attr.deps])",
-        "   return struct(target_labels = s, rule_kinds = c)",
-        "",
-        "MyAspect = aspect(",
-        "   implementation=_impl,",
-        "   attr_aspects=['deps'],",
-        ")");
+        """
+Info = provider()
+def _impl(target, ctx):
+   s = depset([target.label], transitive = [i[Info].target_labels for i in ctx.rule.attr.deps])
+   c = depset([ctx.rule.kind], transitive = [i[Info].rule_kinds for i in ctx.rule.attr.deps])
+   return Info(target_labels = s, rule_kinds = c)
+
+MyAspect = aspect(
+   implementation=_impl,
+   attr_aspects=['deps'],
+)
+""");
     scratch.file(
         "test/BUILD",
-        "java_library(",
-        "     name = 'yyy',",
-        ")",
-        "java_library(",
-        "     name = 'xxx',",
-        "     srcs = ['A.java'],",
-        "     deps = [':yyy'],",
-        ")");
+        """
+        java_library(
+             name = 'yyy',
+        )
+        java_library(
+             name = 'xxx',
+             srcs = ['A.java'],
+             deps = [':yyy'],
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
     assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:xxx");
     ConfiguredAspect configuredAspect = analysisResult.getAspectsMap().values().iterator().next();
     assertThat(configuredAspect).isNotNull();
-    Object names = configuredAspect.get("target_labels");
-    assertThat(names).isInstanceOf(Depset.class);
-    assertThat(
-            Iterables.transform(
-                ((Depset) names).toList(),
-                o -> {
-                  assertThat(o).isInstanceOf(Label.class);
-                  return o.toString();
-                }))
+    StarlarkInfo info = getStarlarkProvider(configuredAspect, "//test:aspect.bzl", "Info");
+    NestedSet<Label> names =
+        Depset.cast(info.getValue("target_labels"), Label.class, "target_labels");
+    assertThat(names.toList().stream().map(Label::toString))
         .containsExactly("//test:xxx", "//test:yyy");
-    Object ruleKinds = configuredAspect.get("rule_kinds");
+    Object ruleKinds =
+        getStarlarkProvider(configuredAspect, "//test:aspect.bzl", "Info").getValue("rule_kinds");
     assertThat(ruleKinds).isInstanceOf(Depset.class);
     assertThat(((Depset) ruleKinds).toList()).containsExactly("java_library");
   }
@@ -305,44 +321,51 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "--incompatible_enable_cc_toolchain_resolution");
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   s = []",
-        "   c = []",
-        "   a = ctx.rule.attr",
-        "   if getattr(a, '_defaultattr', None):",
-        "       s += [a._defaultattr.target_labels]",
-        "       c += [a._defaultattr.rule_kinds]",
-        "   if getattr(a, '_cc_toolchain', None):",
-        "       s += [a._cc_toolchain.target_labels]",
-        "       c += [a._cc_toolchain.rule_kinds]",
-        "   return struct(",
-        "       target_labels = depset([target.label], transitive = s),",
-        "       rule_kinds = depset([ctx.rule.kind], transitive = c))",
-        "",
-        "def _rule_impl(ctx):",
-        "   pass",
-        "",
-        "my_rule = rule(implementation = _rule_impl,",
-        "   attrs = { '_defaultattr' : attr.label(default = Label('//test:xxx')) },",
-        ")",
-        "MyAspect = aspect(",
-        "   implementation=_impl,",
-        "   attr_aspects=['_defaultattr', '_cc_toolchain'],",
-        ")");
+        """
+        Info = provider()
+        def _impl(target, ctx):
+           s = []
+           c = []
+           a = ctx.rule.attr
+           if getattr(a, '_defaultattr', None):
+               s += [a._defaultattr[Info].target_labels]
+               c += [a._defaultattr[Info].rule_kinds]
+           if getattr(a, '_cc_toolchain', None):
+               s += [a._cc_toolchain[Info].target_labels]
+               c += [a._cc_toolchain[Info].rule_kinds]
+           return Info(
+               target_labels = depset([target.label], transitive = s),
+               rule_kinds = depset([ctx.rule.kind], transitive = c))
+
+        def _rule_impl(ctx):
+           pass
+
+        my_rule = rule(implementation = _rule_impl,
+           attrs = { '_defaultattr' : attr.label(default = Label('//test:xxx')) },
+        )
+        MyAspect = aspect(
+           implementation=_impl,
+           attr_aspects=['_defaultattr', '_cc_toolchain'],
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:aspect.bzl', 'my_rule')",
-        "cc_library(",
-        "     name = 'xxx',",
-        ")",
-        "my_rule(",
-        "     name = 'yyy',",
-        ")");
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        cc_library(
+             name = 'xxx',
+        )
+        my_rule(
+             name = 'yyy',
+        )
+        """);
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:yyy");
     ConfiguredAspect configuredAspect = analysisResult.getAspectsMap().values().iterator().next();
     assertThat(configuredAspect).isNotNull();
-    Object nameSet = configuredAspect.get("target_labels");
+    StarlarkProvider.Key infoKey =
+        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "Info");
+    Object nameSet = ((StarlarkInfo) configuredAspect.get(infoKey)).getValue("target_labels");
     ImmutableList<String> names =
         ImmutableList.copyOf(
             Iterables.transform(
@@ -359,34 +382,36 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectsDirOnMergedTargets() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return struct(aspect_provider = 'data')",
-        "",
-        "p = provider()",
-        "MyAspect = aspect(implementation=_impl)",
-        "def _rule_impl(ctx):",
-        "   if ctx.attr.dep:",
-        "      return [p(dir = dir(ctx.attr.dep))]",
-        "   return [p()]",
-        "",
-        "my_rule = rule(implementation = _rule_impl,",
-        "   attrs = { 'dep' : attr.label(aspects = [MyAspect]) },",
-        ")");
-    StarlarkProvider.Key providerKey =
-        new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//test:aspect.bzl"), "p");
+        """
+        Info = provider()
+        def _impl(target, ctx):
+           return Info(aspect_provider = 'data')
+
+        p = provider()
+        MyAspect = aspect(implementation=_impl)
+        def _rule_impl(ctx):
+           if ctx.attr.dep:
+              return [p(dir = dir(ctx.attr.dep))]
+           return [p()]
+
+        my_rule = rule(implementation = _rule_impl,
+           attrs = { 'dep' : attr.label(aspects = [MyAspect]) },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:aspect.bzl', 'my_rule')",
-        "my_rule(name = 'xxx',)",
-        "my_rule(name = 'yyy', dep = ':xxx')");
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name = 'xxx',)
+        my_rule(name = 'yyy', dep = ':xxx')
+        """);
     AnalysisResult analysisResult = update("//test:yyy");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
 
-    StructImpl names = (StructImpl) target.get(providerKey);
+    StructImpl names = getStarlarkProvider(target, "p");
     assertThat((Iterable<?>) names.getValue("dir"))
         .containsExactly(
             "actions",
-            "aspect_provider",
             "data_runfiles",
             "default_runfiles",
             "files",
@@ -407,7 +432,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "   implementation=_impl,",
         ")");
     scratch.file(
-        "test/BUILD", "java_library(", "     name = 'xxx',", "     srcs = ['A.java'],", ")");
+        "test/BUILD",
+        """
+        java_library(
+             name = 'xxx',
+             srcs = ['A.java'],
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
@@ -445,7 +476,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "   implementation=_impl,",
         ")");
     scratch.file(
-        "test/BUILD", "java_library(", "     name = 'xxx',", "     srcs = ['A.java'],", ")");
+        "test/BUILD",
+        """
+        java_library(
+             name = 'xxx',
+             srcs = ['A.java'],
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
@@ -478,77 +515,84 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectsFromStarlarkRules() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "   s = depset([target.label], transitive = [i.target_labels for i in ctx.rule.attr.deps])",
-        "   return struct(target_labels = s)",
-        "",
-        "def _rule_impl(ctx):",
-        "   s = depset(transitive = [i.target_labels for i in ctx.attr.attr])",
-        "   return struct(rule_deps = s)",
-        "",
-        "MyAspect = aspect(",
-        "   implementation=_aspect_impl,",
-        "   attr_aspects=['deps'],",
-        ")",
-        "my_rule = rule(",
-        "   implementation=_rule_impl,",
-        "   attrs = { 'attr' : ",
-        "             attr.label_list(mandatory=True, allow_files=True, aspects = [MyAspect]) },",
-        ")");
+        """
+AspectInfo = provider()
+def _aspect_impl(target, ctx):
+   s = depset([target.label], transitive =
+       [i[AspectInfo].target_labels for i in ctx.rule.attr.deps])
+   return AspectInfo(target_labels = s)
+
+TargetInfo = provider()
+def _rule_impl(ctx):
+   s = depset(transitive = [i[AspectInfo].target_labels for i in ctx.attr.attr])
+   return TargetInfo(rule_deps = s)
+
+MyAspect = aspect(
+   implementation=_aspect_impl,
+   attr_aspects=['deps'],
+)
+my_rule = rule(
+   implementation=_rule_impl,
+   attrs = { 'attr' :
+             attr.label_list(mandatory=True, allow_files=True, aspects = [MyAspect]) },
+)
+""");
 
     scratch.file(
         "test/BUILD",
-        "load('//test:aspect.bzl', 'my_rule')",
-        "java_library(",
-        "     name = 'yyy',",
-        ")",
-        "my_rule(",
-        "     name = 'xxx',",
-        "     attr = [':yyy'],",
-        ")");
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        java_library(
+             name = 'yyy',
+        )
+        my_rule(
+             name = 'xxx',
+             attr = [':yyy'],
+        )
+        """);
 
     AnalysisResult analysisResult = update("//test:xxx");
     assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:xxx");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
-    Object names = target.get("rule_deps");
-    assertThat(names).isInstanceOf(Depset.class);
-    assertThat(
-            Iterables.transform(
-                ((Depset) names).toList(),
-                o -> {
-                  assertThat(o).isInstanceOf(Label.class);
-                  return o.toString();
-                }))
-        .containsExactly("//test:yyy");
+    NestedSet<Label> names =
+        Depset.cast(
+            getStarlarkProvider(target, "TargetInfo").getValue("rule_deps", Depset.class),
+            Label.class,
+            "rule_deps");
+    assertThat(names.toList().stream().map(Label::toString)).containsExactly("//test:yyy");
   }
 
   @Test
   public void aspectsNonExported() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "   return []",
-        "",
-        "def _rule_impl(ctx):",
-        "   pass",
-        "",
-        "def mk_aspect():",
-        "   return aspect(implementation=_aspect_impl)",
-        "my_rule = rule(",
-        "   implementation=_rule_impl,",
-        "   attrs = { 'attr' : attr.label_list(aspects = [mk_aspect()]) },", // line 11
-        ")");
+        """
+        def _aspect_impl(target, ctx):
+           return []
+
+        def _rule_impl(ctx):
+           pass
+
+        def mk_aspect():
+           return aspect(implementation=_aspect_impl)
+        my_rule = rule(
+           implementation=_rule_impl,
+           attrs = { 'attr' : attr.label_list(aspects = [mk_aspect()]) },  # line 11
+        )
+        """);
 
     scratch.file(
         "test/BUILD",
-        "load('//test:aspect.bzl', 'my_rule')",
-        "java_library(",
-        "     name = 'yyy',",
-        ")",
-        "my_rule(",
-        "     name = 'xxx',",
-        "     attr = [':yyy'],",
-        ")");
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        java_library(
+             name = 'yyy',
+        )
+        my_rule(
+             name = 'xxx',
+             attr = [':yyy'],
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -571,15 +615,19 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectReturnsNonExportedProvider() throws Exception {
     scratch.file(
         "test/inc.bzl",
-        "a = aspect(implementation = lambda target, ctx: [provider()()])",
-        "r = rule(",
-        "  implementation = lambda ctx: [],",
-        "  attrs = {'a': attr.label_list(aspects = [a])})");
+        """
+        a = aspect(implementation = lambda target, ctx: [provider()()])
+        r = rule(
+          implementation = lambda ctx: [],
+          attrs = {'a': attr.label_list(aspects = [a])})
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:inc.bzl', 'r')",
-        "java_library(name = 'j')",
-        "r(name = 'test', a = [':j'])");
+        """
+        load('//test:inc.bzl', 'r')
+        java_library(name = 'j')
+        r(name = 'test', a = [':j'])
+        """);
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -597,25 +645,29 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void providerNonExported() throws Exception {
     scratch.file(
         "test/rule.bzl",
-        "def mk_provider():",
-        "   return provider()",
-        "def _rule_impl(ctx):",
-        "   pass",
-        "my_rule = rule(",
-        "   implementation=_rule_impl,",
-        "   attrs = { 'attr' : attr.label_list(providers = [mk_provider()]) },", // line 7
-        ")");
+        """
+        def mk_provider():
+           return provider()
+        def _rule_impl(ctx):
+           pass
+        my_rule = rule(
+           implementation=_rule_impl,
+           attrs = { 'attr' : attr.label_list(providers = [mk_provider()]) },  # line 7
+        )
+        """);
 
     scratch.file(
         "test/BUILD",
-        "load('//test:rule.bzl', 'my_rule')",
-        "java_library(",
-        "     name = 'yyy',",
-        ")",
-        "my_rule(",
-        "     name = 'xxx',",
-        "     attr = [':yyy'],",
-        ")");
+        """
+        load('//test:rule.bzl', 'my_rule')
+        java_library(
+             name = 'yyy',
+        )
+        my_rule(
+             name = 'xxx',
+             attr = [':yyy'],
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -637,35 +689,41 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectOnLabelAttr() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "   return struct(aspect_data='foo')",
-        "",
-        "def _rule_impl(ctx):",
-        "   return struct(data=ctx.attr.attr.aspect_data)",
-        "",
-        "MyAspect = aspect(",
-        "   implementation=_aspect_impl,",
-        ")",
-        "my_rule = rule(",
-        "   implementation=_rule_impl,",
-        "   attrs = { 'attr' : ",
-        "             attr.label(aspects = [MyAspect]) },",
-        ")");
+        """
+        AspectInfo = provider()
+        def _aspect_impl(target, ctx):
+           return AspectInfo(aspect_data='foo')
+
+        RuleInfo = provider()
+        def _rule_impl(ctx):
+           return RuleInfo(data=ctx.attr.attr[AspectInfo].aspect_data)
+
+        MyAspect = aspect(
+           implementation=_aspect_impl,
+        )
+        my_rule = rule(
+           implementation=_rule_impl,
+           attrs = { 'attr' :
+                     attr.label(aspects = [MyAspect]) },
+        )
+        """);
 
     scratch.file(
         "test/BUILD",
-        "load('//test:aspect.bzl', 'my_rule')",
-        "java_library(",
-        "     name = 'yyy',",
-        ")",
-        "my_rule(",
-        "     name = 'xxx',",
-        "     attr = ':yyy',",
-        ")");
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        java_library(
+             name = 'yyy',
+        )
+        my_rule(
+             name = 'xxx',
+             attr = ':yyy',
+        )
+        """);
 
     AnalysisResult analysisResult = update("//test:xxx");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
-    Object value = target.get("data");
+    String value = getStarlarkProvider(target, "RuleInfo").getValue("data", String.class);
     assertThat(value).isEqualTo("foo");
   }
 
@@ -673,37 +731,43 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void labelKeyedStringDictAllowsAspects() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "   return struct(aspect_data=target.label.name)",
-        "",
-        "def _rule_impl(ctx):",
-        "   return struct(",
-        "       data=','.join(['{}:{}'.format(dep.aspect_data, val)",
-        "                      for dep, val in ctx.attr.attr.items()]))",
-        "",
-        "MyAspect = aspect(",
-        "   implementation=_aspect_impl,",
-        ")",
-        "my_rule = rule(",
-        "   implementation=_rule_impl,",
-        "   attrs = { 'attr' : ",
-        "             attr.label_keyed_string_dict(aspects = [MyAspect]) },",
-        ")");
+        """
+        AspectInfo = provider()
+        def _aspect_impl(target, ctx):
+           return AspectInfo(aspect_data=target.label.name)
+
+        RuleInfo = provider()
+        def _rule_impl(ctx):
+           return RuleInfo(
+               data=','.join(['{}:{}'.format(dep[AspectInfo].aspect_data, val)
+                              for dep, val in ctx.attr.attr.items()]))
+
+        MyAspect = aspect(
+           implementation=_aspect_impl,
+        )
+        my_rule = rule(
+           implementation=_rule_impl,
+           attrs = { 'attr' :
+                     attr.label_keyed_string_dict(aspects = [MyAspect]) },
+        )
+        """);
 
     scratch.file(
         "test/BUILD",
-        "load('//test:aspect.bzl', 'my_rule')",
-        "java_library(",
-        "     name = 'yyy',",
-        ")",
-        "my_rule(",
-        "     name = 'xxx',",
-        "     attr = {':yyy': 'zzz'},",
-        ")");
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        java_library(
+             name = 'yyy',
+        )
+        my_rule(
+             name = 'xxx',
+             attr = {':yyy': 'zzz'},
+        )
+        """);
 
     AnalysisResult analysisResult = update("//test:xxx");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
-    Object value = target.get("data");
+    String value = getStarlarkProvider(target, "RuleInfo").getValue("data", String.class);
     assertThat(value).isEqualTo("yyy:zzz");
   }
 
@@ -713,22 +777,26 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         scratch.resolve("WORKSPACE"), "bind(name = 'yyy', actual = '//test:zzz.jar')");
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return struct()",
-        "",
-        "MyAspect = aspect(",
-        "   implementation=_impl,",
-        "   attr_aspects=['deps'],",
-        ")");
+        """
+        def _impl(target, ctx):
+           return []
+
+        MyAspect = aspect(
+           implementation=_impl,
+           attr_aspects=['deps'],
+        )
+        """);
     scratch.file("test/zzz.jar");
     scratch.file(
         "test/BUILD",
-        "exports_files(['zzz.jar'])",
-        "java_library(",
-        "     name = 'xxx',",
-        "     srcs = ['A.java'],",
-        "     deps = ['//external:yyy'],",
-        ")");
+        """
+        exports_files(['zzz.jar'])
+        java_library(
+             name = 'xxx',
+             srcs = ['A.java'],
+             deps = ['//external:yyy'],
+        )
+        """);
 
     AnalysisResult result = update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
     assertThat(result.hasError()).isFalse();
@@ -740,23 +808,27 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         scratch.resolve("WORKSPACE"), "bind(name = 'yyy', actual = '//test:zzz.jar')");
     scratch.file(
         "test/aspect.bzl",
-        "p = provider()",
-        "def _impl(target, ctx):",
-        "   return [p()]",
-        "",
-        "MyAspect = aspect(",
-        "   implementation=_impl,",
-        "   attr_aspects=['deps'],",
-        ")");
+        """
+        p = provider()
+        def _impl(target, ctx):
+           return [p()]
+
+        MyAspect = aspect(
+           implementation=_impl,
+           attr_aspects=['deps'],
+        )
+        """);
     scratch.file("test/zzz.jar");
     scratch.file(
         "test/BUILD",
-        "exports_files(['zzz.jar'])",
-        "java_library(",
-        "     name = 'xxx',",
-        "     srcs = ['A.java'],",
-        "     deps = ['//external:yyy'],",
-        ")");
+        """
+        exports_files(['zzz.jar'])
+        java_library(
+             name = 'xxx',
+             srcs = ['A.java'],
+             deps = ['//external:yyy'],
+        )
+        """);
 
     AnalysisResult result = update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:zzz.jar");
     assertThat(result.hasError()).isFalse();
@@ -771,10 +843,12 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectFailingExecution() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return 1 // 0",
-        "",
-        "MyAspect = aspect(implementation=_impl)");
+        """
+        def _impl(target, ctx):
+           return 1 // 0
+
+        MyAspect = aspect(implementation=_impl)
+        """);
     scratch.file("test/BUILD", "java_library(name = 'xxx',)");
 
     reporter.removeHandler(failFastHandler);
@@ -799,10 +873,12 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectFailingReturnsNotAStruct() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return 0",
-        "",
-        "MyAspect = aspect(implementation=_impl)");
+        """
+        def _impl(target, ctx):
+           return 0
+
+        MyAspect = aspect(implementation=_impl)
+        """);
     scratch.file("test/BUILD", "java_library(name = 'xxx',)");
 
     reporter.removeHandler(failFastHandler);
@@ -822,11 +898,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectFailingOrphanArtifacts() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "  ctx.actions.declare_file('missing_in_action.txt')",
-        "  return struct()",
-        "",
-        "MyAspect = aspect(implementation=_impl)");
+        """
+        def _impl(target, ctx):
+          ctx.actions.declare_file('missing_in_action.txt')
+          return []
+
+        MyAspect = aspect(implementation=_impl)
+        """);
     scratch.file("test/BUILD", "java_library(name = 'xxx',)");
 
     reporter.removeHandler(failFastHandler);
@@ -848,25 +926,30 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectSkippingOrphanArtifactsWithLocation() throws Exception {
     scratch.file(
         "simple/print.bzl",
-        "def _print_expanded_location_impl(target, ctx):",
-        "    return struct(result=ctx.expand_location(ctx.rule.attr.cmd, []))",
-        "",
-        "print_expanded_location = aspect(",
-        "    implementation = _print_expanded_location_impl,",
-        ")");
+        """
+        Info = provider()
+        def _print_expanded_location_impl(target, ctx):
+            return Info(result=ctx.expand_location(ctx.rule.attr.cmd, []))
+
+        print_expanded_location = aspect(
+            implementation = _print_expanded_location_impl,
+        )
+        """);
     scratch.file(
         "simple/BUILD",
-        "filegroup(",
-        "    name = \"files\",",
-        "    srcs = [\"afile\"],",
-        ")",
-        "",
-        "genrule(",
-        "    name = \"concat_all_files\",",
-        "    srcs = [\":files\"],",
-        "    outs = [\"concatenated.txt\"],",
-        "    cmd = \"$(location :files)\"",
-        ")");
+        """
+        filegroup(
+            name = "files",
+            srcs = ["afile"],
+        )
+
+        genrule(
+            name = "concat_all_files",
+            srcs = [":files"],
+            outs = ["concatenated.txt"],
+            cmd = "$(location :files)"
+        )
+        """);
 
     reporter.removeHandler(failFastHandler);
     AnalysisResult analysisResult =
@@ -875,7 +958,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
             "//simple:concat_all_files");
     assertThat(analysisResult.hasError()).isFalse();
     ConfiguredAspect configuredAspect = analysisResult.getAspectsMap().values().iterator().next();
-    String result = (String) configuredAspect.get("result");
+    String result =
+        getStarlarkProvider(configuredAspect, "//simple:print.bzl", "Info")
+            .getValue("result", String.class);
 
     assertThat(result).isEqualTo("simple/afile");
   }
@@ -884,12 +969,14 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void expandLocationFailsForTargetsWithSameLabel() throws Exception {
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",
-        "package_group(",
-        "    name = 'function_transition_allowlist',",
-        "    packages = [",
-        "        '//a/...',",
-        "    ],",
-        ")");
+        """
+        package_group(
+            name = 'function_transition_allowlist',
+            packages = [
+                '//a/...',
+            ],
+        )
+        """);
     scratch.file(
         "a/defs.bzl",
         "def _transition_impl(settings, attr):",
@@ -909,8 +996,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "        'my_dep': attr.label(cfg = split_transition),",
         "    })",
         "",
+        "Info = provider()",
         "def _print_expanded_location_impl(target, ctx):",
-        "    return struct(result=ctx.expand_location('$(location //a:lib)',"
+        "    return Info(result=ctx.expand_location('$(location //a:lib)',"
             + " [ctx.rule.attr.my_dep[0], ctx.rule.attr.my_dep[1]]))",
         "",
         "print_expanded_location = aspect(",
@@ -918,11 +1006,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         ")");
     scratch.file(
         "a/BUILD",
-        "load('//a:defs.bzl', 'split_deps_rule')",
-        "cc_library(name = 'lib', srcs = ['lib.cc'])",
-        "split_deps_rule(",
-        "    name = 'a',",
-        "    my_dep = ':lib')");
+        """
+        load('//a:defs.bzl', 'split_deps_rule')
+        cc_library(name = 'lib', srcs = ['lib.cc'])
+        split_deps_rule(
+            name = 'a',
+            my_dep = ':lib')
+        """);
 
     reporter.removeHandler(failFastHandler);
 
@@ -957,25 +1047,29 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void duplicateOutputGroups() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "  f = ctx.actions.declare_file('f.txt')",
-        "  ctx.actions.write(f, 'f')",
-        "  return struct(output_groups = { 'duplicate' : depset([f]) })",
-        "",
-        "MyAspect = aspect(implementation=_impl)",
-        "def _rule_impl(ctx):",
-        "  g = ctx.actions.declare_file('g.txt')",
-        "  ctx.actions.write(g, 'g')",
-        "  return struct(output_groups = { 'duplicate' : depset([g]) })",
-        "my_rule = rule(_rule_impl)",
-        "def _noop(ctx):",
-        "  pass",
-        "rbase = rule(_noop, attrs = { 'dep' : attr.label(aspects = [MyAspect]) })");
+        """
+        def _impl(target, ctx):
+          f = ctx.actions.declare_file('f.txt')
+          ctx.actions.write(f, 'f')
+          return [OutputGroupInfo(duplicate = depset([f]))]
+
+        MyAspect = aspect(implementation=_impl)
+        def _rule_impl(ctx):
+          g = ctx.actions.declare_file('g.txt')
+          ctx.actions.write(g, 'g')
+          return [OutputGroupInfo(duplicate = depset([g]))]
+        my_rule = rule(_rule_impl)
+        def _noop(ctx):
+          pass
+        rbase = rule(_noop, attrs = { 'dep' : attr.label(aspects = [MyAspect]) })
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':aspect.bzl', 'my_rule', 'rbase')",
-        "my_rule(name = 'xxx')",
-        "rbase(name = 'yyy', dep = ':xxx')");
+        """
+        load(':aspect.bzl', 'my_rule', 'rbase')
+        my_rule(name = 'xxx')
+        rbase(name = 'yyy', dep = ':xxx')
+        """);
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -992,23 +1086,27 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void outputGroupsFromOneAspect() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _a1_impl(target, ctx):",
-        "  f = ctx.actions.declare_file(target.label.name + '_a1.txt')",
-        "  ctx.actions.write(f, 'f')",
-        "  return struct(output_groups = { 'a1_group' : depset([f]) })",
-        "",
-        "a1 = aspect(implementation=_a1_impl, attr_aspects = ['dep'])",
-        "def _rule_impl(ctx):",
-        "  if not ctx.attr.dep:",
-        "     return struct()",
-        "  og = {k:ctx.attr.dep.output_groups[k] for k in ctx.attr.dep.output_groups}",
-        "  return struct(output_groups = og)",
-        "my_rule1 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a1]) })");
+        """
+        def _a1_impl(target, ctx):
+          f = ctx.actions.declare_file(target.label.name + '_a1.txt')
+          ctx.actions.write(f, 'f')
+          return [OutputGroupInfo(a1_group = depset([f]))]
+
+        a1 = aspect(implementation=_a1_impl, attr_aspects = ['dep'])
+        def _rule_impl(ctx):
+          if not ctx.attr.dep:
+             return []
+          og = {k:ctx.attr.dep.output_groups[k] for k in ctx.attr.dep[OutputGroupInfo]}
+          return [OutputGroupInfo(**og)]
+        my_rule1 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a1]) })
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':aspect.bzl', 'my_rule1')",
-        "my_rule1(name = 'base')",
-        "my_rule1(name = 'xxx', dep = ':base')");
+        """
+        load(':aspect.bzl', 'my_rule1')
+        my_rule1(name = 'base')
+        my_rule1(name = 'xxx', dep = ':base')
+        """);
 
     AnalysisResult analysisResult = update("//test:xxx");
     OutputGroupInfo outputGroupInfo =
@@ -1021,22 +1119,26 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void outputGroupsDeclaredProviderFromOneAspect() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _a1_impl(target, ctx):",
-        "  f = ctx.actions.declare_file(target.label.name + '_a1.txt')",
-        "  ctx.actions.write(f, 'f')",
-        "  return [OutputGroupInfo(a1_group = depset([f]))]",
-        "",
-        "a1 = aspect(implementation=_a1_impl, attr_aspects = ['dep'])",
-        "def _rule_impl(ctx):",
-        "  if not ctx.attr.dep:",
-        "     return struct()",
-        "  return [OutputGroupInfo(a1_group = ctx.attr.dep[OutputGroupInfo].a1_group)]",
-        "my_rule1 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a1]) })");
+        """
+        def _a1_impl(target, ctx):
+          f = ctx.actions.declare_file(target.label.name + '_a1.txt')
+          ctx.actions.write(f, 'f')
+          return [OutputGroupInfo(a1_group = depset([f]))]
+
+        a1 = aspect(implementation=_a1_impl, attr_aspects = ['dep'])
+        def _rule_impl(ctx):
+          if not ctx.attr.dep:
+             return []
+          return [OutputGroupInfo(a1_group = ctx.attr.dep[OutputGroupInfo].a1_group)]
+        my_rule1 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a1]) })
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':aspect.bzl', 'my_rule1')",
-        "my_rule1(name = 'base')",
-        "my_rule1(name = 'xxx', dep = ':base')");
+        """
+        load(':aspect.bzl', 'my_rule1')
+        my_rule1(name = 'base')
+        my_rule1(name = 'xxx', dep = ':base')
+        """);
 
     AnalysisResult analysisResult = update("//test:xxx");
     OutputGroupInfo outputGroupInfo =
@@ -1049,31 +1151,35 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void outputGroupsFromTwoAspects() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _a1_impl(target, ctx):",
-        "  f = ctx.actions.declare_file(target.label.name + '_a1.txt')",
-        "  ctx.actions.write(f, 'f')",
-        "  return struct(output_groups = { 'a1_group' : depset([f]) })",
-        "",
-        "a1 = aspect(implementation=_a1_impl, attr_aspects = ['dep'])",
-        "def _rule_impl(ctx):",
-        "  if not ctx.attr.dep:",
-        "     return struct()",
-        "  og = {k:ctx.attr.dep.output_groups[k] for k in ctx.attr.dep.output_groups}",
-        "  return struct(output_groups = og)",
-        "my_rule1 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a1]) })",
-        "def _a2_impl(target, ctx):",
-        "  g = ctx.actions.declare_file(target.label.name + '_a2.txt')",
-        "  ctx.actions.write(g, 'f')",
-        "  return struct(output_groups = { 'a2_group' : depset([g]) })",
-        "",
-        "a2 = aspect(implementation=_a2_impl, attr_aspects = ['dep'])",
-        "my_rule2 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a2]) })");
+        """
+        def _a1_impl(target, ctx):
+          f = ctx.actions.declare_file(target.label.name + '_a1.txt')
+          ctx.actions.write(f, 'f')
+          return [OutputGroupInfo(a1_group = depset([f]))]
+
+        a1 = aspect(implementation=_a1_impl, attr_aspects = ['dep'])
+        def _rule_impl(ctx):
+          if not ctx.attr.dep:
+             return []
+          og = {k:ctx.attr.dep.output_groups[k] for k in ctx.attr.dep.output_groups}
+          return [OutputGroupInfo(**og)]
+        my_rule1 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a1]) })
+        def _a2_impl(target, ctx):
+          g = ctx.actions.declare_file(target.label.name + '_a2.txt')
+          ctx.actions.write(g, 'f')
+          return [OutputGroupInfo(a2_group = depset([g]))]
+
+        a2 = aspect(implementation=_a2_impl, attr_aspects = ['dep'])
+        my_rule2 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a2]) })
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':aspect.bzl', 'my_rule1', 'my_rule2')",
-        "my_rule1(name = 'base')",
-        "my_rule1(name = 'xxx', dep = ':base')",
-        "my_rule2(name = 'yyy', dep = ':xxx')");
+        """
+        load(':aspect.bzl', 'my_rule1', 'my_rule2')
+        my_rule1(name = 'base')
+        my_rule1(name = 'xxx', dep = ':base')
+        my_rule2(name = 'yyy', dep = ':xxx')
+        """);
 
     AnalysisResult analysisResult = update("//test:yyy");
     OutputGroupInfo outputGroupInfo =
@@ -1088,36 +1194,40 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void outputGroupsDeclaredProvidersFromTwoAspects() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _a1_impl(target, ctx):",
-        "  f = ctx.actions.declare_file(target.label.name + '_a1.txt')",
-        "  ctx.actions.write(f, 'f')",
-        "  return [OutputGroupInfo(a1_group = depset([f]))]",
-        "",
-        "a1 = aspect(implementation=_a1_impl, attr_aspects = ['dep'])",
-        "def _rule_impl(ctx):",
-        "  if not ctx.attr.dep:",
-        "     return struct()",
-        "  og = dict()",
-        "  dep_og = ctx.attr.dep[OutputGroupInfo]",
-        "  if hasattr(dep_og, 'a1_group'):",
-        "     og['a1_group'] = dep_og.a1_group",
-        "  if hasattr(dep_og, 'a2_group'):",
-        "     og['a2_group'] = dep_og.a2_group",
-        "  return [OutputGroupInfo(**og)]",
-        "my_rule1 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a1]) })",
-        "def _a2_impl(target, ctx):",
-        "  g = ctx.actions.declare_file(target.label.name + '_a2.txt')",
-        "  ctx.actions.write(g, 'f')",
-        "  return [OutputGroupInfo(a2_group = depset([g]))]",
-        "",
-        "a2 = aspect(implementation=_a2_impl, attr_aspects = ['dep'])",
-        "my_rule2 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a2]) })");
+        """
+        def _a1_impl(target, ctx):
+          f = ctx.actions.declare_file(target.label.name + '_a1.txt')
+          ctx.actions.write(f, 'f')
+          return [OutputGroupInfo(a1_group = depset([f]))]
+
+        a1 = aspect(implementation=_a1_impl, attr_aspects = ['dep'])
+        def _rule_impl(ctx):
+          if not ctx.attr.dep:
+             return []
+          og = dict()
+          dep_og = ctx.attr.dep[OutputGroupInfo]
+          if hasattr(dep_og, 'a1_group'):
+             og['a1_group'] = dep_og.a1_group
+          if hasattr(dep_og, 'a2_group'):
+             og['a2_group'] = dep_og.a2_group
+          return [OutputGroupInfo(**og)]
+        my_rule1 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a1]) })
+        def _a2_impl(target, ctx):
+          g = ctx.actions.declare_file(target.label.name + '_a2.txt')
+          ctx.actions.write(g, 'f')
+          return [OutputGroupInfo(a2_group = depset([g]))]
+
+        a2 = aspect(implementation=_a2_impl, attr_aspects = ['dep'])
+        my_rule2 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a2]) })
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':aspect.bzl', 'my_rule1', 'my_rule2')",
-        "my_rule1(name = 'base')",
-        "my_rule1(name = 'xxx', dep = ':base')",
-        "my_rule2(name = 'yyy', dep = ':xxx')");
+        """
+        load(':aspect.bzl', 'my_rule1', 'my_rule2')
+        my_rule1(name = 'base')
+        my_rule1(name = 'xxx', dep = ':base')
+        my_rule2(name = 'yyy', dep = ':xxx')
+        """);
 
     AnalysisResult analysisResult = update("//test:yyy");
     OutputGroupInfo outputGroupInfo =
@@ -1132,31 +1242,35 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void duplicateOutputGroupsFromTwoAspects() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _a1_impl(target, ctx):",
-        "  f = ctx.actions.declare_file(target.label.name + '_a1.txt')",
-        "  ctx.actions.write(f, 'f')",
-        "  return struct(output_groups = { 'a1_group' : depset([f]) })",
-        "",
-        "a1 = aspect(implementation=_a1_impl, attr_aspects = ['dep'])",
-        "def _rule_impl(ctx):",
-        "  if not ctx.attr.dep:",
-        "     return struct()",
-        "  og = {k:ctx.attr.dep.output_groups[k] for k in ctx.attr.dep.output_groups}",
-        "  return struct(output_groups = og)",
-        "my_rule1 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a1]) })",
-        "def _a2_impl(target, ctx):",
-        "  g = ctx.actions.declare_file(target.label.name + '_a2.txt')",
-        "  ctx.actions.write(g, 'f')",
-        "  return struct(output_groups = { 'a1_group' : depset([g]) })",
-        "",
-        "a2 = aspect(implementation=_a2_impl, attr_aspects = ['dep'])",
-        "my_rule2 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a2]) })");
+        """
+        def _a1_impl(target, ctx):
+          f = ctx.actions.declare_file(target.label.name + '_a1.txt')
+          ctx.actions.write(f, 'f')
+          return [OutputGroupInfo(a1_group = depset([f]))]
+
+        a1 = aspect(implementation=_a1_impl, attr_aspects = ['dep'])
+        def _rule_impl(ctx):
+          if not ctx.attr.dep:
+             return []
+          og = {k:ctx.attr.dep.output_groups[k] for k in ctx.attr.dep[OutputGroupInfo]}
+          return [OutputGroupInfo(**og)]
+        my_rule1 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a1]) })
+        def _a2_impl(target, ctx):
+          g = ctx.actions.declare_file(target.label.name + '_a2.txt')
+          ctx.actions.write(g, 'f')
+          return [OutputGroupInfo(a1_group = depset([g]))]
+
+        a2 = aspect(implementation=_a2_impl, attr_aspects = ['dep'])
+        my_rule2 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a2]) })
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':aspect.bzl', 'my_rule1', 'my_rule2')",
-        "my_rule1(name = 'base')",
-        "my_rule1(name = 'xxx', dep = ':base')",
-        "my_rule2(name = 'yyy', dep = ':xxx')");
+        """
+        load(':aspect.bzl', 'my_rule1', 'my_rule2')
+        my_rule1(name = 'base')
+        my_rule1(name = 'xxx', dep = ':base')
+        my_rule2(name = 'yyy', dep = ':xxx')
+        """);
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -1179,21 +1293,26 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void duplicateStarlarkProviders() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "  return struct(duplicate = 'x')",
-        "",
-        "MyAspect = aspect(implementation=_impl)",
-        "def _rule_impl(ctx):",
-        "  return struct(duplicate = 'y')",
-        "my_rule = rule(_rule_impl)",
-        "def _noop(ctx):",
-        "  pass",
-        "rbase = rule(_noop, attrs = { 'dep' : attr.label(aspects = [MyAspect]) })");
+        """
+        Info = provider()
+        def _impl(target, ctx):
+          return Info(duplicate = 'x')
+
+        MyAspect = aspect(implementation=_impl)
+        def _rule_impl(ctx):
+          return Info(duplicate = 'y')
+        my_rule = rule(_rule_impl)
+        def _noop(ctx):
+          pass
+        rbase = rule(_noop, attrs = { 'dep' : attr.label(aspects = [MyAspect]) })
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':aspect.bzl', 'my_rule', 'rbase')",
-        "my_rule(name = 'xxx')",
-        "rbase(name = 'yyy', dep = ':xxx')");
+        """
+        load(':aspect.bzl', 'my_rule', 'rbase')
+        my_rule(name = 'xxx')
+        rbase(name = 'yyy', dep = ':xxx')
+        """);
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -1203,7 +1322,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     } catch (ViewCreationFailedException e) {
       // expect to fail.
     }
-    assertContainsEvent("ERROR /workspace/test/BUILD:3:6: Provider duplicate provided twice");
+    assertContainsEvent("ERROR /workspace/test/BUILD:3:6: Provider Info provided twice");
   }
 
   @Test
@@ -1271,47 +1390,55 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "package_group(name = 'function_transition_allowlist', packages = ['//aspect/...'])");
     scratch.file(
         "aspect/aspect.bzl",
-        "def _setting_impl(ctx):",
-        "  return []",
-        "",
-        "string_flag = rule(",
-        "  implementation = _setting_impl,",
-        "  build_setting = config.string(flag=True),",
-        ")",
-        "",
-        "def _rule_impl(ctx):",
-        "  pass",
-        "",
-        "def _transition_impl(settings, attr):",
-        "  return {'//aspect:formation': 'mesa'}",
-        "",
-        "formation_transition = transition(",
-        "  implementation = _transition_impl,",
-        "  inputs = ['//aspect:formation'],",
-        "  outputs = ['//aspect:formation'],",
-        ")",
-        "",
-        "def _aspect_impl(target, ctx):",
-        "  pass",
-        "",
-        "myaspect = aspect(implementation = _aspect_impl)",
-        "",
-        "cfgrule = rule(",
-        "  implementation = _rule_impl,",
-        "  attrs = {",
-        "    'to': attr.label(),",
-        "    'innocent': attr.label(cfg = formation_transition),",
-        "  }",
-        ")");
+        """
+        def _setting_impl(ctx):
+          return []
+
+        string_flag = rule(
+          implementation = _setting_impl,
+          build_setting = config.string(flag=True),
+        )
+
+        def _rule_impl(ctx):
+          pass
+
+        def _transition_impl(settings, attr):
+          return {'//aspect:formation': 'mesa'}
+
+        formation_transition = transition(
+          implementation = _transition_impl,
+          inputs = ['//aspect:formation'],
+          outputs = ['//aspect:formation'],
+        )
+
+        def _aspect_impl(target, ctx):
+          pass
+
+        myaspect = aspect(implementation = _aspect_impl)
+
+        cfgrule = rule(
+          implementation = _rule_impl,
+          attrs = {
+            'to': attr.label(),
+            'innocent': attr.label(cfg = formation_transition),
+          }
+        )
+        """);
     scratch.file(
         "aspect/BUILD",
-        "load('aspect.bzl', 'cfgrule', 'string_flag')",
-        "string_flag(name = 'formation', build_setting_default = 'canyon')",
-        "sh_library(name = 'innocent')",
-        "cfgrule(name = 'top', to = '//baz:baz', innocent = ':innocent')");
+        """
+        load('aspect.bzl', 'cfgrule', 'string_flag')
+        string_flag(name = 'formation', build_setting_default = 'canyon')
+        sh_library(name = 'innocent')
+        cfgrule(name = 'top', to = '//baz:baz', innocent = ':innocent')
+        """);
     scratch.file("bar/BUILD", "sh_library(name = 'bar', deps = ['//baz:baz'])");
     scratch.file(
-        "baz/BUILD", "load('//baz/subdir:missing.bzl', 'sym')", "sh_library(name = 'baz')");
+        "baz/BUILD",
+        """
+        load('//baz/subdir:missing.bzl', 'sym')
+        sh_library(name = 'baz')
+        """);
     scratch.file("baz/subdir/missing.bzl");
     reporter.removeHandler(failFastHandler);
     try {
@@ -1330,19 +1457,26 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectParametersUncovered() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return struct()",
-        "def _rule_impl(ctx):",
-        "   return struct()",
-        "MyAspectUncovered = aspect(",
-        "    implementation=_impl,",
-        "    attrs = { 'my_attr' : attr.string(values=['aaa']) },",
-        ")",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]) },",
-        ")");
-    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name = 'xxx')");
+        """
+        def _impl(target, ctx):
+           return []
+        def _rule_impl(ctx):
+           return []
+        MyAspectUncovered = aspect(
+            implementation=_impl,
+            attrs = { 'my_attr' : attr.string(values=['aaa']) },
+        )
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]) },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name = 'xxx')
+        """);
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -1361,21 +1495,27 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectParametersTypeMismatch() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return struct()",
-        "def _rule_impl(ctx):",
-        "   return struct()",
-        "MyAspectMismatch = aspect(",
-        "    implementation=_impl,",
-        "    attrs = { 'my_attr' : attr.string(values=['aaa']) },",
-        ")",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectMismatch]),",
-        "              'my_attr' : attr.int() },",
-        ")");
+        """
+        def _impl(target, ctx):
+           return []
+        def _rule_impl(ctx):
+           return []
+        MyAspectMismatch = aspect(
+            implementation=_impl,
+            attrs = { 'my_attr' : attr.string(values=['aaa']) },
+        )
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'deps' : attr.label_list(aspects=[MyAspectMismatch]),
+                      'my_attr' : attr.int() },
+        )
+        """);
     scratch.file(
-        "test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name = 'xxx', my_attr = 4)");
+        "test/BUILD",
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name = 'xxx', my_attr = 4)
+        """);
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -1394,23 +1534,27 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectParametersDontSupportSelect() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return struct()",
-        "def _rule_impl(ctx):",
-        "   return struct()",
-        "MyAspectMismatch = aspect(",
-        "    implementation=_impl,",
-        "    attrs = { 'my_attr' : attr.string(values=['aaa']) },",
-        ")",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectMismatch]),",
-        "              'my_attr' : attr.string() },",
-        ")");
+        """
+        def _impl(target, ctx):
+           return []
+        def _rule_impl(ctx):
+           return []
+        MyAspectMismatch = aspect(
+            implementation=_impl,
+            attrs = { 'my_attr' : attr.string(values=['aaa']) },
+        )
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'deps' : attr.label_list(aspects=[MyAspectMismatch]),
+                      'my_attr' : attr.string() },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:aspect.bzl', 'my_rule')",
-        "my_rule(name = 'xxx', my_attr = select({'//conditions:default': 'foo'}))");
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name = 'xxx', my_attr = select({'//conditions:default': 'foo'}))
+        """);
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -1430,19 +1574,26 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectParametersBadDefault() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return struct()",
-        "def _rule_impl(ctx):",
-        "   return struct()",
-        "MyAspectBadDefault = aspect(",
-        "    implementation=_impl,",
-        "    attrs = { 'my_attr' : attr.string(values=['a'], default='b') },",
-        ")",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectBadDefault]) },", // line 11
-        ")");
-    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name = 'xxx')");
+        """
+        def _impl(target, ctx):
+           return []
+        def _rule_impl(ctx):
+           return []
+        MyAspectBadDefault = aspect(
+            implementation=_impl,
+            attrs = { 'my_attr' : attr.string(values=['a'], default='b') },
+        )
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'deps' : attr.label_list(aspects=[MyAspectBadDefault]) },  # line 11
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name = 'xxx')
+        """);
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -1464,23 +1615,27 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectParametersBadValue() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return struct()",
-        "def _rule_impl(ctx):",
-        "   return struct()",
-        "MyAspectBadValue = aspect(",
-        "    implementation=_impl,",
-        "    attrs = { 'my_attr' : attr.string(values=['a']) },",
-        ")",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectBadValue]),",
-        "              'my_attr' : attr.string() },",
-        ")");
+        """
+        def _impl(target, ctx):
+           return []
+        def _rule_impl(ctx):
+           return []
+        MyAspectBadValue = aspect(
+            implementation=_impl,
+            attrs = { 'my_attr' : attr.string(values=['a']) },
+        )
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'deps' : attr.label_list(aspects=[MyAspectBadValue]),
+                      'my_attr' : attr.string() },
+        )
+        """);
     scratch.file(
-        "test/BUILD", //
-        "load('//test:aspect.bzl', 'my_rule')",
-        "my_rule(name = 'xxx', my_attr='b')");
+        "test/BUILD",
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name = 'xxx', my_attr='b')
+        """);
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -1499,23 +1654,27 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectParameters() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return struct()",
-        "def _rule_impl(ctx):",
-        "   return struct()",
-        "MyAspect = aspect(",
-        "    implementation=_impl,",
-        "    attrs = { 'my_attr' : attr.string(values=['aaa']) },",
-        ")",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspect]),",
-        "              'my_attr' : attr.string() },",
-        ")");
+        """
+        def _impl(target, ctx):
+           return []
+        def _rule_impl(ctx):
+           return []
+        MyAspect = aspect(
+            implementation=_impl,
+            attrs = { 'my_attr' : attr.string(values=['aaa']) },
+        )
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'deps' : attr.label_list(aspects=[MyAspect]),
+                      'my_attr' : attr.string() },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:aspect.bzl', 'my_rule')",
-        "my_rule(name = 'xxx', my_attr = 'aaa')");
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name = 'xxx', my_attr = 'aaa')
+        """);
 
     AnalysisResult result = update(ImmutableList.of(), "//test:xxx");
     assertThat(result.hasError()).isFalse();
@@ -1525,20 +1684,27 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectParametersConfigurationField() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return struct()",
-        "def _rule_impl(ctx):",
-        "   return struct()",
-        "MyAspect = aspect(",
-        "    implementation=_impl,",
-        "    attrs = { '_my_attr' : attr.label(default=",
-        "             configuration_field(fragment='cpp', name = 'cc_toolchain')) },",
-        ")",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspect]) },",
-        ")");
-    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name = 'xxx')");
+        """
+        def _impl(target, ctx):
+           return []
+        def _rule_impl(ctx):
+           return []
+        MyAspect = aspect(
+            implementation=_impl,
+            attrs = { '_my_attr' : attr.label(default=
+                     configuration_field(fragment='cpp', name = 'cc_toolchain')) },
+        )
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'deps' : attr.label_list(aspects=[MyAspect]) },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name = 'xxx')
+        """);
 
     AnalysisResult result = update(ImmutableList.of(), "//test:xxx");
     assertThat(result.hasError()).isFalse();
@@ -1548,21 +1714,28 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectParameterComputedDefault() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return struct()",
-        "def _rule_impl(ctx):",
-        "   return struct()",
-        "def _defattr():",
-        "   return Label('//foo/bar:baz')",
-        "MyAspect = aspect(",
-        "    implementation=_impl,",
-        "    attrs = { '_extra' : attr.label(default = _defattr) }",
-        ")",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspect]) },",
-        ")");
-    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name = 'xxx')");
+        """
+        def _impl(target, ctx):
+           return []
+        def _rule_impl(ctx):
+           return []
+        def _defattr():
+           return Label('//foo/bar:baz')
+        MyAspect = aspect(
+            implementation=_impl,
+            attrs = { '_extra' : attr.label(default = _defattr) }
+        )
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'deps' : attr.label_list(aspects=[MyAspect]) },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name = 'xxx')
+        """);
     reporter.removeHandler(failFastHandler);
 
     if (keepGoing()) {
@@ -1579,19 +1752,26 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectParametersOptional() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return struct()",
-        "def _rule_impl(ctx):",
-        "   return struct()",
-        "MyAspectOptParam = aspect(",
-        "    implementation=_impl,",
-        "    attrs = { 'my_attr' : attr.string(values=['aaa'], default='aaa') },",
-        ")",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectOptParam]) },",
-        ")");
-    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name = 'xxx')");
+        """
+        def _impl(target, ctx):
+           return []
+        def _rule_impl(ctx):
+           return []
+        MyAspectOptParam = aspect(
+            implementation=_impl,
+            attrs = { 'my_attr' : attr.string(values=['aaa'], default='aaa') },
+        )
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'deps' : attr.label_list(aspects=[MyAspectOptParam]) },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name = 'xxx')
+        """);
 
     AnalysisResult result = update(ImmutableList.of(), "//test:xxx");
     assertThat(result.hasError()).isFalse();
@@ -1601,25 +1781,29 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectParametersOptionalOverride() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   if (ctx.attr.my_attr == 'a'):",
-        "       fail('Rule is not overriding default, still has value ' + ctx.attr.my_attr)",
-        "   return struct()",
-        "def _rule_impl(ctx):",
-        "   return struct()",
-        "MyAspectOptOverride = aspect(",
-        "    implementation=_impl,",
-        "    attrs = { 'my_attr' : attr.string(values=['a', 'b'], default='a') },",
-        ")",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectOptOverride]),",
-        "              'my_attr' : attr.string() },",
-        ")");
+        """
+        def _impl(target, ctx):
+           if (ctx.attr.my_attr == 'a'):
+               fail('Rule is not overriding default, still has value ' + ctx.attr.my_attr)
+           return []
+        def _rule_impl(ctx):
+           return []
+        MyAspectOptOverride = aspect(
+            implementation=_impl,
+            attrs = { 'my_attr' : attr.string(values=['a', 'b'], default='a') },
+        )
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'deps' : attr.label_list(aspects=[MyAspectOptOverride]),
+                      'my_attr' : attr.string() },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:aspect.bzl', 'my_rule')",
-        "my_rule(name = 'xxx', my_attr = 'b')");
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name = 'xxx', my_attr = 'b')
+        """);
 
     AnalysisResult result = update(ImmutableList.of(), "//test:xxx");
     assertThat(result.hasError()).isFalse();
@@ -1629,23 +1813,27 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testMultipleExecutablesInTarget() throws Exception {
     scratch.file(
         "foo/extension.bzl",
-        "def _aspect_impl(target, ctx):",
-        "   return struct()",
-        "my_aspect = aspect(_aspect_impl)",
-        "def _main_rule_impl(ctx):",
-        "   pass",
-        "my_rule = rule(_main_rule_impl,",
-        "   attrs = { ",
-        "      'exe1' : attr.label(executable = True, allow_files = True, cfg = 'exec'),",
-        "      'exe2' : attr.label(executable = True, allow_files = True, cfg = 'exec'),",
-        "   },",
-        ")");
+        """
+        def _aspect_impl(target, ctx):
+           return []
+        my_aspect = aspect(_aspect_impl)
+        def _main_rule_impl(ctx):
+           pass
+        my_rule = rule(_main_rule_impl,
+           attrs = {
+              'exe1' : attr.label(executable = True, allow_files = True, cfg = 'exec'),
+              'exe2' : attr.label(executable = True, allow_files = True, cfg = 'exec'),
+           },
+        )
+        """);
 
     scratch.file("foo/tool.sh", "#!/bin/bash");
     scratch.file(
         "foo/BUILD",
-        "load(':extension.bzl',  'my_rule')",
-        "my_rule(name = 'main', exe1 = ':tool.sh', exe2 = ':tool.sh')");
+        """
+        load(':extension.bzl',  'my_rule')
+        my_rule(name = 'main', exe1 = ':tool.sh', exe2 = ':tool.sh')
+        """);
     AnalysisResult analysisResultOfRule = update(ImmutableList.of(), "//foo:main");
     assertThat(analysisResultOfRule.hasError()).isFalse();
 
@@ -1678,11 +1866,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
       String fullFieldName, String fragments, String ruleFragments) throws Exception {
     scratch.file(
         "test/aspect.bzl",
+        "AspectInfo = provider()",
         "def _aspect_impl(target, ctx):",
-        "   return struct(result = str(" + fullFieldName + "))",
+        "   return AspectInfo(result = str(" + fullFieldName + "))",
         "",
+        "RuleInfo = provider()",
         "def _rule_impl(ctx):",
-        "   return struct(stuff = '...')",
+        "   return RuleInfo(stuff = '...')",
         "",
         "MyAspect = aspect(",
         "   implementation=_aspect_impl,",
@@ -1697,16 +1887,18 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         ")");
     scratch.file(
         "test/BUILD",
-        "load('//test:aspect.bzl', 'my_rule')",
-        "exports_files(['zzz'])",
-        "my_rule(",
-        "     name = 'yyy',",
-        "     attr = ['zzz'],",
-        ")",
-        "my_rule(",
-        "     name = 'xxx',",
-        "     attr = ['yyy'],",
-        ")");
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        exports_files(['zzz'])
+        my_rule(
+             name = 'yyy',
+             attr = ['zzz'],
+        )
+        my_rule(
+             name = 'xxx',
+             attr = ['yyy'],
+        )
+        """);
 
     AnalysisResult result = update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
     if (result.hasError()) {
@@ -1728,10 +1920,12 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file("test/build_defs.bzl", aspectBzlFile("'deps'"));
     scratch.file(
         "test/BUILD",
-        "load(':build_defs.bzl', 'repro', 'repro_no_aspect')",
-        "repro_no_aspect(name = 'r0')",
-        "repro_no_aspect(name = 'r1', deps = [':r0'])",
-        "repro(name = 'r2', deps = [':r1'])");
+        """
+        load(':build_defs.bzl', 'repro', 'repro_no_aspect')
+        repro_no_aspect(name = 'r0')
+        repro_no_aspect(name = 'r1', deps = [':r0'])
+        repro(name = 'r2', deps = [':r1'])
+        """);
     buildTargetAndCheckRuleInfo("@//test:r0", "@//test:r1");
 
     // Make aspect propagation list empty.
@@ -1744,27 +1938,30 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   private void buildTargetAndCheckRuleInfo(String... expectedLabels) throws Exception {
     AnalysisResult result = update(ImmutableList.of(), "//test:r2");
     ConfiguredTarget configuredTarget = result.getTargetsToBuild().iterator().next();
-    Depset ruleInfoValue = (Depset) configuredTarget.get("rule_info");
+    Depset ruleInfoValue =
+        (Depset) getStarlarkProvider(configuredTarget, "RuleInfo").getValue("rule_info");
     assertThat(ruleInfoValue.getSet(String.class).toList())
         .containsExactlyElementsIn(expectedLabels);
   }
 
   private static String[] aspectBzlFile(String attrAspects) {
     return new String[] {
+      "AspectInfo = provider()",
       "def _repro_aspect_impl(target, ctx):",
       "    s = depset([str(target.label)], transitive =",
-      "      [d.aspect_info for d in ctx.rule.attr.deps if hasattr(d, 'aspect_info')])",
-      "    return struct(aspect_info = s)",
+      "      [d[AspectInfo].aspect_info for d in ctx.rule.attr.deps if AspectInfo in d])",
+      "    return AspectInfo(aspect_info = s)",
       "",
       "_repro_aspect = aspect(",
       "    _repro_aspect_impl,",
       "    attr_aspects = [" + attrAspects + "],",
       ")",
       "",
+      "RuleInfo = provider()",
       "def repro_impl(ctx):",
       "    s = depset(transitive = ",
-      "      [d.aspect_info for d in ctx.attr.deps if hasattr(d, 'aspect_info')])",
-      "    return struct(rule_info = s)",
+      "      [d[AspectInfo].aspect_info for d in ctx.attr.deps if AspectInfo in d])",
+      "    return RuleInfo(rule_info = s)",
       "",
       "def repro_no_aspect_impl(ctx):",
       "    pass",
@@ -1792,31 +1989,40 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectOutputsToBinDirectory() throws Exception {
     scratch.file(
         "foo/extension.bzl",
-        "def _aspect_impl(target, ctx):",
-        "   file = ctx.actions.declare_file('aspect-output-' + target.label.name)",
-        "   ctx.actions.write(file, 'data')",
-        "   return struct(aspect_file = file)",
-        "my_aspect = aspect(_aspect_impl)",
-        "def _rule_impl(ctx):",
-        "   pass",
-        "rule_bin_out = rule(_rule_impl, output_to_genfiles=False)",
-        "rule_gen_out = rule(_rule_impl, output_to_genfiles=True)",
-        "def _main_rule_impl(ctx):",
-        "   s = depset([d.aspect_file for d in ctx.attr.deps])",
-        "   return struct(aspect_files = s)",
-        "main_rule = rule(_main_rule_impl,",
-        "   attrs = { 'deps' : attr.label_list(aspects = [my_aspect]) },",
-        ")");
+        """
+        AspectInfo = provider()
+        def _aspect_impl(target, ctx):
+           file = ctx.actions.declare_file('aspect-output-' + target.label.name)
+           ctx.actions.write(file, 'data')
+           return AspectInfo(aspect_file = file)
+        my_aspect = aspect(_aspect_impl)
+        def _rule_impl(ctx):
+           pass
+        rule_bin_out = rule(_rule_impl, output_to_genfiles=False)
+        rule_gen_out = rule(_rule_impl, output_to_genfiles=True)
+        RuleInfo = provider()
+        def _main_rule_impl(ctx):
+           s = depset([d[AspectInfo].aspect_file for d in ctx.attr.deps])
+           return RuleInfo(aspect_files = s)
+        main_rule = rule(_main_rule_impl,
+           attrs = { 'deps' : attr.label_list(aspects = [my_aspect]) },
+        )
+        """);
 
     scratch.file(
         "foo/BUILD",
-        "load(':extension.bzl', 'rule_bin_out', 'rule_gen_out', 'main_rule')",
-        "rule_bin_out(name = 'rbin')",
-        "rule_gen_out(name = 'rgen')",
-        "main_rule(name = 'main', deps = [':rbin', ':rgen'])");
+        """
+        load(':extension.bzl', 'rule_bin_out', 'rule_gen_out', 'main_rule')
+        rule_bin_out(name = 'rbin')
+        rule_gen_out(name = 'rgen')
+        main_rule(name = 'main', deps = [':rbin', ':rgen'])
+        """);
     AnalysisResult analysisResult = update(ImmutableList.of(), "//foo:main");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
-    NestedSet<Artifact> aspectFiles = ((Depset) target.get("aspect_files")).getSet(Artifact.class);
+    NestedSet<Artifact> aspectFiles =
+        getStarlarkProvider(target, "RuleInfo")
+            .getValue("aspect_files", Depset.class)
+            .getSet(Artifact.class);
     assertThat(Iterables.transform(aspectFiles.toList(), Artifact::getFilename))
         .containsExactly("aspect-output-rbin", "aspect-output-rgen");
     for (Artifact aspectFile : aspectFiles.toList()) {
@@ -1832,10 +2038,12 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void toplevelAspectOnFile() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   print('This aspect does nothing')",
-        "   return struct()",
-        "MyAspect = aspect(implementation=_impl)");
+        """
+        def _impl(target, ctx):
+           print('This aspect does nothing')
+           return []
+        MyAspect = aspect(implementation=_impl)
+        """);
     scratch.file("test/BUILD", "exports_files(['file.txt'])");
     scratch.file("test/file.txt", "");
     AnalysisResult analysisResult =
@@ -1852,20 +2060,24 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void sharedAttributeDefinitionWithAspects() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _aspect_impl(target,ctx):",
-        "  return struct()",
-        "my_aspect = aspect(implementation = _aspect_impl)",
-        "_ATTR = { 'deps' : attr.label_list(aspects = [my_aspect]) }",
-        "def _dummy_impl(ctx):",
-        "  pass",
-        "r1 = rule(_dummy_impl, attrs =  _ATTR)",
-        "r2 = rule(_dummy_impl, attrs =  _ATTR)");
+        """
+        def _aspect_impl(target,ctx):
+          return []
+        my_aspect = aspect(implementation = _aspect_impl)
+        _ATTR = { 'deps' : attr.label_list(aspects = [my_aspect]) }
+        def _dummy_impl(ctx):
+          pass
+        r1 = rule(_dummy_impl, attrs =  _ATTR)
+        r2 = rule(_dummy_impl, attrs =  _ATTR)
+        """);
 
     scratch.file(
         "test/BUILD",
-        "load(':aspect.bzl', 'r1', 'r2')",
-        "r1(name = 't1')",
-        "r2(name = 't2', deps = [':t1'])");
+        """
+        load(':aspect.bzl', 'r1', 'r2')
+        r1(name = 't1')
+        r2(name = 't2', deps = [':t1'])
+        """);
     AnalysisResult analysisResult = update("//test:t2");
     assertThat(analysisResult.hasError()).isFalse();
   }
@@ -1874,15 +2086,22 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void multipleAspects() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _aspect_impl(target,ctx):",
-        "  return struct()",
-        "my_aspect = aspect(implementation = _aspect_impl)",
-        "def _dummy_impl(ctx):",
-        "  pass",
-        "r1 = rule(_dummy_impl, ",
-        "          attrs = { 'deps' : attr.label_list(aspects = [my_aspect, my_aspect]) })");
+        """
+        def _aspect_impl(target,ctx):
+          return []
+        my_aspect = aspect(implementation = _aspect_impl)
+        def _dummy_impl(ctx):
+          pass
+        r1 = rule(_dummy_impl,
+                  attrs = { 'deps' : attr.label_list(aspects = [my_aspect, my_aspect]) })
+        """);
 
-    scratch.file("test/BUILD", "load(':aspect.bzl', 'r1')", "r1(name = 't1')");
+    scratch.file(
+        "test/BUILD",
+        """
+        load(':aspect.bzl', 'r1')
+        r1(name = 't1')
+        """);
     reporter.removeHandler(failFastHandler);
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
     // suite. Otherwise, it fails and throws a TargetParsingException.
@@ -1899,24 +2118,28 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void topLevelAspectsAndExtraActions() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _aspect_impl(target,ctx):",
-        "  f = ctx.actions.declare_file('dummy.txt')",
-        "  ctx.actions.run_shell(outputs = [f], command='echo xxx > $(location f)',",
-        "                        mnemonic='AspectAction')",
-        "  return struct()",
-        "my_aspect = aspect(implementation = _aspect_impl)");
+        """
+        def _aspect_impl(target,ctx):
+          f = ctx.actions.declare_file('dummy.txt')
+          ctx.actions.run_shell(outputs = [f], command='echo xxx > $(location f)',
+                                mnemonic='AspectAction')
+          return []
+        my_aspect = aspect(implementation = _aspect_impl)
+        """);
     scratch.file(
         "test/BUILD",
-        "extra_action(",
-        "    name = 'xa',",
-        "    cmd = 'echo $(EXTRA_ACTION_FILE) > $(output file.xa)',",
-        "    out_templates = ['file.xa'],",
-        ")",
-        "action_listener(",
-        "    name = 'al',",
-        "    mnemonics = [ 'AspectAction' ],",
-        "    extra_actions = [ ':xa' ])",
-        "java_library(name = 'xxx')");
+        """
+        extra_action(
+            name = 'xa',
+            cmd = 'echo $(EXTRA_ACTION_FILE) > $(output file.xa)',
+            out_templates = ['file.xa'],
+        )
+        action_listener(
+            name = 'al',
+            mnemonics = [ 'AspectAction' ],
+            extra_actions = [ ':xa' ])
+        java_library(name = 'xxx')
+        """);
     useConfiguration("--experimental_action_listener=//test:al");
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%my_aspect"), "//test:xxx");
@@ -1929,26 +2152,30 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void topLevelAspectsAndExtraActionsWithConflict() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "  f = ctx.actions.declare_file('dummy.txt')",
-        "  ctx.actions.run_shell(outputs = [f], command='echo xxx > $(location f)',",
-        "                        mnemonic='AspectAction')",
-        "  return struct()",
-        "my_aspect = aspect(implementation = _aspect_impl)");
+        """
+        def _aspect_impl(target, ctx):
+          f = ctx.actions.declare_file('dummy.txt')
+          ctx.actions.run_shell(outputs = [f], command='echo xxx > $(location f)',
+                                mnemonic='AspectAction')
+          return []
+        my_aspect = aspect(implementation = _aspect_impl)
+        """);
     scratch.file(
         "test/BUILD",
-        "extra_action(",
-        "    name = 'xa',",
-        "    cmd = 'echo $(EXTRA_ACTION_FILE) > $(output file.xa)',",
-        "    out_templates = ['file.xa'],",
-        ")",
-        "action_listener(",
-        "    name = 'al',",
-        "    mnemonics = ['AspectAction'],",
-        "    extra_actions = [':xa'],",
-        ")",
-        "java_library(name = 'xxx')",
-        "java_library(name = 'yyy')");
+        """
+        extra_action(
+            name = 'xa',
+            cmd = 'echo $(EXTRA_ACTION_FILE) > $(output file.xa)',
+            out_templates = ['file.xa'],
+        )
+        action_listener(
+            name = 'al',
+            mnemonics = ['AspectAction'],
+            extra_actions = [':xa'],
+        )
+        java_library(name = 'xxx')
+        java_library(name = 'yyy')
+        """);
     useConfiguration("--experimental_action_listener=//test:al");
     reporter.removeHandler(failFastHandler); // We expect an error.
 
@@ -1969,30 +2196,34 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectsPropagatingToAllAttributes() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   s = depset([target.label], transitive =",
-        "     [i.target_labels for i in ctx.rule.attr.runtime_deps]",
-        "     if hasattr(ctx.rule.attr, 'runtime_deps') else [])",
-        "   return struct(target_labels = s)",
-        "",
-        "MyAspect = aspect(",
-        "    implementation=_impl,",
-        "    attrs = { '_tool' : attr.label(default = Label('//test:tool')) },",
-        "    attr_aspects=['*'],",
-        ")");
+        """
+        def _impl(target, ctx):
+           s = depset([target.label], transitive =
+             [i.target_labels for i in ctx.rule.attr.runtime_deps]
+             if hasattr(ctx.rule.attr, 'runtime_deps') else [])
+           return struct(target_labels = s)
+
+        MyAspect = aspect(
+            implementation=_impl,
+            attrs = { '_tool' : attr.label(default = Label('//test:tool')) },
+            attr_aspects=['*'],
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "java_library(",
-        "    name = 'tool',",
-        ")",
-        "java_library(",
-        "     name = 'bar',",
-        "     runtime_deps = [':tool'],",
-        ")",
-        "java_library(",
-        "     name = 'foo',",
-        "     runtime_deps = [':bar'],",
-        ")");
+        """
+        java_library(
+            name = 'tool',
+        )
+        java_library(
+             name = 'bar',
+             runtime_deps = [':tool'],
+        )
+        java_library(
+             name = 'foo',
+             runtime_deps = [':bar'],
+        )
+        """);
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:foo");
     ConfiguredAspect configuredAspect = analysisResult.getAspectsMap().values().iterator().next();
@@ -2014,36 +2245,41 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectOnAspectLinear() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "a1p = provider()",
-        "def _a1_impl(target,ctx):",
-        "  return struct(a1p = a1p(text = 'random'))",
-        "a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = ['a1p'])",
-        "a2p = provider()",
-        "def _a2_impl(target,ctx):",
-        "  value = []",
-        "  if hasattr(ctx.rule.attr.dep, 'a2p'):",
-        "     value += ctx.rule.attr.dep.a2p.value",
-        "  if hasattr(target, 'a1p'):",
-        "     value.append(str(target.label) + str(ctx.aspect_ids) + '=yes')",
-        "  else:",
-        "     value.append(str(target.label) + str(ctx.aspect_ids) + '=no')",
-        "  return struct(a2p = a2p(value = value))",
-        "a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = ['a1p'])",
-        "def _r1_impl(ctx):",
-        "  pass",
-        "def _r2_impl(ctx):",
-        "  return struct(result = ctx.attr.dep.a2p.value)",
-        "r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})",
-        "r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})");
+        """
+        a1p = provider()
+        def _a1_impl(target,ctx):
+          return a1p(text = 'random')
+        a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = [a1p])
+        a2p = provider()
+        def _a2_impl(target,ctx):
+          value = []
+          if  ctx.rule.attr.dep and a2p in ctx.rule.attr.dep:
+             value += ctx.rule.attr.dep[a2p].value
+          if a1p in target:
+             value.append(str(target.label) + str(ctx.aspect_ids) + '=yes')
+          else:
+             value.append(str(target.label) + str(ctx.aspect_ids) + '=no')
+          return a2p(value = value)
+        a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = [a1p])
+        def _r1_impl(ctx):
+          pass
+        r2info = provider()
+        def _r2_impl(ctx):
+          return r2info(result = ctx.attr.dep[a2p].value)
+        r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})
+        r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':aspect.bzl', 'r1', 'r2')",
-        "r1(name = 'r0')",
-        "r1(name = 'r1', dep = ':r0')",
-        "r2(name = 'r2', dep = ':r1')");
+        """
+        load(':aspect.bzl', 'r1', 'r2')
+        r1(name = 'r0')
+        r1(name = 'r1', dep = ':r0')
+        r2(name = 'r2', dep = ':r1')
+        """);
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    Sequence<?> result = (Sequence<?>) target.get("result");
+    Sequence<?> result = getStarlarkProvider(target, "r2info").getValue("result", Sequence.class);
 
     // "yes" means that aspect a2 sees a1's providers.
     assertThat(result)
@@ -2063,51 +2299,60 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectOnAspectDiamond() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _a1_impl(target,ctx):",
-        "  return struct(a1p = 'text from a1')",
-        "a1 = aspect(_a1_impl, attr_aspects = ['deps'], provides = ['a1p'])",
-        "",
-        "def _a2_impl(target,ctx):",
-        "  return struct(a2p = 'text from a2')",
-        "a2 = aspect(_a2_impl, attr_aspects = ['deps'], provides = ['a2p'])",
-        "",
-        "def _a3_impl(target,ctx):",
-        "  value = []",
-        "  f = ctx.actions.declare_file('a3.out')",
-        "  ctx.actions.write(f, 'text')",
-        "  for dep in ctx.rule.attr.deps:",
-        "     if hasattr(dep, 'a3p'):",
-        "         value += dep.a3p",
-        "  s = str(target.label) + str(ctx.aspect_ids) + '='",
-        "  if hasattr(target, 'a1p'):",
-        "     s += 'a1p'",
-        "  if hasattr(target, 'a2p'):",
-        "     s += 'a2p'",
-        "  value.append(s)",
-        "  return struct(a3p = value)",
-        "a3 = aspect(_a3_impl, attr_aspects = ['deps'],",
-        "            required_aspect_providers = [['a1p'], ['a2p']])",
-        "def _r1_impl(ctx):",
-        "  pass",
-        "def _rcollect_impl(ctx):",
-        "  value = []",
-        "  for dep in ctx.attr.deps:",
-        "     if hasattr(dep, 'a3p'):",
-        "         value += dep.a3p",
-        "  return struct(result = value)",
-        "r1 = rule(_r1_impl, attrs = { 'deps' : attr.label_list(aspects = [a1])})",
-        "r2 = rule(_r1_impl, attrs = { 'deps' : attr.label_list(aspects = [a2])})",
-        "rcollect = rule(_rcollect_impl, attrs = { 'deps' : attr.label_list(aspects = [a3])})");
+        """
+        a1p = provider()
+        a2p = provider()
+        a3p = provider()
+        def _a1_impl(target,ctx):
+          return [a1p(value = 'text from a1')]
+        a1 = aspect(_a1_impl, attr_aspects = ['deps'], provides = [a1p])
+
+        def _a2_impl(target,ctx):
+          return [a2p(value = 'text from a2')]
+        a2 = aspect(_a2_impl, attr_aspects = ['deps'], provides = [a2p])
+
+        def _a3_impl(target,ctx):
+          value = []
+          f = ctx.actions.declare_file('a3.out')
+          ctx.actions.write(f, 'text')
+          for dep in ctx.rule.attr.deps:
+             if a3p in dep:
+                 value += dep[a3p].value
+          s = str(target.label) + str(ctx.aspect_ids) + '='
+          if a1p in target:
+             s += 'a1p'
+          if a2p in target:
+             s += 'a2p'
+          value.append(s)
+          return [a3p(value = value)]
+        a3 = aspect(_a3_impl, attr_aspects = ['deps'],
+                    required_aspect_providers = [[a1p], [a2p]])
+        def _r1_impl(ctx):
+          pass
+        RCollectInfo = provider()
+        def _rcollect_impl(ctx):
+          value = []
+          for dep in ctx.attr.deps:
+             if a3p in dep:
+                 value += dep[a3p].value
+          return RCollectInfo(result = value)
+        r1 = rule(_r1_impl, attrs = { 'deps' : attr.label_list(aspects = [a1])})
+        r2 = rule(_r1_impl, attrs = { 'deps' : attr.label_list(aspects = [a2])})
+        rcollect = rule(_rcollect_impl, attrs = { 'deps' : attr.label_list(aspects = [a3])})
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':aspect.bzl', 'r1', 'r2', 'rcollect')",
-        "r1(name = 'r0')",
-        "r1(name = 'r1', deps = [':r0'])",
-        "r2(name = 'r2', deps = [':r0'])",
-        "rcollect(name = 'rcollect', deps = [':r1', ':r2'])");
+        """
+        load(':aspect.bzl', 'r1', 'r2', 'rcollect')
+        r1(name = 'r0')
+        r1(name = 'r1', deps = [':r0'])
+        r2(name = 'r2', deps = [':r0'])
+        rcollect(name = 'rcollect', deps = [':r1', ':r2'])
+        """);
     AnalysisResult analysisResult = update("//test:rcollect");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    Sequence<?> result = (Sequence<?>) target.get("result");
+    Sequence<?> result =
+        (Sequence<?>) getStarlarkProvider(target, "RCollectInfo").getValue("result");
     assertThat(result)
         .containsExactly(
             "@//test:r0[\"//test:aspect.bzl%a1\", \"//test:aspect.bzl%a3\"]=a1p",
@@ -2127,37 +2372,42 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectOnAspectLinearDuplicates() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "a1p = provider()",
-        "def _a1_impl(target,ctx):",
-        "  return struct(a1p = 'a1p')",
-        "a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = ['a1p'])",
-        "a2p = provider()",
-        "def _a2_impl(target,ctx):",
-        "  value = []",
-        "  if hasattr(ctx.rule.attr.dep, 'a2p'):",
-        "     value += ctx.rule.attr.dep.a2p.value",
-        "  if hasattr(target, 'a1p'):",
-        "     value.append(str(target.label) + str(ctx.aspect_ids) + '=yes')",
-        "  else:",
-        "     value.append(str(target.label) + str(ctx.aspect_ids) + '=no')",
-        "  return struct(a2p = a2p(value = value))",
-        "a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = [])",
-        "def _r1_impl(ctx):",
-        "  pass",
-        "def _r2_impl(ctx):",
-        "  return struct(result = ctx.attr.dep.a2p.value)",
-        "r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})",
-        "r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})");
+        """
+        a1p = provider()
+        def _a1_impl(target,ctx):
+          return a1p()
+        a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = [a1p])
+        a2p = provider()
+        def _a2_impl(target,ctx):
+          value = []
+          if ctx.rule.attr.dep and a2p in ctx.rule.attr.dep:
+             value += ctx.rule.attr.dep[a2p].value
+          if a1p in target:
+             value.append(str(target.label) + str(ctx.aspect_ids) + '=yes')
+          else:
+             value.append(str(target.label) + str(ctx.aspect_ids) + '=no')
+          return a2p(value = value)
+        a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = [])
+        def _r1_impl(ctx):
+          pass
+        r2info = provider()
+        def _r2_impl(ctx):
+          return r2info(result = ctx.attr.dep[a2p].value)
+        r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})
+        r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':aspect.bzl', 'r1', 'r2')",
-        "r1(name = 'r0')",
-        "r2(name = 'r2_1', dep = ':r0')",
-        "r1(name = 'r1', dep = ':r2_1')",
-        "r2(name = 'r2', dep = ':r1')");
+        """
+        load(':aspect.bzl', 'r1', 'r2')
+        r1(name = 'r0')
+        r2(name = 'r2_1', dep = ':r0')
+        r1(name = 'r1', dep = ':r2_1')
+        r2(name = 'r2', dep = ':r1')
+        """);
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    Sequence<?> result = (Sequence<?>) target.get("result");
+    Sequence<?> result = getStarlarkProvider(target, "r2info").getValue("result", Sequence.class);
     // "yes" means that aspect a2 sees a1's providers.
     assertThat(result)
         .containsExactly(
@@ -2170,37 +2420,42 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectOnAspectLinearAlias() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "a1p = provider()",
-        "def _a1_impl(target,ctx):",
-        "  return struct(a1p = a1p(text = 'random'))",
-        "a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = ['a1p'])",
-        "a2p = provider()",
-        "def _a2_impl(target,ctx):",
-        "  value = []",
-        "  if hasattr(ctx.rule.attr.dep, 'a2p'):",
-        "     value += ctx.rule.attr.dep.a2p.value",
-        "  if hasattr(target, 'a1p'):",
-        "     value.append(str(target.label) + str(ctx.aspect_ids) + '=yes')",
-        "  else:",
-        "     value.append(str(target.label) + str(ctx.aspect_ids) + '=no')",
-        "  return struct(a2p = a2p(value = value))",
-        "a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = ['a1p'])",
-        "def _r1_impl(ctx):",
-        "  pass",
-        "def _r2_impl(ctx):",
-        "  return struct(result = ctx.attr.dep.a2p.value)",
-        "r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})",
-        "r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})");
+        """
+        a1p = provider()
+        def _a1_impl(target,ctx):
+          return [a1p(text = 'random')]
+        a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = [a1p])
+        a2p = provider()
+        def _a2_impl(target,ctx):
+          value = []
+          if ctx.rule.attr.dep and a2p in ctx.rule.attr.dep:
+             value += ctx.rule.attr.dep[a2p].value
+          if a1p in target:
+             value.append(str(target.label) + str(ctx.aspect_ids) + '=yes')
+          else:
+             value.append(str(target.label) + str(ctx.aspect_ids) + '=no')
+          return [a2p(value = value)]
+        a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = [a1p])
+        def _r1_impl(ctx):
+          pass
+        r2info = provider()
+        def _r2_impl(ctx):
+          return r2info(result = ctx.attr.dep[a2p].value)
+        r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})
+        r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':aspect.bzl', 'r1', 'r2')",
-        "r1(name = 'r0')",
-        "alias(name = 'a0', actual = ':r0')",
-        "r1(name = 'r1', dep = ':a0')",
-        "r2(name = 'r2', dep = ':r1')");
+        """
+        load(':aspect.bzl', 'r1', 'r2')
+        r1(name = 'r0')
+        alias(name = 'a0', actual = ':r0')
+        r1(name = 'r1', dep = ':a0')
+        r2(name = 'r2', dep = ':r1')
+        """);
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    Sequence<?> result = (Sequence<?>) target.get("result");
+    Sequence<?> result = getStarlarkProvider(target, "r2info").getValue("result", Sequence.class);
 
     // "yes" means that aspect a2 sees a1's providers.
     assertThat(result)
@@ -2213,33 +2468,39 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectDescriptions() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _a_impl(target,ctx):",
-        "  s = str(target.label) + str(ctx.aspect_ids) + '='",
-        "  value = []",
-        "  if ctx.rule.attr.dep:",
-        "     d = ctx.rule.attr.dep",
-        "     this_id = ctx.aspect_ids[len(ctx.aspect_ids) - 1]",
-        "     s += str(d.label) + str(d.my_ids) + ',' + str(this_id in d.my_ids)",
-        "     value += ctx.rule.attr.dep.ap",
-        "  else:",
-        "     s += 'None'",
-        "  value.append(s)",
-        "  return struct(ap = value, my_ids = ctx.aspect_ids)",
-        "a = aspect(_a_impl, attr_aspects = ['dep'])",
-        "def _r_impl(ctx):",
-        "  if not ctx.attr.dep:",
-        "     return struct(result = [])",
-        "  return struct(result = ctx.attr.dep.ap)",
-        "r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})");
+        """
+AspectInfo = provider()
+def _a_impl(target,ctx):
+  s = str(target.label) + str(ctx.aspect_ids) + '='
+  value = []
+  if ctx.rule.attr.dep:
+     d = ctx.rule.attr.dep
+     this_id = ctx.aspect_ids[len(ctx.aspect_ids) - 1]
+     s += str(d.label) + str(d[AspectInfo].my_ids) + ',' + str(this_id in d[AspectInfo].my_ids)
+     value += ctx.rule.attr.dep[AspectInfo].ap
+  else:
+     s += 'None'
+  value.append(s)
+  return AspectInfo(ap = value, my_ids = ctx.aspect_ids)
+a = aspect(_a_impl, attr_aspects = ['dep'])
+RuleInfo = provider()
+def _r_impl(ctx):
+  if not ctx.attr.dep:
+     return RuleInfo(result = [])
+  return RuleInfo(result = ctx.attr.dep[AspectInfo].ap)
+r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
+""");
     scratch.file(
         "test/BUILD",
-        "load(':aspect.bzl', 'r')",
-        "r(name = 'r0')",
-        "r(name = 'r1', dep = ':r0')",
-        "r(name = 'r2', dep = ':r1')");
+        """
+        load(':aspect.bzl', 'r')
+        r(name = 'r0')
+        r(name = 'r1', dep = ':r0')
+        r(name = 'r2', dep = ':r1')
+        """);
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    Sequence<?> result = (Sequence<?>) target.get("result");
+    Sequence<?> result = (Sequence<?>) getStarlarkProvider(target, "RuleInfo").getValue("result");
 
     assertThat(result)
         .containsExactly(
@@ -2251,31 +2512,39 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void attributesWithAspectsReused() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return struct()",
-        "my_aspect = aspect(_impl)",
-        "a_dict = { 'foo' : attr.label_list(aspects = [my_aspect]) }");
+        """
+        def _impl(target, ctx):
+           return []
+        my_aspect = aspect(_impl)
+        a_dict = { 'foo' : attr.label_list(aspects = [my_aspect]) }
+        """);
 
     scratch.file(
         "test/r1.bzl",
-        "load(':aspect.bzl', 'my_aspect', 'a_dict')",
-        "def _rule_impl(ctx):",
-        "   pass",
-        "r1 = rule(_rule_impl, attrs = a_dict)");
+        """
+        load(':aspect.bzl', 'my_aspect', 'a_dict')
+        def _rule_impl(ctx):
+           pass
+        r1 = rule(_rule_impl, attrs = a_dict)
+        """);
 
     scratch.file(
         "test/r2.bzl",
-        "load(':aspect.bzl', 'my_aspect', 'a_dict')",
-        "def _rule_impl(ctx):",
-        "   pass",
-        "r2 = rule(_rule_impl, attrs = a_dict)");
+        """
+        load(':aspect.bzl', 'my_aspect', 'a_dict')
+        def _rule_impl(ctx):
+           pass
+        r2 = rule(_rule_impl, attrs = a_dict)
+        """);
 
     scratch.file(
         "test/BUILD",
-        "load(':r1.bzl', 'r1')",
-        "load(':r2.bzl', 'r2')",
-        "r1(name = 'x1')",
-        "r2(name = 'x2', foo = [':x1'])");
+        """
+        load(':r1.bzl', 'r1')
+        load(':r2.bzl', 'r2')
+        r1(name = 'x1')
+        r2(name = 'x2', foo = [':x1'])
+        """);
     AnalysisResult analysisResult = update("//test:x2");
     assertThat(analysisResult.hasError()).isFalse();
   }
@@ -2284,10 +2553,12 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectAdvertisingProviders() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return struct()",
-        "my_aspect = aspect(_impl, provides = ['foo'])",
-        "a_dict = { 'foo' : attr.label_list(aspects = [my_aspect]) }");
+        """
+        def _impl(target, ctx):
+           return []
+        my_aspect = aspect(_impl, provides = ['foo'])
+        a_dict = { 'foo' : attr.label_list(aspects = [my_aspect]) }
+        """);
     scratch.file("test/BUILD", "java_library(name = 'xxx',)");
 
     reporter.removeHandler(failFastHandler);
@@ -2308,28 +2579,33 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectOnAspectInconsistentVisibility() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "a1p = provider()",
-        "def _a1_impl(target,ctx):",
-        "  return struct(a1p = a1p(text = 'random'))",
-        "a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = ['a1p'])",
-        "a2p = provider()",
-        "def _a2_impl(target,ctx):",
-        "  return struct(a2p = a2p(value = 'random'))",
-        "a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = ['a1p'])",
-        "def _r1_impl(ctx):",
-        "  pass",
-        "def _r2_impl(ctx):",
-        "  return struct(result = ctx.attr.dep.a2p.value)",
-        "r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})",
-        "r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})");
+        """
+        a1p = provider()
+        def _a1_impl(target,ctx):
+          return [a1p(text = 'random')]
+        a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = [a1p])
+        a2p = provider()
+        def _a2_impl(target,ctx):
+          return [a2p(value = 'random')]
+        a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = [a1p])
+        def _r1_impl(ctx):
+          pass
+        r2info = provider()
+        def _r2_impl(ctx):
+          return r2info(result = ctx.attr.dep[a2p].value)
+        r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})
+        r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':aspect.bzl', 'r1', 'r2')",
-        "r1(name = 'r0')",
-        "r1(name = 'r1', dep = ':r0')",
-        "r2(name = 'r2', dep = ':r1')",
-        "r1(name = 'r1_1', dep = ':r2')",
-        "r2(name = 'r2_1', dep = ':r1_1')");
+        """
+        load(':aspect.bzl', 'r1', 'r2')
+        r1(name = 'r0')
+        r1(name = 'r1', dep = ':r0')
+        r2(name = 'r2', dep = ':r1')
+        r1(name = 'r1_1', dep = ':r2')
+        r2(name = 'r2_1', dep = ':r1_1')
+        """);
     reporter.removeHandler(failFastHandler);
 
     try {
@@ -2349,32 +2625,37 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectOnAspectInconsistentVisibilityIndirect() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "a1p = provider()",
-        "def _a1_impl(target,ctx):",
-        "  return struct(a1p = a1p(text = 'random'))",
-        "a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = ['a1p'])",
-        "a2p = provider()",
-        "def _a2_impl(target,ctx):",
-        "  return struct(a2p = a2p(value = 'random'))",
-        "a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = ['a1p'])",
-        "def _r1_impl(ctx):",
-        "  pass",
-        "def _r2_impl(ctx):",
-        "  return struct(result = ctx.attr.dep.a2p.value)",
-        "r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})",
-        "r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})",
-        "def _r0_impl(ctx):",
-        "  pass",
-        "r0 = rule(_r0_impl, attrs = { 'dep' : attr.label()})");
+        """
+        a1p = provider()
+        def _a1_impl(target,ctx):
+          return [a1p(text = 'random')]
+        a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = [a1p])
+        a2p = provider()
+        def _a2_impl(target,ctx):
+          return [a2p(value = 'random')]
+        a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = [a1p])
+        def _r1_impl(ctx):
+          pass
+        r2info = provider()
+        def _r2_impl(ctx):
+          return r2info(result = ctx.attr.dep[a2p].value)
+        r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})
+        r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})
+        def _r0_impl(ctx):
+          pass
+        r0 = rule(_r0_impl, attrs = { 'dep' : attr.label()})
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':aspect.bzl', 'r0', 'r1', 'r2')",
-        "r0(name = 'r0')",
-        "r1(name = 'r1', dep = ':r0')",
-        "r2(name = 'r2', dep = ':r1')",
-        "r1(name = 'r1_1', dep = ':r2')",
-        "r2(name = 'r2_1', dep = ':r1_1')",
-        "r0(name = 'r0_2', dep = ':r2_1')");
+        """
+        load(':aspect.bzl', 'r0', 'r1', 'r2')
+        r0(name = 'r0')
+        r1(name = 'r1', dep = ':r0')
+        r2(name = 'r2', dep = ':r1')
+        r1(name = 'r1_1', dep = ':r2')
+        r2(name = 'r2_1', dep = ':r1_1')
+        r0(name = 'r0_2', dep = ':r2_1')
+        """);
     reporter.removeHandler(failFastHandler);
 
     try {
@@ -2398,42 +2679,46 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectOnAspectOnAspect() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "p1 = provider()",
-        "def _a1_impl(target, ctx):",
-        "   return [p1()]",
-        "a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = [p1])",
-        "p2 = provider()",
-        "def _a2_impl(target, ctx):",
-        "   value = True if p1 in target else False",
-        "   return [p2(has_p1 = value)]",
-        "a2 = aspect(_a2_impl, attr_aspects = ['dep'],",
-        "   required_aspect_providers = [p1], provides = [p2])",
-        "p3 = provider()",
-        "def _a3_impl(target, ctx):",
-        "   list = []",
-        "   if ctx.rule.attr.dep:",
-        "     list = ctx.rule.attr.dep[p3].value",
-        "   my_value = str(target.label) +'=' + str(target[p2].has_p1 if p2 in target else False)",
-        "   return [p3(value = list + [my_value])]",
-        "a3 = aspect(_a3_impl, attr_aspects = ['dep'],",
-        "   required_aspect_providers = [p2])",
-        "def _r0_impl(ctx):",
-        "  pass",
-        "r0 = rule(_r0_impl, attrs = { 'dep' : attr.label()})",
-        "def _r1_impl(ctx):",
-        "  pass",
-        "def _r2_impl(ctx):",
-        "  pass",
-        "r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})",
-        "r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})");
+        """
+        p1 = provider()
+        def _a1_impl(target, ctx):
+           return [p1()]
+        a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = [p1])
+        p2 = provider()
+        def _a2_impl(target, ctx):
+           value = True if p1 in target else False
+           return [p2(has_p1 = value)]
+        a2 = aspect(_a2_impl, attr_aspects = ['dep'],
+           required_aspect_providers = [p1], provides = [p2])
+        p3 = provider()
+        def _a3_impl(target, ctx):
+           list = []
+           if ctx.rule.attr.dep:
+             list = ctx.rule.attr.dep[p3].value
+           my_value = str(target.label) +'=' + str(target[p2].has_p1 if p2 in target else False)
+           return [p3(value = list + [my_value])]
+        a3 = aspect(_a3_impl, attr_aspects = ['dep'],
+           required_aspect_providers = [p2])
+        def _r0_impl(ctx):
+          pass
+        r0 = rule(_r0_impl, attrs = { 'dep' : attr.label()})
+        def _r1_impl(ctx):
+          pass
+        def _r2_impl(ctx):
+          pass
+        r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})
+        r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':aspect.bzl', 'r0', 'r1', 'r2')",
-        "r0(name = 'r0_1')",
-        "r0(name = 'r0_2', dep = ':r0_1')",
-        "r0(name = 'r0_3', dep = ':r0_2')",
-        "r1(name = 'r1_1', dep = ':r0_3')",
-        "r2(name = 'r2_1', dep = ':r1_1')");
+        """
+        load(':aspect.bzl', 'r0', 'r1', 'r2')
+        r0(name = 'r0_1')
+        r0(name = 'r0_2', dep = ':r0_1')
+        r0(name = 'r0_3', dep = ':r0_2')
+        r1(name = 'r1_1', dep = ':r0_3')
+        r2(name = 'r2_1', dep = ':r1_1')
+        """);
 
     AnalysisResult analysisResult = update(ImmutableList.of("//test:aspect.bzl%a3"), "//test:r2_1");
     ConfiguredAspect configuredAspect =
@@ -2462,41 +2747,45 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void multipleDepsDifferentAspects() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "PAspect = provider()",
-        "PCollector = provider()",
-        "def _aspect_impl(target, ctx):",
-        "   return [PAspect()]",
-        "a = aspect(_aspect_impl, attr_aspects = ['dep'], provides = [PAspect])",
-        "def _collector_impl(target, ctx):",
-        "   suffix = '+PAspect' if PAspect in target else ''",
-        "   result = [str(target.label)+suffix]",
-        "   for a in ['dep', 'dep1', 'dep2']:",
-        "     if hasattr(ctx.rule.attr, a):",
-        "        result += getattr(ctx.rule.attr, a)[PCollector].result",
-        "   return [PCollector(result=result)]",
-        "collector = aspect(_collector_impl, attr_aspects = ['*'], ",
-        "                   required_aspect_providers = [PAspect])",
-        "def _rimpl(ctx):",
-        "   pass",
-        "r0 = rule(_rimpl)",
-        "r1 = rule(_rimpl, ",
-        "          attrs = {",
-        "             'dep1' : attr.label(),",
-        "             'dep2' : attr.label(aspects = [a]),",
-        "          },",
-        ")",
-        "def _rcollect_impl(ctx):",
-        "    return [ctx.attr.dep[PCollector]]",
-        "rcollect = rule(_rcollect_impl,",
-        "                attrs = {",
-        "                  'dep' : attr.label(aspects = [collector]),",
-        "                })");
+        """
+        PAspect = provider()
+        PCollector = provider()
+        def _aspect_impl(target, ctx):
+           return [PAspect()]
+        a = aspect(_aspect_impl, attr_aspects = ['dep'], provides = [PAspect])
+        def _collector_impl(target, ctx):
+           suffix = '+PAspect' if PAspect in target else ''
+           result = [str(target.label)+suffix]
+           for a in ['dep', 'dep1', 'dep2']:
+             if hasattr(ctx.rule.attr, a):
+                result += getattr(ctx.rule.attr, a)[PCollector].result
+           return [PCollector(result=result)]
+        collector = aspect(_collector_impl, attr_aspects = ['*'],
+                           required_aspect_providers = [PAspect])
+        def _rimpl(ctx):
+           pass
+        r0 = rule(_rimpl)
+        r1 = rule(_rimpl,
+                  attrs = {
+                     'dep1' : attr.label(),
+                     'dep2' : attr.label(aspects = [a]),
+                  },
+        )
+        def _rcollect_impl(ctx):
+            return [ctx.attr.dep[PCollector]]
+        rcollect = rule(_rcollect_impl,
+                        attrs = {
+                          'dep' : attr.label(aspects = [collector]),
+                        })
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':aspect.bzl', 'r0', 'r1', 'rcollect')",
-        "r0(name = 'r0')",
-        "r1(name = 'r1', dep1 = ':r0', dep2 = ':r0')",
-        "rcollect(name = 'rcollect', dep = ':r1')");
+        """
+        load(':aspect.bzl', 'r0', 'r1', 'rcollect')
+        r0(name = 'r0')
+        r1(name = 'r1', dep1 = ':r0', dep2 = ':r0')
+        rcollect(name = 'rcollect', dep = ':r1')
+        """);
 
     AnalysisResult analysisResult = update(ImmutableList.of(), "//test:rcollect");
     ConfiguredTarget configuredTarget =
@@ -2512,30 +2801,34 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectSeesOtherAspectAttributes() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "PAspect = provider(fields = [])",
-        "PCollector = provider(fields = ['aspect_attr'])",
-        "def _a_impl(target, ctx):",
-        "  return [PAspect()]",
-        "a = aspect(_a_impl, ",
-        "           provides = [PAspect],",
-        "           attrs = {'_a_attr' : attr.label(default = '//test:foo')})",
-        "def _rcollect(target, ctx):",
-        "  if hasattr(ctx.rule.attr, '_a_attr'):",
-        "     return [PCollector(aspect_attr = ctx.rule.attr._a_attr.label)]",
-        "  if hasattr(ctx.rule.attr, 'dep'):",
-        "     return [ctx.rule.attr.dep[PCollector]]",
-        "  return [PCollector()]",
-        "acollect = aspect(_rcollect, attr_aspects = ['*'], required_aspect_providers = [PAspect])",
-        "def _rimpl(ctx):",
-        "  pass",
-        "r0 = rule(_rimpl)",
-        "r = rule(_rimpl, attrs = { 'dep' : attr.label(aspects = [a]) })");
+        """
+        PAspect = provider(fields = [])
+        PCollector = provider(fields = ['aspect_attr'])
+        def _a_impl(target, ctx):
+          return [PAspect()]
+        a = aspect(_a_impl,
+                   provides = [PAspect],
+                   attrs = {'_a_attr' : attr.label(default = '//test:foo')})
+        def _rcollect(target, ctx):
+          if hasattr(ctx.rule.attr, '_a_attr'):
+             return [PCollector(aspect_attr = ctx.rule.attr._a_attr.label)]
+          if hasattr(ctx.rule.attr, 'dep'):
+             return [ctx.rule.attr.dep[PCollector]]
+          return [PCollector()]
+        acollect = aspect(_rcollect, attr_aspects = ['*'], required_aspect_providers = [PAspect])
+        def _rimpl(ctx):
+          pass
+        r0 = rule(_rimpl)
+        r = rule(_rimpl, attrs = { 'dep' : attr.label(aspects = [a]) })
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':aspect.bzl', 'r0', 'r')",
-        "r0(name = 'foo')",
-        "r0(name = 'bar')",
-        "r(name = 'baz', dep = ':bar')");
+        """
+        load(':aspect.bzl', 'r0', 'r')
+        r0(name = 'foo')
+        r0(name = 'bar')
+        r(name = 'baz', dep = ':bar')
+        """);
     AnalysisResult analysisResult =
         update(ImmutableList.of("//test:aspect.bzl%acollect"), "//test:baz");
     ConfiguredAspect configuredAspect =
@@ -2550,34 +2843,38 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void ruleAttributesWinOverAspects() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "PAspect = provider(fields = [])",
-        "PCollector = provider(fields = ['attr_value'])",
-        "def _a_impl(target, ctx):",
-        "  return [PAspect()]",
-        "a = aspect(_a_impl, ",
-        "           provides = [PAspect],",
-        "           attrs = {'_same_attr' : attr.int(default = 239)})",
-        "def _rcollect(target, ctx):",
-        "  if hasattr(ctx.rule.attr, '_same_attr'):",
-        "     return [PCollector(attr_value = ctx.rule.attr._same_attr)]",
-        "  if hasattr(ctx.rule.attr, 'dep'):",
-        "     return [ctx.rule.attr.dep[PCollector]]",
-        "  return [PCollector()]",
-        "acollect = aspect(_rcollect, attr_aspects = ['*'], required_aspect_providers = [PAspect])",
-        "def _rimpl(ctx):",
-        "  pass",
-        "r0 = rule(_rimpl)",
-        "r = rule(_rimpl, ",
-        "          attrs = { ",
-        "                  'dep' : attr.label(aspects = [a]), ",
-        "                  '_same_attr' : attr.int(default = 30)",
-        "          })");
+        """
+        PAspect = provider(fields = [])
+        PCollector = provider(fields = ['attr_value'])
+        def _a_impl(target, ctx):
+          return [PAspect()]
+        a = aspect(_a_impl,
+                   provides = [PAspect],
+                   attrs = {'_same_attr' : attr.int(default = 239)})
+        def _rcollect(target, ctx):
+          if hasattr(ctx.rule.attr, '_same_attr'):
+             return [PCollector(attr_value = ctx.rule.attr._same_attr)]
+          if hasattr(ctx.rule.attr, 'dep'):
+             return [ctx.rule.attr.dep[PCollector]]
+          return [PCollector()]
+        acollect = aspect(_rcollect, attr_aspects = ['*'], required_aspect_providers = [PAspect])
+        def _rimpl(ctx):
+          pass
+        r0 = rule(_rimpl)
+        r = rule(_rimpl,
+                  attrs = {
+                          'dep' : attr.label(aspects = [a]),
+                          '_same_attr' : attr.int(default = 30)
+                  })
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':aspect.bzl', 'r0', 'r')",
-        "r0(name = 'foo')",
-        "r0(name = 'bar')",
-        "r(name = 'baz', dep = ':bar')");
+        """
+        load(':aspect.bzl', 'r0', 'r')
+        r0(name = 'foo')
+        r0(name = 'bar')
+        r(name = 'baz', dep = ':bar')
+        """);
     AnalysisResult analysisResult =
         update(ImmutableList.of("//test:aspect.bzl%acollect"), "//test:baz");
     ConfiguredAspect configuredAspect =
@@ -2592,45 +2889,49 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void earlyAspectAttributesWin() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "PAspect1 = provider(fields = [])",
-        "PAspect2 = provider(fields = [])",
-        "PCollector = provider(fields = ['attr_value'])",
-        "def _a1_impl(target, ctx):",
-        "  return [PAspect1()]",
-        "def _a2_impl(target, ctx):",
-        "  return [PAspect2()]",
-        "a1 = aspect(_a1_impl, ",
-        "            provides = [PAspect1],",
-        "            attrs = {'_same_attr' : attr.int(default = 30)})",
-        "a2 = aspect(_a2_impl, ",
-        "            provides = [PAspect2],",
-        "            attrs = {'_same_attr' : attr.int(default = 239)})",
-        "def _rcollect(target, ctx):",
-        "  if hasattr(ctx.rule.attr, 'dep'):",
-        "     return [ctx.rule.attr.dep[PCollector]]",
-        "  if hasattr(ctx.rule.attr, '_same_attr'):",
-        "     return [PCollector(attr_value = ctx.rule.attr._same_attr)]",
-        "  fail('???')",
-        "  return [PCollector()]",
-        "acollect = aspect(_rcollect, attr_aspects = ['*'], ",
-        "                  required_aspect_providers = [[PAspect1], [PAspect2]])",
-        "def _rimpl(ctx):",
-        "  pass",
-        "r0 = rule(_rimpl)",
-        "r1 = rule(_rimpl, ",
-        "          attrs = { ",
-        "                  'dep' : attr.label(aspects = [a1]), ",
-        "          })",
-        "r2 = rule(_rimpl, ",
-        "          attrs = { ",
-        "                  'dep' : attr.label(aspects = [a2]), ",
-        "          })");
+        """
+        PAspect1 = provider(fields = [])
+        PAspect2 = provider(fields = [])
+        PCollector = provider(fields = ['attr_value'])
+        def _a1_impl(target, ctx):
+          return [PAspect1()]
+        def _a2_impl(target, ctx):
+          return [PAspect2()]
+        a1 = aspect(_a1_impl,
+                    provides = [PAspect1],
+                    attrs = {'_same_attr' : attr.int(default = 30)})
+        a2 = aspect(_a2_impl,
+                    provides = [PAspect2],
+                    attrs = {'_same_attr' : attr.int(default = 239)})
+        def _rcollect(target, ctx):
+          if hasattr(ctx.rule.attr, 'dep'):
+             return [ctx.rule.attr.dep[PCollector]]
+          if hasattr(ctx.rule.attr, '_same_attr'):
+             return [PCollector(attr_value = ctx.rule.attr._same_attr)]
+          fail('???')
+          return [PCollector()]
+        acollect = aspect(_rcollect, attr_aspects = ['*'],
+                          required_aspect_providers = [[PAspect1], [PAspect2]])
+        def _rimpl(ctx):
+          pass
+        r0 = rule(_rimpl)
+        r1 = rule(_rimpl,
+                  attrs = {
+                          'dep' : attr.label(aspects = [a1]),
+                  })
+        r2 = rule(_rimpl,
+                  attrs = {
+                          'dep' : attr.label(aspects = [a2]),
+                  })
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':aspect.bzl', 'r0', 'r1', 'r2')",
-        "r0(name = 'bar')",
-        "r1(name = 'baz', dep = ':bar')",
-        "r2(name = 'quux', dep = ':baz')");
+        """
+        load(':aspect.bzl', 'r0', 'r1', 'r2')
+        r0(name = 'bar')
+        r1(name = 'baz', dep = ':bar')
+        r2(name = 'quux', dep = ':baz')
+        """);
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("//test:aspect.bzl%acollect"), "//test:quux");
@@ -2646,32 +2947,36 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectPropagatesOverOtherAspectAttributes() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "PAspect = provider(fields = [])",
-        "PCollector = provider(fields = ['visited'])",
-        "def _a_impl(target, ctx):",
-        "  return [PAspect()]",
-        "a = aspect(_a_impl, ",
-        "       provides = [PAspect],",
-        "       attrs = {'_a_attr' : attr.label(default = '//test:referenced_from_aspect_only')})",
-        "def _rcollect(target, ctx):",
-        "  transitive = []",
-        "  if hasattr(ctx.rule.attr, 'dep') and ctx.rule.attr.dep:",
-        "     transitive += [ctx.rule.attr.dep[PCollector].visited]",
-        "  if hasattr(ctx.rule.attr, '_a_attr') and ctx.rule.attr._a_attr:",
-        "     transitive += [ctx.rule.attr._a_attr[PCollector].visited] ",
-        "  visited = depset([target.label], transitive = transitive, )",
-        "  return [PCollector(visited = visited)]",
-        "acollect = aspect(_rcollect, attr_aspects = ['*'], required_aspect_providers = [PAspect])",
-        "def _rimpl(ctx):",
-        "  pass",
-        "r0 = rule(_rimpl)",
-        "r = rule(_rimpl, attrs = { 'dep' : attr.label(aspects = [a]) })");
+        """
+        PAspect = provider(fields = [])
+        PCollector = provider(fields = ['visited'])
+        def _a_impl(target, ctx):
+          return [PAspect()]
+        a = aspect(_a_impl,
+               provides = [PAspect],
+               attrs = {'_a_attr' : attr.label(default = '//test:referenced_from_aspect_only')})
+        def _rcollect(target, ctx):
+          transitive = []
+          if hasattr(ctx.rule.attr, 'dep') and ctx.rule.attr.dep:
+             transitive += [ctx.rule.attr.dep[PCollector].visited]
+          if hasattr(ctx.rule.attr, '_a_attr') and ctx.rule.attr._a_attr:
+             transitive += [ctx.rule.attr._a_attr[PCollector].visited]
+          visited = depset([target.label], transitive = transitive, )
+          return [PCollector(visited = visited)]
+        acollect = aspect(_rcollect, attr_aspects = ['*'], required_aspect_providers = [PAspect])
+        def _rimpl(ctx):
+          pass
+        r0 = rule(_rimpl)
+        r = rule(_rimpl, attrs = { 'dep' : attr.label(aspects = [a]) })
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':aspect.bzl', 'r0', 'r')",
-        "r0(name = 'referenced_from_aspect_only')",
-        "r0(name = 'bar')",
-        "r(name = 'baz', dep = ':bar')");
+        """
+        load(':aspect.bzl', 'r0', 'r')
+        r0(name = 'referenced_from_aspect_only')
+        r0(name = 'bar')
+        r(name = 'baz', dep = ':bar')
+        """);
     AnalysisResult analysisResult =
         update(ImmutableList.of("//test:aspect.bzl%acollect"), "//test:baz");
     ConfiguredAspect configuredAspect =
@@ -2690,43 +2995,48 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testAspectActionProvider() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "a1p = provider()",
-        "def _a1_impl(target,ctx):",
-        "  ctx.actions.run_shell(",
-        "    outputs = [ctx.actions.declare_file('a1')],",
-        "    command = 'touch $@'",
-        "  )",
-        "  return struct(a1p=a1p())",
-        "a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = ['a1p'])",
-        "a2p = provider()",
-        "def _a2_impl(target, ctx):",
-        "  value = []",
-        "  if hasattr(ctx.rule.attr, 'dep') and hasattr(ctx.rule.attr.dep, 'a2p'):",
-        "     value += ctx.rule.attr.dep.a2p.value",
-        "  value += target.actions",
-        "  return struct(a2p = a2p(value = value))",
-        "a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = ['a1p'])",
-        "def _r0_impl(ctx):",
-        "  ctx.actions.run_shell(",
-        "    outputs = [ctx.actions.declare_file('r0')],",
-        "    command = 'touch $@'",
-        "  )",
-        "def _r1_impl(ctx):",
-        "  pass",
-        "def _r2_impl(ctx):",
-        "  return struct(result = ctx.attr.dep.a2p.value)",
-        "r0 = rule(_r0_impl)",
-        "r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})",
-        "r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})");
+        """
+        a1p = provider()
+        def _a1_impl(target,ctx):
+          ctx.actions.run_shell(
+            outputs = [ctx.actions.declare_file('a1')],
+            command = 'touch $@'
+          )
+          return [a1p()]
+        a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = [a1p])
+        a2p = provider()
+        def _a2_impl(target, ctx):
+          value = []
+          if hasattr(ctx.rule.attr, 'dep') and a2p in ctx.rule.attr.dep:
+             value += ctx.rule.attr.dep[a2p].value
+          value += target.actions
+          return [a2p(value = value)]
+        a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = [a1p])
+        def _r0_impl(ctx):
+          ctx.actions.run_shell(
+            outputs = [ctx.actions.declare_file('r0')],
+            command = 'touch $@'
+          )
+        RuleInfo = provider()
+        def _r1_impl(ctx):
+          pass
+        def _r2_impl(ctx):
+          return RuleInfo(result = ctx.attr.dep[a2p].value)
+        r0 = rule(_r0_impl)
+        r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})
+        r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':aspect.bzl', 'r0', 'r1', 'r2')",
-        "r0(name = 'r0')",
-        "r1(name = 'r1', dep = ':r0')",
-        "r2(name = 'r2', dep = ':r1')");
+        """
+        load(':aspect.bzl', 'r0', 'r1', 'r2')
+        r0(name = 'r0')
+        r1(name = 'r1', dep = ':r0')
+        r2(name = 'r2', dep = ':r1')
+        """);
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    Sequence<?> result = (Sequence<?>) target.get("result");
+    Sequence<?> result = (Sequence<?>) getStarlarkProvider(target, "RuleInfo").getValue("result");
 
     // We should see both the action from the 'r0' rule, and the action from the 'a1' aspect
     assertThat(result).hasSize(2);
@@ -2741,32 +3051,36 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testRuleAndAspectAttrConflict() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "MyInfo = provider()",
-        "def _impl(target, ctx):",
-        "   return [MyInfo(hidden_attr_label = str(ctx.attr._hiddenattr.label))]",
-        "",
-        "def _rule_impl(ctx):",
-        "   return []",
-        "",
-        "my_rule = rule(implementation = _rule_impl,",
-        "   attrs = { '_hiddenattr' : attr.label(default = Label('//test:xxx')) },",
-        ")",
-        "MyAspect = aspect(",
-        "   implementation=_impl,",
-        "   attrs = { '_hiddenattr' : attr.label(default = Label('//test:zzz')) },",
-        ")");
+        """
+        MyInfo = provider()
+        def _impl(target, ctx):
+           return [MyInfo(hidden_attr_label = str(ctx.attr._hiddenattr.label))]
+
+        def _rule_impl(ctx):
+           return []
+
+        my_rule = rule(implementation = _rule_impl,
+           attrs = { '_hiddenattr' : attr.label(default = Label('//test:xxx')) },
+        )
+        MyAspect = aspect(
+           implementation=_impl,
+           attrs = { '_hiddenattr' : attr.label(default = Label('//test:zzz')) },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:aspect.bzl', 'my_rule')",
-        "cc_library(",
-        "     name = 'xxx',",
-        ")",
-        "my_rule(",
-        "     name = 'yyy',",
-        ")",
-        "cc_library(",
-        "     name = 'zzz',",
-        ")");
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        cc_library(
+             name = 'xxx',
+        )
+        my_rule(
+             name = 'yyy',
+        )
+        cc_library(
+             name = 'zzz',
+        )
+        """);
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:yyy");
     ConfiguredAspect configuredAspect = analysisResult.getAspectsMap().values().iterator().next();
@@ -2783,41 +3097,46 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectOnAspectAttrConflict() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "MyInfo = provider()",
-        "a1p = provider()",
-        "def _a1_impl(target,ctx):",
-        "  return struct(a1p = a1p(text = 'random'))",
-        "a1 = aspect(_a1_impl,",
-        "   attrs = { '_hiddenattr' : attr.label(default = Label('//test:xxx')) },",
-        "   attr_aspects = ['dep'], provides = ['a1p'])",
-        "a2p = provider()",
-        "def _a2_impl(target,ctx):",
-        "   return [MyInfo(hidden_attr_label = str(ctx.attr._hiddenattr.label))]",
-        "a2 = aspect(_a2_impl,",
-        "  attrs = { '_hiddenattr' : attr.label(default = Label('//test:zzz')) },",
-        "  attr_aspects = ['dep'], required_aspect_providers = ['a1p'])",
-        "def _r1_impl(ctx):",
-        "  pass",
-        "def _r2_impl(ctx):",
-        "  return struct(result = ctx.attr.dep[MyInfo].hidden_attr_label)",
-        "r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})",
-        "r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a1, a2])})");
+        """
+        MyInfo = provider()
+        a1p = provider()
+        def _a1_impl(target,ctx):
+          return a1p(text = 'random')
+        a1 = aspect(_a1_impl,
+           attrs = { '_hiddenattr' : attr.label(default = Label('//test:xxx')) },
+           attr_aspects = ['dep'], provides = [a1p])
+        a2p = provider()
+        def _a2_impl(target,ctx):
+           return [MyInfo(hidden_attr_label = str(ctx.attr._hiddenattr.label))]
+        a2 = aspect(_a2_impl,
+          attrs = { '_hiddenattr' : attr.label(default = Label('//test:zzz')) },
+          attr_aspects = ['dep'], required_aspect_providers = [a1p])
+        RuleInfo = provider()
+        def _r1_impl(ctx):
+          pass
+        def _r2_impl(ctx):
+          return RuleInfo(result = ctx.attr.dep[MyInfo].hidden_attr_label)
+        r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})
+        r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a1, a2])})
+        """);
     scratch.file(
         "test/BUILD",
-        "load(':aspect.bzl', 'r1', 'r2')",
-        "r1(name = 'r0')",
-        "r1(name = 'r1', dep = ':r0')",
-        "r2(name = 'r2', dep = ':r1')",
-        "cc_library(",
-        "     name = 'xxx',",
-        ")",
-        "cc_library(",
-        "     name = 'zzz',",
-        ")");
+        """
+        load(':aspect.bzl', 'r1', 'r2')
+        r1(name = 'r0')
+        r1(name = 'r1', dep = ':r0')
+        r2(name = 'r2', dep = ':r1')
+        cc_library(
+             name = 'xxx',
+        )
+        cc_library(
+             name = 'zzz',
+        )
+        """);
 
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    String result = (String) target.get("result");
+    String result = getStarlarkProvider(target, "RuleInfo").getValue("result", String.class);
 
     assertThat(result).isEqualTo("@//test:zzz");
   }
@@ -2826,18 +3145,26 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testAllCcLibraryAttrsAreValidTypes() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "  for entry in dir(ctx.rule.attr):",
-        "    val = getattr(ctx.rule.attr, entry, None)",
-        "    # Only legitimate Starlark values can be passed to dir(), so this effectively",
-        "    # verifies val is an appropriate Starlark type.",
-        "    _test_dir = dir(val)",
-        "  return []",
-        "",
-        "MyAspect = aspect(",
-        "  implementation=_impl,",
-        ")");
-    scratch.file("test/BUILD", "cc_library(", "     name = 'xxx',", ")");
+        """
+        def _impl(target, ctx):
+          for entry in dir(ctx.rule.attr):
+            val = getattr(ctx.rule.attr, entry, None)
+            # Only legitimate Starlark values can be passed to dir(), so this effectively
+            # verifies val is an appropriate Starlark type.
+            _test_dir = dir(val)
+          return []
+
+        MyAspect = aspect(
+          implementation=_impl,
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        cc_library(
+             name = 'xxx',
+        )
+        """);
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
     assertThat(analysisResult.getAspectsMap().values().iterator().next()).isNotNull();
@@ -2856,66 +3183,70 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     //     uses an aspect with apply_to_generating_rules=False.
     scratch.file(
         "test/lib.bzl",
-        "RootInfo = provider()",
-        "NonAspectInfo = provider()",
-        "FromAspectInfo = provider()",
-        "def _aspect_impl(target, ctx):",
-        "  dep_labels = []",
-        "  for dep in ctx.rule.attr.deps:",
-        "    if FromAspectInfo in dep:",
-        "      dep_labels += [dep[FromAspectInfo].labels]",
-        "  return FromAspectInfo(labels = depset(direct = [ctx.label], transitive = dep_labels))",
-        "",
-        "def _rule_impl(ctx):",
-        "  non_aspect = []",
-        "  from_aspect = []",
-        "  for dep in ctx.attr.deps:",
-        "    if NonAspectInfo in dep:",
-        "      non_aspect +=  dep[NonAspectInfo].labels.to_list()",
-        "    if FromAspectInfo in dep:",
-        "      from_aspect += dep[FromAspectInfo].labels.to_list()",
-        "  return RootInfo(from_aspect = from_aspect, non_aspect = non_aspect)",
-        "",
-        "def _dep_rule_impl(ctx):",
-        "  if ctx.outputs.output:",
-        "    ctx.actions.run_shell(outputs = [ctx.outputs.output], command = 'dont run me')",
-        "  dep_labels = []",
-        "  for dep in ctx.attr.deps:",
-        "    if NonAspectInfo in dep:",
-        "      dep_labels += [dep[NonAspectInfo].labels]",
-        "  return NonAspectInfo(labels = depset(direct = [ctx.label], transitive = dep_labels))",
-        "",
-        "aspect_with_files = aspect(",
-        "  implementation = _aspect_impl,",
-        "  attr_aspects = ['deps'],",
-        "  apply_to_generating_rules = True)",
-        "",
-        "aspect_no_files = aspect(",
-        "  implementation = _aspect_impl,",
-        "  attr_aspects = ['deps'],",
-        "  apply_to_generating_rules = False)",
-        "",
-        "root_with_files = rule(implementation = _rule_impl,",
-        "  attrs = {'deps' : attr.label_list(aspects = [aspect_with_files])})",
-        "",
-        "root_no_files = rule(implementation = _rule_impl,",
-        "  attrs = {'deps' : attr.label_list(aspects = [aspect_no_files])})",
-        "",
-        "dep_rule = rule(implementation = _dep_rule_impl,",
-        "  attrs = {'deps' : attr.label_list(allow_files = True), 'output' : attr.output()})");
+        """
+        RootInfo = provider()
+        NonAspectInfo = provider()
+        FromAspectInfo = provider()
+        def _aspect_impl(target, ctx):
+          dep_labels = []
+          for dep in ctx.rule.attr.deps:
+            if FromAspectInfo in dep:
+              dep_labels += [dep[FromAspectInfo].labels]
+          return FromAspectInfo(labels = depset(direct = [ctx.label], transitive = dep_labels))
+
+        def _rule_impl(ctx):
+          non_aspect = []
+          from_aspect = []
+          for dep in ctx.attr.deps:
+            if NonAspectInfo in dep:
+              non_aspect +=  dep[NonAspectInfo].labels.to_list()
+            if FromAspectInfo in dep:
+              from_aspect += dep[FromAspectInfo].labels.to_list()
+          return RootInfo(from_aspect = from_aspect, non_aspect = non_aspect)
+
+        def _dep_rule_impl(ctx):
+          if ctx.outputs.output:
+            ctx.actions.run_shell(outputs = [ctx.outputs.output], command = 'dont run me')
+          dep_labels = []
+          for dep in ctx.attr.deps:
+            if NonAspectInfo in dep:
+              dep_labels += [dep[NonAspectInfo].labels]
+          return NonAspectInfo(labels = depset(direct = [ctx.label], transitive = dep_labels))
+
+        aspect_with_files = aspect(
+          implementation = _aspect_impl,
+          attr_aspects = ['deps'],
+          apply_to_generating_rules = True)
+
+        aspect_no_files = aspect(
+          implementation = _aspect_impl,
+          attr_aspects = ['deps'],
+          apply_to_generating_rules = False)
+
+        root_with_files = rule(implementation = _rule_impl,
+          attrs = {'deps' : attr.label_list(aspects = [aspect_with_files])})
+
+        root_no_files = rule(implementation = _rule_impl,
+          attrs = {'deps' : attr.label_list(aspects = [aspect_no_files])})
+
+        dep_rule = rule(implementation = _dep_rule_impl,
+          attrs = {'deps' : attr.label_list(allow_files = True), 'output' : attr.output()})
+        """);
 
     // Create a target graph such that two graph roots each point to a common subgraph
     // alpha -> beta_output -> charlie, where beta_output is a generated output file of target
     // 'beta'.
     scratch.file(
         "test/BUILD",
-        "load('//test:lib.bzl', 'root_with_files', 'root_no_files', 'dep_rule')",
-        "",
-        "root_with_files(name = 'test_with_files', deps = [':alpha'])",
-        "root_no_files(name = 'test_no_files', deps = [':alpha'])",
-        "dep_rule(name = 'alpha', deps = [':beta_output'])",
-        "dep_rule(name = 'beta', deps = [':charlie'], output = 'beta_output')",
-        "dep_rule(name = 'charlie')");
+        """
+        load('//test:lib.bzl', 'root_with_files', 'root_no_files', 'dep_rule')
+
+        root_with_files(name = 'test_with_files', deps = [':alpha'])
+        root_no_files(name = 'test_no_files', deps = [':alpha'])
+        dep_rule(name = 'alpha', deps = [':beta_output'])
+        dep_rule(name = 'beta', deps = [':charlie'], output = 'beta_output')
+        dep_rule(name = 'charlie')
+        """);
 
     StarlarkProvider.Key rootInfoKey =
         new StarlarkProvider.Key(Label.parseCanonical("//test:lib.bzl"), "RootInfo");
@@ -3014,13 +3345,15 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     // beta -> charlie
     scratch.file(
         "test/BUILD",
-        "load('//test:lib.bzl', 'root_rule', 'dep_with_aspect_rule', 'dep_rule')",
-        "",
-        "root_rule(name = 'test', deps = [':aspect_propagating_target'])",
-        "dep_with_aspect_rule(name = 'aspect_propagating_target', deps = [':alpha'])",
-        "dep_rule(name = 'alpha', deps = [':beta_output'])",
-        "dep_rule(name = 'beta', deps = [':charlie'], output = 'beta_output')",
-        "dep_rule(name = 'charlie')");
+        """
+        load('//test:lib.bzl', 'root_rule', 'dep_with_aspect_rule', 'dep_rule')
+
+        root_rule(name = 'test', deps = [':aspect_propagating_target'])
+        dep_with_aspect_rule(name = 'aspect_propagating_target', deps = [':alpha'])
+        dep_rule(name = 'alpha', deps = [':beta_output'])
+        dep_rule(name = 'beta', deps = [':charlie'], output = 'beta_output')
+        dep_rule(name = 'charlie')
+        """);
   }
 
   @Test
@@ -3126,34 +3459,38 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testAspectActionsDontInheritExecProperties() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'my_target',",
-        "  deps = [':my_dep'],",
-        ")",
-        "cc_binary(",
-        "  name = 'my_dep',",
-        "  srcs = ['dep.cc'],",
-        "  exec_properties = {'mem': '16g'},",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'my_target',
+          deps = [':my_dep'],
+        )
+        cc_binary(
+          name = 'my_dep',
+          srcs = ['dep.cc'],
+          exec_properties = {'mem': '16g'},
+        )
+        """);
     scratch.file(
         "test/defs.bzl",
-        "def _aspect_impl(target, ctx):",
-        "  f = ctx.actions.declare_file('f.txt')",
-        "  ctx.actions.write(f, 'f')",
-        "  return []",
-        "my_aspect = aspect(",
-        "  implementation = _aspect_impl,",
-        "  attr_aspects = ['deps'],",
-        ")",
-        "def _rule_impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  implementation = _rule_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(aspects = [my_aspect])",
-        "  },",
-        ")");
+        """
+        def _aspect_impl(target, ctx):
+          f = ctx.actions.declare_file('f.txt')
+          ctx.actions.write(f, 'f')
+          return []
+        my_aspect = aspect(
+          implementation = _aspect_impl,
+          attr_aspects = ['deps'],
+        )
+        def _rule_impl(ctx):
+          pass
+        my_rule = rule(
+          implementation = _rule_impl,
+          attrs = {
+            'deps': attr.label_list(aspects = [my_aspect])
+          },
+        )
+        """);
     scratch.file("test/dep.cc", "int main() {return 0;}");
 
     AnalysisResult analysisResult =
@@ -3170,75 +3507,81 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testAspectRequiredProviders_defaultNoRequiredProviders() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "prov_a = provider()",
-        "prov_b = provider()",
-        "",
-        "def _my_aspect_impl(target, ctx):",
-        "  targets_labels = [\"//test:defs.bzl%my_aspect({})\".format(target.label)]",
-        "  for dep in ctx.rule.attr.deps:",
-        "    if hasattr(dep, 'target_labels'):",
-        "      targets_labels.extend(dep.target_labels)",
-        "  return struct(target_labels = targets_labels)",
-        "",
-        "my_aspect = aspect(",
-        "  implementation = _my_aspect_impl,",
-        "  attr_aspects = ['deps'],",
-        ")",
-        "",
-        "def _rule_without_providers_impl(ctx):",
-        "  s = []",
-        "  for dep in ctx.attr.deps:",
-        "    if hasattr(dep, 'target_labels'):",
-        "      s.extend(dep.target_labels)",
-        "  return struct(rule_deps = s)",
-        "",
-        "rule_without_providers = rule(",
-        "  implementation = _rule_without_providers_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(aspects = [my_aspect])",
-        "  },",
-        ")",
-        "",
-        "def _rule_with_providers_impl(ctx):",
-        "  return [prov_a(), prov_b()]",
-        "",
-        "rule_with_providers = rule(",
-        "  implementation = _rule_with_providers_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list()",
-        "  },",
-        "  provides = [prov_a, prov_b]",
-        ")",
-        "",
-        "rule_with_providers_not_advertised = rule(",
-        "  implementation = _rule_with_providers_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list()",
-        "  },",
-        "  provides = []",
-        ")");
+        """
+        prov_a = provider()
+        prov_b = provider()
+
+        AspectInfo = provider()
+        def _my_aspect_impl(target, ctx):
+          targets_labels = ["//test:defs.bzl%my_aspect({})".format(target.label)]
+          for dep in ctx.rule.attr.deps:
+            if AspectInfo in dep:
+              targets_labels.extend(dep[AspectInfo].target_labels)
+          return [AspectInfo(target_labels = targets_labels)]
+
+        my_aspect = aspect(
+          implementation = _my_aspect_impl,
+          attr_aspects = ['deps'],
+        )
+
+        RuleInfo = provider()
+        def _rule_without_providers_impl(ctx):
+          s = []
+          for dep in ctx.attr.deps:
+            if AspectInfo in dep:
+              s.extend(dep[AspectInfo].target_labels)
+          return RuleInfo(rule_deps = s)
+
+        rule_without_providers = rule(
+          implementation = _rule_without_providers_impl,
+          attrs = {
+            'deps': attr.label_list(aspects = [my_aspect])
+          },
+        )
+
+        def _rule_with_providers_impl(ctx):
+          return [prov_a(), prov_b()]
+
+        rule_with_providers = rule(
+          implementation = _rule_with_providers_impl,
+          attrs = {
+            'deps': attr.label_list()
+          },
+          provides = [prov_a, prov_b]
+        )
+
+        rule_with_providers_not_advertised = rule(
+          implementation = _rule_with_providers_impl,
+          attrs = {
+            'deps': attr.label_list()
+          },
+          provides = []
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'rule_with_providers', 'rule_without_providers',",
-        "                        'rule_with_providers_not_advertised')",
-        "rule_without_providers(",
-        "  name = 'main',",
-        "  deps = [':target_without_providers', ':target_with_providers',",
-        "          ':target_with_providers_not_advertised'],",
-        ")",
-        "rule_without_providers(",
-        "  name = 'target_without_providers',",
-        ")",
-        "rule_with_providers(",
-        "  name = 'target_with_providers',",
-        ")",
-        "rule_with_providers(",
-        "  name = 'target_with_providers_indeps',",
-        ")",
-        "rule_with_providers_not_advertised(",
-        "  name = 'target_with_providers_not_advertised',",
-        "  deps = [':target_with_providers_indeps'],",
-        ")");
+        """
+        load('//test:defs.bzl', 'rule_with_providers', 'rule_without_providers',
+                                'rule_with_providers_not_advertised')
+        rule_without_providers(
+          name = 'main',
+          deps = [':target_without_providers', ':target_with_providers',
+                  ':target_with_providers_not_advertised'],
+        )
+        rule_without_providers(
+          name = 'target_without_providers',
+        )
+        rule_with_providers(
+          name = 'target_with_providers',
+        )
+        rule_with_providers(
+          name = 'target_with_providers_indeps',
+        )
+        rule_with_providers_not_advertised(
+          name = 'target_with_providers_not_advertised',
+          deps = [':target_with_providers_indeps'],
+        )
+        """);
 
     AnalysisResult analysisResult = update("//test:main");
 
@@ -3251,7 +3594,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     expected.add("//test:defs.bzl%my_aspect(@//test:target_with_providers_indeps)");
     assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:main");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
-    Object ruleDepsUnchecked = target.get("rule_deps");
+    Object ruleDepsUnchecked = getStarlarkProvider(target, "RuleInfo").getValue("rule_deps");
     assertThat(ruleDepsUnchecked).isInstanceOf(StarlarkList.class);
     StarlarkList<?> ruleDeps = (StarlarkList) ruleDepsUnchecked;
     assertThat(Starlark.toIterable(ruleDeps)).containsExactlyElementsIn(expected);
@@ -3261,95 +3604,101 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testAspectRequiredProviders_flatSetOfRequiredProviders() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "prov_a = provider()",
-        "prov_b = provider()",
-        "",
-        "def _my_aspect_impl(target, ctx):",
-        "  targets_labels = [\"//test:defs.bzl%my_aspect({})\".format(target.label)]",
-        "  for dep in ctx.rule.attr.deps:",
-        "    if hasattr(dep, 'target_labels'):",
-        "      targets_labels.extend(dep.target_labels)",
-        "  return struct(target_labels = targets_labels)",
-        "",
-        "my_aspect = aspect(",
-        "  implementation = _my_aspect_impl,",
-        "  attr_aspects = ['deps'],",
-        "  required_providers = [prov_a, prov_b],",
-        ")",
-        "",
-        "def _rule_without_providers_impl(ctx):",
-        "  s = []",
-        "  for dep in ctx.attr.deps:",
-        "    if hasattr(dep, 'target_labels'):",
-        "      s.extend(dep.target_labels)",
-        "  return struct(rule_deps = s)",
-        "",
-        "rule_without_providers = rule(",
-        "  implementation = _rule_without_providers_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(aspects=[my_aspect])",
-        "  },",
-        "  provides = []",
-        ")",
-        "",
-        "def _rule_with_a_impl(ctx):",
-        "  return [prov_a()]",
-        "",
-        "rule_with_a = rule(",
-        "  implementation = _rule_with_a_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list()",
-        "  },",
-        "  provides = [prov_a]",
-        ")",
-        "",
-        "def _rule_with_ab_impl(ctx):",
-        "  return [prov_a(), prov_b()]",
-        "",
-        "rule_with_ab = rule(",
-        "  implementation = _rule_with_ab_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list()",
-        "  },",
-        "  provides = [prov_a, prov_b]",
-        ")",
-        "",
-        "rule_with_ab_not_advertised = rule(",
-        "  implementation = _rule_with_ab_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list()",
-        "  },",
-        "  provides = []",
-        ")");
+        """
+        prov_a = provider()
+        prov_b = provider()
+
+        AspectInfo = provider()
+        def _my_aspect_impl(target, ctx):
+          targets_labels = ["//test:defs.bzl%my_aspect({})".format(target.label)]
+          for dep in ctx.rule.attr.deps:
+            if AspectInfo in dep:
+              targets_labels.extend(dep[AspectInfo].target_labels)
+          return AspectInfo(target_labels = targets_labels)
+
+        my_aspect = aspect(
+          implementation = _my_aspect_impl,
+          attr_aspects = ['deps'],
+          required_providers = [prov_a, prov_b],
+        )
+
+        RuleInfo = provider()
+        def _rule_without_providers_impl(ctx):
+          s = []
+          for dep in ctx.attr.deps:
+            if AspectInfo in dep:
+              s.extend(dep[AspectInfo].target_labels)
+          return RuleInfo(rule_deps = s)
+
+        rule_without_providers = rule(
+          implementation = _rule_without_providers_impl,
+          attrs = {
+            'deps': attr.label_list(aspects=[my_aspect])
+          },
+          provides = []
+        )
+
+        def _rule_with_a_impl(ctx):
+          return [prov_a()]
+
+        rule_with_a = rule(
+          implementation = _rule_with_a_impl,
+          attrs = {
+            'deps': attr.label_list()
+          },
+          provides = [prov_a]
+        )
+
+        def _rule_with_ab_impl(ctx):
+          return [prov_a(), prov_b()]
+
+        rule_with_ab = rule(
+          implementation = _rule_with_ab_impl,
+          attrs = {
+            'deps': attr.label_list()
+          },
+          provides = [prov_a, prov_b]
+        )
+
+        rule_with_ab_not_advertised = rule(
+          implementation = _rule_with_ab_impl,
+          attrs = {
+            'deps': attr.label_list()
+          },
+          provides = []
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'rule_without_providers', 'rule_with_a', 'rule_with_ab',",
-        "                        'rule_with_ab_not_advertised')",
-        "rule_without_providers(",
-        "  name = 'main',",
-        "  deps = [':target_without_providers', ':target_with_a', ':target_with_ab',",
-        "          ':target_with_ab_not_advertised'],",
-        ")",
-        "rule_without_providers(",
-        "  name = 'target_without_providers',",
-        ")",
-        "rule_with_a(",
-        "  name = 'target_with_a',",
-        "  deps = [':target_with_ab_indeps_not_reached']",
-        ")",
-        "rule_with_ab(",
-        "  name = 'target_with_ab',",
-        "  deps = [':target_with_ab_indeps_reached']",
-        ")",
-        "rule_with_ab(",
-        "  name = 'target_with_ab_indeps_not_reached',",
-        ")",
-        "rule_with_ab(",
-        "  name = 'target_with_ab_indeps_reached',",
-        ")",
-        "rule_with_ab_not_advertised(",
-        "  name = 'target_with_ab_not_advertised',",
-        ")");
+        """
+        load('//test:defs.bzl', 'rule_without_providers', 'rule_with_a', 'rule_with_ab',
+                                'rule_with_ab_not_advertised')
+        rule_without_providers(
+          name = 'main',
+          deps = [':target_without_providers', ':target_with_a', ':target_with_ab',
+                  ':target_with_ab_not_advertised'],
+        )
+        rule_without_providers(
+          name = 'target_without_providers',
+        )
+        rule_with_a(
+          name = 'target_with_a',
+          deps = [':target_with_ab_indeps_not_reached']
+        )
+        rule_with_ab(
+          name = 'target_with_ab',
+          deps = [':target_with_ab_indeps_reached']
+        )
+        rule_with_ab(
+          name = 'target_with_ab_indeps_not_reached',
+        )
+        rule_with_ab(
+          name = 'target_with_ab_indeps_reached',
+        )
+        rule_with_ab_not_advertised(
+          name = 'target_with_ab_not_advertised',
+        )
+        """);
 
     AnalysisResult analysisResult = update("//test:main");
 
@@ -3362,7 +3711,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     expected.add("//test:defs.bzl%my_aspect(@//test:target_with_ab_indeps_reached)");
     assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:main");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
-    Object ruleDepsUnchecked = target.get("rule_deps");
+    Object ruleDepsUnchecked = getStarlarkProvider(target, "RuleInfo").getValue("rule_deps");
     assertThat(ruleDepsUnchecked).isInstanceOf(StarlarkList.class);
     StarlarkList<?> ruleDeps = (StarlarkList) ruleDepsUnchecked;
     assertThat(Starlark.toIterable(ruleDeps)).containsExactlyElementsIn(expected);
@@ -3372,110 +3721,115 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testAspectRequiredProviders_listOfRequiredProvidersLists() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "prov_a = provider()",
-        "prov_b = provider()",
-        "prov_c = provider()",
-        "",
-        "def _my_aspect_impl(target, ctx):",
-        "  targets_labels = [\"//test:defs.bzl%my_aspect({})\".format(target.label)]",
-        "  for dep in ctx.rule.attr.deps:",
-        "    if hasattr(dep, 'target_labels'):",
-        "      targets_labels.extend(dep.target_labels)",
-        "  return struct(target_labels = targets_labels)",
-        "",
-        "my_aspect = aspect(",
-        "  implementation = _my_aspect_impl,",
-        "  attr_aspects = ['deps'],",
-        "  required_providers = [[prov_a, prov_b], [prov_c]],",
-        ")",
-        "",
-        "def _rule_without_providers_impl(ctx):",
-        "  s = []",
-        "  for dep in ctx.attr.deps:",
-        "    if hasattr(dep, 'target_labels'):",
-        "      s.extend(dep.target_labels)",
-        "  return struct(rule_deps = s)",
-        "",
-        "rule_without_providers = rule(",
-        "  implementation = _rule_without_providers_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(aspects=[my_aspect])",
-        "  },",
-        "  provides = []",
-        ")",
-        "",
-        "def _rule_with_a_impl(ctx):",
-        "  return [prov_a()]",
-        "",
-        "rule_with_a = rule(",
-        "  implementation = _rule_with_a_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list()",
-        "  },",
-        "  provides = [prov_a]",
-        ")",
-        "",
-        "def _rule_with_c_impl(ctx):",
-        "  return [prov_c()]",
-        "",
-        "rule_with_c = rule(",
-        "  implementation = _rule_with_c_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list()",
-        "  },",
-        "  provides = [prov_c]",
-        ")",
-        "",
-        "def _rule_with_ab_impl(ctx):",
-        "  return [prov_a(), prov_b()]",
-        "",
-        "rule_with_ab = rule(",
-        "  implementation = _rule_with_ab_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list()",
-        "  },",
-        "  provides = [prov_a, prov_b]",
-        ")",
-        "",
-        "rule_with_ab_not_advertised = rule(",
-        "  implementation = _rule_with_ab_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list()",
-        "  },",
-        "  provides = []",
-        ")");
+        """
+        prov_a = provider()
+        prov_b = provider()
+        prov_c = provider()
+        AspectInfo = provider()
+        def _my_aspect_impl(target, ctx):
+          targets_labels = ["//test:defs.bzl%my_aspect({})".format(target.label)]
+          for dep in ctx.rule.attr.deps:
+            if AspectInfo in dep:
+              targets_labels.extend(dep[AspectInfo].target_labels)
+          return [AspectInfo(target_labels = targets_labels)]
+
+        my_aspect = aspect(
+          implementation = _my_aspect_impl,
+          attr_aspects = ['deps'],
+          required_providers = [[prov_a, prov_b], [prov_c]],
+        )
+
+        RuleInfo = provider()
+        def _rule_without_providers_impl(ctx):
+          s = []
+          for dep in ctx.attr.deps:
+            if AspectInfo in dep:
+              s.extend(dep[AspectInfo].target_labels)
+          return RuleInfo(rule_deps = s)
+
+        rule_without_providers = rule(
+          implementation = _rule_without_providers_impl,
+          attrs = {
+            'deps': attr.label_list(aspects=[my_aspect])
+          },
+          provides = []
+        )
+
+        def _rule_with_a_impl(ctx):
+          return [prov_a()]
+
+        rule_with_a = rule(
+          implementation = _rule_with_a_impl,
+          attrs = {
+            'deps': attr.label_list()
+          },
+          provides = [prov_a]
+        )
+
+        def _rule_with_c_impl(ctx):
+          return [prov_c()]
+
+        rule_with_c = rule(
+          implementation = _rule_with_c_impl,
+          attrs = {
+            'deps': attr.label_list()
+          },
+          provides = [prov_c]
+        )
+
+        def _rule_with_ab_impl(ctx):
+          return [prov_a(), prov_b()]
+
+        rule_with_ab = rule(
+          implementation = _rule_with_ab_impl,
+          attrs = {
+            'deps': attr.label_list()
+          },
+          provides = [prov_a, prov_b]
+        )
+
+        rule_with_ab_not_advertised = rule(
+          implementation = _rule_with_ab_impl,
+          attrs = {
+            'deps': attr.label_list()
+          },
+          provides = []
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'rule_without_providers', 'rule_with_a', 'rule_with_c',",
-        "                        'rule_with_ab', 'rule_with_ab_not_advertised')",
-        "rule_without_providers(",
-        "  name = 'main',",
-        "  deps = [':target_without_providers', ':target_with_a', ':target_with_c',",
-        "          ':target_with_ab', 'target_with_ab_not_advertised'],",
-        ")",
-        "rule_without_providers(",
-        "  name = 'target_without_providers',",
-        ")",
-        "rule_with_a(",
-        "  name = 'target_with_a',",
-        "  deps = [':target_with_c_indeps_not_reached'],",
-        ")",
-        "rule_with_c(",
-        "  name = 'target_with_c',",
-        ")",
-        "rule_with_c(",
-        "  name = 'target_with_c_indeps_reached',",
-        ")",
-        "rule_with_c(",
-        "  name = 'target_with_c_indeps_not_reached',",
-        ")",
-        "rule_with_ab(",
-        "  name = 'target_with_ab',",
-        "  deps = [':target_with_c_indeps_reached'],",
-        ")",
-        "rule_with_ab_not_advertised(",
-        "  name = 'target_with_ab_not_advertised',",
-        ")");
+        """
+        load('//test:defs.bzl', 'rule_without_providers', 'rule_with_a', 'rule_with_c',
+                                'rule_with_ab', 'rule_with_ab_not_advertised')
+        rule_without_providers(
+          name = 'main',
+          deps = [':target_without_providers', ':target_with_a', ':target_with_c',
+                  ':target_with_ab', 'target_with_ab_not_advertised'],
+        )
+        rule_without_providers(
+          name = 'target_without_providers',
+        )
+        rule_with_a(
+          name = 'target_with_a',
+          deps = [':target_with_c_indeps_not_reached'],
+        )
+        rule_with_c(
+          name = 'target_with_c',
+        )
+        rule_with_c(
+          name = 'target_with_c_indeps_reached',
+        )
+        rule_with_c(
+          name = 'target_with_c_indeps_not_reached',
+        )
+        rule_with_ab(
+          name = 'target_with_ab',
+          deps = [':target_with_c_indeps_reached'],
+        )
+        rule_with_ab_not_advertised(
+          name = 'target_with_ab_not_advertised',
+        )
+        """);
 
     AnalysisResult analysisResult = update("//test:main");
 
@@ -3490,7 +3844,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     expected.add("//test:defs.bzl%my_aspect(@//test:target_with_c_indeps_reached)");
     assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:main");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
-    Object ruleDepsUnchecked = target.get("rule_deps");
+    Object ruleDepsUnchecked = getStarlarkProvider(target, "RuleInfo").getValue("rule_deps");
     assertThat(ruleDepsUnchecked).isInstanceOf(StarlarkList.class);
     StarlarkList<?> ruleDeps = (StarlarkList) ruleDepsUnchecked;
     assertThat(Starlark.toIterable(ruleDeps)).containsExactlyElementsIn(expected);
@@ -3500,67 +3854,71 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testAspectRequiredByMultipleAspects_inheritsAttrAspects() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "prov_a = provider()",
-        "prov_b = provider()",
-        "prov_c = provider()",
-        "",
-        "def _aspect_c_impl(target, ctx):",
-        "  res = ['aspect_c runs on target {}'.format(target.label)]",
-        "  return [prov_c(val = res)]",
-        "aspect_c = aspect(",
-        "  implementation = _aspect_c_impl,",
-        ")",
-        "",
-        "def _aspect_b_impl(target, ctx):",
-        "  res = []",
-        "  res += target[prov_c].val",
-        "  res += ['aspect_b runs on target {}'.format(target.label)]",
-        "  if ctx.rule.attr.dep_b:",
-        "    res += ctx.rule.attr.dep_b[prov_b].val",
-        "  return [prov_b(val = res)]",
-        "aspect_b = aspect(",
-        "  implementation = _aspect_b_impl,",
-        "  attr_aspects = ['dep_b'],",
-        "  requires = [aspect_c],",
-        ")",
-        "",
-        "def _aspect_a_impl(target, ctx):",
-        "  res = []",
-        "  res += target[prov_c].val",
-        "  res += ['aspect_a runs on target {}'.format(target.label)]",
-        "  if ctx.rule.attr.dep_a:",
-        "    res += ctx.rule.attr.dep_a[prov_a].val",
-        "  return [prov_a(val = res)]",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  attr_aspects = ['dep_a'],",
-        "  requires = [aspect_c],",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        "  attrs = {",
-        "    'dep_a': attr.label(),",
-        "    'dep_b': attr.label(),",
-        "  },",
-        ")");
+        """
+        prov_a = provider()
+        prov_b = provider()
+        prov_c = provider()
+
+        def _aspect_c_impl(target, ctx):
+          res = ['aspect_c runs on target {}'.format(target.label)]
+          return [prov_c(val = res)]
+        aspect_c = aspect(
+          implementation = _aspect_c_impl,
+        )
+
+        def _aspect_b_impl(target, ctx):
+          res = []
+          res += target[prov_c].val
+          res += ['aspect_b runs on target {}'.format(target.label)]
+          if ctx.rule.attr.dep_b:
+            res += ctx.rule.attr.dep_b[prov_b].val
+          return [prov_b(val = res)]
+        aspect_b = aspect(
+          implementation = _aspect_b_impl,
+          attr_aspects = ['dep_b'],
+          requires = [aspect_c],
+        )
+
+        def _aspect_a_impl(target, ctx):
+          res = []
+          res += target[prov_c].val
+          res += ['aspect_a runs on target {}'.format(target.label)]
+          if ctx.rule.attr.dep_a:
+            res += ctx.rule.attr.dep_a[prov_a].val
+          return [prov_a(val = res)]
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          attr_aspects = ['dep_a'],
+          requires = [aspect_c],
+        )
+
+        def _my_rule_impl(ctx):
+          pass
+
+        my_rule = rule(
+          implementation = _my_rule_impl,
+          attrs = {
+            'dep_a': attr.label(),
+            'dep_b': attr.label(),
+          },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'main_target',",
-        "  dep_a = ':dep_target_a',",
-        "  dep_b = ':dep_target_b',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_a',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_b',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'main_target',
+          dep_a = ':dep_target_a',
+          dep_b = ':dep_target_b',
+        )
+        my_rule(
+          name = 'dep_target_a',
+        )
+        my_rule(
+          name = 'dep_target_b',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(
@@ -3601,116 +3959,120 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testAspectRequiredByMultipleAspects_inheritsRequiredProviders() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "aspect_prov_a = provider()",
-        "aspect_prov_b = provider()",
-        "aspect_prov_c = provider()",
-        "rule_prov_a = provider()",
-        "rule_prov_b = provider()",
-        "rule_prov_c = provider()",
-        "",
-        "def _aspect_c_impl(target, ctx):",
-        "  res = ['aspect_c runs on target {}'.format(target.label)]",
-        "  return [aspect_prov_c(val = res)]",
-        "aspect_c = aspect(",
-        "  implementation = _aspect_c_impl,",
-        "  required_providers = [rule_prov_c],",
-        ")",
-        "",
-        "def _aspect_b_impl(target, ctx):",
-        "  res = []",
-        "  if aspect_prov_c in target:",
-        "    res += target[aspect_prov_c].val",
-        "  res += ['aspect_b runs on target {}'.format(target.label)]",
-        "  if ctx.rule.attr.deps:",
-        "    for dep in ctx.rule.attr.deps:",
-        "      if aspect_prov_b in dep:",
-        "        res += dep[aspect_prov_b].val",
-        "  return [aspect_prov_b(val = res)]",
-        "aspect_b = aspect(",
-        "  implementation = _aspect_b_impl,",
-        "  attr_aspects = ['deps'],",
-        "  required_providers = [[rule_prov_b], [rule_prov_c]],",
-        "  requires = [aspect_c],",
-        ")",
-        "",
-        "def _aspect_a_impl(target, ctx):",
-        "  res = []",
-        "  if aspect_prov_c in target:",
-        "    res += target[aspect_prov_c].val",
-        "  res += ['aspect_a runs on target {}'.format(target.label)]",
-        "  if ctx.rule.attr.deps:",
-        "    for dep in ctx.rule.attr.deps:",
-        "      if aspect_prov_a in dep:",
-        "        res += dep[aspect_prov_a].val",
-        "  return [aspect_prov_a(val = res)]",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  attr_aspects = ['deps'],",
-        "  required_providers = [[rule_prov_a], [rule_prov_c]],",
-        "  requires = [aspect_c],",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  return [rule_prov_a(), rule_prov_b()]",
-        "",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(),",
-        "  },",
-        "  provides = [rule_prov_a, rule_prov_b]",
-        ")",
-        "",
-        "def _rule_with_prov_a_impl(ctx):",
-        "  return [rule_prov_a()]",
-        "",
-        "rule_with_prov_a = rule(",
-        "  implementation = _rule_with_prov_a_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(),",
-        "  },",
-        "  provides = [rule_prov_a]",
-        ")",
-        "",
-        "def _rule_with_prov_b_impl(ctx):",
-        "  return [rule_prov_b()]",
-        "",
-        "rule_with_prov_b = rule(",
-        "  implementation = _rule_with_prov_b_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(),",
-        "  },",
-        "  provides = [rule_prov_b]",
-        ")",
-        "",
-        "def _rule_with_prov_c_impl(ctx):",
-        "  return [rule_prov_c()]",
-        "rule_with_prov_c = rule(",
-        "  implementation = _rule_with_prov_c_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(),",
-        "  },",
-        "  provides = [rule_prov_c]",
-        ")");
+        """
+        aspect_prov_a = provider()
+        aspect_prov_b = provider()
+        aspect_prov_c = provider()
+        rule_prov_a = provider()
+        rule_prov_b = provider()
+        rule_prov_c = provider()
+
+        def _aspect_c_impl(target, ctx):
+          res = ['aspect_c runs on target {}'.format(target.label)]
+          return [aspect_prov_c(val = res)]
+        aspect_c = aspect(
+          implementation = _aspect_c_impl,
+          required_providers = [rule_prov_c],
+        )
+
+        def _aspect_b_impl(target, ctx):
+          res = []
+          if aspect_prov_c in target:
+            res += target[aspect_prov_c].val
+          res += ['aspect_b runs on target {}'.format(target.label)]
+          if ctx.rule.attr.deps:
+            for dep in ctx.rule.attr.deps:
+              if aspect_prov_b in dep:
+                res += dep[aspect_prov_b].val
+          return [aspect_prov_b(val = res)]
+        aspect_b = aspect(
+          implementation = _aspect_b_impl,
+          attr_aspects = ['deps'],
+          required_providers = [[rule_prov_b], [rule_prov_c]],
+          requires = [aspect_c],
+        )
+
+        def _aspect_a_impl(target, ctx):
+          res = []
+          if aspect_prov_c in target:
+            res += target[aspect_prov_c].val
+          res += ['aspect_a runs on target {}'.format(target.label)]
+          if ctx.rule.attr.deps:
+            for dep in ctx.rule.attr.deps:
+              if aspect_prov_a in dep:
+                res += dep[aspect_prov_a].val
+          return [aspect_prov_a(val = res)]
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          attr_aspects = ['deps'],
+          required_providers = [[rule_prov_a], [rule_prov_c]],
+          requires = [aspect_c],
+        )
+
+        def _my_rule_impl(ctx):
+          return [rule_prov_a(), rule_prov_b()]
+
+        my_rule = rule(
+          implementation = _my_rule_impl,
+          attrs = {
+            'deps': attr.label_list(),
+          },
+          provides = [rule_prov_a, rule_prov_b]
+        )
+
+        def _rule_with_prov_a_impl(ctx):
+          return [rule_prov_a()]
+
+        rule_with_prov_a = rule(
+          implementation = _rule_with_prov_a_impl,
+          attrs = {
+            'deps': attr.label_list(),
+          },
+          provides = [rule_prov_a]
+        )
+
+        def _rule_with_prov_b_impl(ctx):
+          return [rule_prov_b()]
+
+        rule_with_prov_b = rule(
+          implementation = _rule_with_prov_b_impl,
+          attrs = {
+            'deps': attr.label_list(),
+          },
+          provides = [rule_prov_b]
+        )
+
+        def _rule_with_prov_c_impl(ctx):
+          return [rule_prov_c()]
+        rule_with_prov_c = rule(
+          implementation = _rule_with_prov_c_impl,
+          attrs = {
+            'deps': attr.label_list(),
+          },
+          provides = [rule_prov_c]
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule', 'rule_with_prov_a',",
-        "                        'rule_with_prov_b', 'rule_with_prov_c')",
-        "my_rule(",
-        "  name = 'main_target',",
-        "  deps = [':dep_target_with_prov_a', ':dep_target_with_prov_b']",
-        ")",
-        "rule_with_prov_a(",
-        "  name = 'dep_target_with_prov_a',",
-        "  deps = [':dep_target_with_prov_c'],",
-        ")",
-        "rule_with_prov_b(",
-        "  name = 'dep_target_with_prov_b',",
-        "  deps = [':dep_target_with_prov_c'],",
-        ")",
-        "rule_with_prov_c(",
-        "  name = 'dep_target_with_prov_c',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule', 'rule_with_prov_a',
+                                'rule_with_prov_b', 'rule_with_prov_c')
+        my_rule(
+          name = 'main_target',
+          deps = [':dep_target_with_prov_a', ':dep_target_with_prov_b']
+        )
+        rule_with_prov_a(
+          name = 'dep_target_with_prov_a',
+          deps = [':dep_target_with_prov_c'],
+        )
+        rule_with_prov_b(
+          name = 'dep_target_with_prov_b',
+          deps = [':dep_target_with_prov_c'],
+        )
+        rule_with_prov_c(
+          name = 'dep_target_with_prov_c',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(
@@ -3751,101 +4113,105 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testAspectRequiredByMultipleAspects_withDifferentParametersValues() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "prov_a = provider()",
-        "prov_b = provider()",
-        "prov_c = provider()",
-        "",
-        "def _aspect_c_impl(target, ctx):",
-        "  res = ['aspect_c runs on target {} and param = {}'.format(target.label, ctx.attr.p)]",
-        "  return [prov_c(val = res)]",
-        "aspect_c = aspect(",
-        "  implementation = _aspect_c_impl,",
-        "  attrs = {",
-        "    'p': attr.string(values=['rule_1_val', 'rule_2_val']),",
-        "  },",
-        ")",
-        "",
-        "def _aspect_b_impl(target, ctx):",
-        "  res = []",
-        "  res += target[prov_c].val",
-        "  res += ['aspect_b runs on target {}'.format(target.label)]",
-        "  if ctx.rule.attr.dep:",
-        "    res += ctx.rule.attr.dep[prov_b].val",
-        "  return [prov_b(val = res)]",
-        "aspect_b = aspect(",
-        "  implementation = _aspect_b_impl,",
-        "  attr_aspects = ['dep'],",
-        "  requires = [aspect_c],",
-        ")",
-        "",
-        "def _aspect_a_impl(target, ctx):",
-        "  res = []",
-        "  res += target[prov_c].val",
-        "  res += ['aspect_a runs on target {}'.format(target.label)]",
-        "  if ctx.rule.attr.dep:",
-        "    res += ctx.rule.attr.dep[prov_a].val",
-        "  return [prov_a(val = res)]",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  attr_aspects = ['dep'],",
-        "  requires = [aspect_c],",
-        ")",
-        "",
-        "def _rule_1_impl(ctx):",
-        "  return ctx.attr.dep[prov_a]",
-        "",
-        "rule_1 = rule(",
-        "  implementation = _rule_1_impl,",
-        "  attrs = {",
-        "    'dep': attr.label(aspects = [aspect_a]),",
-        "    'p': attr.string(values = ['rule_1_val', 'rule_2_val'])",
-        "  },",
-        ")",
-        "",
-        "def _rule_2_impl(ctx):",
-        "  return ctx.attr.dep[prov_b]",
-        "",
-        "rule_2 = rule(",
-        "  implementation = _rule_2_impl,",
-        "  attrs = {",
-        "    'dep': attr.label(aspects = [aspect_b]),",
-        "    'p': attr.string(values = ['rule_1_val', 'rule_2_val'])",
-        "  },",
-        ")",
-        "",
-        "def _rule_3_impl(ctx):",
-        "  pass",
-        "",
-        "rule_3 = rule(",
-        "  implementation = _rule_3_impl,",
-        "  attrs = {",
-        "    'dep': attr.label(),",
-        "  },",
-        ")");
+        """
+        prov_a = provider()
+        prov_b = provider()
+        prov_c = provider()
+
+        def _aspect_c_impl(target, ctx):
+          res = ['aspect_c runs on target {} and param = {}'.format(target.label, ctx.attr.p)]
+          return [prov_c(val = res)]
+        aspect_c = aspect(
+          implementation = _aspect_c_impl,
+          attrs = {
+            'p': attr.string(values=['rule_1_val', 'rule_2_val']),
+          },
+        )
+
+        def _aspect_b_impl(target, ctx):
+          res = []
+          res += target[prov_c].val
+          res += ['aspect_b runs on target {}'.format(target.label)]
+          if ctx.rule.attr.dep:
+            res += ctx.rule.attr.dep[prov_b].val
+          return [prov_b(val = res)]
+        aspect_b = aspect(
+          implementation = _aspect_b_impl,
+          attr_aspects = ['dep'],
+          requires = [aspect_c],
+        )
+
+        def _aspect_a_impl(target, ctx):
+          res = []
+          res += target[prov_c].val
+          res += ['aspect_a runs on target {}'.format(target.label)]
+          if ctx.rule.attr.dep:
+            res += ctx.rule.attr.dep[prov_a].val
+          return [prov_a(val = res)]
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          attr_aspects = ['dep'],
+          requires = [aspect_c],
+        )
+
+        def _rule_1_impl(ctx):
+          return ctx.attr.dep[prov_a]
+
+        rule_1 = rule(
+          implementation = _rule_1_impl,
+          attrs = {
+            'dep': attr.label(aspects = [aspect_a]),
+            'p': attr.string(values = ['rule_1_val', 'rule_2_val'])
+          },
+        )
+
+        def _rule_2_impl(ctx):
+          return ctx.attr.dep[prov_b]
+
+        rule_2 = rule(
+          implementation = _rule_2_impl,
+          attrs = {
+            'dep': attr.label(aspects = [aspect_b]),
+            'p': attr.string(values = ['rule_1_val', 'rule_2_val'])
+          },
+        )
+
+        def _rule_3_impl(ctx):
+          pass
+
+        rule_3 = rule(
+          implementation = _rule_3_impl,
+          attrs = {
+            'dep': attr.label(),
+          },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'rule_1', 'rule_2', 'rule_3')",
-        "rule_1(",
-        "  name = 'target_1',",
-        "  dep = ':dep_1',",
-        "  p = 'rule_1_val'",
-        ")",
-        "rule_2(",
-        "  name = 'target_2',",
-        "  dep = ':dep_2',",
-        "  p = 'rule_2_val'",
-        ")",
-        "rule_3(",
-        "  name = 'dep_1',",
-        "  dep = ':dep_3',",
-        ")",
-        "rule_3(",
-        "  name = 'dep_2',",
-        "  dep = ':dep_3',",
-        ")",
-        "rule_3(",
-        "  name = 'dep_3',",
-        ")");
+        """
+        load('//test:defs.bzl', 'rule_1', 'rule_2', 'rule_3')
+        rule_1(
+          name = 'target_1',
+          dep = ':dep_1',
+          p = 'rule_1_val'
+        )
+        rule_2(
+          name = 'target_2',
+          dep = ':dep_2',
+          p = 'rule_2_val'
+        )
+        rule_3(
+          name = 'dep_1',
+          dep = ':dep_3',
+        )
+        rule_3(
+          name = 'dep_2',
+          dep = ':dep_3',
+        )
+        rule_3(
+          name = 'dep_3',
+        )
+        """);
 
     AnalysisResult analysisResult = update("//test:target_1", "//test:target_2");
 
@@ -3882,39 +4248,43 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     exposeNativeAspectToStarlark();
     scratch.file(
         "test/defs.bzl",
-        "prov_a = provider()",
-        "def _impl(target, ctx):",
-        "  res = 'aspect_a on target {} '.format(target.label)",
-        "  if hasattr(target, 'native_aspect_prov'):",
-        "    res += 'can see native aspect provider'",
-        "  else:",
-        "    res += 'cannot see native aspect provider'",
-        "  complete_res = [res]",
-        "  if hasattr(ctx.rule.attr, 'dep'):",
-        "    complete_res += ctx.rule.attr.dep[prov_a].val",
-        "  return [prov_a(val = complete_res)]",
-        "aspect_a = aspect(implementation = _impl,",
-        "                  requires = [starlark_native_aspect],",
-        "                  attr_aspects = ['dep'],)",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "my_rule = rule(implementation = _my_rule_impl,",
-        "               attrs = {'dep': attr.label()})");
+        """
+        prov_a = provider()
+        def _impl(target, ctx):
+          res = 'aspect_a on target {} '.format(target.label)
+          if hasattr(target, 'native_aspect_prov'):
+            res += 'can see native aspect provider'
+          else:
+            res += 'cannot see native aspect provider'
+          complete_res = [res]
+          if hasattr(ctx.rule.attr, 'dep'):
+            complete_res += ctx.rule.attr.dep[prov_a].val
+          return [prov_a(val = complete_res)]
+        aspect_a = aspect(implementation = _impl,
+                          requires = [starlark_native_aspect],
+                          attr_aspects = ['dep'],)
+
+        def _my_rule_impl(ctx):
+          pass
+        my_rule = rule(implementation = _my_rule_impl,
+                       attrs = {'dep': attr.label()})
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'main_target',",
-        "  dep = ':dep_1',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_1',",
-        "  dep = ':dep_2',",
-        ")",
-        "honest(",
-        "  name = 'dep_2',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'main_target',
+          dep = ':dep_1',
+        )
+        my_rule(
+          name = 'dep_1',
+          dep = ':dep_2',
+        )
+        honest(
+          name = 'dep_2',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%aspect_a"), "//test:main_target");
@@ -3938,63 +4308,67 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testAspectRequiresAspect_aspectsParameters() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "RequiredAspectProv = provider()",
-        "BaseAspectProv = provider()",
-        "",
-        "def _required_aspect_impl(target, ctx):",
-        "  p1_val = 'In required_aspect, p1 = {} on target {}'.format(ctx.attr.p1, target.label)",
-        "  p2_val = 'invalid value'",
-        "  if not hasattr(ctx.attr, 'p2'):",
-        "    p2_val = 'In required_aspect, p2 not found on target {}'.format(target.label)",
-        "  return [RequiredAspectProv(p1_val = p1_val, p2_val = p2_val)]",
-        "required_aspect = aspect(",
-        "  implementation = _required_aspect_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = {'p1' : attr.string(values = ['p1_v1', 'p1_v2'])}",
-        ")",
-        "",
-        "def _base_aspect_impl(target, ctx):",
-        "  p2_val = 'In base_aspect, p2 = {} on target {}'.format(ctx.attr.p2, target.label)",
-        "  p1_val = 'invalid value'",
-        "  if not hasattr(ctx.attr, 'p1'):",
-        "    p1_val = 'In base_aspect, p1 not found on target {}'.format(target.label)",
-        "  return [BaseAspectProv(p1_val = p1_val, p2_val = p2_val)]",
-        "base_aspect = aspect(",
-        "  implementation = _base_aspect_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = {'p2' : attr.string(values = ['p2_v1', 'p2_v2'])},",
-        "  requires = [required_aspect],",
-        ")",
-        "",
-        "def _main_rule_impl(ctx):",
-        "  return [ctx.attr.dep[RequiredAspectProv], ctx.attr.dep[BaseAspectProv]]",
-        "def _dep_rule_impl(ctx):",
-        "  pass",
-        "",
-        "main_rule = rule(",
-        "  implementation = _main_rule_impl,",
-        "  attrs = {",
-        "    'dep': attr.label(aspects=[base_aspect]),",
-        "    'p1' : attr.string(values = ['p1_v1', 'p1_v2']),",
-        "    'p2' : attr.string(values = ['p2_v1', 'p2_v2'])",
-        "  },",
-        ")",
-        "",
-        "dep_rule = rule(",
-        "  implementation = _dep_rule_impl,",
-        ")");
+        """
+        RequiredAspectProv = provider()
+        BaseAspectProv = provider()
+
+        def _required_aspect_impl(target, ctx):
+          p1_val = 'In required_aspect, p1 = {} on target {}'.format(ctx.attr.p1, target.label)
+          p2_val = 'invalid value'
+          if not hasattr(ctx.attr, 'p2'):
+            p2_val = 'In required_aspect, p2 not found on target {}'.format(target.label)
+          return [RequiredAspectProv(p1_val = p1_val, p2_val = p2_val)]
+        required_aspect = aspect(
+          implementation = _required_aspect_impl,
+          attr_aspects = ['dep'],
+          attrs = {'p1' : attr.string(values = ['p1_v1', 'p1_v2'])}
+        )
+
+        def _base_aspect_impl(target, ctx):
+          p2_val = 'In base_aspect, p2 = {} on target {}'.format(ctx.attr.p2, target.label)
+          p1_val = 'invalid value'
+          if not hasattr(ctx.attr, 'p1'):
+            p1_val = 'In base_aspect, p1 not found on target {}'.format(target.label)
+          return [BaseAspectProv(p1_val = p1_val, p2_val = p2_val)]
+        base_aspect = aspect(
+          implementation = _base_aspect_impl,
+          attr_aspects = ['dep'],
+          attrs = {'p2' : attr.string(values = ['p2_v1', 'p2_v2'])},
+          requires = [required_aspect],
+        )
+
+        def _main_rule_impl(ctx):
+          return [ctx.attr.dep[RequiredAspectProv], ctx.attr.dep[BaseAspectProv]]
+        def _dep_rule_impl(ctx):
+          pass
+
+        main_rule = rule(
+          implementation = _main_rule_impl,
+          attrs = {
+            'dep': attr.label(aspects=[base_aspect]),
+            'p1' : attr.string(values = ['p1_v1', 'p1_v2']),
+            'p2' : attr.string(values = ['p2_v1', 'p2_v2'])
+          },
+        )
+
+        dep_rule = rule(
+          implementation = _dep_rule_impl,
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'main_rule', 'dep_rule')",
-        "main_rule(",
-        "  name = 'main',",
-        "  dep = ':dep_target',",
-        "  p1 = 'p1_v1',",
-        "  p2 = 'p2_v1'",
-        ")",
-        "dep_rule(",
-        "  name = 'dep_target',",
-        ")");
+        """
+        load('//test:defs.bzl', 'main_rule', 'dep_rule')
+        main_rule(
+          name = 'main',
+          dep = ':dep_target',
+          p1 = 'p1_v1',
+          p2 = 'p2_v1'
+        )
+        dep_rule(
+          name = 'dep_target',
+        )
+        """);
 
     AnalysisResult analysisResult = update("//test:main");
 
@@ -4022,54 +4396,58 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testAspectRequiresAspect_ruleAttributes() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "RequiredAspectProv = provider()",
-        "BaseAspectProv = provider()",
-        "",
-        "def _required_aspect_impl(target, ctx):",
-        "  p_val = 'In required_aspect, p = {} on target {}'.format(ctx.rule.attr.p, target.label)",
-        "  return [RequiredAspectProv(p_val = p_val)]",
-        "required_aspect = aspect(",
-        "  implementation = _required_aspect_impl,",
-        ")",
-        "",
-        "def _base_aspect_impl(target, ctx):",
-        "  p_val = 'In base_aspect, p = {} on target {}'.format(ctx.rule.attr.p, target.label)",
-        "  return [BaseAspectProv(p_val = p_val)]",
-        "base_aspect = aspect(",
-        "  implementation = _base_aspect_impl,",
-        "  attr_aspects = ['dep'],",
-        "  requires = [required_aspect],",
-        ")",
-        "",
-        "def _main_rule_impl(ctx):",
-        "  return [ctx.attr.dep[RequiredAspectProv], ctx.attr.dep[BaseAspectProv]]",
-        "def _dep_rule_impl(ctx):",
-        "  pass",
-        "",
-        "main_rule = rule(",
-        "  implementation = _main_rule_impl,",
-        "  attrs = {",
-        "    'dep': attr.label(aspects=[base_aspect]),",
-        "  },",
-        ")",
-        "",
-        "dep_rule = rule(",
-        "  implementation = _dep_rule_impl,",
-        "  attrs = {",
-        "    'p' : attr.string(values = ['p_v1', 'p_v2']),",
-        "  },",
-        ")");
+        """
+        RequiredAspectProv = provider()
+        BaseAspectProv = provider()
+
+        def _required_aspect_impl(target, ctx):
+          p_val = 'In required_aspect, p = {} on target {}'.format(ctx.rule.attr.p, target.label)
+          return [RequiredAspectProv(p_val = p_val)]
+        required_aspect = aspect(
+          implementation = _required_aspect_impl,
+        )
+
+        def _base_aspect_impl(target, ctx):
+          p_val = 'In base_aspect, p = {} on target {}'.format(ctx.rule.attr.p, target.label)
+          return [BaseAspectProv(p_val = p_val)]
+        base_aspect = aspect(
+          implementation = _base_aspect_impl,
+          attr_aspects = ['dep'],
+          requires = [required_aspect],
+        )
+
+        def _main_rule_impl(ctx):
+          return [ctx.attr.dep[RequiredAspectProv], ctx.attr.dep[BaseAspectProv]]
+        def _dep_rule_impl(ctx):
+          pass
+
+        main_rule = rule(
+          implementation = _main_rule_impl,
+          attrs = {
+            'dep': attr.label(aspects=[base_aspect]),
+          },
+        )
+
+        dep_rule = rule(
+          implementation = _dep_rule_impl,
+          attrs = {
+            'p' : attr.string(values = ['p_v1', 'p_v2']),
+          },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'main_rule', 'dep_rule')",
-        "main_rule(",
-        "  name = 'main',",
-        "  dep = ':dep_target',",
-        ")",
-        "dep_rule(",
-        "  name = 'dep_target',",
-        "  p = 'p_v2',",
-        ")");
+        """
+        load('//test:defs.bzl', 'main_rule', 'dep_rule')
+        main_rule(
+          name = 'main',
+          dep = ':dep_target',
+        )
+        dep_rule(
+          name = 'dep_target',
+          p = 'p_v2',
+        )
+        """);
 
     AnalysisResult analysisResult = update("//test:main");
 
@@ -4096,89 +4474,93 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     // over second_dep attribute
     scratch.file(
         "test/defs.bzl",
-        "BaseAspectProv = provider()",
-        "FirstRequiredAspectProv = provider()",
-        "SecondRequiredAspectProv = provider()",
-        "",
-        "def _second_required_aspect_impl(target, ctx):",
-        "  result = []",
-        "  if getattr(ctx.rule.attr, 'second_dep'):",
-        "    result += getattr(ctx.rule.attr, 'second_dep')[SecondRequiredAspectProv].result",
-        "  result += ['second_required_aspect run on target {}'.format(target.label)]",
-        "  return [SecondRequiredAspectProv(result = result)]",
-        "second_required_aspect = aspect(",
-        "  implementation = _second_required_aspect_impl,",
-        "  attr_aspects = ['second_dep'],",
-        ")",
-        "",
-        "def _first_required_aspect_impl(target, ctx):",
-        "  result = []",
-        "  result += target[SecondRequiredAspectProv].result",
-        "  if getattr(ctx.rule.attr, 'first_dep'):",
-        "    result += getattr(ctx.rule.attr, 'first_dep')[FirstRequiredAspectProv].result",
-        "  result += ['first_required_aspect run on target {}'.format(target.label)]",
-        "  return [FirstRequiredAspectProv(result = result)]",
-        "first_required_aspect = aspect(",
-        "  implementation = _first_required_aspect_impl,",
-        "  attr_aspects = ['first_dep'],",
-        "  requires = [second_required_aspect],",
-        ")",
-        "",
-        "def _base_aspect_impl(target, ctx):",
-        "  result = []",
-        "  result += target[FirstRequiredAspectProv].result",
-        "  if getattr(ctx.rule.attr, 'base_dep'):",
-        "    result += getattr(ctx.rule.attr, 'base_dep')[BaseAspectProv].result",
-        "  result += ['base_aspect run on target {}'.format(target.label)]",
-        "  return [BaseAspectProv(result = result)]",
-        "base_aspect = aspect(",
-        "  implementation = _base_aspect_impl,",
-        "  attr_aspects = ['base_dep'],",
-        "  requires = [first_required_aspect],",
-        ")",
-        "",
-        "def _main_rule_impl(ctx):",
-        "  return [ctx.attr.dep[BaseAspectProv]]",
-        "def _dep_rule_impl(ctx):",
-        "  pass",
-        "",
-        "main_rule = rule(",
-        "  implementation = _main_rule_impl,",
-        "  attrs = {",
-        "    'dep': attr.label(aspects=[base_aspect]),",
-        "  },",
-        ")",
-        "",
-        "dep_rule = rule(",
-        "  implementation = _dep_rule_impl,",
-        "  attrs = {",
-        "    'base_dep': attr.label(),",
-        "    'first_dep': attr.label(),",
-        "    'second_dep': attr.label()",
-        "  },",
-        ")");
+        """
+        BaseAspectProv = provider()
+        FirstRequiredAspectProv = provider()
+        SecondRequiredAspectProv = provider()
+
+        def _second_required_aspect_impl(target, ctx):
+          result = []
+          if getattr(ctx.rule.attr, 'second_dep'):
+            result += getattr(ctx.rule.attr, 'second_dep')[SecondRequiredAspectProv].result
+          result += ['second_required_aspect run on target {}'.format(target.label)]
+          return [SecondRequiredAspectProv(result = result)]
+        second_required_aspect = aspect(
+          implementation = _second_required_aspect_impl,
+          attr_aspects = ['second_dep'],
+        )
+
+        def _first_required_aspect_impl(target, ctx):
+          result = []
+          result += target[SecondRequiredAspectProv].result
+          if getattr(ctx.rule.attr, 'first_dep'):
+            result += getattr(ctx.rule.attr, 'first_dep')[FirstRequiredAspectProv].result
+          result += ['first_required_aspect run on target {}'.format(target.label)]
+          return [FirstRequiredAspectProv(result = result)]
+        first_required_aspect = aspect(
+          implementation = _first_required_aspect_impl,
+          attr_aspects = ['first_dep'],
+          requires = [second_required_aspect],
+        )
+
+        def _base_aspect_impl(target, ctx):
+          result = []
+          result += target[FirstRequiredAspectProv].result
+          if getattr(ctx.rule.attr, 'base_dep'):
+            result += getattr(ctx.rule.attr, 'base_dep')[BaseAspectProv].result
+          result += ['base_aspect run on target {}'.format(target.label)]
+          return [BaseAspectProv(result = result)]
+        base_aspect = aspect(
+          implementation = _base_aspect_impl,
+          attr_aspects = ['base_dep'],
+          requires = [first_required_aspect],
+        )
+
+        def _main_rule_impl(ctx):
+          return [ctx.attr.dep[BaseAspectProv]]
+        def _dep_rule_impl(ctx):
+          pass
+
+        main_rule = rule(
+          implementation = _main_rule_impl,
+          attrs = {
+            'dep': attr.label(aspects=[base_aspect]),
+          },
+        )
+
+        dep_rule = rule(
+          implementation = _dep_rule_impl,
+          attrs = {
+            'base_dep': attr.label(),
+            'first_dep': attr.label(),
+            'second_dep': attr.label()
+          },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'main_rule', 'dep_rule')",
-        "main_rule(",
-        "  name = 'main',",
-        "  dep = ':dep_target',",
-        ")",
-        "dep_rule(",
-        "  name = 'dep_target',",
-        "  base_dep = ':base_dep_target',",
-        "  first_dep = ':first_dep_target',",
-        "  second_dep = ':second_dep_target',",
-        ")",
-        "dep_rule(",
-        "  name = 'base_dep_target',",
-        ")",
-        "dep_rule(",
-        "  name = 'first_dep_target',",
-        ")",
-        "dep_rule(",
-        "  name = 'second_dep_target',",
-        ")");
+        """
+        load('//test:defs.bzl', 'main_rule', 'dep_rule')
+        main_rule(
+          name = 'main',
+          dep = ':dep_target',
+        )
+        dep_rule(
+          name = 'dep_target',
+          base_dep = ':base_dep_target',
+          first_dep = ':first_dep_target',
+          second_dep = ':second_dep_target',
+        )
+        dep_rule(
+          name = 'base_dep_target',
+        )
+        dep_rule(
+          name = 'first_dep_target',
+        )
+        dep_rule(
+          name = 'second_dep_target',
+        )
+        """);
 
     AnalysisResult analysisResult = update("//test:main");
 
@@ -4329,60 +4711,66 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testAspectRequiresAspect_inspectRequiredAspectActions() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _required_aspect_impl(target, ctx):",
-        "  f = ctx.actions.declare_file('dummy.txt')",
-        "  ctx.actions.run_shell(outputs = [f], command='echo xxx > $(location f)',",
-        "                        mnemonic='RequiredAspectAction')",
-        "  return struct()",
-        "required_aspect = aspect(",
-        "  implementation = _required_aspect_impl,",
-        ")",
-        "",
-        "def _base_aspect_impl(target, ctx):",
-        "  required_aspect_action = None",
-        "  for action in target.actions:",
-        "    if action.mnemonic == 'RequiredAspectAction':",
-        "      required_aspect_action = action",
-        "  if required_aspect_action:",
-        "    return struct(result = 'base_aspect can see required_aspect action')",
-        "  else:",
-        "    return struct(result = 'base_aspect cannot see required_aspect action')",
-        "base_aspect = aspect(",
-        "  implementation = _base_aspect_impl,",
-        "  attr_aspects = ['dep'],",
-        "  requires = [required_aspect]",
-        ")",
-        "",
-        "def _main_rule_impl(ctx):",
-        "  return struct(result = ctx.attr.dep.result)",
-        "main_rule = rule(",
-        "  implementation = _main_rule_impl,",
-        "  attrs = {",
-        "    'dep': attr.label(aspects = [base_aspect]),",
-        "  },",
-        ")",
-        "",
-        "def _dep_rule_impl(ctx):",
-        "  pass",
-        "dep_rule = rule(",
-        "  implementation = _dep_rule_impl,",
-        ")");
+        """
+        def _required_aspect_impl(target, ctx):
+          f = ctx.actions.declare_file('dummy.txt')
+          ctx.actions.run_shell(outputs = [f], command='echo xxx > $(location f)',
+                                mnemonic='RequiredAspectAction')
+          return []
+        required_aspect = aspect(
+          implementation = _required_aspect_impl,
+        )
+
+        AspectInfo = provider()
+        def _base_aspect_impl(target, ctx):
+          required_aspect_action = None
+          for action in target.actions:
+            if action.mnemonic == 'RequiredAspectAction':
+              required_aspect_action = action
+          if required_aspect_action:
+            return AspectInfo(result = 'base_aspect can see required_aspect action')
+          else:
+            return AspectInfo(result = 'base_aspect cannot see required_aspect action')
+        base_aspect = aspect(
+          implementation = _base_aspect_impl,
+          attr_aspects = ['dep'],
+          requires = [required_aspect]
+        )
+
+        RuleInfo = provider()
+        def _main_rule_impl(ctx):
+          return RuleInfo(result = ctx.attr.dep[AspectInfo].result)
+        main_rule = rule(
+          implementation = _main_rule_impl,
+          attrs = {
+            'dep': attr.label(aspects = [base_aspect]),
+          },
+        )
+
+        def _dep_rule_impl(ctx):
+          pass
+        dep_rule = rule(
+          implementation = _dep_rule_impl,
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'main_rule', 'dep_rule')",
-        "main_rule(",
-        "  name = 'main',",
-        "  dep = ':dep_target',",
-        ")",
-        "dep_rule(",
-        "  name = 'dep_target',",
-        ")");
+        """
+        load('//test:defs.bzl', 'main_rule', 'dep_rule')
+        main_rule(
+          name = 'main',
+          dep = ':dep_target',
+        )
+        dep_rule(
+          name = 'dep_target',
+        )
+        """);
 
     AnalysisResult analysisResult = update("//test:main");
 
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    String result = (String) configuredTarget.get("result");
+    String result = (String) getStarlarkProvider(configuredTarget, "RuleInfo").getValue("result");
     assertThat(result).isEqualTo("base_aspect can see required_aspect action");
   }
 
@@ -4398,18 +4786,20 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "  implementation = _required_aspect_impl,",
         ")",
         "",
+        "AspectInfo = provider()",
         "def _base_aspect_impl(target, ctx):",
         "  files = ['base_aspect can see file ' + f.path.split('/')[-1] for f in"
             + " target[OutputGroupInfo].out.to_list()]",
-        "  return struct(my_files = files)",
+        "  return AspectInfo(my_files = files)",
         "base_aspect = aspect(",
         "  implementation = _base_aspect_impl,",
         "  attr_aspects = ['dep'],",
         "  requires = [required_aspect]",
         ")",
         "",
+        "RuleInfo = provider()",
         "def _main_rule_impl(ctx):",
-        "  return struct(my_files = ctx.attr.dep.my_files)",
+        "  return RuleInfo(my_files = ctx.attr.dep[AspectInfo].my_files)",
         "main_rule = rule(",
         "  implementation = _main_rule_impl,",
         "  attrs = {",
@@ -4424,20 +4814,23 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         ")");
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'main_rule', 'dep_rule')",
-        "main_rule(",
-        "  name = 'main',",
-        "  dep = ':dep_target',",
-        ")",
-        "dep_rule(",
-        "  name = 'dep_target',",
-        ")");
+        """
+        load('//test:defs.bzl', 'main_rule', 'dep_rule')
+        main_rule(
+          name = 'main',
+          dep = ':dep_target',
+        )
+        dep_rule(
+          name = 'dep_target',
+        )
+        """);
 
     AnalysisResult analysisResult = update("//test:main");
 
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    StarlarkList<?> files = (StarlarkList) configuredTarget.get("my_files");
+    StarlarkList<?> files =
+        (StarlarkList) getStarlarkProvider(configuredTarget, "RuleInfo").getValue("my_files");
     assertThat(Starlark.toIterable(files))
         .containsExactly("base_aspect can see file required_aspect_file");
   }
@@ -4446,94 +4839,101 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testAspectRequiresAspect_withRequiredAspectProvidersSatisfied() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "prov_a = provider()",
-        "prov_b = provider()",
-        "prov_b_forwarded = provider()",
-        "",
-        "def _aspect_b_impl(target, ctx):",
-        "  result = 'aspect_b on target {} '.format(target.label)",
-        "  if prov_b in target:",
-        "    result += 'found prov_b = {}'.format(target[prov_b].val)",
-        "    return struct(aspect_b_result = result,",
-        "                  providers = [prov_b_forwarded(val = target[prov_b].val)])",
-        "  else:",
-        "    result += 'cannot find prov_b'",
-        "    return struct(aspect_b_result = result)",
-        "aspect_b = aspect(",
-        "  implementation = _aspect_b_impl,",
-        "  required_aspect_providers = [prov_b]",
-        ")",
-        "",
-        "def _aspect_a_impl(target, ctx):",
-        "  result = 'aspect_a on target {} '.format(target.label)",
-        "  if prov_a in target:",
-        "    result += 'found prov_a = {}'.format(target[prov_a].val)",
-        "  else:",
-        "    result += 'cannot find prov_a'",
-        "  if prov_b_forwarded in target:",
-        "    result += ' and found prov_b = {}'.format(target[prov_b_forwarded].val)",
-        "  else:",
-        "    result += ' but cannot find prov_b'",
-        "  return struct(aspect_a_result = result)",
-        "",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  required_aspect_providers = [prov_a],",
-        "  attr_aspects = ['dep'],",
-        "  requires = [aspect_b]",
-        ")",
-        "",
-        "def _aspect_with_prov_a_impl(target, ctx):",
-        "  return [prov_a(val = 'a1')]",
-        "aspect_with_prov_a = aspect(",
-        "  implementation = _aspect_with_prov_a_impl,",
-        "  provides = [prov_a],",
-        "  attr_aspects = ['dep'],",
-        ")",
-        "",
-        "def _aspect_with_prov_b_impl(target, ctx):",
-        "  return [prov_b(val = 'b1')]",
-        "aspect_with_prov_b = aspect(",
-        "  implementation = _aspect_with_prov_b_impl,",
-        "  provides = [prov_b],",
-        "  attr_aspects = ['dep'],",
-        ")",
-        "",
-        "def _main_rule_impl(ctx):",
-        "  return struct(aspect_a_result = ctx.attr.dep.aspect_a_result,",
-        "                aspect_b_result = ctx.attr.dep.aspect_b_result)",
-        "main_rule = rule(",
-        "  implementation = _main_rule_impl,",
-        "  attrs = {",
-        "    'dep': attr.label(aspects = [aspect_with_prov_a, aspect_with_prov_b, aspect_a]),",
-        "  },",
-        ")",
-        "",
-        "def _dep_rule_impl(ctx):",
-        "  pass",
-        "dep_rule = rule(",
-        "  implementation = _dep_rule_impl,",
-        ")");
+        """
+        prov_a = provider()
+        prov_b = provider()
+        prov_b_forwarded = provider()
+        AspectAInfo = provider()
+        AspectBInfo = provider()
+        RuleInfo = provider()
+        def _aspect_b_impl(target, ctx):
+          result = 'aspect_b on target {} '.format(target.label)
+          if prov_b in target:
+            result += 'found prov_b = {}'.format(target[prov_b].val)
+            return [AspectBInfo(aspect_b_result = result),
+                    prov_b_forwarded(val = target[prov_b].val)]
+          else:
+            result += 'cannot find prov_b'
+            return [AspectBInfo(aspect_b_result = result)]
+        aspect_b = aspect(
+          implementation = _aspect_b_impl,
+          required_aspect_providers = [prov_b]
+        )
+
+        def _aspect_a_impl(target, ctx):
+          result = 'aspect_a on target {} '.format(target.label)
+          if prov_a in target:
+            result += 'found prov_a = {}'.format(target[prov_a].val)
+          else:
+            result += 'cannot find prov_a'
+          if prov_b_forwarded in target:
+            result += ' and found prov_b = {}'.format(target[prov_b_forwarded].val)
+          else:
+            result += ' but cannot find prov_b'
+          return AspectAInfo(aspect_a_result = result)
+
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          required_aspect_providers = [prov_a],
+          attr_aspects = ['dep'],
+          requires = [aspect_b]
+        )
+
+        def _aspect_with_prov_a_impl(target, ctx):
+          return [prov_a(val = 'a1')]
+        aspect_with_prov_a = aspect(
+          implementation = _aspect_with_prov_a_impl,
+          provides = [prov_a],
+          attr_aspects = ['dep'],
+        )
+
+        def _aspect_with_prov_b_impl(target, ctx):
+          return [prov_b(val = 'b1')]
+        aspect_with_prov_b = aspect(
+          implementation = _aspect_with_prov_b_impl,
+          provides = [prov_b],
+          attr_aspects = ['dep'],
+        )
+
+        def _main_rule_impl(ctx):
+          return RuleInfo(aspect_a_result = ctx.attr.dep[AspectAInfo].aspect_a_result,
+                        aspect_b_result = ctx.attr.dep[AspectBInfo].aspect_b_result)
+        main_rule = rule(
+          implementation = _main_rule_impl,
+          attrs = {
+            'dep': attr.label(aspects = [aspect_with_prov_a, aspect_with_prov_b, aspect_a]),
+          },
+        )
+
+        def _dep_rule_impl(ctx):
+          pass
+        dep_rule = rule(
+          implementation = _dep_rule_impl,
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'main_rule', 'dep_rule')",
-        "main_rule(",
-        "  name = 'main',",
-        "  dep = ':dep_target',",
-        ")",
-        "dep_rule(",
-        "  name = 'dep_target',",
-        ")");
+        """
+        load('//test:defs.bzl', 'main_rule', 'dep_rule')
+        main_rule(
+          name = 'main',
+          dep = ':dep_target',
+        )
+        dep_rule(
+          name = 'dep_target',
+        )
+        """);
 
     AnalysisResult analysisResult = update("//test:main");
 
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    String aspectAResult = (String) configuredTarget.get("aspect_a_result");
+    StarlarkInfo targetInfo = getStarlarkProvider(configuredTarget, "RuleInfo");
+    String aspectAResult = targetInfo.getValue("aspect_a_result", String.class);
     assertThat(aspectAResult)
         .isEqualTo("aspect_a on target @//test:dep_target found prov_a = a1 and found prov_b = b1");
 
-    String aspectBResult = (String) configuredTarget.get("aspect_b_result");
+    String aspectBResult = targetInfo.getValue("aspect_b_result", String.class);
     assertThat(aspectBResult).isEqualTo("aspect_b on target @//test:dep_target found prov_b = b1");
   }
 
@@ -4541,78 +4941,85 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testAspectRequiresAspect_withRequiredAspectProvidersNotFound() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "prov_a = provider()",
-        "prov_b = provider()",
-        "",
-        "def _aspect_b_impl(target, ctx):",
-        "  result = 'aspect_b on target {} '.format(target.label)",
-        "  if prov_b in target:",
-        "    result += 'found prov_b = {}'.format(target[prov_b].val)",
-        "  else:",
-        "    result += 'cannot find prov_b'",
-        "  return struct(aspect_b_result = result)",
-        "aspect_b = aspect(",
-        "  implementation = _aspect_b_impl,",
-        "  required_aspect_providers = [prov_b]",
-        ")",
-        "",
-        "def _aspect_a_impl(target, ctx):",
-        "  result = 'aspect_a on target {} '.format(target.label)",
-        "  if prov_a in target:",
-        "    result += 'found prov_a = {}'.format(target[prov_a].val)",
-        "  else:",
-        "    result += 'cannot find prov_a'",
-        "  return struct(aspect_a_result = result)",
-        "",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  required_aspect_providers = [prov_a],",
-        "  attr_aspects = ['dep'],",
-        "  requires = [aspect_b]",
-        ")",
-        "",
-        "def _aspect_with_prov_a_impl(target, ctx):",
-        "  return [prov_a(val = 'a1')]",
-        "aspect_with_prov_a = aspect(",
-        "  implementation = _aspect_with_prov_a_impl,",
-        "  provides = [prov_a],",
-        "  attr_aspects = ['dep'],",
-        ")",
-        "",
-        "def _main_rule_impl(ctx):",
-        "  return struct(aspect_a_result = ctx.attr.dep.aspect_a_result,",
-        "                aspect_b_result = ctx.attr.dep.aspect_b_result)",
-        "main_rule = rule(",
-        "  implementation = _main_rule_impl,",
-        "  attrs = {",
-        "    'dep': attr.label(aspects = [aspect_with_prov_a, aspect_a]),",
-        "  },",
-        ")",
-        "",
-        "def _dep_rule_impl(ctx):",
-        "  pass",
-        "dep_rule = rule(",
-        "  implementation = _dep_rule_impl,",
-        ")");
+        """
+        prov_a = provider()
+        prov_b = provider()
+        AspectAInfo = provider()
+        AspectBInfo = provider()
+        def _aspect_b_impl(target, ctx):
+          result = 'aspect_b on target {} '.format(target.label)
+          if prov_b in target:
+            result += 'found prov_b = {}'.format(target[prov_b].val)
+          else:
+            result += 'cannot find prov_b'
+          return AspectBInfo(aspect_b_result = result)
+        aspect_b = aspect(
+          implementation = _aspect_b_impl,
+          required_aspect_providers = [prov_b]
+        )
+
+        def _aspect_a_impl(target, ctx):
+          result = 'aspect_a on target {} '.format(target.label)
+          if prov_a in target:
+            result += 'found prov_a = {}'.format(target[prov_a].val)
+          else:
+            result += 'cannot find prov_a'
+          return AspectAInfo(aspect_a_result = result)
+
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          required_aspect_providers = [prov_a],
+          attr_aspects = ['dep'],
+          requires = [aspect_b]
+        )
+
+        def _aspect_with_prov_a_impl(target, ctx):
+          return [prov_a(val = 'a1')]
+        aspect_with_prov_a = aspect(
+          implementation = _aspect_with_prov_a_impl,
+          provides = [prov_a],
+          attr_aspects = ['dep'],
+        )
+
+        RuleInfo = provider()
+        def _main_rule_impl(ctx):
+          return RuleInfo(aspect_a_result = ctx.attr.dep[AspectAInfo].aspect_a_result,
+                        aspect_b_result = ctx.attr.dep[AspectBInfo].aspect_b_result)
+        main_rule = rule(
+          implementation = _main_rule_impl,
+          attrs = {
+            'dep': attr.label(aspects = [aspect_with_prov_a, aspect_a]),
+          },
+        )
+
+        def _dep_rule_impl(ctx):
+          pass
+        dep_rule = rule(
+          implementation = _dep_rule_impl,
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'main_rule', 'dep_rule')",
-        "main_rule(",
-        "  name = 'main',",
-        "  dep = ':dep_target',",
-        ")",
-        "dep_rule(",
-        "  name = 'dep_target',",
-        ")");
+        """
+        load('//test:defs.bzl', 'main_rule', 'dep_rule')
+        main_rule(
+          name = 'main',
+          dep = ':dep_target',
+        )
+        dep_rule(
+          name = 'dep_target',
+        )
+        """);
 
     AnalysisResult analysisResult = update("//test:main");
 
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    String aspectAResult = (String) configuredTarget.get("aspect_a_result");
+    StarlarkInfo ruleInfo = getStarlarkProvider(configuredTarget, "RuleInfo");
+    String aspectAResult = ruleInfo.getValue("aspect_a_result", String.class);
     assertThat(aspectAResult).isEqualTo("aspect_a on target @//test:dep_target found prov_a = a1");
 
-    String aspectBResult = (String) configuredTarget.get("aspect_b_result");
+    String aspectBResult = ruleInfo.getValue("aspect_b_result", String.class);
     assertThat(aspectBResult).isEqualTo("aspect_b on target @//test:dep_target cannot find prov_b");
   }
 
@@ -4625,97 +5032,101 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectOnAspect_stackOfAspects() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "a1p = provider()",
-        "a2p = provider()",
-        "a1_result = provider()",
-        "a2_result = provider()",
-        "a3_result = provider()",
-        "",
-        "def _a1_impl(target, ctx):",
-        "  result = 'aspect a1 on target {}'.format(target.label)",
-        "  if a1p in target:",
-        "    result += ' sees a1p = {}'.format(target[a1p].value)",
-        "  else:",
-        "    result += ' cannot see a1p'",
-        "  if a2p in target:",
-        "    result += ' and sees a2p = {}'.format(target[a2p].value)",
-        "  else:",
-        "    result += ' and cannot see a2p'",
-        "  complete_result = []",
-        "  if ctx.rule.attr.dep:",
-        "    complete_result = ctx.rule.attr.dep[a1_result].value + [result]",
-        "  else:",
-        "    complete_result = [result]",
-        "  return [a1_result(value = complete_result)]",
-        "a1 = aspect(",
-        "  implementation = _a1_impl,",
-        "  attr_aspects = ['dep'],",
-        "  required_aspect_providers = [a1p]",
-        ")",
-        "",
-        "def _a2_impl(target, ctx):",
-        "  result = 'aspect a2 on target {}'.format(target.label)",
-        "  if a1p in target:",
-        "    result += ' sees a1p = {}'.format(target[a1p].value)",
-        "  else:",
-        "    result += ' cannot see a1p'",
-        "  if a2p in target:",
-        "    result += ' and sees a2p = {}'.format(target[a2p].value)",
-        "  else:",
-        "    result += ' and cannot see a2p'",
-        "  complete_result = []",
-        "  if ctx.rule.attr.dep:",
-        "    complete_result = ctx.rule.attr.dep[a2_result].value + [result]",
-        "  else:",
-        "    complete_result = [result]",
-        "  return [a2_result(value = complete_result), a1p(value = 'a1p_val')]",
-        "a2 = aspect(",
-        "  implementation = _a2_impl,",
-        "  attr_aspects = ['dep'],",
-        "  provides = [a1p],",
-        "  required_aspect_providers = [a2p],",
-        ")",
-        "",
-        "def _a3_impl(target, ctx):",
-        "  result = 'aspect a3 on target {}'.format(target.label)",
-        "  if a1p in target:",
-        "    result += ' sees a1p = {}'.format(target[a1p].value)",
-        "  else:",
-        "    result += ' cannot see a1p'",
-        "  if a2p in target:",
-        "    result += ' and sees a2p = {}'.format(target[a2p].value)",
-        "  else:",
-        "    result += ' and cannot see a2p'",
-        "  complete_result = []",
-        "  if ctx.rule.attr.dep:",
-        "    complete_result = ctx.rule.attr.dep[a3_result].value + [result]",
-        "  else:",
-        "    complete_result = [result]",
-        "  return [a3_result(value = complete_result), a2p(value = 'a2p_val')]",
-        "a3 = aspect(",
-        "  implementation = _a3_impl,",
-        "  attr_aspects = ['dep'],",
-        "  provides = [a2p],",
-        ")",
-        "",
-        "def _simple_rule_impl(ctx):",
-        "  pass",
-        "simple_rule = rule(",
-        "  implementation = _simple_rule_impl,",
-        "  attrs = {",
-        "    'dep': attr.label(),",
-        "  },",
-        ")");
+        """
+        a1p = provider()
+        a2p = provider()
+        a1_result = provider()
+        a2_result = provider()
+        a3_result = provider()
+
+        def _a1_impl(target, ctx):
+          result = 'aspect a1 on target {}'.format(target.label)
+          if a1p in target:
+            result += ' sees a1p = {}'.format(target[a1p].value)
+          else:
+            result += ' cannot see a1p'
+          if a2p in target:
+            result += ' and sees a2p = {}'.format(target[a2p].value)
+          else:
+            result += ' and cannot see a2p'
+          complete_result = []
+          if ctx.rule.attr.dep:
+            complete_result = ctx.rule.attr.dep[a1_result].value + [result]
+          else:
+            complete_result = [result]
+          return [a1_result(value = complete_result)]
+        a1 = aspect(
+          implementation = _a1_impl,
+          attr_aspects = ['dep'],
+          required_aspect_providers = [a1p]
+        )
+
+        def _a2_impl(target, ctx):
+          result = 'aspect a2 on target {}'.format(target.label)
+          if a1p in target:
+            result += ' sees a1p = {}'.format(target[a1p].value)
+          else:
+            result += ' cannot see a1p'
+          if a2p in target:
+            result += ' and sees a2p = {}'.format(target[a2p].value)
+          else:
+            result += ' and cannot see a2p'
+          complete_result = []
+          if ctx.rule.attr.dep:
+            complete_result = ctx.rule.attr.dep[a2_result].value + [result]
+          else:
+            complete_result = [result]
+          return [a2_result(value = complete_result), a1p(value = 'a1p_val')]
+        a2 = aspect(
+          implementation = _a2_impl,
+          attr_aspects = ['dep'],
+          provides = [a1p],
+          required_aspect_providers = [a2p],
+        )
+
+        def _a3_impl(target, ctx):
+          result = 'aspect a3 on target {}'.format(target.label)
+          if a1p in target:
+            result += ' sees a1p = {}'.format(target[a1p].value)
+          else:
+            result += ' cannot see a1p'
+          if a2p in target:
+            result += ' and sees a2p = {}'.format(target[a2p].value)
+          else:
+            result += ' and cannot see a2p'
+          complete_result = []
+          if ctx.rule.attr.dep:
+            complete_result = ctx.rule.attr.dep[a3_result].value + [result]
+          else:
+            complete_result = [result]
+          return [a3_result(value = complete_result), a2p(value = 'a2p_val')]
+        a3 = aspect(
+          implementation = _a3_impl,
+          attr_aspects = ['dep'],
+          provides = [a2p],
+        )
+
+        def _simple_rule_impl(ctx):
+          pass
+        simple_rule = rule(
+          implementation = _simple_rule_impl,
+          attrs = {
+            'dep': attr.label(),
+          },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'simple_rule')",
-        "simple_rule(",
-        "  name = 'main',",
-        "  dep = ':dep_target',",
-        ")",
-        "simple_rule(",
-        "  name = 'dep_target',",
-        ")");
+        """
+        load('//test:defs.bzl', 'simple_rule')
+        simple_rule(
+          name = 'main',
+          dep = ':dep_target',
+        )
+        simple_rule(
+          name = 'dep_target',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(
@@ -4762,61 +5173,65 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectOnAspect_requiredProviderProvidedTwiceFailed() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "a1p = provider()",
-        "a1_result = provider()",
-        "",
-        "def _a1_impl(target, ctx):",
-        "  result = 'aspect a1 on target {}'.format(target.label)",
-        "  if a1p in target:",
-        "    result += ' sees a1p = {}'.format(target[a1p].value)",
-        "  else:",
-        "    result += ' cannot see a1p'",
-        "  complete_result = []",
-        "  if ctx.rule.attr.dep:",
-        "    complete_result = ctx.rule.attr.dep[a1_result].value + [result]",
-        "  else:",
-        "    complete_result = [result]",
-        "  return [a1_result(value = complete_result)]",
-        "a1 = aspect(",
-        "  implementation = _a1_impl,",
-        "  attr_aspects = ['dep'],",
-        "  required_aspect_providers = [a1p]",
-        ")",
-        "",
-        "def _a2_impl(target, ctx):",
-        "  return [a1p(value = 'a1p_a2_val')]",
-        "a2 = aspect(",
-        "  implementation = _a2_impl,",
-        "  attr_aspects = ['dep'],",
-        "  provides = [a1p],",
-        ")",
-        "",
-        "def _a3_impl(target, ctx):",
-        "  return [a1p(value = 'a1p_a3_val')]",
-        "a3 = aspect(",
-        "  implementation = _a3_impl,",
-        "  attr_aspects = ['dep'],",
-        "  provides = [a1p],",
-        ")",
-        "",
-        "def _simple_rule_impl(ctx):",
-        "  pass",
-        "simple_rule = rule(",
-        "  implementation = _simple_rule_impl,",
-        "  attrs = {",
-        "    'dep': attr.label(),",
-        "  },",
-        ")");
+        """
+        a1p = provider()
+        a1_result = provider()
+
+        def _a1_impl(target, ctx):
+          result = 'aspect a1 on target {}'.format(target.label)
+          if a1p in target:
+            result += ' sees a1p = {}'.format(target[a1p].value)
+          else:
+            result += ' cannot see a1p'
+          complete_result = []
+          if ctx.rule.attr.dep:
+            complete_result = ctx.rule.attr.dep[a1_result].value + [result]
+          else:
+            complete_result = [result]
+          return [a1_result(value = complete_result)]
+        a1 = aspect(
+          implementation = _a1_impl,
+          attr_aspects = ['dep'],
+          required_aspect_providers = [a1p]
+        )
+
+        def _a2_impl(target, ctx):
+          return [a1p(value = 'a1p_a2_val')]
+        a2 = aspect(
+          implementation = _a2_impl,
+          attr_aspects = ['dep'],
+          provides = [a1p],
+        )
+
+        def _a3_impl(target, ctx):
+          return [a1p(value = 'a1p_a3_val')]
+        a3 = aspect(
+          implementation = _a3_impl,
+          attr_aspects = ['dep'],
+          provides = [a1p],
+        )
+
+        def _simple_rule_impl(ctx):
+          pass
+        simple_rule = rule(
+          implementation = _simple_rule_impl,
+          attrs = {
+            'dep': attr.label(),
+          },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'simple_rule')",
-        "simple_rule(",
-        "  name = 'main',",
-        "  dep = ':dep_target',",
-        ")",
-        "simple_rule(",
-        "  name = 'dep_target',",
-        ")");
+        """
+        load('//test:defs.bzl', 'simple_rule')
+        simple_rule(
+          name = 'main',
+          dep = ':dep_target',
+        )
+        simple_rule(
+          name = 'dep_target',
+        )
+        """);
     reporter.removeHandler(failFastHandler);
 
     // The call to `update` does not throw an exception when "--keep_going" is passed in the
@@ -4846,61 +5261,65 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectOnAspect_requiredProviderProvidedTwicePassed() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "a1p = provider()",
-        "a1_result = provider()",
-        "",
-        "def _a1_impl(target, ctx):",
-        "  result = 'aspect a1 on target {}'.format(target.label)",
-        "  if a1p in target:",
-        "    result += ' sees a1p = {}'.format(target[a1p].value)",
-        "  else:",
-        "    result += ' cannot see a1p'",
-        "  complete_result = []",
-        "  if ctx.rule.attr.dep:",
-        "    complete_result = ctx.rule.attr.dep[a1_result].value + [result]",
-        "  else:",
-        "    complete_result = [result]",
-        "  return [a1_result(value = complete_result)]",
-        "a1 = aspect(",
-        "  implementation = _a1_impl,",
-        "  attr_aspects = ['dep'],",
-        "  required_aspect_providers = [a1p]",
-        ")",
-        "",
-        "def _a2_impl(target, ctx):",
-        "  return [a1p(value = 'a1p_a2_val')]",
-        "a2 = aspect(",
-        "  implementation = _a2_impl,",
-        "  attr_aspects = ['dep'],",
-        "  provides = [a1p],",
-        ")",
-        "",
-        "def _a3_impl(target, ctx):",
-        "  return [a1p(value = 'a1p_a3_val')]",
-        "a3 = aspect(",
-        "  implementation = _a3_impl,",
-        "  attr_aspects = ['dep'],",
-        "  provides = [a1p],",
-        ")",
-        "",
-        "def _simple_rule_impl(ctx):",
-        "  pass",
-        "simple_rule = rule(",
-        "  implementation = _simple_rule_impl,",
-        "  attrs = {",
-        "    'dep': attr.label(),",
-        "  },",
-        ")");
+        """
+        a1p = provider()
+        a1_result = provider()
+
+        def _a1_impl(target, ctx):
+          result = 'aspect a1 on target {}'.format(target.label)
+          if a1p in target:
+            result += ' sees a1p = {}'.format(target[a1p].value)
+          else:
+            result += ' cannot see a1p'
+          complete_result = []
+          if ctx.rule.attr.dep:
+            complete_result = ctx.rule.attr.dep[a1_result].value + [result]
+          else:
+            complete_result = [result]
+          return [a1_result(value = complete_result)]
+        a1 = aspect(
+          implementation = _a1_impl,
+          attr_aspects = ['dep'],
+          required_aspect_providers = [a1p]
+        )
+
+        def _a2_impl(target, ctx):
+          return [a1p(value = 'a1p_a2_val')]
+        a2 = aspect(
+          implementation = _a2_impl,
+          attr_aspects = ['dep'],
+          provides = [a1p],
+        )
+
+        def _a3_impl(target, ctx):
+          return [a1p(value = 'a1p_a3_val')]
+        a3 = aspect(
+          implementation = _a3_impl,
+          attr_aspects = ['dep'],
+          provides = [a1p],
+        )
+
+        def _simple_rule_impl(ctx):
+          pass
+        simple_rule = rule(
+          implementation = _simple_rule_impl,
+          attrs = {
+            'dep': attr.label(),
+          },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'simple_rule')",
-        "simple_rule(",
-        "  name = 'main',",
-        "  dep = ':dep_target',",
-        ")",
-        "simple_rule(",
-        "  name = 'dep_target',",
-        ")");
+        """
+        load('//test:defs.bzl', 'simple_rule')
+        simple_rule(
+          name = 'main',
+          dep = ':dep_target',
+        )
+        simple_rule(
+          name = 'dep_target',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(
@@ -4923,54 +5342,58 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectOnAspect_requiredProviderNotProvided() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "a1p = provider()",
-        "a2p = provider()",
-        "a1_result = provider()",
-        "",
-        "def _a1_impl(target, ctx):",
-        "  result = 'aspect a1 on target {}'.format(target.label)",
-        "  if a1p in target:",
-        "    result += ' sees a1p = {}'.format(target[a1p].value)",
-        "  else:",
-        "    result += ' cannot see a1p'",
-        "  complete_result = []",
-        "  if ctx.rule.attr.dep:",
-        "    complete_result = ctx.rule.attr.dep[a1_result].value + [result]",
-        "  else:",
-        "    complete_result = [result]",
-        "  return [a1_result(value = complete_result)]",
-        "a1 = aspect(",
-        "  implementation = _a1_impl,",
-        "  attr_aspects = ['dep'],",
-        "  required_aspect_providers = [a1p]",
-        ")",
-        "",
-        "def _a2_impl(target, ctx):",
-        "  return [a2p(value = 'a2p_val')]",
-        "a2 = aspect(",
-        "  implementation = _a2_impl,",
-        "  attr_aspects = ['dep'],",
-        "  provides = [a2p],",
-        ")",
-        "",
-        "def _simple_rule_impl(ctx):",
-        "  pass",
-        "simple_rule = rule(",
-        "  implementation = _simple_rule_impl,",
-        "  attrs = {",
-        "    'dep': attr.label(),",
-        "  },",
-        ")");
+        """
+        a1p = provider()
+        a2p = provider()
+        a1_result = provider()
+
+        def _a1_impl(target, ctx):
+          result = 'aspect a1 on target {}'.format(target.label)
+          if a1p in target:
+            result += ' sees a1p = {}'.format(target[a1p].value)
+          else:
+            result += ' cannot see a1p'
+          complete_result = []
+          if ctx.rule.attr.dep:
+            complete_result = ctx.rule.attr.dep[a1_result].value + [result]
+          else:
+            complete_result = [result]
+          return [a1_result(value = complete_result)]
+        a1 = aspect(
+          implementation = _a1_impl,
+          attr_aspects = ['dep'],
+          required_aspect_providers = [a1p]
+        )
+
+        def _a2_impl(target, ctx):
+          return [a2p(value = 'a2p_val')]
+        a2 = aspect(
+          implementation = _a2_impl,
+          attr_aspects = ['dep'],
+          provides = [a2p],
+        )
+
+        def _simple_rule_impl(ctx):
+          pass
+        simple_rule = rule(
+          implementation = _simple_rule_impl,
+          attrs = {
+            'dep': attr.label(),
+          },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'simple_rule')",
-        "simple_rule(",
-        "  name = 'main',",
-        "  dep = ':dep_target',",
-        ")",
-        "simple_rule(",
-        "  name = 'dep_target',",
-        ")");
+        """
+        load('//test:defs.bzl', 'simple_rule')
+        simple_rule(
+          name = 'main',
+          dep = ':dep_target',
+        )
+        simple_rule(
+          name = 'dep_target',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%a2", "test/defs.bzl%a1"), "//test:main");
@@ -4995,53 +5418,57 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectOnAspect_requiredProviderProvidedAfterTheAspect() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "a1p = provider()",
-        "a1_result = provider()",
-        "",
-        "def _a1_impl(target, ctx):",
-        "  result = 'aspect a1 on target {}'.format(target.label)",
-        "  if a1p in target:",
-        "    result += ' sees a1p = {}'.format(target[a1p].value)",
-        "  else:",
-        "    result += ' cannot see a1p'",
-        "  complete_result = []",
-        "  if ctx.rule.attr.dep:",
-        "    complete_result = ctx.rule.attr.dep[a1_result].value + [result]",
-        "  else:",
-        "    complete_result = [result]",
-        "  return [a1_result(value = complete_result)]",
-        "a1 = aspect(",
-        "  implementation = _a1_impl,",
-        "  attr_aspects = ['dep'],",
-        "  required_aspect_providers = [a1p]",
-        ")",
-        "",
-        "def _a2_impl(target, ctx):",
-        "  return [a1p(value = 'a1p_val')]",
-        "a2 = aspect(",
-        "  implementation = _a2_impl,",
-        "  attr_aspects = ['dep'],",
-        "  provides = [a1p],",
-        ")",
-        "",
-        "def _simple_rule_impl(ctx):",
-        "  pass",
-        "simple_rule = rule(",
-        "  implementation = _simple_rule_impl,",
-        "  attrs = {",
-        "    'dep': attr.label(),",
-        "  },",
-        ")");
+        """
+        a1p = provider()
+        a1_result = provider()
+
+        def _a1_impl(target, ctx):
+          result = 'aspect a1 on target {}'.format(target.label)
+          if a1p in target:
+            result += ' sees a1p = {}'.format(target[a1p].value)
+          else:
+            result += ' cannot see a1p'
+          complete_result = []
+          if ctx.rule.attr.dep:
+            complete_result = ctx.rule.attr.dep[a1_result].value + [result]
+          else:
+            complete_result = [result]
+          return [a1_result(value = complete_result)]
+        a1 = aspect(
+          implementation = _a1_impl,
+          attr_aspects = ['dep'],
+          required_aspect_providers = [a1p]
+        )
+
+        def _a2_impl(target, ctx):
+          return [a1p(value = 'a1p_val')]
+        a2 = aspect(
+          implementation = _a2_impl,
+          attr_aspects = ['dep'],
+          provides = [a1p],
+        )
+
+        def _simple_rule_impl(ctx):
+          pass
+        simple_rule = rule(
+          implementation = _simple_rule_impl,
+          attrs = {
+            'dep': attr.label(),
+          },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'simple_rule')",
-        "simple_rule(",
-        "  name = 'main',",
-        "  dep = ':dep_target',",
-        ")",
-        "simple_rule(",
-        "  name = 'dep_target',",
-        ")");
+        """
+        load('//test:defs.bzl', 'simple_rule')
+        simple_rule(
+          name = 'main',
+          dep = ':dep_target',
+        )
+        simple_rule(
+          name = 'dep_target',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%a1", "test/defs.bzl%a2"), "//test:main");
@@ -5066,59 +5493,63 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectOnAspect_differentAttrAspects() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "a1p = provider()",
-        "a1_result = provider()",
-        "",
-        "def _a1_impl(target, ctx):",
-        "  result = 'aspect a1 on target {}'.format(target.label)",
-        "  if a1p in target:",
-        "    result += ' sees a1p = {}'.format(target[a1p].value)",
-        "  else:",
-        "    result += ' cannot see a1p'",
-        "  complete_result = []",
-        "  if ctx.rule.attr.dep:",
-        "    complete_result += ctx.rule.attr.dep[a1_result].value",
-        "  if ctx.rule.attr.extra_dep:",
-        "    complete_result += ctx.rule.attr.extra_dep[a1_result].value",
-        "  complete_result += [result]",
-        "  return [a1_result(value = complete_result)]",
-        "a1 = aspect(",
-        "  implementation = _a1_impl,",
-        "  attr_aspects = ['dep', 'extra_dep'],",
-        "  required_aspect_providers = [a1p]",
-        ")",
-        "",
-        "def _a2_impl(target, ctx):",
-        "  return [a1p(value = 'a1p_val')]",
-        "a2 = aspect(",
-        "  implementation = _a2_impl,",
-        "  attr_aspects = ['dep'],",
-        "  provides = [a1p],",
-        ")",
-        "",
-        "def _simple_rule_impl(ctx):",
-        "  pass",
-        "simple_rule = rule(",
-        "  implementation = _simple_rule_impl,",
-        "  attrs = {",
-        "    'dep': attr.label(),",
-        "    'extra_dep': attr.label(),",
-        "  },",
-        ")");
+        """
+        a1p = provider()
+        a1_result = provider()
+
+        def _a1_impl(target, ctx):
+          result = 'aspect a1 on target {}'.format(target.label)
+          if a1p in target:
+            result += ' sees a1p = {}'.format(target[a1p].value)
+          else:
+            result += ' cannot see a1p'
+          complete_result = []
+          if ctx.rule.attr.dep:
+            complete_result += ctx.rule.attr.dep[a1_result].value
+          if ctx.rule.attr.extra_dep:
+            complete_result += ctx.rule.attr.extra_dep[a1_result].value
+          complete_result += [result]
+          return [a1_result(value = complete_result)]
+        a1 = aspect(
+          implementation = _a1_impl,
+          attr_aspects = ['dep', 'extra_dep'],
+          required_aspect_providers = [a1p]
+        )
+
+        def _a2_impl(target, ctx):
+          return [a1p(value = 'a1p_val')]
+        a2 = aspect(
+          implementation = _a2_impl,
+          attr_aspects = ['dep'],
+          provides = [a1p],
+        )
+
+        def _simple_rule_impl(ctx):
+          pass
+        simple_rule = rule(
+          implementation = _simple_rule_impl,
+          attrs = {
+            'dep': attr.label(),
+            'extra_dep': attr.label(),
+          },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'simple_rule')",
-        "simple_rule(",
-        "  name = 'main',",
-        "  dep = ':dep_target',",
-        "  extra_dep = ':extra_dep_target',",
-        ")",
-        "simple_rule(",
-        "  name = 'dep_target',",
-        ")",
-        "simple_rule(",
-        "  name = 'extra_dep_target',",
-        ")");
+        """
+        load('//test:defs.bzl', 'simple_rule')
+        simple_rule(
+          name = 'main',
+          dep = ':dep_target',
+          extra_dep = ':extra_dep_target',
+        )
+        simple_rule(
+          name = 'dep_target',
+        )
+        simple_rule(
+          name = 'extra_dep_target',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%a2", "test/defs.bzl%a1"), "//test:main");
@@ -5145,74 +5576,78 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectOnAspect_differentRequiredRuleProviders() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "a1p = provider()",
-        "a1_result = provider()",
-        "rule_prov_a = provider()",
-        "rule_prov_b = provider()",
-        "",
-        "def _a1_impl(target, ctx):",
-        "  result = 'aspect a1 on target {}'.format(target.label)",
-        "  if a1p in target:",
-        "    result += ' sees a1p = {}'.format(target[a1p].value)",
-        "  else:",
-        "    result += ' cannot see a1p'",
-        "  complete_result = []",
-        "  if hasattr(ctx.rule.attr, 'deps'):",
-        "    for dep in ctx.rule.attr.deps:",
-        "      complete_result += dep[a1_result].value",
-        "  complete_result += [result]",
-        "  return [a1_result(value = complete_result)]",
-        "a1 = aspect(",
-        "  implementation = _a1_impl,",
-        "  attr_aspects = ['deps'],",
-        "  required_aspect_providers = [a1p],",
-        "  required_providers = [[rule_prov_a], [rule_prov_b]],",
-        ")",
-        "",
-        "def _a2_impl(target, ctx):",
-        "  return [a1p(value = 'a1p_val')]",
-        "a2 = aspect(",
-        "  implementation = _a2_impl,",
-        "  attr_aspects = ['deps'],",
-        "  provides = [a1p],",
-        "  required_providers = [rule_prov_a],",
-        ")",
-        "",
-        "def _main_rule_impl(ctx):",
-        "  return [rule_prov_a(), rule_prov_b()]",
-        "main_rule = rule(",
-        "  implementation = _main_rule_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(),",
-        "  },",
-        ")",
-        "",
-        "def _rule_with_prov_a_impl(ctx):",
-        "  return [rule_prov_a()]",
-        "rule_with_prov_a = rule(",
-        "  implementation = _rule_with_prov_a_impl,",
-        "  provides = [rule_prov_a]",
-        ")",
-        "",
-        "def _rule_with_prov_b_impl(ctx):",
-        "  return [rule_prov_b()]",
-        "rule_with_prov_b = rule(",
-        "  implementation = _rule_with_prov_b_impl,",
-        "  provides = [rule_prov_b]",
-        ")");
+        """
+        a1p = provider()
+        a1_result = provider()
+        rule_prov_a = provider()
+        rule_prov_b = provider()
+
+        def _a1_impl(target, ctx):
+          result = 'aspect a1 on target {}'.format(target.label)
+          if a1p in target:
+            result += ' sees a1p = {}'.format(target[a1p].value)
+          else:
+            result += ' cannot see a1p'
+          complete_result = []
+          if hasattr(ctx.rule.attr, 'deps'):
+            for dep in ctx.rule.attr.deps:
+              complete_result += dep[a1_result].value
+          complete_result += [result]
+          return [a1_result(value = complete_result)]
+        a1 = aspect(
+          implementation = _a1_impl,
+          attr_aspects = ['deps'],
+          required_aspect_providers = [a1p],
+          required_providers = [[rule_prov_a], [rule_prov_b]],
+        )
+
+        def _a2_impl(target, ctx):
+          return [a1p(value = 'a1p_val')]
+        a2 = aspect(
+          implementation = _a2_impl,
+          attr_aspects = ['deps'],
+          provides = [a1p],
+          required_providers = [rule_prov_a],
+        )
+
+        def _main_rule_impl(ctx):
+          return [rule_prov_a(), rule_prov_b()]
+        main_rule = rule(
+          implementation = _main_rule_impl,
+          attrs = {
+            'deps': attr.label_list(),
+          },
+        )
+
+        def _rule_with_prov_a_impl(ctx):
+          return [rule_prov_a()]
+        rule_with_prov_a = rule(
+          implementation = _rule_with_prov_a_impl,
+          provides = [rule_prov_a]
+        )
+
+        def _rule_with_prov_b_impl(ctx):
+          return [rule_prov_b()]
+        rule_with_prov_b = rule(
+          implementation = _rule_with_prov_b_impl,
+          provides = [rule_prov_b]
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'main_rule', 'rule_with_prov_a', 'rule_with_prov_b')",
-        "main_rule(",
-        "  name = 'main',",
-        "  deps = [':target_with_prov_a', ':target_with_prov_b'],",
-        ")",
-        "rule_with_prov_a(",
-        "  name = 'target_with_prov_a',",
-        ")",
-        "rule_with_prov_b(",
-        "  name = 'target_with_prov_b',",
-        ")");
+        """
+        load('//test:defs.bzl', 'main_rule', 'rule_with_prov_a', 'rule_with_prov_b')
+        main_rule(
+          name = 'main',
+          deps = [':target_with_prov_a', ':target_with_prov_b'],
+        )
+        rule_with_prov_a(
+          name = 'target_with_prov_a',
+        )
+        rule_with_prov_b(
+          name = 'target_with_prov_b',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%a2", "test/defs.bzl%a1"), "//test:main");
@@ -5238,72 +5673,76 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectOnAspect_providerRequiredByMultipleAspects() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "a3p = provider()",
-        "a1_result = provider()",
-        "a2_result = provider()",
-        "",
-        "def _a1_impl(target, ctx):",
-        "  result = 'aspect a1 on target {}'.format(target.label)",
-        "  if a3p in target:",
-        "    result += ' sees a3p = {}'.format(target[a3p].value)",
-        "  else:",
-        "    result += ' cannot see a3p'",
-        "  complete_result = []",
-        "  if ctx.rule.attr.dep:",
-        "    complete_result = ctx.rule.attr.dep[a1_result].value + [result]",
-        "  else:",
-        "    complete_result = [result]",
-        "  return [a1_result(value = complete_result)]",
-        "a1 = aspect(",
-        "  implementation = _a1_impl,",
-        "  attr_aspects = ['dep'],",
-        "  required_aspect_providers = [a3p]",
-        ")",
-        "",
-        "def _a2_impl(target, ctx):",
-        "  result = 'aspect a2 on target {}'.format(target.label)",
-        "  if a3p in target:",
-        "    result += ' sees a3p = {}'.format(target[a3p].value)",
-        "  else:",
-        "    result += ' cannot see a3p'",
-        "  complete_result = []",
-        "  if ctx.rule.attr.dep:",
-        "    complete_result = ctx.rule.attr.dep[a2_result].value + [result]",
-        "  else:",
-        "    complete_result = [result]",
-        "  return [a2_result(value = complete_result)]",
-        "a2 = aspect(",
-        "  implementation = _a2_impl,",
-        "  attr_aspects = ['dep'],",
-        "  required_aspect_providers = [a3p]",
-        ")",
-        "",
-        "def _a3_impl(target, ctx):",
-        "  return [a3p(value = 'a3p_val')]",
-        "a3 = aspect(",
-        "  implementation = _a3_impl,",
-        "  attr_aspects = ['dep'],",
-        "  provides = [a3p],",
-        ")",
-        "",
-        "def _simple_rule_impl(ctx):",
-        "  pass",
-        "simple_rule = rule(",
-        "  implementation = _simple_rule_impl,",
-        "  attrs = {",
-        "    'dep': attr.label(),",
-        "  },",
-        ")");
+        """
+        a3p = provider()
+        a1_result = provider()
+        a2_result = provider()
+
+        def _a1_impl(target, ctx):
+          result = 'aspect a1 on target {}'.format(target.label)
+          if a3p in target:
+            result += ' sees a3p = {}'.format(target[a3p].value)
+          else:
+            result += ' cannot see a3p'
+          complete_result = []
+          if ctx.rule.attr.dep:
+            complete_result = ctx.rule.attr.dep[a1_result].value + [result]
+          else:
+            complete_result = [result]
+          return [a1_result(value = complete_result)]
+        a1 = aspect(
+          implementation = _a1_impl,
+          attr_aspects = ['dep'],
+          required_aspect_providers = [a3p]
+        )
+
+        def _a2_impl(target, ctx):
+          result = 'aspect a2 on target {}'.format(target.label)
+          if a3p in target:
+            result += ' sees a3p = {}'.format(target[a3p].value)
+          else:
+            result += ' cannot see a3p'
+          complete_result = []
+          if ctx.rule.attr.dep:
+            complete_result = ctx.rule.attr.dep[a2_result].value + [result]
+          else:
+            complete_result = [result]
+          return [a2_result(value = complete_result)]
+        a2 = aspect(
+          implementation = _a2_impl,
+          attr_aspects = ['dep'],
+          required_aspect_providers = [a3p]
+        )
+
+        def _a3_impl(target, ctx):
+          return [a3p(value = 'a3p_val')]
+        a3 = aspect(
+          implementation = _a3_impl,
+          attr_aspects = ['dep'],
+          provides = [a3p],
+        )
+
+        def _simple_rule_impl(ctx):
+          pass
+        simple_rule = rule(
+          implementation = _simple_rule_impl,
+          attrs = {
+            'dep': attr.label(),
+          },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'simple_rule')",
-        "simple_rule(",
-        "  name = 'main',",
-        "  dep = ':dep_target',",
-        ")",
-        "simple_rule(",
-        "  name = 'dep_target',",
-        ")");
+        """
+        load('//test:defs.bzl', 'simple_rule')
+        simple_rule(
+          name = 'main',
+          dep = ':dep_target',
+        )
+        simple_rule(
+          name = 'dep_target',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(
@@ -5343,98 +5782,102 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectOnAspect_diamondCase() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "a1p = provider()",
-        "a2p = provider()",
-        "a3_result = provider()",
-        "",
-        "r1p = provider()",
-        "r2p = provider()",
-        "",
-        "def _a1_impl(target, ctx):",
-        "  return [a1p(value = 'a1p_val')]",
-        "a1 = aspect(",
-        "  implementation = _a1_impl,",
-        "  attr_aspects = ['deps'],",
-        "  required_providers = [r1p],",
-        "  provides = [a1p]",
-        ")",
-        "",
-        "def _a2_impl(target, ctx):",
-        "  return [a2p(value = 'a2p_val')]",
-        "a2 = aspect(",
-        "  implementation = _a2_impl,",
-        "  attr_aspects = ['deps'],",
-        "  required_providers = [r2p],",
-        "  provides = [a2p]",
-        ")",
-        "",
-        "def _a3_impl(target, ctx):",
-        "  result = 'aspect a3 on target {}'.format(target.label)",
-        "  if a1p in target:",
-        "    result += ' sees a1p = {}'.format(target[a1p].value)",
-        "  else:",
-        "    result += ' cannot see a1p'",
-        "  if a2p in target:",
-        "    result += ' and sees a2p = {}'.format(target[a2p].value)",
-        "  else:",
-        "    result += ' and cannot see a2p'",
-        "  complete_result = []",
-        "  if ctx.rule.attr.deps:",
-        "    for dep in ctx.rule.attr.deps:",
-        "      complete_result.extend(dep[a3_result].value)",
-        "  complete_result.append(result)",
-        "  return [a3_result(value = complete_result)]",
-        "a3 = aspect(",
-        "  implementation = _a3_impl,",
-        "  attr_aspects = ['deps'],",
-        "  required_aspect_providers = [[a1p], [a2p]],",
-        ")",
-        "",
-        "def _r0_impl(ctx):",
-        "  return [r1p(), r2p()]",
-        "r0 = rule(",
-        "  implementation = _r0_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(),",
-        "  },",
-        "  provides = [r1p, r2p]",
-        ")",
-        "def _r1_impl(ctx):",
-        "  return [r1p()]",
-        "r1 = rule(",
-        "  implementation = _r1_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(),",
-        "  },",
-        "  provides = [r1p]",
-        ")",
-        "def _r2_impl(ctx):",
-        "  return [r2p()]",
-        "r2 = rule(",
-        "  implementation = _r2_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(),",
-        "  },",
-        "  provides = [r2p]",
-        ")");
+        """
+        a1p = provider()
+        a2p = provider()
+        a3_result = provider()
+
+        r1p = provider()
+        r2p = provider()
+
+        def _a1_impl(target, ctx):
+          return [a1p(value = 'a1p_val')]
+        a1 = aspect(
+          implementation = _a1_impl,
+          attr_aspects = ['deps'],
+          required_providers = [r1p],
+          provides = [a1p]
+        )
+
+        def _a2_impl(target, ctx):
+          return [a2p(value = 'a2p_val')]
+        a2 = aspect(
+          implementation = _a2_impl,
+          attr_aspects = ['deps'],
+          required_providers = [r2p],
+          provides = [a2p]
+        )
+
+        def _a3_impl(target, ctx):
+          result = 'aspect a3 on target {}'.format(target.label)
+          if a1p in target:
+            result += ' sees a1p = {}'.format(target[a1p].value)
+          else:
+            result += ' cannot see a1p'
+          if a2p in target:
+            result += ' and sees a2p = {}'.format(target[a2p].value)
+          else:
+            result += ' and cannot see a2p'
+          complete_result = []
+          if ctx.rule.attr.deps:
+            for dep in ctx.rule.attr.deps:
+              complete_result.extend(dep[a3_result].value)
+          complete_result.append(result)
+          return [a3_result(value = complete_result)]
+        a3 = aspect(
+          implementation = _a3_impl,
+          attr_aspects = ['deps'],
+          required_aspect_providers = [[a1p], [a2p]],
+        )
+
+        def _r0_impl(ctx):
+          return [r1p(), r2p()]
+        r0 = rule(
+          implementation = _r0_impl,
+          attrs = {
+            'deps': attr.label_list(),
+          },
+          provides = [r1p, r2p]
+        )
+        def _r1_impl(ctx):
+          return [r1p()]
+        r1 = rule(
+          implementation = _r1_impl,
+          attrs = {
+            'deps': attr.label_list(),
+          },
+          provides = [r1p]
+        )
+        def _r2_impl(ctx):
+          return [r2p()]
+        r2 = rule(
+          implementation = _r2_impl,
+          attrs = {
+            'deps': attr.label_list(),
+          },
+          provides = [r2p]
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'r0', 'r1', 'r2')",
-        "r0(",
-        "  name = 'main',",
-        "  deps = [':t1', ':t2'],",
-        ")",
-        "r1(",
-        "  name = 't1',",
-        "  deps = [':t0'],",
-        ")",
-        "r2(",
-        "  name = 't2',",
-        "  deps = [':t0'],",
-        ")",
-        "r0(",
-        "  name = 't0',",
-        ")");
+        """
+        load('//test:defs.bzl', 'r0', 'r1', 'r2')
+        r0(
+          name = 'main',
+          deps = [':t1', ':t2'],
+        )
+        r1(
+          name = 't1',
+          deps = [':t0'],
+        )
+        r2(
+          name = 't2',
+          deps = [':t0'],
+        )
+        r0(
+          name = 't0',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(
@@ -5460,53 +5903,57 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectOnAspect_duplicateAspectsNotAllowed() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "a2p = provider()",
-        "a1_result = provider()",
-        "",
-        "def _a1_impl(target, ctx):",
-        "  result = 'aspect a1 on target {}'.format(target.label)",
-        "  if a2p in target:",
-        "    result += ' sees a2p = {}'.format(target[a2p].value)",
-        "  else:",
-        "    result += ' cannot see a2p'",
-        "  complete_result = []",
-        "  if ctx.rule.attr.deps:",
-        "    for dep in ctx.rule.attr.deps:",
-        "      complete_result.extend(dep[a1_result].value)",
-        "  complete_result.append(result)",
-        "  return [a1_result(value = complete_result)]",
-        "a1 = aspect(",
-        "  implementation = _a1_impl,",
-        "  attr_aspects = ['deps'],",
-        "  required_aspect_providers = [a2p]",
-        ")",
-        "",
-        "def _a2_impl(target, ctx):",
-        "  return [a2p(value = 'a2p_val')]",
-        "a2 = aspect(",
-        "  implementation = _a2_impl,",
-        "  attr_aspects = ['deps'],",
-        "  provides = [a2p]",
-        ")",
-        "",
-        "def _simple_rule_impl(ctx):",
-        "  pass",
-        "simple_rule = rule(",
-        "  implementation = _simple_rule_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(),",
-        "  },",
-        ")");
+        """
+        a2p = provider()
+        a1_result = provider()
+
+        def _a1_impl(target, ctx):
+          result = 'aspect a1 on target {}'.format(target.label)
+          if a2p in target:
+            result += ' sees a2p = {}'.format(target[a2p].value)
+          else:
+            result += ' cannot see a2p'
+          complete_result = []
+          if ctx.rule.attr.deps:
+            for dep in ctx.rule.attr.deps:
+              complete_result.extend(dep[a1_result].value)
+          complete_result.append(result)
+          return [a1_result(value = complete_result)]
+        a1 = aspect(
+          implementation = _a1_impl,
+          attr_aspects = ['deps'],
+          required_aspect_providers = [a2p]
+        )
+
+        def _a2_impl(target, ctx):
+          return [a2p(value = 'a2p_val')]
+        a2 = aspect(
+          implementation = _a2_impl,
+          attr_aspects = ['deps'],
+          provides = [a2p]
+        )
+
+        def _simple_rule_impl(ctx):
+          pass
+        simple_rule = rule(
+          implementation = _simple_rule_impl,
+          attrs = {
+            'deps': attr.label_list(),
+          },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'simple_rule')",
-        "simple_rule(",
-        "  name = 'main',",
-        "  deps = [':dep_target'],",
-        ")",
-        "simple_rule(",
-        "  name = 'dep_target',",
-        ")");
+        """
+        load('//test:defs.bzl', 'simple_rule')
+        simple_rule(
+          name = 'main',
+          deps = [':dep_target'],
+        )
+        simple_rule(
+          name = 'dep_target',
+        )
+        """);
     reporter.removeHandler(failFastHandler);
 
     // The call to `update` does not throw an exception when "--keep_going" is passed in the
@@ -5538,53 +5985,57 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
       throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "a2p = provider()",
-        "a1_result = provider()",
-        "",
-        "def _a1_impl(target, ctx):",
-        "  result = 'aspect a1 on target {}'.format(target.label)",
-        "  if a2p in target:",
-        "    result += ' sees a2p = {}'.format(target[a2p].value)",
-        "  else:",
-        "    result += ' cannot see a2p'",
-        "  complete_result = []",
-        "  if ctx.rule.attr.deps:",
-        "    for dep in ctx.rule.attr.deps:",
-        "      complete_result.extend(dep[a1_result].value)",
-        "  complete_result.append(result)",
-        "  return [a1_result(value = complete_result)]",
-        "a1 = aspect(",
-        "  implementation = _a1_impl,",
-        "  attr_aspects = ['deps'],",
-        "  required_aspect_providers = [a2p]",
-        ")",
-        "",
-        "def _a2_impl(target, ctx):",
-        "  return [a2p(value = 'a2p_val')]",
-        "a2 = aspect(",
-        "  implementation = _a2_impl,",
-        "  attr_aspects = ['deps'],",
-        "  provides = [a2p]",
-        ")",
-        "",
-        "def _simple_rule_impl(ctx):",
-        "  pass",
-        "simple_rule = rule(",
-        "  implementation = _simple_rule_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(aspects=[a2]),",
-        "  },",
-        ")");
+        """
+        a2p = provider()
+        a1_result = provider()
+
+        def _a1_impl(target, ctx):
+          result = 'aspect a1 on target {}'.format(target.label)
+          if a2p in target:
+            result += ' sees a2p = {}'.format(target[a2p].value)
+          else:
+            result += ' cannot see a2p'
+          complete_result = []
+          if ctx.rule.attr.deps:
+            for dep in ctx.rule.attr.deps:
+              complete_result.extend(dep[a1_result].value)
+          complete_result.append(result)
+          return [a1_result(value = complete_result)]
+        a1 = aspect(
+          implementation = _a1_impl,
+          attr_aspects = ['deps'],
+          required_aspect_providers = [a2p]
+        )
+
+        def _a2_impl(target, ctx):
+          return [a2p(value = 'a2p_val')]
+        a2 = aspect(
+          implementation = _a2_impl,
+          attr_aspects = ['deps'],
+          provides = [a2p]
+        )
+
+        def _simple_rule_impl(ctx):
+          pass
+        simple_rule = rule(
+          implementation = _simple_rule_impl,
+          attrs = {
+            'deps': attr.label_list(aspects=[a2]),
+          },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'simple_rule')",
-        "simple_rule(",
-        "  name = 'main',",
-        "  deps = [':dep_target'],",
-        ")",
-        "simple_rule(",
-        "  name = 'dep_target',",
-        ")");
+        """
+        load('//test:defs.bzl', 'simple_rule')
+        simple_rule(
+          name = 'main',
+          deps = [':dep_target'],
+        )
+        simple_rule(
+          name = 'dep_target',
+        )
+        """);
 
     AnalysisResult analysisResult = update(ImmutableList.of("test/defs.bzl%a1"), "//test:main");
 
@@ -5604,52 +6055,56 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectOnAspect_multipleTopLevelTargets() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "a2p = provider()",
-        "a1_result = provider()",
-        "",
-        "def _a1_impl(target, ctx):",
-        "  result = 'aspect a1 on target {}'.format(target.label)",
-        "  if a2p in target:",
-        "    result += ' sees a2p = {}'.format(target[a2p].value)",
-        "  else:",
-        "    result += ' cannot see a2p'",
-        "  complete_result = []",
-        "  if ctx.rule.attr.deps:",
-        "    for dep in ctx.rule.attr.deps:",
-        "      complete_result.extend(dep[a1_result].value)",
-        "  complete_result.append(result)",
-        "  return [a1_result(value = complete_result)]",
-        "a1 = aspect(",
-        "  implementation = _a1_impl,",
-        "  attr_aspects = ['deps'],",
-        "  required_aspect_providers = [a2p],",
-        ")",
-        "",
-        "def _a2_impl(target, ctx):",
-        "  return [a2p(value = 'a2p_val')]",
-        "a2 = aspect(",
-        "  implementation = _a2_impl,",
-        "  attr_aspects = ['deps'],",
-        "  provides = [a2p]",
-        ")",
-        "",
-        "def _simple_rule_impl(ctx):",
-        "  pass",
-        "simple_rule = rule(",
-        "  implementation = _simple_rule_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(),",
-        "  },",
-        ")");
+        """
+        a2p = provider()
+        a1_result = provider()
+
+        def _a1_impl(target, ctx):
+          result = 'aspect a1 on target {}'.format(target.label)
+          if a2p in target:
+            result += ' sees a2p = {}'.format(target[a2p].value)
+          else:
+            result += ' cannot see a2p'
+          complete_result = []
+          if ctx.rule.attr.deps:
+            for dep in ctx.rule.attr.deps:
+              complete_result.extend(dep[a1_result].value)
+          complete_result.append(result)
+          return [a1_result(value = complete_result)]
+        a1 = aspect(
+          implementation = _a1_impl,
+          attr_aspects = ['deps'],
+          required_aspect_providers = [a2p],
+        )
+
+        def _a2_impl(target, ctx):
+          return [a2p(value = 'a2p_val')]
+        a2 = aspect(
+          implementation = _a2_impl,
+          attr_aspects = ['deps'],
+          provides = [a2p]
+        )
+
+        def _simple_rule_impl(ctx):
+          pass
+        simple_rule = rule(
+          implementation = _simple_rule_impl,
+          attrs = {
+            'deps': attr.label_list(),
+          },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'simple_rule')",
-        "simple_rule(",
-        "  name = 't1',",
-        ")",
-        "simple_rule(",
-        "  name = 't2',",
-        ")");
+        """
+        load('//test:defs.bzl', 'simple_rule')
+        simple_rule(
+          name = 't1',
+        )
+        simple_rule(
+          name = 't2',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%a2", "test/defs.bzl%a1"), "//test:t2", "//test:t1");
@@ -5674,66 +6129,70 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectOnAspect_multipleRequiredProviders() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "a2p = provider()",
-        "a3p = provider()",
-        "a1_result = provider()",
-        "",
-        "def _a1_impl(target, ctx):",
-        "  result = 'aspect a1 on target {}'.format(target.label)",
-        "  if a2p in target:",
-        "    result += ' sees a2p = {}'.format(target[a2p].value)",
-        "  else:",
-        "    result += ' cannot see a2p'",
-        "  if a3p in target:",
-        "    result += ' and sees a3p = {}'.format(target[a3p].value)",
-        "  else:",
-        "    result += ' and cannot see a3p'",
-        "  complete_result = []",
-        "  if ctx.rule.attr.deps:",
-        "    for dep in ctx.rule.attr.deps:",
-        "      complete_result.extend(dep[a1_result].value)",
-        "  complete_result.append(result)",
-        "  return [a1_result(value = complete_result)]",
-        "a1 = aspect(",
-        "  implementation = _a1_impl,",
-        "  attr_aspects = ['deps'],",
-        "  required_aspect_providers = [[a2p], [a3p]],",
-        ")",
-        "",
-        "def _a2_impl(target, ctx):",
-        "  return [a2p(value = 'a2p_val')]",
-        "a2 = aspect(",
-        "  implementation = _a2_impl,",
-        "  attr_aspects = ['deps'],",
-        "  provides = [a2p]",
-        ")",
-        "",
-        "def _a3_impl(target, ctx):",
-        "  return [a3p(value = 'a3p_val')]",
-        "a3 = aspect(",
-        "  implementation = _a3_impl,",
-        "  attr_aspects = ['deps'],",
-        "  provides = [a3p]",
-        ")",
-        "",
-        "def _simple_rule_impl(ctx):",
-        "  pass",
-        "simple_rule = rule(",
-        "  implementation = _simple_rule_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(),",
-        "  },",
-        ")");
+        """
+        a2p = provider()
+        a3p = provider()
+        a1_result = provider()
+
+        def _a1_impl(target, ctx):
+          result = 'aspect a1 on target {}'.format(target.label)
+          if a2p in target:
+            result += ' sees a2p = {}'.format(target[a2p].value)
+          else:
+            result += ' cannot see a2p'
+          if a3p in target:
+            result += ' and sees a3p = {}'.format(target[a3p].value)
+          else:
+            result += ' and cannot see a3p'
+          complete_result = []
+          if ctx.rule.attr.deps:
+            for dep in ctx.rule.attr.deps:
+              complete_result.extend(dep[a1_result].value)
+          complete_result.append(result)
+          return [a1_result(value = complete_result)]
+        a1 = aspect(
+          implementation = _a1_impl,
+          attr_aspects = ['deps'],
+          required_aspect_providers = [[a2p], [a3p]],
+        )
+
+        def _a2_impl(target, ctx):
+          return [a2p(value = 'a2p_val')]
+        a2 = aspect(
+          implementation = _a2_impl,
+          attr_aspects = ['deps'],
+          provides = [a2p]
+        )
+
+        def _a3_impl(target, ctx):
+          return [a3p(value = 'a3p_val')]
+        a3 = aspect(
+          implementation = _a3_impl,
+          attr_aspects = ['deps'],
+          provides = [a3p]
+        )
+
+        def _simple_rule_impl(ctx):
+          pass
+        simple_rule = rule(
+          implementation = _simple_rule_impl,
+          attrs = {
+            'deps': attr.label_list(),
+          },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'simple_rule')",
-        "simple_rule(",
-        "  name = 'main',",
-        "  deps = [':dep_target'],",
-        ")",
-        "simple_rule(",
-        "  name = 'dep_target',",
-        ")");
+        """
+        load('//test:defs.bzl', 'simple_rule')
+        simple_rule(
+          name = 'main',
+          deps = [':dep_target'],
+        )
+        simple_rule(
+          name = 'dep_target',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(
@@ -5756,78 +6215,82 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectOnAspect_multipleRequiredProviders2() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "a2p = provider()",
-        "a3p = provider()",
-        "a1_result = provider()",
-        "a2_result = provider()",
-        "",
-        "def _a1_impl(target, ctx):",
-        "  result = 'aspect a1 on target {}'.format(target.label)",
-        "  if a2p in target:",
-        "    result += ' sees a2p = {}'.format(target[a2p].value)",
-        "  else:",
-        "    result += ' cannot see a2p'",
-        "  if a3p in target:",
-        "    result += ' and sees a3p = {}'.format(target[a3p].value)",
-        "  else:",
-        "    result += ' and cannot see a3p'",
-        "  complete_result = []",
-        "  if ctx.rule.attr.deps:",
-        "    for dep in ctx.rule.attr.deps:",
-        "      complete_result.extend(dep[a1_result].value)",
-        "  complete_result.append(result)",
-        "  return [a1_result(value = complete_result)]",
-        "a1 = aspect(",
-        "  implementation = _a1_impl,",
-        "  attr_aspects = ['deps'],",
-        "  required_aspect_providers = [[a2p], [a3p]],",
-        ")",
-        "",
-        "def _a2_impl(target, ctx):",
-        "  result = 'aspect a2 on target {}'.format(target.label)",
-        "  if a3p in target:",
-        "    result += ' sees a3p = {}'.format(target[a3p].value)",
-        "  else:",
-        "    result += ' cannot see a3p'",
-        "  complete_result = []",
-        "  if ctx.rule.attr.deps:",
-        "    for dep in ctx.rule.attr.deps:",
-        "      complete_result.extend(dep[a2_result].value)",
-        "  complete_result.append(result)",
-        "  return [a2_result(value = complete_result), a2p(value = 'a2p_val')]",
-        "a2 = aspect(",
-        "  implementation = _a2_impl,",
-        "  attr_aspects = ['deps'],",
-        "  provides = [a2p],",
-        "  required_aspect_providers = [a3p]",
-        ")",
-        "",
-        "def _a3_impl(target, ctx):",
-        "  return [a3p(value = 'a3p_val')]",
-        "a3 = aspect(",
-        "  implementation = _a3_impl,",
-        "  attr_aspects = ['deps'],",
-        "  provides = [a3p]",
-        ")",
-        "",
-        "def _simple_rule_impl(ctx):",
-        "  pass",
-        "simple_rule = rule(",
-        "  implementation = _simple_rule_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(),",
-        "  },",
-        ")");
+        """
+        a2p = provider()
+        a3p = provider()
+        a1_result = provider()
+        a2_result = provider()
+
+        def _a1_impl(target, ctx):
+          result = 'aspect a1 on target {}'.format(target.label)
+          if a2p in target:
+            result += ' sees a2p = {}'.format(target[a2p].value)
+          else:
+            result += ' cannot see a2p'
+          if a3p in target:
+            result += ' and sees a3p = {}'.format(target[a3p].value)
+          else:
+            result += ' and cannot see a3p'
+          complete_result = []
+          if ctx.rule.attr.deps:
+            for dep in ctx.rule.attr.deps:
+              complete_result.extend(dep[a1_result].value)
+          complete_result.append(result)
+          return [a1_result(value = complete_result)]
+        a1 = aspect(
+          implementation = _a1_impl,
+          attr_aspects = ['deps'],
+          required_aspect_providers = [[a2p], [a3p]],
+        )
+
+        def _a2_impl(target, ctx):
+          result = 'aspect a2 on target {}'.format(target.label)
+          if a3p in target:
+            result += ' sees a3p = {}'.format(target[a3p].value)
+          else:
+            result += ' cannot see a3p'
+          complete_result = []
+          if ctx.rule.attr.deps:
+            for dep in ctx.rule.attr.deps:
+              complete_result.extend(dep[a2_result].value)
+          complete_result.append(result)
+          return [a2_result(value = complete_result), a2p(value = 'a2p_val')]
+        a2 = aspect(
+          implementation = _a2_impl,
+          attr_aspects = ['deps'],
+          provides = [a2p],
+          required_aspect_providers = [a3p]
+        )
+
+        def _a3_impl(target, ctx):
+          return [a3p(value = 'a3p_val')]
+        a3 = aspect(
+          implementation = _a3_impl,
+          attr_aspects = ['deps'],
+          provides = [a3p]
+        )
+
+        def _simple_rule_impl(ctx):
+          pass
+        simple_rule = rule(
+          implementation = _simple_rule_impl,
+          attrs = {
+            'deps': attr.label_list(),
+          },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'simple_rule')",
-        "simple_rule(",
-        "  name = 'main',",
-        "  deps = [':dep_target'],",
-        ")",
-        "simple_rule(",
-        "  name = 'dep_target',",
-        ")");
+        """
+        load('//test:defs.bzl', 'simple_rule')
+        simple_rule(
+          name = 'main',
+          deps = [':dep_target'],
+        )
+        simple_rule(
+          name = 'dep_target',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(
@@ -5867,35 +6330,42 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspects_duplicateRuleProviderError() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "a1p = provider()",
-        "a2p = provider()",
-        "",
-        "def _a1_impl(target, ctx):",
-        "  return [a1p(value = 'aspect_a1p_val')]",
-        "a1 = aspect(",
-        "  implementation = _a1_impl,",
-        "  provides = [a1p],",
-        ")",
-        "",
-        "def _a2_impl(target, ctx):",
-        "  result = 'aspect a2 on target {}'.format(target.label)",
-        "  if a1p in target:",
-        "    result += ' sees a1p = {}'.format(target[a1p].value)",
-        "  else:",
-        "    result += ' cannot see a1p'",
-        "  return [a2p(value = result)]",
-        "a2 = aspect(",
-        "  implementation = _a2_impl,",
-        "  provides = [a2p],",
-        "  required_aspect_providers = [a1p]",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  return [a1p(value = 'rule_a1p_val')]",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        ")");
-    scratch.file("test/BUILD", "load('//test:defs.bzl', 'my_rule')", "my_rule(name = 'main')");
+        """
+        a1p = provider()
+        a2p = provider()
+
+        def _a1_impl(target, ctx):
+          return [a1p(value = 'aspect_a1p_val')]
+        a1 = aspect(
+          implementation = _a1_impl,
+          provides = [a1p],
+        )
+
+        def _a2_impl(target, ctx):
+          result = 'aspect a2 on target {}'.format(target.label)
+          if a1p in target:
+            result += ' sees a1p = {}'.format(target[a1p].value)
+          else:
+            result += ' cannot see a1p'
+          return [a2p(value = result)]
+        a2 = aspect(
+          implementation = _a2_impl,
+          provides = [a2p],
+          required_aspect_providers = [a1p]
+        )
+
+        def _my_rule_impl(ctx):
+          return [a1p(value = 'rule_a1p_val')]
+        my_rule = rule(
+          implementation = _my_rule_impl,
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(name = 'main')
+        """);
     reporter.removeHandler(failFastHandler);
 
     // The call to `update` does not throw an exception when "--keep_going" is passed in the
@@ -5916,11 +6386,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectRequiresAspect_stackOfRequiredAspects() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _impl(target, ctx):",
-        "   return []",
-        "aspect_c = aspect(implementation = _impl)",
-        "aspect_b = aspect(implementation = _impl, requires = [aspect_c])",
-        "aspect_a = aspect(implementation = _impl, requires = [aspect_b])");
+        """
+        def _impl(target, ctx):
+           return []
+        aspect_c = aspect(implementation = _impl)
+        aspect_b = aspect(implementation = _impl, requires = [aspect_c])
+        aspect_a = aspect(implementation = _impl, requires = [aspect_b])
+        """);
     scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
 
     AnalysisResult analysisResult =
@@ -5937,11 +6409,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectRequiresAspect_aspectRequiredByMultipleAspects() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _impl(target, ctx):",
-        "   return []",
-        "aspect_c = aspect(implementation = _impl)",
-        "aspect_b = aspect(implementation = _impl, requires = [aspect_c])",
-        "aspect_a = aspect(implementation = _impl, requires = [aspect_c])");
+        """
+        def _impl(target, ctx):
+           return []
+        aspect_c = aspect(implementation = _impl)
+        aspect_b = aspect(implementation = _impl, requires = [aspect_c])
+        aspect_a = aspect(implementation = _impl, requires = [aspect_c])
+        """);
     scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
 
     AnalysisResult analysisResult =
@@ -5960,12 +6434,14 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectRequiresAspect_aspectRequiredByMultipleAspects2() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _impl(target, ctx):",
-        "   return []",
-        "aspect_d = aspect(implementation = _impl)",
-        "aspect_c = aspect(implementation = _impl, requires = [aspect_d])",
-        "aspect_b = aspect(implementation = _impl, requires = [aspect_d])",
-        "aspect_a = aspect(implementation = _impl, requires = [aspect_b, aspect_c])");
+        """
+        def _impl(target, ctx):
+           return []
+        aspect_d = aspect(implementation = _impl)
+        aspect_c = aspect(implementation = _impl, requires = [aspect_d])
+        aspect_b = aspect(implementation = _impl, requires = [aspect_d])
+        aspect_a = aspect(implementation = _impl, requires = [aspect_b, aspect_c])
+        """);
     scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
 
     AnalysisResult analysisResult =
@@ -5983,10 +6459,12 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectRequiresAspect_requireExistingAspect_passed() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _impl(target, ctx):",
-        "   return []",
-        "aspect_b = aspect(implementation = _impl)",
-        "aspect_a = aspect(implementation = _impl, requires = [aspect_b])");
+        """
+        def _impl(target, ctx):
+           return []
+        aspect_b = aspect(implementation = _impl)
+        aspect_a = aspect(implementation = _impl, requires = [aspect_b])
+        """);
     scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
 
     AnalysisResult analysisResult =
@@ -6004,10 +6482,12 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectRequiresAspect_requireExistingAspect_failed() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _impl(target, ctx):",
-        "   return []",
-        "aspect_b = aspect(implementation = _impl)",
-        "aspect_a = aspect(implementation = _impl, requires = [aspect_b])");
+        """
+        def _impl(target, ctx):
+           return []
+        aspect_b = aspect(implementation = _impl)
+        aspect_a = aspect(implementation = _impl, requires = [aspect_b])
+        """);
     scratch.file("test/BUILD", "cc_binary(name = 'main_target')");
     reporter.removeHandler(failFastHandler);
 
@@ -6036,54 +6516,58 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectRequiresAspect_ruleAttributes() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "RequiredAspectProv = provider()",
-        "BaseAspectProv = provider()",
-        "",
-        "def _required_aspect_impl(target, ctx):",
-        "  p_val = ['In required_aspect, p = {} on target {}'",
-        "              .format(ctx.rule.attr.p, target.label)]",
-        "  if ctx.rule.attr.dep and RequiredAspectProv in ctx.rule.attr.dep:",
-        "    p_val += ctx.rule.attr.dep[RequiredAspectProv].p_val",
-        "  return [RequiredAspectProv(p_val = p_val)]",
-        "required_aspect = aspect(",
-        "  implementation = _required_aspect_impl,",
-        ")",
-        "",
-        "def _base_aspect_impl(target, ctx):",
-        "  p_val = []",
-        "  p_val += target[RequiredAspectProv].p_val",
-        "  p_val += ['In base_aspect, p = {} on target {}'.format(ctx.rule.attr.p, target.label)]",
-        "  if ctx.rule.attr.dep:",
-        "    p_val += ctx.rule.attr.dep[BaseAspectProv].p_val",
-        "  return [BaseAspectProv(p_val = p_val)]",
-        "base_aspect = aspect(",
-        "  implementation = _base_aspect_impl,",
-        "  attr_aspects = ['dep'],",
-        "  requires = [required_aspect],",
-        ")",
-        "",
-        "def _rule_impl(ctx):",
-        "  pass",
-        "",
-        "my_rule = rule(",
-        "  implementation = _rule_impl,",
-        "  attrs = {",
-        "    'dep': attr.label(),",
-        "    'p' : attr.string(values = ['main_val', 'dep_val']),",
-        "  },",
-        ")");
+        """
+        RequiredAspectProv = provider()
+        BaseAspectProv = provider()
+
+        def _required_aspect_impl(target, ctx):
+          p_val = ['In required_aspect, p = {} on target {}'
+                      .format(ctx.rule.attr.p, target.label)]
+          if ctx.rule.attr.dep and RequiredAspectProv in ctx.rule.attr.dep:
+            p_val += ctx.rule.attr.dep[RequiredAspectProv].p_val
+          return [RequiredAspectProv(p_val = p_val)]
+        required_aspect = aspect(
+          implementation = _required_aspect_impl,
+        )
+
+        def _base_aspect_impl(target, ctx):
+          p_val = []
+          p_val += target[RequiredAspectProv].p_val
+          p_val += ['In base_aspect, p = {} on target {}'.format(ctx.rule.attr.p, target.label)]
+          if ctx.rule.attr.dep:
+            p_val += ctx.rule.attr.dep[BaseAspectProv].p_val
+          return [BaseAspectProv(p_val = p_val)]
+        base_aspect = aspect(
+          implementation = _base_aspect_impl,
+          attr_aspects = ['dep'],
+          requires = [required_aspect],
+        )
+
+        def _rule_impl(ctx):
+          pass
+
+        my_rule = rule(
+          implementation = _rule_impl,
+          attrs = {
+            'dep': attr.label(),
+            'p' : attr.string(values = ['main_val', 'dep_val']),
+          },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'main_target',",
-        "  dep = ':dep_target',",
-        "  p = 'main_val',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target',",
-        "  p = 'dep_val',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'main_target',
+          dep = ':dep_target',
+          p = 'main_val',
+        )
+        my_rule(
+          name = 'dep_target',
+          p = 'dep_val',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%base_aspect"), "//test:main_target");
@@ -6121,76 +6605,80 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     // second_dep attribute
     scratch.file(
         "test/defs.bzl",
-        "BaseAspectProv = provider()",
-        "FirstRequiredAspectProv = provider()",
-        "SecondRequiredAspectProv = provider()",
-        "",
-        "def _second_required_aspect_impl(target, ctx):",
-        "  result = []",
-        "  if getattr(ctx.rule.attr, 'second_dep'):",
-        "    result += getattr(ctx.rule.attr, 'second_dep')[SecondRequiredAspectProv].result",
-        "  result += ['second_required_aspect run on target {}'.format(target.label)]",
-        "  return [SecondRequiredAspectProv(result = result)]",
-        "second_required_aspect = aspect(",
-        "  implementation = _second_required_aspect_impl,",
-        "  attr_aspects = ['second_dep'],",
-        ")",
-        "",
-        "def _first_required_aspect_impl(target, ctx):",
-        "  result = []",
-        "  result += target[SecondRequiredAspectProv].result",
-        "  if getattr(ctx.rule.attr, 'first_dep'):",
-        "    result += getattr(ctx.rule.attr, 'first_dep')[FirstRequiredAspectProv].result",
-        "  result += ['first_required_aspect run on target {}'.format(target.label)]",
-        "  return [FirstRequiredAspectProv(result = result)]",
-        "first_required_aspect = aspect(",
-        "  implementation = _first_required_aspect_impl,",
-        "  attr_aspects = ['first_dep'],",
-        "  requires = [second_required_aspect],",
-        ")",
-        "",
-        "def _base_aspect_impl(target, ctx):",
-        "  result = []",
-        "  result += target[FirstRequiredAspectProv].result",
-        "  if getattr(ctx.rule.attr, 'base_dep'):",
-        "    result += getattr(ctx.rule.attr, 'base_dep')[BaseAspectProv].result",
-        "  result += ['base_aspect run on target {}'.format(target.label)]",
-        "  return [BaseAspectProv(result = result)]",
-        "base_aspect = aspect(",
-        "  implementation = _base_aspect_impl,",
-        "  attr_aspects = ['base_dep'],",
-        "  requires = [first_required_aspect],",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        "  attrs = {",
-        "    'base_dep': attr.label(),",
-        "    'first_dep': attr.label(),",
-        "    'second_dep': attr.label()",
-        "  },",
-        ")");
+        """
+        BaseAspectProv = provider()
+        FirstRequiredAspectProv = provider()
+        SecondRequiredAspectProv = provider()
+
+        def _second_required_aspect_impl(target, ctx):
+          result = []
+          if getattr(ctx.rule.attr, 'second_dep'):
+            result += getattr(ctx.rule.attr, 'second_dep')[SecondRequiredAspectProv].result
+          result += ['second_required_aspect run on target {}'.format(target.label)]
+          return [SecondRequiredAspectProv(result = result)]
+        second_required_aspect = aspect(
+          implementation = _second_required_aspect_impl,
+          attr_aspects = ['second_dep'],
+        )
+
+        def _first_required_aspect_impl(target, ctx):
+          result = []
+          result += target[SecondRequiredAspectProv].result
+          if getattr(ctx.rule.attr, 'first_dep'):
+            result += getattr(ctx.rule.attr, 'first_dep')[FirstRequiredAspectProv].result
+          result += ['first_required_aspect run on target {}'.format(target.label)]
+          return [FirstRequiredAspectProv(result = result)]
+        first_required_aspect = aspect(
+          implementation = _first_required_aspect_impl,
+          attr_aspects = ['first_dep'],
+          requires = [second_required_aspect],
+        )
+
+        def _base_aspect_impl(target, ctx):
+          result = []
+          result += target[FirstRequiredAspectProv].result
+          if getattr(ctx.rule.attr, 'base_dep'):
+            result += getattr(ctx.rule.attr, 'base_dep')[BaseAspectProv].result
+          result += ['base_aspect run on target {}'.format(target.label)]
+          return [BaseAspectProv(result = result)]
+        base_aspect = aspect(
+          implementation = _base_aspect_impl,
+          attr_aspects = ['base_dep'],
+          requires = [first_required_aspect],
+        )
+
+        def _my_rule_impl(ctx):
+          pass
+
+        my_rule = rule(
+          implementation = _my_rule_impl,
+          attrs = {
+            'base_dep': attr.label(),
+            'first_dep': attr.label(),
+            'second_dep': attr.label()
+          },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'main_target',",
-        "  base_dep = ':base_dep_target',",
-        "  first_dep = ':first_dep_target',",
-        "  second_dep = ':second_dep_target',",
-        ")",
-        "my_rule(",
-        "  name = 'base_dep_target',",
-        ")",
-        "my_rule(",
-        "  name = 'first_dep_target',",
-        ")",
-        "my_rule(",
-        "  name = 'second_dep_target',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'main_target',
+          base_dep = ':base_dep_target',
+          first_dep = ':first_dep_target',
+          second_dep = ':second_dep_target',
+        )
+        my_rule(
+          name = 'base_dep_target',
+        )
+        my_rule(
+          name = 'first_dep_target',
+        )
+        my_rule(
+          name = 'second_dep_target',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%base_aspect"), "//test:main_target");
@@ -6223,84 +6711,86 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     // provider Prov_B and requires aspect_c which requires provider Prov_C
     scratch.file(
         "test/defs.bzl",
-        "Prov_A = provider()",
-        "Prov_B = provider()",
-        "Prov_C = provider()",
-        "",
-        "CollectorProv = provider()",
-        "",
-        "def _aspect_c_impl(target, ctx):",
-        "  collector_result = ['aspect_c run on target {} and value of Prov_C = {}'",
-        "                                .format(target.label, target[Prov_C].val)]",
-        "  return [CollectorProv(result = collector_result)]",
-        "aspect_c = aspect(",
-        "  implementation = _aspect_c_impl,",
-        "  required_providers = [Prov_C],",
-        "  attr_aspects = ['dep'],",
-        ")",
-        "",
-        "def _aspect_b_impl(target, ctx):",
-        "  collector_result = []",
-        "  collector_result += ctx.rule.attr.dep[CollectorProv].result",
-        "  collector_result += ['aspect_b run on target {} and value of Prov_B = {}'",
-        "                                 .format(target.label, target[Prov_B].val)]",
-        "  return [CollectorProv(result = collector_result)]",
-        "aspect_b = aspect(",
-        "  implementation = _aspect_b_impl,",
-        "  required_providers = [Prov_B],",
-        "  requires = [aspect_c],",
-        "  attr_aspects = ['dep'],",
-        ")",
-        "",
-        "def _aspect_a_impl(target, ctx):",
-        "  collector_result = []",
-        "  collector_result += ctx.rule.attr.dep[CollectorProv].result",
-        "  collector_result += ['aspect_a run on target {} and value of Prov_A = {}'",
-        "                                 .format(target.label, target[Prov_A].val)]",
-        "  return [CollectorProv(result = collector_result)]",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  attr_aspects = ['dep'],",
-        "  required_providers = [Prov_A],",
-        "  requires = [aspect_b],",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  return [Prov_A(val='main_val_a')]",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        "  attrs = {",
-        "    'dep': attr.label(),",
-        "  },",
-        "  provides = [Prov_A]",
-        ")",
-        "",
-        "def _rule_with_prov_a_impl(ctx):",
-        "  return [Prov_A(val='val_a')]",
-        "rule_with_prov_a = rule(",
-        "  implementation = _rule_with_prov_a_impl,",
-        "  attrs = {",
-        "    'dep': attr.label(),",
-        "  },",
-        "  provides = [Prov_A]",
-        ")",
-        "",
-        "def _rule_with_prov_b_impl(ctx):",
-        "  return [Prov_B(val = 'val_b')]",
-        "rule_with_prov_b = rule(",
-        "  implementation = _rule_with_prov_b_impl,",
-        "  attrs = {",
-        "    'dep': attr.label(),",
-        "  },",
-        "  provides = [Prov_B]",
-        ")",
-        "",
-        "def _rule_with_prov_c_impl(ctx):",
-        "  return [Prov_C(val = 'val_c')]",
-        "rule_with_prov_c = rule(",
-        "  implementation = _rule_with_prov_c_impl,",
-        "  provides = [Prov_C]",
-        ")");
+        """
+        Prov_A = provider()
+        Prov_B = provider()
+        Prov_C = provider()
+
+        CollectorProv = provider()
+
+        def _aspect_c_impl(target, ctx):
+          collector_result = ['aspect_c run on target {} and value of Prov_C = {}'
+                                        .format(target.label, target[Prov_C].val)]
+          return [CollectorProv(result = collector_result)]
+        aspect_c = aspect(
+          implementation = _aspect_c_impl,
+          required_providers = [Prov_C],
+          attr_aspects = ['dep'],
+        )
+
+        def _aspect_b_impl(target, ctx):
+          collector_result = []
+          collector_result += ctx.rule.attr.dep[CollectorProv].result
+          collector_result += ['aspect_b run on target {} and value of Prov_B = {}'
+                                         .format(target.label, target[Prov_B].val)]
+          return [CollectorProv(result = collector_result)]
+        aspect_b = aspect(
+          implementation = _aspect_b_impl,
+          required_providers = [Prov_B],
+          requires = [aspect_c],
+          attr_aspects = ['dep'],
+        )
+
+        def _aspect_a_impl(target, ctx):
+          collector_result = []
+          collector_result += ctx.rule.attr.dep[CollectorProv].result
+          collector_result += ['aspect_a run on target {} and value of Prov_A = {}'
+                                         .format(target.label, target[Prov_A].val)]
+          return [CollectorProv(result = collector_result)]
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          attr_aspects = ['dep'],
+          required_providers = [Prov_A],
+          requires = [aspect_b],
+        )
+
+        def _my_rule_impl(ctx):
+          return [Prov_A(val='main_val_a')]
+        my_rule = rule(
+          implementation = _my_rule_impl,
+          attrs = {
+            'dep': attr.label(),
+          },
+          provides = [Prov_A]
+        )
+
+        def _rule_with_prov_a_impl(ctx):
+          return [Prov_A(val='val_a')]
+        rule_with_prov_a = rule(
+          implementation = _rule_with_prov_a_impl,
+          attrs = {
+            'dep': attr.label(),
+          },
+          provides = [Prov_A]
+        )
+
+        def _rule_with_prov_b_impl(ctx):
+          return [Prov_B(val = 'val_b')]
+        rule_with_prov_b = rule(
+          implementation = _rule_with_prov_b_impl,
+          attrs = {
+            'dep': attr.label(),
+          },
+          provides = [Prov_B]
+        )
+
+        def _rule_with_prov_c_impl(ctx):
+          return [Prov_C(val = 'val_c')]
+        rule_with_prov_c = rule(
+          implementation = _rule_with_prov_c_impl,
+          provides = [Prov_C]
+        )
+        """);
     scratch.file(
         "test/BUILD",
         "load('//test:defs.bzl', 'my_rule', 'rule_with_prov_a', 'rule_with_prov_b',"
@@ -6347,42 +6837,46 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectRequiresAspect_inspectRequiredAspectActions() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "BaseAspectProvider = provider()",
-        "def _required_aspect_impl(target, ctx):",
-        "  f = ctx.actions.declare_file('dummy.txt')",
-        "  ctx.actions.run_shell(outputs = [f], command='echo xxx > $(location f)',",
-        "                        mnemonic='RequiredAspectAction')",
-        "  return struct()",
-        "required_aspect = aspect(",
-        "  implementation = _required_aspect_impl,",
-        ")",
-        "",
-        "def _base_aspect_impl(target, ctx):",
-        "  required_aspect_action = None",
-        "  for action in target.actions:",
-        "    if action.mnemonic == 'RequiredAspectAction':",
-        "      required_aspect_action = action",
-        "  if required_aspect_action:",
-        "    return [BaseAspectProvider(result = 'base_aspect can see required_aspect action')]",
-        "  else:",
-        "    return [BaseAspectProvider(result = 'base_aspect cannot see required_aspect action')]",
-        "base_aspect = aspect(",
-        "  implementation = _base_aspect_impl,",
-        "  attr_aspects = ['dep'],",
-        "  requires = [required_aspect]",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        ")");
+        """
+        BaseAspectProvider = provider()
+        def _required_aspect_impl(target, ctx):
+          f = ctx.actions.declare_file('dummy.txt')
+          ctx.actions.run_shell(outputs = [f], command='echo xxx > $(location f)',
+                                mnemonic='RequiredAspectAction')
+          return []
+        required_aspect = aspect(
+          implementation = _required_aspect_impl,
+        )
+
+        def _base_aspect_impl(target, ctx):
+          required_aspect_action = None
+          for action in target.actions:
+            if action.mnemonic == 'RequiredAspectAction':
+              required_aspect_action = action
+          if required_aspect_action:
+            return [BaseAspectProvider(result = 'base_aspect can see required_aspect action')]
+          else:
+            return [BaseAspectProvider(result = 'base_aspect cannot see required_aspect action')]
+        base_aspect = aspect(
+          implementation = _base_aspect_impl,
+          attr_aspects = ['dep'],
+          requires = [required_aspect]
+        )
+
+        def _my_rule_impl(ctx):
+          pass
+        my_rule = rule(
+          implementation = _my_rule_impl,
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'main_target',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'main_target',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%base_aspect"), "//test:main_target");
@@ -6402,36 +6896,40 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
       throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "BaseAspectProvider = provider()",
-        "def _required_aspect_impl(target, ctx):",
-        "  file = ctx.actions.declare_file('required_aspect_file')",
-        "  ctx.actions.write(file, 'data')",
-        "  return [OutputGroupInfo(out = [file])]",
-        "required_aspect = aspect(",
-        "  implementation = _required_aspect_impl,",
-        ")",
-        "",
-        "def _base_aspect_impl(target, ctx):",
-        "  files = ['base_aspect can see file ' + f.path.split('/')[-1] ",
-        "               for f in target[OutputGroupInfo].out.to_list()]",
-        "  return [BaseAspectProvider(my_files = files)]",
-        "base_aspect = aspect(",
-        "  implementation = _base_aspect_impl,",
-        "  attr_aspects = ['dep'],",
-        "  requires = [required_aspect]",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        ")");
+        """
+        BaseAspectProvider = provider()
+        def _required_aspect_impl(target, ctx):
+          file = ctx.actions.declare_file('required_aspect_file')
+          ctx.actions.write(file, 'data')
+          return [OutputGroupInfo(out = [file])]
+        required_aspect = aspect(
+          implementation = _required_aspect_impl,
+        )
+
+        def _base_aspect_impl(target, ctx):
+          files = ['base_aspect can see file ' + f.path.split('/')[-1]
+                       for f in target[OutputGroupInfo].out.to_list()]
+          return [BaseAspectProvider(my_files = files)]
+        base_aspect = aspect(
+          implementation = _base_aspect_impl,
+          attr_aspects = ['dep'],
+          requires = [required_aspect]
+        )
+
+        def _my_rule_impl(ctx):
+          pass
+        my_rule = rule(
+          implementation = _my_rule_impl,
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'main_target',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'main_target',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/defs.bzl%base_aspect"), "//test:main_target");
@@ -6451,70 +6949,74 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
       throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "prov_a = provider()",
-        "prov_b = provider()",
-        "prov_b_forwarded = provider()",
-        "",
-        "def _aspect_b_impl(target, ctx):",
-        "  result = 'aspect_b on target {} '.format(target.label)",
-        "  if prov_b in target:",
-        "    result += 'found prov_b = {}'.format(target[prov_b].val)",
-        "    return struct(aspect_b_result = result,",
-        "                  providers = [prov_b_forwarded(val = target[prov_b].val)])",
-        "  else:",
-        "    result += 'cannot find prov_b'",
-        "    return struct(aspect_b_result = result)",
-        "aspect_b = aspect(",
-        "  implementation = _aspect_b_impl,",
-        "  required_aspect_providers = [prov_b]",
-        ")",
-        "",
-        "def _aspect_a_impl(target, ctx):",
-        "  result = 'aspect_a on target {} '.format(target.label)",
-        "  if prov_a in target:",
-        "    result += 'found prov_a = {}'.format(target[prov_a].val)",
-        "  else:",
-        "    result += 'cannot find prov_a'",
-        "  if prov_b_forwarded in target:",
-        "    result += ' and found prov_b = {}'.format(target[prov_b_forwarded].val)",
-        "  else:",
-        "    result += ' but cannot find prov_b'",
-        "  return struct(aspect_a_result = result)",
-        "",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  required_aspect_providers = [prov_a],",
-        "  attr_aspects = ['dep'],",
-        "  requires = [aspect_b]",
-        ")",
-        "",
-        "def _aspect_with_prov_a_impl(target, ctx):",
-        "  return [prov_a(val = 'a1')]",
-        "aspect_with_prov_a = aspect(",
-        "  implementation = _aspect_with_prov_a_impl,",
-        "  provides = [prov_a],",
-        "  attr_aspects = ['dep'],",
-        ")",
-        "",
-        "def _aspect_with_prov_b_impl(target, ctx):",
-        "  return [prov_b(val = 'b1')]",
-        "aspect_with_prov_b = aspect(",
-        "  implementation = _aspect_with_prov_b_impl,",
-        "  provides = [prov_b],",
-        "  attr_aspects = ['dep'],",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        ")");
+        """
+        prov_a = provider()
+        prov_b = provider()
+        prov_b_forwarded = provider()
+
+        def _aspect_b_impl(target, ctx):
+          result = 'aspect_b on target {} '.format(target.label)
+          if prov_b in target:
+            result += 'found prov_b = {}'.format(target[prov_b].val)
+            return struct(aspect_b_result = result,
+                          providers = [prov_b_forwarded(val = target[prov_b].val)])
+          else:
+            result += 'cannot find prov_b'
+            return struct(aspect_b_result = result)
+        aspect_b = aspect(
+          implementation = _aspect_b_impl,
+          required_aspect_providers = [prov_b]
+        )
+
+        def _aspect_a_impl(target, ctx):
+          result = 'aspect_a on target {} '.format(target.label)
+          if prov_a in target:
+            result += 'found prov_a = {}'.format(target[prov_a].val)
+          else:
+            result += 'cannot find prov_a'
+          if prov_b_forwarded in target:
+            result += ' and found prov_b = {}'.format(target[prov_b_forwarded].val)
+          else:
+            result += ' but cannot find prov_b'
+          return struct(aspect_a_result = result)
+
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          required_aspect_providers = [prov_a],
+          attr_aspects = ['dep'],
+          requires = [aspect_b]
+        )
+
+        def _aspect_with_prov_a_impl(target, ctx):
+          return [prov_a(val = 'a1')]
+        aspect_with_prov_a = aspect(
+          implementation = _aspect_with_prov_a_impl,
+          provides = [prov_a],
+          attr_aspects = ['dep'],
+        )
+
+        def _aspect_with_prov_b_impl(target, ctx):
+          return [prov_b(val = 'b1')]
+        aspect_with_prov_b = aspect(
+          implementation = _aspect_with_prov_b_impl,
+          provides = [prov_b],
+          attr_aspects = ['dep'],
+        )
+
+        def _my_rule_impl(ctx):
+          pass
+        my_rule = rule(
+          implementation = _my_rule_impl,
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'main_target',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'main_target',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(
@@ -6542,55 +7044,59 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
       throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "prov_a = provider()",
-        "prov_b = provider()",
-        "",
-        "def _aspect_b_impl(target, ctx):",
-        "  result = 'aspect_b on target {} '.format(target.label)",
-        "  if prov_b in target:",
-        "    result += 'found prov_b = {}'.format(target[prov_b].val)",
-        "  else:",
-        "    result += 'cannot find prov_b'",
-        "  return struct(aspect_b_result = result)",
-        "aspect_b = aspect(",
-        "  implementation = _aspect_b_impl,",
-        "  required_aspect_providers = [prov_b]",
-        ")",
-        "",
-        "def _aspect_a_impl(target, ctx):",
-        "  result = 'aspect_a on target {} '.format(target.label)",
-        "  if prov_a in target:",
-        "    result += 'found prov_a = {}'.format(target[prov_a].val)",
-        "  else:",
-        "    result += 'cannot find prov_a'",
-        "  return struct(aspect_a_result = result)",
-        "",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  required_aspect_providers = [prov_a],",
-        "  attr_aspects = ['dep'],",
-        "  requires = [aspect_b]",
-        ")",
-        "",
-        "def _aspect_with_prov_a_impl(target, ctx):",
-        "  return [prov_a(val = 'a1')]",
-        "aspect_with_prov_a = aspect(",
-        "  implementation = _aspect_with_prov_a_impl,",
-        "  provides = [prov_a],",
-        "  attr_aspects = ['dep'],",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        ")");
+        """
+        prov_a = provider()
+        prov_b = provider()
+
+        def _aspect_b_impl(target, ctx):
+          result = 'aspect_b on target {} '.format(target.label)
+          if prov_b in target:
+            result += 'found prov_b = {}'.format(target[prov_b].val)
+          else:
+            result += 'cannot find prov_b'
+          return struct(aspect_b_result = result)
+        aspect_b = aspect(
+          implementation = _aspect_b_impl,
+          required_aspect_providers = [prov_b]
+        )
+
+        def _aspect_a_impl(target, ctx):
+          result = 'aspect_a on target {} '.format(target.label)
+          if prov_a in target:
+            result += 'found prov_a = {}'.format(target[prov_a].val)
+          else:
+            result += 'cannot find prov_a'
+          return struct(aspect_a_result = result)
+
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          required_aspect_providers = [prov_a],
+          attr_aspects = ['dep'],
+          requires = [aspect_b]
+        )
+
+        def _aspect_with_prov_a_impl(target, ctx):
+          return [prov_a(val = 'a1')]
+        aspect_with_prov_a = aspect(
+          implementation = _aspect_with_prov_a_impl,
+          provides = [prov_a],
+          attr_aspects = ['dep'],
+        )
+
+        def _my_rule_impl(ctx):
+          pass
+        my_rule = rule(
+          implementation = _my_rule_impl,
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'main_target',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'main_target',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(
@@ -6612,7 +7118,12 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
   @Test
   public void testDependentAspectWithNonExecutableTool_doesNotCrash() throws Exception {
-    scratch.file("test/BUILD", "sh_binary(name='bin', srcs=['bin.sh'])", "sh_library(name='lib')");
+    scratch.file(
+        "test/BUILD",
+        """
+        sh_binary(name='bin', srcs=['bin.sh'])
+        sh_library(name='lib')
+        """);
     scratch.file(
         "test/defs.bzl",
         "AInfo = provider()",
@@ -6665,54 +7176,58 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectsWithParameters() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _aspect_a_impl(target, ctx):",
-        "  result = ['aspect_a on target {}, p1 = {} and a_p = {}'.",
-        "                                    format(target.label, ctx.attr.p1, ctx.attr.a_p)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.aspect_a_result",
-        "  return struct(aspect_a_result = result)",
-        "",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2']),",
-        "            'a_p' : attr.string(values = ['a_p_v1', 'a_p_v2'])},",
-        ")",
-        "",
-        "def _aspect_b_impl(target, ctx):",
-        "  result = ['aspect_b on target {}, p1 = {} and b_p = {}'.",
-        "                                    format(target.label, ctx.attr.p1, ctx.attr.b_p)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.aspect_b_result",
-        "  return struct(aspect_b_result = result)",
-        "",
-        "aspect_b = aspect(",
-        "  implementation = _aspect_b_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2']),",
-        "            'b_p' : attr.string(values = ['b_p_v1', 'b_p_v2'])},",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        "   attrs = { 'dep' : attr.label() },",
-        ")");
+        """
+        def _aspect_a_impl(target, ctx):
+          result = ['aspect_a on target {}, p1 = {} and a_p = {}'.
+                                            format(target.label, ctx.attr.p1, ctx.attr.a_p)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep.aspect_a_result
+          return struct(aspect_a_result = result)
+
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          attr_aspects = ['dep'],
+          attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2']),
+                    'a_p' : attr.string(values = ['a_p_v1', 'a_p_v2'])},
+        )
+
+        def _aspect_b_impl(target, ctx):
+          result = ['aspect_b on target {}, p1 = {} and b_p = {}'.
+                                            format(target.label, ctx.attr.p1, ctx.attr.b_p)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep.aspect_b_result
+          return struct(aspect_b_result = result)
+
+        aspect_b = aspect(
+          implementation = _aspect_b_impl,
+          attr_aspects = ['dep'],
+          attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2']),
+                    'b_p' : attr.string(values = ['b_p_v1', 'b_p_v2'])},
+        )
+
+        def _my_rule_impl(ctx):
+          pass
+        my_rule = rule(
+          implementation = _my_rule_impl,
+           attrs = { 'dep' : attr.label() },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'main_target',",
-        "  dep = ':dep_target_1',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_1',",
-        "  dep = ':dep_target_2',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_2',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'main_target',
+          dep = ':dep_target_1',
+        )
+        my_rule(
+          name = 'dep_target_1',
+          dep = ':dep_target_2',
+        )
+        my_rule(
+          name = 'dep_target_2',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(
@@ -6744,52 +7259,56 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectsWithParameters_differentAllowedValues() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _aspect_a_impl(target, ctx):",
-        "  result = ['aspect_a on target {}, p1 = {} and p2 = {}'.",
-        "                                    format(target.label, ctx.attr.p1, ctx.attr.p2)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.aspect_a_result",
-        "  return struct(aspect_a_result = result)",
-        "",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2']) },",
-        ")",
-        "",
-        "def _aspect_b_impl(target, ctx):",
-        "  result = ['aspect_b on target {}, p1 = {} and p2 = {}'.",
-        "                                    format(target.label, ctx.attr.p1, ctx.attr.p2)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.aspect_b_result",
-        "  return struct(aspect_b_result = result)",
-        "",
-        "aspect_b = aspect(",
-        "  implementation = _aspect_b_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = { 'p1' : attr.string(values = ['p1_v2', 'p1_v3']) },",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        "   attrs = { 'dep' : attr.label() },",
-        ")");
+        """
+        def _aspect_a_impl(target, ctx):
+          result = ['aspect_a on target {}, p1 = {} and p2 = {}'.
+                                            format(target.label, ctx.attr.p1, ctx.attr.p2)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep.aspect_a_result
+          return struct(aspect_a_result = result)
+
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          attr_aspects = ['dep'],
+          attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2']) },
+        )
+
+        def _aspect_b_impl(target, ctx):
+          result = ['aspect_b on target {}, p1 = {} and p2 = {}'.
+                                            format(target.label, ctx.attr.p1, ctx.attr.p2)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep.aspect_b_result
+          return struct(aspect_b_result = result)
+
+        aspect_b = aspect(
+          implementation = _aspect_b_impl,
+          attr_aspects = ['dep'],
+          attrs = { 'p1' : attr.string(values = ['p1_v2', 'p1_v3']) },
+        )
+
+        def _my_rule_impl(ctx):
+          pass
+        my_rule = rule(
+          implementation = _my_rule_impl,
+           attrs = { 'dep' : attr.label() },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'main_target',",
-        "  dep = ':dep_target_1',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_1',",
-        "  dep = ':dep_target_2',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_2',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'main_target',
+          dep = ':dep_target_1',
+        )
+        my_rule(
+          name = 'dep_target_1',
+          dep = ':dep_target_2',
+        )
+        my_rule(
+          name = 'dep_target_2',
+        )
+        """);
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -6819,40 +7338,44 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectsWithParameters_useDefaultValue() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _aspect_a_impl(target, ctx):",
-        "  result = ['aspect_a on target {}, p1 = {} and p2 = {}'.",
-        "                                    format(target.label, ctx.attr.p1, ctx.attr.p2)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.aspect_a_result",
-        "  return struct(aspect_a_result = result)",
-        "",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2'], default = 'p1_v1'),",
-        "            'p2' : attr.string(values = ['p2_v1', 'p2_v2'], default = 'p2_v1')},",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        "   attrs = { 'dep' : attr.label() },",
-        ")");
+        """
+        def _aspect_a_impl(target, ctx):
+          result = ['aspect_a on target {}, p1 = {} and p2 = {}'.
+                                            format(target.label, ctx.attr.p1, ctx.attr.p2)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep.aspect_a_result
+          return struct(aspect_a_result = result)
+
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          attr_aspects = ['dep'],
+          attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2'], default = 'p1_v1'),
+                    'p2' : attr.string(values = ['p2_v1', 'p2_v2'], default = 'p2_v1')},
+        )
+
+        def _my_rule_impl(ctx):
+          pass
+        my_rule = rule(
+          implementation = _my_rule_impl,
+           attrs = { 'dep' : attr.label() },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'main_target',",
-        "  dep = ':dep_target_1',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_1',",
-        "  dep = ':dep_target_2',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_2',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'main_target',
+          dep = ':dep_target_1',
+        )
+        my_rule(
+          name = 'dep_target_1',
+          dep = ':dep_target_2',
+        )
+        my_rule(
+          name = 'dep_target_2',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(
@@ -6875,55 +7398,59 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectsWithParameters_passParametersToRequiredAspect() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _aspect_b_impl(target, ctx):",
-        "  result = ['aspect_b on target {}, p1 = {} and p3 = {}'.",
-        "                                    format(target.label, ctx.attr.p1, ctx.attr.p3)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.aspect_b_result",
-        "  return struct(aspect_b_result = result)",
-        "",
-        "aspect_b = aspect(",
-        "  implementation = _aspect_b_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2']),",
-        "            'p3' : attr.string(values = ['p3_v1', 'p3_v2', 'p3_v3'])},",
-        ")",
-        "",
-        "def _aspect_a_impl(target, ctx):",
-        "  result = ['aspect_a on target {}, p1 = {} and p2 = {}'.",
-        "                                    format(target.label, ctx.attr.p1, ctx.attr.p2)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.aspect_a_result",
-        "  return struct(aspect_a_result = result)",
-        "",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2']),",
-        "            'p2' : attr.string(values = ['p2_v1', 'p2_v2'])},",
-        "  requires = [aspect_b],",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        "   attrs = { 'dep' : attr.label() },",
-        ")");
+        """
+        def _aspect_b_impl(target, ctx):
+          result = ['aspect_b on target {}, p1 = {} and p3 = {}'.
+                                            format(target.label, ctx.attr.p1, ctx.attr.p3)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep.aspect_b_result
+          return struct(aspect_b_result = result)
+
+        aspect_b = aspect(
+          implementation = _aspect_b_impl,
+          attr_aspects = ['dep'],
+          attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2']),
+                    'p3' : attr.string(values = ['p3_v1', 'p3_v2', 'p3_v3'])},
+        )
+
+        def _aspect_a_impl(target, ctx):
+          result = ['aspect_a on target {}, p1 = {} and p2 = {}'.
+                                            format(target.label, ctx.attr.p1, ctx.attr.p2)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep.aspect_a_result
+          return struct(aspect_a_result = result)
+
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          attr_aspects = ['dep'],
+          attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2']),
+                    'p2' : attr.string(values = ['p2_v1', 'p2_v2'])},
+          requires = [aspect_b],
+        )
+
+        def _my_rule_impl(ctx):
+          pass
+        my_rule = rule(
+          implementation = _my_rule_impl,
+           attrs = { 'dep' : attr.label() },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'main_target',",
-        "  dep = ':dep_target_1',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_1',",
-        "  dep = ':dep_target_2',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_2',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'main_target',
+          dep = ':dep_target_1',
+        )
+        my_rule(
+          name = 'dep_target_1',
+          dep = ':dep_target_2',
+        )
+        my_rule(
+          name = 'dep_target_2',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(
@@ -6931,7 +7458,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
             ImmutableMap.of("p1", "p1_v1", "p2", "p2_v2", "p3", "p3_v3"),
             "//test:main_target");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
     assertThat(aspectA).isNotNull();
     StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
@@ -6955,39 +7482,43 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectsWithParameters_invalidParameterValue() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _aspect_a_impl(target, ctx):",
-        "  result = ['aspect_a on target {}, p = {}'.",
-        "                                    format(target.label, ctx.attr.p)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.aspect_a_result",
-        "  return struct(aspect_a_result = result)",
-        "",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = { 'p' : attr.string(values = ['p_v1', 'p_v2']) },",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        "   attrs = { 'dep' : attr.label() },",
-        ")");
+        """
+        def _aspect_a_impl(target, ctx):
+          result = ['aspect_a on target {}, p = {}'.
+                                            format(target.label, ctx.attr.p)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep.aspect_a_result
+          return struct(aspect_a_result = result)
+
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          attr_aspects = ['dep'],
+          attrs = { 'p' : attr.string(values = ['p_v1', 'p_v2']) },
+        )
+
+        def _my_rule_impl(ctx):
+          pass
+        my_rule = rule(
+          implementation = _my_rule_impl,
+           attrs = { 'dep' : attr.label() },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'main_target',",
-        "  dep = ':dep_target_1',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_1',",
-        "  dep = ':dep_target_2',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_2',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'main_target',
+          dep = ':dep_target_1',
+        )
+        my_rule(
+          name = 'dep_target_1',
+          dep = ':dep_target_2',
+        )
+        my_rule(
+          name = 'dep_target_2',
+        )
+        """);
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -7017,41 +7548,45 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectsWithParameters_missingMandatoryParameter() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _aspect_a_impl(target, ctx):",
-        "  result = ['aspect_a on target {}, p1 = {}'.",
-        "                                    format(target.label, ctx.attr.p1)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.aspect_a_result",
-        "  return struct(aspect_a_result = result)",
-        "",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = { 'p1' : attr.string(mandatory = True, default = 'p1_v1',",
-        "                               values = ['p1_v1', 'p1_v2']),",
-        "            'p2' : attr.string(values = ['p2_v1', 'p2_v2'])},",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        "   attrs = { 'dep' : attr.label() },",
-        ")");
+        """
+        def _aspect_a_impl(target, ctx):
+          result = ['aspect_a on target {}, p1 = {}'.
+                                            format(target.label, ctx.attr.p1)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep.aspect_a_result
+          return struct(aspect_a_result = result)
+
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          attr_aspects = ['dep'],
+          attrs = { 'p1' : attr.string(mandatory = True, default = 'p1_v1',
+                                       values = ['p1_v1', 'p1_v2']),
+                    'p2' : attr.string(values = ['p2_v1', 'p2_v2'])},
+        )
+
+        def _my_rule_impl(ctx):
+          pass
+        my_rule = rule(
+          implementation = _my_rule_impl,
+           attrs = { 'dep' : attr.label() },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'main_target',",
-        "  dep = ':dep_target_1',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_1',",
-        "  dep = ':dep_target_2',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_2',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'main_target',
+          dep = ':dep_target_1',
+        )
+        my_rule(
+          name = 'dep_target_1',
+          dep = ':dep_target_2',
+        )
+        my_rule(
+          name = 'dep_target_2',
+        )
+        """);
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -7080,54 +7615,58 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectsWithParameters_unusedParameter() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _aspect_a_impl(target, ctx):",
-        "  result = ['aspect_a on target {}, p1 = {} and a_p = {}'.",
-        "                                    format(target.label, ctx.attr.p1, ctx.attr.a_p)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.aspect_a_result",
-        "  return struct(aspect_a_result = result)",
-        "",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2']),",
-        "            'a_p' : attr.string(values = ['a_p_v1', 'a_p_v2'])},",
-        ")",
-        "",
-        "def _aspect_b_impl(target, ctx):",
-        "  result = ['aspect_b on target {}, p1 = {} and b_p = {}'.",
-        "                                    format(target.label, ctx.attr.p1, ctx.attr.b_p)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.aspect_b_result",
-        "  return struct(aspect_b_result = result)",
-        "",
-        "aspect_b = aspect(",
-        "  implementation = _aspect_b_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2']),",
-        "            'b_p' : attr.string(values = ['b_p_v1', 'b_p_v2'])},",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        "   attrs = { 'dep' : attr.label() },",
-        ")");
+        """
+        def _aspect_a_impl(target, ctx):
+          result = ['aspect_a on target {}, p1 = {} and a_p = {}'.
+                                            format(target.label, ctx.attr.p1, ctx.attr.a_p)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep.aspect_a_result
+          return struct(aspect_a_result = result)
+
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          attr_aspects = ['dep'],
+          attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2']),
+                    'a_p' : attr.string(values = ['a_p_v1', 'a_p_v2'])},
+        )
+
+        def _aspect_b_impl(target, ctx):
+          result = ['aspect_b on target {}, p1 = {} and b_p = {}'.
+                                            format(target.label, ctx.attr.p1, ctx.attr.b_p)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep.aspect_b_result
+          return struct(aspect_b_result = result)
+
+        aspect_b = aspect(
+          implementation = _aspect_b_impl,
+          attr_aspects = ['dep'],
+          attrs = { 'p1' : attr.string(values = ['p1_v1', 'p1_v2']),
+                    'b_p' : attr.string(values = ['b_p_v1', 'b_p_v2'])},
+        )
+
+        def _my_rule_impl(ctx):
+          pass
+        my_rule = rule(
+          implementation = _my_rule_impl,
+           attrs = { 'dep' : attr.label() },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'main_target',",
-        "  dep = ':dep_target_1',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_1',",
-        "  dep = ':dep_target_2',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_2',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'main_target',
+          dep = ':dep_target_1',
+        )
+        my_rule(
+          name = 'dep_target_1',
+          dep = ':dep_target_2',
+        )
+        my_rule(
+          name = 'dep_target_2',
+        )
+        """);
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -7158,39 +7697,43 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectsWithParameters_invalidDefaultParameterValue() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _aspect_a_impl(target, ctx):",
-        "  result = ['aspect_a on target {}, p = {}'.",
-        "                                    format(target.label, ctx.attr.p)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.aspect_a_result",
-        "  return struct(aspect_a_result = result)",
-        "",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = { 'p' : attr.string(values = ['p_v1', 'p_v2']) },",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        "   attrs = { 'dep' : attr.label() },",
-        ")");
+        """
+        def _aspect_a_impl(target, ctx):
+          result = ['aspect_a on target {}, p = {}'.
+                                            format(target.label, ctx.attr.p)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep.aspect_a_result
+          return struct(aspect_a_result = result)
+
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          attr_aspects = ['dep'],
+          attrs = { 'p' : attr.string(values = ['p_v1', 'p_v2']) },
+        )
+
+        def _my_rule_impl(ctx):
+          pass
+        my_rule = rule(
+          implementation = _my_rule_impl,
+           attrs = { 'dep' : attr.label() },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'main_target',",
-        "  dep = ':dep_target_1',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_1',",
-        "  dep = ':dep_target_2',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_2',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'main_target',
+          dep = ':dep_target_1',
+        )
+        my_rule(
+          name = 'dep_target_1',
+          dep = ':dep_target_2',
+        )
+        my_rule(
+          name = 'dep_target_2',
+        )
+        """);
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -7213,39 +7756,43 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectsWithParameters_noNeedForAllowedValues() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _aspect_a_impl(target, ctx):",
-        "  result = ['aspect_a on target {}, p = {}'.",
-        "                                    format(target.label, ctx.attr.p)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.aspect_a_result",
-        "  return struct(aspect_a_result = result)",
-        "",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = { 'p' : attr.string(default='val') },",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        "   attrs = { 'dep' : attr.label() },",
-        ")");
+        """
+        def _aspect_a_impl(target, ctx):
+          result = ['aspect_a on target {}, p = {}'.
+                                            format(target.label, ctx.attr.p)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep.aspect_a_result
+          return struct(aspect_a_result = result)
+
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          attr_aspects = ['dep'],
+          attrs = { 'p' : attr.string(default='val') },
+        )
+
+        def _my_rule_impl(ctx):
+          pass
+        my_rule = rule(
+          implementation = _my_rule_impl,
+           attrs = { 'dep' : attr.label() },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'main_target',",
-        "  dep = ':dep_target_1',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_1',",
-        "  dep = ':dep_target_2',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_2',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'main_target',
+          dep = ':dep_target_1',
+        )
+        my_rule(
+          name = 'dep_target_1',
+          dep = ':dep_target_2',
+        )
+        my_rule(
+          name = 'dep_target_2',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(
@@ -7271,15 +7818,22 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testAttrAspectParameterMissingRequiredValues() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _impl(target, ctx):",
-        "   pass",
-        "my_aspect = aspect(_impl,",
-        "   attrs = { 'param' : attr.string(default = 'c') }",
-        ")",
-        "def _rule_impl(ctx):",
-        "   pass",
-        "r1 = rule(_rule_impl, attrs={'dep': attr.label(aspects = [my_aspect])})");
-    scratch.file("test/BUILD", "load('//test:defs.bzl', 'r1')", "r1(name = 'main_target')");
+        """
+        def _impl(target, ctx):
+           pass
+        my_aspect = aspect(_impl,
+           attrs = { 'param' : attr.string(default = 'c') }
+        )
+        def _rule_impl(ctx):
+           pass
+        r1 = rule(_rule_impl, attrs={'dep': attr.label(aspects = [my_aspect])})
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:defs.bzl', 'r1')
+        r1(name = 'main_target')
+        """);
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -7302,19 +7856,26 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testAttrRequiredAspectParameterMissingRequiredValues() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _impl(target, ctx):",
-        "   pass",
-        "required_aspect = aspect(_impl,",
-        "   attrs = { 'p1' : attr.string(default = 'b') }",
-        ")",
-        "my_aspect = aspect(_impl,",
-        "   attrs = { 'p2' : attr.string(default = 'c', values = ['c']) },",
-        "   requires = [required_aspect],",
-        ")",
-        "def _rule_impl(ctx):",
-        "   pass",
-        "r1 = rule(_rule_impl, attrs={'dep': attr.label(aspects = [my_aspect])})");
-    scratch.file("test/BUILD", "load('//test:defs.bzl', 'r1')", "r1(name = 'main_target')");
+        """
+        def _impl(target, ctx):
+           pass
+        required_aspect = aspect(_impl,
+           attrs = { 'p1' : attr.string(default = 'b') }
+        )
+        my_aspect = aspect(_impl,
+           attrs = { 'p2' : attr.string(default = 'c', values = ['c']) },
+           requires = [required_aspect],
+        )
+        def _rule_impl(ctx):
+           pass
+        r1 = rule(_rule_impl, attrs={'dep': attr.label(aspects = [my_aspect])})
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:defs.bzl', 'r1')
+        r1(name = 'main_target')
+        """);
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -7334,19 +7895,26 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void integerAspectParameter_mandatoryAttrNotCoveredByRule() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return struct()",
-        "def _rule_impl(ctx):",
-        "   return struct()",
-        "MyAspectUncovered = aspect(",
-        "    implementation=_impl,",
-        "    attrs = { 'my_attr' : attr.int(default = 1, values = [1, 2], mandatory = True) },",
-        ")",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]) },",
-        ")");
-    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name ='main')");
+        """
+        def _impl(target, ctx):
+           return []
+        def _rule_impl(ctx):
+           return []
+        MyAspectUncovered = aspect(
+            implementation=_impl,
+            attrs = { 'my_attr' : attr.int(default = 1, values = [1, 2], mandatory = True) },
+        )
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]) },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name ='main')
+        """);
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -7367,20 +7935,27 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void integerAspectParameter_mandatoryAttrWithWrongTypeInRule() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return struct()",
-        "def _rule_impl(ctx):",
-        "   return struct()",
-        "MyAspectUncovered = aspect(",
-        "    implementation=_impl,",
-        "    attrs = { 'my_attr' : attr.int(default = 1, values = [1, 2], mandatory = True) },",
-        ")",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]),",
-        "              'my_attr': attr.string() },",
-        ")");
-    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name ='main')");
+        """
+        def _impl(target, ctx):
+           return []
+        def _rule_impl(ctx):
+           return []
+        MyAspectUncovered = aspect(
+            implementation=_impl,
+            attrs = { 'my_attr' : attr.int(default = 1, values = [1, 2], mandatory = True) },
+        )
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]),
+                      'my_attr': attr.string() },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name ='main')
+        """);
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -7401,19 +7976,26 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void integerAspectParameter_attrWithoutDefaultNotCoveredByRule() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return struct()",
-        "def _rule_impl(ctx):",
-        "   return struct()",
-        "MyAspectUncovered = aspect(",
-        "    implementation=_impl,",
-        "    attrs = { 'my_attr' : attr.int(values = [1, 2]) },",
-        ")",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]) },",
-        ")");
-    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name ='main')");
+        """
+        def _impl(target, ctx):
+           return []
+        def _rule_impl(ctx):
+           return []
+        MyAspectUncovered = aspect(
+            implementation=_impl,
+            attrs = { 'my_attr' : attr.int(values = [1, 2]) },
+        )
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]) },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name ='main')
+        """);
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -7434,20 +8016,27 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void integerAspectParameter_attrWithoutDefaultWrongTypeInRule() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return struct()",
-        "def _rule_impl(ctx):",
-        "   return struct()",
-        "MyAspectUncovered = aspect(",
-        "    implementation=_impl,",
-        "    attrs = { 'my_attr' : attr.int(values = [1, 2]) },",
-        ")",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]),",
-        "              'my_attr': attr.string() },",
-        ")");
-    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name ='main')");
+        """
+        def _impl(target, ctx):
+           return []
+        def _rule_impl(ctx):
+           return []
+        MyAspectUncovered = aspect(
+            implementation=_impl,
+            attrs = { 'my_attr' : attr.int(values = [1, 2]) },
+        )
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]),
+                      'my_attr': attr.string() },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name ='main')
+        """);
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -7468,20 +8057,27 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void integerAspectParameter_missingValuesRestriction() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return struct()",
-        "def _rule_impl(ctx):",
-        "   return struct()",
-        "MyAspectUncovered = aspect(",
-        "    implementation=_impl,",
-        "    attrs = { 'my_attr' : attr.int() },",
-        ")",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]),",
-        "              'my_attr' : attr.int() },",
-        ")");
-    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name ='main')");
+        """
+        def _impl(target, ctx):
+           return []
+        def _rule_impl(ctx):
+           return []
+        MyAspectUncovered = aspect(
+            implementation=_impl,
+            attrs = { 'my_attr' : attr.int() },
+        )
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]),
+                      'my_attr' : attr.int() },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name ='main')
+        """);
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -7502,19 +8098,26 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void integerAspectParameter_invalidDefault() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return struct()",
-        "def _rule_impl(ctx):",
-        "   return struct()",
-        "MyAspectUncovered = aspect(",
-        "    implementation=_impl,",
-        "    attrs = { 'my_attr' : attr.int(default = 2, values = [0, 1]) },",
-        ")",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]) },",
-        ")");
-    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name ='main')");
+        """
+        def _impl(target, ctx):
+           return []
+        def _rule_impl(ctx):
+           return []
+        MyAspectUncovered = aspect(
+            implementation=_impl,
+            attrs = { 'my_attr' : attr.int(default = 2, values = [0, 1]) },
+        )
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]) },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name ='main')
+        """);
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -7535,40 +8138,47 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectIntegerParameter_withDefaultValue() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "  result = ['my_aspect on target {}, my_attr = {}'.",
-        "                                    format(target.label, ctx.attr.my_attr)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.my_aspect_result",
-        "  return struct(my_aspect_result = result)",
-        "",
-        "def _rule_impl(ctx):",
-        "  if ctx.attr.dep:",
-        "    return struct(my_rule_result = ctx.attr.dep.my_aspect_result)",
-        "  pass",
-        "",
-        "MyAspect = aspect(",
-        "    implementation = _aspect_impl,",
-        "    attrs = { 'my_attr' : attr.int(default = 1, values = [1, 2, 3]) },",
-        ")",
-        "",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'dep' : attr.label(aspects=[MyAspect]) }",
-        ")");
+        """
+        AspectInfo = provider()
+        def _aspect_impl(target, ctx):
+          result = ['my_aspect on target {}, my_attr = {}'.
+                                            format(target.label, ctx.attr.my_attr)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep[AspectInfo].my_aspect_result
+          return AspectInfo(my_aspect_result = result)
+
+        RuleInfo = provider()
+        def _rule_impl(ctx):
+          if ctx.attr.dep:
+            return RuleInfo(my_rule_result = ctx.attr.dep[AspectInfo].my_aspect_result)
+          pass
+
+        MyAspect = aspect(
+            implementation = _aspect_impl,
+            attrs = { 'my_attr' : attr.int(default = 1, values = [1, 2, 3]) },
+        )
+
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'dep' : attr.label(aspects=[MyAspect]) }
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:aspect.bzl', 'my_rule')",
-        "my_rule(name = 'main_target',",
-        "        dep = ':dep_target',",
-        ")",
-        "my_rule(name = 'dep_target')");
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name = 'main_target',
+                dep = ':dep_target',
+        )
+        my_rule(name = 'dep_target')
+        """);
 
     AnalysisResult analysisResult = update(ImmutableList.of(), "//test:main_target");
 
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    StarlarkList<?> ruleResult = (StarlarkList) configuredTarget.get("my_rule_result");
+    StarlarkList<?> ruleResult =
+        (StarlarkList) getStarlarkProvider(configuredTarget, "RuleInfo").getValue("my_rule_result");
     assertThat(Starlark.toIterable(ruleResult))
         .containsExactly("my_aspect on target @//test:dep_target, my_attr = 1");
   }
@@ -7577,41 +8187,48 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectIntegerParameter_valueOverwrittenByRuleDefault() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "  result = ['my_aspect on target {}, my_attr = {}'.",
-        "                                    format(target.label, ctx.attr.my_attr)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.my_aspect_result",
-        "  return struct(my_aspect_result = result)",
-        "",
-        "def _rule_impl(ctx):",
-        "  if ctx.attr.dep:",
-        "    return struct(my_rule_result = ctx.attr.dep.my_aspect_result)",
-        "  pass",
-        "",
-        "MyAspect = aspect(",
-        "    implementation = _aspect_impl,",
-        "    attrs = { 'my_attr' : attr.int(default = 1, values = [1, 2, 3]) },",
-        ")",
-        "",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'dep' : attr.label(aspects=[MyAspect]),",
-        "              'my_attr': attr.int(default = 2) }",
-        ")");
+        """
+        AspectInfo = provider()
+        def _aspect_impl(target, ctx):
+          result = ['my_aspect on target {}, my_attr = {}'.
+                                            format(target.label, ctx.attr.my_attr)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep.my_aspect_result
+          return [AspectInfo(my_aspect_result = result)]
+
+        RuleInfo = provider()
+        def _rule_impl(ctx):
+          if ctx.attr.dep:
+            return RuleInfo(my_rule_result = ctx.attr.dep[AspectInfo].my_aspect_result)
+          pass
+
+        MyAspect = aspect(
+            implementation = _aspect_impl,
+            attrs = { 'my_attr' : attr.int(default = 1, values = [1, 2, 3]) },
+        )
+
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'dep' : attr.label(aspects=[MyAspect]),
+                      'my_attr': attr.int(default = 2) }
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:aspect.bzl', 'my_rule')",
-        "my_rule(name = 'main_target',",
-        "        dep = ':dep_target',",
-        ")",
-        "my_rule(name = 'dep_target')");
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name = 'main_target',
+                dep = ':dep_target',
+        )
+        my_rule(name = 'dep_target')
+        """);
 
     AnalysisResult analysisResult = update(ImmutableList.of(), "//test:main_target");
 
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    StarlarkList<?> ruleResult = (StarlarkList) configuredTarget.get("my_rule_result");
+    StarlarkList<?> ruleResult =
+        (StarlarkList) getStarlarkProvider(configuredTarget, "RuleInfo").getValue("my_rule_result");
     assertThat(Starlark.toIterable(ruleResult))
         .containsExactly("my_aspect on target @//test:dep_target, my_attr = 2");
   }
@@ -7620,42 +8237,49 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectIntegerParameter_valueOverwrittenByTargetValue() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "  result = ['my_aspect on target {}, my_attr = {}'.",
-        "                                    format(target.label, ctx.attr.my_attr)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.my_aspect_result",
-        "  return struct(my_aspect_result = result)",
-        "",
-        "def _rule_impl(ctx):",
-        "  if ctx.attr.dep:",
-        "    return struct(my_rule_result = ctx.attr.dep.my_aspect_result)",
-        "  pass",
-        "",
-        "MyAspect = aspect(",
-        "    implementation = _aspect_impl,",
-        "    attrs = { 'my_attr' : attr.int(default = 1, values = [1, 2, 3]) },",
-        ")",
-        "",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'dep' : attr.label(aspects=[MyAspect]),",
-        "              'my_attr': attr.int(default = 2) }",
-        ")");
+        """
+        AspectInfo = provider()
+        def _aspect_impl(target, ctx):
+          result = ['my_aspect on target {}, my_attr = {}'.
+                                            format(target.label, ctx.attr.my_attr)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep[AspectInfo].my_aspect_result
+          return AspectInfo(my_aspect_result = result)
+
+        RuleInfo = provider()
+        def _rule_impl(ctx):
+          if ctx.attr.dep:
+            return RuleInfo(my_rule_result = ctx.attr.dep[AspectInfo].my_aspect_result)
+          pass
+
+        MyAspect = aspect(
+            implementation = _aspect_impl,
+            attrs = { 'my_attr' : attr.int(default = 1, values = [1, 2, 3]) },
+        )
+
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'dep' : attr.label(aspects=[MyAspect]),
+                      'my_attr': attr.int(default = 2) }
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:aspect.bzl', 'my_rule')",
-        "my_rule(name = 'main_target',",
-        "        dep = ':dep_target',",
-        "        my_attr = 3,",
-        ")",
-        "my_rule(name = 'dep_target')");
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name = 'main_target',
+                dep = ':dep_target',
+                my_attr = 3,
+        )
+        my_rule(name = 'dep_target')
+        """);
 
     AnalysisResult analysisResult = update(ImmutableList.of(), "//test:main_target");
 
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    StarlarkList<?> ruleResult = (StarlarkList) configuredTarget.get("my_rule_result");
+    StarlarkList<?> ruleResult =
+        (StarlarkList) getStarlarkProvider(configuredTarget, "RuleInfo").getValue("my_rule_result");
     assertThat(Starlark.toIterable(ruleResult))
         .containsExactly("my_aspect on target @//test:dep_target, my_attr = 3");
   }
@@ -7664,39 +8288,43 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectsWithParameters_invalidIntegerParameterValue() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _aspect_a_impl(target, ctx):",
-        "  result = ['aspect_a on target {}, p = {}'.",
-        "                                    format(target.label, ctx.attr.p)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.aspect_a_result",
-        "  return struct(aspect_a_result = result)",
-        "",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = { 'p' : attr.int(values = [1, 2]) },",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        "   attrs = { 'dep' : attr.label() },",
-        ")");
+        """
+        def _aspect_a_impl(target, ctx):
+          result = ['aspect_a on target {}, p = {}'.
+                                            format(target.label, ctx.attr.p)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep.aspect_a_result
+          return struct(aspect_a_result = result)
+
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          attr_aspects = ['dep'],
+          attrs = { 'p' : attr.int(values = [1, 2]) },
+        )
+
+        def _my_rule_impl(ctx):
+          pass
+        my_rule = rule(
+          implementation = _my_rule_impl,
+           attrs = { 'dep' : attr.label() },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'main_target',",
-        "  dep = ':dep_target_1',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_1',",
-        "  dep = ':dep_target_2',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_2',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'main_target',
+          dep = ':dep_target_1',
+        )
+        my_rule(
+          name = 'dep_target_1',
+          dep = ':dep_target_2',
+        )
+        my_rule(
+          name = 'dep_target_2',
+        )
+        """);
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -7726,39 +8354,43 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectsWithIntegerParameter() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _aspect_a_impl(target, ctx):",
-        "  result = ['aspect_a on target {}, p = {}'.",
-        "                                    format(target.label, ctx.attr.p)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.aspect_a_result",
-        "  return struct(aspect_a_result = result)",
-        "",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = { 'p' : attr.int(values = [1, 2, 3]) },",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        "   attrs = { 'dep' : attr.label() },",
-        ")");
+        """
+        def _aspect_a_impl(target, ctx):
+          result = ['aspect_a on target {}, p = {}'.
+                                            format(target.label, ctx.attr.p)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep.aspect_a_result
+          return struct(aspect_a_result = result)
+
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          attr_aspects = ['dep'],
+          attrs = { 'p' : attr.int(values = [1, 2, 3]) },
+        )
+
+        def _my_rule_impl(ctx):
+          pass
+        my_rule = rule(
+          implementation = _my_rule_impl,
+           attrs = { 'dep' : attr.label() },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'main_target',",
-        "  dep = ':dep_target_1',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_1',",
-        "  dep = ':dep_target_2',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_2',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'main_target',
+          dep = ':dep_target_1',
+        )
+        my_rule(
+          name = 'dep_target_1',
+          dep = ':dep_target_2',
+        )
+        my_rule(
+          name = 'dep_target_2',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(
@@ -7781,39 +8413,43 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectsWithIntegerParameter_useDefaultValue() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _aspect_a_impl(target, ctx):",
-        "  result = ['aspect_a on target {}, p = {}'.",
-        "                                    format(target.label, ctx.attr.p)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.aspect_a_result",
-        "  return struct(aspect_a_result = result)",
-        "",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = { 'p' : attr.int(default = 1, values = [1, 2, 3]) },",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        "   attrs = { 'dep' : attr.label() },",
-        ")");
+        """
+        def _aspect_a_impl(target, ctx):
+          result = ['aspect_a on target {}, p = {}'.
+                                            format(target.label, ctx.attr.p)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep.aspect_a_result
+          return struct(aspect_a_result = result)
+
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          attr_aspects = ['dep'],
+          attrs = { 'p' : attr.int(default = 1, values = [1, 2, 3]) },
+        )
+
+        def _my_rule_impl(ctx):
+          pass
+        my_rule = rule(
+          implementation = _my_rule_impl,
+           attrs = { 'dep' : attr.label() },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'main_target',",
-        "  dep = ':dep_target_1',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_1',",
-        "  dep = ':dep_target_2',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_2',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'main_target',
+          dep = ':dep_target_1',
+        )
+        my_rule(
+          name = 'dep_target_1',
+          dep = ':dep_target_2',
+        )
+        my_rule(
+          name = 'dep_target_2',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("//test:defs.bzl%aspect_a"), "//test:main_target");
@@ -7833,19 +8469,26 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void booleanAspectParameter_mandatoryAttrNotCoveredByRule() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return struct()",
-        "def _rule_impl(ctx):",
-        "   return struct()",
-        "MyAspectUncovered = aspect(",
-        "    implementation=_impl,",
-        "    attrs = { 'my_attr' : attr.bool(default = True, mandatory = True) },",
-        ")",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]) },",
-        ")");
-    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name ='main')");
+        """
+        def _impl(target, ctx):
+           return []
+        def _rule_impl(ctx):
+           return []
+        MyAspectUncovered = aspect(
+            implementation=_impl,
+            attrs = { 'my_attr' : attr.bool(default = True, mandatory = True) },
+        )
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]) },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name ='main')
+        """);
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -7866,20 +8509,27 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void booleanAspectParameter_mandatoryAttrWithWrongTypeInRule() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return struct()",
-        "def _rule_impl(ctx):",
-        "   return struct()",
-        "MyAspectUncovered = aspect(",
-        "    implementation=_impl,",
-        "    attrs = { 'my_attr' : attr.bool(default = True, mandatory = True) },",
-        ")",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]),",
-        "              'my_attr': attr.string() },",
-        ")");
-    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name ='main')");
+        """
+        def _impl(target, ctx):
+           return []
+        def _rule_impl(ctx):
+           return []
+        MyAspectUncovered = aspect(
+            implementation=_impl,
+            attrs = { 'my_attr' : attr.bool(default = True, mandatory = True) },
+        )
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]),
+                      'my_attr': attr.string() },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name ='main')
+        """);
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -7900,19 +8550,26 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void booleanAspectParameter_attrWithoutDefaultNotCoveredByRule() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return struct()",
-        "def _rule_impl(ctx):",
-        "   return struct()",
-        "MyAspectUncovered = aspect(",
-        "    implementation=_impl,",
-        "    attrs = { 'my_attr' : attr.bool() },",
-        ")",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]) },",
-        ")");
-    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name ='main')");
+        """
+        def _impl(target, ctx):
+           return []
+        def _rule_impl(ctx):
+           return []
+        MyAspectUncovered = aspect(
+            implementation=_impl,
+            attrs = { 'my_attr' : attr.bool() },
+        )
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]) },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name ='main')
+        """);
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -7933,20 +8590,27 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void booleanAspectParameter_attrWithoutDefaultWrongTypeInRule() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
-        "   return struct()",
-        "def _rule_impl(ctx):",
-        "   return struct()",
-        "MyAspectUncovered = aspect(",
-        "    implementation=_impl,",
-        "    attrs = { 'my_attr' : attr.bool() },",
-        ")",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]),",
-        "              'my_attr': attr.string() },",
-        ")");
-    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name ='main')");
+        """
+        def _impl(target, ctx):
+           return []
+        def _rule_impl(ctx):
+           return []
+        MyAspectUncovered = aspect(
+            implementation=_impl,
+            attrs = { 'my_attr' : attr.bool() },
+        )
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'deps' : attr.label_list(aspects=[MyAspectUncovered]),
+                      'my_attr': attr.string() },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name ='main')
+        """);
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -7967,40 +8631,48 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectBooleanParameter_withDefaultValue() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "  result = ['my_aspect on target {}, my_attr = {}'.",
-        "                                    format(target.label, ctx.attr.my_attr)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.my_aspect_result",
-        "  return struct(my_aspect_result = result)",
-        "",
-        "def _rule_impl(ctx):",
-        "  if ctx.attr.dep:",
-        "    return struct(my_rule_result = ctx.attr.dep.my_aspect_result)",
-        "  pass",
-        "",
-        "MyAspect = aspect(",
-        "    implementation = _aspect_impl,",
-        "    attrs = { 'my_attr' : attr.bool(default = True) },",
-        ")",
-        "",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'dep' : attr.label(aspects=[MyAspect]) }",
-        ")");
+        """
+        AspectInfo = provider()
+        def _aspect_impl(target, ctx):
+          result = ['my_aspect on target {}, my_attr = {}'.
+                                            format(target.label, ctx.attr.my_attr)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep.my_aspect_result
+          return AspectInfo(my_aspect_result = result)
+
+        RuleInfo = provider()
+        def _rule_impl(ctx):
+          if ctx.attr.dep:
+            return RuleInfo(my_rule_result = ctx.attr.dep[AspectInfo].my_aspect_result)
+          pass
+
+        MyAspect = aspect(
+            implementation = _aspect_impl,
+            attrs = { 'my_attr' : attr.bool(default = True) },
+        )
+
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'dep' : attr.label(aspects=[MyAspect]) }
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:aspect.bzl', 'my_rule')",
-        "my_rule(name = 'main_target',",
-        "        dep = ':dep_target',",
-        ")",
-        "my_rule(name = 'dep_target')");
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name = 'main_target',
+                dep = ':dep_target',
+        )
+        my_rule(name = 'dep_target')
+        """);
 
     AnalysisResult analysisResult = update(ImmutableList.of(), "//test:main_target");
 
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    StarlarkList<?> ruleResult = (StarlarkList) configuredTarget.get("my_rule_result");
+    StarlarkList<?> ruleResult =
+        getStarlarkProvider(configuredTarget, "RuleInfo")
+            .getValue("my_rule_result", StarlarkList.class);
     assertThat(Starlark.toIterable(ruleResult))
         .containsExactly("my_aspect on target @//test:dep_target, my_attr = True");
   }
@@ -8009,41 +8681,48 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectBooleanParameter_valueOverwrittenByRuleDefault() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "  result = ['my_aspect on target {}, my_attr = {}'.",
-        "                                    format(target.label, ctx.attr.my_attr)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.my_aspect_result",
-        "  return struct(my_aspect_result = result)",
-        "",
-        "def _rule_impl(ctx):",
-        "  if ctx.attr.dep:",
-        "    return struct(my_rule_result = ctx.attr.dep.my_aspect_result)",
-        "  pass",
-        "",
-        "MyAspect = aspect(",
-        "    implementation = _aspect_impl,",
-        "    attrs = { 'my_attr' : attr.bool(default = True) },",
-        ")",
-        "",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'dep' : attr.label(aspects=[MyAspect]),",
-        "              'my_attr': attr.bool(default = False) }",
-        ")");
+        """
+        AspectInfo = provider()
+        def _aspect_impl(target, ctx):
+          result = ['my_aspect on target {}, my_attr = {}'.
+                                            format(target.label, ctx.attr.my_attr)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep[AspectInfo].my_aspect_result
+          return AspectInfo(my_aspect_result = result)
+
+        RuleInfo = provider()
+        def _rule_impl(ctx):
+          if ctx.attr.dep:
+            return RuleInfo(my_rule_result = ctx.attr.dep[AspectInfo].my_aspect_result)
+          pass
+
+        MyAspect = aspect(
+            implementation = _aspect_impl,
+            attrs = { 'my_attr' : attr.bool(default = True) },
+        )
+
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'dep' : attr.label(aspects=[MyAspect]),
+                      'my_attr': attr.bool(default = False) }
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:aspect.bzl', 'my_rule')",
-        "my_rule(name = 'main_target',",
-        "        dep = ':dep_target',",
-        ")",
-        "my_rule(name = 'dep_target')");
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name = 'main_target',
+                dep = ':dep_target',
+        )
+        my_rule(name = 'dep_target')
+        """);
 
     AnalysisResult analysisResult = update(ImmutableList.of(), "//test:main_target");
 
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    StarlarkList<?> ruleResult = (StarlarkList) configuredTarget.get("my_rule_result");
+    StarlarkList<?> ruleResult =
+        (StarlarkList) getStarlarkProvider(configuredTarget, "RuleInfo").getValue("my_rule_result");
     assertThat(Starlark.toIterable(ruleResult))
         .containsExactly("my_aspect on target @//test:dep_target, my_attr = False");
   }
@@ -8052,42 +8731,49 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void aspectBooleanParameter_valueOverwrittenByTargetValue() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _aspect_impl(target, ctx):",
-        "  result = ['my_aspect on target {}, my_attr = {}'.",
-        "                                    format(target.label, ctx.attr.my_attr)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.my_aspect_result",
-        "  return struct(my_aspect_result = result)",
-        "",
-        "def _rule_impl(ctx):",
-        "  if ctx.attr.dep:",
-        "    return struct(my_rule_result = ctx.attr.dep.my_aspect_result)",
-        "  pass",
-        "",
-        "MyAspect = aspect(",
-        "    implementation = _aspect_impl,",
-        "    attrs = { 'my_attr' : attr.bool(default = True) },",
-        ")",
-        "",
-        "my_rule = rule(",
-        "    implementation=_rule_impl,",
-        "    attrs = { 'dep' : attr.label(aspects=[MyAspect]),",
-        "              'my_attr': attr.bool(default = True) }",
-        ")");
+        """
+        AspectInfo = provider()
+        def _aspect_impl(target, ctx):
+          result = ['my_aspect on target {}, my_attr = {}'.
+                                            format(target.label, ctx.attr.my_attr)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep[AspectInfo].my_aspect_result
+          return AspectInfo(my_aspect_result = result)
+
+        RuleInfo = provider()
+        def _rule_impl(ctx):
+          if ctx.attr.dep:
+            return RuleInfo(my_rule_result = ctx.attr.dep[AspectInfo].my_aspect_result)
+          pass
+
+        MyAspect = aspect(
+            implementation = _aspect_impl,
+            attrs = { 'my_attr' : attr.bool(default = True) },
+        )
+
+        my_rule = rule(
+            implementation=_rule_impl,
+            attrs = { 'dep' : attr.label(aspects=[MyAspect]),
+                      'my_attr': attr.bool(default = True) }
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:aspect.bzl', 'my_rule')",
-        "my_rule(name = 'main_target',",
-        "        dep = ':dep_target',",
-        "        my_attr = False,",
-        ")",
-        "my_rule(name = 'dep_target')");
+        """
+        load('//test:aspect.bzl', 'my_rule')
+        my_rule(name = 'main_target',
+                dep = ':dep_target',
+                my_attr = False,
+        )
+        my_rule(name = 'dep_target')
+        """);
 
     AnalysisResult analysisResult = update(ImmutableList.of(), "//test:main_target");
 
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    StarlarkList<?> ruleResult = (StarlarkList) configuredTarget.get("my_rule_result");
+    StarlarkList<?> ruleResult =
+        (StarlarkList) getStarlarkProvider(configuredTarget, "RuleInfo").getValue("my_rule_result");
     assertThat(Starlark.toIterable(ruleResult))
         .containsExactly("my_aspect on target @//test:dep_target, my_attr = False");
   }
@@ -8096,39 +8782,43 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectsWithBooleanParameter() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _aspect_a_impl(target, ctx):",
-        "  result = ['aspect_a on target {}, p = {}'.",
-        "                                    format(target.label, ctx.attr.p)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.aspect_a_result",
-        "  return struct(aspect_a_result = result)",
-        "",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = { 'p' : attr.bool() },",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        "   attrs = { 'dep' : attr.label() },",
-        ")");
+        """
+        def _aspect_a_impl(target, ctx):
+          result = ['aspect_a on target {}, p = {}'.
+                                            format(target.label, ctx.attr.p)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep.aspect_a_result
+          return struct(aspect_a_result = result)
+
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          attr_aspects = ['dep'],
+          attrs = { 'p' : attr.bool() },
+        )
+
+        def _my_rule_impl(ctx):
+          pass
+        my_rule = rule(
+          implementation = _my_rule_impl,
+           attrs = { 'dep' : attr.label() },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'main_target',",
-        "  dep = ':dep_target_1',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_1',",
-        "  dep = ':dep_target_2',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_2',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'main_target',
+          dep = ':dep_target_1',
+        )
+        my_rule(
+          name = 'dep_target_1',
+          dep = ':dep_target_2',
+        )
+        my_rule(
+          name = 'dep_target_2',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(
@@ -8151,39 +8841,43 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectsWithBooleanParameter_useDefaultValue() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _aspect_a_impl(target, ctx):",
-        "  result = ['aspect_a on target {}, p = {}'.",
-        "                                    format(target.label, ctx.attr.p)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.aspect_a_result",
-        "  return struct(aspect_a_result = result)",
-        "",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = { 'p' : attr.bool(default = False) },",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        "   attrs = { 'dep' : attr.label() },",
-        ")");
+        """
+        def _aspect_a_impl(target, ctx):
+          result = ['aspect_a on target {}, p = {}'.
+                                            format(target.label, ctx.attr.p)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep.aspect_a_result
+          return struct(aspect_a_result = result)
+
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          attr_aspects = ['dep'],
+          attrs = { 'p' : attr.bool(default = False) },
+        )
+
+        def _my_rule_impl(ctx):
+          pass
+        my_rule = rule(
+          implementation = _my_rule_impl,
+           attrs = { 'dep' : attr.label() },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'main_target',",
-        "  dep = ':dep_target_1',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_1',",
-        "  dep = ':dep_target_2',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_2',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'main_target',
+          dep = ':dep_target_1',
+        )
+        my_rule(
+          name = 'dep_target_1',
+          dep = ':dep_target_2',
+        )
+        my_rule(
+          name = 'dep_target_2',
+        )
+        """);
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("//test:defs.bzl%aspect_a"), "//test:main_target");
@@ -8203,39 +8897,43 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testTopLevelAspectsWithBooleanParameter_invalidValue() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _aspect_a_impl(target, ctx):",
-        "  result = ['aspect_a on target {}, p = {}'.",
-        "                                    format(target.label, ctx.attr.p)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.aspect_a_result",
-        "  return struct(aspect_a_result = result)",
-        "",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = { 'p' : attr.bool() },",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        "   attrs = { 'dep' : attr.label() },",
-        ")");
+        """
+        def _aspect_a_impl(target, ctx):
+          result = ['aspect_a on target {}, p = {}'.
+                                            format(target.label, ctx.attr.p)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep.aspect_a_result
+          return struct(aspect_a_result = result)
+
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          attr_aspects = ['dep'],
+          attrs = { 'p' : attr.bool() },
+        )
+
+        def _my_rule_impl(ctx):
+          pass
+        my_rule = rule(
+          implementation = _my_rule_impl,
+           attrs = { 'dep' : attr.label() },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'main_target',",
-        "  dep = ':dep_target_1',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_1',",
-        "  dep = ':dep_target_2',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_2',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'main_target',
+          dep = ':dep_target_1',
+        )
+        my_rule(
+          name = 'dep_target_1',
+          dep = ':dep_target_2',
+        )
+        my_rule(
+          name = 'dep_target_2',
+        )
+        """);
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -8264,39 +8962,43 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testRuleAspectWithMandatoryParameterNotProvided() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _aspect_a_impl(target, ctx):",
-        "  result = ['aspect_a on target {}, p = {}'.",
-        "                                    format(target.label, ctx.attr.p)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.aspect_a_result",
-        "  return struct(aspect_a_result = result)",
-        "",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = { 'p' : attr.string(default = 'p_v', values = ['p_v'], mandatory = True) },",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        "   attrs = { 'dep' : attr.label(aspects = [aspect_a]) },",
-        ")");
+        """
+        def _aspect_a_impl(target, ctx):
+          result = ['aspect_a on target {}, p = {}'.
+                                            format(target.label, ctx.attr.p)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep.aspect_a_result
+          return struct(aspect_a_result = result)
+
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          attr_aspects = ['dep'],
+          attrs = { 'p' : attr.string(default = 'p_v', values = ['p_v'], mandatory = True) },
+        )
+
+        def _my_rule_impl(ctx):
+          pass
+        my_rule = rule(
+          implementation = _my_rule_impl,
+           attrs = { 'dep' : attr.label(aspects = [aspect_a]) },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'main_target',",
-        "  dep = ':dep_target_1',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_1',",
-        "  dep = ':dep_target_2',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_2',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'main_target',
+          dep = ':dep_target_1',
+        )
+        my_rule(
+          name = 'dep_target_1',
+          dep = ':dep_target_2',
+        )
+        my_rule(
+          name = 'dep_target_2',
+        )
+        """);
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -8316,40 +9018,44 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testRuleAspectWithMandatoryParameterProvidedWrongType() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _aspect_a_impl(target, ctx):",
-        "  result = ['aspect_a on target {}, p = {}'.",
-        "                                    format(target.label, ctx.attr.p)]",
-        "  if ctx.rule.attr.dep:",
-        "    result += ctx.rule.attr.dep.aspect_a_result",
-        "  return struct(aspect_a_result = result)",
-        "",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = { 'p' : attr.string(default = 'p_v', values = ['p_v'], mandatory = True) },",
-        ")",
-        "",
-        "def _my_rule_impl(ctx):",
-        "  pass",
-        "my_rule = rule(",
-        "  implementation = _my_rule_impl,",
-        "   attrs = { 'dep' : attr.label(aspects = [aspect_a]),",
-        "             'p': attr.int() } ",
-        ")");
+        """
+        def _aspect_a_impl(target, ctx):
+          result = ['aspect_a on target {}, p = {}'.
+                                            format(target.label, ctx.attr.p)]
+          if ctx.rule.attr.dep:
+            result += ctx.rule.attr.dep.aspect_a_result
+          return struct(aspect_a_result = result)
+
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          attr_aspects = ['dep'],
+          attrs = { 'p' : attr.string(default = 'p_v', values = ['p_v'], mandatory = True) },
+        )
+
+        def _my_rule_impl(ctx):
+          pass
+        my_rule = rule(
+          implementation = _my_rule_impl,
+           attrs = { 'dep' : attr.label(aspects = [aspect_a]),
+                     'p': attr.int() }
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'my_rule')",
-        "my_rule(",
-        "  name = 'main_target',",
-        "  dep = ':dep_target_1',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_1',",
-        "  dep = ':dep_target_2',",
-        ")",
-        "my_rule(",
-        "  name = 'dep_target_2',",
-        ")");
+        """
+        load('//test:defs.bzl', 'my_rule')
+        my_rule(
+          name = 'main_target',
+          dep = ':dep_target_1',
+        )
+        my_rule(
+          name = 'dep_target_1',
+          dep = ':dep_target_2',
+        )
+        my_rule(
+          name = 'dep_target_2',
+        )
+        """);
     reporter.removeHandler(failFastHandler);
 
     // This call succeeds if "--keep_going" was passed, which it does in the WithKeepGoing test
@@ -8369,44 +9075,51 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testRuleAspectWithMandatoryParameter_useRuleDefault() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _aspect_a_impl(target, ctx):",
-        "  result = 'aspect_a on target {}, p = {}'.format(target.label, ctx.attr.p)",
-        "  return struct(aspect_a_result = result)",
-        "",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = { 'p' : attr.string(default = 'p_v1', values = ['p_v1', 'p_v2'],",
-        "                              mandatory = True) },",
-        ")",
-        "",
-        "def _main_rule_impl(ctx):",
-        "  if ctx.attr.dep:",
-        "    return struct(aspect_a_result = ctx.attr.dep.aspect_a_result)",
-        "  pass",
-        "main_rule = rule(",
-        "  implementation = _main_rule_impl,",
-        "  attrs = {",
-        "    'dep': attr.label(aspects = [aspect_a]),",
-        "    'p' : attr.string(default = 'p_v2'),",
-        "  },",
-        ")");
+        """
+        AspectInfo = provider()
+        def _aspect_a_impl(target, ctx):
+          result = 'aspect_a on target {}, p = {}'.format(target.label, ctx.attr.p)
+          return AspectInfo(aspect_a_result = result)
+
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          attr_aspects = ['dep'],
+          attrs = { 'p' : attr.string(default = 'p_v1', values = ['p_v1', 'p_v2'],
+                                      mandatory = True) },
+        )
+
+        RuleInfo = provider()
+        def _main_rule_impl(ctx):
+          if ctx.attr.dep:
+            return RuleInfo(aspect_a_result = ctx.attr.dep[AspectInfo].aspect_a_result)
+          pass
+        main_rule = rule(
+          implementation = _main_rule_impl,
+          attrs = {
+            'dep': attr.label(aspects = [aspect_a]),
+            'p' : attr.string(default = 'p_v2'),
+          },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'main_rule')",
-        "main_rule(",
-        "  name = 'main',",
-        "  dep = ':dep_target',",
-        ")",
-        "main_rule(",
-        "  name = 'dep_target',",
-        ")");
+        """
+        load('//test:defs.bzl', 'main_rule')
+        main_rule(
+          name = 'main',
+          dep = ':dep_target',
+        )
+        main_rule(
+          name = 'dep_target',
+        )
+        """);
 
     AnalysisResult analysisResult = update("//test:main");
 
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    String aspectAResult = (String) configuredTarget.get("aspect_a_result");
+    String aspectAResult =
+        getStarlarkProvider(configuredTarget, "RuleInfo").getValue("aspect_a_result", String.class);
     assertThat(aspectAResult).isEqualTo("aspect_a on target @//test:dep_target, p = p_v2");
   }
 
@@ -8414,46 +9127,53 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testRuleAspectWithMandatoryParameterProvided() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _aspect_a_impl(target, ctx):",
-        "  result = 'aspect_a on target {}, p = {}'.format(target.label, ctx.attr.p)",
-        "  return struct(aspect_a_result = result)",
-        "",
-        "aspect_a = aspect(",
-        "  implementation = _aspect_a_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = { 'p' : attr.string(default = 'p_v2', values = ['p_v1', 'p_v2'],",
-        "                              mandatory = True) },",
-        ")",
-        "",
-        "def _main_rule_impl(ctx):",
-        "  if ctx.attr.dep:",
-        "    return struct(aspect_a_result = ctx.attr.dep.aspect_a_result)",
-        "  pass",
-        "main_rule = rule(",
-        "  implementation = _main_rule_impl,",
-        "  attrs = {",
-        "    'dep': attr.label(aspects = [aspect_a]),",
-        "    'p' : attr.string(mandatory = True),",
-        "  },",
-        ")");
+        """
+        AspectInfo = provider()
+        def _aspect_a_impl(target, ctx):
+          result = 'aspect_a on target {}, p = {}'.format(target.label, ctx.attr.p)
+          return AspectInfo(aspect_a_result = result)
+
+        aspect_a = aspect(
+          implementation = _aspect_a_impl,
+          attr_aspects = ['dep'],
+          attrs = { 'p' : attr.string(default = 'p_v2', values = ['p_v1', 'p_v2'],
+                                      mandatory = True) },
+        )
+
+        RuleInfo = provider()
+        def _main_rule_impl(ctx):
+          if ctx.attr.dep:
+            return RuleInfo(aspect_a_result = ctx.attr.dep[AspectInfo].aspect_a_result)
+          pass
+        main_rule = rule(
+          implementation = _main_rule_impl,
+          attrs = {
+            'dep': attr.label(aspects = [aspect_a]),
+            'p' : attr.string(mandatory = True),
+          },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'main_rule')",
-        "main_rule(",
-        "  name = 'main',",
-        "  dep = ':dep_target',",
-        "  p = 'p_v1',",
-        ")",
-        "main_rule(",
-        "  name = 'dep_target',",
-        "  p = 'p_v2',",
-        ")");
+        """
+        load('//test:defs.bzl', 'main_rule')
+        main_rule(
+          name = 'main',
+          dep = ':dep_target',
+          p = 'p_v1',
+        )
+        main_rule(
+          name = 'dep_target',
+          p = 'p_v2',
+        )
+        """);
 
     AnalysisResult analysisResult = update("//test:main");
 
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    String aspectAResult = (String) configuredTarget.get("aspect_a_result");
+    String aspectAResult =
+        (String) getStarlarkProvider(configuredTarget, "RuleInfo").getValue("aspect_a_result");
     assertThat(aspectAResult).isEqualTo("aspect_a on target @//test:dep_target, p = p_v1");
   }
 
@@ -8462,19 +9182,28 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.appendFile("WORKSPACE", "workspace(name = 'my_repo')");
     scratch.file(
         "test/aspect.bzl",
-        "load(':rule.bzl', 'MyInfo')",
-        "def _impl(target, ctx):",
-        "   if MyInfo not in target:",
-        "       fail('Provider identity mismatch')",
-        "   return struct()",
-        "MyAspect = aspect(implementation=_impl)");
+        """
+        load(':rule.bzl', 'MyInfo')
+        def _impl(target, ctx):
+           if MyInfo not in target:
+               fail('Provider identity mismatch')
+           return []
+        MyAspect = aspect(implementation=_impl)
+        """);
     scratch.file(
         "test/rule.bzl",
-        "MyInfo = provider()",
-        "def _impl(ctx):",
-        "    return [MyInfo()]",
-        "my_rule = rule(implementation=_impl)");
-    scratch.file("test/BUILD", "load(':rule.bzl', 'my_rule')", "my_rule(name = 'target')");
+        """
+        MyInfo = provider()
+        def _impl(ctx):
+            return [MyInfo()]
+        my_rule = rule(implementation=_impl)
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(':rule.bzl', 'my_rule')
+        my_rule(name = 'target')
+        """);
 
     AnalysisResult result =
         update(ImmutableList.of("@my_repo//test:aspect.bzl%MyAspect"), "//test:target");
@@ -8485,78 +9214,83 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testAspectKeyCreatedOnlyOnceForSameBaseKeysInDiffOrder() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "a_provider = provider()",
-        "b_provider = provider()",
-        "c_provider = provider()",
-        "",
-        "def _a_impl(target, ctx):",
-        "  result = []",
-        "  if ctx.rule.attr.deps:",
-        "    for dep in ctx.rule.attr.deps:",
-        "      result.extend(dep[a_provider].value)",
-        "  result.append('aspect a on target {} aspect_ids {}'.format(target.label,",
-        "                                                                ctx.aspect_ids))",
-        "  return [a_provider(value = result)]",
-        "a = aspect(",
-        "  implementation = _a_impl,",
-        "  attr_aspects = ['deps'],",
-        "  required_aspect_providers = [[b_provider], [c_provider]],",
-        ")",
-        "",
-        "def _b_impl(target, ctx):",
-        "  return [b_provider(value = ['aspect b on target {}'.format(target.label)])]",
-        "b = aspect(",
-        "  implementation = _b_impl,",
-        "  attr_aspects = ['deps'],",
-        "  provides = [b_provider],",
-        ")",
-        "",
-        "def _c_impl(target, ctx):",
-        "  return [c_provider(value = ['aspect c on target {}'.format(target.label)])]",
-        "c = aspect(",
-        "  implementation = _c_impl,",
-        "  attr_aspects = ['deps'],",
-        "  provides = [c_provider]",
-        ")",
-        "",
-        "def _r1_impl(ctx):",
-        "  result = []",
-        "  if ctx.attr.deps:",
-        "    for dep in ctx.attr.deps:",
-        "      result.extend(dep[a_provider].value)",
-        "  return struct(aspect_a_collected_result = result)",
-        "r1 = rule(",
-        "  implementation = _r1_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(aspects = [c, b, a]),",
-        "  },",
-        ")",
-        "",
-        "def _r2_impl(ctx):",
-        "  pass",
-        "r2 = rule(",
-        "  implementation = _r2_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(aspects = [b]),",
-        "  },",
-        ")");
+        """
+        a_provider = provider()
+        b_provider = provider()
+        c_provider = provider()
+        RuleInfo = provider()
+
+        def _a_impl(target, ctx):
+          result = []
+          if ctx.rule.attr.deps:
+            for dep in ctx.rule.attr.deps:
+              result.extend(dep[a_provider].value)
+          result.append('aspect a on target {} aspect_ids {}'.format(target.label,
+                                                                        ctx.aspect_ids))
+          return [a_provider(value = result)]
+        a = aspect(
+          implementation = _a_impl,
+          attr_aspects = ['deps'],
+          required_aspect_providers = [[b_provider], [c_provider]],
+        )
+
+        def _b_impl(target, ctx):
+          return [b_provider(value = ['aspect b on target {}'.format(target.label)])]
+        b = aspect(
+          implementation = _b_impl,
+          attr_aspects = ['deps'],
+          provides = [b_provider],
+        )
+
+        def _c_impl(target, ctx):
+          return [c_provider(value = ['aspect c on target {}'.format(target.label)])]
+        c = aspect(
+          implementation = _c_impl,
+          attr_aspects = ['deps'],
+          provides = [c_provider]
+        )
+
+        def _r1_impl(ctx):
+          result = []
+          if ctx.attr.deps:
+            for dep in ctx.attr.deps:
+              result.extend(dep[a_provider].value)
+          return RuleInfo(aspect_a_collected_result = result)
+        r1 = rule(
+          implementation = _r1_impl,
+          attrs = {
+            'deps': attr.label_list(aspects = [c, b, a]),
+          },
+        )
+
+        def _r2_impl(ctx):
+          pass
+        r2 = rule(
+          implementation = _r2_impl,
+          attrs = {
+            'deps': attr.label_list(aspects = [b]),
+          },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'r1', 'r2')",
-        "r1(",
-        "  name = 't1',",
-        // base_keys of aspect a on t3 are [c, b]
-        "  deps = [':t2', ':t3'],",
-        ")",
-        "r2(",
-        "  name = 't2',",
-        // aspects reaching t3 will be [b, c, b, a], after deduplicating aspects path, it will be
-        // [b, c, a] and as a result the base_keys of aspect a will be [b, c]
-        "  deps = [':t3'],",
-        ")",
-        "r2(",
-        "  name = 't3',",
-        ")");
+        """
+        load('//test:defs.bzl', 'r1', 'r2')
+        r1(
+          name = 't1',
+        # base_keys of aspect a on t3 are [c, b]
+          deps = [':t2', ':t3'],
+        )
+        r2(
+          name = 't2',
+          # aspects reaching t3 will be [b, c, b, a], after deduplicating aspects path, it will be
+          # [b, c, a] and as a result the base_keys of aspect a will be [b, c]
+          deps = [':t3'],
+        )
+        r2(
+          name = 't3',
+        )
+        """);
 
     update("//test:t1");
 
@@ -8575,98 +9309,103 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testAspectRunsTwiceWithDiffBaseAspectsDeps() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "a_provider = provider()",
-        "b_provider = provider()",
-        "c_provider = provider()",
-        "",
-        "def _a_impl(target, ctx):",
-        "  result = []",
-        "  if ctx.rule.attr.deps:",
-        "    for dep in ctx.rule.attr.deps:",
-        "      result.extend(dep[a_provider].value)",
-        "  if b_provider in target:",
-        "    result.append('aspect a on {} sees b_provider = {}'.format(target.label,",
-        "                                                              target[b_provider].value))",
-        "  return [a_provider(value = result)]",
-        "a = aspect(",
-        "  implementation = _a_impl,",
-        "  attr_aspects = ['deps'],",
-        "  required_aspect_providers = [[b_provider], [c_provider]],",
-        ")",
-        "",
-        "def _b_impl(target, ctx):",
-        "  result = 'aspect b cannot see c_provider'",
-        "  if c_provider in target:",
-        "    result = 'aspect b can see c_provider'",
-        "  return [b_provider(value = result)]",
-        "b = aspect(",
-        "  implementation = _b_impl,",
-        "  attr_aspects = ['deps'],",
-        "  provides = [b_provider],",
-        "  required_aspect_providers = [[c_provider]]",
-        ")",
-        "",
-        "def _c_impl(target, ctx):",
-        "  return [c_provider(value = ['aspect c on target {}'.format(target.label)])]",
-        "c = aspect(",
-        "  implementation = _c_impl,",
-        "  attr_aspects = ['deps'],",
-        "  provides = [c_provider]",
-        ")",
-        "",
-        "def _r1_impl(ctx):",
-        "  result = []",
-        "  if ctx.attr.deps:",
-        "    for dep in ctx.attr.deps:",
-        "      result.extend(dep[a_provider].value)",
-        "  return struct(aspect_a_collected_result = result)",
-        "r1 = rule(",
-        "  implementation = _r1_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(aspects = [a]),",
-        "  },",
-        ")",
-        "",
-        "def _r2_impl(ctx):",
-        "  pass",
-        "r2 = rule(",
-        "  implementation = _r2_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(aspects = [c, b]),",
-        "  },",
-        ")",
-        "",
-        "def _r3_impl(ctx):",
-        "  pass",
-        "r3 = rule(",
-        "  implementation = _r3_impl,",
-        "  attrs = {",
-        "    'deps': attr.label_list(aspects = [b, c]),",
-        "  },",
-        ")");
+        """
+        a_provider = provider()
+        b_provider = provider()
+        c_provider = provider()
+
+        def _a_impl(target, ctx):
+          result = []
+          if ctx.rule.attr.deps:
+            for dep in ctx.rule.attr.deps:
+              result.extend(dep[a_provider].value)
+          if b_provider in target:
+            result.append('aspect a on {} sees b_provider = {}'.format(target.label,
+                                                                      target[b_provider].value))
+          return [a_provider(value = result)]
+        a = aspect(
+          implementation = _a_impl,
+          attr_aspects = ['deps'],
+          required_aspect_providers = [[b_provider], [c_provider]],
+        )
+
+        def _b_impl(target, ctx):
+          result = 'aspect b cannot see c_provider'
+          if c_provider in target:
+            result = 'aspect b can see c_provider'
+          return [b_provider(value = result)]
+        b = aspect(
+          implementation = _b_impl,
+          attr_aspects = ['deps'],
+          provides = [b_provider],
+          required_aspect_providers = [[c_provider]]
+        )
+
+        def _c_impl(target, ctx):
+          return [c_provider(value = ['aspect c on target {}'.format(target.label)])]
+        c = aspect(
+          implementation = _c_impl,
+          attr_aspects = ['deps'],
+          provides = [c_provider]
+        )
+
+        RuleInfo = provider()
+        def _r1_impl(ctx):
+          result = []
+          if ctx.attr.deps:
+            for dep in ctx.attr.deps:
+              result.extend(dep[a_provider].value)
+          return RuleInfo(aspect_a_collected_result = result)
+        r1 = rule(
+          implementation = _r1_impl,
+          attrs = {
+            'deps': attr.label_list(aspects = [a]),
+          },
+        )
+
+        def _r2_impl(ctx):
+          pass
+        r2 = rule(
+          implementation = _r2_impl,
+          attrs = {
+            'deps': attr.label_list(aspects = [c, b]),
+          },
+        )
+
+        def _r3_impl(ctx):
+          pass
+        r3 = rule(
+          implementation = _r3_impl,
+          attrs = {
+            'deps': attr.label_list(aspects = [b, c]),
+          },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'r1', 'r2', 'r3')",
-        "r1(",
-        "  name = 't1',",
-        // t1 propagate aspect (a) to targets (t2 and t3)
-        "  deps = [':t2', ':t3'],",
-        ")",
-        "r2(",
-        "  name = 't2',",
-        // t2 propagates aspects (c, b) to target t4 and aspect a is propagated from the prev level
-        // aspects path on t4 is [c, b, a], this means a can see b and b can see c
-        "  deps = [':t4'],",
-        ")",
-        "r3(",
-        "  name = 't3',",
-        // t3 propagates aspects (b, c) to target t4 and aspect a is propagated from the prev level
-        // aspects path on t4 is [b, c, a], this means a can see b but b cannot see c
-        " deps = [':t4'],",
-        ")",
-        "r1(",
-        "  name = 't4',",
-        ")");
+        """
+        load('//test:defs.bzl', 'r1', 'r2', 'r3')
+        r1(
+          name = 't1',
+          # t1 propagate aspect (a) to targets (t2 and t3)
+          deps = [':t2', ':t3'],
+        )
+        r2(
+          name = 't2',
+          # t2 propagates aspects (c, b) to target t4 and aspect a is propagated from the prev
+          # level aspects path on t4 is [c, b, a], this means a can see b and b can see c
+          deps = [':t4'],
+        )
+        r3(
+          name = 't3',
+        # t3 propagates aspects (b, c) to target t4 and aspect a is propagated from the prev level
+        # aspects path on t4 is [b, c, a], this means a can see b but b cannot see c
+         deps = [':t4'],
+        )
+        r1(
+          name = 't4',
+        )
+        """);
 
     AnalysisResult analysisResult = update("//test:t1");
 
@@ -8678,7 +9417,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     StarlarkList<?> aspectAResult =
-        (StarlarkList) configuredTarget.get("aspect_a_collected_result");
+        (StarlarkList)
+            getStarlarkProvider(configuredTarget, "RuleInfo").getValue("aspect_a_collected_result");
     assertThat(Starlark.toIterable(aspectAResult))
         .containsExactly(
             "aspect a on @//test:t4 sees b_provider = aspect b can see c_provider",
@@ -8689,25 +9429,32 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testAspectWithSameExplicitAttributeNameAsUnderlyingTarget() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _a_impl(target, ctx):",
-        "  value = 'x from aspect = {}, x from target = {}'.format(ctx.attr.x, ctx.rule.attr.x)",
-        "  return struct(aspect_result = value)",
-        "a = aspect(",
-        "  implementation = _a_impl,",
-        "  attrs = {",
-        "    'x': attr.string(default = 'xyz')",
-        "  },",
-        ")",
-        "",
-        "def _rule_impl(ctx):",
-        "  pass",
-        "r1 = rule(",
-        "  implementation = _rule_impl,",
-        "  attrs = {",
-        "    'x': attr.int(default = 4)",
-        "  },",
-        ")");
-    scratch.file("test/BUILD", "load('//test:defs.bzl', 'r1')", "r1(name = 't1')");
+        """
+        def _a_impl(target, ctx):
+          value = 'x from aspect = {}, x from target = {}'.format(ctx.attr.x, ctx.rule.attr.x)
+          return struct(aspect_result = value)
+        a = aspect(
+          implementation = _a_impl,
+          attrs = {
+            'x': attr.string(default = 'xyz')
+          },
+        )
+
+        def _rule_impl(ctx):
+          pass
+        r1 = rule(
+          implementation = _rule_impl,
+          attrs = {
+            'x': attr.int(default = 4)
+          },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:defs.bzl', 'r1')
+        r1(name = 't1')
+        """);
 
     AnalysisResult analysisResult = update(ImmutableList.of("//test:defs.bzl%a"), "//test:t1");
 
@@ -8722,34 +9469,38 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   public void testAspectNotDependOnTargetDeps() throws Exception {
     scratch.file(
         "test/defs.bzl",
-        "def _a_impl(target, ctx):",
-        "  return []",
-        "a = aspect(",
-        "  implementation = _a_impl,",
-        "  attr_aspects = ['dep'],",
-        "  attrs = {",
-        "    '_tool': attr.label(default = '//test:tool'),",
-        "  },",
-        ")",
-        "",
-        "def _rule_impl(ctx):",
-        "  pass",
-        "r1 = rule(",
-        "  implementation = _rule_impl,",
-        "  attrs = {",
-        "    'dep': attr.label(),",
-        "    'another_dep': attr.label(),",
-        "    '_tool': attr.label(default = '//test:tool'),",
-        "  },",
-        ")");
+        """
+        def _a_impl(target, ctx):
+          return []
+        a = aspect(
+          implementation = _a_impl,
+          attr_aspects = ['dep'],
+          attrs = {
+            '_tool': attr.label(default = '//test:tool'),
+          },
+        )
+
+        def _rule_impl(ctx):
+          pass
+        r1 = rule(
+          implementation = _rule_impl,
+          attrs = {
+            'dep': attr.label(),
+            'another_dep': attr.label(),
+            '_tool': attr.label(default = '//test:tool'),
+          },
+        )
+        """);
     scratch.file(
         "test/BUILD",
-        "load('//test:defs.bzl', 'r1')",
-        "r1(name = 't1', dep = ':t2', another_dep = 't4')",
-        "r1(name = 't2', dep = ':t3')",
-        "r1(name = 't3')",
-        "r1(name = 't4')",
-        "sh_library(name = 'tool')");
+        """
+        load('//test:defs.bzl', 'r1')
+        r1(name = 't1', dep = ':t2', another_dep = 't4')
+        r1(name = 't2', dep = ':t3')
+        r1(name = 't3')
+        r1(name = 't4')
+        sh_library(name = 'tool')
+        """);
 
     AnalysisResult analysisResult = update(ImmutableList.of("//test:defs.bzl%a"), "//test:t1");
 

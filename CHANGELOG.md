@@ -1,3 +1,36 @@
+## Release 8.0.0-pre.20240404.3 (2024-04-17)
+
+```
+Baseline: 609aca860a91b26da7a9a6f90c98e3a67d0b4023
+
+Cherry picks:
+
+   + babc5c3be6227447018290677c1dd0e1ea1bf6cc:
+     Remove mention of non-existent `--visionos_sdk_version` flag
+   + 6288eb92b228ee25f3a1202d26d4b1c9bc25d62a:
+     Fix capitalization of Apple platforms, Xcode, “SDK”, and
+     “OS”
+   + 0f760395e04cb0accb912be128b4f363663e8d30:
+     Fix bzl error when the Xcode isn't available remotely but others
+     are
+```
+
+This release contains contributions from many people at Google, as well as Brentley Jones, Fabian Meumertzheim.
+
+## Release 8.0.0-pre.20240401.3 (2024-04-11)
+
+```
+Baseline: 753dc9750714af581147f6aa338adeb07a9dcb57
+
+Cherry picks:
+
+   + 0f551a573d0a81704c6baba1109b055cce4e68ce:
+     Automated rollback of commit
+     781e8629c758db7ebe64325a558c8b5a3d98bed1.
+```
+
+Initial release.
+
 ## Release 7.1.1 (2024-03-21)
 
 ```

@@ -48,8 +48,17 @@ public class BazelEmbeddedStarlarkBlackBoxTest extends AbstractBlackBoxTest {
     context()
         .write(
             "main/BUILD",
-            "load(\"@bazel_tools//tools/build_defs/pkg:pkg.bzl\", \"pkg_tar\")",
-            "pkg_tar(name = \"data\", srcs = ['foo.txt', 'bar.txt'],)");
+            """
+            load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+
+            pkg_tar(
+                name = "data",
+                srcs = [
+                    "bar.txt",
+                    "foo.txt",
+                ],
+            )
+            """);
 
     BuilderRunner bazel = bazel();
     bazel.build("...");

@@ -270,10 +270,21 @@ public final class MockObjcSupport {
     if (TestConstants.TOOLS_REPOSITORY_SCRATCH.length() > 0) {
       config.create(
           "tools/objc/BUILD",
-          "package(default_visibility=['//visibility:public'])",
-          "exports_files(glob(['**']))",
-          "filegroup(name = 'default_provisioning_profile', srcs = ['foo.mobileprovision'])",
-          "filegroup(name = 'xctest_infoplist', srcs = ['xctest.plist'])");
+          """
+          package(default_visibility = ["//visibility:public"])
+
+          exports_files(glob(["**"]))
+
+          filegroup(
+              name = "default_provisioning_profile",
+              srcs = ["foo.mobileprovision"],
+          )
+
+          filegroup(
+              name = "xctest_infoplist",
+              srcs = ["xctest.plist"],
+          )
+          """);
     }
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/foo.mobileprovision", "No such luck");

@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStreamReader;
@@ -49,7 +50,7 @@ public class FlagPerLineTest extends BuildViewTestCase {
   public void initArgs() throws Exception {
     args = Args.newArgs(mutability, getStarlarkSemantics());
     args.setParamFileFormat("flag_per_line");
-    thread = new StarlarkThread(mutability, getStarlarkSemantics());
+    thread = StarlarkThread.createTransient(mutability, getStarlarkSemantics());
   }
 
   @Test
@@ -166,7 +167,10 @@ public class FlagPerLineTest extends BuildViewTestCase {
     byte[] bytes;
     try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
       ParameterFile.writeParameterFile(
-          outputStream, args.build().arguments(), args.getParameterFileType(), UTF_8);
+          outputStream,
+          args.build(() -> RepositoryMapping.ALWAYS_FALLBACK).arguments(),
+          args.getParameterFileType(),
+          UTF_8);
       bytes = outputStream.toByteArray();
     }
     try (ByteArrayInputStream inputStream = new ByteArrayInputStream(bytes);

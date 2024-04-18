@@ -119,30 +119,6 @@ def _link_multi_arch_static_library(ctx):
         output_groups = OutputGroupInfo(**output_groups),
     )
 
-# TODO(hvd): use skylib shell.quote()
-def _shell_escape(s):
-    """Shell-escape a string
-
-    Quotes a word so that it can be used, without further quoting, as an argument
-    (or part of an argument) in a shell command.
-
-    Args:
-        s: (str) the string to escape
-
-    Returns:
-        (str) the shell-escaped string
-    """
-    if not s:
-        # Empty string is a special case: needs to be quoted to ensure that it
-        # gets treated as a separate argument.
-        return "''"
-    for c in s.elems():
-        # We do this positively so as to be sure we don't inadvertently forget
-        # any unsafe characters.
-        if not c.isalnum() and c not in "@%-_+:,./":
-            return "'" + s.replace("'", "'\\''") + "'"
-    return s
-
 def _link_multi_arch_binary(
         *,
         ctx,
@@ -247,7 +223,7 @@ def _link_multi_arch_binary(
                 ctx.label.package + "/" + ctx.label.name + suffix,
                 child_config.bin_dir,
             )
-            extensions["dsym_path"] = _shell_escape(dsym_binary.path)  # dsym symbol file
+            extensions["dsym_path"] = dsym_binary.path  # dsym symbol file
             additional_outputs.append(dsym_binary)
             legacy_debug_outputs.setdefault(target_triplet.architecture, {})["dsym_binary"] = dsym_binary
 

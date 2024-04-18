@@ -231,7 +231,7 @@ public final class ScriptTest {
         StarlarkSemantics semantics = StarlarkSemantics.DEFAULT;
         Module module = Module.withPredeclared(semantics, predeclared.buildOrThrow());
         try (Mutability mu = Mutability.createAllowingShallowFreeze("test")) {
-          StarlarkThread thread = new StarlarkThread(mu, semantics);
+          StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
           thread.setThreadLocal(Reporter.class, ScriptTest::reportError);
           Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
 

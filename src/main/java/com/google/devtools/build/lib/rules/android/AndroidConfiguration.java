@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.DynamicModeConverter;
-import com.google.devtools.build.lib.rules.cpp.CppOptions.LibcTopLabelConverter;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidConfigurationApi;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
@@ -207,35 +206,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         metadataTags = {OptionMetadataTag.INTERNAL})
     public ConfigurationDistinguisher configurationDistinguisher;
 
-    // TODO(blaze-configurability): Mark this as deprecated in favor of --android_platforms.
-    @Option(
-        name = "android_crosstool_top",
-        defaultValue = "//external:android/crosstool",
-        converter = EmptyToNullLabelConverter.class,
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.CHANGES_INPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        },
-        help = "The location of the C++ compiler used for Android builds.")
-    public Label androidCrosstoolTop;
-
-    // TODO(blaze-configurability): Mark this as deprecated in favor of --android_platforms.
-    @Option(
-        name = "android_cpu",
-        defaultValue = "armeabi-v7a",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-        effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        },
-        help = "The Android target CPU.")
-    public String cpu;
-
-    // TODO(blaze-configurability): Mark this as deprecated in favor of --android_platforms.
     @Option(
         name = "android_compiler",
         defaultValue = "null",
@@ -247,20 +217,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         },
         help = "The Android target compiler.")
     public String cppCompiler;
-
-    // TODO(blaze-configurability): Mark this as deprecated in favor of the new min_sdk feature.
-    @Option(
-        name = "android_grte_top",
-        defaultValue = "null",
-        converter = LibcTopLabelConverter.class,
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {
-          OptionEffectTag.CHANGES_INPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        },
-        help = "The Android target grte_top.")
-    public Label androidLibcTopLabel;
 
     @Option(
         name = "android_dynamic_mode",
@@ -772,17 +728,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean disableNativeAndroidRules;
 
     @Option(
-        name = "incompatible_enable_android_toolchain_resolution",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help =
-            "Use toolchain resolution to select the Android SDK for android rules (Starlark and"
-                + " native)")
-    public boolean incompatibleUseToolchainResolution;
-
-    @Option(
         name = "android hwasan", // Space is so that this cannot be set on the command line
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -1098,7 +1043,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   }
 
   private final Label sdk;
-  private final String cpu;
   private final ConfigurationDistinguisher configurationDistinguisher;
   private final boolean incrementalDexing;
   private final int incrementalDexingShardsAfterProguard;
@@ -1142,13 +1086,11 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final Label legacyMainDexListGenerator;
   private final Label optimizingDexer;
   private final boolean disableInstrumentationManifestMerging;
-  private final boolean hwasan;
   private final boolean getJavaResourcesFromOptimizedJar;
 
   public AndroidConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
     Options options = buildOptions.get(Options.class);
     this.sdk = options.sdk;
-    this.cpu = options.cpu;
     this.configurationDistinguisher = options.configurationDistinguisher;
     this.incrementalDexing = options.incrementalDexing;
     this.incrementalDexingShardsAfterProguard = options.incrementalDexingShardsAfterProguard;
@@ -1201,7 +1143,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.legacyMainDexListGenerator = options.legacyMainDexListGenerator;
     this.optimizingDexer = options.optimizingDexer;
     this.disableInstrumentationManifestMerging = options.disableInstrumentationManifestMerging;
-    this.hwasan = options.hwasan;
     this.getJavaResourcesFromOptimizedJar = options.getJavaResourcesFromOptimizedJar;
 
     if (incrementalDexingShardsAfterProguard < 0) {
@@ -1217,11 +1158,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       throw new InvalidConfigurationException(
           "Java 8 library support requires --desugar_java8 to be enabled.");
     }
-  }
-
-  @Override
-  public String getCpu() {
-    return cpu;
   }
 
   @StarlarkConfigurationField(
@@ -1429,11 +1365,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean persistentMultiplexDexDesugar() {
     return persistentMultiplexDexDesugar;
-  }
-
-  @Override
-  public boolean isHwasan() {
-    return hwasan;
   }
 
   @Override

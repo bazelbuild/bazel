@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
-import com.google.devtools.build.lib.runtime.SkyfocusOptions;
+import com.google.devtools.build.lib.skyframe.SkyfocusOptions;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.List;

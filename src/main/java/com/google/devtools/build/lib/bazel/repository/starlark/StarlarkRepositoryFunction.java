@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -68,6 +67,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 
 /** A repository function to delegate work done by Starlark remote repositories. */
 public final class StarlarkRepositoryFunction extends RepositoryFunction {
@@ -199,6 +199,12 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
                       RepositoryName.createUnvalidated(rule.getName()),
                       "fetch interrupted due to memory pressure; restarting."));
           return fetch(rule, outputDirectory, directories, env, recordedInputValues, key);
+        } finally {
+          // At this point, the worker thread has definitely finished. But in some corner cases (see
+          // b/330892334), a Skyframe restart might still happen; to ensure we're not tricked into
+          // a deadlock, we clean up the worker thread and so that next time we come into fetch(),
+          // we actually restart the entire computation.
+          state.close();
         }
     }
     // TODO(wyv): use a switch expression above instead and remove this.
@@ -240,7 +246,9 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
     ImmutableSet<PathFragment> ignoredPatterns = checkNotNull(ignoredPackagesValue).getPatterns();
 
     try (Mutability mu = Mutability.create("Starlark repository")) {
-      StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
+      StarlarkThread thread =
+          StarlarkThread.create(
+              mu, starlarkSemantics, /* contextDescription= */ "", SymbolGenerator.create(key));
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
       var repoMappingRecorder = new Label.RepoMappingRecorder();
       // For repos defined in Bzlmod, record any used repo mappings in the marker file.
@@ -252,10 +260,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
         thread.setThreadLocal(Label.RepoMappingRecorder.class, repoMappingRecorder);
       }
 
-      new BazelStarlarkContext(
-              BazelStarlarkContext.Phase.LOADING, // ("fetch")
-              new SymbolGenerator<>(key))
-          .storeInThread(thread);
+      new BazelStarlarkContext(BazelStarlarkContext.Phase.LOADING).storeInThread(thread); // "fetch"
 
       StarlarkRepositoryContext starlarkRepositoryContext =
           new StarlarkRepositoryContext(

@@ -316,13 +316,11 @@ public class SkydocMain {
         ProviderInfo providerInfo = providerInfoBuild.setProviderName(envEntry.getKey()).build();
         providerInfoMap.put(envEntry.getKey(), providerInfo);
       }
-      if (envEntry.getValue() instanceof StarlarkFunction) {
-        StarlarkFunction userDefinedFunction = (StarlarkFunction) envEntry.getValue();
+      if (envEntry.getValue() instanceof StarlarkFunction userDefinedFunction) {
         userDefinedFunctionMap.put(envEntry.getKey(), userDefinedFunction);
       }
-      if (envEntry.getValue() instanceof FakeStructApi) {
+      if (envEntry.getValue() instanceof FakeStructApi namespace) {
         String namespaceName = envEntry.getKey();
-        FakeStructApi namespace = (FakeStructApi) envEntry.getValue();
         putStructFields(
             namespaceName, namespace, ruleFunctions, ruleInfoMap, userDefinedFunctionMap);
       }
@@ -357,11 +355,9 @@ public class SkydocMain {
       if (ruleFunctions.containsKey(namespace.getValue(field))) {
         ruleInfoMap.put(
             qualifiedFieldName, ruleFunctions.get(namespace.getValue(field)).getRuleInfo().build());
-      } else if (namespace.getValue(field) instanceof StarlarkFunction) {
-        StarlarkFunction userDefinedFunction = (StarlarkFunction) namespace.getValue(field);
+      } else if (namespace.getValue(field) instanceof StarlarkFunction userDefinedFunction) {
         userDefinedFunctionMap.put(qualifiedFieldName, userDefinedFunction);
-      } else if (namespace.getValue(field) instanceof FakeStructApi) {
-        FakeStructApi innerNamespace = (FakeStructApi) namespace.getValue(field);
+      } else if (namespace.getValue(field) instanceof FakeStructApi innerNamespace) {
         putStructFields(
             qualifiedFieldName, innerNamespace, ruleFunctions, ruleInfoMap, userDefinedFunctionMap);
       }
@@ -455,7 +451,7 @@ public class SkydocMain {
     // execute
     Module module = Module.withPredeclared(semantics, predeclaredSymbols);
     try (Mutability mu = Mutability.create("Skydoc")) {
-      StarlarkThread thread = new StarlarkThread(mu, semantics);
+      StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
       // We use the default print handler, which writes to stderr.
       thread.setLoader(imports::get);
       // Fake Bazel's "export" hack, by which provider symbols

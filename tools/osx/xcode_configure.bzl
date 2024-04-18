@@ -42,7 +42,7 @@ def _search_string(fullstring, prefix, suffix):
     return fullstring[result_start_index:suffix_index]
 
 def _search_sdk_output(output, sdkname):
-    """Returns the sdk version given xcodebuild stdout and an sdkname."""
+    """Returns the SDK version given xcodebuild stdout and an sdkname."""
     return _search_string(output, "(%s" % sdkname, ")")
 
 def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir, timeout):
@@ -148,7 +148,7 @@ def run_xcode_locator(repository_ctx, xcode_locator_src_label):
     if (xcrun_result.return_code != 0):
         suggestion = ""
         if "Agreeing to the Xcode/iOS license" in xcrun_result.stderr:
-            suggestion = ("(You may need to sign the xcode license." +
+            suggestion = ("(You may need to sign the Xcode license." +
                           " Try running 'sudo xcodebuild -license')")
         error_msg = (
             "Generating xcode-locator-bin failed. {suggestion} " +
@@ -178,7 +178,7 @@ def run_xcode_locator(repository_ctx, xcode_locator_src_label):
         return ([], error_msg.replace("\n", " "))
     xcode_toolchains = []
 
-    # xcode_dump is comprised of newlines with different installed xcode versions,
+    # xcode_dump is comprised of newlines with different installed Xcode versions,
     # each line of the form <version>:<comma_separated_aliases>:<developer_dir>.
     xcode_dump = xcode_locator_result.stdout
     for xcodeversion in xcode_dump.split("\n"):
@@ -278,8 +278,8 @@ def _impl(repository_ctx):
     """Implementation for the local_config_xcode repository rule.
 
     Generates a BUILD file containing a root xcode_config target named 'host_xcodes',
-    which points to an xcode_version target for each version of xcode installed on
-    the local host machine. If no versions of xcode are present on the machine
+    which points to an xcode_version target for each version of Xcode installed on
+    the local host machine. If no versions of Xcode are present on the machine
     (for instance, if this is a non-darwin OS), creates a stub target.
 
     Args:
@@ -308,7 +308,7 @@ xcode_autoconf = repository_rule(
 )
 
 def xcode_configure(xcode_locator_label, remote_xcode_label = None):
-    """Generates a repository containing host xcode version information."""
+    """Generates a repository containing host Xcode version information."""
     xcode_autoconf(
         name = "local_config_xcode",
         xcode_locator = xcode_locator_label,

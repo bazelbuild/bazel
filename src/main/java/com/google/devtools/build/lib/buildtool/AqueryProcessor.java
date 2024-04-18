@@ -14,9 +14,11 @@
 package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -45,11 +47,9 @@ import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryConsumingOutp
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler.OutputType;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.InvalidAqueryOutputFormatException;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.util.Collection;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -140,7 +140,7 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
       BuildRequest request,
       CommandEnvironment env,
       TopLevelConfigurations topLevelConfigurations,
-      Collection<SkyKey> transitiveConfigurationKeys,
+      ImmutableMap<String, BuildConfigurationValue> transitiveConfigurations,
       WalkableGraph walkableGraph) {
     ImmutableList<QueryFunction> extraFunctions =
         new ImmutableList.Builder<QueryFunction>()
@@ -158,6 +158,7 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
             env.getReporter(),
             extraFunctions,
             topLevelConfigurations,
+            transitiveConfigurations,
             mainRepoTargetParser,
             env.getPackageManager().getPackagePath(),
             () -> walkableGraph,
@@ -197,15 +198,13 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
     while (functionExpressionOptional.isPresent()) {
       FunctionExpression functionExpression = functionExpressionOptional.get();
 
-      if (functionExpression.getFunction() instanceof ActionFilterFunction) {
+      if (functionExpression.getFunction() instanceof ActionFilterFunction actionFilterFunction) {
         if (nonAqueryFilterFunctionExpression != null) {
           throw new AqueryActionFilterException(
               "aquery filter functions (inputs, outputs, mnemonic) produce actions, and therefore "
                   + "can't be the input of other function types: "
                   + nonAqueryFilterFunctionExpression.getFunction().getName());
         }
-        ActionFilterFunction actionFilterFunction =
-            (ActionFilterFunction) functionExpression.getFunction();
 
         String patternString = functionExpression.getArgs().get(0).getWord();
         try {

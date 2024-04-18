@@ -111,9 +111,7 @@ public interface FilesetTraversalParams {
       if (o == this) {
         return true;
       }
-      if (o instanceof FilesetTraversalParams.DirectTraversalRoot) {
-        FilesetTraversalParams.DirectTraversalRoot that =
-            (FilesetTraversalParams.DirectTraversalRoot) o;
+      if (o instanceof DirectTraversalRoot that) {
         return Objects.equals(this.getOutputArtifact(), that.getOutputArtifact())
             && this.getRootPart().equals(that.getRootPart())
             && this.getRelativePart().equals(that.getRelativePart());

@@ -37,11 +37,16 @@ public class SymlinkDependencyAnalysisTest extends BuildIntegrationTestCase {
   @Test
   public void testSymlinkTargetChangeCausesRebuild() throws Exception {
     Path buildFile =
-        write("symlink/BUILD",
-              "genrule(name = 'symlink',",
-              "        srcs = ['link'],",
-              "        outs = ['out'],",
-              "        cmd  = '/bin/cp $(location link) $(location out)')");
+        write(
+            "symlink/BUILD",
+            """
+            genrule(
+                name = "symlink",
+                srcs = ["link"],
+                outs = ["out"],
+                cmd = "/bin/cp $(location link) $(location out)",
+            )
+            """);
     Path target = write("symlink/target", "foo");
 
     Path link = buildFile.getParentDirectory().getChild("link");

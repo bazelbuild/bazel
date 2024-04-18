@@ -205,7 +205,9 @@ final class ParamDescriptor {
     Module module = Module.create();
     try (Mutability mu = Mutability.create("Builtin param default init")) {
       // Note that this Starlark thread ignores command line flags.
-      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      // TODO: b/326588519 - The known default parameters are all simple values. If that changes, a
+      // non-transient symbol generator would be needed here.
+      StarlarkThread thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
 
       // Disable polling of the java.lang.Thread.interrupt flag during
       // Starlark evaluation. Assuming the expression does not call a

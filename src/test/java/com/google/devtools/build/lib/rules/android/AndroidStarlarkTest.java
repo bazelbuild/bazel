@@ -176,10 +176,28 @@ public class AndroidStarlarkTest extends AndroidBuildViewTestCase {
 
     scratch.file(
         "test/starlark/BUILD",
-        "load('//test/starlark:my_rule.bzl', 'my_rule')",
-        "my_rule(name = 'test', deps = [':main1', ':main2'], dep = ':main1')",
-        "cc_binary(name = 'main1', srcs = ['main1.c'])",
-        "cc_binary(name = 'main2', srcs = ['main2.c'])");
+        """
+        load("//test/starlark:my_rule.bzl", "my_rule")
+
+        my_rule(
+            name = "test",
+            dep = ":main1",
+            deps = [
+                ":main1",
+                ":main2",
+            ],
+        )
+
+        cc_binary(
+            name = "main1",
+            srcs = ["main1.c"],
+        )
+
+        cc_binary(
+            name = "main2",
+            srcs = ["main2.c"],
+        )
+        """);
   }
 
   @Before
@@ -195,30 +213,5 @@ public class AndroidStarlarkTest extends AndroidBuildViewTestCase {
     Provider.Key key =
         new StarlarkProvider.Key(Label.parseCanonical("//myinfo:myinfo.bzl"), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
-  }
-
-  @Test
-  public void testAndroidSdkConfigurationField() throws Exception {
-    scratch.file(
-        "foo_library.bzl",
-        "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _impl(ctx):",
-        "  return MyInfo(foo = ctx.attr._android_sdk.label)",
-        "foo_library = rule(implementation = _impl,",
-        "    attrs = { '_android_sdk': attr.label(default = configuration_field(",
-        "        fragment = 'android', name = 'android_sdk_label'))},",
-        "    fragments = ['android'])");
-    scratch.file(
-        "BUILD",
-        "load('//:foo_library.bzl', 'foo_library')",
-        "filegroup(name = 'new_sdk')",
-        "foo_library(name = 'lib')");
-
-    // This test doesn't touch platforms, it directly reads the --android_sdk flag value.
-    useConfiguration("--android_sdk=//:new_sdk");
-
-    ConfiguredTarget ct = getConfiguredTarget("//:lib");
-    assertThat(getMyInfoFromTarget(ct).getValue("foo"))
-        .isEqualTo(Label.parseCanonicalUnchecked("//:new_sdk"));
   }
 }

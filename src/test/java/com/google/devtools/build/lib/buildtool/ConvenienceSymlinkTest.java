@@ -304,10 +304,21 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
 
     write(
         "path/BUILD",
-        "basic_rule(name='from_flag')",
-        "incoming_transition_rule(name='from_transition', path='set_by_transition')",
-        "incoming_unrelated_transition_rule(name='unrelated_transition', value='whatever')",
-        "outgoing_transition_rule(name='outgoing_transition')");
+        """
+        basic_rule(name = "from_flag")
+
+        incoming_transition_rule(
+            name = "from_transition",
+            path = "set_by_transition",
+        )
+
+        incoming_unrelated_transition_rule(
+            name = "unrelated_transition",
+            value = "whatever",
+        )
+
+        outgoing_transition_rule(name = "outgoing_transition")
+        """);
     BuildResult result =
         buildTarget(
             "//path:from_flag",
@@ -428,8 +439,17 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
 
     write(
         "targets/BUILD",
-        "incoming_transition_rule(name='config1', path='set_from_config1')",
-        "incoming_transition_rule(name='config2', path='set_from_config2')");
+        """
+        incoming_transition_rule(
+            name = "config1",
+            path = "set_from_config1",
+        )
+
+        incoming_transition_rule(
+            name = "config2",
+            path = "set_from_config2",
+        )
+        """);
     buildTarget("//targets:config1", "//targets:config2");
 
     // there should be nothing at any of the convenience symlinks which depend on configuration -
@@ -470,8 +490,14 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
 
     write(
         "targets/BUILD",
-        "basic_rule(name='default')",
-        "incoming_transition_rule(name='config1', path='set_from_config1')");
+        """
+        basic_rule(name = "default")
+
+        incoming_transition_rule(
+            name = "config1",
+            path = "set_from_config1",
+        )
+        """);
     buildTarget("//targets:default", "//targets:config1");
 
     assertThat(getConvenienceSymlinks())
@@ -501,8 +527,17 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
 
     write(
         "targets/BUILD",
-        "incoming_transition_rule(name='configged1', path='configured')",
-        "incoming_transition_rule(name='configged2', path='configured')");
+        """
+        incoming_transition_rule(
+            name = "configged1",
+            path = "configured",
+        )
+
+        incoming_transition_rule(
+            name = "configged2",
+            path = "configured",
+        )
+        """);
     buildTarget("//targets:configged1", "//targets:configged2");
 
     assertThat(getConvenienceSymlinks())
@@ -534,10 +569,24 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
 
     write(
         "targets/BUILD",
-        "outgoing_transition_rule(name='configged1', deps=[':alternate1'])",
-        "outgoing_transition_rule(name='configged2', deps=[':alternate2'])",
-        "basic_rule(name='alternate1')",
-        "incoming_transition_rule(name='alternate2', path='alternate_transition')");
+        """
+        outgoing_transition_rule(
+            name = "configged1",
+            deps = [":alternate1"],
+        )
+
+        outgoing_transition_rule(
+            name = "configged2",
+            deps = [":alternate2"],
+        )
+
+        basic_rule(name = "alternate1")
+
+        incoming_transition_rule(
+            name = "alternate2",
+            path = "alternate_transition",
+        )
+        """);
     buildTarget("//targets:configged1", "//targets:configged2");
 
     assertThat(getConvenienceSymlinks())
@@ -571,9 +620,19 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
 
     write(
         "targets/BUILD",
-        "basic_rule(name='from_flag')",
-        "incoming_unrelated_transition_rule(name='configged1', value='one_transition')",
-        "incoming_unrelated_transition_rule(name='configged2', value='alternate_transition')");
+        """
+        basic_rule(name = "from_flag")
+
+        incoming_unrelated_transition_rule(
+            name = "configged1",
+            value = "one_transition",
+        )
+
+        incoming_unrelated_transition_rule(
+            name = "configged2",
+            value = "alternate_transition",
+        )
+        """);
     buildTarget("//targets:from_flag", "//targets:configged1", "//targets:configged2");
 
     assertThat(getConvenienceSymlinks())
@@ -604,9 +663,13 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
 
     write(
         "targets/BUILD",
-        "exports_files(['null'])",
-        "basic_rule(name='configured1')",
-        "basic_rule(name='configured2')");
+        """
+        exports_files(["null"])
+
+        basic_rule(name = "configured1")
+
+        basic_rule(name = "configured2")
+        """);
     write("targets/null", "This is just a test file to pretend to build.");
     buildTarget("//targets:null", "//targets:configured1", "//targets:configured2");
 

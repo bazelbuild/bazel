@@ -176,7 +176,7 @@ public class CoreLibraryDesugar {
       Path desugaredLibConfig)
       throws CompilationFailedException, IOException {
     checkArgument(!Files.isDirectory(input), "Input must be a jar (%s is a directory)", input);
-    DependencyCollector dependencyCollector = DependencyCollector.NoWriteCollectors.FAIL_ON_MISSING;
+    DependencyCollector dependencyCollector = NoWriteCollectors.FAIL_ON_MISSING;
     OutputConsumer consumer =
         new OutputConsumer(output, dependencyCollector, input, EXCLUDE_PATH_ENTRIES);
     L8Command.Builder builder =

@@ -70,12 +70,40 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
   public void protoToolchain() throws Exception {
     scratch.file(
         "third_party/x/BUILD",
-        "licenses(['unencumbered'])",
-        "cc_binary(name = 'plugin', srcs = ['plugin.cc'])",
-        "cc_library(name = 'runtime', srcs = ['runtime.cc'])",
-        "filegroup(name = 'descriptors', srcs = ['metadata.proto', 'descriptor.proto'])",
-        "filegroup(name = 'any', srcs = ['any.proto'])",
-        "proto_library(name = 'denied', srcs = [':descriptors', ':any'])");
+        """
+        licenses(["unencumbered"])
+
+        cc_binary(
+            name = "plugin",
+            srcs = ["plugin.cc"],
+        )
+
+        cc_library(
+            name = "runtime",
+            srcs = ["runtime.cc"],
+        )
+
+        filegroup(
+            name = "descriptors",
+            srcs = [
+                "descriptor.proto",
+                "metadata.proto",
+            ],
+        )
+
+        filegroup(
+            name = "any",
+            srcs = ["any.proto"],
+        )
+
+        proto_library(
+            name = "denied",
+            srcs = [
+                ":any",
+                ":descriptors",
+            ],
+        )
+        """);
 
     scratch.file(
         "foo/BUILD",
@@ -104,12 +132,40 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
     setBuildLanguageOptions("--incompatible_enable_proto_toolchain_resolution");
     scratch.file(
         "third_party/x/BUILD",
-        "licenses(['unencumbered'])",
-        "cc_binary(name = 'plugin', srcs = ['plugin.cc'])",
-        "cc_library(name = 'runtime', srcs = ['runtime.cc'])",
-        "filegroup(name = 'descriptors', srcs = ['metadata.proto', 'descriptor.proto'])",
-        "filegroup(name = 'any', srcs = ['any.proto'])",
-        "proto_library(name = 'denied', srcs = [':descriptors', ':any'])");
+        """
+        licenses(["unencumbered"])
+
+        cc_binary(
+            name = "plugin",
+            srcs = ["plugin.cc"],
+        )
+
+        cc_library(
+            name = "runtime",
+            srcs = ["runtime.cc"],
+        )
+
+        filegroup(
+            name = "descriptors",
+            srcs = [
+                "descriptor.proto",
+                "metadata.proto",
+            ],
+        )
+
+        filegroup(
+            name = "any",
+            srcs = ["any.proto"],
+        )
+
+        proto_library(
+            name = "denied",
+            srcs = [
+                ":any",
+                ":descriptors",
+            ],
+        )
+        """);
     scratch.file(
         "foo/BUILD",
         TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
@@ -219,14 +275,17 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
   public void protoLangToolchainProvider_deserialization() throws Exception {
     scratch.file(
         "foo/BUILD",
-        "cc_binary(",
-        "    name = 'plugin',",
-        "    srcs = ['plugin.cc'],",
-        ")",
-        "cc_binary(",
-        "    name = 'runtime',",
-        "    srcs = ['runtime.cc'],",
-        ")");
+        """
+        cc_binary(
+            name = "plugin",
+            srcs = ["plugin.cc"],
+        )
+
+        cc_binary(
+            name = "runtime",
+            srcs = ["runtime.cc"],
+        )
+        """);
     FilesToRunProvider plugin =
         getConfiguredTarget("//foo:plugin").getProvider(FilesToRunProvider.class);
     TransitiveInfoCollection runtime = getConfiguredTarget("//foo:runtime");
