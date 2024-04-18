@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -475,7 +476,7 @@ public class ModuleFileFunction implements SkyFunction {
     }
 
     List<RegistryKey> registryKeys =
-        registries.stream().map(RegistryKey::create).collect(ImmutableList.toImmutableList());
+        registries.stream().map(RegistryKey::create).collect(toImmutableList());
     var registryResult = env.getValuesAndExceptions(registryKeys);
     if (env.valuesMissing()) {
       return null;
@@ -484,7 +485,7 @@ public class ModuleFileFunction implements SkyFunction {
         registryKeys.stream()
             .map(registryResult::get)
             .map(Registry.class::cast)
-            .collect(ImmutableList.toImmutableList());
+            .collect(toImmutableList());
 
     // Now go through the list of registries and use the first one that contains the requested
     // module.
