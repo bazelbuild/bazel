@@ -1187,128 +1187,147 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testSymbolicMacro_duplicateMacroNames() throws Exception {
+  public void testSymbolicMacro_duplicateMacroNamesDisallowed() throws Exception {
     defineMacroBzl();
     expectEvalError(
         "macro 'foo' conflicts with existing macro",
-        "load(':my_macro.bzl', 'my_macro')",
-        "my_macro(name = 'foo')",
-        "my_macro(name = 'foo')");
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        my_macro(name = "foo")
+        """);
   }
 
   @Test
-  public void testSymbolicMacro_ruleConflictsWithMacro() throws Exception {
+  public void testSymbolicMacro_macroAndRuleMayShareName_macroDeclareddFirst() throws Exception {
     defineMacroBzl();
-    expectEvalError(
-        "cc_library rule 'foo' conflicts with existing macro",
-        "load(':my_macro.bzl', 'my_macro')",
-        "my_macro(name = 'foo')",
-        "cc_library(name = 'foo')");
+    expectEvalSuccess(
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        cc_library(name = "foo")
+        """);
   }
 
   @Test
-  public void testSymbolicMacro_macroConflictsWithRule() throws Exception {
+  public void testSymbolicMacro_macroAndRuleMayShareName_ruleDeclaredFirst() throws Exception {
     defineMacroBzl();
-    expectEvalError(
-        "macro 'foo' conflicts with existing cc_library rule",
-        "load(':my_macro.bzl', 'my_macro')",
-        "cc_library(name = 'foo')",
-        "my_macro(name = 'foo')");
+    expectEvalSuccess(
+        """
+        load(":my_macro.bzl", "my_macro")
+        cc_library(name = "foo")
+        my_macro(name = "foo")
+        """);
   }
 
   @Test
-  public void testSymbolicMacro_outputConflictsWithMacro() throws Exception {
+  public void testSymbolicMacro_macroAndOutputMayShareName_macroDeclaredFirst() throws Exception {
     defineMacroBzl();
-    expectEvalError(
-        "generated file 'foo' in rule 'gen' conflicts with existing macro",
-        "load(':my_macro.bzl', 'my_macro')",
-        "my_macro(name = 'foo')",
-        "genrule(name = 'gen', outs = ['foo'], cmd = '')");
+    expectEvalSuccess(
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        genrule(name = "gen", outs = ["foo"], cmd = "")
+        """);
   }
 
   @Test
-  public void testSymbolicMacro_macroConflictsWithOutput() throws Exception {
+  public void testSymbolicMacro_macroAndOutputMayShareName_outputDeclaredFirst() throws Exception {
     defineMacroBzl();
-    expectEvalError(
-        "macro 'foo' conflicts with existing generated file from rule 'gen'",
-        "load(':my_macro.bzl', 'my_macro')",
-        "genrule(name = 'gen', outs = ['foo'], cmd = '')",
-        "my_macro(name = 'foo')");
+    expectEvalSuccess(
+        """
+        load(":my_macro.bzl", "my_macro")
+        genrule(name = "gen", outs = ["foo"], cmd = "")
+        my_macro(name = "foo")
+        """);
   }
 
   @Test
   public void testSymbolicMacro_macroMayCollideWithPrefixOfOutput() throws Exception {
-    // TODO(bazel-team): This test case verifies an existing but possibly undesirable behavior.
-    // Currently we only prevent output file prefixes from colliding with other output files, and
-    // don't check if they collide with other types of targets. If we become more restrictive in the
-    // future, we should also ensure they can't collide with macros.
+    // TODO(#19922): Currently we only prevent output file prefixes from colliding with other output
+    // files, and don't check if they collide with other types of targets. If we become more
+    // restrictive in the future, and to the extent we restrict collisions between macro names and
+    // target names (i.e., exclusive prefixes), we should also ensure output prefixes can't collide
+    // with macros.
     defineMacroBzl();
     expectEvalSuccess(
-        "load(':my_macro.bzl', 'my_macro')",
-        "my_macro(name = 'foo')",
-        "genrule(name = 'gen', outs = ['foo/bar'], cmd = '')");
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        genrule(name = "gen", outs = ["foo/bar"], cmd = "")
+        """);
   }
 
   @Test
-  public void testSymbolicMacro_environmentGroupConflictsWithMacro() throws Exception {
+  public void testSymbolicMacro_macroAndEnvironmentGroupMayShareName_macroDeclaredFirst()
+      throws Exception {
     defineMacroBzl();
-    expectEvalError(
-        "environment group 'foo' conflicts with existing macro",
-        "load(':my_macro.bzl', 'my_macro')",
-        "my_macro(name = 'foo')",
-        "environment(name = 'env')",
-        "environment_group(name='foo', environments = [':env'], defaults = [':env'])");
+    expectEvalSuccess(
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        environment(name = "env")
+        environment_group(name="foo", environments = [":env"], defaults = [":env"])
+        """);
   }
 
   @Test
-  public void testSymbolicMacro_macroConflictsWithEnvironmentGroup() throws Exception {
+  public void testSymbolicMacro_macroAndEnvironmentGroupMayShareName_environmentGroupDeclaredFirst()
+      throws Exception {
     defineMacroBzl();
-    expectEvalError(
-        "macro 'foo' conflicts with existing environment group",
-        "load(':my_macro.bzl', 'my_macro')",
-        "environment(name = 'env')",
-        "environment_group(name='foo', environments = [':env'], defaults = [':env'])",
-        "my_macro(name = 'foo')");
+    expectEvalSuccess(
+        """
+        load(":my_macro.bzl", "my_macro")
+        environment(name = "env")
+        environment_group(name="foo", environments = [":env"], defaults = [":env"])
+        my_macro(name = "foo")
+        """);
   }
 
   @Test
-  public void testSymbolicMacro_packageGroupConflictsWithMacro() throws Exception {
+  public void testSymbolicMacro_macroAndPackageGroupMayShareName_macroDeclaredFirst()
+      throws Exception {
     defineMacroBzl();
-    expectEvalError(
-        "package group 'foo' conflicts with existing macro",
-        "load(':my_macro.bzl', 'my_macro')",
-        "my_macro(name = 'foo')",
-        "package_group(name = 'foo')");
+    expectEvalSuccess(
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        package_group(name = "foo")
+        """);
   }
 
   @Test
-  public void testSymbolicMacro_macroConflictsWithPackageGroup() throws Exception {
+  public void testSymbolicMacro_macroAndPackageGroupMayShareName_packageGroupDeclaredFirst()
+      throws Exception {
     defineMacroBzl();
-    expectEvalError(
-        "macro 'foo' conflicts with existing package group",
-        "load(':my_macro.bzl', 'my_macro')",
-        "package_group(name = 'foo')",
-        "my_macro(name = 'foo')");
+    expectEvalSuccess(
+        """
+        load(":my_macro.bzl", "my_macro")
+        package_group(name = "foo")
+        my_macro(name = "foo")
+        """);
   }
 
   @Test
-  public void testSymbolicMacro_inputConflictsWithMacro() throws Exception {
+  public void testSymbolicMacro_macroAndInputMayShareName_macroDeclaredFirst() throws Exception {
     defineMacroBzl();
-    expectEvalError(
-        "source file 'foo' conflicts with existing macro",
-        "load(':my_macro.bzl', 'my_macro')",
-        "my_macro(name = 'foo')",
-        "exports_files(['foo'])");
+    expectEvalSuccess(
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        exports_files(["foo"])
+        """);
   }
 
   @Test
-  public void testSymbolicMacro_macroConflictsWithInput() throws Exception {
+  public void testSymbolicMacro_macroAndInputMayShareName_inputDeclaredFirst() throws Exception {
     defineMacroBzl();
-    expectEvalError(
-        "macro 'foo' conflicts with existing source file",
-        "load(':my_macro.bzl', 'my_macro')",
-        "exports_files(['foo'])",
-        "my_macro(name = 'foo')");
+    expectEvalSuccess(
+        """
+        load(":my_macro.bzl", "my_macro")
+        exports_files(["foo"])
+        my_macro(name = "foo")
+        """);
   }
 
   @Test
@@ -1317,11 +1336,11 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "pkg/BUILD",
         """
-        load(':my_macro.bzl', 'my_macro')
-        my_macro(name = 'foo')
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
         cc_library(
-            name = 'lib',
-            srcs = ['foo', 'bar'],
+            name = "lib",
+            srcs = ["foo", "bar"],
         )
         """);
     Package pkg = loadPackage("pkg");

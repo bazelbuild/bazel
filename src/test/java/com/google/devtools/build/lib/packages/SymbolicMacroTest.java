@@ -457,6 +457,32 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     assertContainsEvent("Error in append: trying to mutate a frozen list value");
   }
 
+  @Test
+  public void macroCanDefineMainTargetOfSameName() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name):
+            native.cc_library(
+                name = name,
+            )
+        my_macro = macro(implementation=_impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(
+            name = "abc",
+        )
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    assertThat(pkg.getTargets()).containsKey("abc");
+    assertThat(pkg.getMacros()).containsKey("abc");
+  }
+
   // TODO: #19922 - Add more test cases for interaction between macros and environment_group,
   // package_group, implicit/explicit input files, and the package() function. But all of these
   // behaviors are about to change (from allowed to prohibited).
