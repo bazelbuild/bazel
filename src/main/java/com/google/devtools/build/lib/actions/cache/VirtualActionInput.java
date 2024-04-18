@@ -24,6 +24,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * An ActionInput that does not actually exist on the filesystem, but can still be written to an
@@ -36,42 +37,49 @@ public abstract class VirtualActionInput implements ActionInput, StreamWriter {
    */
   public static final VirtualActionInput EMPTY_MARKER = new EmptyActionInput();
 
+  /** The next unique filename suffix to use when writing to a temporary path. */
+  private static final AtomicInteger TMP_SUFFIX = new AtomicInteger(0);
+
   /**
-   * Writes a virtual input file so that the final file is always consistent to all readers.
+   * Writes a {@link VirtualActionInput} so that no reader can observe an incomplete file, even in
+   * the presence of concurrent writers.
    *
-   * <p>This function exists to aid dynamic scheduling. Param files are inputs, so they need to be
-   * written without holding the output lock. When we have competing unsandboxed spawn runners (like
-   * persistent workers), it's possible for them to clash in these writes, either encountering
-   * missing file errors or encountering incomplete data. But given that we can assume both spawn
-   * runners will write the same contents, we can write those as temporary files and then perform a
-   * rename, which has atomic semantics on Unix, and thus keep all readers always seeing consistent
-   * contents. This may cause a race condition on Windows.
+   * <p>Concurrent attempts to write the same file are possible when two actions share the same
+   * input, or when a single action is dynamically executed and the input is simultaneously created
+   * by the local and remote branches.
+   *
+   * <p>This implementation works by first creating a temporary file with a unique name and then
+   * renaming it into place, relying on the atomicity of {@link FileSystem#renameTo} (which is
+   * guaranteed for Unix filesystems, but possibly not for Windows). Subclasses may provide a more
+   * efficient implementation.
    *
    * @param execRoot the path that this input should be written inside, typically the execroot
-   * @param uniqueSuffix a filename extension that is different between the local spawn runners and
-   *     the remote ones
    * @return digest of written virtual input
    * @throws IOException if we fail to write the virtual input file
    */
   @CanIgnoreReturnValue
-  public byte[] atomicallyWriteRelativeTo(Path execRoot, String uniqueSuffix) throws IOException {
+  public byte[] atomicallyWriteRelativeTo(Path execRoot) throws IOException {
     Path outputPath = execRoot.getRelative(getExecPath());
-    return atomicallyWriteTo(outputPath, uniqueSuffix);
+    return atomicallyWriteTo(outputPath);
   }
 
   /**
-   * Like {@link #atomicallyWriteRelativeTo(Path, String)}, but takes the full path that the input
-   * should be written to.
+   * Like {@link #atomicallyWriteRelativeTo(Path)}, but takes the full path that the input should be
+   * written to.
    */
   @CanIgnoreReturnValue
-  protected byte[] atomicallyWriteTo(Path outputPath, String uniqueSuffix) throws IOException {
-    Path tmpPath = outputPath.getFileSystem().getPath(outputPath.getPathString() + uniqueSuffix);
+  protected byte[] atomicallyWriteTo(Path outputPath) throws IOException {
+    Path tmpPath =
+        outputPath
+            .getFileSystem()
+            .getPath(
+                outputPath.getPathString()
+                    + ".tmp."
+                    + Integer.toUnsignedString(TMP_SUFFIX.getAndIncrement()));
     tmpPath.getParentDirectory().createDirectoryAndParents();
     tmpPath.delete();
     try {
       byte[] digest = writeTo(tmpPath);
-      // We expect the following to replace the params file atomically in case we are using
-      // the dynamic scheduler and we are racing the remote strategy writing this same file.
       tmpPath.renameTo(outputPath);
       tmpPath = null; // Avoid unnecessary deletion attempt.
       return digest;
@@ -151,12 +159,12 @@ public abstract class VirtualActionInput implements ActionInput, StreamWriter {
     }
 
     @Override
-    public byte[] atomicallyWriteRelativeTo(Path execRoot, String uniqueSuffix) {
+    public byte[] atomicallyWriteRelativeTo(Path execRoot) {
       return emptyDigest;
     }
 
     @Override
-    protected byte[] atomicallyWriteTo(Path outputPath, String uniqueSuffix) {
+    protected byte[] atomicallyWriteTo(Path outputPath) {
       return emptyDigest;
     }
 

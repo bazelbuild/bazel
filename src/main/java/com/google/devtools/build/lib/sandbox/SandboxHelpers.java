@@ -63,7 +63,6 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
 /**
@@ -78,8 +77,6 @@ public final class SandboxHelpers {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final AtomicBoolean warnedAboutMovesBeingCopies = new AtomicBoolean(false);
-
-  private static final AtomicInteger tempFileUniquifierForVirtualInputWrites = new AtomicInteger();
 
   /**
    * Moves all given outputs from a root to another.
@@ -558,16 +555,7 @@ public final class SandboxHelpers {
       PathFragment pathFragment = e.getKey();
       ActionInput actionInput = e.getValue();
       if (actionInput instanceof VirtualActionInput input) {
-        // TODO(larsrc): Figure out which VAIs actually require atomicity, maybe avoid it.
-        byte[] digest =
-            input.atomicallyWriteRelativeTo(
-                execRootPath,
-                // When 2 actions try to atomically create the same virtual input, they need to have
-                // a different suffix for the temporary file in order to avoid racy write to the
-                // same one.
-                "_sandbox"
-                    + tempFileUniquifierForVirtualInputWrites.incrementAndGet()
-                    + ".virtualinputlock");
+        byte[] digest = input.atomicallyWriteRelativeTo(execRootPath);
         virtualInputs.put(input, digest);
       }
 

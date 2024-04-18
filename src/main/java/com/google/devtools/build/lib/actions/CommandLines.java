@@ -242,9 +242,9 @@ public abstract class CommandLines {
 
     @Override
     @CanIgnoreReturnValue
-    public byte[] atomicallyWriteTo(Path outputPath, String uniqueSuffix) throws IOException {
+    public byte[] atomicallyWriteTo(Path outputPath) throws IOException {
       // This is needed for internal path wrangling reasons :(
-      return super.atomicallyWriteTo(outputPath, uniqueSuffix);
+      return super.atomicallyWriteTo(outputPath);
     }
 
     @Override

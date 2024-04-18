@@ -65,7 +65,6 @@ import com.google.errorprone.annotations.FormatString;
 import java.io.File;
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.time.Duration;
 import java.time.Instant;
@@ -355,17 +354,7 @@ public class LocalSpawnRunner implements SpawnRunner {
 
       for (ActionInput input : spawn.getInputFiles().toList()) {
         if (input instanceof VirtualActionInput virtualActionInput) {
-          Path outputPath = execRoot.getRelative(virtualActionInput.getExecPath());
-          if (outputPath.exists()) {
-            outputPath.delete();
-          }
-          outputPath.getParentDirectory().createDirectoryAndParents();
-          try (OutputStream outputStream = outputPath.getOutputStream()) {
-            virtualActionInput.writeTo(outputStream);
-          }
-          // Some of the virtual inputs are tools run as part of the execution, hence we need to set
-          // executable flag.
-          outputPath.setExecutable(true);
+          virtualActionInput.atomicallyWriteRelativeTo(execRoot);
         } else if ((input instanceof Artifact) && ((Artifact) input).isMiddlemanArtifact()) {
           runfilesTrees.add(
               context.getInputMetadataProvider().getRunfilesMetadata(input).getRunfilesTree());

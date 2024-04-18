@@ -74,7 +74,7 @@ public class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
 
   @Override
   protected void prefetchVirtualActionInput(VirtualActionInput input) throws IOException {
-    input.atomicallyWriteRelativeTo(execRoot, ".fetcher");
+    input.atomicallyWriteRelativeTo(execRoot);
   }
 
   @Override

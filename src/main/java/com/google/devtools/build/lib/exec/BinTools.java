@@ -188,14 +188,17 @@ public final class BinTools {
 
     @Override
     @CanIgnoreReturnValue
-    protected byte[] atomicallyWriteTo(Path outputPath, String uniqueSuffix) throws IOException {
+    protected byte[] atomicallyWriteTo(Path outputPath) throws IOException {
       // The embedded tools do not change, but we need to be sure they're written out without race
-      // conditions.
+      // conditions. We rely on the fact that no two {@link PathActionInput} instances refer to the
+      // same file to use in-memory synchronization and avoid writing to a temporary file first.
       if (digest == null || !outputPath.exists()) {
         synchronized (this) {
           if (digest == null || !outputPath.exists()) {
             outputPath.getParentDirectory().createDirectoryAndParents();
             digest = writeTo(outputPath);
+            // Some of the embedded tools are executable.
+            outputPath.setExecutable(true);
           }
         }
       }

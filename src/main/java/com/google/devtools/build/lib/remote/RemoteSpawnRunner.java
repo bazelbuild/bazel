@@ -504,7 +504,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     }
     for (ActionInput actionInput : spawn.getInputFiles().toList()) {
       if (actionInput instanceof ParamFileActionInput paramFileActionInput) {
-        paramFileActionInput.atomicallyWriteRelativeTo(execRoot, ".remote");
+        paramFileActionInput.atomicallyWriteRelativeTo(execRoot);
       }
     }
   }
