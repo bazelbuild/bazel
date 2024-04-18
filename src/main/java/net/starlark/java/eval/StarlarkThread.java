@@ -445,17 +445,6 @@ public final class StarlarkThread {
   }
 
   /**
-   * Constructs a StarlarkThread.
-   *
-   * @deprecated use one of the factory methods instead
-   */
-  @SuppressWarnings("InlineMeSuggester")
-  @Deprecated
-  public StarlarkThread(Mutability mu, StarlarkSemantics semantics) {
-    this(mu, semantics, /* contextDescription= */ "", SymbolGenerator.createTransient());
-  }
-
-  /**
    * Specifies a hook function to be run after each assignment at top level.
    *
    * <p>This is a short-term hack to allow us to consolidate all StarlarkFile execution in one place
