@@ -127,6 +127,7 @@ import net.starlark.java.syntax.Location;
 
 /** A helper class to provide an easier API for Starlark rule definitions. */
 public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
+
   // A cache for base rule classes (especially tests).
   private static final LoadingCache<String, Label> labelCache =
       Caffeine.newBuilder().build(Label::parseCanonical);
@@ -316,7 +317,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   }
 
   @Override
-  public StarlarkCallable macro(StarlarkFunction implementation, Object doc, StarlarkThread thread)
+  public StarlarkCallable macro(
+      StarlarkFunction implementation, Dict<?, ?> attrs, Object doc, StarlarkThread thread)
       throws EvalException {
     // Ordinarily we would use StarlarkMethod#enableOnlyWithFlag, but this doesn't work for
     // top-level symbols (due to StarlarkGlobalsImpl relying on the Starlark#addMethods overload
@@ -328,6 +330,26 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     }
 
     MacroClass.Builder builder = new MacroClass.Builder(implementation);
+    builder.addAttribute(RuleClass.NAME_ATTRIBUTE);
+    for (Map.Entry<String, Descriptor> descriptorEntry :
+        Dict.cast(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
+      String attrName = descriptorEntry.getKey();
+      Descriptor descriptor = descriptorEntry.getValue();
+
+      if (MacroClass.RESERVED_MACRO_ATTR_NAMES.contains(attrName)) {
+        throw Starlark.errorf("Cannot declare a macro attribute named '%s'", attrName);
+      }
+
+      if (!descriptor.getValueSource().equals(AttributeValueSource.DIRECT)) {
+        throw Starlark.errorf(
+            "In macro attribute '%s': Macros do not support computed defaults or late-bound"
+                + " defaults",
+            attrName);
+      }
+
+      Attribute attr = descriptor.build(attrName);
+      builder.addAttribute(attr);
+    }
     return new MacroFunction(
         builder, Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString));
   }
@@ -1084,22 +1106,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         throw Starlark.errorf("unexpected positional arguments");
       }
 
-      Object nameUnchecked = kwargs.get("name");
-      if (nameUnchecked == null) {
-        throw Starlark.errorf("macro requires a `name` attribute");
-      }
-      if (!(nameUnchecked instanceof String instanceName)) {
-        throw Starlark.errorf(
-            "Expected a String for attribute 'name'; got %s",
-            nameUnchecked.getClass().getSimpleName());
-      }
-
-      MacroInstance macroInstance = new MacroInstance(macroClass, instanceName);
-      try {
-        pkgBuilder.addMacro(macroInstance);
-      } catch (NameConflictException e) {
-        throw new EvalException(e);
-      }
+      MacroInstance macroInstance = macroClass.instantiateAndAddMacro(pkgBuilder, kwargs);
 
       // TODO: #19922 - Instead of evaluating macros synchronously with their declaration, evaluate
       // them lazily as the targets they declare are requested. But this would mean that targets

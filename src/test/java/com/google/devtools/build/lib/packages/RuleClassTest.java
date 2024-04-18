@@ -538,18 +538,17 @@ public final class RuleClassTest extends PackageLoadingTestCase {
     Rule rule = createRule(ruleClassA, TEST_RULE_NAME, attributeValues);
 
     // TODO(blaze-team): (2009) refactor to use assertContainsEvent
-    Iterator<String> expectedMessages = Arrays.asList(
-        "expected value of type 'list(label)' for attribute 'my-labellist-attr' "
-        + "in 'ruleA' rule, but got \"foobar\" (string)",
-        "no such attribute 'bogus-attr' in 'ruleA' rule",
-        "missing value for mandatory "
-        + "attribute 'my-string-attr' in 'ruleA' rule",
-        "missing value for mandatory attribute 'my-label-attr' in 'ruleA' rule",
-        "missing value for mandatory "
-        + "attribute 'my-labellist-attr' in 'ruleA' rule",
-        "missing value for mandatory "
-        + "attribute 'my-string-attr2' in 'ruleA' rule"
-    ).iterator();
+    Iterator<String> expectedMessages =
+        Arrays.asList(
+                """
+                expected value of type 'list(label)' for attribute 'my-labellist-attr' \
+                of 'ruleA', but got \"foobar\" (string)""",
+                "no such attribute 'bogus-attr' in 'ruleA' rule",
+                "missing value for mandatory attribute 'my-string-attr' in 'ruleA' rule",
+                "missing value for mandatory attribute 'my-label-attr' in 'ruleA' rule",
+                "missing value for mandatory attribute 'my-labellist-attr' in 'ruleA' rule",
+                "missing value for mandatory attribute 'my-string-attr2' in 'ruleA' rule")
+            .iterator();
 
     for (Event event : collector) {
       assertThat(event.getLocation().line()).isEqualTo(TEST_RULE_DEFINED_AT_LINE);

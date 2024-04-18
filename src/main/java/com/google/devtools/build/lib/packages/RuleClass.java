@@ -122,8 +122,8 @@ import net.starlark.java.spelling.SpellChecker;
 @Immutable
 public class RuleClass implements RuleClassData {
 
-  /** The name attribute, present for all rules at index 0. */
-  static final Attribute NAME_ATTRIBUTE =
+  /** The name attribute, present for all rules at index 0. Also defined for all symbolic macros. */
+  public static final Attribute NAME_ATTRIBUTE =
       attr("name", STRING_NO_INTERN)
           .nonconfigurable("All rules have a non-customizable \"name\" attribute")
           .mandatory()

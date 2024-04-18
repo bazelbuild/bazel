@@ -266,6 +266,9 @@ public final class BuildType {
   /**
    * Copies a Starlark value to immutable ones and converts label strings to Label objects.
    *
+   * <p>{@code attrOwner} is the name of the rule or macro on which the attribute is defined, e.g.
+   * "cc_library".
+   *
    * <p>All Starlark values are also type checked.
    *
    * <p>In comparison to {@link #convertFromBuildLangType} unordered attributes are not
@@ -278,7 +281,7 @@ public final class BuildType {
    *     false}.
    */
   public static Object copyAndLiftStarlarkValue(
-      String ruleClass, Attribute attr, Object starlarkValue, LabelConverter labelConverter)
+      String attrOwner, Attribute attr, Object starlarkValue, LabelConverter labelConverter)
       throws ConversionException {
     if (starlarkValue instanceof com.google.devtools.build.lib.packages.SelectorList) {
       if (!attr.isConfigurable()) {
@@ -288,35 +291,41 @@ public final class BuildType {
       return copyAndLiftSelectorList(
           attr.getType(),
           (com.google.devtools.build.lib.packages.SelectorList) starlarkValue,
-          new AttributeConversionContext(attr.getName(), ruleClass),
+          new AttributeConversionContext(attr.getName(), attrOwner),
           labelConverter);
     } else {
       return attr.getType()
           .copyAndLiftStarlarkValue(
               starlarkValue,
-              new AttributeConversionContext(attr.getName(), ruleClass),
+              new AttributeConversionContext(attr.getName(), attrOwner),
               labelConverter);
     }
   }
 
   /**
-   * Provides a {@link #toString()} description of the attribute being converted for {@link
-   * BuildType#selectableConvert}. This is preferred over a raw string to avoid uselessly
-   * constructing strings which are never used. A separate class instead of inline to avoid
-   * accidental memory leaks.
+   * A pair of an attribute name and owner, with a toString that includes both.
+   *
+   * <p>This is used to defer stringifying this information until needed for an error message, so as
+   * to avoid generating unnecessary garbage.
    */
   private static class AttributeConversionContext {
     private final String attrName;
-    private final String ruleClass;
+    private final String attrOwner;
 
-    AttributeConversionContext(String attrName, String ruleClass) {
+    /**
+     * Constructs a new context object from a pair of strings.
+     *
+     * @param attrName an attribute name, such as "deps"
+     * @param attrOwner a rule or macro on which the attribute is defined, e.g. "cc_library"
+     */
+    AttributeConversionContext(String attrName, String attrOwner) {
       this.attrName = attrName;
-      this.ruleClass = ruleClass;
+      this.attrOwner = attrOwner;
     }
 
     @Override
     public String toString() {
-      return "attribute '" + attrName + "' in '" + ruleClass + "' rule";
+      return String.format("attribute '%s' of '%s'", attrName, attrOwner);
     }
   }
 

@@ -354,7 +354,7 @@ public class QueryPreloadingTest extends QueryPreloadingTestCase {
     assertLabelsVisitedWithErrors(ImmutableSet.of("//foo:x"), ImmutableSet.of("//foo:x"));
     assertContainsEvent(
         "//foo:x: invalid label '//foo//y' in element 0 of attribute "
-            + "'deps' in 'sh_library' rule: invalid package name 'foo//y': "
+            + "'deps' of 'sh_library': invalid package name 'foo//y': "
             + "package names may not contain '//' path separators");
   }
 

@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -247,6 +248,11 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     }
   }
 
+  private void assertPackageNotInError(@Nullable Package pkg) {
+    assertThat(pkg).isNotNull();
+    assertThat(pkg.containsErrors()).isFalse();
+  }
+
   @Test
   public void testSymbolicMacro_failsWithoutFlag() throws Exception {
     setBuildLanguageOptions("--experimental_enable_first_class_macros=false");
@@ -372,7 +378,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     Package pkg = getPackage("pkg");
     assertThat(pkg).isNotNull();
     assertThat(pkg.containsErrors()).isTrue();
-    assertContainsEvent("macro requires a `name` attribute");
+    assertContainsEvent("missing value for mandatory attribute 'name' in 'my_macro' macro");
   }
 
   @Test
@@ -398,6 +404,199 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(pkg).isNotNull();
     assertThat(pkg.containsErrors()).isTrue();
     assertContainsEvent("unexpected positional arguments");
+  }
+
+  // TODO(#19922): Migrate away from using "$" as separator in these test cases.
+  @Test
+  public void testSymbolicMacroCanAcceptAttributes() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_first_class_macros");
+
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name, target_suffix):
+            native.cc_library(name = name + "$" + target_suffix)
+        my_macro = macro(
+            implementation=_impl,
+            attrs = {
+                "target_suffix": attr.string(),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(
+            name = "abc",
+            target_suffix = "xyz"
+        )
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    assertThat(pkg.getTargets()).containsKey("abc$xyz");
+  }
+
+  @Test
+  public void testSymbolicMacro_rejectsUnknownAttribute() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_first_class_macros");
+
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name):
+            pass
+        my_macro = macro(
+            implementation = _impl,
+            attrs = {
+                "xzz": attr.string(doc="This attr is public"),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(
+            name = "abc",
+            xyz = "UNKNOWN",
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getPackage("pkg");
+    assertThat(pkg).isNotNull();
+    assertThat(pkg.containsErrors()).isTrue();
+    assertContainsEvent("no such attribute 'xyz' in 'my_macro' macro (did you mean 'xzz'?)");
+  }
+
+  @Test
+  public void testSymbolicMacro_rejectsReservedAttributeName() throws Exception {
+    ev.setSemantics("--experimental_enable_first_class_macros");
+
+    ev.setFailFast(false);
+    evalAndExport(
+        ev,
+        """
+        def _impl(name):
+            pass
+        my_macro = macro(
+            implementation = _impl,
+            attrs = {
+                "visibility": attr.string(),
+            },
+        )
+        """);
+
+    ev.assertContainsError("Cannot declare a macro attribute named 'visibility'");
+  }
+
+  @Test
+  public void testSymbolicMacro_requiresMandatoryAttribute() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_first_class_macros");
+
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name):
+            pass
+        my_macro = macro(
+            implementation = _impl,
+            attrs = {
+                "xyz": attr.string(mandatory=True),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(name="abc")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getPackage("pkg");
+    assertThat(pkg).isNotNull();
+    assertThat(pkg.containsErrors()).isTrue();
+    assertContainsEvent("missing value for mandatory attribute 'xyz' in 'my_macro' macro");
+  }
+
+  @Test
+  public void testSymbolicMacro_cannotOverrideImplicitAttribute() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_first_class_macros");
+
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name, _xyz):
+            print("_xyz is %s" % _xyz)
+        my_macro = macro(
+            implementation=_impl,
+            attrs = {
+              "_xyz": attr.string(default="IMPLICIT")
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(
+            name = "abc",
+            _xyz = "CAN'T SET THIS",
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getPackage("pkg");
+    assertThat(pkg.containsErrors()).isTrue();
+    assertContainsEvent("cannot set value of implicit attribute '_xyz'");
+  }
+
+  @Test
+  public void testSymbolicMacro_doesNotSupportComputedDefaults() throws Exception {
+    ev.setSemantics("--experimental_enable_first_class_macros");
+
+    ev.checkEvalErrorContains(
+        "In macro attribute 'xyz': Macros do not support computed defaults or late-bound defaults",
+        """
+        def _impl(name, xyz): pass
+        def _computed_default(): return "DEFAULT"
+        my_macro = macro(
+            implementation=_impl,
+            attrs = {
+              "xyz": attr.label(default=_computed_default)
+            },
+        )
+        """);
+  }
+
+  @Test
+  public void testSymbolicMacro_doesNotSupportLateBoundDefaults() throws Exception {
+    // We need to ensure there's a fragment registered on the BazelEvaluationTestCase for
+    // `configuration_field()` to retrieve.
+    //
+    // (Ordinarily we would use the BuildViewTestCase machinery (scratch + getPackage()) and rely on
+    // the analysis mock to register the fragment. But since our expected failure occurs during
+    // .bzl loading, our test machinery doesn't process the error correctly, and instead
+    // getPackage() returns null and no events are emitted.)
+    ev.setFragmentNameToClass(ImmutableMap.of("cpp", CppConfiguration.class));
+
+    ev.setSemantics("--experimental_enable_first_class_macros");
+
+    ev.checkEvalErrorContains(
+        "In macro attribute 'xyz': Macros do not support computed defaults or late-bound defaults",
+        """
+        def _impl(name, xyz): pass
+        _latebound_default = configuration_field(fragment = "cpp", name = "cc_toolchain")
+        my_macro = macro(
+            implementation=_impl,
+            attrs = {
+              "xyz": attr.label(default=_latebound_default)
+            },
+        )
+        """);
   }
 
   @Test
@@ -1464,8 +1663,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     AssertionError expected = assertThrows(AssertionError.class, () -> createRuleContext("//p"));
     assertThat(expected)
         .hasMessageThat()
-        .contains(
-            "for attribute 'i' in 'r' rule, got 4294967296, want value in signed 32-bit range");
+        .contains("for attribute 'i' of 'r', got 4294967296, want value in signed 32-bit range");
   }
 
   @Test
@@ -3417,8 +3615,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     getConfiguredTarget("//initializer_testing:my_target");
 
     ev.assertContainsError(
-        "expected value of type 'list(label)' for attribute 'srcs' in 'my_rule' rule, but got"
-            + " \"default_files\" (string)");
+        """
+        expected value of type 'list(label)' for attribute 'srcs' of 'my_rule', but got \
+        "default_files" (string)""");
   }
 
   @Test

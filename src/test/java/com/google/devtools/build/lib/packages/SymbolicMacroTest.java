@@ -115,6 +115,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
+    // TODO(#19922): change naming convention to not use "$""
     assertThat(pkg.getTargets()).containsKey("abc$lib");
   }
 
@@ -214,6 +215,246 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
     assertContainsEvent("existing_rules() keys: [\"outer_target\", \"abc$lib\"]");
+  }
+
+  @Test
+  public void defaultAttrValue_isUsedWhenNotOverridden() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name, xyz):
+            print("xyz is %s" % xyz)
+        my_macro = macro(
+            implementation=_impl,
+            attrs = {
+              "xyz": attr.string(default="DEFAULT")
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(name="abc")
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    assertContainsEvent("xyz is DEFAULT");
+  }
+
+  @Test
+  public void defaultAttrValue_canBeOverridden() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name, xyz):
+            print("xyz is %s" % xyz)
+        my_macro = macro(
+            implementation=_impl,
+            attrs = {
+              "xyz": attr.string(default="DEFAULT")
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(
+            name = "abc",
+            xyz = "OVERRIDDEN",
+        )
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    assertContainsEvent("xyz is OVERRIDDEN");
+  }
+
+  @Test
+  public void defaultAttrValue_isUsed_whenAttrIsImplicit() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name, _xyz):
+            print("xyz is %s" % _xyz)
+        my_macro = macro(
+            implementation=_impl,
+            attrs = {
+              "_xyz": attr.string(default="IMPLICIT")
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(name="abc")
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    assertContainsEvent("xyz is IMPLICIT");
+  }
+
+  @Test
+  public void noneAttrValue_doesNotOverrideDefault() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name, xyz):
+            print("xyz is %s" % xyz)
+        my_macro = macro(
+            implementation=_impl,
+            attrs = {
+              "xyz": attr.string(default="DEFAULT")
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(
+            name = "abc",
+            xyz = None,
+        )
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    assertContainsEvent("xyz is DEFAULT");
+  }
+
+  @Test
+  public void noneAttrValue_doesNotSatisfyMandatoryRequirement() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_first_class_macros");
+
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name):
+            pass
+        my_macro = macro(
+            implementation = _impl,
+            attrs = {
+                "xyz": attr.string(mandatory=True),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(
+            name = "abc",
+            xyz = None,
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getPackage("pkg");
+    assertThat(pkg).isNotNull();
+    assertThat(pkg.containsErrors()).isTrue();
+    assertContainsEvent("missing value for mandatory attribute 'xyz' in 'my_macro' macro");
+  }
+
+  @Test
+  public void noneAttrValue_disallowedWhenAttrDoesNotExist() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_first_class_macros");
+
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name):
+            pass
+        my_macro = macro(
+            implementation = _impl,
+            attrs = {
+                "xzz": attr.string(doc="This attr is public"),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(
+            name = "abc",
+            xyz = None,
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getPackage("pkg");
+    assertThat(pkg).isNotNull();
+    assertThat(pkg.containsErrors()).isTrue();
+    assertContainsEvent("no such attribute 'xyz' in 'my_macro' macro (did you mean 'xzz'?)");
+  }
+
+  @Test
+  public void stringAttrsAreConvertedToLabelsAndInRightContext() throws Exception {
+    scratch.file("lib/BUILD");
+    scratch.file(
+        "lib/foo.bzl",
+        """
+        def _impl(name, xyz, _xyz):
+            print("xyz is %s" % xyz)
+            print("_xyz is %s" % _xyz)
+        my_macro = macro(
+            implementation=_impl,
+            attrs = {
+              "xyz": attr.label(),
+              "_xyz": attr.label(default=":BUILD")
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//lib:foo.bzl", "my_macro")
+        my_macro(
+            name = "abc",
+            xyz = ":BUILD",  # Should be parsed relative to //pkg, not //lib
+        )
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    assertContainsEvent("xyz is @@//pkg:BUILD");
+    assertContainsEvent("_xyz is @@//lib:BUILD");
+  }
+
+  @Test
+  public void cannotMutateAttrValues() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name, xyz):
+            xyz.append(4)
+        my_macro = macro(
+            implementation=_impl,
+            attrs = {
+              "xyz": attr.int_list(),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(
+            name = "abc",
+            xyz = [1, 2, 3],
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getPackage("pkg");
+    assertThat(pkg).isNotNull();
+    assertThat(pkg.containsErrors()).isTrue();
+    assertContainsEvent("Error in append: trying to mutate a frozen list value");
   }
 
   // TODO: #19922 - Add more test cases for interaction between macros and environment_group,

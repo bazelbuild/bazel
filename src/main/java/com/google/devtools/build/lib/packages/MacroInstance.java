@@ -14,6 +14,10 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
+import java.util.Map;
+
 /**
  * Represents a use of a symbolic macro in a package.
  *
@@ -25,11 +29,14 @@ package com.google.devtools.build.lib.packages;
 public final class MacroInstance {
 
   private final MacroClass macroClass;
-  private final String name;
+  // TODO(#19922): Consider switching to more optimized, indexed representation, as in Rule.
+  // Order isn't guaranteed, sort before dumping.
+  private final ImmutableMap<String, Object> attrValues;
 
-  public MacroInstance(MacroClass macroClass, String name) {
+  public MacroInstance(MacroClass macroClass, Map<String, Object> attrValues) {
     this.macroClass = macroClass;
-    this.name = name;
+    this.attrValues = ImmutableMap.copyOf(attrValues);
+    Preconditions.checkArgument(macroClass.getAttributes().keySet().equals(attrValues.keySet()));
   }
 
   /** Returns the {@link MacroClass} (i.e. schema info) that this instance parameterizes. */
@@ -42,6 +49,17 @@ public final class MacroInstance {
    * BUILD file or macro.
    */
   public String getName() {
-    return name;
+    // Type enforced by RuleClass.NAME_ATTRIBUTE.
+    return (String) Preconditions.checkNotNull(attrValues.get("name"));
+  }
+
+  /**
+   * Dictionary of attributes for this instance.
+   *
+   * <p>Contains all attributes, as seen after processing by {@link
+   * MacroClass#instantiateAndAddMacro}.
+   */
+  public ImmutableMap<String, Object> getAttrValues() {
+    return attrValues;
   }
 }

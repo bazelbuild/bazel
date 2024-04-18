@@ -130,7 +130,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi {
 
   @Override
   public StarlarkCallable macro(
-      StarlarkFunction implementation, Object doc, StarlarkThread thread) {
+      StarlarkFunction implementation, Dict<?, ?> attrs, Object doc, StarlarkThread thread) {
     // We don't support documenting symbolic macros in legacy Stardoc. Return a dummy.
     return new StarlarkCallable() {
       @Override

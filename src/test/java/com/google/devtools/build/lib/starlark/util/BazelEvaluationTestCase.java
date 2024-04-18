@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlark.util;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
@@ -72,6 +73,8 @@ public final class BazelEvaluationTestCase {
   private StarlarkSemantics semantics = StarlarkSemantics.DEFAULT;
   private StarlarkThread thread = null; // created lazily by getStarlarkThread
   private Module module = null; // created lazily by getModule
+
+  private ImmutableMap<String, Class<?>> fragmentNameToClass = ImmutableMap.of();
 
   public BazelEvaluationTestCase() {
     this(DEFAULT_LABEL);
@@ -146,7 +149,7 @@ public final class BazelEvaluationTestCase {
     execAndExport(this.label, lines);
   }
 
-  private static void newThread(StarlarkThread thread) {
+  private void newThread(StarlarkThread thread) {
     // This StarlarkThread has no PackageContext, so attempts to create a rule will fail.
     // Rule creation is tested by StarlarkIntegrationTest.
 
@@ -159,8 +162,18 @@ public final class BazelEvaluationTestCase {
             /* transitiveDigest= */ new byte[0], // dummy value for tests
             TestConstants.TOOLS_REPOSITORY,
             /* networkAllowlistForTests= */ Optional.empty(),
-            /* fragmentNameToClass= */ ImmutableMap.of())
+            fragmentNameToClass)
         .storeInThread(thread);
+  }
+
+  /**
+   * Allows for subclasses to inject custom fragments into the environment.
+   *
+   * <p>Must be called prior to any evaluation calls.
+   */
+  public void setFragmentNameToClass(ImmutableMap<String, Class<?>> fragmentNameToClass) {
+    Preconditions.checkState(this.thread == null, "Call this method before getStarlarkThread()");
+    this.fragmentNameToClass = fragmentNameToClass;
   }
 
   private Object newModule(ImmutableMap.Builder<String, Object> predeclared) {
