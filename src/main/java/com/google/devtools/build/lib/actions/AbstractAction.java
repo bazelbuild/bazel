@@ -64,7 +64,7 @@ import net.starlark.java.eval.Sequence;
  */
 @Immutable
 @ThreadSafe
-public abstract class AbstractAction extends ActionKeyCacher implements Action, ActionApi {
+public abstract class AbstractAction extends ActionKeyComputer implements Action, ActionApi {
 
   /**
    * An arbitrary default resource set. We assume that a typical subprocess is single-threaded

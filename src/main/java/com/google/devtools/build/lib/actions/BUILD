@@ -54,7 +54,7 @@ java_library(
         "ActionInputMap.java",
         "ActionInputMapSink.java",
         "ActionInputPrefetcher.java",
-        "ActionKeyCacher.java",
+        "ActionKeyComputer.java",
         "ActionKeyContext.java",
         "ActionLogBufferPathGenerator.java",
         "ActionLookupValue.java",
