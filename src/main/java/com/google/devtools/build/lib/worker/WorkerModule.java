@@ -48,7 +48,7 @@ public class WorkerModule extends BlazeModule {
   private static final String STALE_TRASH = "_stale_trash";
   private CommandEnvironment env;
 
-  private WorkerFactory workerFactory;
+  @VisibleForTesting WorkerFactory workerFactory;
   private AsynchronousTreeDeleter treeDeleter;
 
   WorkerPoolConfig config;
@@ -160,13 +160,12 @@ public class WorkerModule extends BlazeModule {
 
     WorkerPoolConfig newConfig =
         new WorkerPoolConfig(
-            workerFactory,
             options.useNewWorkerPool,
             options.workerMaxInstances,
             options.workerMaxMultiplexInstances);
 
     // If the config changed compared to the last run, we have to create a new pool.
-    if (workerPool == null || !newConfig.equals(config)) {
+    if (!newConfig.equals(config)) {
       shutdownPool(
           "Worker pool configuration has changed, restarting worker pool...",
           /* alwaysLog= */ true,
@@ -175,9 +174,9 @@ public class WorkerModule extends BlazeModule {
 
     if (workerPool == null) {
       if (options.useNewWorkerPool) {
-        workerPool = new WorkerPoolImpl(newConfig);
+        workerPool = new WorkerPoolImpl(workerFactory, newConfig);
       } else {
-        workerPool = new WorkerPoolImplLegacy(newConfig);
+        workerPool = new WorkerPoolImplLegacy(workerFactory, newConfig);
       }
       config = newConfig;
       // If workerPool is restarted then we should recreate metrics.

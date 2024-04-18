@@ -72,8 +72,8 @@ public class WorkerPoolImpl implements WorkerPool {
   private final ImmutableMap<String, Integer> multiplexMaxInstances;
   private final ConcurrentHashMap<WorkerKey, WorkerKeyPool> pools = new ConcurrentHashMap<>();
 
-  public WorkerPoolImpl(WorkerPoolConfig config) {
-    this.factory = config.getWorkerFactory();
+  public WorkerPoolImpl(WorkerFactory factory, WorkerPoolConfig config) {
+    this.factory = factory;
     this.singleplexMaxInstances =
         getMaxInstances(config.getWorkerMaxInstances(), DEFAULT_MAX_SINGLEPLEX_WORKERS);
     this.multiplexMaxInstances =

@@ -86,8 +86,8 @@ public class WorkerPoolTest {
             (WorkerPoolSupplier)
                 (factory) ->
                     new WorkerPoolImplLegacy(
+                        factory,
                         new WorkerPoolConfig(
-                            factory,
                             /* workerMaxInstances= */ ImmutableList.of(
                                 Maps.immutableEntry("mnem", 2), Maps.immutableEntry("", 1)),
                             /* workerMaxMultiplexInstances= */ ImmutableList.of(
@@ -98,8 +98,8 @@ public class WorkerPoolTest {
             (WorkerPoolSupplier)
                 (factory) ->
                     new WorkerPoolImpl(
+                        factory,
                         new WorkerPoolConfig(
-                            factory,
                             /* workerMaxInstances= */ ImmutableList.of(
                                 Maps.immutableEntry("mnem", 2)),
                             /* workerMaxMultiplexInstances= */ ImmutableList.of(

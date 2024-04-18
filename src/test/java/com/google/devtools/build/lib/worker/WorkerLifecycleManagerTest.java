@@ -89,16 +89,16 @@ public final class WorkerLifecycleManagerTest {
             (WorkerPoolSupplier)
                 (factory, singleplexMaxInstances, multiplexMaxInstances) ->
                     new WorkerPoolImplLegacy(
-                        new WorkerPoolConfig(
-                            factory, singleplexMaxInstances, multiplexMaxInstances)),
+                        factory,
+                        new WorkerPoolConfig(singleplexMaxInstances, multiplexMaxInstances)),
             workerFactorySupplier,
           },
           {
             (WorkerPoolSupplier)
                 (factory, singleplexMaxInstances, multiplexMaxInstances) ->
                     new WorkerPoolImpl(
-                        new WorkerPoolConfig(
-                            factory, singleplexMaxInstances, multiplexMaxInstances)),
+                        factory,
+                        new WorkerPoolConfig(singleplexMaxInstances, multiplexMaxInstances)),
             workerFactorySupplier,
           }
         });
