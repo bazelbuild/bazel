@@ -23,45 +23,30 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.Map.Entry;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Prints coverage data stored in a collection of {@link SourceFileCoverage} in a <a
  * href="http://ltp.sourceforge.net/coverage/lcov/geninfo.1.php">lcov tracefile format</a>
  */
 class LcovPrinter {
-  private static final Logger logger = Logger.getLogger(LcovPrinter.class.getName());
   private final BufferedWriter bufferedWriter;
 
   private LcovPrinter(BufferedWriter bufferedWriter) {
     this.bufferedWriter = bufferedWriter;
   }
 
-  static boolean print(OutputStream outputStream, Coverage coverage) {
-    BufferedWriter bufferedWriter;
-    try (Writer fileWriter = new OutputStreamWriter(outputStream, UTF_8)) {
-      bufferedWriter = new BufferedWriter(fileWriter);
+  static void print(OutputStream outputStream, Coverage coverage) throws IOException {
+    try (Writer fileWriter = new OutputStreamWriter(outputStream, UTF_8);
+        BufferedWriter bufferedWriter = new BufferedWriter(fileWriter); ) {
       LcovPrinter lcovPrinter = new LcovPrinter(bufferedWriter);
       lcovPrinter.print(coverage);
-      bufferedWriter.close();
-    } catch (IOException exception) {
-      logger.log(Level.SEVERE, "Could not write to output file.");
-      return false;
     }
-    return true;
   }
 
-  private boolean print(Coverage coverage) {
-    try {
-      for (SourceFileCoverage sourceFile : coverage.getAllSourceFiles()) {
-        print(sourceFile);
-      }
-    } catch (IOException exception) {
-      logger.log(Level.SEVERE, "Could not write to output file.");
-      return false;
+  private void print(Coverage coverage) throws IOException {
+    for (SourceFileCoverage sourceFile : coverage.getAllSourceFiles()) {
+      print(sourceFile);
     }
-    return true;
   }
 
   /**
