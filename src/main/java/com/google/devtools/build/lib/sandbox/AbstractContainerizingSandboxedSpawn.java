@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.sandbox;
 
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -24,6 +23,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.StashContents;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -129,23 +129,33 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
           outputs);
     }
 
+    StashContents oldStashContents = null;
     try (SilentCloseable c = Profiler.instance().profile("sandbox.filterInputsAndDirsToCreate")) {
       // Allow subclasses to filter out inputs and dirs that don't need to be created.
-      filterInputsAndDirsToCreate(inputsToCreate, dirsToCreate);
+      oldStashContents = filterInputsAndDirsToCreate(inputsToCreate, dirsToCreate);
     }
+    // TODO: problem is probably here, that we don't have the bazel-out directory in StashContents
+    // and the timestamp recording comes after.
 
     // Finally create what needs creating.
     try (SilentCloseable c = Profiler.instance().profile("sandbox.createDirectories")) {
       SandboxHelpers.createDirectories(dirsToCreate, sandboxExecRoot, /* strict= */ true);
     }
     try (SilentCloseable c = Profiler.instance().profile("sandbox.createInputs")) {
-      createInputs(inputsToCreate, inputs);
+      try {
+        createInputs(inputsToCreate, inputs);
+      } catch (Exception e) {
+        System.out.println("hi");
+      }
     }
+    SandboxStash.setLastModified(sandboxPath, System.currentTimeMillis());
   }
 
-  protected void filterInputsAndDirsToCreate(
+  protected StashContents filterInputsAndDirsToCreate(
       Set<PathFragment> inputsToCreate, Set<PathFragment> dirsToCreate)
-      throws IOException, InterruptedException {}
+      throws IOException, InterruptedException {
+    return null;
+  }
 
   /**
    * Creates all inputs needed for this spawn's sandbox.

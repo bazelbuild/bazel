@@ -74,6 +74,7 @@ java_library(
     deps = [
         ":sandbox_helpers",
         ":sandbox_options",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/util:command",

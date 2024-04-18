@@ -68,7 +68,10 @@ import javax.annotation.Nullable;
 public final class SandboxModule extends BlazeModule {
 
   private static final ImmutableSet<String> SANDBOX_BASE_PERSISTENT_DIRS =
-      ImmutableSet.of(SandboxStash.SANDBOX_STASH_BASE, AsynchronousTreeDeleter.MOVED_TRASH_DIR);
+      ImmutableSet.of(
+          SandboxStash.SANDBOX_STASH_BASE,
+          SandboxStash.TEMPORARY_SANDBOX_STASH_BASE,
+          AsynchronousTreeDeleter.MOVED_TRASH_DIR);
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -568,6 +571,9 @@ public final class SandboxModule extends BlazeModule {
   @Override
   public void afterCommand() {
     checkNotNull(env, "env not initialized; was beforeCommand called?");
+    // for (var entry : SandboxStash.statistics.entrySet()) {
+    //   System.out.println(":" + entry.getKey() + " : " + entry.getValue());
+    // }
 
     SandboxOptions options = env.getOptions().getOptions(SandboxOptions.class);
     int asyncTreeDeleteThreads = options != null ? options.asyncTreeDeleteIdleThreads : 0;

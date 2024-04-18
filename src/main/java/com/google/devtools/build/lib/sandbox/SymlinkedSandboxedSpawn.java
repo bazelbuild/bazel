@@ -18,16 +18,22 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.StashContents;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
 /**
@@ -38,6 +44,8 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
 
   /** Mnemonic of the action running in this spawn. */
   private final String mnemonic;
+
+  private final Label targetLabel;
 
   @Nullable private final ImmutableList<String> interactiveDebugArguments;
 
@@ -53,7 +61,8 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
       @Nullable Path sandboxDebugPath,
       @Nullable Path statisticsPath,
       @Nullable ImmutableList<String> interactiveDebugArguments,
-      String mnemonic) {
+      String mnemonic,
+      Label targetLabel) {
     super(
         sandboxPath,
         sandboxExecRoot,
@@ -68,16 +77,25 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
         mnemonic);
     this.mnemonic = isNullOrEmpty(mnemonic) ? "_NoMnemonic_" : mnemonic;
     this.interactiveDebugArguments = interactiveDebugArguments;
+    this.targetLabel = targetLabel;
   }
 
   @Override
-  public void filterInputsAndDirsToCreate(
+  public StashContents filterInputsAndDirsToCreate(
       Set<PathFragment> inputsToCreate, Set<PathFragment> dirsToCreate)
       throws IOException, InterruptedException {
-    boolean gotStash =
-        SandboxStash.takeStashedSandbox(sandboxPath, mnemonic, getEnvironment(), outputs);
+    StashContents oldStashContents = null;
+    StashContents stashContents =
+        SandboxStash.takeStashedSandbox(
+            sandboxPath, mnemonic, getEnvironment(), outputs, targetLabel);
     sandboxExecRoot.createDirectoryAndParents();
-    if (gotStash) {
+    if (stashContents != null) {
+      SandboxStash.statistics.putIfAbsent("reused_stashes", new AtomicInteger());
+      SandboxStash.statistics.get("reused_stashes").incrementAndGet();
+      SandboxStash.statistics.putIfAbsent("available_stashes", new AtomicInteger());
+      SandboxStash.statistics
+          .get("available_stashes")
+          .addAndGet(SandboxStash.instance.pathToContents.size());
       // When reusing an old sandbox, we do a full traversal of the parent directory of
       // `sandboxExecRoot`. This will use what we computed above, delete anything unnecessary, and
       // update `inputsToCreate`/`dirsToCreate` if something can be left without changes (e.g., a,
@@ -90,18 +108,116 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
           inputsToCreate,
           dirsToCreate,
           sandboxExecRoot,
-          treeDeleter);
+          treeDeleter,
+          stashContents);
+      oldStashContents = stashContents;
+    } else {
+      SandboxStash.statistics.putIfAbsent("stashes_from_scratch", new AtomicInteger());
+      SandboxStash.statistics.get("stashes_from_scratch").incrementAndGet();
     }
+    Map<PathFragment, StashContents> stashContentsMap = new HashMap<>();
+    for (Map.Entry<PathFragment, Path> entry : inputs.getFiles().entrySet()) {
+      if (entry.getValue() == null) {
+        continue;
+      }
+      PathFragment parent = entry.getKey().getParentDirectory();
+      boolean parentWasPresent = true;
+      if (!stashContentsMap.containsKey(parent)) {
+        stashContentsMap.put(parent, new StashContents());
+        parentWasPresent = false;
+      }
+      StashContents parentStashContents = stashContentsMap.get(parent);
+      parentStashContents.filesToRootedPath.put(entry.getKey().getBaseName(), entry.getValue());
+      while (!parentWasPresent && parent.getParentDirectory() != null) {
+        PathFragment parentParent = parent.getParentDirectory();
+        if (stashContentsMap.containsKey(parentParent)) {
+          parentWasPresent = true;
+        } else {
+          stashContentsMap.put(parentParent, new StashContents());
+        }
+        StashContents parentParentStashContents = stashContentsMap.get(parentParent);
+        if (!parentParentStashContents.dirEntries.containsKey(parent.getBaseName())) {
+          parentParentStashContents.dirEntries.put(
+              parent.getBaseName(), stashContentsMap.get(parent));
+        }
+        parent = parentParent;
+      }
+    }
+    for (Map.Entry<PathFragment, PathFragment> entry : inputs.getSymlinks().entrySet()) {
+      if (entry.getValue() == null) {
+        continue;
+      }
+      PathFragment parent = entry.getKey().getParentDirectory();
+      boolean parentWasPresent = true;
+      if (!stashContentsMap.containsKey(parent)) {
+        stashContentsMap.put(parent, new StashContents());
+        parentWasPresent = false;
+      }
+      StashContents parentStashContents = stashContentsMap.get(parent);
+      parentStashContents.symlinksToPathFragment.put(
+          entry.getKey().getBaseName(), entry.getValue());
+      while (!parentWasPresent && parent.getParentDirectory() != null) {
+        PathFragment parentParent = parent.getParentDirectory();
+        if (stashContentsMap.containsKey(parentParent)) {
+          parentWasPresent = true;
+        } else {
+          stashContentsMap.put(parentParent, new StashContents());
+        }
+        StashContents parentParentStashContents = stashContentsMap.get(parentParent);
+        if (!parentParentStashContents.dirEntries.containsKey(parent.getBaseName())) {
+          parentParentStashContents.dirEntries.put(
+              parent.getBaseName(), stashContentsMap.get(parent));
+        }
+        parent = parentParent;
+      }
+    }
+
+    for (var outputDir :
+        Iterables.concat(
+            outputs.files().values().stream()
+                .map(PathFragment::getParentDirectory)
+                .collect(ImmutableList.toImmutableList()),
+            outputs.dirs().values())) {
+      PathFragment parent = outputDir;
+      boolean parentWasPresent = true;
+      if (!stashContentsMap.containsKey(parent)) {
+        stashContentsMap.put(parent, new StashContents());
+        parentWasPresent = false;
+      }
+      while (!parentWasPresent && parent.getParentDirectory() != null) {
+        PathFragment parentParent = parent.getParentDirectory();
+        if (stashContentsMap.containsKey(parentParent)) {
+          parentWasPresent = true;
+        } else {
+          stashContentsMap.put(parentParent, new StashContents());
+        }
+        StashContents parentParentStashContents = stashContentsMap.get(parentParent);
+        if (!parentParentStashContents.dirEntries.containsKey(parent.getBaseName())) {
+          parentParentStashContents.dirEntries.put(
+              parent.getBaseName(), stashContentsMap.get(parent));
+        }
+        parent = parentParent;
+      }
+    }
+    StashContents main = new StashContents();
+    // TODO: Avoid having to do this "_main" thing
+    main.dirEntries.put("_main", stashContentsMap.get(PathFragment.EMPTY_FRAGMENT));
+    SandboxStash.setPathContents(sandboxPath, main);
+    // TODO: delete return value, only for debugging
+    return oldStashContents;
   }
 
   @Override
   protected void copyFile(Path source, Path target) throws IOException {
+    // SandboxStash.statistics.putIfAbsent("symlinks", new AtomicInteger());
+    // SandboxStash.statistics.get("symlinks").incrementAndGet();
     target.createSymbolicLink(source);
   }
 
   @Override
   public void delete() {
-    SandboxStash.stashSandbox(sandboxPath, mnemonic, getEnvironment(), outputs, treeDeleter);
+    SandboxStash.stashSandbox(
+        sandboxPath, mnemonic, getEnvironment(), outputs, treeDeleter, targetLabel);
     super.delete();
   }
 
