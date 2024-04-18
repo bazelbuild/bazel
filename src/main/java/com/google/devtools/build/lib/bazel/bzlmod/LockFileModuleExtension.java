@@ -89,4 +89,7 @@ public abstract class LockFileModuleExtension implements Postable {
 
     public abstract LockFileModuleExtension build();
   }
+
+  public record WithFactors(
+      ModuleExtensionEvalFactors extensionFactors, LockFileModuleExtension moduleExtension) {}
 }
