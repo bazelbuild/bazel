@@ -89,9 +89,7 @@ import com.google.devtools.build.lib.server.FailureDetails.RunCommand.Code;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OptionsUtils;
-import com.google.devtools.build.lib.util.ScriptUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -175,8 +173,8 @@ public class RunCommand implements BlazeCommand {
       "'run' only works with tests with one shard ('--test_sharding_strategy=disabled' is okay) "
           + "and without --runs_per_test";
 
-  private static final ImmutableList<String> ENV_VARIABLES_TO_CLEAR =
-      ImmutableList.of(
+  private static final ImmutableSortedSet<String> ENV_VARIABLES_TO_CLEAR =
+      ImmutableSortedSet.of(
           // These variables are all used by runfiles libraries to locate the runfiles directory or
           // manifest and can cause incorrect behavior when set for the top-level binary run with
           // bazel run.
@@ -289,7 +287,6 @@ public class RunCommand implements BlazeCommand {
               env,
               runCommandLine,
               ImmutableSortedMap.copyOf(finalRunEnv),
-              ENV_VARIABLES_TO_CLEAR,
               builtTargets.configuration,
               builtTargets.stopTime,
               shouldRunTarget,
@@ -500,7 +497,6 @@ public class RunCommand implements BlazeCommand {
       CommandEnvironment env,
       RunCommandLine runCommandLine,
       ImmutableSortedMap<String, String> runEnv,
-      ImmutableList<String> runEnvToClear,
       BuildConfigurationValue configuration,
       long stopTime,
       boolean shouldRunTarget,
@@ -519,13 +515,13 @@ public class RunCommand implements BlazeCommand {
               .setValue(ByteString.copyFrom(variable.getValue(), ISO_8859_1))
               .build());
     }
-    execDescription.addAllEnvironmentVariableToClear(
-        runEnvToClear.stream()
-            .map(s -> ByteString.copyFrom(s, ISO_8859_1))
-            .collect(toImmutableList()));
-    execDescription.setShouldExec(shouldRunTarget);
-    execDescription.addAllPathToReplace(pathsToReplace);
-    return execDescription;
+    return execDescription
+        .addAllEnvironmentVariableToClear(
+            ENV_VARIABLES_TO_CLEAR.stream()
+                .map(s -> ByteString.copyFrom(s, ISO_8859_1))
+                .collect(toImmutableList()))
+        .setShouldExec(shouldRunTarget)
+        .addAllPathToReplace(pathsToReplace);
   }
 
   private static ImmutableList<PathToReplace> getPathsToReplace(
@@ -610,12 +606,8 @@ public class RunCommand implements BlazeCommand {
       return e.result;
     }
 
-    String scriptContents =
-        generateScriptContents(
-            shExecutable,
-            runCommandLine.getWorkingDir().getPathString(),
-            runCommandLine.getEnvironment(),
-            runCommandLine.getScriptPathCommandLine(shExecutable));
+    String scriptContents = runCommandLine.getScriptForm(shExecutable, ENV_VARIABLES_TO_CLEAR);
+
     if (runOptions.emitScriptPathInExecRequest) {
       execRequest.setScriptPath(
           CommandProtos.ScriptPath.newBuilder()
@@ -1175,29 +1167,5 @@ public class RunCommand implements BlazeCommand {
     private FailureDetail createFailureDetail() {
       return RunCommand.createFailureDetail(getMessage(), detailedCode);
     }
-  }
-
-  private static String generateScriptContents(
-      String shExecutable, String workingDir, Map<String, String> environment, String commandLine) {
-    StringBuilder result = new StringBuilder();
-    if (OS.getCurrent() == OS.WINDOWS) {
-      result.append("@echo off\n");
-    } else {
-      result.append("#!").append(shExecutable).append("\n");
-    }
-
-    // cd <cwd> &&
-    ScriptUtil.emitChangeDirectory(result, workingDir);
-    // exec ...
-    ScriptUtil.emitExec(result);
-    // env -u UNSET_ME ... KEY=VAL ...
-    ScriptUtil.emitEnvPrefix(
-        result, /* ignoreEnvironment= */ false, environment, ENV_VARIABLES_TO_CLEAR);
-
-    result.append(commandLine);
-
-    result.append(OS.getCurrent() == OS.WINDOWS ? " %*" : " \"$@\"");
-
-    return result.toString();
   }
 }

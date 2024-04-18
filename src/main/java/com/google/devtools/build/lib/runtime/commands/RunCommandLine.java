@@ -14,10 +14,13 @@
 
 package com.google.devtools.build.lib.runtime.commands;
 
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.buildtool.PathPrettyPrinter;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.util.OS;
@@ -111,8 +114,19 @@ class RunCommandLine {
     return formatter().formatArgv(shExecutable, runUnderPrefix, argsWithoutResidue);
   }
 
-  String getScriptPathCommandLine(@Nullable String shExecutable) {
-    return formatter().formatScriptPathCommandLine(shExecutable, runUnderPrefix, argsWithResidue);
+  /**
+   * Returns the script form of the command, to be used as the contents of output file in
+   * --script_path mode.
+   */
+  String getScriptForm(String shExecutable, ImmutableSortedSet<String> environmentVarsToUnset) {
+    return formatter()
+        .getScriptForm(
+            shExecutable,
+            workingDir.getPathString(),
+            environmentVarsToUnset,
+            runEnvironment,
+            runUnderPrefix,
+            argsWithResidue);
   }
 
   private static Formatter formatter() {
@@ -123,8 +137,13 @@ class RunCommandLine {
     ImmutableList<String> formatArgv(
         @Nullable String shExecutable, @Nullable String runUnderPrefix, ImmutableList<String> args);
 
-    String formatScriptPathCommandLine(
-        String shExecutable, @Nullable String runUnderPrefix, ImmutableList<String> args);
+    String getScriptForm(
+        String shExecutable,
+        String workingDir,
+        ImmutableSortedSet<String> environmentVarsToUnset,
+        ImmutableSortedMap<String, String> environment,
+        @Nullable String runUnderPrefix,
+        ImmutableList<String> args);
   }
 
   @VisibleForTesting
@@ -149,7 +168,37 @@ class RunCommandLine {
     }
 
     @Override
-    public String formatScriptPathCommandLine(
+    public String getScriptForm(
+        String shExecutable,
+        String workingDir,
+        ImmutableSortedSet<String> environmentVarsToUnset,
+        ImmutableSortedMap<String, String> environment,
+        @Nullable String runUnderPrefix,
+        ImmutableList<String> args) {
+      String unsetEnv =
+          environmentVarsToUnset.stream().map(v -> "-u " + v).collect(joining(" \\\n    "));
+      String setEnv =
+          environment.entrySet().stream()
+              .map(
+                  kv ->
+                      ShellEscaper.escapeString(kv.getKey())
+                          + "="
+                          + ShellEscaper.escapeString(kv.getValue()))
+              .collect(joining(" \\\n    "));
+      String commandLine = getCommandLine(shExecutable, runUnderPrefix, args);
+
+      StringBuilder result = new StringBuilder();
+      result.append("#!").append(shExecutable).append("\n");
+      result.append("cd ").append(ShellEscaper.escapeString(workingDir)).append(" && \\\n");
+      result.append("  exec env \\\n");
+      result.append("    ").append(unsetEnv).append(" \\\n");
+      result.append("    ").append(setEnv).append(" \\\n");
+      result.append("  ").append(commandLine).append(" \"$@\"");
+
+      return result.toString();
+    }
+
+    private static String getCommandLine(
         String shExecutable, @Nullable String runUnderPrefix, ImmutableList<String> args) {
       StringBuilder command = new StringBuilder();
       if (runUnderPrefix != null) {
@@ -206,7 +255,34 @@ class RunCommandLine {
     }
 
     @Override
-    public String formatScriptPathCommandLine(
+    public String getScriptForm(
+        String shExecutable,
+        String workingDir,
+        ImmutableSortedSet<String> environmentVarsToUnset,
+        ImmutableSortedMap<String, String> environment,
+        @Nullable String runUnderPrefix,
+        ImmutableList<String> args) {
+
+      String unsetEnv =
+          environmentVarsToUnset.stream().map(v -> "SET " + v + "=").collect(joining("\n  "));
+      String setEnv =
+          environment.entrySet().stream()
+              .map(kv -> "SET " + kv.getKey() + "=" + kv.getValue())
+              .collect(joining("\n  "));
+      String commandLine = getCommandLine(shExecutable, runUnderPrefix, args);
+
+      // TODO: https://github.com/bazelbuild/bazel/issues/21940 - This formatting and escaping is
+      // just about certainly wrong.
+      StringBuilder result = new StringBuilder();
+      result.append("@echo off\n");
+      result.append("cd /d ").append(workingDir).append("\n");
+      result.append("  ").append(unsetEnv).append("\n");
+      result.append("  ").append(setEnv).append("\n");
+      result.append("  ").append(commandLine).append(" %*");
+      return result.toString();
+    }
+
+    private static String getCommandLine(
         String shExecutable, @Nullable String runUnderPrefix, ImmutableList<String> args) {
       StringBuilder command = new StringBuilder();
       if (runUnderPrefix != null) {
