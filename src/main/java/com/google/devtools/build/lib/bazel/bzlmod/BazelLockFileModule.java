@@ -26,11 +26,16 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.Lockfile
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository;
+import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.gson.JsonIOException;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -83,6 +88,9 @@ public class BazelLockFileModule extends BlazeModule {
               + " Try deleting it and rerun the build.",
           e.getMessage());
       return;
+    } finally {
+      this.moduleResolutionEvent = null;
+      this.extensionResolutionEventsMap.clear();
     }
 
     // Write the new value to the file, but only if needed. This is not just a performance
@@ -92,8 +100,6 @@ public class BazelLockFileModule extends BlazeModule {
     if (!newLockfile.equals(oldLockfile)) {
       updateLockfile(workspaceRoot, newLockfile);
     }
-    this.moduleResolutionEvent = null;
-    this.extensionResolutionEventsMap.clear();
   }
 
   /**
@@ -201,7 +207,8 @@ public class BazelLockFileModule extends BlazeModule {
    * @param workspaceRoot Root of the workspace where the lockfile is located
    * @param updatedLockfile The updated lockfile data to save
    */
-  public static void updateLockfile(Path workspaceRoot, BazelLockFileValue updatedLockfile) {
+  public static void updateLockfile(Path workspaceRoot, BazelLockFileValue updatedLockfile)
+      throws AbruptExitException {
     RootedPath lockfilePath =
         RootedPath.toRootedPath(Root.fromPath(workspaceRoot), LabelConstants.MODULE_LOCKFILE_NAME);
     try {
@@ -216,9 +223,17 @@ public class BazelLockFileModule extends BlazeModule {
                       workspaceRoot)
                   .toJson(updatedLockfile)
               + "\n");
-    } catch (IOException e) {
+    } catch (JsonIOException | IOException e) {
       logger.atSevere().withCause(e).log(
           "Error while updating MODULE.bazel.lock file: %s", e.getMessage());
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage("Error while updating MODULE.bazel.lock file: " + e.getMessage())
+                  .setExternalRepository(
+                      ExternalRepository.newBuilder().setCode(Code.LOCK_FILE_ERROR))
+                  .build()),
+          e);
     }
   }
 

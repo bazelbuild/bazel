@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.Root;
@@ -187,14 +188,18 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
                         if (localOverrideHashes == null) {
                           return null;
                         }
-                        BazelLockFileModule.updateLockfile(
-                            rootDirectory,
-                            BazelLockFileValue.builder()
-                                .setModuleFileHash(key.moduleHash())
-                                .setFlags(flags)
-                                .setLocalOverrideHashes(localOverrideHashes)
-                                .setModuleDepGraph(key.depGraph())
-                                .build());
+                        try {
+                          BazelLockFileModule.updateLockfile(
+                              rootDirectory,
+                              BazelLockFileValue.builder()
+                                  .setModuleFileHash(key.moduleHash())
+                                  .setFlags(flags)
+                                  .setLocalOverrideHashes(localOverrideHashes)
+                                  .setModuleDepGraph(key.depGraph())
+                                  .build());
+                        } catch (AbruptExitException e) {
+                          throw new IllegalStateException(e);
+                        }
 
                         return new SkyValue() {};
                       }

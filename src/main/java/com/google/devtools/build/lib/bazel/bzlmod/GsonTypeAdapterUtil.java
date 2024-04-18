@@ -95,29 +95,25 @@ public final class GsonTypeAdapterUtil {
         }
       };
 
-  public static final TypeAdapter<Label> LABEL_TYPE_ADAPTER =
-      new TypeAdapter<>() {
-        @Override
-        public void write(JsonWriter jsonWriter, Label label) throws IOException {
-          jsonWriter.value(label.getUnambiguousCanonicalForm());
-        }
-
-        @Override
-        public Label read(JsonReader jsonReader) throws IOException {
-          return Label.parseCanonicalUnchecked(jsonReader.nextString());
-        }
-      };
-
   public static final TypeAdapter<RepositoryName> REPOSITORY_NAME_TYPE_ADAPTER =
       new TypeAdapter<>() {
         @Override
         public void write(JsonWriter jsonWriter, RepositoryName repoName) throws IOException {
+          if (!repoName.isVisible()) {
+            throw new IOException("invalid repo name found while writing lockfile: " + repoName);
+          }
           jsonWriter.value(repoName.getName());
         }
 
         @Override
         public RepositoryName read(JsonReader jsonReader) throws IOException {
-          return RepositoryName.createUnvalidated(jsonReader.nextString());
+          String jsonString = jsonReader.nextString();
+          try {
+            return RepositoryName.create(jsonString);
+          } catch (LabelSyntaxException e) {
+            throw new JsonParseException(
+                String.format("error parsing repo name \"%s\" from the lockfile", jsonString), e);
+          }
         }
       };
 
@@ -498,7 +494,6 @@ public final class GsonTypeAdapterUtil {
         .registerTypeAdapterFactory(IMMUTABLE_SET)
         .registerTypeAdapterFactory(OPTIONAL)
         .registerTypeAdapterFactory(IMMUTABLE_TABLE)
-        .registerTypeAdapter(Label.class, LABEL_TYPE_ADAPTER)
         .registerTypeAdapter(RepositoryName.class, REPOSITORY_NAME_TYPE_ADAPTER)
         .registerTypeAdapter(Version.class, VERSION_TYPE_ADAPTER)
         .registerTypeAdapter(ModuleKey.class, MODULE_KEY_TYPE_ADAPTER)

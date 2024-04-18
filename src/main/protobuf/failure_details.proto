@@ -251,6 +251,7 @@ message ExternalRepository {
     BAD_DOWNLOADER_CONFIG = 2 [(metadata) = { exit_code: 2 }];
     REPOSITORY_MAPPING_RESOLUTION_FAILED = 3 [(metadata) = { exit_code: 37 }];
     CREDENTIALS_INIT_FAILURE = 4 [(metadata) = { exit_code: 2 }];
+    LOCK_FILE_ERROR = 5 [(metadata) = { exit_code: 37 }];
   }
   Code code = 1;
   // Additional data could include external repository names.

@@ -36,6 +36,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.gson.JsonParseException;
 import com.google.gson.JsonSyntaxException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -85,7 +86,7 @@ public class BazelLockFileFunction implements SkyFunction {
 
     try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.BZLMOD, "parse lockfile")) {
       return getLockfileValue(lockfilePath, rootDirectory);
-    } catch (IOException | JsonSyntaxException | NullPointerException e) {
+    } catch (IOException | JsonParseException | NullPointerException e) {
       throw new BazelLockfileFunctionException(
           ExternalDepsException.withMessage(
               Code.BAD_MODULE,

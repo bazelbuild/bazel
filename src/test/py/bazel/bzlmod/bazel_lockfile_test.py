@@ -2114,6 +2114,50 @@ class BazelLockfileTest(test_base.TestBase):
         'attempted to watch path outside workspace', '\n'.join(stderr)
     )
 
+  def testBadLabelInRepoAttrsDoesntCorruptLockfile(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "repo")'
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'repo\')")',
+            'repo_rule = repository_rule(_repo_rule_impl,',
+            '    attrs={"label":attr.label()})',
+            '',
+            'def _ext_impl(ctx):',
+            '    repo_rule(name="repo", label="@other_repo")',
+            '    repo_rule(name="other_repo")',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    # As it is, the `label="@other_repo"` part is an invalid label, since the
+    # root module doesn't `use_repo()` `other_repo`.
+    # This build could succeed, but the lockfile shouldn't contain an
+    # unparsable label like
+    #   @@[unknown repo 'other_repo' requested from @@]//:other_repo
+    self.RunBazel(['build', '@repo'], allow_failure=True)
+    self.RunBazel(['shutdown'])
+
+    # rewrite the MODULE.bazel file to make the previously bad label a good one.
+    # If the lockfile contained the unparsable label, we wouldn't be able to
+    # recover here.
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "repo", "other_repo")'
+        ],
+    )
+    self.RunBazel(['build', '@repo'])
+
 
 if __name__ == '__main__':
   absltest.main()
