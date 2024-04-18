@@ -423,17 +423,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    */
 
   /**
-   * Returns the default value for the attribute {@code attrName}, which may be of any type, but
-   * must exist (an exception is thrown otherwise).
-   */
-  public Object getAttrDefaultValue(String attrName) {
-    Object defaultValue = ruleClass.getAttributeByName(attrName).getDefaultValue(this);
-    // Computed defaults not expected here.
-    Preconditions.checkState(!(defaultValue instanceof Attribute.ComputedDefault));
-    return defaultValue;
-  }
-
-  /**
    * Returns true iff the rule class has an attribute with the given name and type.
    *
    * <p>Note: RuleContext also has isAttrDefined(), which takes Aspects into account. Whenever
