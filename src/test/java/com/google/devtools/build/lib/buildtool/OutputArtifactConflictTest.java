@@ -86,7 +86,8 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
           "--notrack_incremental_state",
           "--discard_analysis_cache",
           "--nokeep_state_after_build",
-          "--heuristically_drop_nodes");
+          "--heuristically_drop_nodes",
+          "--nouse_action_cache");
     }
   }
 
