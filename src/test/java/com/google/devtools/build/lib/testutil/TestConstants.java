@@ -181,6 +181,9 @@ public class TestConstants {
   /** The cpp toolchain type. */
   public static final String CPP_TOOLCHAIN_TYPE = "@@bazel_tools//tools/cpp:toolchain_type";
 
+  /** Whether blake3 can be used through JNI */
+  public static final boolean BLAKE3_AVAILABLE = true;
+
   /** A choice of test execution mode, only varies internally. */
   public enum InternalTestExecutionMode {
     NORMAL
