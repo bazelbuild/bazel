@@ -401,4 +401,16 @@ public class WorkerPoolTest {
     workerPool.reset();
     assertThat(workerPool.getMaxTotalPerKey(workerKey)).isEqualTo(2);
   }
+
+  @Test
+  public void testClose_destroysWorkers() throws Exception {
+    WorkerKey workerKey = createWorkerKey(fileSystem, "mnem", false);
+    Worker worker1 = workerPool.borrowObject(workerKey);
+    Worker worker2 = workerPool.borrowObject(workerKey);
+    workerPool.returnObject(workerKey, worker1);
+    workerPool.returnObject(workerKey, worker2);
+    workerPool.close();
+    verify(factoryMock).destroyWorker(workerKey, worker1);
+    verify(factoryMock).destroyWorker(workerKey, worker2);
+  }
 }

@@ -357,7 +357,18 @@ public class WorkerPoolImpl implements WorkerPool {
           key.getMnemonic(), key.hashCode());
     }
 
-    private void close() {}
+    // Destroys all workers created in this pool.
+    private synchronized void close() {
+      for (Worker worker : idleQueue) {
+        factory.destroyWorker(worker.getWorkerKey(), worker);
+      }
+      for (Worker worker : activeSet) {
+        logger.atInfo().log(
+            "Interrupting and shutting down active worker %s (id %d) due to pool shutdown",
+            key.getMnemonic(), worker.getWorkerId());
+        factory.destroyWorker(worker.getWorkerKey(), worker);
+      }
+    }
   }
 
   /**
