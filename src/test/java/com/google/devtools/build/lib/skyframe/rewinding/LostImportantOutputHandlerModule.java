@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.rewinding;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -28,7 +29,6 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -69,7 +69,7 @@ final class LostImportantOutputHandlerModule extends BlazeModule {
   }
 
   private ImmutableMap<String, ActionInput> getLostOutputs(
-      Collection<? extends ActionInput> outputs, InputMetadataProvider metadataProvider) {
+      ImmutableCollection<ActionInput> outputs, InputMetadataProvider metadataProvider) {
     ImmutableMap.Builder<String, ActionInput> lost = ImmutableMap.builder();
     for (ActionInput output : outputs) {
       PathFragment execPath = output.getExecPath();

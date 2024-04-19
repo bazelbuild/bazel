@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.ImportantOutputException;
 import com.google.devtools.build.lib.actions.InputFileErrorException;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.TopLevelOutputException;
 import com.google.devtools.build.lib.analysis.ConfiguredObjectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -50,6 +51,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingArtifactValue;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
@@ -62,6 +64,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -123,6 +126,8 @@ public final class CompletionFunction<
         Environment env)
         throws InterruptedException;
   }
+
+  private static final Duration IMPORTANT_OUTPUT_HANDLER_LOGGING_THRESHOLD = Duration.ofMillis(100);
 
   private final PathResolverFactory pathResolverFactory;
   private final Completor<ValueT, ResultT, KeyT> completor;
@@ -400,20 +405,28 @@ public final class CompletionFunction<
       ArtifactsToBuild artifactsToBuild,
       Set<Artifact> builtArtifacts)
       throws CompletionFunctionException, InterruptedException {
-    ImportantOutputHandler importantOutputHandler =
+    var importantOutputHandler =
         skyframeActionExecutor.getActionContextRegistry().getContext(ImportantOutputHandler.class);
     if (importantOutputHandler == ImportantOutputHandler.NO_OP) {
       return null; // Avoid expanding artifacts if the default no-op handler is installed.
     }
 
+    Label label = key.actionLookupKey().getLabel();
+    ImmutableList<ActionInput> expandedArtifacts = ctx.expand(importantArtifacts);
+    InputMetadataProvider metadataProvider =
+        new ActionInputMetadataProvider(
+            skyframeActionExecutor.getExecRoot().asFragment(),
+            ctx.getImportantInputMap(),
+            ctx.getExpandedFilesets());
     try {
-      ImmutableMap<String, ActionInput> lostOutputs =
-          importantOutputHandler.processAndGetLostArtifacts(
-              ctx.expand(importantArtifacts),
-              new ActionInputMetadataProvider(
-                  skyframeActionExecutor.getExecRoot().asFragment(),
-                  ctx.getImportantInputMap(),
-                  ctx.getExpandedFilesets()));
+      ImmutableMap<String, ActionInput> lostOutputs;
+      try (var ignored =
+          GoogleAutoProfilerUtils.logged(
+              "Informing important output handler of top-level outputs for " + label,
+              IMPORTANT_OUTPUT_HANDLER_LOGGING_THRESHOLD)) {
+        lostOutputs =
+            importantOutputHandler.processAndGetLostArtifacts(expandedArtifacts, metadataProvider);
+      }
       if (lostOutputs.isEmpty()) {
         return null;
       }
@@ -430,7 +443,7 @@ public final class CompletionFunction<
       return actionRewindStrategy.prepareRewindPlanForLostTopLevelOutputs(
           key, ImmutableSet.copyOf(Artifact.keys(importantArtifacts)), lostOutputs, owners, env);
     } catch (ActionRewindException | ImportantOutputException e) {
-      LabelCause cause = new LabelCause(key.actionLookupKey().getLabel(), e.getDetailedExitCode());
+      LabelCause cause = new LabelCause(label, e.getDetailedExitCode());
       rootCauses = NestedSetBuilder.fromNestedSet(rootCauses).add(cause).build();
       env.getListener().handle(completor.getRootCauseError(key, value, cause, env));
       skyframeActionExecutor.recordExecutionError();

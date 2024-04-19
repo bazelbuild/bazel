@@ -122,7 +122,7 @@ public class CompletionContext {
   }
 
   /** Returns the expansion of the given artifacts. */
-  public ImmutableList<? extends ActionInput> expand(Collection<Artifact> artifacts) {
+  public ImmutableList<ActionInput> expand(Collection<Artifact> artifacts) {
     ImmutableList.Builder<ActionInput> expansion = ImmutableList.builder();
     visitArtifacts(artifacts, actionInputReceiver(expansion::add));
     return expansion.build();
