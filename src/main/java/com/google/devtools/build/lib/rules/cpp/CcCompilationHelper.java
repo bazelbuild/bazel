@@ -93,7 +93,7 @@ public final class CcCompilationHelper {
 
     // FDO is disabled -> do nothing.
     Preconditions.checkNotNull(fdoContext);
-    if (!fdoContext.hasArtifacts(cppConfiguration)) {
+    if (!fdoContext.hasArtifacts()) {
       return;
     }
 
@@ -1277,7 +1277,7 @@ public final class CcCompilationHelper {
     if (builder.getDiagnosticsFile() != null) {
       diagnosticsFileExecPath = builder.getDiagnosticsFile().getExecPathString();
     }
-    if (needsFdoBuildVariables && fdoContext.hasArtifacts(cppConfiguration)) {
+    if (needsFdoBuildVariables && fdoContext.hasArtifacts()) {
       // This modifies the passed-in builder, which is a surprising side-effect, and makes it unsafe
       // to call this method multiple times for the same builder.
       builder.addMandatoryInputs(getAuxiliaryFdoInputs());

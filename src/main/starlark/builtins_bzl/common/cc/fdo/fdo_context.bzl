@@ -23,9 +23,6 @@ cc_internal = _builtins.internal.cc_internal
 def create_fdo_context(
         *,
         ctx,
-        configuration,
-        cpp_config,
-        tool_paths,
         fdo_prefetch_provider,
         propeller_optimize_provider,
         mem_prof_profile_provider,
@@ -33,12 +30,43 @@ def create_fdo_context(
         fdo_profile_provider,
         x_fdo_profile_provider,
         cs_fdo_profile_provider,
+        llvm_profdata,
         all_files,
         zipper,
         cc_toolchain_config_info,
         fdo_optimize_artifacts,
         fdo_optimize_label):
-    """Creates FDO context."""
+    """Creates FDO context when it should be available.
+
+    When `-c opt` is used it parses values of FDO related flags, processes the
+    input Files and return Files ready to be used for FDO.
+
+    Args:
+      ctx: (RuleContext) used to create actions and obtain configuration
+      fdo_prefetch_provider: (FdoPrefetchHintsInfo) Pointed to by --fdo_prefetch_hints
+      propeller_optimize_provider: (PropellerOptimizeInfo) Pointed to by --propeller_optimize
+      mem_prof_profile_provider: (MemProfProfileInfo) Pointed to by --memprof_profile
+      fdo_optimize_provider: (PropellerOptimizeInfo) Pointed to by --propeller_optimize
+      fdo_profile_provider: (FdoProfileInfo) Pointed to by --fdo_profile
+      x_fdo_profile_provider: (FdoProfileInfo) Pointed to by --xbinary_fdo
+      cs_fdo_profile_provider: (FdoProfileInfo) Pointed to by --cs_fdo_profile
+      llvm_profdata: (File) llvm-profdata executable
+      all_files: (depset(File)) Files needed to run llvm-profdata
+      zipper: (File) zip tool, used to unpact the profiles
+      cc_toolchain_config_info: (CcToolchainConfigInfo) Used to check CPU value, should be removed
+      fdo_optimize_artifacts: (list[File]) If any a list of files pointed to by --fdo_profile
+      fdo_optimize_label: (Label) If any a label of target pointed to by --fdo_profile
+    Returns:
+      (FDOContext) A structure with following fields:
+      - branch_fdo_profile (struct|None)
+         - branch_fdo_mode ("auto_fdo"|"xbinary_fdo"|"llvm_fdo"|llvm_cs_fdo")
+         - profile_artifact (File)
+      - proto_profile_artifact (File)
+      - prefetch_hints_artifact (File),
+      - propeller_optimize_info (PropellerOptimizeInfo)
+      - memprof_profile_artifact (File)
+    """
+    cpp_config = ctx.fragments.cpp
     if cpp_config.compilation_mode() != "opt":
         return struct()
 
@@ -122,7 +150,7 @@ def create_fdo_context(
             if x_fdo_profile_provider:
                 fail("--xbinary_fdo only accepts *.xfdo and *.afdo")
 
-        if configuration.coverage_enabled:
+        if ctx.configuration.coverage_enabled:
             fail("coverage mode is not compatible with FDO optimization")
 
         # This tries to convert LLVM profiles to the indexed format if necessary.
@@ -131,7 +159,7 @@ def create_fdo_context(
                 ctx,
                 "fdo",
                 fdo_inputs,
-                tool_paths,
+                llvm_profdata,
                 all_files,
                 zipper,
                 cc_toolchain_config_info,
@@ -148,7 +176,7 @@ def create_fdo_context(
                 ctx,
                 "fdo",
                 fdo_inputs,
-                tool_paths,
+                llvm_profdata,
                 all_files,
                 zipper,
                 cc_toolchain_config_info,
@@ -157,7 +185,7 @@ def create_fdo_context(
                 ctx,
                 "csfdo",
                 cs_fdo_input,
-                tool_paths,
+                llvm_profdata,
                 all_files,
                 zipper,
                 cc_toolchain_config_info,
@@ -165,7 +193,7 @@ def create_fdo_context(
             profile_artifact = _merge_llvm_profiles(
                 ctx,
                 "mergedfdo",
-                tool_paths,
+                llvm_profdata,
                 all_files,
                 non_cs_profile_artifact,
                 cs_profile_artifact,
@@ -198,7 +226,7 @@ def _convert_llvm_raw_profile_to_indexed(
         ctx,
         name_prefix,
         fdo_inputs,
-        tool_paths,
+        llvm_profdata,
         all_files,
         zipper,
         cc_toolchain_config_info):
@@ -246,14 +274,14 @@ def _convert_llvm_raw_profile_to_indexed(
     else:  # .profraw
         raw_profile_artifact = _symlink_input(ctx, name_prefix, fdo_inputs, "Symlinking LLVM Raw Profile %{input}")
 
-    if not tool_paths.get("llvm-profdata"):
+    if not llvm_profdata:
         fail("llvm-profdata not available with this crosstool, needed for profile conversion")
 
     name = name_prefix + "/" + ctx.label.name + "/" + paths.replace_extension(basename, ".profdata")
     profile_artifact = ctx.actions.declare_file(name)
     ctx.actions.run(
         mnemonic = "LLVMProfDataAction",
-        executable = tool_paths.get("llvm-profdata"),
+        executable = llvm_profdata,
         tools = [all_files],
         arguments = [ctx.actions.args().add("merge").add("-o").add(profile_artifact).add(raw_profile_artifact)],
         inputs = [raw_profile_artifact],
@@ -268,7 +296,7 @@ def _convert_llvm_raw_profile_to_indexed(
 def _merge_llvm_profiles(
         ctx,
         name_prefix,
-        tool_paths,
+        llvm_profdata,
         all_files,
         profile1,
         profile2,
@@ -279,7 +307,7 @@ def _merge_llvm_profiles(
     # Merge LLVM profiles.
     ctx.actions.run(
         mnemonic = "LLVMProfDataMergeAction",
-        executable = tool_paths.get("llvm-profdata"),
+        executable = llvm_profdata,
         tools = [all_files],
         arguments = [ctx.actions.args().add("merge").add("-o").add(profile_artifact).add(profile1).add(profile2)],
         inputs = [profile1, profile2],

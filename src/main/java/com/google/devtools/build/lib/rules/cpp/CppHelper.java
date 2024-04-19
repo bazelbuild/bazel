@@ -262,10 +262,12 @@ public class CppHelper {
         return featureConfiguration.isEnabled(CppRuleClasses.XBINARYFDO) ? "XFDO" : null;
       }
     }
-    if (cppConfiguration.isCSFdo()) {
+    if (fdoContext.getBranchFdoProfile() != null
+        && (fdoContext.getBranchFdoProfile().isLlvmCSFdo()
+            || cppConfiguration.getCSFdoInstrument() != null)) {
       return "CSFDO";
     }
-    if (cppConfiguration.isFdo()) {
+    if (fdoContext.getBranchFdoProfile() != null || cppConfiguration.getFdoInstrument() != null) {
       return "FDO";
     }
     return null;

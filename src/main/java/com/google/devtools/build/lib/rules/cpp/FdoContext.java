@@ -103,7 +103,7 @@ public final class FdoContext {
     return fdoContextStruct.getNoneableValue("memprof_profile_artifact", Artifact.class);
   }
 
-  boolean hasArtifacts(CppConfiguration cppConfiguration) throws EvalException {
+  boolean hasArtifacts() throws EvalException {
     return getBranchFdoProfile() != null
         || getPrefetchHintsArtifact() != null
         || getPropellerOptimizeInputFile() != null

@@ -146,12 +146,12 @@ public final class CppConfiguration extends Fragment
    */
   public static final String FDO_STAMP_MACRO = "BUILD_FDO_TYPE";
 
-  private final PathFragment fdoPath;
+  private final String fdoPath;
   private final Label fdoOptimizeLabel;
 
-  private final PathFragment csFdoAbsolutePath;
-  private final PathFragment propellerOptimizeAbsoluteCCProfile;
-  private final PathFragment propellerOptimizeAbsoluteLdProfile;
+  private final String csFdoAbsolutePath;
+  private final String propellerOptimizeAbsoluteCCProfile;
+  private final String propellerOptimizeAbsoluteLdProfile;
 
   private final ImmutableList<String> conlyopts;
 
@@ -261,11 +261,17 @@ public final class CppConfiguration extends Fragment
       }
     }
 
-    this.fdoPath = fdoPath;
+    this.fdoPath = fdoPath == null ? null : fdoPath.getPathString();
     this.fdoOptimizeLabel = fdoProfileLabel;
-    this.csFdoAbsolutePath = csFdoAbsolutePath;
-    this.propellerOptimizeAbsoluteCCProfile = propellerOptimizeAbsoluteCCProfile;
-    this.propellerOptimizeAbsoluteLdProfile = propellerOptimizeAbsoluteLdProfile;
+    this.csFdoAbsolutePath = csFdoAbsolutePath == null ? null : csFdoAbsolutePath.getPathString();
+    this.propellerOptimizeAbsoluteCCProfile =
+        propellerOptimizeAbsoluteCCProfile == null
+            ? null
+            : propellerOptimizeAbsoluteCCProfile.getPathString();
+    this.propellerOptimizeAbsoluteLdProfile =
+        propellerOptimizeAbsoluteLdProfile == null
+            ? null
+            : propellerOptimizeAbsoluteLdProfile.getPathString();
     this.conlyopts = ImmutableList.copyOf(cppOptions.conlyoptList);
     this.copts = ImmutableList.copyOf(cppOptions.coptList);
     this.cxxopts = ImmutableList.copyOf(cppOptions.cxxoptList);
@@ -300,7 +306,7 @@ public final class CppConfiguration extends Fragment
   public Label getFdoZipper() {
     if (getFdoOptimizeLabel() != null
         || getFdoProfileLabel() != null
-        || getFdoPath() != null
+        || fdoPath != null
         || getMemProfProfileLabel() != null) {
       return Label.parseCanonicalUnchecked(BAZEL_TOOLS_REPO + "//tools/zip:unzip_fdo");
     }
@@ -351,14 +357,6 @@ public final class CppConfiguration extends Fragment
       doc = "Whether C/C++ binaries/tests were requested to be linked dynamically.")
   public String getDynamicModeFlagString() {
     return cppOptions.dynamicMode.name();
-  }
-
-  public boolean isFdo() {
-    return cppOptions.isFdo();
-  }
-
-  public boolean isCSFdo() {
-    return cppOptions.isCSFdo();
   }
 
   public boolean useArgsParamsFile() {
@@ -604,10 +602,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.fdoInstrumentForBuild;
   }
 
-  PathFragment getFdoPath() {
-    return fdoPath;
-  }
-
   @StarlarkMethod(
       name = "fdo_path",
       documented = false,
@@ -628,10 +622,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.csFdoInstrumentForBuild;
   }
 
-  public PathFragment getCSFdoAbsolutePath() {
-    return csFdoAbsolutePath;
-  }
-
   @StarlarkMethod(
       name = "cs_fdo_path",
       documented = false,
@@ -640,11 +630,7 @@ public final class CppConfiguration extends Fragment
   @Nullable
   public String getCsFdoPathForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return csFdoAbsolutePath == null ? null : csFdoAbsolutePath.toString();
-  }
-
-  public PathFragment getPropellerOptimizeAbsoluteCCProfile() {
-    return propellerOptimizeAbsoluteCCProfile;
+    return csFdoAbsolutePath;
   }
 
   @StarlarkMethod(
@@ -656,14 +642,7 @@ public final class CppConfiguration extends Fragment
   public String getPropellerOptimizeAbsoluteCcProfileForStarlark(StarlarkThread thread)
       throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    if (getPropellerOptimizeAbsoluteCCProfile() == null) {
-      return null;
-    }
-    return getPropellerOptimizeAbsoluteCCProfile().toString();
-  }
-
-  public PathFragment getPropellerOptimizeAbsoluteLdProfile() {
-    return propellerOptimizeAbsoluteLdProfile;
+    return propellerOptimizeAbsoluteCCProfile;
   }
 
   @StarlarkMethod(
@@ -675,10 +654,7 @@ public final class CppConfiguration extends Fragment
   public String getPropellerOptimizeAbsoluteLdProfileForStarlark(StarlarkThread thread)
       throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    if (getPropellerOptimizeAbsoluteLdProfile() == null) {
-      return null;
-    }
-    return getPropellerOptimizeAbsoluteLdProfile().toString();
+    return propellerOptimizeAbsoluteLdProfile;
   }
 
   @Nullable
@@ -731,10 +707,6 @@ public final class CppConfiguration extends Fragment
       doc = "The memprof profile label for cc_toolchain rule")
   public Label getMemProfProfileLabel() {
     return cppOptions.getMemProfProfileLabel();
-  }
-
-  public boolean isFdoAbsolutePathEnabled() {
-    return cppOptions.enableFdoProfileAbsolutePath;
   }
 
   @StarlarkMethod(

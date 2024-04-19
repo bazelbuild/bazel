@@ -1066,17 +1066,4 @@ public class CppOptions extends FragmentOptions {
     }
     return this;
   }
-
-  /** Returns true if targets under this configuration should apply FDO. */
-  public boolean isFdo() {
-    return getFdoOptimize() != null || fdoInstrumentForBuild != null || fdoProfileLabel != null;
-  }
-
-  /** Returns true if targets under this configuration should apply CSFdo. */
-  public boolean isCSFdo() {
-    return (getFdoOptimize() != null || fdoProfileLabel != null)
-        && (csFdoInstrumentForBuild != null
-            || csFdoProfileLabel != null
-            || csFdoAbsolutePathForBuild != null);
-  }
 }
