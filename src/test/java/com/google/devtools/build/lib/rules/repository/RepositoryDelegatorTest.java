@@ -160,6 +160,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     builder
+        .clearWorkspaceFilePrefixForTesting()
         .clearWorkspaceFileSuffixForTesting()
         .addStarlarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
     ConfiguredRuleClassProvider ruleClassProvider = builder.build();

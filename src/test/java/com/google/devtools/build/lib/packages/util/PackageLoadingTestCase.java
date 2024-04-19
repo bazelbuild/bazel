@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -40,6 +41,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunctio
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
@@ -60,8 +62,8 @@ import org.junit.After;
 import org.junit.Before;
 
 /**
- * This is a specialization of {@link FoundationTestCase} that's useful for
- * implementing tests of the "packages" library.
+ * This is a specialization of {@link FoundationTestCase} that's useful for implementing tests of
+ * the "packages" library.
  */
 public abstract class PackageLoadingTestCase extends FoundationTestCase {
 
@@ -104,6 +106,13 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     packageFactory =
         loadingMock
             .getPackageFactoryBuilderForTesting(directories)
+            .setExtraSkyFunctions(
+                ImmutableMap.of(
+                    SkyFunctions.MODULE_FILE,
+                    new ModuleFileFunction(
+                        ruleClassProvider.getBazelStarlarkEnvironment(),
+                        directories.getWorkspace(),
+                        ImmutableMap.of())))
             .setPackageValidator(
                 (pkg, pkgOverhead, handler) -> {
                   // Delegate to late-bound this.validator.
@@ -212,8 +221,10 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   }
 
   protected Target getTarget(String label)
-      throws NoSuchPackageException, NoSuchTargetException,
-      LabelSyntaxException, InterruptedException {
+      throws NoSuchPackageException,
+          NoSuchTargetException,
+          LabelSyntaxException,
+          InterruptedException {
     return getTarget(Label.parseCanonical(label));
   }
 
@@ -258,8 +269,9 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   }
 
   /**
-   * A utility function which generates the "deps" clause for a build file
-   * rule from a list of targets.
+   * A utility function which generates the "deps" clause for a build file rule from a list of
+   * targets.
+   *
    * @param depTargets the list of targets.
    * @return a string containing the deps clause
    */

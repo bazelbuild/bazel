@@ -82,7 +82,7 @@ public class TestRuleClassProvider {
     builder.addRuleDefinition(new TestingDummyRule());
     builder.addRuleDefinition(new MockToolchainRule());
     if (clearSuffix) {
-      builder.clearWorkspaceFileSuffixForTesting();
+      builder.clearWorkspaceFileSuffixForTesting().clearWorkspaceFilePrefixForTesting();
     }
     return builder.build();
   }
