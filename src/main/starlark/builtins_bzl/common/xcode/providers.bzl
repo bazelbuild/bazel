@@ -178,8 +178,8 @@ def _xcode_version_properties_info_init(
         *,
         xcode_version,
         default_ios_sdk_version = "8.4",
-        default_macos_sdk_version = "9.0",
-        default_tvos_sdk_version = "10.11",
+        default_macos_sdk_version = "10.11",
+        default_tvos_sdk_version = "9.0",
         default_watchos_sdk_version = "2.0",
         default_visionos_sdk_version = "1.0"):
     # Ensure that all fields get default values if they weren't specified.

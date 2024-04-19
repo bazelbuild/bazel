@@ -42,8 +42,8 @@ xcode_version = rule(
         "default_ios_sdk_version": attr.string(default = "8.4", doc = "The iOS SDK version that is used by default when this version of Xcode is being used. The `--ios_sdk_version` build flag will override the value specified here.", mandatory = False),
         "default_visionos_sdk_version": attr.string(default = "1.0", doc = "The visionOS SDK version that is used by default when this version of Xcode is being used.", mandatory = False),
         "default_watchos_sdk_version": attr.string(default = "2.0", doc = "The watchOS SDK version that is used by default when this version of Xcode is being used. The `--watchos_sdk_version` build flag will override the value specified here.", mandatory = False),
-        "default_tvos_sdk_version": attr.string(default = "10.11", doc = "The tvOS SDK version that is used by default when this version of Xcode is being used. The `--tvos_sdk_version` build flag will override the value specified here.", mandatory = False),
-        "default_macos_sdk_version": attr.string(default = "9.0", doc = "The macOS SDK version that is used by default when this version of Xcode is being used. The `--macos_sdk_version` build flag will override the value specified here.", mandatory = False),
+        "default_tvos_sdk_version": attr.string(default = "9.0", doc = "The tvOS SDK version that is used by default when this version of Xcode is being used. The `--tvos_sdk_version` build flag will override the value specified here.", mandatory = False),
+        "default_macos_sdk_version": attr.string(default = "10.11", doc = "The macOS SDK version that is used by default when this version of Xcode is being used. The `--macos_sdk_version` build flag will override the value specified here.", mandatory = False),
     },
     implementation = _xcode_version_impl,
 )
