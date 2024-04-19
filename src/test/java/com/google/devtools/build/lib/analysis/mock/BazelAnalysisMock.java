@@ -678,6 +678,15 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "",
         "def http_jar(**kwargs):",
         "  pass");
+    config.create(
+        "embedded_tools/tools/build_defs/repo/local.bzl",
+        """
+        def local_repository(**kwargs):
+            pass
+
+        def new_local_repository(**kwargs):
+            pass
+        """);
     config.create("embedded_tools/tools/jdk/jdk_build_file.bzl", "JDK_BUILD_TEMPLATE = ''");
     config.create(
         "embedded_tools/tools/jdk/local_java_repository.bzl",

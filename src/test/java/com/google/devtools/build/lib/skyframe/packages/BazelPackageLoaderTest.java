@@ -86,6 +86,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
     tools.getRelative("tools/cpp").createDirectoryAndParents();
     tools.getRelative("tools/osx").createDirectoryAndParents();
     FileSystemUtils.writeIsoLatin1(tools.getRelative("WORKSPACE"), "");
+    FileSystemUtils.writeIsoLatin1(tools.getRelative("MODULE.bazel"), "module(name='bazel_tools')");
     FileSystemUtils.writeIsoLatin1(tools.getRelative("tools/cpp/BUILD"), "");
     FileSystemUtils.writeIsoLatin1(
         tools.getRelative("tools/cpp/cc_configure.bzl"),
@@ -111,6 +112,13 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
         "  pass",
         "",
         "def http_jar(**kwargs):",
+        "  pass");
+    FileSystemUtils.writeIsoLatin1(
+        tools.getRelative("tools/build_defs/repo/local.bzl"),
+        "def local_repository(**kwargs):",
+        "  pass",
+        "",
+        "def new_local_repository(**kwargs):",
         "  pass");
     FileSystemUtils.writeIsoLatin1(
         tools.getRelative("tools/build_defs/repo/utils.bzl"),

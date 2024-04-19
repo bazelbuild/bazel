@@ -98,6 +98,18 @@ public class RepositoryOptions extends OptionsBase {
   public boolean disableDownload;
 
   @Option(
+      name = "incompatible_disable_native_repo_rules",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If false, native repo rules can be used in WORKSPACE; otherwise, Starlark repo rules "
+              + "must be used instead. Native repo rules include local_repository, "
+              + "new_local_repository, local_config_platform, android_sdk_repository, and "
+              + "android_ndk_repository.")
+  public boolean disableNativeRepoRules;
+
+  @Option(
       name = "experimental_repository_downloader_retries",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
