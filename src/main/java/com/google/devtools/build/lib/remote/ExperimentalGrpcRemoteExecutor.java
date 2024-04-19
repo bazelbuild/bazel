@@ -198,6 +198,18 @@ public class ExperimentalGrpcRemoteExecutor implements RemoteExecutionClient {
         Iterator<Operation> operationStream = waitExecutionFunction.apply(request);
         return handleOperationStream(operationStream, /* waitExecution= */ true);
       } catch (StatusRuntimeException e) {
+        // Handle the error possibility of a NOT_FOUND stream error in addition to the status
+        // embedded in an operation from the stream, since both are possible and should retry
+        // Execute().
+        //
+        // Retry is again contingent upon executeBackoff exhaustion, and if NOT_FOUND was
+        // thrown in handleOperationStream as a result of exhaustion already, this does not
+        // change its counter or retriability state.
+        if (e.getStatus().getCode() == Code.NOT_FOUND
+            && executeBackoff.nextDelayMillis(e) >= 0) {
+          lastOperation = null;
+          return null;
+        }
         throw new IOException(e);
       } catch (Throwable e) {
         lastOperation = null;
