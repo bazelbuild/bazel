@@ -144,10 +144,10 @@ forbidden) nor contain multiple consecutive slashes as path separators
 (for example, `foo//bar`). Similarly, up-level references (`..`) and
 current-directory references (`./`) are forbidden.
 
-<p><span class="compare-worse">Wrong</span> — Do not use `..` to refer to files in other packages</p>
+<p><span class="compare-worse">Wrong</span> — Do not use <code>..</code> to refer to files in other packages</p>
 
 <p><span class="compare-better">Correct</span> — Use
-  `//{{ "<var>" }}package-name{{ "</var>" }}:{{ "<var>" }}filename{{ "</var>" }}`</p>
+  <code>//{{ "<var>" }}package-name{{ "</var>" }}:{{ "<var>" }}filename{{ "</var>" }}</code></p>
 
 
 While it is common to use `/` in the name of a file target, avoid the use of
