@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
-import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleToolchainApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.DottedVersionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
@@ -52,7 +51,7 @@ public interface AppleCommonApi<
   @StarlarkMethod(
       name = "apple_toolchain",
       doc = "Utilities for resolving items from the apple toolchain.")
-  AppleToolchainApi<?> getAppleToolchain();
+  Object getAppleToolchain();
 
   @StarlarkMethod(
       name = "platform_type",
@@ -260,7 +259,7 @@ public interface AppleCommonApi<
                     + "dynamic framework")
       },
       useStarlarkThread = true)
-  AppleDynamicFrameworkInfoApi<?> newDynamicFrameworkProvider(
+  Object newDynamicFrameworkProvider(
       Object dylibBinary,
       CcInfoApiT depsCcInfo,
       Object dynamicFrameworkDirs,
@@ -291,7 +290,7 @@ public interface AppleCommonApi<
                     + "linked into the binary."),
       },
       useStarlarkThread = true)
-  AppleExecutableBinaryApi newExecutableBinaryProvider(
+  Object newExecutableBinaryProvider(
       Object executableBinary, CcInfoApiT depsCcInfo, StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(

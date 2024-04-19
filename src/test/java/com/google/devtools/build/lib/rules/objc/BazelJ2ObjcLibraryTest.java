@@ -1392,7 +1392,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             .add("-DOS_IOS")
             .add("-arch", "i386")
             .add("-isysroot")
-            .add(AppleToolchain.sdkDir())
+            .add("__BAZEL_XCODE_SDKROOT__")
             .add("-O0")
             .add("-DDEBUG=1")
             .add("-iquote")

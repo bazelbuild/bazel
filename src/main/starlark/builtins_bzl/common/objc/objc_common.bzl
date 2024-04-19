@@ -15,6 +15,7 @@
 """Common functionality for Objc rules."""
 
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/objc/apple_toolchain.bzl", "apple_toolchain")
 load(":common/objc/providers.bzl", "J2ObjcEntryClassInfo", "J2ObjcMappingFileInfo")
 
 objc_internal = _builtins.internal.objc_internal
@@ -115,7 +116,7 @@ def _create_context_and_provider(
     all_non_sdk_linkopts.extend(non_sdk_linkopts)
 
     if compilation_attributes != None:
-        sdk_dir = apple_common.apple_toolchain().sdk_dir()
+        sdk_dir = apple_toolchain.sdk_dir()
         usr_include_dir = sdk_dir + "/usr/include/"
         sdk_includes = []
 

@@ -35,6 +35,9 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
@@ -63,6 +66,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       DottedVersion.fromStringUnchecked(AppleCommandLineOptions.DEFAULT_IOS_SDK_VERSION);
 
   protected static final String OUTPUTDIR = TestConstants.PRODUCT_NAME + "-out//bin";
+
+  private static final Provider.Key APPLE_EXECUTABLE_BINARY_PROVIDER_KEY =
+      new StarlarkProvider.Key(
+          Label.parseCanonicalUnchecked("@_builtins//:common/objc/linking_support.bzl"),
+          "AppleExecutableBinaryInfo");
 
   @Before
   public void setUp() throws Exception {
@@ -185,10 +193,10 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     if (ccInfo != null) {
       return ccInfo;
     }
-    AppleExecutableBinaryInfo executableProvider =
-        getConfiguredTarget(label).get(AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR);
+    StructImpl executableProvider =
+        (StructImpl) getConfiguredTarget(label).get(APPLE_EXECUTABLE_BINARY_PROVIDER_KEY);
     if (executableProvider != null) {
-      return executableProvider.getDepsCcInfo();
+      return executableProvider.getValue("cc_info", CcInfo.class);
     }
     return null;
   }
@@ -668,7 +676,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   protected void checkSdkIncludesUsedInCompileAction(RuleType ruleType) throws Exception {
     ruleType.scratchTarget(scratch, "sdk_includes", "['foo', 'bar/baz']", "srcs", "['a.m', 'b.m']");
-    String sdkIncludeDir = AppleToolchain.sdkDir() + "/usr/include";
+    String sdkIncludeDir = "__BAZEL_XCODE_SDKROOT__/usr/include";
     // we remove spaces, since the legacy rules put a space after "-I" in include paths.
     String compileActionACommandLine =
         Joiner.on(" ").join(compileAction("//x:x", "a.o").getArguments()).replace(" ", "");
@@ -696,7 +704,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         .setList("deps", "//lib:lib")
         .setList("sdk_includes", "from_bin")
         .write();
-    String sdkIncludeDir = AppleToolchain.sdkDir() + "/usr/include";
+    String sdkIncludeDir = "__BAZEL_XCODE_SDKROOT__/usr/include";
 
     // We remove spaces because the crosstool case does not use spaces for include paths.
     String compileAArgs =

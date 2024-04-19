@@ -16,11 +16,8 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
-import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
@@ -61,8 +58,9 @@ public class AppleStarlarkCommon
   public AppleStarlarkCommon() {}
 
   @Override
-  public AppleToolchain getAppleToolchain() {
-    return new AppleToolchain();
+  public Object getAppleToolchain() {
+    // Implemented in builtin Starlark; this is just for docs.
+    throw new UnsupportedOperationException();
   }
 
   @Override
@@ -100,12 +98,14 @@ public class AppleStarlarkCommon
 
   @Override
   public Provider getAppleDynamicFrameworkConstructor() {
-    return AppleDynamicFrameworkInfo.STARLARK_CONSTRUCTOR;
+    // Implemented in builtin Starlark; this is just for docs.
+    throw new UnsupportedOperationException();
   }
 
   @Override
   public Provider getAppleExecutableBinaryConstructor() {
-    return AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR;
+    // Implemented in builtin Starlark; this is just for docs.
+    throw new UnsupportedOperationException();
   }
 
   @Override
@@ -147,26 +147,22 @@ public class AppleStarlarkCommon
   }
 
   @Override
-  public AppleDynamicFrameworkInfo newDynamicFrameworkProvider(
+  public Object newDynamicFrameworkProvider(
       Object dylibBinary,
       CcInfo depsCcInfo,
       Object dynamicFrameworkDirs,
       Object dynamicFrameworkFiles,
       StarlarkThread thread)
       throws EvalException {
-    NestedSet<String> frameworkDirs =
-        Depset.noneableCast(dynamicFrameworkDirs, String.class, "framework_dirs");
-    NestedSet<Artifact> frameworkFiles =
-        Depset.noneableCast(dynamicFrameworkFiles, Artifact.class, "framework_files");
-    Artifact binary = (dylibBinary != Starlark.NONE) ? (Artifact) dylibBinary : null;
-    return new AppleDynamicFrameworkInfo(binary, depsCcInfo, frameworkDirs, frameworkFiles);
+    // Implemented in builtin Starlark; this is just for docs.
+    throw new UnsupportedOperationException();
   }
 
   @Override
-  public AppleExecutableBinaryInfo newExecutableBinaryProvider(
+  public Object newExecutableBinaryProvider(
       Object executableBinary, CcInfo depsCcInfo, StarlarkThread thread) throws EvalException {
-    Artifact binary = (executableBinary != Starlark.NONE) ? (Artifact) executableBinary : null;
-    return new AppleExecutableBinaryInfo(binary, depsCcInfo);
+    // Implemented in builtin Starlark; this is just for docs.
+    throw new UnsupportedOperationException();
   }
 
   @Override

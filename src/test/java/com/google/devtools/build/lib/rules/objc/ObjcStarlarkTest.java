@@ -41,6 +41,11 @@ import org.junit.runners.JUnit4;
 /** Tests for Starlark interaction with the objc_* rules. */
 @RunWith(JUnit4.class)
 public class ObjcStarlarkTest extends ObjcRuleTestCase {
+  private static final Provider.Key APPLE_EXECUTABLE_BINARY_PROVIDER_KEY =
+      new StarlarkProvider.Key(
+          Label.parseCanonicalUnchecked("@_builtins//:common/objc/linking_support.bzl"),
+          "AppleExecutableBinaryInfo");
+
   @Before
   public void setupMyInfo() throws Exception {
     scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
@@ -239,9 +244,10 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         """);
 
     ConfiguredTarget binaryTarget = getConfiguredTarget("//examples/apple_starlark:bin");
-    AppleExecutableBinaryInfo executableProvider =
-        binaryTarget.get(AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR);
-    CcLinkingContext ccLinkingContext = executableProvider.getDepsCcInfo().getCcLinkingContext();
+    StructImpl executableProvider =
+        (StructImpl) binaryTarget.get(APPLE_EXECUTABLE_BINARY_PROVIDER_KEY);
+    CcLinkingContext ccLinkingContext =
+        executableProvider.getValue("cc_info", CcInfo.class).getCcLinkingContext();
 
     assertThat(
             Artifact.toRootRelativePaths(
@@ -564,9 +570,9 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
     assertThat(platformDevFrameworksDir)
         .isEqualTo(
-            AppleToolchain.developerDir()
+            "__BAZEL_XCODE_DEVELOPER_DIR__"
                 + "/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks");
-    assertThat(sdkDir).isEqualTo(AppleToolchain.sdkDir());
+    assertThat(sdkDir).isEqualTo("__BAZEL_XCODE_SDKROOT__");
   }
 
   @Test

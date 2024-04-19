@@ -509,7 +509,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(compileActionA.getArguments())
         .contains("tools/osx/crosstool/iossim/" + WRAPPED_CLANG);
     assertThat(compileActionA.getArguments())
-        .containsAtLeast("-isysroot", AppleToolchain.sdkDir())
+        .containsAtLeast("-isysroot", "__BAZEL_XCODE_SDKROOT__")
         .inOrder();
     assertThat(compileActionA.getArguments())
         .containsAtLeastElementsIn(CompilationSupport.DEFAULT_COMPILER_FLAGS);
@@ -550,7 +550,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertRequiresDarwin(compileActionA);
     assertThat(compileActionA.getArguments()).contains("tools/osx/crosstool/ios/" + WRAPPED_CLANG);
     assertThat(compileActionA.getArguments())
-        .containsAtLeast("-isysroot", AppleToolchain.sdkDir())
+        .containsAtLeast("-isysroot", "__BAZEL_XCODE_SDKROOT__")
         .inOrder();
     assertThat(compileActionA.getArguments())
         .containsAtLeastElementsIn(CompilationSupport.DEFAULT_COMPILER_FLAGS);
@@ -1166,7 +1166,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 .add("-fobjc-legacy-dispatch")
                 .addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS)
                 .add("-arch x86_64")
-                .add("-isysroot", AppleToolchain.sdkDir())
+                .add("-isysroot", "__BAZEL_XCODE_SDKROOT__")
                 .addAll(FASTBUILD_COPTS)
                 .add("-iquote", ".")
                 .add("-iquote", OUTPUTDIR)
