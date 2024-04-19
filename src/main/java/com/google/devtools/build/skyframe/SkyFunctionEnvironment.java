@@ -467,12 +467,26 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
         return bubbleErrorInfoValue;
       }
     }
-    SkyValue directDepsValue = previouslyRequestedDepsValues.get(key);
+    SkyValue directDepsValue = getPreviouslyRequestedDepValue(key);
     if (directDepsValue != null) {
       return directDepsValue;
     }
     directDepsValue = newlyRequestedDepsValues.get(key);
     return directDepsValue == MANUALLY_REGISTERED_MARKER ? null : directDepsValue;
+  }
+
+  /**
+   * Gets the value of previously requested dep from either the env-scoped map or the {@link
+   * #evaluatorContext}'s graph.
+   *
+   * <p>In {@link SkipsBatchPrefetch}, since previously requested deps values are not available
+   * after environment creation, so it needs to query the {@link #evaluatorContext}'s graph on
+   * demand.
+   */
+  @Nullable
+  @ForOverride
+  SkyValue getPreviouslyRequestedDepValue(SkyKey key) {
+    return previouslyRequestedDepsValues.get(key);
   }
 
   @ForOverride
@@ -1148,6 +1162,29 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       // Partial reevaluations don't prefetch all previously requested deps, because doing so is too
       // expensive, with how many more times those nodes get reevaluated.
       return new HashMap<>();
+    }
+
+    @Nullable
+    @Override
+    SkyValue getPreviouslyRequestedDepValue(SkyKey key) {
+      SkyFunctionEnvironment env = this;
+      if (!env.previouslyRequestedDeps.contains(key)) {
+        return null;
+      }
+      SkyValue possibleValueInMap = env.previouslyRequestedDepsValues.get(key);
+      if (possibleValueInMap != null) {
+        return possibleValueInMap;
+      }
+      try {
+        // TODO: b/324948927#comment14 - Figure out the approach to properly handle possible missing
+        // or undone deps before expanding the usage of `SkipsBatchPrefetch` or making
+        // `SkipsBatchPrefetch` as the default environment to create.
+        NodeEntry depEntry =
+            env.evaluatorContext.getGraph().get(env.skyKey, Reason.DEP_REQUESTED, key);
+        return processDepEntry(key, depEntry);
+      } catch (InterruptedException e) {
+        throw new IllegalStateException("No interruption when getting depEntry from depGraph", e);
+      }
     }
 
     @Nullable
