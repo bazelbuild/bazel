@@ -4,7 +4,7 @@
 
 Build and test software of any size, quickly and reliably.
 
-* **Speed up builds and tests**:
+* **Speed up the builds and tests**:
   Bazel rebuilds only what is necessary.
   With advanced local and distributed caching, optimized dependency analysis and
   parallel execution, you get fast and incremental builds.
