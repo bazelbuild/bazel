@@ -20,6 +20,10 @@ import java.net.URISyntaxException;
 /** A factory type for {@link Registry}. */
 public interface RegistryFactory {
 
-  /** Returns the unique registry associated with the given URL. */
-  Registry getRegistryWithUrl(String url) throws URISyntaxException;
+  /**
+   * Creates a registry associated with the given URL.
+   *
+   * <p>Outside of tests, only {@link RegistryFunction} should call this method.
+   */
+  Registry createRegistry(String url) throws URISyntaxException;
 }
