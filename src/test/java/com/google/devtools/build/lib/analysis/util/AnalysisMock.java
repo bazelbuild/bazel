@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionRepoMappingEntriesFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
+import com.google.devtools.build.lib.bazel.bzlmod.RegistryFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpecFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionUsagesFunction;
@@ -168,7 +169,6 @@ public abstract class AnalysisMock extends LoadingMock {
             SkyFunctions.MODULE_FILE,
             new ModuleFileFunction(
                 createRuleClassProvider().getBazelStarlarkEnvironment(),
-                FakeRegistry.DEFAULT_FACTORY,
                 directories.getWorkspace(),
                 getBuiltinModules(directories)))
         .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
@@ -178,8 +178,9 @@ public abstract class AnalysisMock extends LoadingMock {
             SkyFunctions.SINGLE_EXTENSION_EVAL,
             new SingleExtensionEvalFunction(directories, ImmutableMap::of, downloadManager))
         .put(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
-        .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction(FakeRegistry.DEFAULT_FACTORY))
-        .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction(FakeRegistry.DEFAULT_FACTORY))
+        .put(SkyFunctions.REGISTRY, new RegistryFunction(FakeRegistry.DEFAULT_FACTORY))
+        .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
+        .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
         .put(
             SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
             new ModuleExtensionRepoMappingEntriesFunction())
@@ -291,7 +292,6 @@ public abstract class AnalysisMock extends LoadingMock {
               SkyFunctions.MODULE_FILE,
               new ModuleFileFunction(
                   createRuleClassProvider().getBazelStarlarkEnvironment(),
-                  FakeRegistry.DEFAULT_FACTORY,
                   directories.getWorkspace(),
                   getBuiltinModules(directories)))
           .buildOrThrow();

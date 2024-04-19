@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -55,8 +56,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.errorprone.annotations.FormatMethod;
 import java.io.IOException;
-import java.net.URISyntaxException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -86,7 +85,6 @@ public class ModuleFileFunction implements SkyFunction {
       new Precomputed<>("module_overrides");
 
   private final BazelStarlarkEnvironment starlarkEnv;
-  private final RegistryFactory registryFactory;
   private final Path workspaceRoot;
   private final ImmutableMap<String, NonRegistryOverride> builtinModules;
 
@@ -106,11 +104,9 @@ public class ModuleFileFunction implements SkyFunction {
    */
   public ModuleFileFunction(
       BazelStarlarkEnvironment starlarkEnv,
-      RegistryFactory registryFactory,
       Path workspaceRoot,
       ImmutableMap<String, NonRegistryOverride> builtinModules) {
     this.starlarkEnv = starlarkEnv;
-    this.registryFactory = registryFactory;
     this.workspaceRoot = workspaceRoot;
     this.builtinModules = builtinModules;
   }
@@ -470,14 +466,18 @@ public class ModuleFileFunction implements SkyFunction {
               "unrecognized override type %s for module %s",
               override.getClass().getSimpleName(), key));
     }
-    List<Registry> registryObjects = new ArrayList<>(registries.size());
-    for (String registryUrl : registries) {
-      try {
-        registryObjects.add(registryFactory.getRegistryWithUrl(registryUrl));
-      } catch (URISyntaxException e) {
-        throw errorf(Code.INVALID_REGISTRY_URL, e, "Invalid registry URL");
-      }
+
+    List<RegistryKey> registryKeys =
+        registries.stream().map(RegistryKey::create).collect(toImmutableList());
+    var registryResult = env.getValuesAndExceptions(registryKeys);
+    if (env.valuesMissing()) {
+      return null;
     }
+    List<Registry> registryObjects =
+        registryKeys.stream()
+            .map(registryResult::get)
+            .map(Registry.class::cast)
+            .collect(toImmutableList());
 
     // Now go through the list of registries and use the first one that contains the requested
     // module.

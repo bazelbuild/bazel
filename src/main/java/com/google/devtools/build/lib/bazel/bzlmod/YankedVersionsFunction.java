@@ -23,7 +23,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.util.Optional;
 import javax.annotation.Nullable;
 
@@ -32,24 +31,23 @@ import javax.annotation.Nullable;
  * fetching required information from its {@link Registry}.
  */
 public class YankedVersionsFunction implements SkyFunction {
-  private final RegistryFactory registryFactory;
-
-  public YankedVersionsFunction(RegistryFactory registryFactory) {
-    this.registryFactory = registryFactory;
-  }
 
   @Override
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     var key = (YankedVersionsValue.Key) skyKey.argument();
+
+    Registry registry = (Registry) env.getValue(RegistryKey.create(key.getRegistryUrl()));
+    if (registry == null) {
+      return null;
+    }
+
     try (SilentCloseable c =
         Profiler.instance()
             .profile(
                 ProfilerTask.BZLMOD, () -> "getting yanked versions: " + key.getModuleName())) {
       return YankedVersionsValue.create(
-          registryFactory
-              .getRegistryWithUrl(key.getRegistryUrl())
-              .getYankedVersions(key.getModuleName(), env.getListener()));
+          registry.getYankedVersions(key.getModuleName(), env.getListener()));
     } catch (IOException e) {
       env.getListener()
           .handle(
@@ -59,10 +57,6 @@ public class YankedVersionsFunction implements SkyFunction {
       // This is failing open: If we can't read the metadata file, we allow yanked modules to be
       // fetched.
       return YankedVersionsValue.create(Optional.empty());
-    } catch (URISyntaxException e) {
-      // This should never happen since we obtain the registry URL from an already constructed
-      // registry.
-      throw new IllegalStateException(e);
     }
   }
 }

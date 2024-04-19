@@ -207,7 +207,6 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                     SkyFunctions.MODULE_FILE,
                     new ModuleFileFunction(
                         ruleClassProvider.getBazelStarlarkEnvironment(),
-                        registryFactory,
                         workspaceRoot,
                         // Required to load @_builtins.
                         ImmutableMap.of("bazel_tools", LocalPathOverride.create(bazelToolsPath))))
@@ -288,8 +287,9 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
                 .put(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
                 .put(SkyFunctions.SINGLE_EXTENSION_EVAL, singleExtensionEvalFunction)
-                .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory))
-                .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction(registryFactory))
+                .put(SkyFunctions.REGISTRY, new RegistryFunction(registryFactory))
+                .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
+                .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
                 .put(
                     SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
                     new ModuleExtensionRepoMappingEntriesFunction())
