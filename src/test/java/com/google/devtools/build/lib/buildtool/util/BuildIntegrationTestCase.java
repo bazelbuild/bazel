@@ -254,7 +254,14 @@ public abstract class BuildIntegrationTestCase {
         nativeFileSystem.getPath(testRoot.getRelative(getDesiredWorkspaceRelative()).asFragment());
     beforeCreatingWorkspace(workspace);
     workspace.createDirectoryAndParents();
-    serverDirectories = createServerDirectories();
+    serverDirectories =
+        new ServerDirectories(
+            /* installBase= */ outputBase,
+            /* outputBase= */ outputBase,
+            /* outputUserRoot= */ outputBase,
+            /* execRootBase= */ getExecRootBase(),
+            // Arbitrary install base hash.
+            /* installMD5= */ "83bc4458738962b9b77480bac76164a9");
     directories =
         new BlazeDirectories(
             serverDirectories,
@@ -323,14 +330,8 @@ public abstract class BuildIntegrationTestCase {
         BugReport.handleCrash(Crash.from(exception), CrashContext.keepAlive());
   }
 
-  protected ServerDirectories createServerDirectories() {
-    return new ServerDirectories(
-        /*installBase=*/ outputBase,
-        /*outputBase=*/ outputBase,
-        /*outputUserRoot=*/ outputBase,
-        /*execRootBase=*/ outputBase.getRelative("execroot"),
-        // Arbitrary install base hash.
-        /*installMD5=*/ "83bc4458738962b9b77480bac76164a9");
+  protected Path getExecRootBase() {
+    return outputBase.getRelative("execroot");
   }
 
   protected void createRuntimeWrapper() throws Exception {
