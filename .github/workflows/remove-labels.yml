@@ -4,21 +4,19 @@ on:
   pull_request_target:
     types: ["closed"]
 
-permissions:
-  contents: read
-
 jobs:
   remove-label:
     permissions:
+      contents: read
       pull-requests: write
     runs-on: ubuntu-latest
     steps:
     - name: Harden Runner
-      uses: step-security/harden-runner@63c24ba6bd7ba022e95695ff85de572c04a18142 # v2.7.0
+      uses: step-security/harden-runner@6b3083af2869dc3314a0257a42f4af696cc79ba3 # v2.3.1
       with:
         egress-policy: audit
 
-    - uses: actions-ecosystem/action-remove-labels@2ce5d41b4b6aa8503e285553f75ed56e0a40bae0 # v1.3.0
+    - uses: actions-ecosystem/action-remove-labels@v1
       with:
         labels: |
           awaiting-pr-merge
