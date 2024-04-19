@@ -103,6 +103,119 @@ EOF
     || fail "Should have found include at repository-relative path"
 }
 
+function test_cc_library_strip_only() {
+  r="$TEST_TMPDIR/r"
+  mkdir -p foo/v1
+  mkdir -p foo/v2
+  mkdir -p "$TEST_TMPDIR/r/foo/v1"
+  mkdir -p "$TEST_TMPDIR/r/foo/v2"
+  create_workspace_with_default_repos "$TEST_TMPDIR/r/WORKSPACE"
+  echo "#define FOO 42" | tee foo/v1/foo.h > "$TEST_TMPDIR/r/foo/v1/foo.h"
+  echo "#define BAR 42" | tee foo/v2/bar.h > "$TEST_TMPDIR/r/foo/v2/bar.h"
+  cat | tee foo/BUILD > "$TEST_TMPDIR/r/foo/BUILD" <<EOF
+cc_library(
+  name = "foo",
+  hdrs = ["v1/foo.h"],
+  strip_include_prefix = "v1",
+  visibility = ["//visibility:public"],
+)
+
+genrule(
+  name = "foo_h",
+  cmd = 'echo "#define FOO 42" > "\$@"',
+  outs = ["v2/foo_gen.h"],
+)
+
+cc_library(
+  name = "foo_generated",
+  hdrs = [":foo_h"],
+  strip_include_prefix = "v2",
+  visibility = ["//visibility:public"],
+)
+
+cc_library(
+  name = "foo_mixed",
+  hdrs = [":foo_h", "v2/bar.h"],
+  strip_include_prefix = "v2",
+  visibility = ["//visibility:public"],
+)
+EOF
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+local_repository(
+  name = "foo",
+  path = "$TEST_TMPDIR/r",
+)
+EOF
+
+  cat > BUILD <<EOF
+cc_binary(
+  name = "repo",
+  srcs = ["ok.cc"],
+  deps = ["@foo//foo"],
+)
+cc_binary(
+  name = "repo_gen",
+  srcs = ["gen.cc"],
+  deps = ["@foo//foo:foo_generated"],
+)
+cc_binary(
+  name = "repo_mixed",
+  srcs = ["mixed.cc"],
+  deps = ["@foo//foo:foo_mixed"],
+)
+cc_binary(
+  name = "no_repo",
+  srcs = ["ok.cc"],
+  deps = ["//foo"],
+)
+cc_binary(
+  name = "no_repo_gen",
+  srcs = ["gen.cc"],
+  deps = ["//foo:foo_generated"],
+)
+cc_binary(
+  name = "no_repo_mixed",
+  srcs = ["mixed.cc"],
+  deps = ["//foo:foo_mixed"],
+)
+EOF
+
+  cat > ok.cc <<EOF
+#include <stdio.h>
+#include "foo.h"
+int main() {
+  printf("FOO is %d\n", FOO);
+}
+EOF
+
+  cat > gen.cc <<EOF
+#include <stdio.h>
+#include "foo_gen.h"
+int main() {
+  printf("FOO is %d\n", FOO);
+}
+EOF
+
+  cat > mixed.cc <<EOF
+#include <stdio.h>
+#include "foo_gen.h"
+#include "bar.h"
+int main() {
+  printf("FOO is %d\n", FOO);
+  printf("BAR is %d\n", BAR);
+}
+EOF
+  bazel build --noexperimental_sibling_repository_layout :repo || fail "Should have found include at synthetic path"
+  bazel build --noexperimental_sibling_repository_layout :repo_gen || fail "Should have found include at synthetic path"
+  bazel build --noexperimental_sibling_repository_layout :repo_mixed || fail "Should have found include at synthetic path"
+  bazel build --experimental_sibling_repository_layout :repo || fail "Should have found include at synthetic path"
+  bazel build --experimental_sibling_repository_layout :repo_gen || fail "Should have found include at synthetic path"
+  bazel build --experimental_sibling_repository_layout :repo_mixed || fail "Should have found include at synthetic path"
+  bazel build :no_repo || fail "Should have found include at synthetic path"
+  bazel build :no_repo_gen || fail "Should have found include at synthetic path"
+  bazel build :no_repo_mixed || fail "Should have found include at synthetic path"
+}
+
 
 function test_include_validation_sandbox_disabled() {
   local workspace="${FUNCNAME[0]}"
