@@ -56,6 +56,7 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
       Map<RepoRecordedInput, String> recordedInputValues,
       SkyKey key)
       throws RepositoryFunctionException, InterruptedException {
+    ensureNativeRepoRuleEnabled(rule, env, "the platform defined at @platforms//host");
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
       return null;

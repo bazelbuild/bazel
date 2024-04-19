@@ -201,6 +201,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
       Map<RepoRecordedInput, String> recordedInputValues,
       SkyKey key)
       throws RepositoryFunctionException, InterruptedException {
+    ensureNativeRepoRuleEnabled(rule, env, "https://github.com/bazelbuild/rules_android");
     Map<String, String> environ =
         declareEnvironmentDependencies(recordedInputValues, env, PATH_ENV_VAR_AS_SET);
     if (environ == null) {

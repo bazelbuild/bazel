@@ -48,6 +48,7 @@ class BazelModuleTest(test_base.TestBase):
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
             'build --noenable_workspace',
+            'build --incompatible_disable_native_repo_rules',
             'build --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
@@ -868,6 +869,41 @@ class BazelModuleTest(test_base.TestBase):
     )
 
     self.RunBazel(['build', '@my_jar//jar'])
+
+  def testNoEnableNativeRepoRules(self):
+    self.ScratchFile('MODULE.bazel')
+    self.ScratchFile(
+        'WORKSPACE.bzlmod', ['local_repository(name="foo",path="foo")']
+    )
+    self.ScratchFile('BUILD', ['filegroup(name="bar")'])
+    self.ScratchFile('foo/REPO.bazel')
+    self.ScratchFile('foo/BUILD', ['filegroup(name="foo")'])
+
+    self.RunBazel([
+        'build',
+        '--enable_workspace',
+        '--noincompatible_disable_native_repo_rules',
+        '@foo',
+    ])
+    _, _, stderr = self.RunBazel(
+        [
+            'build',
+            '--enable_workspace',
+            '--incompatible_disable_native_repo_rules',
+            '@foo',
+        ],
+        allow_failure=True,
+    )
+    self.assertIn(
+        'Native repo rule local_repository is disabled', '\n'.join(stderr)
+    )
+    # a build that doesn't use the defined @foo should be ok.
+    self.RunBazel([
+        'build',
+        '--enable_workspace',
+        '--incompatible_disable_native_repo_rules',
+        ':bar',
+    ])
 
 
 if __name__ == '__main__':
