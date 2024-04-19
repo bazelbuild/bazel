@@ -683,12 +683,14 @@ def _cc_shared_library_impl(ctx):
     if ctx.attr.shared_lib_name:
         main_output = ctx.actions.declare_file(ctx.attr.shared_lib_name)
 
+    additional_output_groups = {}
     pdb_file = None
     if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "generate_pdb_file"):
         if ctx.attr.shared_lib_name:
             pdb_file = ctx.actions.declare_file(paths.replace_extension(ctx.attr.shared_lib_name, ".pdb"))
         else:
             pdb_file = ctx.actions.declare_file(ctx.label.name + ".pdb")
+        additional_output_groups["pdb_file"] = depset([pdb_file])
 
     win_def_file = None
     if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "targets_windows"):
@@ -707,6 +709,7 @@ def _cc_shared_library_impl(ctx):
         generated_def_file = None
         if def_parser != None:
             generated_def_file = cc_helper.generate_def_file(ctx, def_parser, object_files, ctx.label.name)
+            additional_output_groups["def_file"] = depset([generated_def_file])
         custom_win_def_file = ctx.file.win_def_file
         win_def_file = cc_helper.get_windows_def_file_for_linking(ctx, custom_win_def_file, generated_def_file, feature_configuration)
 
@@ -781,6 +784,7 @@ def _cc_shared_library_impl(ctx):
         OutputGroupInfo(
             main_shared_library_output = depset(library),
             interface_library = depset(interface_library),
+            **additional_output_groups
         ),
         CcSharedLibraryInfo(
             dynamic_deps = merged_cc_shared_library_info,

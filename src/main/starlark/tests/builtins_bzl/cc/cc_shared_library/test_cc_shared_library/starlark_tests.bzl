@@ -390,6 +390,9 @@ def _pdb_test_impl(env, target):
         matching.contains("foo_so.pdb"),
     ])
 
+    pdb_short_path = [f.short_path for f in target_action.outputs.to_list() if "foo_so.pdb" in f.basename]
+    env.expect.that_target(target).output_group("pdb_file").contains_exactly(pdb_short_path)
+
 def _pdb_test_macro(name, target):
     analysis_test(
         name = name,
