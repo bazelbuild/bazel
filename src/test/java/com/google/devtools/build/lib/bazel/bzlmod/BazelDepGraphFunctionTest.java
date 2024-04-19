@@ -80,15 +80,12 @@ import org.junit.runners.JUnit4;
 public class BazelDepGraphFunctionTest extends FoundationTestCase {
 
   private MemoizingEvaluator evaluator;
-  private RecordingDifferencer differencer;
   private EvaluationContext evaluationContext;
-  private FakeRegistry.Factory registryFactory;
   private BazelModuleResolutionFunctionMock resolutionFunctionMock;
 
   @Before
   public void setup() throws Exception {
-    differencer = new SequencedRecordingDifferencer();
-    registryFactory = new FakeRegistry.Factory();
+    RecordingDifferencer differencer = new SequencedRecordingDifferencer();
     evaluationContext =
         EvaluationContext.newBuilder().setParallelism(8).setEventHandler(reporter).build();
 
@@ -127,15 +124,15 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                     SkyFunctions.MODULE_FILE,
                     new ModuleFileFunction(
                         TestRuleClassProvider.getRuleClassProvider().getBazelStarlarkEnvironment(),
-                        registryFactory,
                         rootDirectory,
                         ImmutableMap.of()))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(rootDirectory))
                 .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, resolutionFunctionMock)
-                .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory))
-                .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction(registryFactory))
+                .put(SkyFunctions.REGISTRY, new RegistryFunction(new FakeRegistry.Factory()))
+                .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
+                .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
                 .put(
                     SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
                     new ModuleExtensionRepoMappingEntriesFunction())

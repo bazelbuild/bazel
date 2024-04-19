@@ -87,13 +87,11 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
   private MemoizingEvaluator evaluator;
   private RecordingDifferencer differencer;
   private EvaluationContext evaluationContext;
-  private FakeRegistry.Factory registryFactory;
   private static SkyFunctionName updateLockfileFunction;
 
   @Before
   public void setup() throws Exception {
     differencer = new SequencedRecordingDifferencer();
-    registryFactory = new FakeRegistry.Factory();
     evaluationContext =
         EvaluationContext.newBuilder().setParallelism(8).setEventHandler(reporter).build();
 
@@ -155,12 +153,12 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
                     SkyFunctions.MODULE_FILE,
                     new ModuleFileFunction(
                         ruleClassProvider.getBazelStarlarkEnvironment(),
-                        registryFactory,
                         rootDirectory,
                         ImmutableMap.of()))
                 .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(rootDirectory))
-                .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory))
-                .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction(registryFactory))
+                .put(SkyFunctions.REGISTRY, new RegistryFunction(new FakeRegistry.Factory()))
+                .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
+                .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
                 .put(
                     SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
                     new ModuleExtensionRepoMappingEntriesFunction())

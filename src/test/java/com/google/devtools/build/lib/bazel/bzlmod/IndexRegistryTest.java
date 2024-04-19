@@ -71,7 +71,7 @@ public class IndexRegistryTest extends FoundationTestCase {
     server.serve("/myreg/modules/foo/1.0/MODULE.bazel", "lol");
     server.start();
 
-    Registry registry = registryFactory.getRegistryWithUrl(server.getUrl() + "/myreg");
+    Registry registry = registryFactory.createRegistry(server.getUrl() + "/myreg");
     assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter))
         .hasValue(
             ModuleFile.create(
@@ -87,7 +87,7 @@ public class IndexRegistryTest extends FoundationTestCase {
         NetrcParser.parseAndClose(
             new ByteArrayInputStream(
                 "machine [::1] login rinne password rinnepass\n".getBytes(UTF_8)));
-    Registry registry = registryFactory.getRegistryWithUrl(server.getUrl() + "/myreg");
+    Registry registry = registryFactory.createRegistry(server.getUrl() + "/myreg");
 
     UnrecoverableHttpException e =
         assertThrows(
@@ -112,7 +112,7 @@ public class IndexRegistryTest extends FoundationTestCase {
     }
 
     Registry registry =
-        registryFactory.getRegistryWithUrl(
+        registryFactory.createRegistry(
             new File(tempFolder.getRoot(), "fakereg").toURI().toString());
     assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter))
         .hasValue(ModuleFile.create("lol".getBytes(UTF_8), file.toURI().toString()));
@@ -149,7 +149,7 @@ public class IndexRegistryTest extends FoundationTestCase {
         "}");
     server.start();
 
-    Registry registry = registryFactory.getRegistryWithUrl(server.getUrl());
+    Registry registry = registryFactory.createRegistry(server.getUrl());
     assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter))
         .isEqualTo(
             new ArchiveRepoSpecBuilder()
@@ -193,7 +193,7 @@ public class IndexRegistryTest extends FoundationTestCase {
         "}");
     server.start();
 
-    Registry registry = registryFactory.getRegistryWithUrl(server.getUrl());
+    Registry registry = registryFactory.createRegistry(server.getUrl());
     assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter))
         .isEqualTo(
             RepoSpec.builder()
@@ -215,7 +215,7 @@ public class IndexRegistryTest extends FoundationTestCase {
         "  \"strip_prefix\": \"pref\"",
         "}");
 
-    Registry registry = registryFactory.getRegistryWithUrl(server.getUrl());
+    Registry registry = registryFactory.createRegistry(server.getUrl());
     assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter))
         .isEqualTo(
             new ArchiveRepoSpecBuilder()
@@ -246,7 +246,7 @@ public class IndexRegistryTest extends FoundationTestCase {
         "}");
     server.start();
 
-    Registry registry = registryFactory.getRegistryWithUrl(server.getUrl());
+    Registry registry = registryFactory.createRegistry(server.getUrl());
     assertThrows(
         IOException.class, () -> registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter));
   }
@@ -273,7 +273,7 @@ public class IndexRegistryTest extends FoundationTestCase {
             + "    }\n"
             + "}");
     server.start();
-    Registry registry = registryFactory.getRegistryWithUrl(server.getUrl());
+    Registry registry = registryFactory.createRegistry(server.getUrl());
     Optional<ImmutableMap<Version, String>> yankedVersion =
         registry.getYankedVersions("red-pill", reporter);
     assertThat(yankedVersion)
@@ -294,7 +294,7 @@ public class IndexRegistryTest extends FoundationTestCase {
         "}");
     server.start();
 
-    Registry registry = registryFactory.getRegistryWithUrl(server.getUrl());
+    Registry registry = registryFactory.createRegistry(server.getUrl());
     assertThat(registry.getRepoSpec(createModuleKey("archive_type", "1.0"), reporter))
         .isEqualTo(
             new ArchiveRepoSpecBuilder()

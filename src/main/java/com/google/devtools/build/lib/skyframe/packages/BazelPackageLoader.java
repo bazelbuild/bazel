@@ -143,7 +143,6 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                 SkyFunctions.MODULE_FILE,
                 new ModuleFileFunction(
                     ruleClassProvider.getBazelStarlarkEnvironment(),
-                    registryFactory,
                     directories.getWorkspace(),
                     ImmutableMap.of())));
       }
