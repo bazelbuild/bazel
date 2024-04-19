@@ -502,6 +502,7 @@ def _minimize_cc_info(cc_info):
     return CcInfo(
         linking_context = cc_info.linking_context,
         cc_native_library_info = CcNativeLibraryInfo(libraries_to_link = cc_info.transitive_native_libraries()),
+        debug_context = cc_info.debug_context(),
     )
 
 def _compute_concatenated_deps(deps, runtime_deps, exports):
