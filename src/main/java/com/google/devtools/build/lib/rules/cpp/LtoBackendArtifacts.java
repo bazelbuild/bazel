@@ -471,7 +471,8 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
       LtoBackendAction.Builder builder,
       FdoContext fdoContext,
       FeatureConfiguration featureConfiguration,
-      CcToolchainVariables.Builder buildVariables) {
+      CcToolchainVariables.Builder buildVariables)
+      throws EvalException {
     Artifact prefetch = fdoContext.getPrefetchHintsArtifact();
     if (prefetch != null) {
       buildVariables.addStringVariable("fdo_prefetch_hints_path", prefetch.getExecPathString());

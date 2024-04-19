@@ -15,10 +15,8 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -28,12 +26,10 @@ import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -43,12 +39,10 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
-import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -59,7 +53,6 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
-import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
@@ -68,17 +61,6 @@ import net.starlark.java.syntax.Location;
 public class CcStarlarkInternal implements StarlarkValue {
 
   public static final String NAME = "cc_internal";
-
-  @Nullable
-  private static <T> T nullIfNone(Object object, Class<T> type) {
-    return object != Starlark.NONE ? type.cast(object) : null;
-  }
-
-  private ImmutableMap<String, PathFragment> castDict(Dict<?, ?> d) throws EvalException {
-    return Dict.cast(d, String.class, String.class, "tool_paths").entrySet().stream()
-        .map(p -> Pair.of(p.getKey(), PathFragment.create(p.getValue())))
-        .collect(toImmutableMap(Pair::getFirst, Pair::getSecond));
-  }
 
   @StarlarkMethod(
       name = "cc_toolchain_variables",
@@ -111,75 +93,6 @@ public class CcStarlarkInternal implements StarlarkValue {
       String runtimeSolibDirBase) {
     return SolibSymlinkAction.getCppRuntimeSymlink(
         ruleContext.getRuleContext(), artifact, solibDirectory, runtimeSolibDirBase);
-  }
-
-  @StarlarkMethod(
-      name = "fdo_context",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-        @Param(name = "configuration", positional = false, named = true),
-        @Param(name = "cpp_config", positional = false, named = true),
-        @Param(name = "tool_paths", positional = false, named = true),
-        @Param(name = "fdo_prefetch_provider", positional = false, named = true),
-        @Param(name = "propeller_optimize_provider", positional = false, named = true),
-        @Param(name = "mem_prof_profile_provider", positional = false, named = true),
-        @Param(name = "fdo_optimize_provider", positional = false, named = true),
-        @Param(name = "fdo_profile_provider", positional = false, named = true),
-        @Param(name = "x_fdo_profile_provider", positional = false, named = true),
-        @Param(name = "cs_fdo_profile_provider", positional = false, named = true),
-        @Param(name = "all_files", positional = false, named = true),
-        @Param(name = "zipper", positional = false, named = true),
-        @Param(name = "cc_toolchain_config_info", positional = false, named = true),
-        @Param(name = "fdo_optimize_artifacts", positional = false, named = true),
-        @Param(name = "fdo_optimize_label", positional = false, named = true),
-      },
-      allowReturnNones = true)
-  @Nullable
-  public FdoContext fdoContext(
-      StarlarkRuleContext ruleContext,
-      BuildConfigurationValue configuration,
-      CppConfiguration cppConfiguration,
-      Dict<?, ?> toolPathsDict,
-      Object fdoPrefetchProvider,
-      Object propellerOptimizeProvider,
-      Object memProfProfileProvider,
-      Object fdoOptimizeProvider,
-      Object fdoProfileProvider,
-      Object xFdoProfileProvider,
-      Object csFdoProfileProvider,
-      Object allFilesObject,
-      Object zipper,
-      CcToolchainConfigInfo ccToolchainConfigInfo,
-      Sequence<?> fdoOptimizeArtifacts,
-      Object fdoOptimizeLabel)
-      throws EvalException, InterruptedException {
-    NestedSet<Artifact> allFiles = null;
-
-    try {
-      allFiles = ((Depset) allFilesObject).getSet(Artifact.class);
-    } catch (TypeException e) {
-      throw new EvalException(e);
-    }
-
-    return FdoHelper.getFdoContext(
-        ruleContext.getRuleContext(),
-        configuration,
-        cppConfiguration,
-        castDict(toolPathsDict),
-        nullIfNone(fdoPrefetchProvider, StructImpl.class),
-        nullIfNone(propellerOptimizeProvider, StructImpl.class),
-        nullIfNone(memProfProfileProvider, StructImpl.class),
-        nullIfNone(fdoOptimizeProvider, StructImpl.class),
-        nullIfNone(fdoProfileProvider, StructImpl.class),
-        nullIfNone(xFdoProfileProvider, StructImpl.class),
-        nullIfNone(csFdoProfileProvider, StructImpl.class),
-        allFiles,
-        nullIfNone(zipper, Artifact.class),
-        ccToolchainConfigInfo,
-        Sequence.cast(fdoOptimizeArtifacts, Artifact.class, "fdo_optimize_artifacts")
-            .getImmutableList(),
-        nullIfNone(fdoOptimizeLabel, Label.class));
   }
 
   @StarlarkMethod(
@@ -503,5 +416,26 @@ public class CcStarlarkInternal implements StarlarkValue {
     return ccToolchain
         .getFeatures()
         .getArtifactNameForCategory(ArtifactCategory.valueOf(category), outputName);
+  }
+
+  @StarlarkMethod(
+      name = "absolute_symlink",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+        @Param(name = "output", positional = false, named = true),
+        @Param(name = "target_path", positional = false, named = true),
+        @Param(name = "progress_message", positional = false, named = true),
+      })
+  // TODO(b/333997009): remove command line flags that specify FDO with absolute path
+  public void absoluteSymlink(
+      StarlarkRuleContext ctx, Artifact output, String targetPath, String progressMessage) {
+    SymlinkAction action =
+        SymlinkAction.toAbsolutePath(
+            ctx.getRuleContext().getActionOwner(),
+            PathFragment.create(targetPath),
+            output,
+            progressMessage);
+    ctx.getRuleContext().registerAction(action);
   }
 }
