@@ -198,6 +198,7 @@ def get_cc_toolchain_provider(ctx, attributes):
         cc_toolchain_config_info = attributes.cc_toolchain_config_info,
         fdo_optimize_artifacts = attributes.fdo_optimize_artifacts,
         fdo_optimize_label = attributes.fdo_optimize_label,
+        proto_profile = attributes.proto_profile,
     )
     if fdo_context == None:
         return None

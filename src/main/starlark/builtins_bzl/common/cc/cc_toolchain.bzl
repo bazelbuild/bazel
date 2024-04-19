@@ -87,6 +87,7 @@ def _attributes(ctx):
         fdo_prefetch_provider = _provider(ctx.attr._fdo_prefetch_hints, FdoPrefetchHintsInfo),
         propeller_optimize_provider = _provider(ctx.attr._propeller_optimize, PropellerOptimizeInfo),
         mem_prof_profile_provider = _provider(ctx.attr._memprof_profile, MemProfProfileInfo),
+        proto_profile = ctx.file._proto_profile,
         cc_toolchain_config_info = _provider(ctx.attr.toolchain_config, CcToolchainConfigInfo),
         fdo_optimize_artifacts = ctx.files._fdo_optimize,
         licenses_provider = cc_internal.licenses(ctx = ctx),
@@ -372,6 +373,10 @@ The label of the rule providing <code>cc_toolchain_config_info</code>.""",
             default = configuration_field(fragment = "cpp", name = "memprof_profile"),
             allow_rules = ["memprof_profile"],
             providers = [MemProfProfileInfo],
+        ),
+        "_proto_profile": attr.label(
+            default = configuration_field(fragment = "cpp", name = "proto_profile_path"),
+            allow_single_file = True,
         ),
         "_whitelist_disabling_parse_headers_and_layering_check_allowed": attr.label(
             default = "@" + semantics.get_repo() + "//tools/build_defs/cc/whitelists/parse_headers_and_layering_check:disabling_parse_headers_and_layering_check_allowed",

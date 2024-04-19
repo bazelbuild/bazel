@@ -526,6 +526,25 @@ public class CppOptions extends FragmentOptions {
   }
 
   @Option(
+      name = "proto_profile",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      defaultValue = "true",
+      help = "Whether to pass profile_path to the proto compiler.")
+  public boolean protoProfile;
+
+  @Option(
+      name = "proto_profile_path",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      defaultValue = "null",
+      converter = LabelConverter.class,
+      help =
+          "The profile to pass to the proto compiler as profile_path. If unset, but "
+              + " --proto_profile is true (the default), infers the path from --fdo_optimize.")
+  public Label protoProfilePath;
+
+  @Option(
       name = "save_temps",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,

@@ -929,4 +929,15 @@ public final class CppConfiguration extends Fragment
   public boolean objcShouldStripBinary() {
     return objcEnableBinaryStripping() && getCompilationMode() == CompilationMode.OPT;
   }
+
+  @StarlarkConfigurationField(name = "proto_profile_path")
+  public Label getProtoProfilePath() {
+    return cppOptions.protoProfilePath;
+  }
+
+  @StarlarkMethod(name = "proto_profile", useStarlarkThread = true, documented = false)
+  public boolean getProtoProfile(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return cppOptions.protoProfile;
+  }
 }

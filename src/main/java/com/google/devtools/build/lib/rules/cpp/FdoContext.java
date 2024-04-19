@@ -61,11 +61,6 @@ public final class FdoContext {
       return branchFdoProfile.getNoneableValue("profile_artifact", Artifact.class);
     }
 
-    @Nullable
-    public Artifact getProtoProfileArtifact() throws EvalException {
-      return branchFdoProfile.getNoneableValue("proto_profile_artifact", Artifact.class);
-    }
-
     private String getBranchFdoMode() throws EvalException {
       return branchFdoProfile.getValue("branch_fdo_mode", String.class);
     }
@@ -101,6 +96,11 @@ public final class FdoContext {
 
   public Artifact getMemProfProfileArtifact() throws EvalException {
     return fdoContextStruct.getNoneableValue("memprof_profile_artifact", Artifact.class);
+  }
+
+  @Nullable
+  public Artifact getProtoProfileArtifact() throws EvalException {
+    return fdoContextStruct.getNoneableValue("proto_profile_artifact", Artifact.class);
   }
 
   boolean hasArtifacts() throws EvalException {

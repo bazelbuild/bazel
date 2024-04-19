@@ -35,7 +35,8 @@ def create_fdo_context(
         zipper,
         cc_toolchain_config_info,
         fdo_optimize_artifacts,
-        fdo_optimize_label):
+        fdo_optimize_label,
+        proto_profile):
     """Creates FDO context when it should be available.
 
     When `-c opt` is used it parses values of FDO related flags, processes the
@@ -128,6 +129,24 @@ def create_fdo_context(
     elif cs_fdo_profile_provider:
         cs_fdo_input = cs_fdo_profile_provider
 
+    # If --noproto_profile is in effect, there is no proto profile.
+    # If --proto_profile_path=<label> is passed, that profile is used.
+    # If AutoFDO is not in effect, no profile is used.
+    # If AutoFDO is in effect, a file called proto.profile next to the AutoFDO
+    # profile is used, if it exists.
+    proto_profile_artifact = None
+    if not cpp_config.proto_profile() and proto_profile:
+        fail("--proto_profile_path cannot be set if --proto_profile is false")
+    if proto_profile:
+        proto_profile_artifact = _symlink_to(
+            ctx,
+            name_prefix = "fdo",
+            artifact = proto_profile,
+            progress_message = "Symlinking protobuf profile %{input}",
+        )
+    elif cpp_config.proto_profile():
+        proto_profile_artifact = getattr(fdo_inputs, "proto_profile_artifact", None)
+
     branch_fdo_profile = None
     if fdo_inputs:
         branch_fdo_modes = {
@@ -203,7 +222,6 @@ def create_fdo_context(
         branch_fdo_profile = struct(
             branch_fdo_mode = branch_fdo_mode,
             profile_artifact = profile_artifact,
-            proto_profile_artifact = getattr(fdo_inputs, "proto_profile_artifact", None),
         )
 
     prefetch_hints_artifact = _symlink_input(
@@ -220,6 +238,7 @@ def create_fdo_context(
         prefetch_hints_artifact = prefetch_hints_artifact,
         propeller_optimize_info = propeller_optimize_info,
         memprof_profile_artifact = memprof_profile_artifact,
+        proto_profile_artifact = proto_profile_artifact,
     )
 
 def _convert_llvm_raw_profile_to_indexed(
