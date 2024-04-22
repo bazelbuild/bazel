@@ -1000,9 +1000,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /**
-   * Notifies the executor that the command is complete. May safely be called multiple times for a
-   * single command, so callers should err on the side of calling it more frequently. Should be
-   * idempotent, so that calls after the first one in the same evaluation should be quick.
+   * Notifies the executor that the command is complete.
+   *
+   * <p>Should be called only once per build.
    */
   public void notifyCommandComplete(ExtendedEventHandler eventHandler) throws InterruptedException {
     try {

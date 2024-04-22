@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.Local
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.UploadContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildtool.CommandPrecompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
@@ -617,15 +618,37 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   /**
    * Hook method called by the BlazeCommandDispatcher after the dispatch of each command. Returns a
    * new exit code in case exceptions were encountered during cleanup.
+   *
+   * @param forceKeepStateForTesting ensure that Skyframe state is not cleared despite what the
+   *     command line says. This is useful for some tests that exercise {@code
+   *     --nokeep_state_after_build} but still want to make assertions over said state. Should only
+   *     ever be true for tests.
    */
   @VisibleForTesting
-  public BlazeCommandResult afterCommand(CommandEnvironment env, BlazeCommandResult commandResult) {
+  public BlazeCommandResult afterCommand(
+      boolean forceKeepStateForTesting, CommandEnvironment env, BlazeCommandResult commandResult) {
     this.env = null;
 
     // Remove any filters that the command might have added to the reporter.
     env.getReporter().setOutputFilter(OutputFilter.OUTPUT_EVERYTHING);
 
     DetailedExitCode moduleExitCode = null;
+
+    try {
+      workspace.getSkyframeExecutor().notifyCommandComplete(env.getReporter());
+    } catch (InterruptedException e) {
+      logger.atInfo().withCause(e).log("Interrupted in afterCommand");
+      moduleExitCode =
+          chooseMoreImportantWithFirstIfTie(
+              moduleExitCode,
+              InterruptedFailureDetails.detailedExitCode("executor completion interrupted"));
+      Thread.currentThread().interrupt();
+    }
+
+    // Ensure deterministic ordering of doing the metrics upload before everything else that
+    // happens when BuildCompleteEvent is posted.
+    env.getEventBus().post(new CommandPrecompleteEvent());
+
     for (BlazeModule module : blazeModules) {
       try (SilentCloseable c = Profiler.instance().profile(module + ".afterCommand")) {
         module.afterCommand();
@@ -642,22 +665,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     // a commands unless the server crashes, in which case no inmemory state will linger for the
     // next build anyway.
     CommonCommandOptions commonOptions = env.getOptions().getOptions(CommonCommandOptions.class);
-    if (!commonOptions.keepStateAfterBuild) {
+    if (!commonOptions.keepStateAfterBuild && !forceKeepStateForTesting) {
       workspace.getSkyframeExecutor().resetEvaluator();
-    }
-
-    // Build-related commands already call this hook in BuildTool#stopRequest, but non-build
-    // commands might also need to notify the SkyframeExecutor. It's called in #stopRequest so that
-    // timing metrics for builds can be more accurate (since this call can be slow).
-    try {
-      workspace.getSkyframeExecutor().notifyCommandComplete(env.getReporter());
-    } catch (InterruptedException e) {
-      logger.atInfo().withCause(e).log("Interrupted in afterCommand");
-      moduleExitCode =
-          chooseMoreImportantWithFirstIfTie(
-              moduleExitCode,
-              InterruptedFailureDetails.detailedExitCode("executor completion interrupted"));
-      Thread.currentThread().interrupt();
     }
 
     BlazeCommandResult finalCommandResult;

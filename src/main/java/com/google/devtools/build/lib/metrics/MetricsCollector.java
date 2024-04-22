@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import com.google.devtools.build.lib.actions.cache.PostableActionCacheStats;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseStartedEvent;
-import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ActionSummary;
@@ -46,7 +45,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TimingMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerPoolMetrics;
-import com.google.devtools.build.lib.buildtool.BuildPrecompleteEvent;
+import com.google.devtools.build.lib.buildtool.CommandPrecompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -270,19 +269,11 @@ class MetricsCollector {
     buildGraphMetrics.setPostInvocationSkyframeNodeCount(event.getGraphSize());
   }
 
+  // This needs to be done in CommandPrecompleteEvent because the metrics are reported on the BEP,
+  // which is closed in BlazeModule.afterCommand().
   @SuppressWarnings("unused")
   @Subscribe
-  public void onBuildPrecompleteEvent(BuildPrecompleteEvent event) {
-    postBuildMetricsEvent();
-  }
-
-  @SuppressWarnings("unused") // Used reflectively
-  @Subscribe
-  public void onNoBuildRequestFinishedEvent(NoBuildRequestFinishedEvent event) {
-    postBuildMetricsEvent();
-  }
-
-  private void postBuildMetricsEvent() {
+  public void onCommandPrecompleteEvent(CommandPrecompleteEvent event) {
     env.getEventBus().post(new BuildMetricsEvent(createBuildMetrics()));
   }
 

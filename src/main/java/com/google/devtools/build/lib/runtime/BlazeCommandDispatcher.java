@@ -706,7 +706,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       }
 
       needToCallAfterCommand = false;
-      var newResult = runtime.afterCommand(env, result);
+      var newResult = runtime.afterCommand(/* forceKeepStateForTesting= */ false, env, result);
       if (newResult.getExitCode().equals(ExitCode.REMOTE_CACHE_EVICTED)) {
         var executionOptions =
             Preconditions.checkNotNull(options.getOptions(ExecutionOptions.class));
@@ -727,7 +727,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       return result;
     } finally {
       if (needToCallAfterCommand) {
-        BlazeCommandResult newResult = runtime.afterCommand(env, result);
+        BlazeCommandResult newResult = runtime.afterCommand(false, env, result);
         if (!newResult.equals(result)) {
           logger.atWarning().log("afterCommand yielded different result: %s %s", result, newResult);
         }
