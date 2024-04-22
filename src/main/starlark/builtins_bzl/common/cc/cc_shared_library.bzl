@@ -724,6 +724,7 @@ def _cc_shared_library_impl(ctx):
         actions = ctx.actions,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
+        stamp = cc_helper.is_stamping_enabled(ctx),
         linking_contexts = [linking_context],
         user_link_flags = user_link_flags,
         additional_inputs = additional_inputs,
