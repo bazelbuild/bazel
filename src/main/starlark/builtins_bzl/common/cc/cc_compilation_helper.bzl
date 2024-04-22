@@ -96,44 +96,13 @@ def _compute_public_headers(
     if include_prefix and include_prefix.startswith("/"):
         include_prefix = include_prefix[1:]
 
-    if (not strip_prefix and not include_prefix) or not public_headers_artifacts:
+    if not strip_prefix and not include_prefix:
         return struct(
             headers = public_headers_artifacts + non_module_map_headers,
             module_map_headers = public_headers_artifacts,
             virtual_include_path = None,
             virtual_to_original_headers = depset(),
         )
-
-    # When only stripping, we don't need to use _virtual_include path
-    if strip_prefix and not include_prefix:
-        module_map_headers = []
-        virtual_to_original_headers_list = []
-        include_paths = {}
-        for original_header in public_headers_artifacts:
-            repo_relative_path = _repo_relative_path(original_header)
-            if not repo_relative_path.startswith(strip_prefix):
-                fail("header '{}' is not under the specified strip prefix '{}'".format(repo_relative_path, strip_prefix))
-            include_path = original_header.root.path
-            workspace_root = original_header.owner.workspace_root
-            if not include_path:  # this is a source/non-generated file
-                include_path = workspace_root
-            elif workspace_root.startswith("external/"):
-                # in non-sibling repo layout, we need to add workspace root as well
-                include_path = include_path + "/" + workspace_root
-            include_path = paths.get_relative(include_path, strip_prefix)
-            include_paths[include_path] = True
-            module_map_headers.append(original_header)
-
-        virtual_headers = module_map_headers + non_module_map_headers
-
-        # We can only handle 1 include path. In case there are more, fallback to _virtual_imports.
-        if len(include_paths.keys()) == 1:
-            return struct(
-                headers = virtual_headers,
-                module_map_headers = module_map_headers,
-                virtual_include_path = include_paths.keys()[0],
-                virtual_to_original_headers = depset(virtual_to_original_headers_list),
-            )
 
     module_map_headers = []
     virtual_to_original_headers_list = []

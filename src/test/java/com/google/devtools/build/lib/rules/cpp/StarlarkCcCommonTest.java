@@ -5837,9 +5837,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(target).isNotNull();
     CcInfo ccInfo = target.get(CcInfo.PROVIDER);
     assertThat(artifactsToStrings(ccInfo.getCcCompilationContext().getDirectPublicHdrs()))
-        .contains("src third_party/bar/v1/starlark_lib.h");
-    assertThat(ccInfo.getCcCompilationContext().getIncludeDirs())
-        .contains(PathFragment.create("third_party/bar/v1"));
+        .contains("bin third_party/bar/_virtual_includes/starlark_lib_suffix/starlark_lib.h");
   }
 
   @Test
