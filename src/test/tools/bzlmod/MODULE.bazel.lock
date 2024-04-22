@@ -13,7 +13,7 @@
     "compatibilityMode": "ERROR"
   },
   "localOverrideHashes": {
-    "bazel_tools": "2fb39004b43063f3fcdcb1d393a15c32a0c564d365385ebfa0e7c198c14e0cb4"
+    "bazel_tools": "c39369b3c967ee39996bff8b21f23ae9489120b4a5703a6eed0d7f7753449dcc"
   },
   "moduleDepGraph": {
     "<root>": {
@@ -174,7 +174,7 @@
         "rules_proto": "rules_proto@5.3.0-21.7",
         "rules_python": "rules_python@0.22.1",
         "buildozer": "buildozer@7.1.1.1",
-        "platforms": "platforms@0.0.9",
+        "platforms": "platforms@0.0.7",
         "com_google_protobuf": "protobuf@21.7",
         "zlib": "zlib@1.3",
         "build_bazel_apple_support": "apple_support@1.5.0",

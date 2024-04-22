@@ -2803,8 +2803,8 @@
       "general": {
         "bzlTransitiveDigest": "1xHBfvy8lWUE+9Ns02wqVWqROfZKJJFwZw62RuYDutw=",
         "recordedFileInputs": {
-          "@@//MODULE.bazel": "96aa9a91f21734669335fe8cc95a151da63e3990b5489a023976df0d62f294c5",
-          "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "e6b22f35c7bce99c0677f24a19c7aee829f97e7b1b5cc31e600c7cc9b408a292"
+          "@@//MODULE.bazel": "e32e677a18c4d02bebe4c5df2d8c1d348e16ad8be10c4b0ab6a925f204b3a98c",
+          "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "6b96a6a50f84f5403a718a27955a8c954943f76ee5c4def7f8b23401b2a417bf"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -9071,7 +9071,7 @@
     },
     "@@rules_python~//python/extensions:pip.bzl%pip": {
       "os:osx,arch:aarch64": {
-        "bzlTransitiveDigest": "E2QiQlkDaM1FJ0uHgq2yD7CHDc3lTZRZe6qqYlEYiRI=",
+        "bzlTransitiveDigest": "V/mJWEApn8zkI54PHr3DQqQTCCKVab6KCrve7FZ1Nj4=",
         "recordedFileInputs": {
           "@@//requirements.txt": "ff12967a755bb8e9b4c92524f6471a99e14c30474a3d428547c55745ec8f23a0"
         },
