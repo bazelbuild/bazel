@@ -252,6 +252,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     // For null build, we don't do any conflict checking. As the metrics are collected during the
     // traversal that's part of conflict checking, these analysis-related numbers are 0.
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
+        .comparingExpectedFieldsOnly()
         .isEqualTo(
             BuildGraphMetrics.newBuilder()
                 .setActionLookupValueCount(0)
@@ -274,6 +275,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     buildTarget("//a");
 
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
+        .comparingExpectedFieldsOnly()
         .isEqualTo(
             BuildGraphMetrics.newBuilder()
                 .setActionLookupValueCount(5 + actionLookupValueCount)
@@ -305,6 +307,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     addOptions("--nobuild");
     buildTarget("//a");
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
+        .comparingExpectedFieldsOnly()
         .isEqualTo(
             BuildGraphMetrics.newBuilder()
                 .setActionLookupValueCount(5 + actionLookupValueCount)
@@ -327,13 +330,15 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
       // deleted.
       newGraphSize -= 1;
     }
-    assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
-        .ignoringFieldAbsence()
-        .isEqualTo(
-            BuildGraphMetrics.newBuilder()
-                // Stale action execution nodes have been GC'ed.
-                .setPostInvocationSkyframeNodeCount(newGraphSize - 1)
-                .build());
+
+    // Stale action execution nodes have been GC'ed.
+    assertThat(
+            buildMetricsEventListener
+                .event
+                .getBuildMetrics()
+                .getBuildGraphMetrics()
+                .getPostInvocationSkyframeNodeCount())
+        .isEqualTo(newGraphSize - 1);
 
     // Do a null full build. Back to baseline.
     addOptions("--build");
@@ -342,14 +347,16 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
       // Extra BuildDriverKey
       newGraphSize += 1;
     }
-    assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
-        .ignoringFieldAbsence()
-        .isEqualTo(
-            BuildGraphMetrics.newBuilder()
-                // We now have three copies of the ArtifactNestedSetKey, since the re-analysis
-                // didn't re-use the old nested set.
-                .setPostInvocationSkyframeNodeCount(newGraphSize + 2)
-                .build());
+
+    // We now have three copies of the ArtifactNestedSetKey, since the re-analysis didn't re-use the
+    // old nested set.
+    assertThat(
+            buildMetricsEventListener
+                .event
+                .getBuildMetrics()
+                .getBuildGraphMetrics()
+                .getPostInvocationSkyframeNodeCount())
+        .isEqualTo(newGraphSize + 2);
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getArtifactMetrics())
         .ignoringFieldAbsence()
         .isEqualTo(
@@ -363,7 +370,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     write("b/c.in", "1234");
     buildTarget("//a");
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
-        .ignoringFieldAbsence()
+        .comparingExpectedFieldsOnly()
         .isEqualTo(
             BuildGraphMetrics.newBuilder()
                 // Analysis not re-triggered, even of the input file that was changed.

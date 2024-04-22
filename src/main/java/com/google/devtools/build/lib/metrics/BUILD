@@ -54,6 +54,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_process_metrics",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_process_status",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe_graph_stats_event",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:action_cache_java_proto",

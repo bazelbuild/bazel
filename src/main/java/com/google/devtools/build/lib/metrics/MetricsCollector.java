@@ -68,7 +68,9 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTarge
 import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent;
+import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent.EvaluationStats;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.util.Durations;
 import java.time.Duration;
@@ -263,9 +265,26 @@ class MetricsCollector {
         event.getWinnerBranchType());
   }
 
+  private ImmutableList<BuildMetrics.EvaluationStat> toEvaluationStats(
+      ImmutableMap<SkyFunctionName, Integer> map) {
+    return map.entrySet().stream()
+        .map(
+            e ->
+                BuildMetrics.EvaluationStat.newBuilder()
+                    .setSkyfunctionName(e.getKey().getName())
+                    .setCount(e.getValue())
+                    .build())
+        .collect(toImmutableList());
+  }
+
   @SuppressWarnings("unused")
   @Subscribe
   public void onSkyframeGraphStats(SkyframeGraphStatsEvent event) {
+    EvaluationStats evaluationStats = event.getEvaluationStats();
+    buildGraphMetrics.addAllDirtiedValues(toEvaluationStats(evaluationStats.dirtied()));
+    buildGraphMetrics.addAllChangedValues(toEvaluationStats(evaluationStats.changed()));
+    buildGraphMetrics.addAllBuiltValues(toEvaluationStats(evaluationStats.built()));
+    buildGraphMetrics.addAllCleanedValues(toEvaluationStats(evaluationStats.cleaned()));
     buildGraphMetrics.setPostInvocationSkyframeNodeCount(event.getGraphSize());
   }
 

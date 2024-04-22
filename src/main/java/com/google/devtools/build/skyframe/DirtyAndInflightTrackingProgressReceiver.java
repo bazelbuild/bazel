@@ -43,7 +43,7 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
   }
 
   @Override
-  public final void dirtied(SkyKey skyKey, DirtyType dirtyType) {
+  public void dirtied(SkyKey skyKey, DirtyType dirtyType) {
     progressReceiver.dirtied(skyKey, dirtyType);
     addToDirtySet(skyKey, dirtyType);
   }
@@ -101,7 +101,7 @@ public class DirtyAndInflightTrackingProgressReceiver implements InflightTrackin
   }
 
   @Override
-  public final void evaluated(
+  public void evaluated(
       SkyKey skyKey,
       EvaluationState state,
       @Nullable SkyValue newValue,

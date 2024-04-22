@@ -1447,6 +1447,15 @@ function test_memory_profile() {
   expect_log 'used_heap_size_post_build: [1-9]'
 }
 
+function test_skyframe_stats() {
+  mkdir -p a
+  echo 'filegroup(name="a")' > a/BUILD
+
+  bazel build --build_event_json_file=bep.json //a >& "$TEST_log" || fail "build failed"
+  cp bep.json "$TEST_log" || fail "cp failed"
+  expect_log '"skyfunctionName":"PACKAGE","count":'
+}
+
 function test_packages_loaded_contains_only_successfully_loaded_packages() {
   mkdir just-to-get-packages-needed-for-toolchain-resolution
   cat > just-to-get-packages-needed-for-toolchain-resolution/BUILD <<'EOF'

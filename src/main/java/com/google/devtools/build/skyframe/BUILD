@@ -80,7 +80,9 @@ java_library(
     name = "skyframe_graph_stats_event",
     srcs = ["SkyframeGraphStatsEvent.java"],
     deps = [
+        ":skyframe-objects",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//third_party:guava",
     ],
 )
 
