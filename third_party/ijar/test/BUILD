@@ -34,6 +34,7 @@ sh_test(
         "records/records.jar",
         "sealed/sealed.jar",
         ":source_debug_extension.jar",
+        ":duplicated_unsupported_attribute.jar",
         ":keep_for_compile_lib.jar",
         ":largest_regular.jar",
         ":smallest_zip64.jar",
@@ -208,6 +209,21 @@ genrule(
     outs = ["source_debug_extension.jar"],
     cmd = "$(location :gen_source_debug_extension) $@",
     tools = ["gen_source_debug_extension"],
+)
+
+java_binary(
+    name = "gen_duplicated_unsupported_attribute",
+    srcs = ["GenDuplicatedUnsupportedAttribute.java"],
+    main_class = "test.GenDuplicatedUnsupportedAttribute",
+    deps = ["//third_party:asm"],
+)
+
+genrule(
+    name = "gen_duplicated_unsupported_attribute_jar",
+    srcs = [],
+    outs = ["duplicated_unsupported_attribute.jar"],
+    cmd = "$(location :gen_duplicated_unsupported_attribute) $@",
+    tools = ["gen_duplicated_unsupported_attribute"],
 )
 
 java_binary(
