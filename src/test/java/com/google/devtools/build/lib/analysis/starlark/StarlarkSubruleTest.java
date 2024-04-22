@@ -1229,15 +1229,8 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
         .isEqualTo(JavaToolchainProvider.PROVIDER.getKey());
   }
 
-  /**
-   * This test case exists purely as a companion to the test case {@link
-   * #testSubruleToolchains_requestedToolchainIsSuppliedToAction} below. To ensure the latter does
-   * not spuriously pass, we test the inverse case here. If this test begins to fail due to changes
-   * to the AEG checking code, it very likely means the other test below needs to be updated
-   * appropriately.
-   */
   @Test
-  public void testSubruleToolchains_aegValidationFailsWithoutToolchain() throws Exception {
+  public void testSubruleToolchains_noToolchainIsSuppliedToAction() throws Exception {
     useConfiguration("--incompatible_auto_exec_groups");
     scratch.file(
         "subrule_testing/myrule.bzl",
@@ -1267,11 +1260,11 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
         my_rule(name = "foo")
         """);
 
-    assertThrows(
-        "Couldn't identify if tools are from implicit dependencies or a toolchain. Please set the"
-            + " toolchain parameter.",
-        AssertionError.class,
-        () -> getConfiguredTarget("//subrule_testing:foo"));
+    ConfiguredTarget target = getConfiguredTarget("//subrule_testing:foo");
+    Action action = getGeneratingAction(target, "subrule_testing/foo.out");
+
+    assertThat(action).isNotNull();
+    assertThat(action.getOwner()).isEqualTo(getRuleContext(target).getActionOwner());
   }
 
   @Test

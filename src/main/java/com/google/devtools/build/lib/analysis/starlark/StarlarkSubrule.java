@@ -427,7 +427,7 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
         throw Starlark.errorf("'toolchain' may not be specified in subrules");
       }
       return requestedToolchains.isEmpty()
-          ? toolchainUnchecked
+          ? Starlark.NONE
           : Iterables.getOnlyElement(requestedToolchains);
     }
 
