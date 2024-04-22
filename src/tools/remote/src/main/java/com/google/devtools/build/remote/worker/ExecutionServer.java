@@ -58,6 +58,7 @@ import com.google.rpc.Code;
 import com.google.rpc.Status;
 import io.grpc.StatusException;
 import io.grpc.protobuf.StatusProto;
+import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -149,6 +150,12 @@ final class ExecutionServer extends ExecutionImplBase {
                   .build()));
       return;
     }
+    ((ServerCallStreamObserver<Operation>) responseObserver)
+        .setOnCancelHandler(
+            () -> {
+              future.cancel(true);
+              operationsCache.remove(opName);
+            });
     waitExecution(opName, future, responseObserver);
   }
 
@@ -209,6 +216,12 @@ final class ExecutionServer extends ExecutionImplBase {
     ListenableFuture<ActionResult> future =
         executorService.submit(() -> execute(context, request, opName));
     operationsCache.put(opName, future);
+    ((ServerCallStreamObserver<Operation>) responseObserver)
+        .setOnCancelHandler(
+            () -> {
+              future.cancel(true);
+              operationsCache.remove(opName);
+            });
     // Send the first operation.
     responseObserver.onNext(Operation.newBuilder().setName(opName).build());
     // When the operation completes, send the result.
