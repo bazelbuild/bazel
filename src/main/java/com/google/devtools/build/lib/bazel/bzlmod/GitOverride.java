@@ -28,9 +28,10 @@ public abstract class GitOverride implements NonRegistryOverride {
       ImmutableList<Object> patches,
       ImmutableList<String> patchCmds,
       int patchStrip,
-      boolean initSubmodules) {
+      boolean initSubmodules,
+      String stripPrefix) {
     return new AutoValue_GitOverride(
-        remote, commit, patches, patchCmds, patchStrip, initSubmodules);
+        remote, commit, patches, patchCmds, patchStrip, initSubmodules, stripPrefix);
   }
 
   /** The URL pointing to the git repository. */
@@ -51,6 +52,9 @@ public abstract class GitOverride implements NonRegistryOverride {
   /** Whether submodules in the fetched repo should be recursively initialized. */
   public abstract boolean getInitSubmodules();
 
+  /** The directory prefix to strip from the extracted files. */
+  public abstract String getStripPrefix();
+
   /** Returns the {@link RepoSpec} that defines this repository. */
   @Override
   public RepoSpec getRepoSpec() {
@@ -61,6 +65,7 @@ public abstract class GitOverride implements NonRegistryOverride {
         .setPatchCmds(getPatchCmds())
         .setPatchArgs(ImmutableList.of("-p" + getPatchStrip()))
         .setInitSubmodules(getInitSubmodules())
+        .setStripPrefix(getStripPrefix())
         .build();
   }
 

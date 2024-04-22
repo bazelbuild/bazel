@@ -1015,10 +1015,18 @@ public class ModuleFileGlobals {
             defaultValue = "0"),
         @Param(
             name = "init_submodules",
-            doc = "Whether submodules in the fetched repo should be recursively initialized.",
+            doc = "Whether git submodules in the fetched repo should be recursively initialized.",
             named = true,
             positional = false,
             defaultValue = "False"),
+        @Param(
+            name = "strip_prefix",
+            doc =
+                "A directory prefix to strip from the extracted files. This can be used to target"
+                    + " a subdirectory of the git repo.",
+            named = true,
+            positional = false,
+            defaultValue = "''"),
       },
       useStarlarkThread = true)
   public void gitOverride(
@@ -1029,6 +1037,7 @@ public class ModuleFileGlobals {
       Iterable<?> patchCmds,
       StarlarkInt patchStrip,
       boolean initSubmodules,
+      String stripPrefix,
       StarlarkThread thread)
       throws EvalException {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "git_override()");
@@ -1044,7 +1053,8 @@ public class ModuleFileGlobals {
                 .collect(toImmutableList()),
             Sequence.cast(patchCmds, String.class, "patchCmds").getImmutableList(),
             patchStrip.toInt("git_override.patch_strip"),
-            initSubmodules));
+            initSubmodules,
+            stripPrefix));
   }
 
   @StarlarkMethod(
