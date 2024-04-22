@@ -808,9 +808,8 @@ public final class Profiler {
 
   private static final SilentCloseable NOP = () -> {};
 
-  private boolean countAction(ProfilerTask type, TaskData taskData) {
-    return type == ProfilerTask.ACTION
-        || (type == ProfilerTask.INFO && "discoverInputs".equals(taskData.description));
+  private boolean countAction(ProfilerTask type) {
+    return type == ProfilerTask.ACTION || type == ProfilerTask.DISCOVER_INPUTS;
   }
 
   public void completeTask(long startTimeNanos, ProfilerTask type, String description) {
@@ -862,7 +861,7 @@ public final class Profiler {
       writer.enqueue(data);
     }
     long endTimeNanos = data.startTimeNanos + data.durationNanos;
-    if (actionCountTimeSeries != null && countAction(data.type, data)) {
+    if (actionCountTimeSeries != null && countAction(data.type)) {
       synchronized (this) {
         actionCountTimeSeries.addRange(
             Duration.ofNanos(data.startTimeNanos), Duration.ofNanos(endTimeNanos));

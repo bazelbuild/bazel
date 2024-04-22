@@ -855,7 +855,8 @@ public final class ActionExecutionFunction implements SkyFunction {
           action.prepareInputDiscovery();
           state.preparedInputDiscovery = true;
         }
-        try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.INFO, "discoverInputs")) {
+        try (SilentCloseable c =
+            Profiler.instance().profile(ProfilerTask.DISCOVER_INPUTS, "discoverInputs")) {
           state.discoveredInputs =
               skyframeActionExecutor.discoverInputs(
                   action,

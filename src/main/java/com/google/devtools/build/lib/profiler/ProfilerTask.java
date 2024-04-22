@@ -23,6 +23,7 @@ import java.time.Duration;
 public enum ProfilerTask {
   PHASE("build phase marker"),
   ACTION("action processing"),
+  DISCOVER_INPUTS("discover inputs"),
   ACTION_CHECK("action dependency checking", Threshold.TEN_MILLIS),
   ACTION_LOCK("action resource lock", Threshold.TEN_MILLIS),
   ACTION_UPDATE("update action information", Threshold.TEN_MILLIS),
