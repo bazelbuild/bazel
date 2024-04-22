@@ -392,6 +392,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       return false;
     }
 
+    // TODO(salmasamy) do we need to check vendor ignore here?
     return true;
   }
 
