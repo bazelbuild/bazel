@@ -35,7 +35,10 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /** A {@link QuiescingExecutor} implementation that wraps an {@link ExecutorService}. */
@@ -67,12 +70,12 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
    */
   private volatile Throwable catastrophe;
 
+  private final Lock zeroRemainingTasksLock = new ReentrantLock();
+
   /**
-   * An object used in the manner of a {@link java.util.concurrent.locks.Condition} object, for the
-   * condition {@code remainingTasks.get() == 0 || jobsMustBeStopped}. TODO(bazel-team): Replace
-   * with an actual {@link java.util.concurrent.locks.Condition} object.
+   * A condition object for the condition {@code remainingTasks.get() == 0 || jobsMustBeStopped}.
    */
-  private final Object zeroRemainingTasks = new Object();
+  private final Condition zeroRemainingTasksCondition = zeroRemainingTasksLock.newCondition();
 
   /** The number of {@link Runnable}s {@link #execute}-d that have not finished evaluation. */
   private final AtomicLong remainingTasks = new AtomicLong(0);
@@ -262,10 +265,13 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
       Throwables.throwIfUnchecked(catastrophe);
     }
     try {
-      synchronized (zeroRemainingTasks) {
+      zeroRemainingTasksLock.lock();
+      try {
         while (remainingTasks.get() != 0 && !jobsMustBeStopped) {
-          zeroRemainingTasks.wait();
+          zeroRemainingTasksCondition.await();
         }
+      } finally {
+        zeroRemainingTasksLock.unlock();
       }
     } catch (InterruptedException e) {
       // Mark the visitor, so that it's known to be interrupted, and
@@ -283,10 +289,13 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     if (catastrophe != null) {
       Throwables.throwIfUnchecked(catastrophe);
     }
-    synchronized (zeroRemainingTasks) {
+    zeroRemainingTasksLock.lock();
+    try {
       while (remainingTasks.get() != 0 && !jobsMustBeStopped) {
-        zeroRemainingTasks.wait();
+        zeroRemainingTasksCondition.await();
       }
+    } finally {
+      zeroRemainingTasksLock.unlock();
     }
   }
 
@@ -344,7 +353,8 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
       exceptionLatch.countDown();
     }
     if (markToStopJobs) {
-      synchronized (zeroRemainingTasks) {
+      zeroRemainingTasksLock.lock();
+      try {
         if (critical && !jobsMustBeStopped) {
           jobsMustBeStopped = true;
           // This introduces a benign race, but it's the best we can do. When we have multiple
@@ -352,8 +362,10 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
           // propagating (in 'awaitQuiescence') the most severe one we see, but the set of errors we
           // see is non-deterministic and is at the mercy of how quickly the calling thread of
           // 'awaitQuiescence' can do its thing after this 'notify' call.
-          zeroRemainingTasks.notify();
+          zeroRemainingTasksCondition.signal();
         }
+      } finally {
+        zeroRemainingTasksLock.unlock();
       }
     }
   }
@@ -455,8 +467,11 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     Preconditions.checkState(
         tasks >= 0, "Decrementing remaining tasks counter resulted in impossible negative number.");
     if (tasks == 0) {
-      synchronized (zeroRemainingTasks) {
-        zeroRemainingTasks.notify();
+      zeroRemainingTasksLock.lock();
+      try {
+        zeroRemainingTasksCondition.signal();
+      } finally {
+        zeroRemainingTasksLock.unlock();
       }
     }
   }
@@ -585,14 +600,17 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     }
 
     Throwables.propagateIfPossible(catastrophe);
-    synchronized (zeroRemainingTasks) {
+    zeroRemainingTasksLock.lock();
+    try {
       while (remainingTasks.get() != 0) {
         try {
-          zeroRemainingTasks.wait();
+          zeroRemainingTasksCondition.await();
         } catch (InterruptedException e) {
           setInterrupted();
         }
       }
+    } finally {
+      zeroRemainingTasksLock.unlock();
     }
 
     if (executorOwnership == ExecutorOwnership.PRIVATE) {
