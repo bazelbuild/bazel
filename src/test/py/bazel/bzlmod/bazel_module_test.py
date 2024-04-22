@@ -906,12 +906,12 @@ class BazelModuleTest(test_base.TestBase):
         [
             'module(name="foo")',
             'bazel_dep(name="bbb", version="1.0")',
-            'include("//java:MODULE.bazel.segment")',
+            'include("//java:java.MODULE.bazel")',
         ],
     )
     self.ScratchFile('java/BUILD')
     self.ScratchFile(
-        'java/MODULE.bazel.segment',
+        'java/java.MODULE.bazel',
         [
             'bazel_dep(name="aaa", version="1.0", repo_name="lol")',
         ],

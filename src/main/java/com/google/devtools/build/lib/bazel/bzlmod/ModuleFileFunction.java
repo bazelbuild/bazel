@@ -351,6 +351,14 @@ public class ModuleFileFunction implements SkyFunction {
             includeStatement.includeLabel(),
             includeStatement.location());
       }
+      if (!includeStatement.includeLabel().endsWith(".MODULE.bazel")) {
+        throw errorf(
+            Code.BAD_MODULE,
+            "bad include label '%s' at %s: the file to be included must have a name ending in"
+                + " '.MODULE.bazel'",
+            includeStatement.includeLabel(),
+            includeStatement.location());
+      }
       try {
         includeLabels.add(Label.parseCanonical(includeStatement.includeLabel()));
       } catch (LabelSyntaxException e) {
