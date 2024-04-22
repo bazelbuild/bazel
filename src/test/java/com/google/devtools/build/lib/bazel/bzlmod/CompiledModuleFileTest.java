@@ -91,13 +91,16 @@ public class CompiledModuleFileTest {
   public void checkSyntax_good_includeIdentifierReassigned() throws Exception {
     String program =
         """
+        include('world')
         include = print
         # from this point on, we no longer check anything about `include` usage.
         include('hello')
         str(include)
         exclude = include
         """;
-    assertThat(checkSyntax(program)).isEmpty();
+    assertThat(checkSyntax(program))
+        .containsExactly(
+            new IncludeStatement("world", Location.fromFileLineColumn("test file", 1, 1)));
   }
 
   @Test
