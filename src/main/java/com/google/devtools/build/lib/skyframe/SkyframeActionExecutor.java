@@ -306,12 +306,13 @@ public final class SkyframeActionExecutor {
     freeDiscoveredInputsAfterExecution =
         !trackIncrementalState && options.getOptions(CoreOptions.class).actionListeners.isEmpty();
 
+    this.useAsyncExecution = buildRequestOptions.useAsyncExecution;
+
     this.cacheHitSemaphore =
-        options.getOptions(CoreOptions.class).throttleActionCacheCheck
+        (!this.useAsyncExecution && options.getOptions(CoreOptions.class).throttleActionCacheCheck)
             ? new Semaphore(ResourceUsage.getAvailableProcessors())
             : null;
 
-    this.useAsyncExecution = buildRequestOptions.useAsyncExecution;
     // Always use semaphore for jobs if async execution is enabled.
     this.actionExecutionSemaphore =
         (this.useAsyncExecution || buildRequestOptions.useSemaphoreForJobs)
