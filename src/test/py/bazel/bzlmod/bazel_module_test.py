@@ -900,6 +900,44 @@ class BazelModuleTest(test_base.TestBase):
         ':bar',
     ])
 
+  def testInclude(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name="foo")',
+            'bazel_dep(name="bbb", version="1.0")',
+            'include("//java:MODULE.bazel.segment")',
+        ],
+    )
+    self.ScratchFile('java/BUILD')
+    self.ScratchFile(
+        'java/MODULE.bazel.segment',
+        [
+            'bazel_dep(name="aaa", version="1.0", repo_name="lol")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = ["@lol//:lib_aaa"],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'main.cc',
+        [
+            '#include "aaa.h"',
+            'int main() {',
+            '    hello_aaa("main function");',
+            '}',
+        ],
+    )
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
+    self.assertIn('main function => aaa@1.0', stdout)
+
 
 if __name__ == '__main__':
   absltest.main()

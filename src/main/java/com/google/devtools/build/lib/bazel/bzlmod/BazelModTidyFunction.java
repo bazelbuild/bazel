@@ -23,6 +23,7 @@ import static com.google.devtools.build.lib.skyframe.PrecomputedValue.STARLARK_S
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -50,6 +51,11 @@ public class BazelModTidyFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, SkyFunctionException {
+    RootModuleFileValue rootModuleFileValue =
+        (RootModuleFileValue) env.getValue(ModuleFileValue.KEY_FOR_ROOT_MODULE);
+    if (rootModuleFileValue == null) {
+      return null;
+    }
     BazelDepGraphValue depGraphValue = (BazelDepGraphValue) env.getValue(BazelDepGraphValue.KEY);
     if (depGraphValue == null) {
       return null;
@@ -112,6 +118,7 @@ public class BazelModTidyFunction implements SkyFunction {
 
     return BazelModTidyValue.create(
         buildozer.asPath(),
+        rootModuleFileValue.getIncludeLabelToCompiledModuleFile(),
         MODULE_OVERRIDES.get(env),
         IGNORE_DEV_DEPS.get(env),
         LOCKFILE_MODE.get(env),

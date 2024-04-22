@@ -35,6 +35,8 @@ public abstract class BazelModTidyValue implements SkyValue {
   /** The path of the buildozer binary provided by the "buildozer" module. */
   public abstract Path buildozer();
 
+  public abstract ImmutableMap<String, CompiledModuleFile> includeLabelToCompiledModuleFile();
+
   /** The value of {@link ModuleFileFunction#MODULE_OVERRIDES}. */
   public abstract ImmutableMap<String, ModuleOverride> moduleOverrides();
 
@@ -52,12 +54,14 @@ public abstract class BazelModTidyValue implements SkyValue {
 
   static BazelModTidyValue create(
       Path buildozer,
+      ImmutableMap<String, CompiledModuleFile> includeLabelToCompiledModuleFile,
       Map<String, ModuleOverride> moduleOverrides,
       boolean ignoreDevDeps,
       LockfileMode lockfileMode,
       StarlarkSemantics starlarkSemantics) {
     return new AutoValue_BazelModTidyValue(
         buildozer,
+        includeLabelToCompiledModuleFile,
         ImmutableMap.copyOf(moduleOverrides),
         ignoreDevDeps,
         lockfileMode,
