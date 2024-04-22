@@ -79,7 +79,8 @@ public class ModuleFileGlobals {
           "Declares certain properties of the Bazel module represented by the current Bazel repo."
               + " These properties are either essential metadata of the module (such as the name"
               + " and version), or affect behavior of the current module and its dependents.  <p>It"
-              + " should be called at most once. It can be omitted only if this module is the root"
+              + " should be called at most once, and if called, it must be the very first directive"
+              + " in the MODULE.bazel file. It can be omitted only if this module is the root"
               + " module (as in, if it's not going to be depended on by another module).",
       parameters = {
         @Param(
@@ -664,7 +665,7 @@ public class ModuleFileGlobals {
   }
 
   @StarlarkBuiltin(name = "repo_rule_proxy", documented = false)
-  class RepoRuleProxy implements StarlarkValue {
+  static class RepoRuleProxy implements StarlarkValue {
     private final ModuleExtensionUsageBuilder usageBuilder;
     private final String tagName;
 
@@ -696,6 +697,36 @@ public class ModuleFileGlobals {
       extensionProxy.getValue(tagName).call(kwargs, thread);
       extensionProxy.addImport(name, name, "by a repo rule", thread.getCallerLocation());
     }
+  }
+
+  @StarlarkMethod(
+      name = CompiledModuleFile.INCLUDE_IDENTIFIER,
+      doc =
+          "Includes the contents of another MODULE.bazel-like file. Effectively,"
+              + " <code>include()</code> behaves as if the included file is textually placed at the"
+              + " location of the <code>include()</code> call, except that variable bindings (such"
+              + " as those used for <code>use_extension</code>) are only ever visible in the file"
+              + " they occur in, not in any included or including files.<p>Only the root module may"
+              + " use <code>include()</code>; it is an error if a <code>bazel_dep</code>'s MODULE"
+              + " file uses <code>include()</code>.<p>Only files in the main repo may be"
+              + " included.<p><code>include()</code> allows you to segment the root module file"
+              + " into multiple parts, to avoid having an enormous MODULE.bazel file or to better"
+              + " manage access control for individual semantic segments.",
+      parameters = {
+        @Param(
+            name = "label",
+            doc =
+                "The label pointing to the file to include. The label must point to a file in the"
+                    + " main repo; in other words, it <strong>must<strong> start with double"
+                    + " slashes (<code>//</code>)."),
+      },
+      useStarlarkThread = true)
+  public void include(String label, StarlarkThread thread)
+      throws InterruptedException, EvalException {
+    ModuleThreadContext context =
+        ModuleThreadContext.fromOrFail(thread, CompiledModuleFile.INCLUDE_IDENTIFIER + "()");
+    context.setNonModuleCalled();
+    context.include(label, thread);
   }
 
   @StarlarkMethod(

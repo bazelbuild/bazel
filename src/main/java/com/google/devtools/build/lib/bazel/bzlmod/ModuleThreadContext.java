@@ -34,13 +34,14 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 
-/** Context object for a Starlark thread evaluating the MODULE.bazel file and its imports. */
+/** Context object for a Starlark thread evaluating the MODULE.bazel file and files it includes. */
 public class ModuleThreadContext {
   private boolean moduleCalled = false;
   private boolean hadNonModuleCall = false;
   private final boolean ignoreDevDeps;
   private final InterimModule.Builder module;
   private final ImmutableMap<String, NonRegistryOverride> builtinModules;
+  @Nullable private final ImmutableMap<String, CompiledModuleFile> includeLabelToCompiledModuleFile;
   private final Map<String, DepSpec> deps = new LinkedHashMap<>();
   private final List<ModuleExtensionUsageBuilder> extensionUsageBuilders = new ArrayList<>();
   private final Map<String, ModuleOverride> overrides = new HashMap<>();
@@ -50,7 +51,7 @@ public class ModuleThreadContext {
       throws EvalException {
     ModuleThreadContext context = thread.getThreadLocal(ModuleThreadContext.class);
     if (context == null) {
-      throw Starlark.errorf("%s can only be called from MODULE.bazel and its imports", what);
+      throw Starlark.errorf("%s can only be called from MODULE.bazel and files it includes", what);
     }
     return context;
   }
@@ -62,11 +63,12 @@ public class ModuleThreadContext {
   public ModuleThreadContext(
       ImmutableMap<String, NonRegistryOverride> builtinModules,
       ModuleKey key,
-      @Nullable Registry registry,
-      boolean ignoreDevDeps) {
-    module = InterimModule.builder().setKey(key).setRegistry(registry);
+      boolean ignoreDevDeps,
+      @Nullable ImmutableMap<String, CompiledModuleFile> includeLabelToCompiledModuleFile) {
+    module = InterimModule.builder().setKey(key);
     this.ignoreDevDeps = ignoreDevDeps;
     this.builtinModules = builtinModules;
+    this.includeLabelToCompiledModuleFile = includeLabelToCompiledModuleFile;
   }
 
   record RepoNameUsage(String how, Location where) {}
@@ -224,6 +226,22 @@ public class ModuleThreadContext {
     }
   }
 
+  public void include(String includeLabel, StarlarkThread thread)
+      throws InterruptedException, EvalException {
+    if (includeLabelToCompiledModuleFile == null) {
+      // This should never happen because compiling the non-root module file should have failed, way
+      // before evaluation started.
+      throw Starlark.errorf("trying to call `include()` from a non-root module");
+    }
+    var compiledModuleFile = includeLabelToCompiledModuleFile.get(includeLabel);
+    if (compiledModuleFile == null) {
+      // This should never happen because the file we're trying to include should have already been
+      // compiled before evaluation started.
+      throw Starlark.errorf("internal error; included file %s not compiled", includeLabel);
+    }
+    compiledModuleFile.runOnThread(thread);
+  }
+
   public void addOverride(String moduleName, ModuleOverride override) throws EvalException {
     ModuleOverride existingOverride = overrides.putIfAbsent(moduleName, override);
     if (existingOverride != null) {
@@ -231,7 +249,7 @@ public class ModuleThreadContext {
     }
   }
 
-  public InterimModule buildModule() throws EvalException {
+  public InterimModule buildModule(@Nullable Registry registry) throws EvalException {
     // Add builtin modules as default deps of the current module.
     for (String builtinModule : builtinModules.keySet()) {
       if (module.getKey().getName().equals(builtinModule)) {
@@ -257,6 +275,7 @@ public class ModuleThreadContext {
       extensionUsages.add(extensionUsageBuilder.buildUsage());
     }
     return module
+        .setRegistry(registry)
         .setDeps(ImmutableMap.copyOf(deps))
         .setOriginalDeps(ImmutableMap.copyOf(deps))
         .setExtensionUsages(extensionUsages.build())
