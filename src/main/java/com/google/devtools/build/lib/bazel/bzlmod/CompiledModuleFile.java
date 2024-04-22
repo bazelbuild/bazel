@@ -142,7 +142,7 @@ public record CompiledModuleFile(
       @Override
       public void visit(DotExpression node) {
         visit(node.getObject());
-        if (includeWasAssigned || !node.getField().getName().equals(INCLUDE_IDENTIFIER)) {
+        if (!node.getField().getName().equals(INCLUDE_IDENTIFIER)) {
           // This is fine: `whatever.include`
           // (so `include` can be used as a tag class name)
           visit(node.getField());

@@ -334,22 +334,22 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa')",
-        "include('//java:MODULE.bazel.segment')",
+        "include('//java:java.MODULE.bazel')",
         "bazel_dep(name='foo', version='1.0')",
         "register_toolchains('//:whatever')",
-        "include('//python:MODULE.bazel.segment')");
+        "include('//python:python.MODULE.bazel')");
     scratch.overwriteFile(rootDirectory.getRelative("java/BUILD").getPathString());
     scratch.overwriteFile(
-        rootDirectory.getRelative("java/MODULE.bazel.segment").getPathString(),
+        rootDirectory.getRelative("java/java.MODULE.bazel").getPathString(),
         "bazel_dep(name='java-foo', version='1.0')");
     scratch.overwriteFile(rootDirectory.getRelative("python/BUILD").getPathString());
     scratch.overwriteFile(
-        rootDirectory.getRelative("python/MODULE.bazel.segment").getPathString(),
+        rootDirectory.getRelative("python/python.MODULE.bazel").getPathString(),
         "bazel_dep(name='py-foo', version='1.0', repo_name='python-foo')",
         "single_version_override(module_name='java-foo', version='2.0')",
-        "include('//python:toolchains/MODULE.bazel.segment')");
+        "include('//python:toolchains/toolchains.MODULE.bazel')");
     scratch.overwriteFile(
-        rootDirectory.getRelative("python/toolchains/MODULE.bazel.segment").getPathString(),
+        rootDirectory.getRelative("python/toolchains/toolchains.MODULE.bazel").getPathString(),
         "register_toolchains('//:python-whatever')");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
@@ -387,7 +387,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa')",
-        "include('@haha//java:MODULE.bazel.segment')");
+        "include('@haha//java:java.MODULE.bazel')");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
@@ -403,7 +403,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa')",
-        "include(':MODULE.bazel.segment')");
+        "include(':relative.MODULE.bazel')");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
@@ -415,11 +415,27 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   }
 
   @Test
+  public void testRootModule_include_bad_notEndingInModuleBazel() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "include('//:MODULE.bazel.segment')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().toString()).contains("have a name ending in '.MODULE.bazel'");
+  }
+
+  @Test
   public void testRootModule_include_bad_badLabelSyntax() throws Exception {
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa')",
-        "include('//haha/:::')");
+        "include('//haha/:::.MODULE.bazel')");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
@@ -435,10 +451,10 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   public void testRootModule_include_bad_moduleAfterInclude() throws Exception {
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
-        "include('//java:MODULE.bazel.segment')");
+        "include('//java:java.MODULE.bazel')");
     scratch.overwriteFile(rootDirectory.getRelative("java/BUILD").getPathString());
     scratch.overwriteFile(
-        rootDirectory.getRelative("java/MODULE.bazel.segment").getPathString(),
+        rootDirectory.getRelative("java/java.MODULE.bazel").getPathString(),
         "module(name='bet-you-didnt-expect-this-didya')",
         "bazel_dep(name='java-foo', version='1.0', repo_name='foo')");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
@@ -457,15 +473,15 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa')",
-        "include('//java:MODULE.bazel.segment')",
-        "include('//python:MODULE.bazel.segment')");
+        "include('//java:java.MODULE.bazel')",
+        "include('//python:python.MODULE.bazel')");
     scratch.overwriteFile(rootDirectory.getRelative("java/BUILD").getPathString());
     scratch.overwriteFile(
-        rootDirectory.getRelative("java/MODULE.bazel.segment").getPathString(),
+        rootDirectory.getRelative("java/java.MODULE.bazel").getPathString(),
         "bazel_dep(name='java-foo', version='1.0', repo_name='foo')");
     scratch.overwriteFile(rootDirectory.getRelative("python/BUILD").getPathString());
     scratch.overwriteFile(
-        rootDirectory.getRelative("python/MODULE.bazel.segment").getPathString(),
+        rootDirectory.getRelative("python/python.MODULE.bazel").getPathString(),
         "bazel_dep(name='python-foo', version='1.0', repo_name='foo')");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
@@ -484,10 +500,10 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa')",
         "FOO_NAME = 'foo'",
-        "include('//java:MODULE.bazel.segment')");
+        "include('//java:java.MODULE.bazel')");
     scratch.overwriteFile(rootDirectory.getRelative("java/BUILD").getPathString());
     scratch.overwriteFile(
-        rootDirectory.getRelative("java/MODULE.bazel.segment").getPathString(),
+        rootDirectory.getRelative("java/java.MODULE.bazel").getPathString(),
         "bazel_dep(name=FOO_NAME, version='1.0')");
     FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
