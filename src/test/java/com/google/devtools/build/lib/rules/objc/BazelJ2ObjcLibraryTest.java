@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
@@ -332,12 +333,12 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         .containsMatch(
             "/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin/x/test.clsmap.properties");
 
-    ObjcProvider objcProvider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
+    StarlarkInfo objcProvider = getObjcInfo(target);
     CcCompilationContext ccCompilationContext =
         target.get(CcInfo.PROVIDER).getCcCompilationContext();
     assertThat(ccCompilationContext.getDeclaredIncludeSrcs().toList().toString())
         .containsMatch("/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin]x/test.j2objc.pb.h");
-    assertThat(objcProvider.get(ObjcProvider.SOURCE).toList().toString())
+    assertThat(getSource(objcProvider).toString())
         .containsMatch("/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin]x/test.j2objc.pb.m,");
   }
 
@@ -384,14 +385,14 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         .containsMatch(
             "/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin/external/bla/foo/test.clsmap.properties");
 
-    ObjcProvider objcProvider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
+    StarlarkInfo objcProvider = getObjcInfo(target);
     CcCompilationContext ccCompilationContext =
         target.get(CcInfo.PROVIDER).getCcCompilationContext();
 
     assertThat(ccCompilationContext.getDeclaredIncludeSrcs().toList().toString())
         .containsMatch(
             "/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin]external/bla/foo/test.j2objc.pb.h");
-    assertThat(objcProvider.get(ObjcProvider.SOURCE).toList().toString())
+    assertThat(getSource(objcProvider).toString())
         .containsMatch(
             "/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin]external/bla/foo/test.j2objc.pb.m");
     assertThat(ccCompilationContext.getIncludeDirs())
@@ -539,11 +540,10 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         """);
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//java/com/google/transpile:dummy");
-    ObjcProvider provider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
+    StarlarkInfo provider = getObjcInfo(target);
     CcCompilationContext ccCompilationContext =
         target.get(CcInfo.PROVIDER).getCcCompilationContext();
-    Artifact srcJarSources = getFirstArtifactEndingWith(
-        provider.get(ObjcProvider.SOURCE), "source_files");
+    Artifact srcJarSources = getFirstArtifactEndingWith(getSource(provider), "source_files");
     Artifact srcJarHeaders =
         getFirstArtifactEndingWith(ccCompilationContext.getDeclaredIncludeSrcs(), "header_files");
     assertThat(srcJarSources.getRootRelativePathString())
@@ -560,13 +560,12 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     addSimpleJ2ObjcLibraryWithJavaPlugin();
     ConfiguredTarget j2objcLibraryTarget =
         getConfiguredTarget("//java/com/google/app/test:transpile");
-    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
+    StarlarkInfo provider = getObjcInfo(j2objcLibraryTarget);
     CcCompilationContext ccCompilationContext =
         j2objcLibraryTarget.get(CcInfo.PROVIDER).getCcCompilationContext();
     Artifact headers =
         getFirstArtifactEndingWith(ccCompilationContext.getDeclaredIncludeSrcs(), "header_files");
-    Artifact sources =
-        getFirstArtifactEndingWith(provider.get(ObjcProvider.SOURCE), "source_files");
+    Artifact sources = getFirstArtifactEndingWith(getSource(provider), "source_files");
     assertThat(headers.isTreeArtifact()).isTrue();
     assertThat(sources.isTreeArtifact()).isTrue();
 
@@ -924,14 +923,12 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//java/com/google/transpile:dummy");
 
-    ObjcProvider provider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
+    StarlarkInfo provider = getObjcInfo(target);
     Artifact moduleMap =
-        getFirstArtifactEndingWith(
-            provider.get(ObjcProvider.MODULE_MAP), "dummy.modulemaps/module.modulemap");
+        getFirstArtifactEndingWith(getModuleMap(provider), "dummy.modulemaps/module.modulemap");
 
     Artifact umbrellaHeader =
-        getFirstArtifactEndingWith(
-            provider.get(ObjcProvider.UMBRELLA_HEADER), "dummy.modulemaps/umbrella.h");
+        getFirstArtifactEndingWith(getUmbrellaHeader(provider), "dummy.modulemaps/umbrella.h");
 
     CppModuleMapAction moduleMapAction = (CppModuleMapAction) getGeneratingAction(moduleMap);
     UmbrellaHeaderAction umbrellaHeaderAction =
@@ -976,15 +973,13 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     addSimpleJ2ObjcLibraryWithJavaPlugin();
     ConfiguredTarget j2objcLibraryTarget =
         getConfiguredTarget("//java/com/google/app/test:transpile");
-    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
+    StarlarkInfo provider = getObjcInfo(j2objcLibraryTarget);
     CcCompilationContext ccCompilationContext =
         j2objcLibraryTarget.get(CcInfo.PROVIDER).getCcCompilationContext();
     Artifact moduleMap =
-        getFirstArtifactEndingWith(
-            provider.get(ObjcProvider.MODULE_MAP), "test.modulemaps/module.modulemap");
+        getFirstArtifactEndingWith(getModuleMap(provider), "test.modulemaps/module.modulemap");
     Artifact umbrellaHeader =
-        getFirstArtifactEndingWith(
-            provider.get(ObjcProvider.UMBRELLA_HEADER), "test.modulemaps/umbrella.h");
+        getFirstArtifactEndingWith(getUmbrellaHeader(provider), "test.modulemaps/umbrella.h");
 
     CppModuleMapAction moduleMapAction = (CppModuleMapAction) getGeneratingAction(moduleMap);
     UmbrellaHeaderAction umbrellaHeaderAction =

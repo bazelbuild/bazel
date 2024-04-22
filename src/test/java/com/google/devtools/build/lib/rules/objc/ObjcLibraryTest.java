@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
@@ -1705,9 +1706,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         )
         """);
 
-    ObjcProvider dependerProvider =
-        getConfiguredTarget("//x:bar").get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(baseArtifactNames(dependerProvider.getDirect(ObjcProvider.SOURCE)))
+    StarlarkInfo dependerProvider = getObjcInfo(getConfiguredTarget("//x:bar"));
+    assertThat(baseArtifactNames(getDirectSources(dependerProvider)))
         .containsExactly("bar.m", "bar_impl.h");
 
     ConfiguredTarget target = getConfiguredTarget("//x:bar");

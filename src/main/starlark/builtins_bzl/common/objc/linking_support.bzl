@@ -17,9 +17,9 @@
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/objc/compilation_support.bzl", "compilation_support")
+load(":common/objc/objc_info.bzl", "ObjcInfo")
 
 objc_internal = _builtins.internal.objc_internal
-ObjcInfo = _builtins.internal.apple_common.Objc
 
 AppleDynamicFrameworkInfo = provider(
     doc = "Contains information about an Apple dynamic framework.",

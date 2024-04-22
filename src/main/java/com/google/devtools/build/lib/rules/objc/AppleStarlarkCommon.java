@@ -25,11 +25,8 @@ import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.objc.AppleCommonApi;
-import java.util.Map;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 
 /** A class that exposes apple rule implementation internals to Starlark. */
@@ -39,15 +36,6 @@ public class AppleStarlarkCommon
   @VisibleForTesting
   public static final String BAD_KEY_ERROR =
       "Argument %s not a recognized key, 'strict_include', or 'providers'.";
-
-  @VisibleForTesting
-  public static final String BAD_PROVIDERS_ITER_ERROR =
-      "Value for argument 'providers' must be a list of ObjcProvider instances, instead found %s.";
-
-  @VisibleForTesting
-  public static final String BAD_PROVIDERS_ELEM_ERROR =
-      "Value for argument 'providers' must be a list of ObjcProvider instances, instead found "
-          + "iterable with %s.";
 
   @VisibleForTesting
   public static final String NOT_SET_ERROR = "Value for key %s must be a set, instead found %s.";
@@ -92,11 +80,6 @@ public class AppleStarlarkCommon
   }
 
   @Override
-  public Provider getObjcProviderConstructor() {
-    return ObjcProvider.STARLARK_CONSTRUCTOR;
-  }
-
-  @Override
   public Provider getAppleDynamicFrameworkConstructor() {
     // Implemented in builtin Starlark; this is just for docs.
     throw new UnsupportedOperationException();
@@ -119,31 +102,6 @@ public class AppleStarlarkCommon
       Object xcodeConfigApi, Object platformApi) {
     // Implemented in builtin Starlark; this is just for docs.
     throw new UnsupportedOperationException();
-  }
-
-  @Override
-  // This method is registered statically for Starlark, and never called directly.
-  public ObjcProvider newObjcProvider(Dict<String, Object> kwargs, StarlarkThread thread)
-      throws EvalException {
-    ObjcProvider.StarlarkBuilder resultBuilder = new ObjcProvider.StarlarkBuilder();
-    for (Map.Entry<String, Object> entry : kwargs.entrySet()) {
-      ObjcProvider.Key<?> key = ObjcProvider.getStarlarkKeyForString(entry.getKey());
-      if (key != null) {
-        resultBuilder.addElementsFromStarlark(key, entry.getValue());
-      } else {
-        switch (entry.getKey()) {
-          case "strict_include":
-            resultBuilder.addStrictIncludeFromStarlark(entry.getValue());
-            break;
-          case "providers":
-            resultBuilder.addProvidersFromStarlark(entry.getValue());
-            break;
-          default:
-            throw Starlark.errorf(BAD_KEY_ERROR, entry.getKey());
-        }
-      }
-    }
-    return resultBuilder.build();
   }
 
   @Override

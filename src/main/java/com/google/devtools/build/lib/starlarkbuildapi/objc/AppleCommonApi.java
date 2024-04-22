@@ -114,21 +114,6 @@ public interface AppleCommonApi<
   ProviderApi getXcodeVersionConfigConstructor();
 
   @StarlarkMethod(
-      // TODO(b/63899207): This currently does not match ObjcProvider.STARLARK_NAME as it requires
-      // a migration of existing Starlark rules.
-      name = "Objc",
-      doc =
-          "The constructor/key for the <code>Objc</code> provider.<p>"
-              + "If a target propagates the <code>Objc</code> provider, use this as the "
-              + "key with which to retrieve it. Example:<br>"
-              + "<pre class='language-python'>\n"
-              + "dep = ctx.attr.deps[0]\n"
-              + "p = dep[apple_common.Objc]\n"
-              + "</pre>",
-      structField = true)
-  ProviderApi getObjcProviderConstructor();
-
-  @StarlarkMethod(
       name = "AppleDynamicFramework",
       doc =
           "The constructor/key for the <code>AppleDynamicFramework</code> provider.<p>"
@@ -200,17 +185,6 @@ public interface AppleCommonApi<
         @Param(name = "platform", positional = true, named = false, doc = "The apple platform."),
       })
   ImmutableMap<String, String> getTargetAppleEnvironment(Object xcodeConfig, Object platform);
-
-  @StarlarkMethod(
-      name = "new_objc_provider",
-      doc = "Creates a new ObjcProvider instance.",
-      parameters = {},
-      extraKeywords =
-          @Param(name = "kwargs", defaultValue = "{}", doc = "Dictionary of arguments."),
-      useStarlarkThread = true)
-  // This method is registered statically for Starlark, and never called directly.
-  ObjcProviderApi<?> newObjcProvider(Dict<String, Object> kwargs, StarlarkThread thread)
-      throws EvalException;
 
   @StarlarkMethod(
       name = "new_dynamic_framework_provider",

@@ -17,13 +17,16 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
@@ -263,9 +266,15 @@ public final class ObjcCompilationContext implements StarlarkValue {
     }
 
     @CanIgnoreReturnValue
-    public Builder addObjcProviders(Iterable<ObjcProvider> objcProviders) {
-      for (ObjcProvider objcProvider : objcProviders) {
-        this.strictDependencyIncludes.addAll(objcProvider.getStrictDependencyIncludes());
+    public Builder addObjcProviders(Iterable<StarlarkInfoWithSchema> objcProviders)
+        throws EvalException {
+      for (StarlarkInfoWithSchema objcProvider : objcProviders) {
+        this.strictDependencyIncludes.addAll(
+            Depset.cast(objcProvider.getValue("strict_include"), String.class, "strict_include")
+                .toList()
+                .stream()
+                .map(PathFragment::create)
+                .collect(ImmutableList.toImmutableList()));
       }
       return this;
     }

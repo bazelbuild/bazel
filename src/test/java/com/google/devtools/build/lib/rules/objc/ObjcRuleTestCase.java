@@ -34,8 +34,12 @@ import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
@@ -48,6 +52,8 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.List;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 import org.junit.Before;
 
 /**
@@ -753,5 +759,39 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   protected static Iterable<String> getArifactPathsOfHeaders(ConfiguredTarget target) {
     return Artifact.toRootRelativePaths(
         target.get(CcInfo.PROVIDER).getCcCompilationContext().getDeclaredIncludeSrcs());
+  }
+
+  protected static StarlarkInfo getObjcInfo(ConfiguredTarget starlarkTarget)
+      throws LabelSyntaxException {
+    return (StarlarkInfo)
+        starlarkTarget.get(
+            new StarlarkProvider.Key(
+                Label.parseCanonical("@_builtins//:common/objc/objc_info.bzl"), "ObjcInfo"));
+  }
+
+  protected static ImmutableList<Artifact> getDirectSources(StarlarkInfo provider)
+      throws EvalException {
+    return Sequence.cast(provider.getValue("direct_sources"), Artifact.class, "direct_sources")
+        .getImmutableList();
+  }
+
+  protected static NestedSet<Artifact> getModuleMap(StarlarkInfo provider) throws EvalException {
+    return Depset.cast(provider.getValue("module_map"), Artifact.class, "module_map");
+  }
+
+  protected static ImmutableList<Artifact> getSource(StarlarkInfo provider) throws EvalException {
+    return Depset.cast(provider.getValue("source"), Artifact.class, "source").toList();
+  }
+
+  protected static ImmutableList<String> getStrictInclude(StarlarkInfo provider)
+      throws EvalException {
+    return Depset.cast(provider.getValue("strict_include"), String.class, "strict_include")
+        .toList();
+  }
+
+  protected static ImmutableList<Artifact> getUmbrellaHeader(StarlarkInfo provider)
+      throws EvalException {
+    return Depset.cast(provider.getValue("umbrella_header"), Artifact.class, "umbrella_header")
+        .toList();
   }
 }

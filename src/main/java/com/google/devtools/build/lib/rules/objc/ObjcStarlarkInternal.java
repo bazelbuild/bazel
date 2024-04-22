@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
+import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -262,7 +263,7 @@ public class ObjcStarlarkInternal implements StarlarkValue {
         .addPublicTextualHeaders(
             Sequence.cast(publicTextualHdrs, Artifact.class, "public_textual_hdrs"))
         .addPrivateHeaders(Sequence.cast(privateHdrs, Artifact.class, "private_hdrs"))
-        .addObjcProviders(Sequence.cast(providers, ObjcProvider.class, "providers"))
+        .addObjcProviders(Sequence.cast(providers, StarlarkInfoWithSchema.class, "providers"))
         .addDirectCcCompilationContexts(
             Sequence.cast(
                 directCcCompilationContexts, CcCompilationContext.class, "cc_compilation_contexts"))

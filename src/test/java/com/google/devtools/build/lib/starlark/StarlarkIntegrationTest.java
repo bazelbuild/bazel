@@ -56,13 +56,11 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.objc.ObjcProvider;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.List;
 import net.starlark.java.eval.NoneType;
@@ -4091,117 +4089,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     assertContainsEvent(
         "the output directory '/foo/exe' is not under package directory "
             + "'test/starlark' for target '//test/starlark:target'");
-  }
-
-  @Test
-  public void testLegacyProvider_addCanonicalLegacyKeyAndModernKey() throws Exception {
-    setBuildLanguageOptions("--incompatible_disallow_struct_provider_syntax=false");
-    scratch.file(
-        "test/starlark/extension.bzl",
-        """
-        def custom_rule_impl(ctx):
-          return struct(foo = apple_common.new_objc_provider(strict_include=depset(['foo'])))
-
-        custom_rule = rule(implementation = custom_rule_impl)
-        """);
-
-    scratch.file(
-        "test/starlark/BUILD",
-        """
-        load('//test/starlark:extension.bzl', 'custom_rule')
-
-        custom_rule(name = 'test')
-        """);
-
-    ConfiguredTarget target = getConfiguredTarget("//test/starlark:test");
-
-    ObjcProvider providerFromModernKey = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    ObjcProvider providerFromObjc = (ObjcProvider) target.get("objc");
-    ObjcProvider providerFromFoo = (ObjcProvider) target.get("foo");
-
-    // The modern key and the canonical legacy key "objc" are set to the one available ObjcProvider.
-    assertThat(providerFromModernKey.getStrictDependencyIncludes())
-        .containsExactly(PathFragment.create("foo"));
-    assertThat(providerFromObjc.getStrictDependencyIncludes())
-        .containsExactly(PathFragment.create("foo"));
-    assertThat(providerFromFoo.getStrictDependencyIncludes())
-        .containsExactly(PathFragment.create("foo"));
-  }
-
-  @Test
-  public void testLegacyProvider_dontAutomaticallyAddKeysAlreadyPresent() throws Exception {
-    setBuildLanguageOptions("--incompatible_disallow_struct_provider_syntax=false");
-    scratch.file(
-        "test/starlark/extension.bzl",
-        """
-        def custom_rule_impl(ctx):
-          return struct(providers =
-               [apple_common.new_objc_provider(strict_include=depset(['prov']))],
-               bah = apple_common.new_objc_provider(strict_include=depset(['bah'])),
-               objc = apple_common.new_objc_provider(strict_include=depset(['objc'])))
-
-        custom_rule = rule(implementation = custom_rule_impl)
-        """);
-
-    scratch.file(
-        "test/starlark/BUILD",
-        """
-        load('//test/starlark:extension.bzl', 'custom_rule')
-
-        custom_rule(name = 'test')
-        """);
-
-    ConfiguredTarget target = getConfiguredTarget("//test/starlark:test");
-
-    ObjcProvider providerFromModernKey = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    ObjcProvider providerFromObjc = (ObjcProvider) target.get("objc");
-    ObjcProvider providerFromBah = (ObjcProvider) target.get("bah");
-
-    assertThat(providerFromModernKey.getStrictDependencyIncludes())
-        .containsExactly(PathFragment.create("prov"));
-    assertThat(providerFromObjc.getStrictDependencyIncludes())
-        .containsExactly(PathFragment.create("objc"));
-    assertThat(providerFromBah.getStrictDependencyIncludes())
-        .containsExactly(PathFragment.create("bah"));
-  }
-
-  @Test
-  public void testLegacyProvider_firstNoncanonicalKeyBecomesCanonical() throws Exception {
-    setBuildLanguageOptions("--incompatible_disallow_struct_provider_syntax=false");
-    scratch.file(
-        "test/starlark/extension.bzl",
-        "def custom_rule_impl(ctx):",
-        "  return struct(providers ="
-            + " [apple_common.new_objc_provider(strict_include=depset(['prov']))],",
-        "       foo = apple_common.new_objc_provider(strict_include=depset(['foo'])),",
-        "       bar = apple_common.new_objc_provider(strict_include=depset(['bar'])))",
-        "",
-        "custom_rule = rule(implementation = custom_rule_impl)");
-
-    scratch.file(
-        "test/starlark/BUILD",
-        """
-        load('//test/starlark:extension.bzl', 'custom_rule')
-
-        custom_rule(name = 'test')
-        """);
-
-    ConfiguredTarget target = getConfiguredTarget("//test/starlark:test");
-
-    ObjcProvider providerFromModernKey = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    ObjcProvider providerFromObjc = (ObjcProvider) target.get("objc");
-    ObjcProvider providerFromFoo = (ObjcProvider) target.get("foo");
-    ObjcProvider providerFromBar = (ObjcProvider) target.get("bar");
-
-    assertThat(providerFromModernKey.getStrictDependencyIncludes())
-        .containsExactly(PathFragment.create("prov"));
-    // The first defined provider is set to the legacy "objc" key.
-    assertThat(providerFromObjc.getStrictDependencyIncludes())
-        .containsExactly(PathFragment.create("foo"));
-    assertThat(providerFromFoo.getStrictDependencyIncludes())
-        .containsExactly(PathFragment.create("foo"));
-    assertThat(providerFromBar.getStrictDependencyIncludes())
-        .containsExactly(PathFragment.create("bar"));
   }
 
   @Test
