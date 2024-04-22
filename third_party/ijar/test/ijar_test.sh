@@ -580,8 +580,7 @@ function test_source_debug_extension_attribute() {
 function test_duplicated_unsupported_attribute() {
   # Check that unsupported attribute warnings are only emitted once
   $IJAR $DUPLICATEDUNSUPPORTEDATTRIBUTE_JAR $DUPLICATEDUNSUPPORTEDATTRIBUTE_IJAR >& $TEST_log || fail "ijar failed"
-  expect_log 'skipping unknown attribute: "some_unknown_type"'
-  [[ $(wc -l < $TEST_log | tr -d ' ') == 1 ]] || fail "Warning emitted more than once"
+  expect_log_once 'skipping unknown attribute: "some_unknown_type"'
 }
 
 function test_keep_for_compile() {
