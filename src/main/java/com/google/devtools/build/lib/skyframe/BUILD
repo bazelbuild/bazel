@@ -48,6 +48,7 @@ java_library(
         "LocalRepositoryLookupFunction.java",
         "PackageFunction.java",
         "PackageFunctionWithMultipleGlobDeps.java",
+        "PackageFunctionWithoutGlobDeps.java",
         "PrepareDepsOfPatternFunction.java",
         "SequencedSkyframeExecutor.java",
         "SequencedSkyframeExecutorFactory.java",

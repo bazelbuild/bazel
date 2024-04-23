@@ -112,7 +112,6 @@ public abstract class PackageFunction implements SkyFunction {
   private final ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile;
 
   private final boolean shouldUseRepoDotBazel;
-  protected final GlobbingStrategy globbingStrategy;
 
   protected final Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactoryForMetrics;
 
@@ -178,7 +177,6 @@ public abstract class PackageFunction implements SkyFunction {
       @Nullable PackageProgressReceiver packageProgress,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       boolean shouldUseRepoDotBazel,
-      GlobbingStrategy globbingStrategy,
       Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactoryForMetrics,
       AtomicReference<Semaphore> cpuBoundSemaphore) {
     this.bzlLoadFunctionForInlining = bzlLoadFunctionForInlining;
@@ -189,7 +187,6 @@ public abstract class PackageFunction implements SkyFunction {
     this.packageProgress = packageProgress;
     this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
     this.shouldUseRepoDotBazel = shouldUseRepoDotBazel;
-    this.globbingStrategy = globbingStrategy;
     this.threadStateReceiverFactoryForMetrics = threadStateReceiverFactoryForMetrics;
     this.cpuBoundSemaphore = cpuBoundSemaphore;
   }
@@ -273,7 +270,10 @@ public abstract class PackageFunction implements SkyFunction {
     }
   }
 
-  /** Handles package's glob deps symlink issues discovered by Skyframe globbing. */
+  /**
+   * Queries GLOB deps in Skyframe if necessary, and handles package's glob deps symlink issues
+   * discovered by Skyframe globbing.
+   */
   @ForOverride
   protected abstract void handleGlobDepsAndPropagateFilesystemExceptions(
       PackageIdentifier packageIdentifier,
@@ -1335,18 +1335,35 @@ public abstract class PackageFunction implements SkyFunction {
     }
 
     public PackageFunction build() {
-      return new PackageFunctionWithMultipleGlobDeps(
-          packageFactory,
-          pkgLocator,
-          showLoadingProgress,
-          numPackagesSuccessfullyLoaded,
-          bzlLoadFunctionForInlining,
-          packageProgress,
-          actionOnIOExceptionReadingBuildFile,
-          shouldUseRepoDotBazel,
-          globbingStrategy,
-          threadStateReceiverFactoryForMetrics,
-          cpuBoundSemaphore);
+      switch (globbingStrategy) {
+        case SKYFRAME_HYBRID -> {
+          return new PackageFunctionWithMultipleGlobDeps(
+              packageFactory,
+              pkgLocator,
+              showLoadingProgress,
+              numPackagesSuccessfullyLoaded,
+              bzlLoadFunctionForInlining,
+              packageProgress,
+              actionOnIOExceptionReadingBuildFile,
+              shouldUseRepoDotBazel,
+              threadStateReceiverFactoryForMetrics,
+              cpuBoundSemaphore);
+        }
+        case NON_SKYFRAME -> {
+          return new PackageFunctionWithoutGlobDeps(
+              packageFactory,
+              pkgLocator,
+              showLoadingProgress,
+              numPackagesSuccessfullyLoaded,
+              bzlLoadFunctionForInlining,
+              packageProgress,
+              actionOnIOExceptionReadingBuildFile,
+              shouldUseRepoDotBazel,
+              threadStateReceiverFactoryForMetrics,
+              cpuBoundSemaphore);
+        }
+      }
+      throw new IllegalStateException();
     }
   }
 
