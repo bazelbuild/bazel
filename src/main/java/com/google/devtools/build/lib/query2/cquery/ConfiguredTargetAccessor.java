@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -25,10 +26,14 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
@@ -43,6 +48,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.build.skyframe.state.EnvironmentForUtilities;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -169,20 +175,55 @@ public class ConfiguredTargetAccessor implements TargetAccessor<CqueryNode> {
 
   @Override
   public List<String> getStringListAttr(CqueryNode target, String attrName) {
-    Target actualTarget = getTarget(target);
-    return TargetUtils.getStringListAttr(actualTarget, attrName);
+    ConfiguredAttributeMapper attributeMapper = getAttributes(target);
+    return attributeMapper.get(attrName, Types.STRING_LIST);
   }
 
   @Override
   public String getStringAttr(CqueryNode target, String attrName) {
-    Target actualTarget = getTarget(target);
-    return TargetUtils.getStringAttr(actualTarget, attrName);
+    ConfiguredAttributeMapper attributeMapper = getAttributes(target);
+    return attributeMapper.get(attrName, Type.STRING);
   }
 
   @Override
   public Iterable<String> getAttrAsString(CqueryNode target, String attrName) {
+    ConfiguredAttributeMapper attributeMapper = getAttributes(target);
+    Attribute attribute = attributeMapper.getAttributeDefinition(attrName);
+    if (attribute == null) {
+      // Ignore unknown attributes.
+      return ImmutableList.of();
+    }
+    Type<?> attributeType = attribute.getType();
+
+    Object value = attributeMapper.get(attrName, attributeType);
+    if (value == null) {
+      return ImmutableList.of();
+    }
+
+    if (Objects.equals(attrName, "visibility")
+        && attributeType.equals(BuildType.NODEP_LABEL_LIST)) {
+      // This special case for the visibility attribute is needed because its value is replaced
+      // with an empty list during package loading if it is public or private in order not to visit
+      // the package called 'visibility'.
+      Target actualTarget = getTarget(target);
+      Preconditions.checkArgument(actualTarget instanceof Rule);
+      Rule rule = (Rule) actualTarget;
+      value = attributeType.cast(rule.getVisibilityDeclaredLabels());
+    }
+
+    // Return a single-valued list, because a configured target only has one value for the
+    // attribute. Flatten to a string regardless of the actual type so that regex-based matches can
+    // be performed.
+    return ImmutableList.of(TargetUtils.convertAttributeValue(attributeType, value));
+  }
+
+  private ConfiguredAttributeMapper getAttributes(CqueryNode target) {
     Target actualTarget = getTarget(target);
-    return TargetUtils.getAttrAsString(actualTarget, attrName);
+    Preconditions.checkArgument(actualTarget instanceof Rule);
+    Rule rule = (Rule) actualTarget;
+    ImmutableMap<Label, ConfigMatchingProvider> configConditions = target.getConfigConditions();
+    return ConfiguredAttributeMapper.of(
+        rule, configConditions, target.getConfigurationChecksum(), /* alwaysSucceed= */ false);
   }
 
   @Override
