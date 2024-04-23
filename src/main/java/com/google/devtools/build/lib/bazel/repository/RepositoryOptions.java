@@ -246,10 +246,8 @@ public class RepositoryOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "The threading mode to use for repo fetching. If set to 'off', no worker thread is used,"
-              + " and the repo fetching is subject to restarts. Otherwise, uses a platform thread"
-              + " (i.e. OS thread) if set to 'platform' or a virtual thread if set to 'virtual'. If"
-              + " set to 'auto', virtual threads are used if available (i.e. running on JDK 21+),"
-              + " otherwise no worker thread is used.")
+              + " and the repo fetching is subject to restarts. Otherwise, uses a virtual worker"
+              + " thread.")
   public WorkerForRepoFetching workerForRepoFetching;
 
   @Option(
