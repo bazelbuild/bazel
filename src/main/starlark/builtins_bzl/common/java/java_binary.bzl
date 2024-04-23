@@ -39,16 +39,9 @@ InternalDeployJarInfo = provider(
     "Provider for passing info to deploy jar rule",
     fields = [
         "java_attrs",
-        "launcher_info",
-        "shared_archive",
-        "main_class",
-        "coverage_main_class",
         "strip_as_default",
-        "stamp",
-        "hermetic",
         "add_exports",
         "add_opens",
-        "manifest_lines",
     ],
 )
 
@@ -202,8 +195,6 @@ def basic_java_binary(
         _generate_coverage_manifest(ctx, coverage_config.manifest, java_attrs.runtime_classpath)
         files_to_build.append(coverage_config.manifest)
 
-    shared_archive = _create_shared_archive(ctx, java_attrs)
-
     if extension_registry_provider:
         files_to_build.append(extension_registry_provider.class_jar)
         output_groups["_direct_source_jars"] = (
@@ -278,26 +269,15 @@ def basic_java_binary(
 
     internal_deploy_jar_info = InternalDeployJarInfo(
         java_attrs = java_attrs,
-        launcher_info = struct(
-            runtime_jars = launcher_info.runtime_jars,
-            launcher = launcher_info.launcher,
-            unstripped_launcher = launcher_info.unstripped_launcher,
-        ),
-        shared_archive = shared_archive,
-        main_class = main_class,
-        coverage_main_class = coverage_main_class,
         strip_as_default = strip_as_default,
-        stamp = ctx.attr.stamp,
-        hermetic = hasattr(ctx.attr, "hermetic") and ctx.attr.hermetic,
         add_exports = add_exports,
         add_opens = add_opens,
-        manifest_lines = ctx.attr.deploy_manifest_lines,
     )
 
     # "temporary" workaround for https://github.com/bazelbuild/intellij/issues/5845
     extra_files = []
     if is_test_rule_class and ctx.fragments.java.auto_create_java_test_deploy_jars():
-        extra_files.append(_auto_create_deploy_jar(ctx, internal_deploy_jar_info))
+        extra_files.append(_auto_create_deploy_jar(ctx, internal_deploy_jar_info, launcher_info, main_class, coverage_main_class))
 
     default_info = struct(
         files = depset(extra_files, transitive = [files]),
@@ -348,53 +328,6 @@ def _generate_coverage_manifest(ctx, output, runtime_classpath):
         output = output,
         content = "\n".join([file.short_path for file in runtime_classpath.to_list()]),
     )
-
-#TODO(hvd): not needed in bazel
-def _create_shared_archive(ctx, java_attrs):
-    classlist = ctx.file.classlist if hasattr(ctx.file, "classlist") else None
-    if not classlist:
-        return None
-    runtime = semantics.find_java_runtime_toolchain(ctx)
-    jsa = ctx.actions.declare_file("%s.jsa" % ctx.label.name)
-    merged = ctx.actions.declare_file(jsa.dirname + "/" + helper.strip_extension(jsa) + "-merged.jar")
-    helper.create_single_jar(
-        ctx.actions,
-        toolchain = semantics.find_java_toolchain(ctx),
-        output = merged,
-        sources = depset(transitive = [java_attrs.runtime_jars, java_attrs.runtime_classpath_for_archive]),
-    )
-
-    args = ctx.actions.args()
-    args.add("-Xshare:dump")
-    args.add(jsa, format = "-XX:SharedArchiveFile=%s")
-    args.add(classlist, format = "-XX:SharedClassListFile=%s")
-
-    input_files = [classlist, merged]
-
-    config_file = ctx.file.cds_config_file if hasattr(ctx.file, "cds_config_file") else None
-    if config_file:
-        args.add(config_file, format = "-XX:SharedArchiveConfigFile=%s")
-        input_files.append(config_file)
-
-    args.add("-cp", merged)
-
-    if hasattr(ctx.attr, "jvm_flags_for_cds_image_creation") and ctx.attr.jvm_flags_for_cds_image_creation:
-        args.add_all([
-            ctx.expand_location(flag, ctx.attr.data)
-            for flag in ctx.attr.jvm_flags_for_cds_image_creation
-        ])
-        input_files.extend(ctx.files.data)
-
-    ctx.actions.run(
-        mnemonic = "JavaJSA",
-        progress_message = "Dumping Java Shared Archive %s" % jsa.short_path,
-        executable = runtime.java_executable_exec_path,
-        toolchain = semantics.JAVA_RUNTIME_TOOLCHAIN_TYPE,
-        inputs = depset(input_files, transitive = [runtime.files]),
-        outputs = [jsa],
-        arguments = [args],
-    )
-    return jsa
 
 def _create_one_version_check(ctx, inputs, is_test_rule_class):
     one_version_level = ctx.fragments.java.one_version_enforcement_level
@@ -501,11 +434,11 @@ def _get_validations_from_target(target):
 # TODO: bazelbuild/intellij/issues/5845 - remove this once no longer required
 # this need not be completely identical to the regular deploy jar since we only
 # care about packaging the classpath
-def _auto_create_deploy_jar(ctx, info):
+def _auto_create_deploy_jar(ctx, info, launcher_info, main_class, coverage_main_class):
     output = ctx.actions.declare_file(ctx.label.name + "_auto_deploy.jar")
     java_attrs = info.java_attrs
     runtime_classpath = depset(
-        direct = info.launcher_info.runtime_jars,
+        direct = launcher_info.runtime_jars,
         transitive = [
             java_attrs.runtime_jars,
             java_attrs.runtime_classpath_for_archive,
@@ -514,9 +447,9 @@ def _auto_create_deploy_jar(ctx, info):
     )
     create_deploy_archive(
         ctx,
-        launcher = info.launcher_info.launcher,
-        main_class = info.main_class,
-        coverage_main_class = info.coverage_main_class,
+        launcher = launcher_info.launcher,
+        main_class = main_class,
+        coverage_main_class = coverage_main_class,
         resources = java_attrs.resources,
         classpath_resources = java_attrs.classpath_resources,
         runtime_classpath = runtime_classpath,
@@ -524,11 +457,10 @@ def _auto_create_deploy_jar(ctx, info):
         build_info_files = [],
         build_target = str(ctx.label),
         output = output,
-        shared_archive = info.shared_archive,
         one_version_level = ctx.fragments.java.one_version_enforcement_level,
         one_version_allowlist = helper.check_and_get_one_version_attribute(ctx, "_one_version_allowlist"),
         multi_release = ctx.fragments.java.multi_release_deploy_jars,
-        hermetic = info.hermetic,
+        hermetic = hasattr(ctx.attr, "hermetic") and ctx.attr.hermetic,
         add_exports = info.add_exports,
         add_opens = info.add_opens,
     )
@@ -827,6 +759,7 @@ binaries and not libraries, due to the danger of namespace conflicts.
         "_windows_constraints": attr.label_list(
             default = ["@" + paths.join(cc_semantics.get_platforms_root(), "os:windows")],
         ),
+        "_build_info_translator": attr.label(default = semantics.BUILD_INFO_TRANSLATOR_LABEL),
     } | ({} if _builtins.internal.java_common_internal_do_not_use.incompatible_disable_non_executable_java_binary() else {"create_executable": attr.bool(default = True, doc = "Deprecated, use <code>java_single_jar</code> instead.")}),
 )
 

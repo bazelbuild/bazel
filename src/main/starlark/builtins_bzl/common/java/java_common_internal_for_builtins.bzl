@@ -402,18 +402,6 @@ def target_kind(target):
     """
     return _java_common_internal.target_kind(target)
 
-def get_build_info(ctx, is_stamping_enabled):
-    """Get the artifacts representing the workspace status for this build
-
-    Args:
-        ctx: (RuleContext) The rule context
-        is_stamping_enabled: (bool) If stamping is enabled
-
-    Returns
-        ([File]) The build info artifacts
-    """
-    return _java_common_internal.get_build_info(ctx, is_stamping_enabled)
-
 def collect_native_deps_dirs(libraries):
     """Collect the set of root-relative paths containing native libraries
 
