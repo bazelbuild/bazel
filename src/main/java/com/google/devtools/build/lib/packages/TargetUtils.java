@@ -179,33 +179,34 @@ public final class TargetUtils {
           AggregatingAttributeMapper.of((Rule) target)
               .visitAttribute(attribute.getName(), attributeType)) {
 
-        // Ugly hack to maintain backward 'attr' query compatibility for BOOLEAN and TRISTATE
-        // attributes. These are internally stored as actual Boolean or TriState objects but were
-        // historically queried as integers. To maintain compatibility, we inspect their actual
-        // value and return the integer equivalent represented as a String. This code is the
-        // opposite of the code in BooleanType and TriStateType respectively.
-        if (attributeType == BOOLEAN) {
-          values.add(Type.BOOLEAN.cast(attrValue) ? "1" : "0");
-        } else if (attributeType == TRISTATE) {
-          switch (BuildType.TRISTATE.cast(attrValue)) {
-            case AUTO:
-              values.add("-1");
-              break;
-            case NO:
-              values.add("0");
-              break;
-            case YES:
-              values.add("1");
-              break;
-            default:
-              throw new AssertionError("This can't happen!");
-          }
-        } else {
-          values.add(attrValue == null ? null : attrValue.toString());
-        }
+        values.add(convertAttributeValue(attributeType, attrValue));
       }
     }
     return values;
+  }
+
+  @Nullable
+  public static String convertAttributeValue(Type<?> attributeType, Object attrValue) {
+    // Ugly hack to maintain backward 'attr' query compatibility for BOOLEAN and TRISTATE
+    // attributes. These are internally stored as actual Boolean or TriState objects but were
+    // historically queried as integers. To maintain compatibility, we inspect their actual
+    // value and return the integer equivalent represented as a String. This code is the
+    // opposite of the code in BooleanType and TriStateType respectively.
+    if (attributeType == BOOLEAN) {
+      return Type.BOOLEAN.cast(attrValue) ? "1" : "0";
+    } else if (attributeType == TRISTATE) {
+      switch (BuildType.TRISTATE.cast(attrValue)) {
+        case AUTO:
+          return "-1";
+        case NO:
+          return "0";
+        case YES:
+          return "1";
+      }
+      throw new AssertionError("This can't happen!");
+    } else {
+      return attrValue == null ? null : attrValue.toString();
+    }
   }
 
   /**
