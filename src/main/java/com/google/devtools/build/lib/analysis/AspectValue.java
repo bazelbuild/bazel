@@ -62,7 +62,12 @@ public class AspectValue extends BasicActionLookupValue
     return checkNotNull(providers);
   }
 
-  @Override
+  /**
+   * Clears data from this value.
+   *
+   * <p>Should only be used when user specifies --discard_analysis_cache. Must be called at most
+   * once per value, after which this object's other methods cannot be called.
+   */
   public void clear(boolean clearEverything) {
     if (clearEverything) {
       aspect = null;

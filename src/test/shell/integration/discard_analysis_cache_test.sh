@@ -98,6 +98,37 @@ function test_compile_helloworld() {
   expect_log 'hello!'
 }
 
+# Regression test for b/336514394
+function test_aspect_after_cache_discard() {
+  write_hello_world_files
+
+  mkdir -p aspect
+  cat > aspect/aspect.bzl << 'EOF' || fail "Couldn't write aspect.bzl"
+def _simple_aspect_impl(target, ctx):
+    return []
+
+simple_aspect = aspect(
+    implementation=_simple_aspect_impl,
+    attr_aspects = ["*"],
+)
+EOF
+  touch aspect/BUILD
+
+  # Build and then discard the cache.
+  bazel build \
+    --discard_analysis_cache \
+    --aspects=aspect/aspect.bzl%simple_aspect \
+    hello:hello >&$TEST_log \
+      || fail "Build failed"
+
+  # This should rebuild the cache as needed..
+  bazel build \
+    --discard_analysis_cache \
+    --aspects=aspect/aspect.bzl%simple_aspect \
+    hello:hello >&$TEST_log \
+      || fail "Second build failed"
+}
+
 function extract_histogram_count() {
   local histofile="$1"
   local item="$2"
