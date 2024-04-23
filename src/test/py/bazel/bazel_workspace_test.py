@@ -25,6 +25,8 @@ class BazelWorkspaceTest(test_base.TestBase):
     self.DisableBzlmod()
 
   def testWorkspaceDotBazelFileInMainRepo(self):
+    # Make sure no existing MODULE.bazel file.
+    os.remove("MODULE.bazel")
     workspace_dot_bazel = self.ScratchFile("WORKSPACE.bazel")
     self.ScratchFile("BUILD", [
         "py_binary(",
