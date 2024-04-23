@@ -1023,7 +1023,9 @@ public class ModuleFileGlobals {
             name = "strip_prefix",
             doc =
                 "A directory prefix to strip from the extracted files. This can be used to target"
-                    + " a subdirectory of the git repo.",
+                    + " a subdirectory of the git repo. Note that the subdirectory must have its"
+                    + " own `MODULE.bazel` file with a module name that is the same as the"
+                    + " `module_name` arg passed to this `git_override`.",
             named = true,
             positional = false,
             defaultValue = "''"),
