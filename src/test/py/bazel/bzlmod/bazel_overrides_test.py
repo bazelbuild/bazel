@@ -307,7 +307,7 @@ class BazelOverridesTest(test_base.TestBase):
         ],
     )
     src_aaa_1_0 = self.main_registry.projects.joinpath('aaa', '1.0')
-    src_ddd_0_1 = self.main_registry.projects.joinpath('ddd', '1.0')
+    src_ddd_1_0 = self.main_registry.projects.joinpath('ddd', '1.0')
     self.RunProgram(['git', 'init'], cwd=src_aaa_1_0)
     self.RunProgram(
         ['git', 'config', 'user.name', 'tester'],
@@ -320,7 +320,7 @@ class BazelOverridesTest(test_base.TestBase):
 
     # Make a subdirectory that itself is the published module 'ddd'.
     subdir_name = 'subdir_containing_ddd'
-    shutil.copytree(src=src_ddd_0_1, dst=src_aaa_1_0 / subdir_name)
+    shutil.copytree(src=src_ddd_1_0, dst=src_aaa_1_0 / subdir_name)
 
     # Edit the code in 'subdir_containing_ddd/ddd.cc' so that we can assert
     # that we're using it.
