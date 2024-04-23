@@ -63,6 +63,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
     String bazelToolWorkspace = config.getPath("embedded_tools").getPathString();
     String bazelPlatformsWorkspace = config.getPath("platforms_workspace").getPathString();
     String rulesJavaWorkspace = config.getPath("rules_java_workspace").getPathString();
+    String localConfigPlatformWorkspace =
+        config.getPath("local_config_platform_workspace").getPathString();
     String androidGmavenR8Workspace = config.getPath("android_gmaven_r8").getPathString();
     String appleSupport = config.getPath("build_bazel_apple_support").getPathString();
 
@@ -100,7 +102,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
         // Note this path is created inside the test infrastructure in
         // createAndroidBuildContents() below. It may not reflect a real depot path.
         "register_toolchains('@bazel_tools//tools/android/dummy_sdk:all')",
-        "register_toolchains('@bazel_tools//tools/python:autodetecting_toolchain')");
+        "register_toolchains('@bazel_tools//tools/python:autodetecting_toolchain')",
+        "local_repository(name='local_config_platform',path='"
+            + localConfigPlatformWorkspace
+            + "')");
   }
 
   /** Keep this in sync with the WORKSPACE content in {@link #getWorkspaceContents}. */
@@ -110,6 +115,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "android_gmaven_r8",
         "bazel_tools",
         "com_google_protobuf",
+        "local_config_platform",
         "local_config_xcode",
         "platforms",
         "internal_platforms_do_not_use",
@@ -148,6 +154,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
     /* The rest of platforms is initialized in {@link MockPlatformSupport}. */
     config.create("platforms_workspace/WORKSPACE", "workspace(name = 'platforms')");
     config.create("platforms_workspace/MODULE.bazel", "module(name = 'platforms')");
+    config.create(
+        "local_config_platform_workspace/WORKSPACE", "workspace(name = 'local_config_platform')");
+    config.create(
+        "local_config_platform_workspace/MODULE.bazel", "module(name = 'local_config_platform')");
     config.create("build_bazel_apple_support/WORKSPACE", "workspace(name = 'apple_support')");
     config.create(
         "build_bazel_apple_support/MODULE.bazel", "module(name = 'build_bazel_apple_support')");
@@ -881,6 +891,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         ImmutableMap.<String, String>builder()
             .put("bazel_tools", "embedded_tools")
             .put("platforms", "platforms_workspace")
+            .put("local_config_platform", "local_config_platform_workspace")
             .put("rules_java", "rules_java_workspace")
             .put("com_google_protobuf", "protobuf_workspace")
             .put("rules_proto", "third_party/bazel_rules/rules_proto")
