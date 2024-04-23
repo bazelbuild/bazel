@@ -184,21 +184,11 @@ def get_cc_toolchain_provider(ctx, attributes):
     tool_paths = _compute_tool_paths(toolchain_config_info, tools_directory)
     toolchain_features = cc_internal.cc_toolchain_features(toolchain_config_info = toolchain_config_info, tools_directory = tools_directory)
     fdo_context = create_fdo_context(
-        ctx = ctx,
-        fdo_prefetch_provider = attributes.fdo_prefetch_provider,
-        propeller_optimize_provider = attributes.propeller_optimize_provider,
-        mem_prof_profile_provider = attributes.mem_prof_profile_provider,
-        fdo_optimize_provider = attributes.fdo_optimize_provider,
-        fdo_profile_provider = attributes.fdo_profile_provider,
-        x_fdo_profile_provider = attributes.x_fdo_profile_provider,
-        cs_fdo_profile_provider = attributes.cs_fdo_profile_provider,
         llvm_profdata = tool_paths.get("llvm-profdata"),
         all_files = attributes.all_files,
         zipper = attributes.zipper,
-        cc_toolchain_config_info = attributes.cc_toolchain_config_info,
-        fdo_optimize_artifacts = attributes.fdo_optimize_artifacts,
-        fdo_optimize_label = attributes.fdo_optimize_label,
-        proto_profile = attributes.proto_profile,
+        cc_toolchain_config_info = toolchain_config_info,
+        coverage_enabled = ctx.configuration.coverage_enabled,
     )
     if fdo_context == None:
         return None

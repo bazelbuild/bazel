@@ -1062,7 +1062,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   // StarlarkActionFactory without any invasive changes to the latter. It will be improved once the
   // subrule implementation approaches maturity.
   // TODO(hvd): clean up this interface to only contain general-purpose methods
-  interface StarlarkActionContext extends StarlarkValue {
+  public interface StarlarkActionContext extends StarlarkValue {
     ArtifactRoot newFileRoot();
 
     void checkMutable(String attrName) throws EvalException;

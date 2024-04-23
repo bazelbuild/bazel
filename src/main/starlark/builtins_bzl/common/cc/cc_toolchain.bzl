@@ -16,10 +16,7 @@
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_toolchain_provider_helper.bzl", "get_cc_toolchain_provider")
-load(":common/cc/fdo/fdo_prefetch_hints.bzl", "FdoPrefetchHintsInfo")
-load(":common/cc/fdo/fdo_profile.bzl", "FdoProfileInfo")
-load(":common/cc/fdo/memprof_profile.bzl", "MemProfProfileInfo")
-load(":common/cc/fdo/propeller_optimize.bzl", "PropellerOptimizeInfo")
+load(":common/cc/fdo/fdo_context.bzl", "create_fdo_context")
 load(":common/cc/semantics.bzl", "semantics")
 
 cc_internal = _builtins.internal.cc_internal
@@ -84,12 +81,7 @@ def _attributes(ctx):
     return struct(
         supports_param_files = ctx.attr.supports_param_files,
         runtime_solib_dir_base = "_solib__" + cc_internal.escape_label(label = ctx.label),
-        fdo_prefetch_provider = _provider(ctx.attr._fdo_prefetch_hints, FdoPrefetchHintsInfo),
-        propeller_optimize_provider = _provider(ctx.attr._propeller_optimize, PropellerOptimizeInfo),
-        mem_prof_profile_provider = _provider(ctx.attr._memprof_profile, MemProfProfileInfo),
-        proto_profile = ctx.file._proto_profile,
         cc_toolchain_config_info = _provider(ctx.attr.toolchain_config, CcToolchainConfigInfo),
-        fdo_optimize_artifacts = ctx.files._fdo_optimize,
         licenses_provider = cc_internal.licenses(ctx = ctx),
         static_runtime_lib = ctx.attr.static_runtime_lib,
         dynamic_runtime_lib = ctx.attr.dynamic_runtime_lib,
@@ -98,19 +90,14 @@ def _attributes(ctx):
         compiler_files = _files(ctx, "compiler_files"),
         strip_files = _files(ctx, "strip_files"),
         objcopy_files = _files(ctx, "objcopy_files"),
-        fdo_optimize_label = _label(ctx, "_fdo_optimize"),
         link_dynamic_library_tool = ctx.file._link_dynamic_library_tool,
         grep_includes = grep_includes,
         module_map = ctx.attr.module_map,
         as_files = _files(ctx, "as_files"),
         ar_files = _files(ctx, "ar_files"),
         dwp_files = _files(ctx, "dwp_files"),
-        fdo_optimize_provider = _provider(ctx.attr._fdo_optimize, FdoProfileInfo),
         module_map_artifact = _single_file(ctx, "module_map"),
         all_files_including_libc = depset(transitive = [_files(ctx, "all_files"), _files(ctx, latebound_libc)]),
-        fdo_profile_provider = _provider(ctx.attr._fdo_profile, FdoProfileInfo),
-        cs_fdo_profile_provider = _provider(ctx.attr._csfdo_profile, FdoProfileInfo),
-        x_fdo_profile_provider = _provider(ctx.attr._xfdo_profile, FdoProfileInfo),
         zipper = ctx.file._zipper,
         linker_files = _full_inputs_for_link(
             ctx,
@@ -186,6 +173,7 @@ cc_toolchain = rule(
   Use <code>tags = ["manual"]</code> in order to prevent toolchains from being built and configured
   unnecessarily when invoking <code>bazel build //...</code>
 </p>""",
+    subrules = [create_fdo_context],
     attrs = {
         # buildifier: disable=attr-license
         "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
@@ -339,44 +327,6 @@ The label of the rule providing <code>cc_toolchain_config_info</code>.""",
         ),
         "_target_libc_top": attr.label(
             default = configuration_field(fragment = "cpp", name = "target_libc_top_DO_NOT_USE_ONLY_FOR_CC_TOOLCHAIN"),
-        ),
-        "_fdo_optimize": attr.label(
-            default = configuration_field(fragment = "cpp", name = "fdo_optimize"),
-            allow_files = True,
-        ),
-        "_xfdo_profile": attr.label(
-            default = configuration_field(fragment = "cpp", name = "xbinary_fdo"),
-            allow_rules = ["fdo_profile"],
-            providers = [FdoProfileInfo],
-        ),
-        "_fdo_profile": attr.label(
-            default = configuration_field(fragment = "cpp", name = "fdo_profile"),
-            allow_rules = ["fdo_profile"],
-            providers = [FdoProfileInfo],
-        ),
-        "_csfdo_profile": attr.label(
-            default = configuration_field(fragment = "cpp", name = "cs_fdo_profile"),
-            allow_rules = ["fdo_profile"],
-            providers = [FdoProfileInfo],
-        ),
-        "_fdo_prefetch_hints": attr.label(
-            default = configuration_field(fragment = "cpp", name = "fdo_prefetch_hints"),
-            allow_rules = ["fdo_prefetch_hints"],
-            providers = [FdoPrefetchHintsInfo],
-        ),
-        "_propeller_optimize": attr.label(
-            default = configuration_field(fragment = "cpp", name = "propeller_optimize"),
-            allow_rules = ["propeller_optimize"],
-            providers = [PropellerOptimizeInfo],
-        ),
-        "_memprof_profile": attr.label(
-            default = configuration_field(fragment = "cpp", name = "memprof_profile"),
-            allow_rules = ["memprof_profile"],
-            providers = [MemProfProfileInfo],
-        ),
-        "_proto_profile": attr.label(
-            default = configuration_field(fragment = "cpp", name = "proto_profile_path"),
-            allow_single_file = True,
         ),
         "_whitelist_disabling_parse_headers_and_layering_check_allowed": attr.label(
             default = "@" + semantics.get_repo() + "//tools/build_defs/cc/whitelists/parse_headers_and_layering_check:disabling_parse_headers_and_layering_check_allowed",

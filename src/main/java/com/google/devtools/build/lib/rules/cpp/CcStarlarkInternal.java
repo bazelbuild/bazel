@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.StarlarkActionContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -429,7 +430,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       })
   // TODO(b/333997009): remove command line flags that specify FDO with absolute path
   public void absoluteSymlink(
-      StarlarkRuleContext ctx, Artifact output, String targetPath, String progressMessage) {
+      StarlarkActionContext ctx, Artifact output, String targetPath, String progressMessage) {
     SymlinkAction action =
         SymlinkAction.toAbsolutePath(
             ctx.getRuleContext().getActionOwner(),

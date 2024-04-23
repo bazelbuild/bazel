@@ -13,6 +13,7 @@
 # limitations under the License.
 """FDO context describes how C++ FDO compilation should be done."""
 
+load(":common/cc/fdo/fdo_prefetch_hints.bzl", "FdoPrefetchHintsInfo")
 load(":common/cc/fdo/fdo_profile.bzl", "FdoProfileInfo")
 load(":common/cc/fdo/memprof_profile.bzl", "MemProfProfileInfo")
 load(":common/cc/fdo/propeller_optimize.bzl", "PropellerOptimizeInfo")
@@ -20,43 +21,42 @@ load(":common/paths.bzl", "paths")
 
 cc_internal = _builtins.internal.cc_internal
 
-def create_fdo_context(
-        *,
+def _create_fdo_context(
         ctx,
-        fdo_prefetch_provider,
-        propeller_optimize_provider,
-        mem_prof_profile_provider,
-        fdo_optimize_provider,
-        fdo_profile_provider,
-        x_fdo_profile_provider,
-        cs_fdo_profile_provider,
+        *,
         llvm_profdata,
         all_files,
         zipper,
         cc_toolchain_config_info,
-        fdo_optimize_artifacts,
-        fdo_optimize_label,
-        proto_profile):
+        coverage_enabled,
+        _fdo_prefetch_hints,
+        _propeller_optimize,
+        _memprof_profile,
+        _fdo_optimize,
+        _fdo_profile,
+        _xfdo_profile,
+        _csfdo_profile,
+        _proto_profile):
     """Creates FDO context when it should be available.
 
     When `-c opt` is used it parses values of FDO related flags, processes the
     input Files and return Files ready to be used for FDO.
 
     Args:
-      ctx: (RuleContext) used to create actions and obtain configuration
-      fdo_prefetch_provider: (FdoPrefetchHintsInfo) Pointed to by --fdo_prefetch_hints
-      propeller_optimize_provider: (PropellerOptimizeInfo) Pointed to by --propeller_optimize
-      mem_prof_profile_provider: (MemProfProfileInfo) Pointed to by --memprof_profile
-      fdo_optimize_provider: (PropellerOptimizeInfo) Pointed to by --propeller_optimize
-      fdo_profile_provider: (FdoProfileInfo) Pointed to by --fdo_profile
-      x_fdo_profile_provider: (FdoProfileInfo) Pointed to by --xbinary_fdo
-      cs_fdo_profile_provider: (FdoProfileInfo) Pointed to by --cs_fdo_profile
+      ctx: (SubruleContext) used to create actions and obtain configuration
       llvm_profdata: (File) llvm-profdata executable
       all_files: (depset(File)) Files needed to run llvm-profdata
       zipper: (File) zip tool, used to unpact the profiles
       cc_toolchain_config_info: (CcToolchainConfigInfo) Used to check CPU value, should be removed
-      fdo_optimize_artifacts: (list[File]) If any a list of files pointed to by --fdo_profile
-      fdo_optimize_label: (Label) If any a label of target pointed to by --fdo_profile
+      coverage_enabled: (bool) Is code coverage enabled
+      _fdo_prefetch_hints: (Target) Pointed to by --fdo_prefetch_hints
+      _propeller_optimize: (Target) Pointed to by --propeller_optimize
+      _memprof_profile: (Target) Pointed to by --memprof_profile
+      _fdo_optimize: (Target) Pointed to by --fdo_optimize
+      _fdo_profile: (Target) Pointed to by --fdo_profile
+      _xfdo_profile: (Target) Pointed to by --xbinary_fdo
+      _csfdo_profile: (Target) Pointed to by --cs_fdo_profile
+      _proto_profile: (Target) Pointed to by --proto_profile_path
     Returns:
       (FDOContext) A structure with following fields:
       - branch_fdo_profile (struct|None)
@@ -89,45 +89,47 @@ def create_fdo_context(
             cc_profile = cc_profile,
             ld_profile = ld_profile,
         )
+    elif _propeller_optimize:
+        propeller_optimize_info = _propeller_optimize[PropellerOptimizeInfo]
     else:
-        propeller_optimize_info = propeller_optimize_provider
+        propeller_optimize_info = None
 
     # Attempt to fetch the memprof profile input from an explicit flag or as part of the
     # fdo_profile rule. The former overrides the latter. Also handle the case where the
     # fdo_profile rule is specified using fdo_optimize.
     mem_prof_profile = None
-    if mem_prof_profile_provider:
-        mem_prof_profile = mem_prof_profile_provider
-    elif fdo_profile_provider and fdo_profile_provider.memprof_artifact:
-        mem_prof_profile = MemProfProfileInfo(artifact = fdo_profile_provider.memprof_artifact)
-    elif fdo_optimize_provider and fdo_optimize_provider.memprof_artifact:
-        mem_prof_profile = MemProfProfileInfo(artifact = fdo_optimize_provider.memprof_artifact)
+    if _memprof_profile:
+        mem_prof_profile = _memprof_profile[MemProfProfileInfo]
+    elif _fdo_profile and _fdo_profile[FdoProfileInfo].memprof_artifact:
+        mem_prof_profile = MemProfProfileInfo(artifact = _fdo_profile[FdoProfileInfo].memprof_artifact)
+    elif _fdo_optimize and FdoProfileInfo in _fdo_optimize and _fdo_optimize[FdoProfileInfo].memprof_artifact:
+        mem_prof_profile = MemProfProfileInfo(artifact = _fdo_optimize[FdoProfileInfo].memprof_artifact)
 
     fdo_inputs = None
     if cpp_config.fdo_path():
         # TODO(b/333997009): computation of cpp_config.fdo_path in CppConfiguration class is convoluted, simplify it
         # fdoZip should be set if the profile is a path, fdoInputFile if it is an artifact, but never both
         fdo_inputs = FdoProfileInfo(absolute_path = cpp_config.fdo_path())
-    elif fdo_optimize_label:
-        if fdo_optimize_provider:
-            fdo_inputs = fdo_optimize_provider
-        elif fdo_optimize_artifacts:
-            if len(fdo_optimize_artifacts) != 1:
+    elif _fdo_optimize:
+        if FdoProfileInfo in _fdo_optimize:
+            fdo_inputs = _fdo_optimize[FdoProfileInfo]
+        elif _fdo_optimize[DefaultInfo].files:
+            if len(_fdo_optimize[DefaultInfo].files.to_list()) != 1:
                 fail("--fdo_optimize does not point to a single target")
-            [fdo_optimize_artifact] = fdo_optimize_artifacts
-            if fdo_optimize_artifact.short_path != fdo_optimize_label.package + "/" + fdo_optimize_label.name:
+            [fdo_optimize_artifact] = _fdo_optimize[DefaultInfo].files.to_list()
+            if fdo_optimize_artifact.short_path != _fdo_optimize.label.package + "/" + _fdo_optimize.label.name:
                 fail("--fdo_optimize points to a target that is not an input file or an fdo_profile rule")
             fdo_inputs = FdoProfileInfo(artifact = fdo_optimize_artifact)
-    elif fdo_profile_provider:
-        fdo_inputs = fdo_profile_provider
-    elif x_fdo_profile_provider:
-        fdo_inputs = x_fdo_profile_provider
+    elif _fdo_profile:
+        fdo_inputs = _fdo_profile[FdoProfileInfo]
+    elif _xfdo_profile:
+        fdo_inputs = _xfdo_profile[FdoProfileInfo]
 
     cs_fdo_input = None
     if cpp_config.cs_fdo_path():
         cs_fdo_input = FdoProfileInfo(absolute_path = cpp_config.cs_fdo_path())
-    elif cs_fdo_profile_provider:
-        cs_fdo_input = cs_fdo_profile_provider
+    elif _csfdo_profile:
+        cs_fdo_input = _csfdo_profile[FdoProfileInfo]
 
     # If --noproto_profile is in effect, there is no proto profile.
     # If --proto_profile_path=<label> is passed, that profile is used.
@@ -135,13 +137,13 @@ def create_fdo_context(
     # If AutoFDO is in effect, a file called proto.profile next to the AutoFDO
     # profile is used, if it exists.
     proto_profile_artifact = None
-    if not cpp_config.proto_profile() and proto_profile:
+    if not cpp_config.proto_profile() and _proto_profile:
         fail("--proto_profile_path cannot be set if --proto_profile is false")
-    if proto_profile:
+    if _proto_profile:
         proto_profile_artifact = _symlink_to(
             ctx,
             name_prefix = "fdo",
-            artifact = proto_profile,
+            artifact = _proto_profile,
             progress_message = "Symlinking protobuf profile %{input}",
         )
     elif cpp_config.proto_profile():
@@ -166,10 +168,10 @@ def create_fdo_context(
             if cs_fdo_input:
                 branch_fdo_mode = "llvm_cs_fdo"
 
-            if x_fdo_profile_provider:
+            if _xfdo_profile:
                 fail("--xbinary_fdo only accepts *.xfdo and *.afdo")
 
-        if ctx.configuration.coverage_enabled:
+        if coverage_enabled:
             fail("coverage mode is not compatible with FDO optimization")
 
         # This tries to convert LLVM profiles to the indexed format if necessary.
@@ -224,12 +226,14 @@ def create_fdo_context(
             profile_artifact = profile_artifact,
         )
 
-    prefetch_hints_artifact = _symlink_input(
-        ctx,
-        "fdo",
-        fdo_prefetch_provider,
-        "Symlinking LLVM Cache Prefetch Hints Profile %{input}",
-    )
+    prefetch_hints_artifact = None
+    if _fdo_prefetch_hints:
+        prefetch_hints_artifact = _symlink_input(
+            ctx,
+            "fdo",
+            _fdo_prefetch_hints[FdoPrefetchHintsInfo],
+            "Symlinking LLVM Cache Prefetch Hints Profile %{input}",
+        )
 
     memprof_profile_artifact = _get_mem_prof_profile_artifact(zipper, mem_prof_profile, ctx)
 
@@ -288,7 +292,6 @@ def _convert_llvm_raw_profile_to_indexed(
             inputs = [zip_profile_artifact],
             outputs = [raw_profile_artifact],
             progress_message = "LLVMUnzipProfileAction: Generating %{output}",
-            toolchain = None,
         )
     else:  # .profraw
         raw_profile_artifact = _symlink_input(ctx, name_prefix, fdo_inputs, "Symlinking LLVM Raw Profile %{input}")
@@ -307,7 +310,6 @@ def _convert_llvm_raw_profile_to_indexed(
         outputs = [profile_artifact],
         use_default_shell_env = True,
         progress_message = "LLVMProfDataAction: Generating %{output}",
-        toolchain = None,
     )
 
     return profile_artifact
@@ -333,7 +335,6 @@ def _merge_llvm_profiles(
         outputs = [profile_artifact],
         use_default_shell_env = True,
         progress_message = "LLVMProfDataAction: Generating %{output}",
-        toolchain = None,
     )
     return profile_artifact
 
@@ -421,6 +422,45 @@ def _get_mem_prof_profile_artifact(zipper, memprof_profile, ctx):
         inputs = [zip_profile_artifact],
         outputs = [profile_artifact],
         progress_message = "MemProfUnzipProfileAction: Generating %{output}",
-        toolchain = None,
     )
     return profile_artifact
+
+create_fdo_context = subrule(
+    implementation = _create_fdo_context,
+    fragments = ["cpp"],
+    attrs = {
+        "_fdo_optimize": attr.label(
+            default = configuration_field(fragment = "cpp", name = "fdo_optimize"),
+            allow_files = True,
+            providers = [[DefaultInfo], [FdoProfileInfo]],
+        ),
+        "_xfdo_profile": attr.label(
+            default = configuration_field(fragment = "cpp", name = "xbinary_fdo"),
+            providers = [FdoProfileInfo],
+        ),
+        "_fdo_profile": attr.label(
+            default = configuration_field(fragment = "cpp", name = "fdo_profile"),
+            providers = [FdoProfileInfo],
+        ),
+        "_csfdo_profile": attr.label(
+            default = configuration_field(fragment = "cpp", name = "cs_fdo_profile"),
+            providers = [FdoProfileInfo],
+        ),
+        "_fdo_prefetch_hints": attr.label(
+            default = configuration_field(fragment = "cpp", name = "fdo_prefetch_hints"),
+            providers = [FdoPrefetchHintsInfo],
+        ),
+        "_propeller_optimize": attr.label(
+            default = configuration_field(fragment = "cpp", name = "propeller_optimize"),
+            providers = [PropellerOptimizeInfo],
+        ),
+        "_memprof_profile": attr.label(
+            default = configuration_field(fragment = "cpp", name = "memprof_profile"),
+            providers = [MemProfProfileInfo],
+        ),
+        "_proto_profile": attr.label(
+            default = configuration_field(fragment = "cpp", name = "proto_profile_path"),
+            allow_single_file = True,
+        ),
+    },
+)
