@@ -861,21 +861,22 @@ public final class Profiler {
       writer.enqueue(data);
     }
     long endTimeNanos = data.startTimeNanos + data.durationNanos;
-    if (actionCountTimeSeries != null && countAction(data.type)) {
-      synchronized (this) {
+    synchronized (this) {
+      if (actionCountTimeSeries != null && countAction(data.type)) {
         actionCountTimeSeries.addRange(
             Duration.ofNanos(data.startTimeNanos), Duration.ofNanos(endTimeNanos));
       }
     }
-    if (actionCacheCountTimeSeries != null && data.type == ProfilerTask.ACTION_CHECK) {
-      synchronized (this) {
+
+    synchronized (this) {
+      if (actionCacheCountTimeSeries != null && data.type == ProfilerTask.ACTION_CHECK) {
         actionCacheCountTimeSeries.addRange(
             Duration.ofNanos(data.startTimeNanos), Duration.ofNanos(endTimeNanos));
       }
     }
 
-    if (localActionCountTimeSeries != null && data.type == ProfilerTask.LOCAL_ACTION_COUNTS) {
-      synchronized (this) {
+    synchronized (this) {
+      if (localActionCountTimeSeries != null && data.type == ProfilerTask.LOCAL_ACTION_COUNTS) {
         localActionCountTimeSeries.addRange(
             Duration.ofNanos(data.startTimeNanos), Duration.ofNanos(endTimeNanos));
       }
