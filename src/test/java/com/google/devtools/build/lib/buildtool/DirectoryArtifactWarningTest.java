@@ -44,8 +44,7 @@ public class DirectoryArtifactWarningTest extends BuildIntegrationTestCase {
     buildTarget("//x");
 
     events.assertContainsWarning(
-        "output 'x/dir' of //x:x is a directory; "
-            + "dependency checking of directories is unsound");
+        "output 'x/dir' of //x:x is a directory but was not declared as such");
   }
 
   @Test
@@ -56,8 +55,7 @@ public class DirectoryArtifactWarningTest extends BuildIntegrationTestCase {
     assertThrows(BuildFailedException.class, () -> buildTarget("//x"));
 
     events.assertContainsError(
-        "output 'x/dir' of //x:x is a directory; "
-            + "dependency checking of directories is unsound");
+        "output 'x/dir' of //x:x is a directory but was not declared as such");
   }
 
   private void setupStarlarkRuleWithOutputArtifactDirectory() throws Exception {
@@ -86,8 +84,7 @@ public class DirectoryArtifactWarningTest extends BuildIntegrationTestCase {
     buildTarget("//x");
 
     events.assertContainsWarning(
-        "output 'x/dir' of //x:x is a directory; "
-            + "dependency checking of directories is unsound");
+        "output 'x/dir' of //x:x is a directory but was not declared as such");
   }
 
   @Test
@@ -98,8 +95,7 @@ public class DirectoryArtifactWarningTest extends BuildIntegrationTestCase {
     assertThrows(BuildFailedException.class, () -> buildTarget("//x"));
 
     events.assertContainsError(
-        "output 'x/dir' of //x:x is a directory; "
-            + "dependency checking of directories is unsound");
+        "output 'x/dir' of //x:x is a directory but was not declared as such");
   }
 
   @Test
@@ -115,7 +111,7 @@ public class DirectoryArtifactWarningTest extends BuildIntegrationTestCase {
     buildTarget("//x");
 
     events.assertContainsWarning(
-        "input 'x/dir' to //x:x is a directory; "
+        "input 'x/dir' of //x:x is a directory; "
             + "dependency checking of directories is unsound");
   }
 
@@ -144,7 +140,7 @@ public class DirectoryArtifactWarningTest extends BuildIntegrationTestCase {
     buildTarget("//x");
 
     events.assertContainsWarning(
-        "input 'x/dir' to //x:x is a directory; "
+        "input 'x/dir' of //x:x is a directory; "
             + "dependency checking of directories is unsound");
   }
 }
