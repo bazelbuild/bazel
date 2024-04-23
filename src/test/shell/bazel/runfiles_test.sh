@@ -261,4 +261,154 @@ EOF
     bazel build --spawn_strategy=local --nobuild_runfile_links --enable_runfiles=false //:out
 }
 
+function setup_runfiles_tree_file_type_changes {
+  mkdir -p rules
+  touch rules/BUILD
+  cat > rules/defs.bzl <<'EOF'
+def _make_fake_executable(ctx):
+    fake_executable = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.write(
+        output = fake_executable,
+        content = "echo 'i do nothing'",
+        is_executable = True,
+    )
+    return fake_executable
+
+def _tree_artifact(ctx):
+    d = ctx.actions.declare_directory("lib")
+    args = ctx.actions.args()
+    args.add(d.path)
+    ctx.actions.run_shell(
+        outputs = [d],
+        inputs = [],
+        arguments = [args],
+        command = """
+touch $1/sample1.txt
+touch $1/sample2.txt
+""",
+    )
+
+    return DefaultInfo(
+        runfiles = ctx.runfiles(symlinks = {"lib": d}),
+    )
+
+tree_artifact = rule(implementation = _tree_artifact)
+
+def _individual_files(ctx):
+    symlinks = {}
+    for file in ctx.files.srcs:
+        _, relative_path = file.path.split("/", 1)
+        symlinks[relative_path] = file
+    return DefaultInfo(
+        runfiles = ctx.runfiles(symlinks = symlinks),
+    )
+
+individual_files = rule(
+    implementation = _individual_files,
+    attrs = {
+        "srcs": attr.label_list(allow_files = True),
+    },
+)
+
+def _output_impl(ctx):
+    return DefaultInfo(
+        runfiles = ctx.attr.src[DefaultInfo].default_runfiles,
+        executable = _make_fake_executable(ctx),
+    )
+
+output = rule(
+    implementation = _output_impl,
+    executable = True,
+    attrs = {
+        "src": attr.label(),
+    },
+)
+EOF
+
+  mkdir -p pkg/lib
+  touch pkg/lib/sample1.txt
+  touch pkg/lib/sample2.txt
+  cat > pkg/BUILD <<'EOF'
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+load("//rules:defs.bzl", "tree_artifact", "individual_files", "output")
+
+bool_flag(
+    name = "use",
+    build_setting_default = False,
+)
+
+config_setting(
+    name = "use_mode",
+    flag_values = {"//pkg:use": "True"},
+)
+
+tree_artifact(name = "tree_artifact")
+
+individual_files(
+    name = "individual_files",
+    srcs = glob(["lib/*"]),
+)
+
+output(
+    name = "output",
+    src = select({
+        "//pkg:use_mode": ":tree_artifact",
+        "//conditions:default": ":individual_files",
+    }),
+)
+EOF
+}
+
+function test_runfiles_tree_file_type_changes_tree_to_individual {
+  setup_runfiles_tree_file_type_changes
+
+  bazel build --//pkg:use=True //pkg:output || fail "Build failed"
+  [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample1.txt ]] || fail "sample1.txt not found"
+  [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample2.txt ]] || fail "sample2.txt not found"
+
+  bazel build --//pkg:use=False //pkg:output || fail "Build failed"
+  [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample1.txt ]] || fail "sample1.txt not found"
+  [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample2.txt ]] || fail "sample2.txt not found"
+}
+
+function test_runfiles_tree_file_type_changes_individual_to_tree {
+  setup_runfiles_tree_file_type_changes
+
+  bazel build --//pkg:use=False //pkg:output || fail "Build failed"
+  [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample1.txt ]] || fail "sample1.txt not found"
+  [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample2.txt ]] || fail "sample2.txt not found"
+
+  bazel build --//pkg:use=True //pkg:output || fail "Build failed"
+  [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample1.txt ]] || fail "sample1.txt not found"
+  [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample2.txt ]] || fail "sample2.txt not found"
+}
+
+function test_runfiles_tree_file_type_changes_tree_to_individual_inprocess {
+  setup_runfiles_tree_file_type_changes
+
+  bazel build --experimental_inprocess_symlink_creation \
+    --//pkg:use=True //pkg:output || fail "Build failed"
+  [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample1.txt ]] || fail "sample1.txt not found"
+  [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample2.txt ]] || fail "sample2.txt not found"
+
+  bazel build --experimental_inprocess_symlink_creation \
+    --//pkg:use=False //pkg:output || fail "Build failed"
+  [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample1.txt ]] || fail "sample1.txt not found"
+  [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample2.txt ]] || fail "sample2.txt not found"
+}
+
+function test_runfiles_tree_file_type_changes_individual_to_tree_inprocess {
+  setup_runfiles_tree_file_type_changes
+
+  bazel build --experimental_inprocess_symlink_creation \
+    --//pkg:use=False //pkg:output || fail "Build failed"
+  [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample1.txt ]] || fail "sample1.txt not found"
+  [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample2.txt ]] || fail "sample2.txt not found"
+
+  bazel build --experimental_inprocess_symlink_creation \
+    --//pkg:use=True //pkg:output || fail "Build failed"
+  [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample1.txt ]] || fail "sample1.txt not found"
+  [[ -f bazel-bin/pkg/output.runfiles/_main/lib/sample2.txt ]] || fail "sample2.txt not found"
+}
+
 run_suite "runfiles tests"
