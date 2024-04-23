@@ -1310,6 +1310,10 @@ public final class CcCompilationHelper {
       } catch (EvalException e) {
         throw new RuleErrorException(e.getMessage());
       }
+      boolean isUsingMemProf = false;
+      if (fdoContext != null && fdoContext.getMemProfProfileArtifact() != null) {
+        isUsingMemProf = true;
+      }
       buildVariables = CcToolchainVariables.builder(cctoolchainVariables);
       CompileBuildVariables.setupCommonVariables(
           buildVariables,
@@ -1317,6 +1321,7 @@ public final class CcCompilationHelper {
           ImmutableList.of(),
           cppModuleMap,
           CppHelper.getFdoBuildStamp(cppConfiguration, fdoContext, featureConfiguration),
+          isUsingMemProf,
           variablesExtensions,
           genericAdditionalBuildVariables,
           ccCompilationContext.getDirectModuleMaps(),

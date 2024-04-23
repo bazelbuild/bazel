@@ -126,6 +126,8 @@ public enum CompileBuildVariables {
   PROPELLER_OPTIMIZE_LD_PATH("propeller_optimize_ld_path"),
   /** Path to the memprof profile artifact */
   MEMPROF_PROFILE_PATH("memprof_profile_path"),
+  /** Variable marking memprof profile is being used */
+  IS_USING_MEMPROF("is_using_memprof"),
   /** Variable for includes that compiler needs to include into sources. */
   INCLUDES("includes");
 
@@ -183,6 +185,7 @@ public enum CompileBuildVariables {
         cppModuleMap,
         usePic,
         fdoStamp,
+        ccToolchainProvider.getFdoContext().getMemProfProfileArtifact() != null,
         dotdFileExecPath,
         diagnosticsFileExecPath,
         variablesExtensions,
@@ -247,6 +250,7 @@ public enum CompileBuildVariables {
         cppModuleMap,
         usePic,
         fdoStamp,
+        ccToolchainProvider.getFdoContext().getMemProfProfileArtifact() != null,
         dotdFileExecPath,
         diagnosticsFileExecPath,
         variablesExtensions,
@@ -277,6 +281,7 @@ public enum CompileBuildVariables {
       CppModuleMap cppModuleMap,
       boolean usePic,
       String fdoStamp,
+      boolean isUsingMemProf,
       String dotdFileExecPath,
       String diagnosticsFileExecPath,
       ImmutableList<VariablesExtension> variablesExtensions,
@@ -295,6 +300,7 @@ public enum CompileBuildVariables {
         includes,
         cppModuleMap,
         fdoStamp,
+        isUsingMemProf,
         variablesExtensions,
         additionalBuildVariables,
         directModuleMaps,
@@ -410,6 +416,7 @@ public enum CompileBuildVariables {
       List<String> includes,
       CppModuleMap cppModuleMap,
       String fdoStamp,
+      boolean isUsingMemProf,
       List<VariablesExtension> variablesExtensions,
       Map<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
@@ -425,6 +432,7 @@ public enum CompileBuildVariables {
         includes,
         cppModuleMap,
         fdoStamp,
+        isUsingMemProf,
         variablesExtensions,
         additionalBuildVariables,
         directModuleMaps,
@@ -442,6 +450,7 @@ public enum CompileBuildVariables {
       List<String> includes,
       CppModuleMap cppModuleMap,
       String fdoStamp,
+      boolean isUsingMemProf,
       List<VariablesExtension> variablesExtensions,
       Map<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
@@ -494,6 +503,10 @@ public enum CompileBuildVariables {
               ImmutableList.of(CppConfiguration.FDO_STAMP_MACRO + "=\"" + fdoStamp + "\""));
     } else {
       allDefines = Iterables.concat(defines, localDefines);
+    }
+
+    if (isUsingMemProf) {
+      buildVariables.addStringVariable(IS_USING_MEMPROF.getVariableName(), "1");
     }
 
     buildVariables.addStringSequenceVariable(PREPROCESSOR_DEFINES.getVariableName(), allDefines);
