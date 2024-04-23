@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static com.google.devtools.build.lib.analysis.config.CommonOptions.EMPTY_OPTIONS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -662,7 +661,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     // Remove BuildConfigurationKeys except for the currently active key and the key for
     // EMPTY_OPTIONS, which is a constant and will be re-used frequently.
     if (k instanceof BuildConfigurationKey key) {
-      if (key.getOptionsChecksum().equals(EMPTY_OPTIONS.checksum())) {
+      if (isEmptyOptionsKey(key)) {
         return false;
       }
       if (getSkyframeBuildView().getBuildConfiguration() != null
@@ -675,8 +674,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     // be re-used frequently and we can avoid re-creating them. They are dependencies of the empty
     // configuration key and will never change.
     if (k instanceof ActionLookupKey lookupKey) {
-      BuildConfigurationKey key = lookupKey.getConfigurationKey();
-      if (key != null && key.getOptionsChecksum().equals(EMPTY_OPTIONS.checksum())) {
+      if (isEmptyOptionsKey(lookupKey.getConfigurationKey())) {
         return false;
       }
       return true;

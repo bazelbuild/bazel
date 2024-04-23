@@ -23,6 +23,14 @@ public interface ConfiguredTargetValue extends ConfiguredObjectValue {
   @Nullable // May be null after clearing.
   ConfiguredTarget getConfiguredTarget();
 
+  /**
+   * Clears data from this value.
+   *
+   * <p>Should only be used when user specifies --discard_analysis_cache. Must be called at most
+   * once per value, after which this object's other methods cannot be called.
+   */
+  void clear(boolean clearEverything);
+
   @Override
   default ConfiguredTarget getConfiguredObject() {
     return getConfiguredTarget();

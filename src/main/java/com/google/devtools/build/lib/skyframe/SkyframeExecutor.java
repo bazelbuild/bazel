@@ -21,6 +21,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.devtools.build.lib.analysis.config.CommonOptions.EMPTY_OPTIONS;
 import static com.google.devtools.build.lib.concurrent.Uninterruptibles.callUninterruptibly;
 import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ACTION_CONFLICTS;
 import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.NONE;
@@ -1219,6 +1220,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
   }
 
+  protected static boolean isEmptyOptionsKey(@Nullable BuildConfigurationKey key) {
+    if (key == null) {
+      return false;
+    }
+    return key.getOptionsChecksum().equals(EMPTY_OPTIONS.checksum());
+  }
+
   /** Signals whether nodes (or some internal node data) can be removed from the analysis cache. */
   private static boolean processDiscardAndDetermineRemoval(
       InMemoryNodeEntry entry,
@@ -1255,10 +1263,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           // graph inconsistent, and the --discard_analysis_cache with --track_incremental_state
           // case isn't worth optimizing for.
           return true;
-        } else {
-          ctValue.clear(!topLevelTargets.contains(configuredTarget));
         }
+        if (isEmptyOptionsKey(configuredTarget.getConfigurationKey())) {
+          // Keep these to avoid the need to re-create them later, they are dependencies of the
+          // empty configuration key and will never change.
+          return false;
+        }
+        ctValue.clear(!topLevelTargets.contains(configuredTarget));
       } else if (functionName.equals(SkyFunctions.ASPECT)) {
+        AspectKey aspectKey = (AspectKey) key;
         AspectValue aspectValue = (AspectValue) entry.getValue();
         if (aspectValue == null) {
           return false; // Not successfully analyzed.
@@ -1266,9 +1279,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         boolean topLevel = topLevelAspects.contains(key);
         if (!topLevel && !trackIncrementalState && !hasActions(aspectValue)) {
           return true;
-        } else {
-          aspectValue.clear(!topLevel);
         }
+        if (isEmptyOptionsKey(aspectKey.getConfigurationKey())) {
+          // Keep these to avoid the need to re-create them later, they are dependencies of the
+          // empty configuration key and will never change.
+          return false;
+        }
+        aspectValue.clear(!topLevel);
       }
     }
     return false;
