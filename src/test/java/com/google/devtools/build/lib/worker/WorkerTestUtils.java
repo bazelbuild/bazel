@@ -334,6 +334,11 @@ public class WorkerTestUtils {
       }
 
       @Override
+      public boolean hasAvailableQuota(WorkerKey key) {
+        return true;
+      }
+
+      @Override
       public ImmutableSet<Integer> evictWorkers(ImmutableSet<Integer> workerIdsToEvict)
           throws InterruptedException {
         return ImmutableSet.of();

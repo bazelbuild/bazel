@@ -43,6 +43,17 @@ public interface WorkerPool {
   int getNumActive(WorkerKey key);
 
   /**
+   * Returns whether there is quota available to create or use an existing worker.
+   *
+   * <p>It is essentially #getMaxTotalPerKey() - #getNumActive() > 0, but meant to be handled
+   * atomically to prevent internal race conditions.
+   *
+   * @param key the worker key.
+   * @return whether there is quota available to either get an existing or create a new worker.
+   */
+  boolean hasAvailableQuota(WorkerKey key);
+
+  /**
    * Evicts specified workers from the pool, destroying them.
    *
    * <p>It is possible that not all specified workers get evicted if they become active.

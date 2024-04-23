@@ -121,6 +121,10 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
     return getMaxTotalPerKey() - shrunkBy.getOrDefault(key, 0);
   }
 
+  public synchronized boolean hasAvailableQuota(WorkerKey key) {
+    return getMaxTotalPerKey(key) - getNumActive(key) > 0;
+  }
+
   private synchronized void updateShrunkBy(WorkerKey workerKey, int workerId) {
     int currentValue = shrunkBy.getOrDefault(workerKey, 0);
     if (getMaxTotalPerKey() - currentValue > 1) {
@@ -134,6 +138,7 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
   void clearShrunkBy() {
     shrunkBy = new HashMap<>();
   }
+
 
   /**
    * Our own configuration class for the {@code SimpleWorkerPool} that correctly implements {@code

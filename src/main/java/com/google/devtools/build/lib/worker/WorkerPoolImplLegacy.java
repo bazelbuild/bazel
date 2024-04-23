@@ -128,6 +128,11 @@ public class WorkerPoolImplLegacy implements WorkerPool {
     return getPool(key).getNumActive(key);
   }
 
+  @Override
+  public synchronized boolean hasAvailableQuota(WorkerKey key) {
+    return getPool(key).hasAvailableQuota(key);
+  }
+
   public void evictWithPolicy(EvictionPolicy<Worker> evictionPolicy) throws InterruptedException {
     for (SimpleWorkerPool pool : workerPools.values()) {
       evictWithPolicy(evictionPolicy, pool);

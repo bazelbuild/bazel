@@ -626,12 +626,8 @@ public class ResourceManager implements ResourceEstimator {
     // by the release() method.
 
     WorkerKey workerKey = resources.getWorkerKey();
-    if (workerKey != null) {
-      int availableWorkers = this.workerPool.getMaxTotalPerKey(workerKey);
-      int activeWorkers = this.workerPool.getNumActive(workerKey);
-      if (activeWorkers >= availableWorkers) {
-        return false;
-      }
+    if (workerKey != null && !this.workerPool.hasAvailableQuota(workerKey)) {
+      return false;
     }
 
     // We test for tracking of extra resources whenever acquired and throw an
