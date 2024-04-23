@@ -58,6 +58,8 @@ public abstract class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase 
     scratch.file(
         "embedded_tools/tools/android/android_sdk_repository_template.bzl",
         ResourceLoader.readFromResources("tools/android/android_sdk_repository_template.bzl"));
+    scratch.overwriteFile("local_config_platform_workspace/BUILD");
+    scratch.overwriteFile("local_config_platform_workspace/constraints.bzl", "HOST_CONSTRAINTS=[]");
   }
 
   private void scratchPlatformsDirectories(int... apiLevels) throws Exception {
