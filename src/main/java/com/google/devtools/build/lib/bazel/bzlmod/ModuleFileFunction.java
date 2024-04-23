@@ -186,8 +186,10 @@ public class ModuleFileFunction implements SkyFunction {
             // Dev dependencies should always be ignored if the current module isn't the root module
             /* ignoreDevDeps= */ true,
             builtinModules,
-            // We don't want non-root modules to print anything.
-            /* printIsNoop= */ true,
+            // Disable printing for modules from registries. We don't want them to be able to spam
+            // the console during resolution, but module files potentially edited by the user as
+            // part of a non-registry override should permit printing to aid debugging.
+            /* printIsNoop= */ getModuleFileResult.registry != null,
             starlarkSemantics,
             env.getListener(),
             SymbolGenerator.create(skyKey));
