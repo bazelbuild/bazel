@@ -501,6 +501,23 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void toolWithFilesToRunExecutable_noToolchains_noError() throws Exception {
+    createCustomRule(
+        /* action= */ "ctx.actions.run",
+        /* actionParameters= */ " executable ="
+            + " ctx.attr._nonexecutable_tool[DefaultInfo].files_to_run.executable,",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "[]",
+        /* execGroups= */ "",
+        /* execCompatibleWith= */ "");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    getConfiguredTarget("//test:custom_rule_name");
+
+    assertNoEvents();
+  }
+
+  @Test
   public void toolInExecutableUnidentified_noToolchainParameter_reportsError() throws Exception {
     createCustomRule(
         /* action= */ "ctx.actions.run",

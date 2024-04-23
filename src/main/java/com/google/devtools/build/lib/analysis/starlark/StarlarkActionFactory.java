@@ -125,8 +125,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     return context.newFileRoot();
   }
 
-  private static void checkToolchainParameterIsSet(Object toolchainUnchecked) throws EvalException {
-    if (toolchainUnchecked == Starlark.UNBOUND) {
+  private static void checkToolchainParameterIsSet(
+      RuleContext ruleContext, Object toolchainUnchecked) throws EvalException {
+    if ((ruleContext.getToolchainContexts() == null
+            || ruleContext.getToolchainContexts().getContextMap().size() > 1)
+        && toolchainUnchecked == Starlark.UNBOUND) {
       throw Starlark.errorf(
           "Couldn't identify if tools are from implicit dependencies or a toolchain. Please"
               + " set the toolchain parameter. If you're not using a toolchain, set it to 'None'.");
@@ -390,7 +393,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       FilesToRunProvider provider = context.getExecutableRunfiles(executable, "executable");
       if (provider == null) {
         if (useAutoExecGroups && execGroupUnchecked == Starlark.NONE) {
-          checkToolchainParameterIsSet(toolchainUnchecked);
+          checkToolchainParameterIsSet(ruleContext, toolchainUnchecked);
         }
         builder.setExecutable(executable);
       } else {
@@ -405,7 +408,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       if (useAutoExecGroups
           && !context.areRunfilesFromDeps((FilesToRunProvider) executableUnchecked)
           && execGroupUnchecked == Starlark.NONE) {
-        checkToolchainParameterIsSet(toolchainUnchecked);
+        checkToolchainParameterIsSet(ruleContext, toolchainUnchecked);
       }
       builder.setExecutable((FilesToRunProvider) executableUnchecked);
     } else {
@@ -722,20 +725,20 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             builder.addTool(provider);
           } else {
             if (useAutoExecGroups && execGroupUnchecked == Starlark.NONE) {
-              checkToolchainParameterIsSet(toolchainUnchecked);
+              checkToolchainParameterIsSet(ruleContext, toolchainUnchecked);
             }
           }
         } else if (toolUnchecked instanceof FilesToRunProvider) {
           if (useAutoExecGroups
               && !context.areRunfilesFromDeps((FilesToRunProvider) toolUnchecked)
               && execGroupUnchecked == Starlark.NONE) {
-            checkToolchainParameterIsSet(toolchainUnchecked);
+            checkToolchainParameterIsSet(ruleContext, toolchainUnchecked);
           }
           builder.addTool((FilesToRunProvider) toolUnchecked);
         } else if (toolUnchecked instanceof Depset) {
           try {
             if (useAutoExecGroups && execGroupUnchecked == Starlark.NONE) {
-              checkToolchainParameterIsSet(toolchainUnchecked);
+              checkToolchainParameterIsSet(ruleContext, toolchainUnchecked);
             }
             builder.addTransitiveTools(((Depset) toolUnchecked).getSet(Artifact.class));
           } catch (TypeException e) {
