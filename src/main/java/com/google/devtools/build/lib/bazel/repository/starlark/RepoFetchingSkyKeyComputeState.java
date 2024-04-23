@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository.starlark;
 
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -21,6 +22,8 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeS
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.SynchronousQueue;
 import javax.annotation.Nullable;
@@ -71,6 +74,13 @@ class RepoFetchingSkyKeyComputeState implements SkyKeyComputeState {
   // we might block in `close()`, which is potentially bad (see its javadoc).
   @Nullable volatile Future<RepositoryDirectoryValue.Builder> workerFuture = null;
 
+  /** The executor service that manages the worker thread. */
+  // We hold on to this alongside `workerFuture` because it's the only reliable way to make sure the
+  // worker thread has shut down (the `Future` class doesn't have the capability).
+  final ExecutorService workerExecutorService =
+      Executors.newThreadPerTaskExecutor(
+          Profiler.instance().profileableVirtualThreadFactory("starlark-repository-"));
+
   /**
    * This is where the recorded inputs & values for the whole invocation is collected.
    *
@@ -90,6 +100,14 @@ class RepoFetchingSkyKeyComputeState implements SkyKeyComputeState {
     workerFuture = null;
     if (myWorkerFuture != null) {
       myWorkerFuture.cancel(true);
+    }
+  }
+
+  public void closeAndWaitForTermination() throws InterruptedException {
+    close();
+    workerExecutorService.close(); // This blocks
+    if (Thread.interrupted()) {
+      throw new InterruptedException();
     }
   }
 }
