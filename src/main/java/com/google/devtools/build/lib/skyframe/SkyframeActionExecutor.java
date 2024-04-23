@@ -1659,15 +1659,12 @@ public final class SkyframeActionExecutor {
         if (input.isSourceArtifact()
             && metadataProvider.getInputMetadata(input).getType().isDirectory()) {
           // TODO(ulfjack): What about dependency checking of special files?
-          String ownerString = action.getOwner().getLabel().toString();
           reporter.handle(
-              Event.warn(
-                      action.getOwner().getLocation(),
-                      String.format(
-                          "input '%s' to %s is a directory; "
-                              + "dependency checking of directories is unsound",
-                          input.prettyPrint(), ownerString))
-                  .withTag(ownerString));
+              getEventForUnsoundDirectory(
+                  EventKind.WARNING,
+                  "input %s is a directory; dependency checking of directories is unsound",
+                  input,
+                  action.getOwner()));
         }
       } catch (IOException e) {
         throw ActionExecutionException.fromExecException(
@@ -1683,16 +1680,24 @@ public final class SkyframeActionExecutor {
     if (output.isDirectory() || output.isSymlink() || !metadata.getType().isDirectory()) {
       return true;
     }
-    String ownerString = action.getOwner().getLabel().toString();
     reporter.handle(
-        Event.of(
-                EventKind.ERROR,
-                action.getOwner().getLocation(),
-                String.format(
-                    "output '%s' of %s is a directory but was not declared as such",
-                    output.prettyPrint(), ownerString))
-            .withTag(ownerString));
+        getEventForUnsoundDirectory(
+            EventKind.ERROR,
+            "output %s is a directory but was not declared as such",
+            output,
+            action.getOwner()));
     return false;
+  }
+
+  private static Event getEventForUnsoundDirectory(
+      EventKind kind, String format, Artifact artifact, ActionOwner owner) {
+    Label label = owner.getLabel();
+    String artifactString =
+        label != null
+            ? String.format("'%s' of %s", artifact.prettyPrint(), label)
+            : artifact.prettyPrint();
+    Event event = Event.of(kind, owner.getLocation(), String.format(format, artifactString));
+    return label != null ? event.withTag(label.toString()) : event;
   }
 
   /**
