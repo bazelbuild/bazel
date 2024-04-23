@@ -22,7 +22,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.CompiledModuleFile.IncludeStatement;
@@ -117,10 +116,6 @@ public class ModuleFileFunction implements SkyFunction {
   }
 
   private static class State implements Environment.SkyKeyComputeState {
-    // The following field is used during non-root module file evaluation. We store the module file
-    // here so that a later attempt to retrieve yanked versions wouldn't be overly expensive.
-    GetModuleFileResult getModuleFileResult;
-
     // The following fields are used during root module file evaluation. We try to compile the root
     // module file itself first, and then read, parse, and compile any included module files layer
     // by layer, in a BFS fashion (hence the `horizon` field). Finally, everything is collected into
@@ -152,54 +147,24 @@ public class ModuleFileFunction implements SkyFunction {
       return null;
     }
 
-    Optional<ImmutableSet<ModuleKey>> allowedYankedVersions;
-    try {
-      allowedYankedVersions =
-          YankedVersionsUtil.parseAllowedYankedVersions(
-              allowedYankedVersionsFromEnv.getValue(),
-              Objects.requireNonNull(YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.get(env)));
-    } catch (ExternalDepsException e) {
-      throw new ModuleFileFunctionException(e, SkyFunctionException.Transience.PERSISTENT);
-    }
-
     ModuleFileValue.Key moduleFileKey = (ModuleFileValue.Key) skyKey;
     ModuleKey moduleKey = moduleFileKey.getModuleKey();
-    State state = env.getState(State::new);
-    if (state.getModuleFileResult == null) {
-      try (SilentCloseable c =
-          Profiler.instance()
-              .profile(ProfilerTask.BZLMOD, () -> "fetch module file: " + moduleKey)) {
-        state.getModuleFileResult = getModuleFile(moduleKey, moduleFileKey.getOverride(), env);
-      }
-      if (state.getModuleFileResult == null) {
-        return null;
-      }
+    GetModuleFileResult getModuleFileResult;
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.BZLMOD, () -> "fetch module file: " + moduleKey)) {
+      getModuleFileResult = getModuleFile(moduleKey, moduleFileKey.getOverride(), env);
     }
-    Optional<String> yankedInfo;
-    if (state.getModuleFileResult.registry != null) {
-      YankedVersionsValue yankedVersionsValue =
-          (YankedVersionsValue)
-              env.getValue(
-                  YankedVersionsValue.Key.create(
-                      moduleKey.getName(), state.getModuleFileResult.registry.getUrl()));
-      if (yankedVersionsValue == null) {
-        return null;
-      }
-      yankedInfo =
-          YankedVersionsUtil.getYankedInfo(moduleKey, yankedVersionsValue, allowedYankedVersions);
-    } else {
-      yankedInfo = Optional.empty();
+    if (getModuleFileResult == null) {
+      return null;
     }
     String moduleFileHash =
-        new Fingerprint()
-            .addBytes(state.getModuleFileResult.moduleFile.getContent())
-            .hexDigestAndReset();
+        new Fingerprint().addBytes(getModuleFileResult.moduleFile.getContent()).hexDigestAndReset();
 
     CompiledModuleFile compiledModuleFile;
     try {
       compiledModuleFile =
           CompiledModuleFile.parseAndCompile(
-              state.getModuleFileResult.moduleFile,
+              getModuleFileResult.moduleFile,
               moduleKey,
               starlarkSemantics,
               starlarkEnv,
@@ -221,8 +186,8 @@ public class ModuleFileFunction implements SkyFunction {
             // Dev dependencies should always be ignored if the current module isn't the root module
             /* ignoreDevDeps= */ true,
             builtinModules,
-            // We try to prevent most side effects of yanked modules, in particular print().
-            /* printIsNoop= */ yankedInfo.isPresent(),
+            // We don't want non-root modules to print anything.
+            /* printIsNoop= */ true,
             starlarkSemantics,
             env.getListener(),
             SymbolGenerator.create(skyKey));
@@ -230,7 +195,7 @@ public class ModuleFileFunction implements SkyFunction {
     // Perform some sanity checks.
     InterimModule module;
     try {
-      module = moduleThreadContext.buildModule(state.getModuleFileResult.registry);
+      module = moduleThreadContext.buildModule(getModuleFileResult.registry);
     } catch (EvalException e) {
       env.getListener().handle(Event.error(e.getMessageWithStack()));
       throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for %s", moduleKey);
@@ -250,22 +215,6 @@ public class ModuleFileFunction implements SkyFunction {
           module.getVersion());
     }
 
-    if (yankedInfo.isPresent()) {
-      // Yanked modules should not have observable side effects such as adding dependency
-      // requirements, so we drop those from the constructed module. We do have to preserve the
-      // compatibility level as it influences the set of versions the yanked version can be updated
-      // to during selection.
-      return NonRootModuleFileValue.create(
-          InterimModule.builder()
-              .setKey(module.getKey())
-              .setName(module.getName())
-              .setVersion(module.getVersion())
-              .setCompatibilityLevel(module.getCompatibilityLevel())
-              .setRegistry(module.getRegistry())
-              .setYankedInfo(yankedInfo)
-              .build(),
-          moduleFileHash);
-    }
 
     return NonRootModuleFileValue.create(module, moduleFileHash);
   }
