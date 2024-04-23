@@ -141,6 +141,8 @@ class TestBase(absltest.TestCase):
         # Prefer ipv6 network on macOS
         f.write('startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true\n')
         f.write('build --jvmopt=-Djava.net.preferIPv6Addresses\n')
+    # An empty MODULE.bazel and a corresponding MODULE.bazel.lock will prevent tests from accessing BCR    
+    self.ScratchFile("MODULE.bazel")
     self.CopyFile(
         self.Rlocation('io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock'),
         'MODULE.bazel.lock',
