@@ -1128,6 +1128,15 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       this.starlarkLabel = starlarkLabel;
     }
 
+    /**
+     * Returns an exported macro's MacroClass (representing its schema and implementation function),
+     * or null if the macro has not been exported yet.
+     */
+    @Nullable
+    public MacroClass getMacroClass() {
+      return macroClass;
+    }
+
     @Override
     public boolean isExported() {
       return macroClass != null;

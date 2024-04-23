@@ -759,12 +759,71 @@ public final class ModuleInfoExtractorTest {
                 .setDocString("My doc")
                 .setOriginKey(
                     OriginKey.newBuilder().setName("documented_macro").setFile(fakeLabelString))
+                .addAttribute(ModuleInfoExtractor.IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO)
                 .build(),
             MacroInfo.newBuilder()
                 .setMacroName("undocumented_macro")
                 .setOriginKey(
                     OriginKey.newBuilder().setName("undocumented_macro").setFile(fakeLabelString))
+                .addAttribute(ModuleInfoExtractor.IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO)
                 .build());
+  }
+
+  @Test
+  public void macroAttributes() throws Exception {
+    Module module =
+        execWithOptions(
+            ImmutableList.of("--experimental_enable_first_class_macros"),
+            """
+            def _my_impl(name):
+                pass
+
+            my_macro = macro(
+                attrs = {
+                    "some_attr": attr.label(mandatory = True),
+                    "another_attr": attr.int(doc = "An integer", default = 42),
+                    "_implicit_attr": attr.string(default = "IMPLICIT"),
+                },
+                implementation = _my_impl,
+            )
+            """);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
+    assertThat(moduleInfo.getMacroInfoList().get(0).getAttributeList())
+        .containsExactly(
+            ModuleInfoExtractor.IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO, // name comes first
+            AttributeInfo.newBuilder()
+                .setName("some_attr")
+                .setType(AttributeType.LABEL)
+                .setMandatory(true)
+                .build(),
+            AttributeInfo.newBuilder()
+                .setName("another_attr")
+                .setType(AttributeType.INT)
+                .setDocString("An integer")
+                .setDefaultValue("42")
+                .build()
+            // note that implicit attributes don't get documented
+            );
+  }
+
+  @Test
+  public void unexportedMacro_notDocumented() throws Exception {
+    Module module =
+        execWithOptions(
+            ImmutableList.of("--experimental_enable_first_class_macros"),
+            """
+            def _my_impl(name):
+                pass
+
+            s = struct(
+                my_macro = macro(
+                    doc = "Unexported macro",
+                    implementation = _my_impl,
+                )
+            )
+            """);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
+    assertThat(moduleInfo.getMacroInfoList()).isEmpty();
   }
 
   @Test

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.MacroClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
@@ -73,6 +74,18 @@ public final class ModuleInfoExtractor {
           .setType(AttributeType.NAME)
           .setMandatory(true)
           .setDocString("A unique name for this target.")
+          .build();
+
+  @VisibleForTesting
+  static final AttributeInfo IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO =
+      AttributeInfo.newBuilder()
+          .setName("name")
+          .setType(AttributeType.NAME)
+          .setMandatory(true)
+          .setDocString(
+              "A unique name for this macro instance. Normally, this is also the name for the"
+                  + " macro's main or only target. The names of any other targets that this macro"
+                  + " might create will be this name with a string suffix.")
           .build();
 
   @VisibleForTesting
@@ -227,7 +240,8 @@ public final class ModuleInfoExtractor {
 
     protected void visitMacroFunction(
         @SuppressWarnings("unused") String qualifiedName,
-        @SuppressWarnings("unused") MacroFunction value) {}
+        @SuppressWarnings("unused") MacroFunction value)
+        throws ExtractionException {}
 
     protected void visitProvider(
         @SuppressWarnings("unused") String qualifiedName,
@@ -397,7 +411,12 @@ public final class ModuleInfoExtractor {
     }
 
     @Override
-    protected void visitMacroFunction(String qualifiedName, MacroFunction macroFunction) {
+    protected void visitMacroFunction(String qualifiedName, MacroFunction macroFunction)
+        throws ExtractionException {
+      if (!macroFunction.isExported()) {
+        // No point in documenting unexported macroFunctions - they cannot be used as macros.
+        return;
+      }
       MacroInfo.Builder macroInfoBuilder = MacroInfo.newBuilder();
       // Record the name under which this symbol is made accessible, which may differ from the
       // symbol's exported name
@@ -408,7 +427,15 @@ public final class ModuleInfoExtractor {
               .setName(macroFunction.getName())
               .setFile(labelRenderer.render(macroFunction.getExtensionLabel())));
       macroFunction.getDocumentation().ifPresent(macroInfoBuilder::setDocString);
-      // TODO(#19922): add and document macro attributes
+
+      MacroClass macroClass = macroFunction.getMacroClass();
+      // inject the name attribute; addDocumentableAttributes skips non-Starlark-defined attributes.
+      macroInfoBuilder.addAttribute(IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO);
+      addDocumentableAttributes(
+          macroClass.getAttributes().values(),
+          macroInfoBuilder::addAttribute,
+          "macro " + qualifiedName);
+
       moduleInfoBuilder.addMacroInfo(macroInfoBuilder);
     }
 

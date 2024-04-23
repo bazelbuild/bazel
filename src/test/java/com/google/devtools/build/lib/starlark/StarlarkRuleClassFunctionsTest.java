@@ -611,11 +611,19 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         exported = macro(
             implementation=_impl,
             doc = "Exported macro",
+            attrs = {
+                "abc": attr.int(),
+                "xyz": attr.string(),
+            }
         )
         s = struct(
             unexported = macro(
                 implementation=_impl,
                 doc = "Unexported macro",
+                attrs = {
+                    "abc": attr.int(),
+                    "xyz": attr.string(),
+                }
             ),
         )
         """);
@@ -637,6 +645,17 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     assertThat(exported.getExtensionLabel()).isEqualTo(FAKE_LABEL);
     assertThat(unexported.getExtensionLabel()).isNull();
+
+    assertThat(exported.getMacroClass().getName()).isEqualTo("exported");
+    assertThat(exported.getMacroClass().getAttributes())
+        .containsExactly(
+            "name",
+            RuleClass.NAME_ATTRIBUTE,
+            "abc",
+            Attribute.attr("abc", Type.INTEGER).starlarkDefined().build(),
+            "xyz",
+            Attribute.attr("xyz", Type.STRING).starlarkDefined().build());
+    assertThat(unexported.getMacroClass()).isNull();
   }
 
   private RuleClass getRuleClass(String name) throws Exception {
