@@ -18,8 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Iterators;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -75,6 +73,15 @@ public class StarlarkCustomCommandLine extends CommandLine {
   private static final Joiner LINE_JOINER = Joiner.on("\n").skipNulls();
   private static final Joiner FIELD_JOINER = Joiner.on(": ").skipNulls();
 
+  // Used to distinguish command line arguments that are potentially subject to special default
+  // stringification (such as Artifacts when path mapped or Labels when not main repo labels) from
+  // strings that happen to be identical to their string representations.
+  enum StringificationType {
+    DEFAULT,
+    FILE,
+    LABEL
+  }
+
   @AutoCodec
   static final class VectorArg {
     private static final Interner<VectorArg> interner = BlazeInterners.newStrongInterner();
@@ -113,15 +120,17 @@ public class StarlarkCustomCommandLine extends CommandLine {
         UUID.fromString("a4e5e090-0dbd-4d41-899a-77cfbba58655");
 
     private final int features;
+    private final StringificationType stringificationType;
 
-    private VectorArg(int features) {
+    private VectorArg(int features, StringificationType stringificationType) {
       this.features = features;
+      this.stringificationType = stringificationType;
     }
 
     @VisibleForSerialization
     @AutoCodec.Instantiator
-    static VectorArg create(int features) {
-      return interner.intern(new VectorArg(features));
+    static VectorArg create(int features, StringificationType stringificationType) {
+      return interner.intern(new VectorArg(features, stringificationType));
     }
 
     private static void push(
@@ -142,7 +151,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
           arg.location != null
               && (features & (HAS_FORMAT_EACH | HAS_FORMAT_JOINED | HAS_MAP_EACH)) != 0;
       features |= hasLocation ? HAS_LOCATION : 0;
-      VectorArg vectorArg = VectorArg.create(features);
+      VectorArg vectorArg = VectorArg.create(features, arg.nestedSetStringificationType);
       arguments.add(vectorArg);
       if (hasLocation) {
         arguments.add(arg.location);
@@ -388,9 +397,28 @@ public class StarlarkCustomCommandLine extends CommandLine {
           ((features & HAS_MAP_EACH) != 0) ? (StarlarkCallable) arguments.get(argi++) : null;
       StarlarkSemantics starlarkSemantics =
           ((features & HAS_MAP_EACH) != 0) ? (StarlarkSemantics) arguments.get(argi++) : null;
+
+      // NestedSets and lists never result in the same fingerprint as the
+      // ActionKeyContext#addNestedSetToFingerprint call below always adds the order of the
+      // NestedSet to the fingerprint.
+      //
+      // Path mapping may affect the default stringification of Artifact instances at execution
+      // time, but the effect of path mapping on an individual command line element is a pure
+      // function of:
+      // * whether the element is of type Artifact (FileApi in Starlark), which is fingerprinted
+      //   via the elementType UUID below;
+      // * the path of the artifact, which is fingerprinted via its default string representation
+      //   below;
+      // * the paths and possibly the digests of all input artifacts as well as the path mapping
+      //   mode, which are fingerprinted by SpawnAction.
+      // It is thus safe to use PathMapper.NOOP below for anything that relies on the default
+      // stringification behavior (which excludes custom mapEach functions, but those do not
+      // support path mapping yet).
       if ((features & IS_NESTED_SET) != 0) {
         NestedSet<?> values = (NestedSet<?>) arguments.get(argi++);
         if (mapEach != null) {
+          // mapEach functions do not rely on default stringification behavior, so we can omit
+          // fingerprinting stringificationType here.
           CommandLineItemMapEachAdaptor commandLineItemMapFn =
               new CommandLineItemMapEachAdaptor(
                   mapEach,
@@ -410,14 +438,11 @@ public class StarlarkCustomCommandLine extends CommandLine {
             commandLineItemMapFn.clearArtifactExpander();
           }
         } else {
+          fingerprint.addInt(stringificationType.ordinal());
           actionKeyContext.addNestedSetToFingerprint(fingerprint, values);
         }
       } else {
         int count = (Integer) arguments.get(argi++);
-        // The effect of a PathMapper is a pure function of the current OutputPathMode and an
-        // action's inputs, which are already part of an action's finterprint, so we can use
-        // PathMapper.NOOP throughout this function instead of the actual instance used during
-        // execution.
         List<Object> maybeExpandedValues =
             maybeExpandDirectories(
                 artifactExpander, arguments.subList(argi, argi + count), PathMapper.NOOP);
@@ -438,7 +463,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
               starlarkSemantics);
         } else {
           for (Object value : maybeExpandedValues) {
-            fingerprint.addString(CommandLineItem.expandToCommandLine(value));
+            addSingleObjectToFingerprint(fingerprint, value);
           }
         }
       }
@@ -486,6 +511,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     static class Builder {
       @Nullable private final Sequence<?> list;
       @Nullable private final NestedSet<?> nestedSet;
+      private final StringificationType nestedSetStringificationType;
       private Location location;
       public String argName;
       private boolean expandDirectories;
@@ -501,11 +527,19 @@ public class StarlarkCustomCommandLine extends CommandLine {
       Builder(Sequence<?> list) {
         this.list = list;
         this.nestedSet = null;
+        this.nestedSetStringificationType = StringificationType.DEFAULT;
       }
 
-      Builder(NestedSet<?> nestedSet) {
+      Builder(NestedSet<?> nestedSet, Class<?> nestedSetElementType) {
         this.list = null;
         this.nestedSet = nestedSet;
+        if (nestedSetElementType == FileApi.class) {
+          this.nestedSetStringificationType = StringificationType.FILE;
+        } else if (nestedSetElementType == Label.class) {
+          this.nestedSetStringificationType = StringificationType.LABEL;
+        } else {
+          this.nestedSetStringificationType = StringificationType.DEFAULT;
+        }
       }
 
       @CanIgnoreReturnValue
@@ -584,12 +618,13 @@ public class StarlarkCustomCommandLine extends CommandLine {
         return false;
       }
       VectorArg vectorArg = (VectorArg) o;
-      return features == vectorArg.features;
+      return features == vectorArg.features
+          && stringificationType.equals(vectorArg.stringificationType);
     }
 
     @Override
     public int hashCode() {
-      return Integer.hashCode(features);
+      return 31 * Integer.hashCode(features) + stringificationType.hashCode();
     }
   }
 
@@ -638,8 +673,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
     private int addToFingerprint(List<Object> arguments, int argi, Fingerprint fingerprint) {
       Object object = arguments.get(argi++);
-      String stringValue = CommandLineItem.expandToCommandLine(object);
-      fingerprint.addString(stringValue);
+      addSingleObjectToFingerprint(fingerprint, object);
       if (hasFormat) {
         String formatStr = (String) arguments.get(argi++);
         fingerprint.addUUID(FORMAT_UUID);
@@ -799,6 +833,17 @@ public class StarlarkCustomCommandLine extends CommandLine {
         : CommandLineItem.expandToCommandLine(object);
   }
 
+  private static void addSingleObjectToFingerprint(Fingerprint fingerprint, Object object) {
+    StringificationType stringificationType =
+        switch (object) {
+          case FileApi ignored -> StringificationType.FILE;
+          case Label ignored -> StringificationType.LABEL;
+          default -> StringificationType.DEFAULT;
+        };
+    fingerprint.addInt(stringificationType.ordinal());
+    fingerprint.addString(CommandLineItem.expandToCommandLine(object));
+  }
+
   private static class StarlarkCustomCommandLineWithIndexes extends StarlarkCustomCommandLine {
     /**
      * If non-empty, an extra level of grouping on top of the 'arguments' list. Each element is the
@@ -909,7 +954,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       } else if (arg instanceof ScalarArg) {
         argi = ((ScalarArg) arg).addToFingerprint(arguments, argi, fingerprint);
       } else {
-        fingerprint.addString(CommandLineItem.expandToCommandLine(arg));
+        addSingleObjectToFingerprint(fingerprint, arg);
       }
     }
   }

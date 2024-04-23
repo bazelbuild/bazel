@@ -464,7 +464,9 @@ public abstract class Args implements CommandLineArgsApi {
         if (expandDirectories) {
           potentialDirectoryArtifacts.add(nestedSet);
         }
-        vectorArg = new StarlarkCustomCommandLine.VectorArg.Builder(nestedSet);
+        vectorArg =
+            new StarlarkCustomCommandLine.VectorArg.Builder(
+                nestedSet, starlarkNestedSet.getElementClass());
       } else {
         Sequence<?> starlarkList = (Sequence) value;
         if (starlarkList.isEmpty() && omitIfEmpty) {
