@@ -9071,7 +9071,7 @@
     },
     "@@rules_python~//python/extensions:pip.bzl%pip": {
       "os:osx,arch:aarch64": {
-        "bzlTransitiveDigest": "V/mJWEApn8zkI54PHr3DQqQTCCKVab6KCrve7FZ1Nj4=",
+        "bzlTransitiveDigest": "E2QiQlkDaM1FJ0uHgq2yD7CHDc3lTZRZe6qqYlEYiRI=",
         "recordedFileInputs": {
           "@@//requirements.txt": "ff12967a755bb8e9b4c92524f6471a99e14c30474a3d428547c55745ec8f23a0"
         },
