@@ -585,7 +585,7 @@ public final class ModCommand implements BlazeCommand {
             .addArgs(
                 Stream.concat(
                         modTidyValue.fixups().stream()
-                            .map(RootModuleFileFixup::getBuildozerCommands)
+                            .map(RootModuleFileFixup::buildozerCommands)
                             .flatMap(Collection::stream),
                         Stream.of("format"))
                     .collect(toImmutableList()))

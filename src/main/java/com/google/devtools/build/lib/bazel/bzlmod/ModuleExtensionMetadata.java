@@ -171,7 +171,7 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
         reproducible);
   }
 
-  public Optional<RootModuleFileFixup> generateFixupMessage(
+  public Optional<RootModuleFileFixup> generateFixup(
       Collection<ModuleExtensionUsage> usages, Set<String> allRepos, EventHandler eventHandler)
       throws EvalException {
     var rootUsages =
@@ -205,7 +205,7 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
               + "usages with dev_dependency = True");
     }
 
-    return generateFixupMessage(
+    return generateFixup(
         rootUsage,
         allRepos,
         rootModuleDirectDeps.get(),
@@ -213,7 +213,7 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
         eventHandler);
   }
 
-  private static Optional<RootModuleFileFixup> generateFixupMessage(
+  private static Optional<RootModuleFileFixup> generateFixup(
       ModuleExtensionUsage rootUsage,
       Set<String> allRepos,
       Set<String> expectedImports,

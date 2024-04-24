@@ -16,26 +16,17 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableList;
-import java.util.List;
 
 /**
  * Generated when incorrect use_repo calls are detected in the root module file according to {@link
  * ModuleExtensionMetadata} and contains the buildozer commands required to bring the root module
  * file into the expected state.
+ *
+ * @param buildozerCommands The buildozer commands required to bring the root module file into the
+ *     expected state.
  */
-public final class RootModuleFileFixup {
-  private final ImmutableList<String> buildozerCommands;
-  private final ModuleExtensionUsage usage;
-
-  public RootModuleFileFixup(List<String> buildozerCommands, ModuleExtensionUsage usage) {
-    this.buildozerCommands = ImmutableList.copyOf(buildozerCommands);
-    this.usage = usage;
-  }
-
-  /** The buildozer commands required to bring the root module file into the expected state. */
-  public ImmutableList<String> getBuildozerCommands() {
-    return buildozerCommands;
-  }
+public record RootModuleFileFixup(
+    ImmutableList<String> buildozerCommands, ModuleExtensionUsage usage) {
 
   /** A human-readable message describing the fixup after it has been applied. */
   public String getSuccessMessage() {

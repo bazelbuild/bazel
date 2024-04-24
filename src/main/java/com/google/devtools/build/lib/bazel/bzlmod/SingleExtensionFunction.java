@@ -42,16 +42,16 @@ public class SingleExtensionFunction implements SkyFunction {
     if (usagesValue == null) {
       return null;
     }
-    SingleExtensionValue unvalidatedValue =
+    SingleExtensionValue evalOnlyValue =
         (SingleExtensionValue) env.getValue(SingleExtensionValue.evalKey(extensionId));
-    if (unvalidatedValue == null) {
+    if (evalOnlyValue == null) {
       return null;
     }
 
     // Check that all imported repos have actually been generated.
     for (ModuleExtensionUsage usage : usagesValue.getExtensionUsages().values()) {
       for (Entry<String, String> repoImport : usage.getImports().entrySet()) {
-        if (!unvalidatedValue.getGeneratedRepoSpecs().containsKey(repoImport.getValue())) {
+        if (!evalOnlyValue.getGeneratedRepoSpecs().containsKey(repoImport.getValue())) {
           throw new SingleExtensionFunctionException(
               ExternalDepsException.withMessage(
                   Code.INVALID_EXTENSION_IMPORT,
@@ -63,13 +63,13 @@ public class SingleExtensionFunction implements SkyFunction {
                   repoImport.getKey(),
                   usage.getLocation(),
                   SpellChecker.didYouMean(
-                      repoImport.getValue(), unvalidatedValue.getGeneratedRepoSpecs().keySet())),
+                      repoImport.getValue(), evalOnlyValue.getGeneratedRepoSpecs().keySet())),
               Transience.PERSISTENT);
         }
       }
     }
 
-    return unvalidatedValue;
+    return evalOnlyValue;
   }
 
   static final class SingleExtensionFunctionException extends SkyFunctionException {

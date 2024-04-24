@@ -429,17 +429,15 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       Optional<LockFileModuleExtension.WithFactors> lockFileInfo,
       Environment env)
       throws SingleExtensionEvalFunctionException {
-    // Evaluate the metadata before failing on invalid imports so that fixup warning are still
-    // emitted in case of an error.
     Optional<RootModuleFileFixup> fixup = Optional.empty();
     if (moduleExtensionMetadata.isPresent()) {
       try {
-        // TODO: ModuleExtensionMetadata#evaluate should throw ExternalDepsException instead of
+        // TODO: ModuleExtensionMetadata#generateFixup should throw ExternalDepsException instead of
         // EvalException.
         fixup =
             moduleExtensionMetadata
                 .get()
-                .generateFixupMessage(
+                .generateFixup(
                     usagesValue.getExtensionUsages().values(),
                     generatedRepoSpecs.keySet(),
                     env.getListener());

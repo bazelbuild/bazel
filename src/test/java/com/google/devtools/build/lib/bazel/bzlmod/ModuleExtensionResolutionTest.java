@@ -1903,7 +1903,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                         ModuleExtensionId.create(
                             Label.parseCanonical("@@ext~//:defs.bzl"), "ext", Optional.empty())));
     assertThat(evalValue.getFixup()).isPresent();
-    assertThat(evalValue.getFixup().get().getBuildozerCommands())
+    assertThat(evalValue.getFixup().get().buildozerCommands())
         .containsExactly(
             "use_repo_add @ext//:defs.bzl ext missing_direct_dep non_dev_as_dev_dep",
             "use_repo_remove @ext//:defs.bzl ext dev_as_non_dev_dep indirect_dep invalid_dep",
@@ -1995,7 +1995,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                         ModuleExtensionId.create(
                             Label.parseCanonical("@@ext~//:defs.bzl"), "ext", Optional.empty())));
     assertThat(evalValue.getFixup()).isPresent();
-    assertThat(evalValue.getFixup().get().getBuildozerCommands())
+    assertThat(evalValue.getFixup().get().buildozerCommands())
         .containsExactly(
             "use_repo_add @ext//:defs.bzl ext direct_dev_dep indirect_dev_dep missing_direct_dep"
                 + " missing_direct_dev_dep",
@@ -2089,7 +2089,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                         ModuleExtensionId.create(
                             Label.parseCanonical("@@ext~//:defs.bzl"), "ext", Optional.empty())));
     assertThat(evalValue.getFixup()).isPresent();
-    assertThat(evalValue.getFixup().get().getBuildozerCommands())
+    assertThat(evalValue.getFixup().get().buildozerCommands())
         .containsExactly(
             "use_repo_remove @ext//:defs.bzl ext direct_dep indirect_dep invalid_dep",
             "use_repo_add dev @ext//:defs.bzl ext direct_dep indirect_dep missing_direct_dep"
@@ -2241,7 +2241,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                             Optional.of(
                                 ModuleExtensionId.IsolationKey.create(ModuleKey.ROOT, "ext1")))));
     assertThat(ext1Value.getFixup()).isPresent();
-    assertThat(ext1Value.getFixup().get().getBuildozerCommands())
+    assertThat(ext1Value.getFixup().get().buildozerCommands())
         .containsExactly(
             "use_repo_add ext1 direct_dep missing_direct_dep", "use_repo_remove ext1 indirect_dep");
     assertThat(ext1Value.getFixup().get().getSuccessMessage())
@@ -2258,7 +2258,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                             Optional.of(
                                 ModuleExtensionId.IsolationKey.create(ModuleKey.ROOT, "ext2")))));
     assertThat(ext2Value.getFixup()).isPresent();
-    assertThat(ext2Value.getFixup().get().getBuildozerCommands())
+    assertThat(ext2Value.getFixup().get().buildozerCommands())
         .containsExactly("use_repo_add ext2 missing_direct_dep");
     assertThat(ext2Value.getFixup().get().getSuccessMessage())
         .isEqualTo("Updated use_repo calls for isolated usage 'ext2' of @ext//:defs.bzl%ext");
@@ -2351,7 +2351,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                             Optional.of(
                                 ModuleExtensionId.IsolationKey.create(ModuleKey.ROOT, "ext1")))));
     assertThat(ext1Value.getFixup()).isPresent();
-    assertThat(ext1Value.getFixup().get().getBuildozerCommands())
+    assertThat(ext1Value.getFixup().get().buildozerCommands())
         .containsExactly(
             "use_repo_add ext1 direct_dep missing_direct_dep", "use_repo_remove ext1 indirect_dep");
     assertThat(ext1Value.getFixup().get().getSuccessMessage())
@@ -2368,7 +2368,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                             Optional.of(
                                 ModuleExtensionId.IsolationKey.create(ModuleKey.ROOT, "ext2")))));
     assertThat(ext2Value.getFixup()).isPresent();
-    assertThat(ext2Value.getFixup().get().getBuildozerCommands())
+    assertThat(ext2Value.getFixup().get().buildozerCommands())
         .containsExactly("use_repo_add ext2 missing_direct_dep");
     assertThat(ext2Value.getFixup().get().getSuccessMessage())
         .isEqualTo("Updated use_repo calls for isolated usage 'ext2' of @ext//:defs.bzl%ext");

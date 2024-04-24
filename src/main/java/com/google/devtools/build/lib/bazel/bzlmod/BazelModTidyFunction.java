@@ -93,8 +93,7 @@ public class BazelModTidyFunction implements SkyFunction {
             .getOrDefault(ModuleKey.ROOT, ImmutableMap.of())
             .keySet()
             .stream()
-            // Use the unvalidated key to avoid errors caused by incorrect imports - we can fix
-            // them.
+            // Use the eval-only key to avoid errors caused by incorrect imports - we can fix them.
             .map(SingleExtensionValue::evalKey)
             .collect(toImmutableSet());
     SkyframeLookupResult result = env.getValuesAndExceptions(extensionsUsedByRootModule);
@@ -103,10 +102,12 @@ public class BazelModTidyFunction implements SkyFunction {
     }
     ImmutableList.Builder<RootModuleFileFixup> fixups = ImmutableList.builder();
     for (SkyKey extension : extensionsUsedByRootModule) {
+      SkyValue value = result.get(extension);
+      if (value == null) {
+        return null;
+      }
       if (result.get(extension) instanceof SingleExtensionValue evalValue) {
         evalValue.getFixup().ifPresent(fixups::add);
-      } else {
-        return null;
       }
     }
 
