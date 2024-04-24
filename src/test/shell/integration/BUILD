@@ -890,6 +890,16 @@ sh_test(
 )
 
 sh_test(
+    name = "rule_transition_test",
+    srcs = ["rule_transition_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
+)
+
+sh_test(
     name = "unicode_test",
     srcs = ["unicode_test.sh"],
     data = [

@@ -17,7 +17,7 @@
 # Test rule transition can inspect configurable attribute.
 
 # --- begin runfiles.bash initialization ---
-# Copy-pasted from Bazel's Bash runfiles library (tools/bash/runfiles/runfiles.bash).
+set -euo pipefail
 if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
   if [[ -f "$0.runfiles_manifest" ]]; then
     export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
@@ -41,16 +41,35 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+#### SETUP #############################################################
+
+add_to_bazelrc "build --genrule_strategy=local"
+add_to_bazelrc "test --test_strategy=standalone"
+
 function set_up() {
   create_new_workspace
+
+  # Define common starlark flags.
+  mkdir -p settings
+  touch settings/BUILD
+  cat > settings/flag.bzl <<EOF
+BuildSettingInfo = provider(fields = ["value"])
+
+def _bool_flag_impl(ctx):
+    return [BuildSettingInfo(value = ctx.build_setting_value)]
+
+bool_flag = rule(
+    implementation = _bool_flag_impl,
+    build_setting = config.bool(flag = True)
+)
+EOF
 }
 
 function create_transitions() {
   local pkg="${1}"
   mkdir -p "${pkg}"
   cat > "${pkg}/def.bzl" <<EOF
-
-load("//third_party/bazel_skylib/rules:common_settings.bzl", "BuildSettingInfo")
+load("//settings:flag.bzl", "BuildSettingInfo")
 
 example_package = "${pkg}"
 
@@ -100,7 +119,7 @@ load(
     "transition_attached",
     "transition_not_attached",
 )
-load("//third_party/bazel_skylib/rules:common_settings.bzl", "bool_flag")
+load("//settings:flag.bzl", "bool_flag")
 
 bool_flag(
     name = "transition_input_flag",
@@ -189,8 +208,7 @@ function test_rule_transition_can_not_inspect_configure_attribute() {
   # create transition definition
   mkdir -p "${pkg}"
   cat > "${pkg}/def.bzl" <<EOF
-
-load("//third_party/bazel_skylib/rules:common_settings.bzl", "BuildSettingInfo")
+load("//settings:flag.bzl", "BuildSettingInfo")
 
 example_package = "${pkg}"
 
@@ -234,7 +252,7 @@ load(
     "//${pkg}:def.bzl",
     "transition_attached",
 )
-load("//third_party/bazel_skylib/rules:common_settings.bzl", "bool_flag")
+load("//settings:flag.bzl", "bool_flag")
 
 bool_flag(
     name = "transition_input_flag",
@@ -275,8 +293,7 @@ function test_unresolvable_select_does_not_error_out_before_applying_rule_transi
   # create transition definition
   mkdir -p "${pkg}"
   cat > "${pkg}/def.bzl" <<EOF
-
-load("//third_party/bazel_skylib/rules:common_settings.bzl", "BuildSettingInfo")
+load("//settings:flag.bzl", "BuildSettingInfo")
 
 example_package = "${pkg}"
 
@@ -343,8 +360,7 @@ function test_unresolvable_select_error_out_after_applying_rule_transition() {
   # create transition definition
   mkdir -p "${pkg}"
   cat > "${pkg}/def.bzl" <<EOF
-
-load("//third_party/bazel_skylib/rules:common_settings.bzl", "BuildSettingInfo")
+load("//settings:flag.bzl", "BuildSettingInfo")
 
 example_package = "${pkg}"
 
