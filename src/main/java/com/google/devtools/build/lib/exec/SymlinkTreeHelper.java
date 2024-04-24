@@ -276,7 +276,7 @@ public final class SymlinkTreeHelper {
             }
             // For consistency with build-runfiles.cc, we don't truncate the file if one exists.
           } else {
-            // ensureSymbolsLink will replace a symlink that doesn't have the correct target, but
+            // ensureSymbolicLink will replace a symlink that doesn't have the correct target, but
             // everything else needs to be deleted first.
             if (dirent.getType() != Dirent.Type.SYMLINK) {
               next.deleteTree();
