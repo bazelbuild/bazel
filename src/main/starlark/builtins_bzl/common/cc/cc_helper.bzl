@@ -1194,6 +1194,24 @@ def _proto_output_root(proto_root, bin_dir_path):
     else:
         return bin_dir_path + "/" + proto_root
 
+def _should_use_pic(ctx, cc_toolchain, feature_configuration):
+    """Whether to use pic files
+
+    Args:
+        ctx: (RuleContext)
+        cc_toolchain: (CcToolchainInfo)
+        feature_configuration: (FeatureConfiguration)
+
+    Returns:
+        (bool)
+    """
+    return ctx.fragments.cpp.force_pic() or (
+        cc_toolchain.needs_pic_for_dynamic_libraries(feature_configuration = feature_configuration) and (
+            ctx.var["COMPILATION_MODE"] != "opt" or
+            cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "prefer_pic_for_opt_binaries")
+        )
+    )
+
 cc_helper = struct(
     CPP_TOOLCHAIN_TYPE = _CPP_TOOLCHAIN_TYPE,
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
@@ -1259,4 +1277,5 @@ cc_helper = struct(
     proto_output_root = _proto_output_root,
     package_source_root = _package_source_root,
     tokenize = _tokenize,
+    should_use_pic = _should_use_pic,
 )

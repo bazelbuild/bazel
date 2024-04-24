@@ -388,15 +388,10 @@ def _create_transitive_linking_actions(
     cc_launcher_info = cc_internal.create_cc_launcher_info(cc_info = cc_info_without_extra_link_time_libraries, compilation_outputs = cc_compilation_outputs_with_only_objects)
     return (cc_linking_outputs, cc_launcher_info, cc_linking_context)
 
-def _use_pic(ctx, cc_toolchain, cpp_config, feature_configuration):
+def _use_pic(ctx, cc_toolchain, feature_configuration):
     if _is_link_shared(ctx):
         return cc_toolchain.needs_pic_for_dynamic_libraries(feature_configuration = feature_configuration)
-    return cpp_config.force_pic() or (
-        cc_toolchain.needs_pic_for_dynamic_libraries(feature_configuration = feature_configuration) and (
-            ctx.var["COMPILATION_MODE"] != "opt" or
-            cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "prefer_pic_for_opt_binaries")
-        )
-    )
+    return cc_helper.should_use_pic(ctx, cc_toolchain, feature_configuration)
 
 def _collect_linking_context(ctx):
     cc_infos = _get_providers(ctx)
@@ -581,7 +576,7 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
             link_variables["def_file_path"] = win_def_file.path
             additional_linker_inputs.append(win_def_file)
 
-    use_pic = _use_pic(ctx, cc_toolchain, cpp_config, feature_configuration)
+    use_pic = _use_pic(ctx, cc_toolchain, feature_configuration)
 
     # On Windows, if GENERATE_PDB_FILE feature is enabled
     # then a pdb file will be built along with the executable.
