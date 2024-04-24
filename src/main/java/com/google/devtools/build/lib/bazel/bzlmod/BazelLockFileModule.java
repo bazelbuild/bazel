@@ -81,10 +81,11 @@ public class BazelLockFileModule extends BlazeModule {
         .getInMemoryGraph()
         .parallelForEach(
             entry -> {
-              if (entry.isDone() && entry.getKey() instanceof SingleExtensionValue.EvalKey key) {
-                newExtensionInfos.put(
-                    key.argument(),
-                    ((SingleExtensionValue) entry.getValue()).getLockFileInfo().get());
+              if (entry.isDone()
+                  && entry.getKey() instanceof SingleExtensionValue.EvalKey key
+                  // entry.getValue() can be null if the extension evaluation failed.
+                  && entry.getValue() instanceof SingleExtensionValue value) {
+                newExtensionInfos.put(key.argument(), value.getLockFileInfo().get());
               }
             });
 
