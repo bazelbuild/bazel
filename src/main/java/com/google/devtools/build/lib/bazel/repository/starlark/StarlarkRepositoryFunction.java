@@ -20,17 +20,18 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Table;
+import com.google.common.collect.Table.Cell;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.RepoFetchingSkyKeyComputeState.Signal;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.Label.RepoMappingRecorder;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
+import com.google.devtools.build.lib.packages.BazelStarlarkContext.Phase;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -40,6 +41,8 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
 import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.EnvVar;
+import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.RecordedRepoMapping;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.WorkspaceFileHelper;
@@ -56,9 +59,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.util.Map;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.RejectedExecutionException;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -135,34 +135,37 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       return fetchInternal(rule, outputDirectory, directories, env, recordedInputValues, key);
     }
     var state = env.getState(RepoFetchingSkyKeyComputeState::new);
-    var workerFuture = state.workerFuture;
-    if (workerFuture == null) {
+    var workerThread = state.workerThread;
+    if (workerThread == null) {
       // No worker is running yet, which means we're just starting to fetch this repo. Start with a
       // clean slate, and create the worker.
       setupRepoRoot(outputDirectory);
       Environment workerEnv = new RepoFetchingWorkerSkyFunctionEnvironment(state, env);
-      try {
-        workerFuture =
-            state.workerExecutorService.submit(
-                () -> {
-                  try {
-                    return fetchInternal(
-                        rule,
-                        outputDirectory,
-                        directories,
-                        workerEnv,
-                        state.recordedInputValues,
-                        key);
-                  } finally {
-                    state.signalQueue.put(Signal.DONE);
-                  }
-                });
-      } catch (RejectedExecutionException e) {
-        // This means that the worker executor service is already shut down. Fall back to not using
-        // worker threads.
-        return fetchInternal(rule, outputDirectory, directories, env, recordedInputValues, key);
-      }
-      state.workerFuture = workerFuture;
+      workerThread =
+          Thread.ofVirtual()
+              .name("starlark-repository-" + rule.getName())
+              .start(
+                  () -> {
+                    try {
+                      try {
+                        state.signalQueue.put(
+                            new Signal.Success(
+                                fetchInternal(
+                                    rule,
+                                    outputDirectory,
+                                    directories,
+                                    workerEnv,
+                                    state.recordedInputValues,
+                                    key)));
+                      } catch (Throwable e) {
+                        state.signalQueue.put(new Signal.Failure(e));
+                      }
+                    } catch (InterruptedException e) {
+                      // Do nothing. We already tried to put a signal onto the queue, and got
+                      // interrupted again. Guess we'll die!
+                    }
+                  });
+      state.workerThread = workerThread;
     } else {
       // A worker is already running. This can only mean one thing -- we just had a Skyframe
       // restart, and need to send over a fresh Environment.
@@ -177,19 +180,24 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       state.closeAndWaitForTermination();
       throw e;
     }
+    if (!(signal instanceof Signal.Restart)) {
+      // If `signal` is not a restart, the worker thread has definitely finished. But in some corner
+      // cases (see b/330892334), a Skyframe restart might still happen; to ensure we're not tricked
+      // into a deadlock, we clean up the worker thread and so that next time we come into fetch(),
+      // we actually restart the entire computation.
+      state.closeAndWaitForTermination();
+    }
     return switch (signal) {
-      case RESTART -> null;
-      case DONE -> {
-        try {
-          RepositoryDirectoryValue.Builder result = workerFuture.get();
-          recordedInputValues.putAll(state.recordedInputValues);
-          yield result;
-        } catch (ExecutionException e) {
-          Throwables.throwIfInstanceOf(e.getCause(), RepositoryFunctionException.class);
-          Throwables.throwIfUnchecked(e.getCause());
-          throw new IllegalStateException(
-              "unexpected exception type: " + e.getClass(), e.getCause());
-        } catch (CancellationException e) {
+      case Signal.Restart() -> null;
+      case Signal.Success(RepositoryDirectoryValue.Builder result) -> {
+        recordedInputValues.putAll(state.recordedInputValues);
+        yield result;
+      }
+      case Signal.Failure(Throwable e) -> {
+        Throwables.throwIfInstanceOf(e, RepositoryFunctionException.class);
+        Throwables.throwIfUnchecked(e);
+        if (e instanceof InterruptedException) {
+          // This means that the worker thread was interrupted, but the host Skyframe thread was not.
           // This can only happen if the state object was invalidated due to memory pressure, in
           // which case we can simply reattempt the fetch.
           env.getListener()
@@ -198,13 +206,8 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
                       RepositoryName.createUnvalidated(rule.getName()),
                       "fetch interrupted due to memory pressure; restarting."));
           yield fetch(rule, outputDirectory, directories, env, recordedInputValues, key);
-        } finally {
-          // At this point, the worker thread has definitely finished. But in some corner cases (see
-          // b/330892334), a Skyframe restart might still happen; to ensure we're not tricked into
-          // a deadlock, we clean up the worker thread and so that next time we come into fetch(),
-          // we actually restart the entire computation.
-          state.closeAndWaitForTermination();
         }
+        throw new IllegalStateException("unexpected exception type: " + e.getClass(), e);
       }
     };
   }
@@ -248,17 +251,17 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
           StarlarkThread.create(
               mu, starlarkSemantics, /* contextDescription= */ "", SymbolGenerator.create(key));
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
-      var repoMappingRecorder = new Label.RepoMappingRecorder();
+      var repoMappingRecorder = new RepoMappingRecorder();
       // For repos defined in Bzlmod, record any used repo mappings in the marker file.
       // Repos defined in WORKSPACE are impossible to verify given the chunked loading (we'd have to
       // record which chunk the repo mapping was used in, and ain't nobody got time for that).
       if (!isWorkspaceRepo(rule)) {
         repoMappingRecorder.mergeEntries(
             rule.getRuleClassObject().getRuleDefinitionEnvironmentRepoMappingEntries());
-        thread.setThreadLocal(Label.RepoMappingRecorder.class, repoMappingRecorder);
+        thread.setThreadLocal(RepoMappingRecorder.class, repoMappingRecorder);
       }
 
-      new BazelStarlarkContext(BazelStarlarkContext.Phase.LOADING).storeInThread(thread); // "fetch"
+      new BazelStarlarkContext(Phase.LOADING).storeInThread(thread); // "fetch"
 
       StarlarkRepositoryContext starlarkRepositoryContext =
           new StarlarkRepositoryContext(
@@ -337,15 +340,13 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
 
       // Ditto for environment variables accessed via `getenv`.
       for (String envKey : starlarkRepositoryContext.getAccumulatedEnvKeys()) {
-        recordedInputValues.put(
-            new RepoRecordedInput.EnvVar(envKey), clientEnvironment.get(envKey));
+        recordedInputValues.put(new EnvVar(envKey), clientEnvironment.get(envKey));
       }
 
-      for (Table.Cell<RepositoryName, String, RepositoryName> repoMappings :
+      for (Cell<RepositoryName, String, RepositoryName> repoMappings :
           repoMappingRecorder.recordedEntries().cellSet()) {
         recordedInputValues.put(
-            new RepoRecordedInput.RecordedRepoMapping(
-                repoMappings.getRowKey(), repoMappings.getColumnKey()),
+            new RecordedRepoMapping(repoMappings.getRowKey(), repoMappings.getColumnKey()),
             repoMappings.getValue().getName());
       }
 

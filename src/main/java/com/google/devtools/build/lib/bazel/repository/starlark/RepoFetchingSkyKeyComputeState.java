@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository.starlark;
 
-import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -22,8 +22,6 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeS
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.SynchronousQueue;
 import javax.annotation.Nullable;
@@ -41,18 +39,19 @@ import javax.annotation.Nullable;
 class RepoFetchingSkyKeyComputeState implements SkyKeyComputeState {
 
   /** A signal that the worker thread can send to the host Skyframe thread. */
-  enum Signal {
+  sealed interface Signal {
     /**
      * Indicates that the host thread should return {@code null}, causing a Skyframe restart. After
      * sending this signal, the client will immediately block on {@code delegateEnvQueue}, waiting
      * for the host thread to send a fresh {@link SkyFunction.Environment} over.
      */
-    RESTART,
-    /**
-     * Indicates that the worker thread has finished running, either yielding a result or an
-     * exception.
-     */
-    DONE
+    record Restart() implements Signal {}
+
+    /** Indicates that the worker thread has finished running successfully. */
+    record Success(RepositoryDirectoryValue.Builder result) implements Signal {}
+
+    /** Indicates that the worker thread has finished running with a failure. */
+    record Failure(Throwable e) implements Signal {}
   }
 
   /** The channel for the worker thread to send a signal to the host Skyframe thread. */
@@ -64,22 +63,13 @@ class RepoFetchingSkyKeyComputeState implements SkyKeyComputeState {
    */
   final BlockingQueue<SkyFunction.Environment> delegateEnvQueue = new SynchronousQueue<>();
 
-  /**
-   * This future holds on to the worker thread in order to cancel it when necessary; it also serves
-   * to tell whether a worker thread is already running.
-   */
+  /** The working thread that actually performs the fetching logic. */
   // This is volatile since we set it to null to indicate the worker thread isn't running, and this
-  // could happen on multiple threads. Canceling a future multiple times is safe, though, so we
-  // only need to worry about nullness. Using a mutex/synchronization is an alternative but it means
-  // we might block in `close()`, which is potentially bad (see its javadoc).
-  @Nullable volatile Future<RepositoryDirectoryValue.Builder> workerFuture = null;
-
-  /** The executor service that manages the worker thread. */
-  // We hold on to this alongside `workerFuture` because it's the only reliable way to make sure the
-  // worker thread has shut down (the `Future` class doesn't have the capability).
-  final ExecutorService workerExecutorService =
-      Executors.newThreadPerTaskExecutor(
-          Profiler.instance().profileableVirtualThreadFactory("starlark-repository-"));
+  // could happen on multiple threads. Interrupting and joining a thread multiple times is safe,
+  // though, so we only need to worry about nullness. Using a mutex/synchronization is an
+  // alternative but it means we might block in `close()`, which is potentially bad (see its
+  // javadoc).
+  @Nullable volatile Thread workerThread = null;
 
   /**
    * This is where the recorded inputs & values for the whole invocation is collected.
@@ -90,22 +80,27 @@ class RepoFetchingSkyKeyComputeState implements SkyKeyComputeState {
   final Map<RepoRecordedInput, String> recordedInputValues = new TreeMap<>();
 
   SkyFunction.Environment signalForFreshEnv() throws InterruptedException {
-    signalQueue.put(Signal.RESTART);
+    signalQueue.put(new Signal.Restart());
     return delegateEnvQueue.take();
   }
 
   @Override
   public void close() {
-    var myWorkerFuture = workerFuture;
-    workerFuture = null;
-    if (myWorkerFuture != null) {
-      myWorkerFuture.cancel(true);
+    var myWorkerThread = workerThread;
+    if (myWorkerThread != null) {
+      myWorkerThread.interrupt();
     }
+    // DON'T set workerThread to null; someone should always call `closeAndWaitForTermination` to
+    // make sure the workerThread stops running.
   }
 
   public void closeAndWaitForTermination() throws InterruptedException {
-    close();
-    workerExecutorService.close(); // This blocks
+    var myWorkerThread = workerThread;
+    workerThread = null;
+    if (myWorkerThread != null) {
+      myWorkerThread.interrupt();
+      Uninterruptibles.joinUninterruptibly(myWorkerThread);
+    }
     if (Thread.interrupted()) {
       throw new InterruptedException();
     }
