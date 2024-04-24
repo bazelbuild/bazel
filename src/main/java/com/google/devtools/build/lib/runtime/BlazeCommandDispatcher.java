@@ -483,9 +483,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
         DebugLoggerConfigurator.setupLogging(commonOptions.verbosity);
 
-        EventHandler handler =
-            createEventHandler(
-                outErr, eventHandlerOptions, env.withMergedAnalysisAndExecutionSourceOfTruth());
+        EventHandler handler = createEventHandler(outErr, eventHandlerOptions, env);
         reporter.addHandler(handler);
         env.getEventBus().register(handler);
 
@@ -495,10 +493,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         // modified.
         if (!eventHandlerOptions.useColor()) {
           UiEventHandler ansiAllowingHandler =
-              createEventHandler(
-                  colorfulOutErr,
-                  eventHandlerOptions,
-                  env.withMergedAnalysisAndExecutionSourceOfTruth());
+              createEventHandler(colorfulOutErr, eventHandlerOptions, env);
           reporter.registerAnsiAllowingHandler(handler, ansiAllowingHandler);
           env.getEventBus().register(new PassiveExperimentalEventHandler(ansiAllowingHandler));
         }
@@ -871,11 +866,16 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
   /** Returns the event handler to use for this Blaze command. */
   private UiEventHandler createEventHandler(
-      OutErr outErr, UiOptions eventOptions, boolean skymeldMode) {
+      OutErr outErr, UiOptions eventOptions, CommandEnvironment env) {
     Path workspacePath = runtime.getWorkspace().getDirectories().getWorkspace();
     PathFragment workspacePathFragment = workspacePath == null ? null : workspacePath.asFragment();
     return new UiEventHandler(
-        outErr, eventOptions, runtime.getClock(), workspacePathFragment, skymeldMode);
+        outErr,
+        eventOptions,
+        runtime.getClock(),
+        env.getEventBus(),
+        workspacePathFragment,
+        env.withMergedAnalysisAndExecutionSourceOfTruth());
   }
 
   /** Returns the runtime instance shared by the commands that this dispatcher dispatches to. */

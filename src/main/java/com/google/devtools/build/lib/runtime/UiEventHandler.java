@@ -13,8 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.AllowConcurrentEvents;
+import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.primitives.Bytes;
@@ -50,6 +53,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.runtime.CrashDebuggingProtos.InflightActionInfo;
 import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
@@ -95,6 +99,7 @@ public final class UiEventHandler implements EventHandler {
 
   private final boolean cursorControl;
   private final Clock clock;
+  private final EventBus eventBus;
   private final AnsiTerminal terminal;
   private final boolean debugAllEvents;
   private final UiStateTracker stateTracker;
@@ -158,6 +163,7 @@ public final class UiEventHandler implements EventHandler {
       OutErr outErr,
       UiOptions options,
       Clock clock,
+      EventBus eventBus,
       @Nullable PathFragment workspacePathFragment,
       boolean skymeldMode) {
     this.terminalWidth = (options.terminalColumns > 0 ? options.terminalColumns : 80);
@@ -172,6 +178,7 @@ public final class UiEventHandler implements EventHandler {
     this.progressInTermTitle = options.progressInTermTitle && options.useCursorControl();
     this.showTimestamp = options.showTimestamp;
     this.clock = clock;
+    this.eventBus = checkNotNull(eventBus);
     this.debugAllEvents = options.experimentalUiDebugAllEvents;
     this.locationPrinter =
         new LocationPrinter(options.attemptToPrintRelativePaths, workspacePathFragment);
@@ -751,7 +758,8 @@ public final class UiEventHandler implements EventHandler {
 
   @Subscribe
   public void crash(CrashEvent event) {
-    stateTracker.handleCrash();
+    InflightActionInfo inflightActions = stateTracker.logAndGetInflightActions();
+    eventBus.post(inflightActions);
   }
 
   private void checkActivities() {

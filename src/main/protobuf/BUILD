@@ -12,6 +12,7 @@ FILES = [
     "bazel_flags",
     "build",
     "builtin",
+    "crash_debugging",
     "crosstool_config",
     "deps",
     "desugar_deps",

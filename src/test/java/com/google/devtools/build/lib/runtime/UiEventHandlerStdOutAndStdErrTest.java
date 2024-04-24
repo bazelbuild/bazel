@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
@@ -89,6 +90,7 @@ public final class UiEventHandlerStdOutAndStdErrTest {
             outErr,
             uiOptions,
             new ManualClock(),
+            new EventBus(),
             /* workspacePathFragment= */ null,
             /* skymeldMode= */ skymeldMode);
     uiEventHandler.mainRepoMappingComputationStarted(new MainRepoMappingComputationStartingEvent());
