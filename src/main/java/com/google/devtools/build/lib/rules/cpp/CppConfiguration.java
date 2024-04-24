@@ -195,6 +195,12 @@ public final class CppConfiguration extends Fragment
           throw new InvalidConfigurationException(e);
         }
       } else {
+        if (!cppOptions.enableFdoProfileAbsolutePath) {
+          throw new InvalidConfigurationException(
+              "Please use --fdo_profile instead of an absolute path set with --fdo_optimize. Using"
+                  + " absolute paths may be temporary reenabled with"
+                  + " --enable_fdo_profile_absolute_path");
+        }
         fdoPath = PathFragment.create(cppOptions.getFdoOptimize());
         if (!fdoPath.isAbsolute()) {
           throw new InvalidConfigurationException(
@@ -213,6 +219,12 @@ public final class CppConfiguration extends Fragment
 
     PathFragment csFdoAbsolutePath = null;
     if (cppOptions.csFdoAbsolutePathForBuild != null) {
+      if (!cppOptions.enableFdoProfileAbsolutePath) {
+        throw new InvalidConfigurationException(
+            "Please use --cs_fdo_optimize instead of an absolute path set with"
+                + " --cs_fdo_absolute_path.Using absolute paths may be temporary reenabled with"
+                + " --enable_fdo_profile_absolute_path");
+      }
       csFdoAbsolutePath = PathFragment.create(cppOptions.csFdoAbsolutePathForBuild);
       if (!csFdoAbsolutePath.isAbsolute()) {
         throw new InvalidConfigurationException(
@@ -229,6 +241,12 @@ public final class CppConfiguration extends Fragment
 
     PathFragment propellerOptimizeAbsoluteCCProfile = null;
     if (cppOptions.propellerOptimizeAbsoluteCCProfile != null) {
+      if (!cppOptions.enablePropellerOptimizeAbsolutePath) {
+        throw new InvalidConfigurationException(
+            "Please use --propeller_optimize instead of an absolute path set with"
+                + " --propeller_optimize_absolute_cc_profile.Using absolute paths may be temporary"
+                + " reenabled with --enable_fdo_profile_absolute_path");
+      }
       propellerOptimizeAbsoluteCCProfile =
           PathFragment.create(cppOptions.propellerOptimizeAbsoluteCCProfile);
       if (!propellerOptimizeAbsoluteCCProfile.isAbsolute()) {
@@ -246,6 +264,12 @@ public final class CppConfiguration extends Fragment
 
     PathFragment propellerOptimizeAbsoluteLdProfile = null;
     if (cppOptions.propellerOptimizeAbsoluteLdProfile != null) {
+      if (!cppOptions.enablePropellerOptimizeAbsolutePath) {
+        throw new InvalidConfigurationException(
+            "Please use --propeller_optimize instead of an absolute path set with"
+                + " --propeller_optimize_absolute_ld_profile. Using absolute paths may be temporary"
+                + " reenabled with --enable_fdo_profile_absolute_path");
+      }
       propellerOptimizeAbsoluteLdProfile =
           PathFragment.create(cppOptions.propellerOptimizeAbsoluteLdProfile);
       if (!propellerOptimizeAbsoluteLdProfile.isAbsolute()) {

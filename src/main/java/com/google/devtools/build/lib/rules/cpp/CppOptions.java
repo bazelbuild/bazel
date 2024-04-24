@@ -460,11 +460,28 @@ public class CppOptions extends FragmentOptions {
   public Label csFdoProfileLabel;
 
   @Option(
+      name = "enable_remaining_fdo_absolute_paths",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "If set, any use of absolute paths for FDO will raise an error.")
+  public boolean enableFdoProfileAbsolutePath;
+
+  @Option(
+      name = "enable_propeller_optimize_absolute_paths",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "If set, any use of absolute paths for propeller optimize will raise an error.")
+  public boolean enablePropellerOptimizeAbsolutePath;
+
+  @Option(
       name = "propeller_optimize_absolute_cc_profile",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Absolute path name of cc_profile file for Propeller Optimized builds.")
+      help = "Absolute path name of cc_profile file for Propeller Optimized builds.",
+      deprecationWarning = "Deprecated. Use --propeller_optimize instead.")
   public String propellerOptimizeAbsoluteCCProfile;
 
   @Option(
@@ -472,7 +489,8 @@ public class CppOptions extends FragmentOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Absolute path name of ld_profile file for Propeller Optimized builds.")
+      help = "Absolute path name of ld_profile file for Propeller Optimized builds.",
+      deprecationWarning = "Deprecated. Use --propeller_optimize instead.")
   public String propellerOptimizeAbsoluteLdProfile;
 
   @Option(
