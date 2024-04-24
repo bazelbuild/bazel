@@ -242,6 +242,12 @@ java_library(
 )
 
 java_library(
+    name = "runtime/test_summary_options",
+    srcs = ["runtime/TestSummaryOptions.java"],
+    deps = ["//src/main/java/com/google/devtools/common/options"],
+)
+
+java_library(
     name = "runtime/command_line_path_factory",
     srcs = [
         "runtime/CommandLinePathFactory.java",
@@ -292,6 +298,7 @@ java_library(
             "runtime/MemoryPressureOptions.java",
             "runtime/MemoryPressureStatCollector.java",
             "runtime/StarlarkOptionsParser.java",
+            "runtime/TestSummaryOptions.java",
         ],
     ),
     deps = [
@@ -303,6 +310,7 @@ java_library(
         ":runtime/command_dispatcher",
         ":runtime/command_line_path_factory",
         ":runtime/memory_pressure",
+        ":runtime/test_summary_options",
         ":starlark_options_parser",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
