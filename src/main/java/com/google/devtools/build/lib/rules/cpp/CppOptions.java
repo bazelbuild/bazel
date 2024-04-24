@@ -460,14 +460,6 @@ public class CppOptions extends FragmentOptions {
   public Label csFdoProfileLabel;
 
   @Option(
-      name = "enable_fdo_profile_absolute_path",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "If set, use of fdo_absolute_profile_path will raise an error.")
-  public boolean enableFdoProfileAbsolutePath;
-
-  @Option(
       name = "propeller_optimize_absolute_cc_profile",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,

@@ -2049,23 +2049,14 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
         .doesNotContainMatch("-fbasic-block-sections=");
   }
 
-  private void testPropellerOptimizeOption(boolean label) throws Exception {
+  @Test
+  public void testPropellerOptimizeOptionFromLabel() throws Exception {
     createBuildFiles();
-
-    if (label) {
-      scratch.file(
-          "fdo/BUILD",
-          "propeller_optimize(name='test_propeller_optimize', cc_profile=':cc_profile.txt',"
-              + " ld_profile=':ld_profile.txt')");
-    } else {
-      scratch.file(
-          "fdo/BUILD",
-          "propeller_optimize(name='test_propeller_optimize',"
-              + "absolute_cc_profile='/tmp/cc_profile.txt',"
-              + "absolute_ld_profile='/tmp/ld_profile.txt')");
-    }
+    scratch.file(
+        "fdo/BUILD",
+        "propeller_optimize(name='test_propeller_optimize', cc_profile=':cc_profile.txt',"
+            + " ld_profile=':ld_profile.txt')");
     setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.AUTOFDO);
-
     useConfiguration(
         "--propeller_optimize=//fdo:test_propeller_optimize", "--compilation_mode=opt");
 
@@ -2094,27 +2085,9 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
         .contains("cc_profile.txt");
   }
 
-  @Test
-  public void testPropellerOptimizeOptionFromAbsolutePath() throws Exception {
-    testPropellerOptimizeOption(false);
-  }
-
-  @Test
-  public void testPropellerOptimizeOptionFromLabel() throws Exception {
-    testPropellerOptimizeOption(true);
-  }
-
-  private void testLLVMCachePrefetchBackendOption(String extraOption, boolean asLabel)
-      throws Exception {
+  private void testLLVMCachePrefetchBackendOption(String extraOption) throws Exception {
     createBuildFiles();
-    if (asLabel) {
-      scratch.file(
-          "fdo/BUILD", "fdo_prefetch_hints(name='test_profile', profile=':prefetch.afdo')");
-    } else {
-      scratch.file(
-          "fdo/BUILD",
-          "fdo_prefetch_hints(name='test_profile', absolute_path_profile='/tmp/prefetch.afdo')");
-    }
+    scratch.file("fdo/BUILD", "fdo_prefetch_hints(name='test_profile', profile=':prefetch.afdo')");
 
     setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.AUTOFDO);
     useConfiguration(
@@ -2124,34 +2097,21 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
     LtoBackendAction backendAction =
         getBackendAction("pkg/bin.lto/" + rootExecPath + "/pkg/_objs/bin/binfile.o");
 
-    String expectedCompilerFlag =
-        "-prefetch-hints-file="
-            + (asLabel ? ".*/prefetch.afdo" : "(blaze|bazel)-out/.*/fdo/.*/prefetch.afdo");
     assertThat(Joiner.on(" ").join(backendAction.getArguments()))
-        .containsMatch("-mllvm " + expectedCompilerFlag);
+        .containsMatch("-mllvm -prefetch-hints-file=.*/prefetch.afdo");
 
     assertThat(ActionsTestUtil.baseArtifactNames(backendAction.getInputs()))
         .contains("prefetch.afdo");
   }
 
   @Test
-  public void testFdoCachePrefetchLLVMOptionsToBackendFromPath() throws Exception {
-    testLLVMCachePrefetchBackendOption("", false);
-  }
-
-  @Test
-  public void testFdoCachePrefetchAndFdoLLVMOptionsToBackendFromPath() throws Exception {
-    testLLVMCachePrefetchBackendOption("--fdo_optimize=/profile.zip", false);
-  }
-
-  @Test
   public void testFdoCachePrefetchLLVMOptionsToBackendFromLabel() throws Exception {
-    testLLVMCachePrefetchBackendOption("", true);
+    testLLVMCachePrefetchBackendOption("");
   }
 
   @Test
   public void testFdoCachePrefetchAndFdoLLVMOptionsToBackendFromLabel() throws Exception {
-    testLLVMCachePrefetchBackendOption("--fdo_optimize=/profile.zip", true);
+    testLLVMCachePrefetchBackendOption("--fdo_optimize=/profile.zip");
   }
 
   @Test

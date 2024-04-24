@@ -44,6 +44,14 @@ public final class BazelRulesModule extends BlazeModule {
   @SuppressWarnings("deprecation") // These fields have no JavaDoc by design
   public static class BuildGraveyardOptions extends OptionsBase {
     @Option(
+        name = "enable_fdo_profile_absolute_path",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean enableFdoProfileAbsolutePath;
+
+    @Option(
         name = "incompatible_disallow_unsound_directory_outputs",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
