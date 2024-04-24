@@ -26,6 +26,7 @@ import com.sun.tools.javac.util.JavacMessages;
 import com.sun.tools.javac.util.Log;
 import java.util.Locale;
 import java.util.Optional;
+import javax.annotation.Nullable;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticListener;
 import javax.tools.JavaFileObject;
@@ -160,17 +161,29 @@ public class FormattedDiagnostic implements Diagnostic<JavaFileObject> {
       if (werrorCustomOption.isEmpty()) {
         return false;
       }
-      LintCategory lintCategory = diagnostic.getLintCategory();
+      String lintCategory = lintCategory(diagnostic);
       if (lintCategory == null) {
         return false;
       }
       switch (diagnostic.getKind()) {
         case WARNING:
         case MANDATORY_WARNING:
-          return werrorCustomOption.get().isEnabled(lintCategory.option);
+          return werrorCustomOption.get().isEnabled(lintCategory);
         default:
           return false;
       }
+    }
+
+    @Nullable
+    private static String lintCategory(JCDiagnostic diagnostic) {
+      if (diagnostic.getCode().equals("compiler.warn.sun.proprietary")) {
+        return "sunapi";
+      }
+      LintCategory lintCategory = diagnostic.getLintCategory();
+      if (lintCategory == null) {
+        return null;
+      }
+      return lintCategory.option;
     }
 
     ImmutableList<FormattedDiagnostic> build() {
