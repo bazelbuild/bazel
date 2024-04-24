@@ -56,10 +56,9 @@ public final class PlatformMappingValueTest {
   @Test
   public void testMapNoMappings() throws OptionsParsingException {
     ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags = ImmutableMap.of();
-    ImmutableMap<ImmutableList<String>, Label> flagsToPlatforms = ImmutableMap.of();
+    ImmutableMap<NativeAndStarlarkFlags, Label> flagsToPlatforms = ImmutableMap.of();
     PlatformMappingValue mappingValue =
-        new PlatformMappingValue(
-            platformsToFlags, flagsToPlatforms, BUILD_CONFIG_PLATFORM_OPTIONS, REPO_MAPPING);
+        new PlatformMappingValue(platformsToFlags, flagsToPlatforms, BUILD_CONFIG_PLATFORM_OPTIONS);
 
     BuildOptions mapped = mappingValue.map(DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS);
 
@@ -69,20 +68,12 @@ public final class PlatformMappingValueTest {
 
   @Test
   public void testMapPlatformToFlags() throws Exception {
-    ImmutableList<String> nativeFlags = ImmutableList.of("--cpu=one", "--compilation_mode=dbg");
     ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags =
-        ImmutableMap.of(
-            PLATFORM1,
-            NativeAndStarlarkFlags.builder()
-                .nativeFlags(nativeFlags)
-                .optionsClasses(BUILD_CONFIG_PLATFORM_OPTIONS)
-                .repoMapping(REPO_MAPPING)
-                .build());
+        ImmutableMap.of(PLATFORM1, createFlags("--cpu=one", "--compilation_mode=dbg"));
 
-    ImmutableMap<ImmutableList<String>, Label> flagsToPlatforms = ImmutableMap.of();
+    ImmutableMap<NativeAndStarlarkFlags, Label> flagsToPlatforms = ImmutableMap.of();
     PlatformMappingValue mappingValue =
-        new PlatformMappingValue(
-            platformsToFlags, flagsToPlatforms, BUILD_CONFIG_PLATFORM_OPTIONS, REPO_MAPPING);
+        new PlatformMappingValue(platformsToFlags, flagsToPlatforms, BUILD_CONFIG_PLATFORM_OPTIONS);
 
     BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
@@ -94,13 +85,12 @@ public final class PlatformMappingValueTest {
 
   @Test
   public void testMapFlagsToPlatform() throws Exception {
-    ImmutableMap<ImmutableList<String>, Label> flagsToPlatforms =
-        ImmutableMap.of(ImmutableList.of("--cpu=one", "--compilation_mode=dbg"), PLATFORM1);
+    ImmutableMap<NativeAndStarlarkFlags, Label> flagsToPlatforms =
+        ImmutableMap.of(createFlags("--cpu=one", "--compilation_mode=dbg"), PLATFORM1);
 
     ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags = ImmutableMap.of();
     PlatformMappingValue mappingValue =
-        new PlatformMappingValue(
-            platformsToFlags, flagsToPlatforms, BUILD_CONFIG_PLATFORM_OPTIONS, REPO_MAPPING);
+        new PlatformMappingValue(platformsToFlags, flagsToPlatforms, BUILD_CONFIG_PLATFORM_OPTIONS);
 
     BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
     modifiedOptions.get(CoreOptions.class).cpu = "one";
@@ -113,15 +103,16 @@ public final class PlatformMappingValueTest {
 
   @Test
   public void testMapFlagsToPlatformPriority() throws Exception {
-    ImmutableMap<ImmutableList<String>, Label> flagsToPlatforms =
+    ImmutableMap<NativeAndStarlarkFlags, Label> flagsToPlatforms =
         ImmutableMap.of(
-            ImmutableList.of("--cpu=foo", "--compilation_mode=dbg"), PLATFORM1,
-            ImmutableList.of("--cpu=foo"), PLATFORM2);
+            createFlags("--cpu=one", "--compilation_mode=dbg"),
+            PLATFORM1,
+            createFlags("--cpu=foo"),
+            PLATFORM2);
 
     ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags = ImmutableMap.of();
     PlatformMappingValue mappingValue =
-        new PlatformMappingValue(
-            platformsToFlags, flagsToPlatforms, BUILD_CONFIG_PLATFORM_OPTIONS, REPO_MAPPING);
+        new PlatformMappingValue(platformsToFlags, flagsToPlatforms, BUILD_CONFIG_PLATFORM_OPTIONS);
 
     BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
     modifiedOptions.get(CoreOptions.class).cpu = "foo";
@@ -133,13 +124,12 @@ public final class PlatformMappingValueTest {
 
   @Test
   public void testMapFlagsToPlatformNoneMatching() throws Exception {
-    ImmutableMap<ImmutableList<String>, Label> flagsToPlatforms =
-        ImmutableMap.of(ImmutableList.of("--cpu=foo", "--compilation_mode=dbg"), PLATFORM1);
+    ImmutableMap<NativeAndStarlarkFlags, Label> flagsToPlatforms =
+        ImmutableMap.of(createFlags("--cpu=foo", "--compilation_mode=dbg"), PLATFORM1);
 
     ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags = ImmutableMap.of();
     PlatformMappingValue mappingValue =
-        new PlatformMappingValue(
-            platformsToFlags, flagsToPlatforms, BUILD_CONFIG_PLATFORM_OPTIONS, REPO_MAPPING);
+        new PlatformMappingValue(platformsToFlags, flagsToPlatforms, BUILD_CONFIG_PLATFORM_OPTIONS);
 
     BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
     modifiedOptions.get(CoreOptions.class).cpu = "bar";
@@ -152,13 +142,12 @@ public final class PlatformMappingValueTest {
 
   @Test
   public void testMapNoPlatformOptions() throws Exception {
-    ImmutableMap<ImmutableList<String>, Label> flagsToPlatforms =
-        ImmutableMap.of(ImmutableList.of("--cpu=one"), PLATFORM1);
+    ImmutableMap<NativeAndStarlarkFlags, Label> flagsToPlatforms =
+        ImmutableMap.of(createFlags("--cpu=one"), PLATFORM1);
 
     ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags = ImmutableMap.of();
     PlatformMappingValue mappingValue =
-        new PlatformMappingValue(
-            platformsToFlags, flagsToPlatforms, BUILD_CONFIG_PLATFORM_OPTIONS, REPO_MAPPING);
+        new PlatformMappingValue(platformsToFlags, flagsToPlatforms, BUILD_CONFIG_PLATFORM_OPTIONS);
 
     BuildOptions options = BuildOptions.of(ImmutableList.of());
 
@@ -167,28 +156,17 @@ public final class PlatformMappingValueTest {
 
   @Test
   public void testMapNoMappingIfPlatformIsSetButNotMatching() throws Exception {
-    ImmutableList<String> nativeFlags = ImmutableList.of("--cpu=one", "--compilation_mode=dbg");
     ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags =
-        ImmutableMap.of(
-            PLATFORM1,
-            NativeAndStarlarkFlags.builder()
-                .nativeFlags(nativeFlags)
-                .optionsClasses(BUILD_CONFIG_PLATFORM_OPTIONS)
-                .repoMapping(REPO_MAPPING)
-                .build());
-    ImmutableMap<ImmutableList<String>, Label> flagsToPlatforms =
-        ImmutableMap.of(ImmutableList.of("--cpu=one"), PLATFORM1);
+        ImmutableMap.of(PLATFORM1, createFlags("--cpu=one", "--compilation_mode=dbg"));
+    ImmutableMap<NativeAndStarlarkFlags, Label> flagsToPlatforms =
+        ImmutableMap.of(createFlags("--cpu=one"), PLATFORM1);
 
     BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
     modifiedOptions.get(CoreOptions.class).cpu = "one";
     modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM2);
 
     PlatformMappingValue mappingValue =
-        new PlatformMappingValue(
-            platformsToFlags,
-            flagsToPlatforms,
-            BUILD_CONFIG_PLATFORM_OPTIONS,
-            RepositoryMapping.ALWAYS_FALLBACK);
+        new PlatformMappingValue(platformsToFlags, flagsToPlatforms, BUILD_CONFIG_PLATFORM_OPTIONS);
 
     BuildOptions mapped = mappingValue.map(modifiedOptions);
 
@@ -197,8 +175,8 @@ public final class PlatformMappingValueTest {
 
   @Test
   public void testMapNoMappingIfPlatformIsSetAndNoPlatformMapping() throws Exception {
-    ImmutableMap<ImmutableList<String>, Label> flagsToPlatforms =
-        ImmutableMap.of(ImmutableList.of("--cpu=one"), PLATFORM1);
+    ImmutableMap<NativeAndStarlarkFlags, Label> flagsToPlatforms =
+        ImmutableMap.of(createFlags("--cpu=one"), PLATFORM1);
 
     BuildOptions modifiedOptions = DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.clone();
     modifiedOptions.get(CoreOptions.class).cpu = "one";
@@ -206,8 +184,7 @@ public final class PlatformMappingValueTest {
 
     ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags = ImmutableMap.of();
     PlatformMappingValue mappingValue =
-        new PlatformMappingValue(
-            platformsToFlags, flagsToPlatforms, BUILD_CONFIG_PLATFORM_OPTIONS, REPO_MAPPING);
+        new PlatformMappingValue(platformsToFlags, flagsToPlatforms, BUILD_CONFIG_PLATFORM_OPTIONS);
 
     BuildOptions mapped = mappingValue.map(modifiedOptions);
 
@@ -229,5 +206,13 @@ public final class PlatformMappingValueTest {
 
     assertThat(key.getWorkspaceRelativeMappingPath()).isEqualTo(PathFragment.create("my/path"));
     assertThat(key.wasExplicitlySetByUser()).isTrue();
+  }
+
+  private NativeAndStarlarkFlags createFlags(String... nativeFlags) {
+    return NativeAndStarlarkFlags.builder()
+        .nativeFlags(ImmutableList.copyOf(nativeFlags))
+        .optionsClasses(BUILD_CONFIG_PLATFORM_OPTIONS)
+        .repoMapping(REPO_MAPPING)
+        .build();
   }
 }

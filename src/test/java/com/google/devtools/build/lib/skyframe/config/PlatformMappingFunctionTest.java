@@ -475,7 +475,51 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     assertThat(mapped.get(PlatformOptions.class).platforms).containsExactly(PLATFORM1);
   }
 
-  // TODO: blaze-configurability-team - Add tests for starlark flag -> platform maps.
+  @Test
+  public void mapFromFlag_starlarkFlag() throws Exception {
+    writeStarlarkFlag();
+    scratch.file(
+        "my_mapping_file",
+        """
+        flags:
+          --//flag:my_string_flag=mapped_value
+            //platforms:one
+        """);
+
+    PlatformMappingValue platformMappingValue =
+        executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
+
+    BuildOptions modifiedOptions =
+        createBuildOptions().toBuilder()
+            .addStarlarkOption(
+                Label.parseCanonicalUnchecked("//flag:my_string_flag"), "mapped_value")
+            .build();
+
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+
+    assertThat(mapped.get(PlatformOptions.class).platforms).containsExactly(PLATFORM1);
+  }
+
+  @Test
+  public void mapFromFlag_badStarlarkFlag() throws Exception {
+    scratch.file("test/BUILD"); // Set up a valid package but invalid flag.
+    scratch.file(
+        "my_mapping_file",
+        """
+        flags:
+          --//test:this_flag_doesnt_exist=mapped_value
+            //platforms:one
+        """);
+
+    PlatformMappingException exception =
+        assertThrows(
+            PlatformMappingException.class,
+            () ->
+                executeFunction(
+                    PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file"))));
+    assertThat(exception).hasCauseThat().isInstanceOf(PlatformMappingParsingException.class);
+    assertThat(exception).hasMessageThat().contains("Failed to load //test:this_flag_doesnt_exist");
+  }
 
   @Test
   public void mappingSyntaxError() throws Exception {
