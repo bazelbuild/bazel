@@ -79,8 +79,6 @@ public final class MemoryPressureOptions extends OptionsBase {
 
   @Option(
       name = "gc_thrashing_limits",
-      oldName = "experimental_gc_thrashing_limits",
-      oldNameWarning = false,
       defaultValue = "1s:2,20s:3,1m:5",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
