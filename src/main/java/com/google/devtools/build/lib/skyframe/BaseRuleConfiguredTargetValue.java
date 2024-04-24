@@ -51,6 +51,11 @@ abstract class BaseRuleConfiguredTargetValue<T extends ConfiguredTarget>
   }
 
   @Override
+  public boolean isCleared() {
+    return this.configuredTarget == null;
+  }
+
+  @Override
   public void clear(boolean clearEverything) {
     if (clearEverything) {
       this.configuredTarget = null;

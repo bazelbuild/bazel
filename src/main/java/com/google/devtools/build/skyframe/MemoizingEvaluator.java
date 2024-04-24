@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import java.io.PrintStream;
 import java.util.Map;
+import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
@@ -48,6 +49,11 @@ public interface MemoizingEvaluator {
       Iterable<? extends SkyKey> roots, EvaluationContext evaluationContext)
       throws InterruptedException;
 
+  /** Same as {@link #delete(BiPredicate)}, but takes a predicate that only uses the key. */
+  default void delete(Predicate<SkyKey> pred) {
+    delete((k, v) -> pred.test(k));
+  }
+
   /**
    * Ensures that after the next completed {@link #evaluate} call the current values of any value
    * matching this predicate (and all values that transitively depend on them) will be removed from
@@ -59,7 +65,7 @@ public interface MemoizingEvaluator {
    *
    * <p>To delete all dirty values, you can specify a predicate that's always false.
    */
-  void delete(Predicate<SkyKey> pred);
+  void delete(BiPredicate<SkyKey, SkyValue> pred);
 
   /**
    * Marks dirty values for deletion if they have been dirty for at least as many graph versions

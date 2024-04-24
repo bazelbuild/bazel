@@ -651,7 +651,12 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @ForOverride
-  protected boolean shouldDeleteOnAnalysisInvalidatingChange(SkyKey k) {
+  protected boolean shouldDeleteOnAnalysisInvalidatingChange(SkyKey k, @Nullable SkyValue v) {
+    if (v != null && v.isCleared()) {
+      // Anything that had memory cleared should be discarded and re-evaluated.
+      return true;
+    }
+
     // TODO: b/330770905 - Rewrite this to use pattern matching when available.
     // Also remove ActionLookupData since all such nodes depend on ActionLookupKey nodes and
     // deleting en masse is cheaper than deleting via graph traversal (b/192863968).

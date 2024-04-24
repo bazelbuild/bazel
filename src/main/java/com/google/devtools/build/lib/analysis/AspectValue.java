@@ -62,6 +62,11 @@ public class AspectValue extends BasicActionLookupValue
     return checkNotNull(providers);
   }
 
+  @Override
+  public boolean isCleared() {
+    return this.aspect == null;
+  }
+
   /**
    * Clears data from this value.
    *
