@@ -120,6 +120,7 @@ abstract class AbstractInMemoryNodeEntry<D extends DirtyBuildingState>
   }
 
   @Override
+  @Nullable
   public final synchronized SkyValue getValue() {
     checkState(isDone(), "no value until done. ValueEntry: %s", this);
     return ValueWithMetadata.justValue(value);
