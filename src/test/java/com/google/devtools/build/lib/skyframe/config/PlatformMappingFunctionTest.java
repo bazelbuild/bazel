@@ -35,11 +35,13 @@ import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParser;
+import java.util.List;
 import java.util.Optional;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -76,6 +78,14 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         defaultValue = "super secret",
         metadataTags = {OptionMetadataTag.INTERNAL})
     public String internalOption;
+
+    @Option(
+        name = "list",
+        converter = CommaSeparatedOptionListConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public List<String> list;
   }
 
   private static final ImmutableList<Class<? extends FragmentOptions>> BUILD_CONFIG_OPTIONS =
@@ -320,6 +330,29 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     assertThat(mapped.getStarlarkOptions())
         .containsExactly(Label.parseCanonical("//flag:my_string_flag"), "mapped_value");
+  }
+
+  @Test
+  public void mapFromPlatform_listFlag_overridesConfig() throws Exception {
+    scratch.file(
+        "my_mapping_file",
+        """
+        platforms:
+          //platforms:one
+            --list=from_mapping
+        """);
+
+    PlatformMappingValue platformMappingValue =
+        executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
+
+    BuildOptions modifiedOptions = createBuildOptions();
+    modifiedOptions.get(DummyTestOptions.class).list = ImmutableList.of("from_config");
+    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
+
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+
+    // The mapping should completely replace the list, because it is not accumulating.
+    assertThat(mapped.get(DummyTestOptions.class).list).containsExactly("from_mapping");
   }
 
   @Test
