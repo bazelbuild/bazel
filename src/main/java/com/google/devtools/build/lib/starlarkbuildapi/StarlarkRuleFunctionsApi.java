@@ -60,7 +60,8 @@ public interface StarlarkRuleFunctionsApi {
   @StarlarkMethod(
       name = "provider",
       doc =
-          "Defines a provider symbol. The provider may be instantiated by calling it, or used"
+          "Defines a provider symbol. The result of this function must be stored in a global value."
+              + " The provider may be instantiated by calling it, or used"
               + " directly as a key for retrieving an instance of that provider from a target."
               + " Example:<br><pre class=\"language-python\">" //
               + "MyInfo = provider()\n"

@@ -168,30 +168,21 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
 
   @Override
   public final Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
-    if (!(key instanceof Provider constructor)) {
-      throw Starlark.errorf(
-          "Type Target only supports indexing by object constructors, got %s instead",
-          Starlark.type(key));
-    }
+    // Only call `getKey()` on unexported Providers to avoid crashing. Users can write:
+    // rule(implementation = lambda ctx: ctx.attr.input[provider()], attr = {"input": ...})
+    Provider constructor = selectExportedProvider(key, "index");
     Object declaredProvider = get(constructor.getKey());
     if (declaredProvider != null) {
       return declaredProvider;
     }
     throw Starlark.errorf(
         "%s%s doesn't contain declared provider '%s'",
-        Starlark.repr(this),
-        getRuleClassString().isEmpty() ? "" : " (rule '" + getRuleClassString() + "')",
-        constructor.getPrintableName());
+        Starlark.repr(this), getRuleClassStringForError(), constructor.getPrintableName());
   }
 
   @Override
   public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
-    if (!(key instanceof Provider)) {
-      throw Starlark.errorf(
-          "Type Target only supports querying by object constructors, got %s instead",
-          Starlark.type(key));
-    }
-    return get(((Provider) key).getKey()) != null;
+    return get(selectExportedProvider(key, "query").getKey()) != null;
   }
 
   @Override
@@ -268,6 +259,29 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   @Override
   public void repr(Printer printer) {
     printer.append("<unknown target " + getLabel() + ">");
+  }
+
+  private String getRuleClassStringForError() {
+    return getRuleClassString().isEmpty() ? "" : " (rule '" + getRuleClassString() + "')";
+  }
+
+  /**
+   * Selects the provider identified by {@code key}, throwing a Starlark error if the key is not a
+   * provider or not exported.
+   */
+  private Provider selectExportedProvider(Object key, String operation) throws EvalException {
+    if (!(key instanceof Provider constructor)) {
+      throw Starlark.errorf(
+          "Type Target only supports %sing by object constructors, got %s instead",
+          operation, Starlark.type(key));
+    }
+    if (!constructor.isExported()) {
+      throw Starlark.errorf(
+          "%s%s only supports %sing by exported providers. Assign the provider a name "
+              + "in a top-level assignment statement.",
+          Starlark.repr(this), getRuleClassStringForError(), operation);
+    }
+    return constructor;
   }
 
   /**
