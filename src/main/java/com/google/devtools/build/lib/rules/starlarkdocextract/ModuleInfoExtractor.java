@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.packages.MacroClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
+import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
@@ -204,6 +205,11 @@ public final class ModuleInfoExtractor {
         String qualifiedName, Object value, boolean shouldVisitVerifiedForAncestor)
         throws ExtractionException {
       if (shouldVisitVerifiedForAncestor || shouldVisit(qualifiedName)) {
+        if (value instanceof StarlarkExportable && !((StarlarkExportable) value).isExported()) {
+          // Unexported StarlarkExportables are not usable and therefore do not need to have docs
+          // generated.
+          return;
+        }
         if (value instanceof StarlarkRuleFunction) {
           visitRule(qualifiedName, (StarlarkRuleFunction) value);
         } else if (value instanceof MacroFunction) {
@@ -413,10 +419,6 @@ public final class ModuleInfoExtractor {
     @Override
     protected void visitMacroFunction(String qualifiedName, MacroFunction macroFunction)
         throws ExtractionException {
-      if (!macroFunction.isExported()) {
-        // No point in documenting unexported macroFunctions - they cannot be used as macros.
-        return;
-      }
       MacroInfo.Builder macroInfoBuilder = MacroInfo.newBuilder();
       // Record the name under which this symbol is made accessible, which may differ from the
       // symbol's exported name
