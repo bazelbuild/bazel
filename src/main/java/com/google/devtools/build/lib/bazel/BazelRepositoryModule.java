@@ -78,7 +78,6 @@ import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRul
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
-import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryFunction;
@@ -333,9 +332,7 @@ public class BazelRepositoryModule extends BlazeModule {
                     Executors.class
                         .getDeclaredMethod("newThreadPerTaskExecutor", ThreadFactory.class)
                         .invoke(
-                            null,
-                            Profiler.instance()
-                                .profileableVirtualThreadFactory("starlark-repository-")));
+                            null, Thread.ofVirtual().name("starlark-repository-", 0).factory()));
           } catch (ReflectiveOperationException e) {
             if (repoOptions.workerForRepoFetching == RepositoryOptions.WorkerForRepoFetching.AUTO) {
               starlarkRepositoryFunction.setWorkerExecutorService(null);

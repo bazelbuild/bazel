@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
-import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -81,7 +80,7 @@ public class DynamicExecutionModule extends BlazeModule {
     if (buildRequestOptions != null && buildRequestOptions.useAsyncExecution) {
       executorService =
           Executors.newThreadPerTaskExecutor(
-              Profiler.instance().profileableVirtualThreadFactory("dynamic-execution-thread-"));
+              Thread.ofVirtual().name("dynamic-execution-thread-", 0).factory());
     } else {
       executorService =
           Executors.newCachedThreadPool(
