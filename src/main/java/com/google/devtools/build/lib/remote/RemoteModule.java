@@ -714,6 +714,7 @@ public final class RemoteModule extends BlazeModule {
               Optional.ofNullable(callCredentials),
               retrier,
               cacheClient,
+              digestUtil.getDigestFunction(),
               remoteOptions,
               verboseFailures,
               fallbackDownloader));
