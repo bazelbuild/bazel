@@ -41,7 +41,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
-import com.google.devtools.build.lib.bazel.bzlmod.RootModuleFileFixupEvent;
+import com.google.devtools.build.lib.bazel.bzlmod.RootModuleFileFixup;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ExtensionArg;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ExtensionArg.ExtensionArgConverter;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.InvalidArgumentException;
@@ -91,7 +91,6 @@ import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -565,13 +564,7 @@ public final class ModCommand implements BlazeCommand {
   }
 
   private static class TidyEventRecorder {
-    final List<RootModuleFileFixupEvent> fixupEvents = new ArrayList<>();
     @Nullable BazelModuleResolutionEvent bazelModuleResolutionEvent;
-
-    @Subscribe
-    public void fixupGenerated(RootModuleFileFixupEvent event) {
-      fixupEvents.add(event);
-    }
 
     @Subscribe
     public void bazelModuleResolved(BazelModuleResolutionEvent event) {
@@ -587,8 +580,8 @@ public final class ModCommand implements BlazeCommand {
             .addArg(modTidyValue.buildozer().getPathString())
             .addArgs(
                 Stream.concat(
-                        eventRecorder.fixupEvents.stream()
-                            .map(RootModuleFileFixupEvent::getBuildozerCommands)
+                        modTidyValue.fixups().stream()
+                            .map(RootModuleFileFixup::buildozerCommands)
                             .flatMap(Collection::stream),
                         Stream.of("format"))
                     .collect(toImmutableList()))
@@ -612,7 +605,7 @@ public final class ModCommand implements BlazeCommand {
           Code.BUILDOZER_FAILED);
     }
 
-    for (RootModuleFileFixupEvent fixupEvent : eventRecorder.fixupEvents) {
+    for (RootModuleFileFixup fixupEvent : modTidyValue.fixups()) {
       env.getReporter().handle(Event.info(fixupEvent.getSuccessMessage()));
     }
 
