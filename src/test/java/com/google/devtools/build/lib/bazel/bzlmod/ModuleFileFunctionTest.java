@@ -197,6 +197,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());
 
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, packageLocator.get());
+    PrecomputedValue.CONVENIENCE_SYMLINKS_PATHS.set(differencer, ImmutableSet.of());
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.empty());
     PrecomputedValue.REPO_ENV.set(differencer, ImmutableMap.of());

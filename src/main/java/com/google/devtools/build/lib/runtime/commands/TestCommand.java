@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.buildtool.InstrumentationFilterSupport;
@@ -30,6 +29,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions.TestOutputFormat;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.runtime.AggregatingTestListener;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
@@ -269,9 +269,9 @@ public class TestCommand implements BlazeCommand {
       return Path::getPathString;
     }
     String productName = runtime.getProductName();
-    BuildRequestOptions requestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
+    PackageOptions packageOptions = env.getOptions().getOptions(PackageOptions.class);
     PathPrettyPrinter pathPrettyPrinter =
-        new PathPrettyPrinter(requestOptions.getSymlinkPrefix(productName), convenienceSymlinks);
+        new PathPrettyPrinter(packageOptions.getSymlinkPrefix(productName), convenienceSymlinks);
     return path -> pathPrettyPrinter.getPrettyPath(path.asFragment()).getPathString();
   }
 }

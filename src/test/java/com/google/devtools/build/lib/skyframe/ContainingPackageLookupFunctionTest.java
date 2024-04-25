@@ -175,6 +175,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
+    PrecomputedValue.CONVENIENCE_SYMLINKS_PATHS.set(differencer, ImmutableSet.of());
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.FORCE_FETCH.set(

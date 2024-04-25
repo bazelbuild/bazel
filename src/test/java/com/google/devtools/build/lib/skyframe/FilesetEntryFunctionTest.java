@@ -139,6 +139,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
+    PrecomputedValue.CONVENIENCE_SYMLINKS_PATHS.set(differencer, ImmutableSet.of());
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
   }
 

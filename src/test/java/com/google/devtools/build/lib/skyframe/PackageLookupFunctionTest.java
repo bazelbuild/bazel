@@ -189,6 +189,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
+    PrecomputedValue.CONVENIENCE_SYMLINKS_PATHS.set(differencer, ImmutableSet.of());
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.FORCE_FETCH.set(
         differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);

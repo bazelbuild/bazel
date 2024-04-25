@@ -123,6 +123,7 @@ public abstract class GlobTestBase {
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
+    PrecomputedValue.CONVENIENCE_SYMLINKS_PATHS.set(differencer, ImmutableSet.of());
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.empty());
 

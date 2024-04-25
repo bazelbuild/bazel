@@ -21,6 +21,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
@@ -32,7 +33,9 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.config.AdditionalConfigurationChangeEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.SymlinkDefinition;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
+import com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
@@ -765,17 +768,30 @@ public class CommandEnvironment {
           "We should never call this method more than once over the course of a single command");
     }
     hasSyncedPackageLoading = true;
+
     workspaceInfoFromDiff =
         getSkyframeExecutor()
             .sync(
                 reporter,
                 packageLocator,
+                getConvenienceSymlinkPaths(options.getOptions(PackageOptions.class)),
                 getCommandId(),
                 clientEnv,
                 repoEnvFromOptions,
                 timestampGranularityMonitor,
                 quiescingExecutors,
                 options);
+  }
+
+  private ImmutableSet<PathFragment> getConvenienceSymlinkPaths(@Nullable PackageOptions packageOptions) {
+    ImmutableSet.Builder<PathFragment> packagesToIgnore = ImmutableSet.builder();
+    if (packageOptions != null && packageOptions.experimentalConvenienceSymlinks == PackageOptions.ConvenienceSymlinksMode.NORMAL) {
+      for (SymlinkDefinition symlink : OutputDirectoryLinksUtils.getAllLinkDefinitions(ImmutableSet.of())) {
+        String linkName = symlink.getLinkName(packageOptions.getSymlinkPrefix(runtime.getProductName()), workspaceName);
+        packagesToIgnore.add(PathFragment.create(linkName));
+      }
+    }
+    return packagesToIgnore.build();
   }
 
   /** Returns true if {@link #syncPackageLoading} has already been called. */

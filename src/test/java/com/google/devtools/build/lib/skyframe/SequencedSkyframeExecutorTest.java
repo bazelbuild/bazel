@@ -2708,6 +2708,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         skyframeExecutor.sync(
             reporter,
             skyframeExecutor.getPackageLocator().get(),
+            /* convenienceSymlinkPaths= */ ImmutableSet.of(),
             UUID.randomUUID(),
             /* clientEnv= */ ImmutableMap.of(),
             /* repoEnvOption= */ ImmutableMap.of(),

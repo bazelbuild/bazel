@@ -1763,6 +1763,7 @@ public final class LoadingPhaseRunnerTest {
       skyframeExecutor.preparePackageLoading(
           pkgLocator,
           packageOptions,
+          ImmutableSet.of(),
           Options.getDefaults(BuildLanguageOptions.class),
           UUID.randomUUID(),
           ImmutableMap.of(),

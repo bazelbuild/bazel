@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.packages.Rule.ALL_LABELS;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -348,6 +349,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
       skyframeExecutor.sync(
           getReporter(),
           packageLocator,
+          ImmutableSet.of(),
           UUID.randomUUID(),
           ImmutableMap.of(),
           ImmutableMap.of(),

@@ -343,6 +343,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       injected.inject(injectable);
     }
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(injectable, pkgLocator);
+    PrecomputedValue.CONVENIENCE_SYMLINKS_PATHS.set(injectable, ImmutableSet.of());
     PrecomputedValue.DEFAULT_VISIBILITY.set(injectable, RuleVisibility.PRIVATE);
     PrecomputedValue.CONFIG_SETTING_VISIBILITY_POLICY.set(
         injectable, ConfigSettingVisibilityPolicy.LEGACY_OFF);

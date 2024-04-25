@@ -18,11 +18,13 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.packages.Globber;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -40,6 +42,7 @@ public final class GlobFunctionTest extends GlobTestBase {
 
   @Override
   protected void createGlobSkyFunction(Map<SkyFunctionName, SkyFunction> skyFunctions) {
+    PrecomputedValue.CONVENIENCE_SYMLINKS_PATHS.set(new SequencedRecordingDifferencer(), ImmutableSet.of());
     skyFunctions.put(SkyFunctions.GLOB, GlobFunction.create(recursionInSingleFunction));
   }
 

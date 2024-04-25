@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -58,6 +59,7 @@ public class ProjectResolutionTest extends BuildIntegrationTestCase {
                 ImmutableList.of(Root.fromPath(getWorkspace())),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             Options.getDefaults(PackageOptions.class),
+            ImmutableSet.of(),
             Options.getDefaults(BuildLanguageOptions.class),
             UUID.randomUUID(),
             ImmutableMap.of(),

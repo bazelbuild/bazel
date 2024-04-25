@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.pkgcache.LoadingOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -137,7 +139,7 @@ public final class CleanCommand implements BlazeCommand {
     try {
       String symlinkPrefix =
           options
-              .getOptions(BuildRequestOptions.class)
+              .getOptions(PackageOptions.class)
               .getSymlinkPrefix(env.getRuntime().getProductName());
       return actuallyClean(env, env.getOutputBase(), cleanOptions.expunge, async, symlinkPrefix);
     } catch (CleanException e) {

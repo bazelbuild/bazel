@@ -274,6 +274,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
+        ImmutableSet.of(),
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
@@ -437,6 +438,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         pathPackageLocator,
         packageOptions,
+        ImmutableSet.of(),
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),

@@ -116,6 +116,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
+        ImmutableSet.of(),
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),

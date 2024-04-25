@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -191,6 +192,7 @@ public class StarlarkFileContentHashTests extends BuildViewTestCase {
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageOptions,
+            ImmutableSet.of(),
             Options.getDefaults(BuildLanguageOptions.class),
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),

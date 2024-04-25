@@ -47,7 +47,7 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
     this.ignoredPackagePrefixesFile = ignoredPackagePrefixesFile;
   }
 
-  public static void getIgnoredPackagePrefixes(
+  private static void getIgnoredPackagePrefixes(
       RootedPath patternFile, ImmutableSet.Builder<PathFragment> ignoredPackagePrefixesBuilder)
       throws IgnoredPatternsFunctionException {
     try (InputStreamReader reader =
@@ -74,17 +74,22 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
       throws IgnoredPatternsFunctionException, InterruptedException {
     RepositoryName repositoryName = (RepositoryName) key.argument();
 
+    ImmutableSet<PathFragment> convenienceSymlinks = PrecomputedValue.CONVENIENCE_SYMLINKS_PATHS.get(env);
     ImmutableSet.Builder<PathFragment> ignoredPackagePrefixesBuilder = ImmutableSet.builder();
+    PathPackageLocator pkgLocator = null;
     if (!ignoredPackagePrefixesFile.equals(PathFragment.EMPTY_FRAGMENT)) {
-      PathPackageLocator pkgLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
-      if (env.valuesMissing()) {
-        return null;
-      }
+      pkgLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
+    }
 
-      if (repositoryName.isMain()) {
+    if (env.valuesMissing()) {
+      return null;
+    }
+
+    if (repositoryName.isMain()) {
+      if (pkgLocator != null) {
         for (Root packagePathEntry : pkgLocator.getPathEntries()) {
           RootedPath rootedPatternFile =
-              RootedPath.toRootedPath(packagePathEntry, ignoredPackagePrefixesFile);
+                  RootedPath.toRootedPath(packagePathEntry, ignoredPackagePrefixesFile);
           FileValue patternFileValue = (FileValue) env.getValue(FileValue.key(rootedPatternFile));
           if (patternFileValue == null) {
             return null;
@@ -94,24 +99,25 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
             break;
           }
         }
-      } else {
-        // Make sure the repository is fetched.
-        RepositoryDirectoryValue repositoryValue =
-            (RepositoryDirectoryValue) env.getValue(RepositoryDirectoryValue.key(repositoryName));
-        if (repositoryValue == null) {
+      }
+      ignoredPackagePrefixesBuilder.addAll(convenienceSymlinks);
+    } else {
+      // Make sure the repository is fetched.
+      RepositoryDirectoryValue repositoryValue =
+          (RepositoryDirectoryValue) env.getValue(RepositoryDirectoryValue.key(repositoryName));
+      if (repositoryValue == null) {
+        return null;
+      }
+      if (repositoryValue.repositoryExists()) {
+        RootedPath rootedPatternFile =
+            RootedPath.toRootedPath(
+                Root.fromPath(repositoryValue.getPath()), ignoredPackagePrefixesFile);
+        FileValue patternFileValue = (FileValue) env.getValue(FileValue.key(rootedPatternFile));
+        if (patternFileValue == null) {
           return null;
         }
-        if (repositoryValue.repositoryExists()) {
-          RootedPath rootedPatternFile =
-              RootedPath.toRootedPath(
-                  Root.fromPath(repositoryValue.getPath()), ignoredPackagePrefixesFile);
-          FileValue patternFileValue = (FileValue) env.getValue(FileValue.key(rootedPatternFile));
-          if (patternFileValue == null) {
-            return null;
-          }
-          if (patternFileValue.isFile()) {
-            getIgnoredPackagePrefixes(rootedPatternFile, ignoredPackagePrefixesBuilder);
-          }
+        if (patternFileValue.isFile()) {
+          getIgnoredPackagePrefixes(rootedPatternFile, ignoredPackagePrefixesBuilder);
         }
       }
     }

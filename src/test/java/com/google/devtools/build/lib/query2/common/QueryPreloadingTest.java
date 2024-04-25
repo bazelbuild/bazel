@@ -471,6 +471,7 @@ public class QueryPreloadingTest extends QueryPreloadingTestCase {
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageOptions,
+            ImmutableSet.of(),
             Options.getDefaults(BuildLanguageOptions.class),
             UUID.randomUUID(),
             ImmutableMap.of(),

@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptions.ConvenienceSymlinksMode;
 import com.google.devtools.build.lib.buildtool.buildevent.ConvenienceSymlinksIdentifiedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
@@ -76,6 +75,9 @@ import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.pkgcache.LoadingOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions.ConvenienceSymlinksMode;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
@@ -754,10 +756,10 @@ public class ExecutionTool {
         Profiler.instance().profile("ExecutionTool.handleConvenienceSymlinks")) {
       OutputDirectoryLinksUtils.SymlinkCreationResult convenienceSymlinks =
           OutputDirectoryLinksUtils.EMPTY_SYMLINK_CREATION_RESULT;
-      if (request.getBuildOptions().experimentalConvenienceSymlinks
+      if (request.getPackageOptions().experimentalConvenienceSymlinks
           != ConvenienceSymlinksMode.IGNORE) {
         convenienceSymlinks =
-            createConvenienceSymlinks(request.getBuildOptions(), targetsToBuild, configuration);
+            createConvenienceSymlinks(request.getPackageOptions(), targetsToBuild, configuration);
       }
       if (request.getBuildOptions().experimentalConvenienceSymlinksBepEvent) {
         env.getEventBus()
@@ -786,7 +788,7 @@ public class ExecutionTool {
    * is to prevent confusion by pointing to an outdated directory the current build never used.
    */
   private OutputDirectoryLinksUtils.SymlinkCreationResult createConvenienceSymlinks(
-      BuildRequestOptions buildRequestOptions,
+      PackageOptions packageOptions,
       ImmutableSet<ConfiguredTarget> targetsToBuild,
       BuildConfigurationValue configuration) {
     SkyframeExecutor executor = env.getSkyframeExecutor();
@@ -832,7 +834,7 @@ public class ExecutionTool {
         Profiler.instance().profile("OutputDirectoryLinksUtils.createOutputDirectoryLinks")) {
       return OutputDirectoryLinksUtils.createOutputDirectoryLinks(
           runtime.getRuleClassProvider().getSymlinkDefinitions(),
-          buildRequestOptions,
+          packageOptions,
           env.getWorkspaceName(),
           env.getWorkspace(),
           env.getDirectories(),

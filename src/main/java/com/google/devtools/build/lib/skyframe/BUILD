@@ -1908,6 +1908,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",

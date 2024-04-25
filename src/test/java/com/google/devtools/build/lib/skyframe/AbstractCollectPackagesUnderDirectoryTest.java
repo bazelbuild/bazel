@@ -317,6 +317,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
     skyframeExecutor.sync(
         reporter,
         pathPackageLocator,
+        /* convenienceSymlinkPaths= */ ImmutableSet.of(),
         UUID.randomUUID(),
         /* clientEnv= */ ImmutableMap.of(),
         /* repoEnvOption= */ ImmutableMap.of(),

@@ -273,6 +273,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.empty());
     PrecomputedValue.REPO_ENV.set(differencer, ImmutableMap.of());
+    PrecomputedValue.CONVENIENCE_SYMLINKS_PATHS.set(differencer, ImmutableSet.of());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
     YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());

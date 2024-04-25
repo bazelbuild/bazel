@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.SymlinkDefinition;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Set;
 import java.util.function.Function;
@@ -48,7 +49,7 @@ class ConfigSymlink implements SymlinkDefinition {
 
   @Override
   public ImmutableSet<Path> getLinkPaths(
-      BuildRequestOptions buildRequestOptions,
+      PackageOptions packageOptions,
       Set<BuildConfigurationValue> targetConfigs,
       Function<BuildOptions, BuildConfigurationValue> configGetter,
       RepositoryName repositoryName,

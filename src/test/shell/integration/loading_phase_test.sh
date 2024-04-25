@@ -621,4 +621,29 @@ function test_missing_BUILD() {
   expect_log "no such target '//${pkg}:subdir1/subdir2/BUILD'"
 }
 
+function test_globs_do_not_read_into_convenience_symlinks() {
+  cat >BUILD <<\EOF
+genrule(
+    name = "generate",
+    outs = ["generated.xyz"],
+    cmd = "touch $@",
+)
+
+genrule(
+    name = "consume",
+    srcs = glob(["**/*.xyz"]),
+    outs = ["consume-output"],
+    cmd = "cp $< $@",
+)
+EOF
+
+  touch checked-in.xyz
+
+  # Creates bazel-bin/generated.xyz
+  bazel build :generate || fail "Expected success"
+
+  # Would error if the glob included bazel-bin/generated.xyz
+  bazel build :consume || fail "Expected success"
+}
+
 run_suite "Integration tests of ${PRODUCT_NAME} using loading/analysis phases."

@@ -1478,6 +1478,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public void preparePackageLoading(
       PathPackageLocator pkgLocator,
       PackageOptions packageOptions,
+      ImmutableSet<PathFragment> convenienceSymlinkPaths,
       BuildLanguageOptions buildLanguageOptions,
       UUID commandId,
       Map<String, String> clientEnv,
@@ -1507,6 +1508,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     setSiblingDirectoryLayout(
         starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
     setPackageLocator(pkgLocator);
+    PrecomputedValue.CONVENIENCE_SYMLINKS_PATHS.set(injectable(), convenienceSymlinkPaths);
 
     this.pkgFactory.setGlobbingThreads(executors.globbingParallelism());
     this.pkgFactory.setMaxDirectoriesToEagerlyVisitInGlobbing(
@@ -2630,6 +2632,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public WorkspaceInfoFromDiff sync(
       ExtendedEventHandler eventHandler,
       PathPackageLocator pathPackageLocator,
+      ImmutableSet<PathFragment> convenienceSymlinkPaths,
       UUID commandId,
       Map<String, String> clientEnv,
       Map<String, String> repoEnvOption,
@@ -2642,7 +2645,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
     setRemoteExecutionEnabled(remoteOptions != null && remoteOptions.isRemoteExecutionEnabled());
     cpuBoundSemaphore.set(getUpdatedSkyFunctionsSemaphore(options));
-    syncPackageLoading(pathPackageLocator, commandId, clientEnv, tsgm, executors, options);
+    syncPackageLoading(pathPackageLocator, convenienceSymlinkPaths, commandId, clientEnv, tsgm, executors, options);
 
     if (lastAnalysisDiscarded) {
       logger.atInfo().log("Discarding analysis cache because the previous invocation told us to");
@@ -2669,6 +2672,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected void syncPackageLoading(
       PathPackageLocator pathPackageLocator,
+      ImmutableSet<PathFragment> convenienceSymlinkPaths,
       UUID commandId,
       Map<String, String> clientEnv,
       TimestampGranularityMonitor tsgm,
@@ -2680,6 +2684,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       preparePackageLoading(
           pathPackageLocator,
           packageOptions,
+          convenienceSymlinkPaths,
           options.getOptions(BuildLanguageOptions.class),
           commandId,
           clientEnv,

@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Set;
 import java.util.function.Function;
@@ -39,7 +39,7 @@ public interface SymlinkDefinition {
    * no-op, and more than one candidate means a warning about ambiguous symlink destinations should
    * be emitted.
    *
-   * @param buildRequestOptions options that may control which symlinks get created and what they
+   * @param packageOptions options that may control which symlinks get created and what they
    *     point to.
    * @param targetConfigs the configurations for which symlinks should be created. If these have
    *     conflicting requirements, multiple candidates are returned.
@@ -51,7 +51,7 @@ public interface SymlinkDefinition {
    * @param execRoot the exec root.
    */
   ImmutableSet<Path> getLinkPaths(
-      BuildRequestOptions buildRequestOptions,
+      PackageOptions packageOptions,
       Set<BuildConfigurationValue> targetConfigs,
       Function<BuildOptions, BuildConfigurationValue> configGetter,
       RepositoryName repositoryName,

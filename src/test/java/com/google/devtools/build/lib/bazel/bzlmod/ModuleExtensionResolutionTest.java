@@ -272,6 +272,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     RepositoryDelegatorFunction.FORCE_FETCH.set(
         differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, packageLocator.get());
+    PrecomputedValue.CONVENIENCE_SYMLINKS_PATHS.set(differencer, ImmutableSet.of());
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.empty());
     PrecomputedValue.REPO_ENV.set(differencer, ImmutableMap.of());

@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.DelegatingGraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.EmittedEventState;
@@ -251,6 +252,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   public WorkspaceInfoFromDiff sync(
       ExtendedEventHandler eventHandler,
       PathPackageLocator packageLocator,
+      ImmutableSet<PathFragment> convenienceSymlinkPaths,
       UUID commandId,
       Map<String, String> clientEnv,
       Map<String, String> repoEnvOption,
@@ -282,6 +284,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     super.sync(
         eventHandler,
         packageLocator,
+        convenienceSymlinkPaths,
         commandId,
         clientEnv,
         repoEnvOption,

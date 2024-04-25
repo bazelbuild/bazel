@@ -18,12 +18,14 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.Injectable;
@@ -93,6 +95,9 @@ public final class PrecomputedValue implements SkyValue {
 
   public static final Precomputed<PathPackageLocator> PATH_PACKAGE_LOCATOR =
       new Precomputed<>("path_package_locator");
+
+  public static final Precomputed<ImmutableSet<PathFragment>> CONVENIENCE_SYMLINKS_PATHS =
+          new Precomputed<>("convenience_symlinks");
 
   public static final Precomputed<Boolean> REMOTE_EXECUTION_ENABLED =
       new Precomputed<>("remote_execution_enabled");

@@ -404,6 +404,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages:exec_group",
         "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:current_rule_tracker",

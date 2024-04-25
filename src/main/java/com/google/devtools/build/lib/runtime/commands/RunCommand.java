@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.buildtool.PathPrettyPrinter;
@@ -73,6 +72,8 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
+import com.google.devtools.build.lib.pkgcache.LoadingOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
@@ -793,10 +794,10 @@ public class RunCommand implements BlazeCommand {
       ImmutableSortedMap<String, String> runEnvironment,
       ImmutableList<String> argsFromBinary,
       ImmutableList<String> argsFromResidue) {
-    BuildRequestOptions requestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
+    PackageOptions packageOptions = env.getOptions().getOptions(PackageOptions.class);
     PathPrettyPrinter prettyPrinter =
         new PathPrettyPrinter(
-            requestOptions.getSymlinkPrefix(env.getRuntime().getProductName()),
+            packageOptions.getSymlinkPrefix(env.getRuntime().getProductName()),
             builtTargets.convenienceSymlinks);
 
     RunCommandLine.Builder runCommandLine =

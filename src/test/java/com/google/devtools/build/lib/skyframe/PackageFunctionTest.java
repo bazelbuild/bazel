@@ -29,6 +29,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Sets;
@@ -137,6 +138,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
                 Arrays.stream(roots).map(Root::fromPath).collect(ImmutableList.toImmutableList()),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageOptions,
+            ImmutableSet.of(),
             buildLanguageOptions,
             UUID.randomUUID(),
             ImmutableMap.of(),
@@ -501,6 +503,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageOptions,
+            ImmutableSet.of(),
             Options.getDefaults(BuildLanguageOptions.class),
             UUID.randomUUID(),
             ImmutableMap.of(),
@@ -1120,6 +1123,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
                 ImmutableList.of(Root.fromPath(rootDirectory), Root.fromPath(otherRootDir)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             Options.getDefaults(PackageOptions.class),
+            ImmutableSet.of(),
             Options.getDefaults(BuildLanguageOptions.class),
             UUID.randomUUID(),
             ImmutableMap.of(),

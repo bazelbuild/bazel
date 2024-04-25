@@ -222,6 +222,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer, progressReceiver);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
+    PrecomputedValue.CONVENIENCE_SYMLINKS_PATHS.set(differencer, ImmutableSet.of());
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
   }
 

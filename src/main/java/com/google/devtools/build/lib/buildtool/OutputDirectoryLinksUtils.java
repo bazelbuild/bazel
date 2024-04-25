@@ -26,10 +26,11 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.SymlinkDefinition;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.ConvenienceSymlink;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.ConvenienceSymlink.Action;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptions.ConvenienceSymlinksMode;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions.ConvenienceSymlinksMode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -55,7 +56,7 @@ public final class OutputDirectoryLinksUtils {
    *
    * <p>The order of the result indicates precedence for {@link PathPrettyPrinter}.
    */
-  private static ImmutableList<SymlinkDefinition> getAllLinkDefinitions(
+  public static ImmutableList<SymlinkDefinition> getAllLinkDefinitions(
       Iterable<SymlinkDefinition> symlinkDefinitions) {
     ImmutableList.Builder<SymlinkDefinition> builder = ImmutableList.builder();
     builder.addAll(STANDARD_LINK_DEFINITIONS);
@@ -93,7 +94,7 @@ public final class OutputDirectoryLinksUtils {
    */
   static SymlinkCreationResult createOutputDirectoryLinks(
       Iterable<SymlinkDefinition> symlinkDefinitions,
-      BuildRequestOptions buildRequestOptions,
+      PackageOptions packageOptions,
       String workspaceName,
       Path workspace,
       BlazeDirectories directories,
@@ -104,8 +105,8 @@ public final class OutputDirectoryLinksUtils {
     Path execRoot = directories.getExecRoot(workspaceName);
     Path outputPath = directories.getOutputPath(workspaceName);
     Path outputBase = directories.getOutputBase();
-    String symlinkPrefix = buildRequestOptions.getSymlinkPrefix(productName);
-    ConvenienceSymlinksMode mode = buildRequestOptions.experimentalConvenienceSymlinks;
+    String symlinkPrefix = packageOptions.getSymlinkPrefix(productName);
+    ConvenienceSymlinksMode mode = packageOptions.experimentalConvenienceSymlinks;
     if (NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {
       return EMPTY_SYMLINK_CREATION_RESULT;
     }
@@ -131,7 +132,7 @@ public final class OutputDirectoryLinksUtils {
       } else {
         Set<Path> candidatePaths =
             symlink.getLinkPaths(
-                buildRequestOptions,
+                packageOptions,
                 targetConfigs,
                 configGetter,
                 repositoryName,
@@ -319,17 +320,17 @@ public final class OutputDirectoryLinksUtils {
           new ConfigSymlink("genfiles", BuildConfigurationValue::getGenfilesDirectory) {
             @Override
             public ImmutableSet<Path> getLinkPaths(
-                BuildRequestOptions buildRequestOptions,
+                PackageOptions packageOptions,
                 Set<BuildConfigurationValue> targetConfigs,
                 Function<BuildOptions, BuildConfigurationValue> configGetter,
                 RepositoryName repositoryName,
                 Path outputPath,
                 Path execRoot) {
-              if (buildRequestOptions.incompatibleSkipGenfilesSymlink) {
+              if (packageOptions.incompatibleSkipGenfilesSymlink) {
                 return ImmutableSet.of();
               }
               return super.getLinkPaths(
-                  buildRequestOptions,
+                  packageOptions,
                   targetConfigs,
                   configGetter,
                   repositoryName,
@@ -346,7 +347,7 @@ public final class OutputDirectoryLinksUtils {
 
             @Override
             public ImmutableSet<Path> getLinkPaths(
-                BuildRequestOptions buildRequestOptions,
+                PackageOptions packageOptions,
                 Set<BuildConfigurationValue> targetConfigs,
                 Function<BuildOptions, BuildConfigurationValue> configGetter,
                 RepositoryName repositoryName,
@@ -364,7 +365,7 @@ public final class OutputDirectoryLinksUtils {
 
             @Override
             public ImmutableSet<Path> getLinkPaths(
-                BuildRequestOptions buildRequestOptions,
+                PackageOptions packageOptions,
                 Set<BuildConfigurationValue> targetConfigs,
                 Function<BuildOptions, BuildConfigurationValue> configGetter,
                 RepositoryName repositoryName,

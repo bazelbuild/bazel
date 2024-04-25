@@ -154,6 +154,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
+        ImmutableSet.of(),
         options,
         UUID.randomUUID(),
         ImmutableMap.of(),

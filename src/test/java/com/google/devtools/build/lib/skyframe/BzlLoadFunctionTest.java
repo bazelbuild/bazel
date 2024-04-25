@@ -21,6 +21,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Tables;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -79,6 +80,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
                 ImmutableList.of(Root.fromPath(rootDirectory), Root.fromPath(alternativeRoot)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageOptions,
+            ImmutableSet.of(),
             Options.getDefaults(BuildLanguageOptions.class),
             UUID.randomUUID(),
             ImmutableMap.of(),
