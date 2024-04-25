@@ -1454,6 +1454,14 @@ function test_skyframe_stats() {
   bazel build --build_event_json_file=bep.json //a >& "$TEST_log" || fail "build failed"
   cp bep.json "$TEST_log" || fail "cp failed"
   expect_log '"skyfunctionName":"PACKAGE","count":'
+
+  bazel build --build_event_json_file=bep.json //a >& "$TEST_log" || fail "build failed"
+  cp bep.json "$TEST_log" || fail "cp failed"
+
+  # Check that nodes that were requested at the top level but were clean are
+  # not reported as having been evaluated (BUILD_INFO is requested at the top
+  # level)
+  expect_not_log '"skyfunctionName":"BUILD_INFO","count":'
 }
 
 function test_packages_loaded_contains_only_successfully_loaded_packages() {
