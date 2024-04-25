@@ -1410,7 +1410,7 @@ public final class CcCompilationHelper {
             ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, outputName);
     // TODO(djasper): This is now duplicated. Refactor the various create..Action functions.
     Artifact gcnoFile =
-        isCodeCoverageEnabled
+        isCodeCoverageEnabled && !cppConfiguration.useLLVMCoverageMapFormat()
             ? CppHelper.getCompileOutputArtifact(
                 actionConstructionContext, label, gcnoFileName, configuration)
             : null;
@@ -1541,7 +1541,7 @@ public final class CcCompilationHelper {
           CppHelper.getArtifactNameForCategory(
               ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, picOutputBase);
       Artifact gcnoFile =
-          enableCoverage
+          isCodeCoverageEnabled && !cppConfiguration.useLLVMCoverageMapFormat()
               ? CppHelper.getCompileOutputArtifact(
                   actionConstructionContext, label, gcnoFileName, configuration)
               : null;
@@ -1615,7 +1615,7 @@ public final class CcCompilationHelper {
 
       // Create no-PIC compile actions
       Artifact gcnoFile =
-          enableCoverage
+          isCodeCoverageEnabled && !cppConfiguration.useLLVMCoverageMapFormat()
               ? CppHelper.getCompileOutputArtifact(
                   actionConstructionContext, label, gcnoFileName, configuration)
               : null;
