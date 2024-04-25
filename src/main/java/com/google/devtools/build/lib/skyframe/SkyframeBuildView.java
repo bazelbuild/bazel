@@ -510,10 +510,11 @@ public final class SkyframeBuildView {
           // to reflect any transitions or trimming.
           if (actionLookupKey instanceof ConfiguredTargetKey) {
             var value = ((ConfiguredTargetValue) evaluationResult.get(actionLookupKey));
-            if (value != null) {
-              actionLookupKey = value.getConfiguredTarget().getLookupKey();
-            } else {
+            if (value == null) {
               targetConfigured = false;
+            } else if (value.getConfiguredTarget() != null) {
+              // It's possible that the ConfiguredTarget has been cleared.
+              actionLookupKey = value.getConfiguredTarget().getLookupKey();
             }
           }
           if (!targetConfigured) {
@@ -1037,10 +1038,11 @@ public final class SkyframeBuildView {
         // This is a graph lookup instead of an EvaluationResult lookup because Skymeld's
         // EvaluationResult does not contain ConfiguredTargetKey.
         var value = ((ConfiguredTargetValue) graph.getValue(actionLookupKey));
-        if (value != null) {
-          actionLookupKey = value.getConfiguredTarget().getLookupKey();
-        } else {
+        if (value == null) {
           targetConfigured = false;
+        } else if (value.getConfiguredTarget() != null) {
+          // It's possible that the ConfiguredTarget has been cleared.
+          actionLookupKey = value.getConfiguredTarget().getLookupKey();
         }
       }
       if (!targetConfigured) {
