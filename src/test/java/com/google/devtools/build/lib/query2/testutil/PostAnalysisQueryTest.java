@@ -21,7 +21,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
@@ -606,8 +605,8 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
 
     helper.setUniverseScope("//test:*");
 
-    assertThat(getConfiguration(Iterables.getOnlyElement(eval("//test:dep"))))
-        .isNotEqualTo(getConfiguration(Iterables.getOnlyElement(eval("//test:top-level"))));
+    // `//test:dep` has two configurations.
+    assertThat(eval("//test:dep")).hasSize(2);
   }
 
   @Test
@@ -632,6 +631,9 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
         .isEqualTo(FailureDetails.TargetPatterns.Code.CANNOT_DETERMINE_TARGET_FROM_FILENAME);
   }
 
+  @Test
+  public void labelPointsToMultipleConfiguredTargets() throws Exception {}
+
   private void writeSimpleTarget() throws Exception {
     MockRule simpleRule =
         () ->
@@ -640,6 +642,27 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     helper.useRuleClassProvider(setRuleClassProviders(simpleRule).build());
 
     writeFile("test/BUILD", "simple_rule(name = 'target')");
+  }
+
+  @Test
+  public void aliasMinus() throws Exception {
+    MockRule simpleRule =
+        () ->
+            MockRule.define(
+                "simple_rule", attr("dep", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE));
+    helper.useRuleClassProvider(setRuleClassProviders(simpleRule).build());
+
+    writeFile(
+        "p/BUILD",
+        "simple_rule(name = 'dep')",
+        "alias(name = 'alias', actual = 'dep')",
+        "simple_rule(name = 'user', dep = ':alias')");
+    assertThat(evalToString("deps(//p:alias) - deps(//p:dep)")).isEqualTo("//p:alias");
+    // The following assertion fails if the expression `//p:alias` doesn't represent two configured
+    // targets -- one configured without TestOptions (trimmed) and the other configured with one
+    // (untrimmed). The untrimmed configured target is from the top-level expression, whereas the
+    // trimmed one is from `//p:user`'s dependency.
+    assertThat(evalToString("deps(//p:user) - deps(//p:alias)")).isEqualTo("//p:user");
   }
 
   @Test
