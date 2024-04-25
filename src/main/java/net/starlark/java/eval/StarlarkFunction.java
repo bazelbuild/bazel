@@ -50,17 +50,24 @@ public final class StarlarkFunction implements StarlarkCallable {
   // Indexed by Resolver.Binding(FREE).index values.
   private final Tuple freevars;
 
+  // A stable identifier for this function instance.
+  //
+  // This may be mutated by export.
+  private SymbolGenerator.Symbol<?> token;
+
   StarlarkFunction(
       Resolver.Function rfn,
       Module module,
       int[] globalIndex,
       Tuple defaultValues,
-      Tuple freevars) {
+      Tuple freevars,
+      SymbolGenerator.Symbol<?> token) {
     this.rfn = rfn;
     this.module = module;
     this.globalIndex = globalIndex;
     this.defaultValues = defaultValues;
     this.freevars = freevars;
+    this.token = token;
   }
 
   // Sets a global variable, given its index in this function's compiled Program.
@@ -181,6 +188,19 @@ public final class StarlarkFunction implements StarlarkCallable {
 
   Cell getFreeVar(int index) {
     return (Cell) freevars.get(index);
+  }
+
+  void export(StarlarkThread thread, String name) {
+    // Checks that thread is the one that defines the StarlarkFunction. It's possible for one
+    // StarlarkFunction to be exported in different places.
+    if (!token.getOwner().equals(thread.getOwner())) {
+      return;
+    }
+    if (token.isGlobal()) {
+      // Keeps only the first token if the same function is exported under multiple aliases.
+      return;
+    }
+    token = token.exportAs(name);
   }
 
   @Override
@@ -382,6 +402,26 @@ public final class StarlarkFunction implements StarlarkCallable {
     }
     out.append(')');
     return out.toString();
+  }
+
+  public SymbolGenerator.Symbol<?> getToken() {
+    return token;
+  }
+
+  @Override
+  public int hashCode() {
+    return token.hashCode();
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj == this) {
+      return true;
+    }
+    if (!(obj instanceof StarlarkFunction)) {
+      return false;
+    }
+    return token.equals(((StarlarkFunction) obj).token);
   }
 
   @Override

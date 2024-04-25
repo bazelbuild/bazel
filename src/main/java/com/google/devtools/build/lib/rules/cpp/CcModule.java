@@ -1028,8 +1028,7 @@ public abstract class CcModule
       ImmutableList<String> userLinkFlagsFlattened =
           Depset.noneableCast(userLinkFlagsObject, String.class, "user_link_flags").toList();
       if (!userLinkFlagsFlattened.isEmpty()) {
-        LinkOptions options =
-            LinkOptions.of(userLinkFlagsFlattened, thread.getNextReferenceIdentitySymbol());
+        LinkOptions options = LinkOptions.of(userLinkFlagsFlattened, thread.getNextIdentityToken());
         optionsBuilder.add(options);
       }
     } else if (userLinkFlagsObject instanceof Sequence) {
@@ -1041,12 +1040,12 @@ public abstract class CcModule
               LinkOptions.of(
                   Sequence.cast(userLinkFlagsObject, String.class, "user_link_flags[]")
                       .getImmutableList(),
-                  thread.getNextReferenceIdentitySymbol()));
+                  thread.getNextIdentityToken()));
         } else if (options.get(0) instanceof Sequence) {
           for (Object optionObject : options) {
             ImmutableList<String> option =
                 Sequence.cast(optionObject, String.class, "user_link_flags[][]").getImmutableList();
-            optionsBuilder.add(LinkOptions.of(option, thread.getNextReferenceIdentitySymbol()));
+            optionsBuilder.add(LinkOptions.of(option, thread.getNextIdentityToken()));
           }
         } else {
           throw Starlark.errorf(
@@ -1113,7 +1112,7 @@ public abstract class CcModule
           ccLinkingContextBuilder.addUserLinkFlags(
               ImmutableList.of(
                   CcLinkingContext.LinkOptions.of(
-                      userLinkFlags.getImmutableList(), thread.getNextReferenceIdentitySymbol())));
+                      userLinkFlags.getImmutableList(), thread.getNextIdentityToken())));
         }
         @SuppressWarnings("unchecked")
         Sequence<String> nonCodeInputs = nullIfNone(nonCodeInputsObject, Sequence.class);

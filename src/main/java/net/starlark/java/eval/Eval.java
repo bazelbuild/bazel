@@ -92,8 +92,20 @@ final class Eval {
           AssignmentStatement assign = (AssignmentStatement) stmt;
           for (Identifier id : Identifier.boundIdentifiers(assign.getLHS())) {
             Object value = fn(fr).getGlobal(id.getBinding().getIndex());
-            fr.thread.postAssignHook.assign(id.getName(), value);
+            // TODO(bazel-team): Instead of special casing StarlarkFunction, make it implement
+            // StarlarkExportable.
+            if (value instanceof StarlarkFunction) {
+              // Optimization: The id token of a StarlarkFunction should be based on its global
+              // identifier when available. This enables an name-based lookup on deserialization.
+              ((StarlarkFunction) value).export(fr.thread, id.getName());
+            } else {
+              fr.thread.postAssignHook.assign(id.getName(), value);
+            }
           }
+        } else if (stmt instanceof DefStatement) {
+          Identifier id = ((DefStatement) stmt).getIdentifier();
+          ((StarlarkFunction) fn(fr).getGlobal(id.getBinding().getIndex()))
+              .export(fr.thread, id.getName());
         }
       }
     }
@@ -195,7 +207,12 @@ final class Eval {
     // since both were compiled from the same Program.
     StarlarkFunction fn = fn(fr);
     return new StarlarkFunction(
-        rfn, fn.getModule(), fn.globalIndex, Tuple.wrap(defaults), Tuple.wrap(freevars));
+        rfn,
+        fn.getModule(),
+        fn.globalIndex,
+        Tuple.wrap(defaults),
+        Tuple.wrap(freevars),
+        fr.thread.getNextIdentityToken());
   }
 
   private static TokenKind execIf(StarlarkThread.Frame fr, IfStatement node)

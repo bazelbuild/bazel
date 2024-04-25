@@ -48,6 +48,7 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
@@ -194,7 +195,8 @@ public final class BazelEvaluationTestCase {
   public StarlarkThread getStarlarkThread() {
     if (this.thread == null) {
       Mutability mu = Mutability.create("test");
-      StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
+      StarlarkThread thread =
+          StarlarkThread.create(mu, semantics, "test", SymbolGenerator.create("test"));
       thread.setPrintHandler(Event.makeDebugPrintHandler(getEventHandler()));
       newThread(thread);
       this.thread = thread;
