@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedOutputStream;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
@@ -133,6 +135,8 @@ import javax.annotation.Nullable;
 // SerializationException. This requires just a little extra memo tracking for the MEMOIZE_AFTER
 // case.
 abstract class MemoizingSerializationContext extends SerializationContext {
+  private static final int NO_VALUE = -1;
+
   private final Reference2IntOpenHashMap<Object> table = new Reference2IntOpenHashMap<>();
 
   /** Table for types memoized using values equality, currently only {@link String}. */
@@ -149,8 +153,8 @@ abstract class MemoizingSerializationContext extends SerializationContext {
   MemoizingSerializationContext(
       ObjectCodecRegistry codecRegistry, ImmutableClassToInstanceMap<Object> dependencies) {
     super(codecRegistry, dependencies);
-    table.defaultReturnValue(-1);
-    valuesTable.defaultReturnValue(-1);
+    table.defaultReturnValue(NO_VALUE);
+    valuesTable.defaultReturnValue(NO_VALUE);
   }
 
   static byte[] serializeToBytes(
@@ -201,8 +205,8 @@ abstract class MemoizingSerializationContext extends SerializationContext {
     switch (codec.getStrategy()) {
       case MEMOIZE_BEFORE:
         {
-          int id = memoize(obj);
-          codedOut.writeInt32NoTag(id);
+          // Deserialization determines the value of this tag based on the size of its memo table.
+          memoize(obj);
           codec.serialize(this, obj, codedOut);
           break;
         }
@@ -213,7 +217,7 @@ abstract class MemoizingSerializationContext extends SerializationContext {
           // cycle, then there's now a memo entry for the parent. Don't overwrite it with a new
           // id.
           int cylicallyCreatedId = getMemoizedIndex(obj);
-          int id = (cylicallyCreatedId != -1) ? cylicallyCreatedId : memoize(obj);
+          int id = (cylicallyCreatedId != NO_VALUE) ? cylicallyCreatedId : memoize(obj);
           codedOut.writeInt32NoTag(id);
           break;
         }
@@ -224,7 +228,7 @@ abstract class MemoizingSerializationContext extends SerializationContext {
   final boolean writeBackReferenceIfMemoized(Object obj, CodedOutputStream codedOut)
       throws IOException {
     int memoizedIndex = getMemoizedIndex(obj);
-    if (memoizedIndex == -1) {
+    if (memoizedIndex == NO_VALUE) {
       return false;
     }
     // Subtracts 1 so it will be negative and not collide with null.
@@ -237,12 +241,12 @@ abstract class MemoizingSerializationContext extends SerializationContext {
     return true;
   }
 
-  /** If the value is already memoized, return its on-the-wire id; otherwise returns {@code -1}. */
+  /**
+   * If the value is already memoized, return its on-the-wire id; otherwise returns {@link
+   * #NO_VALUE}.
+   */
   private int getMemoizedIndex(Object value) {
-    if (value instanceof String) {
-      return valuesTable.getInt(value);
-    }
-    return table.getInt(value);
+    return isValueType(value) ? valuesTable.getInt(value) : table.getInt(value);
   }
 
   /**
@@ -250,17 +254,18 @@ abstract class MemoizingSerializationContext extends SerializationContext {
    *
    * <p>{@code value} must not already be present.
    */
+  @CanIgnoreReturnValue // may be called for side effect
   private int memoize(Object value) {
-    Preconditions.checkArgument(
-        getMemoizedIndex(value) == -1, "Tried to memoize object '%s' multiple times", value);
     // Ids count sequentially from 0.
     int newId = table.size() + valuesTable.size();
-    if (value instanceof String) {
-      valuesTable.put(value, newId);
-    } else {
-      table.put(value, newId);
-    }
+    int maybePrevious =
+        isValueType(value) ? valuesTable.put(value, newId) : table.put(value, newId);
+    checkState(maybePrevious == NO_VALUE, "Memoized object '%s' multiple times", value);
     return newId;
+  }
+
+  private boolean isValueType(Object value) {
+    return value instanceof String;
   }
 
   private static void serializeToStream(
