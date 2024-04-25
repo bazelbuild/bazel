@@ -110,8 +110,7 @@ public final class FilesetEntryFunction implements SkyFunction {
     PathFragment prefixToRemove = direct.getRoot().getRelativePart();
 
     Iterable<ResolvedFile> results;
-    if (direct.isRecursive()
-        || (resolvedRoot.getType().isDirectory() && !resolvedRoot.getType().isSymlink())) {
+    if (resolvedRoot.getType().isDirectory() && !resolvedRoot.getType().isSymlink()) {
       // The traversal is recursive (requested for an entire FilesetEntry.srcdir) or it was
       // requested for a FilesetEntry.files entry which turned out to be a directory. We need to
       // create an output symlink for every file in it and all of its subdirectories. Only

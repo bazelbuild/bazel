@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
@@ -51,58 +50,6 @@ public final class FilesetTraversalParamsFactory {
   }
 
   /**
-   * Creates parameters for a recursive traversal request in a package.
-   *
-   * <p>"Recursive" means that a directory is traversed along with all of its subdirectories. Such
-   * a traversal is created when FilesetEntry.files is unspecified.
-   *
-   * @param ownerLabel the rule that created this object
-   * @param buildFile path of the BUILD file of the package to traverse
-   * @param destPath path in the Fileset's output directory that will be the root of files found
-   *     in this directory
-   * @param excludes optional; set of files directly under this package's directory to exclude;
-   *     files in subdirectories cannot be excluded
-   * @param symlinkBehaviorMode what to do with symlinks
-   * @param pkgBoundaryMode what to do when the traversal hits a subdirectory that is also a
-   * @param strictFilesetOutput whether Fileset assumes that output Artifacts are regular files.
-   */
-  public static FilesetTraversalParams recursiveTraversalOfPackage(Label ownerLabel,
-      Artifact buildFile, PathFragment destPath, @Nullable Set<String> excludes,
-      SymlinkBehavior symlinkBehaviorMode, PackageBoundaryMode pkgBoundaryMode,
-      boolean strictFilesetOutput) {
-    Preconditions.checkState(buildFile.isSourceArtifact(), "%s", buildFile);
-    return DirectoryTraversalParams.getDirectoryTraversalParams(ownerLabel,
-        DirectTraversalRoot.forPackage(buildFile), true, destPath, excludes,
-        symlinkBehaviorMode, pkgBoundaryMode, strictFilesetOutput, true, false);
-  }
-
-  /**
-   * Creates parameters for a recursive traversal request in a directory.
-   *
-   * <p>"Recursive" means that a directory is traversed along with all of its subdirectories. Such
-   * a traversal is created when FilesetEntry.files is unspecified.
-   *
-   * @param ownerLabel the rule that created this object
-   * @param directoryToTraverse path of the directory to traverse
-   * @param destPath path in the Fileset's output directory that will be the root of files found
-   *     in this directory
-   * @param excludes optional; set of files directly below this directory to exclude; files in
-   *     subdirectories cannot be excluded
-   * @param symlinkBehaviorMode what to do with symlinks
-   * @param pkgBoundaryMode what to do when the traversal hits a subdirectory that is also a
-   * @param strictFilesetOutput whether Fileset assumes that output Artifacts are regular files.
-   */
-  public static FilesetTraversalParams recursiveTraversalOfDirectory(Label ownerLabel,
-      Artifact directoryToTraverse, PathFragment destPath, @Nullable Set<String> excludes,
-      SymlinkBehavior symlinkBehaviorMode, PackageBoundaryMode pkgBoundaryMode,
-      boolean strictFilesetOutput) {
-    return DirectoryTraversalParams.getDirectoryTraversalParams(ownerLabel,
-        DirectTraversalRoot.forFileOrDirectory(directoryToTraverse), false, destPath,
-        excludes, symlinkBehaviorMode, pkgBoundaryMode, strictFilesetOutput, true,
-        !directoryToTraverse.isSourceArtifact());
-  }
-
-  /**
    * Creates parameters for a file traversal request.
    *
    * <p>Such a traversal is created for every entry in FilesetEntry.files, when it is specified.
@@ -119,9 +66,14 @@ public final class FilesetTraversalParamsFactory {
   public static FilesetTraversalParams fileTraversal(Label ownerLabel, Artifact fileToTraverse,
       PathFragment destPath, SymlinkBehavior symlinkBehaviorMode,
       PackageBoundaryMode pkgBoundaryMode, boolean strictFilesetOutput) {
-    return DirectoryTraversalParams.getDirectoryTraversalParams(ownerLabel,
-        DirectTraversalRoot.forFileOrDirectory(fileToTraverse), false, destPath, null,
-        symlinkBehaviorMode, pkgBoundaryMode, strictFilesetOutput, false,
+    return DirectoryTraversalParams.getDirectoryTraversalParams(
+        ownerLabel,
+        DirectTraversalRoot.forFileOrDirectory(fileToTraverse),
+        destPath,
+        null,
+        symlinkBehaviorMode,
+        pkgBoundaryMode,
+        strictFilesetOutput,
         !fileToTraverse.isSourceArtifact());
   }
 
@@ -181,17 +133,19 @@ public final class FilesetTraversalParamsFactory {
     static DirectoryTraversalParams getDirectoryTraversalParams(
         Label ownerLabelForErrorMessages,
         DirectTraversalRoot root,
-        boolean isPackage,
         PathFragment destPath,
         @Nullable Set<String> excludes,
         SymlinkBehavior symlinkBehaviorMode,
         PackageBoundaryMode pkgBoundaryMode,
         boolean strictFilesetOutput,
-        boolean isRecursive,
         boolean isGenerated) {
-      DirectTraversal traversal = DirectTraversal.getDirectTraversal(root, isPackage,
-          symlinkBehaviorMode == SymlinkBehavior.DEREFERENCE, pkgBoundaryMode, strictFilesetOutput,
-          isRecursive, isGenerated);
+      DirectTraversal traversal =
+          DirectTraversal.getDirectTraversal(
+              root,
+              symlinkBehaviorMode == SymlinkBehavior.DEREFERENCE,
+              pkgBoundaryMode,
+              strictFilesetOutput,
+              isGenerated);
       return new AutoValue_FilesetTraversalParamsFactory_DirectoryTraversalParams(
           ownerLabelForErrorMessages, destPath, getOrderedExcludes(excludes), traversal);
     }
