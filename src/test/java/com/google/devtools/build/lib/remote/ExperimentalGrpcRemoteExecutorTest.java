@@ -66,11 +66,10 @@ public class ExperimentalGrpcRemoteExecutorTest extends GrpcRemoteExecutorTestBa
   @Test
   public void executeRemotely_executeAndRetryWait_forever() throws Exception {
     executionService.whenExecute(DUMMY_REQUEST).thenAck().finish();
-    int errorTimes = MAX_RETRY_ATTEMPTS * 2;
+    int errorTimes = MAX_RETRY_ATTEMPTS;
     for (int i = 0; i < errorTimes; ++i) {
       executionService
           .whenWaitExecution(DUMMY_REQUEST)
-          .thenAck()
           .thenError(Status.DEADLINE_EXCEEDED.asRuntimeException());
     }
     executionService.whenWaitExecution(DUMMY_REQUEST).thenDone(DUMMY_RESPONSE);
@@ -151,7 +150,6 @@ public class ExperimentalGrpcRemoteExecutorTest extends GrpcRemoteExecutorTestBa
     executionService.whenExecute(DUMMY_REQUEST).thenAck().finish();
     executionService
         .whenWaitExecution(DUMMY_REQUEST)
-        .thenAck()
         .thenError(Status.UNAUTHENTICATED.asRuntimeException());
     executionService.whenWaitExecution(DUMMY_REQUEST).thenAck().thenDone(DUMMY_RESPONSE);
 
