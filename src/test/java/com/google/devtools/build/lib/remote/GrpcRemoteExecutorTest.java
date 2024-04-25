@@ -88,7 +88,7 @@ public class GrpcRemoteExecutorTest extends GrpcRemoteExecutorTestBase {
   public void executeRemotely_retryWaitExecutionWhenUnauthenticated()
       throws IOException, InterruptedException {
     executionService.whenExecute(DUMMY_REQUEST).thenAck().finish();
-    executionService.whenWaitExecution(DUMMY_REQUEST).thenAck().thenError(Code.UNAUTHENTICATED);
+    executionService.whenWaitExecution(DUMMY_REQUEST).thenError(Code.UNAUTHENTICATED);
     executionService.whenExecute(DUMMY_REQUEST).thenAck().thenDone(DUMMY_RESPONSE);
 
     ExecuteResponse response =
