@@ -77,6 +77,7 @@ cc_binary(
         ":lib-file",
         ":lib-process",
         "//src/main/native:blake3_jni",
+        "//src/main/native:sqlite_jni",
     ],
 )
 
