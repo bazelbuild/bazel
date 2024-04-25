@@ -18,7 +18,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.util.PersistentMap;
-import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringIndexer;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -88,7 +87,7 @@ final class PersistentStringIndexer implements StringIndexer {
     if (i != null) {
       return i;
     }
-    s = StringCanonicalizer.intern(s);
+    s = s.intern();
     synchronized (this) {
       i = stringToInt.size();
       Integer existing = stringToInt.putIfAbsent(s, i);

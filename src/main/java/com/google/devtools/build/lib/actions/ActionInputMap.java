@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
-import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -97,7 +96,7 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
 
     private void put(String name, Object val) {
       // Input path segments are commonly shared among actions, so intern before storing.
-      name = StringCanonicalizer.intern(name);
+      name = name.intern();
 
       switch (subFolders.size()) {
         case 0 -> subFolders = ImmutableMap.of(name, val);

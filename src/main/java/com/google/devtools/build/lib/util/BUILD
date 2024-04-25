@@ -312,14 +312,10 @@ java_library(
 java_library(
     name = "string",
     srcs = [
-        "StringCanonicalizer.java",
         "StringUtil.java",
         "StringUtilities.java",
     ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//third_party:guava",
-    ],
+    deps = ["//third_party:guava"],
 )
 
 java_library(

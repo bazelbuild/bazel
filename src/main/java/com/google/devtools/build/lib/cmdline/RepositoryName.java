@@ -22,7 +22,6 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -61,7 +60,7 @@ public final class RepositoryName {
           .build(
               name -> {
                 validate(name);
-                return new RepositoryName(StringCanonicalizer.intern(name));
+                return new RepositoryName(name.intern());
               });
 
   /**
