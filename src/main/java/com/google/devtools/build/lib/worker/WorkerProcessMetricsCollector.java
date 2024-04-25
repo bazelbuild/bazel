@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics.WorkerStatus;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.metrics.CgroupsInfoCollector;
 import com.google.devtools.build.lib.metrics.PsInfoCollector;
@@ -46,7 +47,7 @@ public class WorkerProcessMetricsCollector {
   private final PsInfoCollector psInfoCollector;
   private final CgroupsInfoCollector cgroupsInfoCollector;
 
-  private Clock clock;
+  private Clock clock = BlazeClock.instance();
 
   /**
    * Mapping of worker process ids to their process metrics. This contains all workers that have

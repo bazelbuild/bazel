@@ -296,14 +296,6 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean recordFullProfilerData;
 
   @Option(
-      name = "experimental_collect_worker_data_in_profiler",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.BAZEL_MONITORING},
-      help = "If enabled, the profiler collects worker's aggregated resource data.")
-  public boolean collectWorkerDataInProfiler;
-
-  @Option(
       name = "experimental_collect_load_average_in_profiler",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.LOGGING,

@@ -413,7 +413,6 @@ public class BlazeRuntimeWrapper {
                 runtime.getBugReporter(),
                 WorkerProcessMetricsCollector.instance(),
                 env.getLocalResourceManager(),
-                /* collectWorkerDataInProfiler= */ false,
                 /* collectLoadAverage= */ false,
                 /* collectSystemNetworkUsage= */ false,
                 /* collectResourceManagerEstimation= */ false,

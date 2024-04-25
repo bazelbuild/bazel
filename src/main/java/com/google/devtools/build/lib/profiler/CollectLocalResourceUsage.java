@@ -53,7 +53,6 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
   private static final Duration LOCAL_RESOURCES_COLLECT_SLEEP_INTERVAL = Duration.ofMillis(200);
 
   private final BugReporter bugReporter;
-  private final boolean collectWorkerDataInProfiler;
   private final boolean collectLoadAverage;
   private final boolean collectSystemNetworkUsage;
   private final boolean collectResourceManagerEstimation;
@@ -82,13 +81,11 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
       BugReporter bugReporter,
       WorkerProcessMetricsCollector workerProcessMetricsCollector,
       ResourceEstimator resourceEstimator,
-      boolean collectWorkerDataInProfiler,
       boolean collectLoadAverage,
       boolean collectSystemNetworkUsage,
       boolean collectResourceManagerEstimation,
       boolean collectPressureStallIndicators) {
     this.bugReporter = checkNotNull(bugReporter);
-    this.collectWorkerDataInProfiler = collectWorkerDataInProfiler;
     this.workerProcessMetricsCollector = workerProcessMetricsCollector;
     this.collectLoadAverage = collectLoadAverage;
     this.collectSystemNetworkUsage = collectSystemNetworkUsage;
@@ -125,11 +122,9 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
                 ProfilerTask.LOCAL_CPU_USAGE,
                 ProfilerTask.LOCAL_MEMORY_USAGE,
                 ProfilerTask.SYSTEM_CPU_USAGE,
-                ProfilerTask.SYSTEM_MEMORY_USAGE));
+                ProfilerTask.SYSTEM_MEMORY_USAGE,
+                ProfilerTask.WORKERS_MEMORY_USAGE));
 
-        if (collectWorkerDataInProfiler) {
-          enabledCounters.add(ProfilerTask.WORKERS_MEMORY_USAGE);
-        }
         if (collectLoadAverage) {
           enabledCounters.add(ProfilerTask.SYSTEM_LOAD_AVERAGE);
         }
@@ -220,8 +215,8 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
         }
 
         int workerMemoryUsageMb = 0;
-        if (collectWorkerDataInProfiler) {
-          try (SilentCloseable c = Profiler.instance().profile("Worker metrics collection")) {
+        try (SilentCloseable c = Profiler.instance().profile("Worker metrics collection")) {
+          if (OS.getCurrent() == OS.LINUX || OS.getCurrent() == OS.DARWIN) {
             workerMemoryUsageMb =
                 workerProcessMetricsCollector.getLiveWorkerProcessMetrics().stream()
                         .mapToInt(WorkerProcessMetrics::getUsedMemoryInKb)
@@ -278,8 +273,13 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
               previousElapsed,
               nextElapsed,
               (double) systemMemoryUsageMb);
-          addRange(
-              ProfilerTask.WORKERS_MEMORY_USAGE, previousElapsed, nextElapsed, workerMemoryUsageMb);
+          if (workerMemoryUsageMb > 0) {
+            addRange(
+                ProfilerTask.WORKERS_MEMORY_USAGE,
+                previousElapsed,
+                nextElapsed,
+                workerMemoryUsageMb);
+          }
           if (loadAverage > 0) {
             addRange(ProfilerTask.SYSTEM_LOAD_AVERAGE, previousElapsed, nextElapsed, loadAverage);
           }
