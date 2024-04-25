@@ -89,13 +89,22 @@ public class BazelLockFileModule extends BlazeModule {
               }
             });
 
+    BazelDepGraphValue depGraphValue;
+    try {
+      depGraphValue = (BazelDepGraphValue) evaluator.getExistingValue(BazelDepGraphValue.KEY);
+    } catch (InterruptedException e) {
+      // Not thrown in Bazel.
+      throw new IllegalStateException(e);
+    }
+
     BazelLockFileValue oldLockfile = moduleResolutionEvent.getOnDiskLockfileValue();
     // Create an updated version of the lockfile, keeping only the extension results from the old
     // lockfile that are still up-to-date and adding the newly resolved extension results.
     BazelLockFileValue newLockfile =
         moduleResolutionEvent.getResolutionOnlyLockfileValue().toBuilder()
             .setModuleExtensions(
-                combineModuleExtensions(oldLockfile.getModuleExtensions(), newExtensionInfos))
+                combineModuleExtensions(
+                    oldLockfile.getModuleExtensions(), newExtensionInfos, depGraphValue))
             .build();
 
     // Write the new value to the file, but only if needed. This is not just a performance
@@ -119,7 +128,8 @@ public class BazelLockFileModule extends BlazeModule {
                   ModuleExtensionId,
                   ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
               oldExtensionInfos,
-          Map<ModuleExtensionId, LockFileModuleExtension.WithFactors> newExtensionInfos) {
+          Map<ModuleExtensionId, LockFileModuleExtension.WithFactors> newExtensionInfos,
+          BazelDepGraphValue depGraphValue) {
     Map<ModuleExtensionId, ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
         updatedExtensionMap = new HashMap<>();
 
@@ -137,7 +147,8 @@ public class BazelLockFileModule extends BlazeModule {
           moduleExtensionId,
           firstEntryFactors,
           firstEntryExtension.getUsagesDigest(),
-          newExtensionInfos.get(moduleExtensionId))) {
+          newExtensionInfos.get(moduleExtensionId),
+          depGraphValue)) {
         updatedExtensionMap.put(moduleExtensionId, factorToLockedExtension);
       }
     }
@@ -183,13 +194,17 @@ public class BazelLockFileModule extends BlazeModule {
    *
    * @param lockedExtensionKey object holding the old extension id and state of os and arch
    * @param oldUsagesDigest the digest of usages of this extension in the existing lockfile
+   * @param newExtensionInfo the in-memory lockfile entry produced by the most recent up-to-date
+   *     evaluation of this extension (if any)
+   * @param depGraphValue the dep graph value
    * @return True if this extension should still be in lockfile, false otherwise
    */
   private boolean shouldKeepExtension(
       ModuleExtensionId extensionId,
       ModuleExtensionEvalFactors lockedExtensionKey,
       byte[] oldUsagesDigest,
-      @Nullable LockFileModuleExtension.WithFactors newExtensionInfo) {
+      @Nullable LockFileModuleExtension.WithFactors newExtensionInfo,
+      BazelDepGraphValue depGraphValue) {
 
     // If there is a new event for this extension, compare it with the existing ones
     if (newExtensionInfo != null) {
@@ -210,10 +225,15 @@ public class BazelLockFileModule extends BlazeModule {
     // that irrelevant changes (e.g. locations or imports) don't cause the extension to be removed.
     // Note: Extension results can still be stale for other reasons, e.g. because their transitive
     // bzl hash changed, but such changes will be detected in SingleExtensionEvalFunction.
+    var usagesValue = SingleExtensionUsagesFunction.createValue(depGraphValue, extensionId);
+    if (usagesValue.isEmpty()) {
+      // The extension is no longer used anywhere, drop it.
+      return false;
+    }
     return Arrays.equals(
-        ModuleExtensionUsage.hashForEvaluation(
-            GsonTypeAdapterUtil.createModuleExtensionUsagesHashGson(),
-            moduleResolutionEvent.getExtensionUsagesById().row(extensionId)),
+        SingleExtensionUsagesValue.hashForEvaluation(
+            GsonTypeAdapterUtil.createSingleExtensionUsagesValueHashGson(),
+            SingleExtensionUsagesFunction.createValue(depGraphValue, extensionId).get()),
         oldUsagesDigest);
   }
 

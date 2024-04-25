@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -49,17 +50,30 @@ public class SingleExtensionUsagesFunction implements SkyFunction {
     }
 
     ModuleExtensionId id = (ModuleExtensionId) skyKey.argument();
+    // We never request an extension without usages in Skyframe.
+    return createValue(bazelDepGraphValue, id).get();
+  }
+
+  public static Optional<SingleExtensionUsagesValue> createValue(
+      BazelDepGraphValue depGraphValue, ModuleExtensionId id) {
     ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> usagesTable =
-        bazelDepGraphValue.getExtensionUsagesTable();
-    return SingleExtensionUsagesValue.create(
-        usagesTable.row(id),
-        bazelDepGraphValue.getExtensionUniqueNames().get(id),
-        // Filter abridged modules down to only those that actually used this extension.
-        bazelDepGraphValue.getAbridgedModules().stream()
-            .filter(module -> usagesTable.contains(id, module.getKey()))
-            .collect(toImmutableList()),
-        // TODO(wyv): Maybe cache these mappings?
-        usagesTable.row(id).keySet().stream()
-            .collect(toImmutableMap(key -> key, bazelDepGraphValue::getFullRepoMapping)));
+        depGraphValue.getExtensionUsagesTable();
+    if (!usagesTable.containsRow(id)) {
+      return Optional.empty();
+    }
+    return Optional.of(
+        SingleExtensionUsagesValue.builder()
+            .setExtensionUsages(usagesTable.row(id))
+            .setExtensionUniqueName(depGraphValue.getExtensionUniqueNames().get(id))
+            .setAbridgedModules(
+                // Filter abridged modules down to only those that actually used this extension.
+                depGraphValue.getAbridgedModules().stream()
+                    .filter(module -> usagesTable.contains(id, module.getKey()))
+                    .collect(toImmutableList()))
+            .setRepoMappings(
+                // TODO(wyv): Maybe cache these mappings?
+                usagesTable.row(id).keySet().stream()
+                    .collect(toImmutableMap(key -> key, depGraphValue::getFullRepoMapping)))
+            .build());
   }
 }

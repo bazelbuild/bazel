@@ -18,6 +18,8 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
+import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
@@ -26,9 +28,17 @@ import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.gson.Gson;
+import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 
-/** The result of {@link SingleExtensionUsagesFunction}. */
+/**
+ * The result of {@link SingleExtensionUsagesFunction}.
+ *
+ * <p>When adding or exposing new fields to extensions, make sure to update {@link
+ * #trimForEvaluation()} as well.
+ */
 @AutoValue
+@GenerateTypeAdapter
 public abstract class SingleExtensionUsagesValue implements SkyValue {
   /** All usages of this extension, by the key of the module where the usage occurs. */
   // Note: Equality of SingleExtensionUsagesValue does not check for equality of the order of the
@@ -46,17 +56,61 @@ public abstract class SingleExtensionUsagesValue implements SkyValue {
   /** The repo mappings to use for each module that used this extension. */
   public abstract ImmutableMap<ModuleKey, RepositoryMapping> getRepoMappings();
 
-  public static SingleExtensionUsagesValue create(
-      ImmutableMap<ModuleKey, ModuleExtensionUsage> extensionUsages,
-      String extensionUniqueName,
-      ImmutableList<AbridgedModule> abridgedModules,
-      ImmutableMap<ModuleKey, RepositoryMapping> repoMappings) {
-    return new AutoValue_SingleExtensionUsagesValue(
-        extensionUsages, extensionUniqueName, abridgedModules, repoMappings);
+  abstract Builder toBuilder();
+
+  public static Builder builder() {
+    return new AutoValue_SingleExtensionUsagesValue.Builder();
+  }
+
+  /**
+   * Turns the given usages value for a particular extension into a hash that can be compared for
+   * equality with another hash obtained in this way and compares equal only if the two values are
+   * equivalent for the purpose of evaluating the extension.
+   */
+  static byte[] hashForEvaluation(Gson gson, SingleExtensionUsagesValue usagesValue) {
+    return Hashing.sha256()
+        .hashUnencodedChars(gson.toJson(usagesValue.trimForEvaluation()))
+        .asBytes();
+  }
+
+  /**
+   * Returns a new value with all information removed that does not influence the evaluation of the
+   * extension.
+   */
+  SingleExtensionUsagesValue trimForEvaluation() {
+    return toBuilder()
+        .setExtensionUsages(
+            ImmutableMap.copyOf(
+                Maps.transformValues(
+                    getExtensionUsages(), ModuleExtensionUsage::trimForEvaluation)))
+        // The unique name of the extension is not accessible to the extension's implementation
+        // function.
+        // TODO: Reconsider this when resolving #19055.
+        .setExtensionUniqueName("")
+        // The usage of repo mappings by the extension's implementation function is tracked on the
+        // level of individual entries and all label attributes are provided as `Label`, which
+        // exclusively reference canonical repository names.
+        .setRepoMappings(ImmutableMap.of())
+        .build();
   }
 
   public static Key key(ModuleExtensionId id) {
     return Key.create(id);
+  }
+
+  /** Builder for {@link SingleExtensionUsagesValue}. */
+  @AutoValue.Builder
+  abstract static class Builder {
+
+    public abstract Builder setExtensionUsages(ImmutableMap<ModuleKey, ModuleExtensionUsage> value);
+
+    public abstract Builder setExtensionUniqueName(String value);
+
+    public abstract Builder setAbridgedModules(ImmutableList<AbridgedModule> value);
+
+    public abstract Builder setRepoMappings(ImmutableMap<ModuleKey, RepositoryMapping> value);
+
+    public abstract SingleExtensionUsagesValue build();
   }
 
   @AutoCodec

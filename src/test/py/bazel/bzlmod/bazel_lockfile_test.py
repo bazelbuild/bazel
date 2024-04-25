@@ -2222,6 +2222,110 @@ class BazelLockfileTest(test_base.TestBase):
         'attempted to watch path outside workspace', '\n'.join(stderr)
     )
 
+  def testModuleExtensionRerunsOnNameChange(self):
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'module(name = "old_name", version = "1.2.3", repo_name = "fixed_name")',
+        'lockfile_ext = use_extension("//:extension.bzl", "lockfile_ext")',
+        'use_repo(lockfile_ext, "hello")',
+      ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+      'extension.bzl',
+      [
+        'def _repo_rule_impl(ctx):',
+        '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+        '',
+        'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+        '',
+        'def _module_ext_impl(ctx):',
+        '    print("I am running the extension: " + ctx.modules[0].name)',
+        '    repo_rule(name="hello")',
+        '',
+        'lockfile_ext = module_extension(',
+        '    implementation=_module_ext_impl',
+        ')',
+      ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertIn('I am running the extension: old_name', stderr)
+
+    # Shutdown bazel to empty cache and run with no changes
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertNotIn('I am running the extension: old_name', stderr)
+
+    # Update module name and rerun
+    self.RunBazel(['shutdown'])
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'module(name = "new_name", version = "1.2.3", repo_name = "fixed_name")',
+        'lockfile_ext = use_extension("//:extension.bzl", "lockfile_ext")',
+        'use_repo(lockfile_ext, "hello")',
+      ],
+    )
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertIn('I am running the extension: new_name', stderr)
+
+  def testModuleExtensionRerunsOnVersionChange(self):
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'module(name = "old_name", version = "1.2.3")',
+        'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+        'use_repo(lockfile_ext, "hello")',
+      ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+      'extension.bzl',
+      [
+        'def _repo_rule_impl(ctx):',
+        '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+        '',
+        'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+        '',
+        'def _module_ext_impl(ctx):',
+        '    print("I am running the extension: " + ctx.modules[0].version)',
+        '    repo_rule(name="hello")',
+        '',
+        'lockfile_ext = module_extension(',
+        '    implementation=_module_ext_impl',
+        ')',
+      ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertIn('I am running the extension: 1.2.3', stderr)
+
+    # Shutdown bazel to empty cache and run with no changes
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertNotIn('I am running the extension: 1.2.3', stderr)
+
+    # Update module name and rerun
+    self.RunBazel(['shutdown'])
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'module(name = "old_name", version = "4.5.6")',
+        'lockfile_ext = use_extension("extension.bzl", "lockfile_ext")',
+        'use_repo(lockfile_ext, "hello")',
+      ],
+    )
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = ''.join(stderr)
+    self.assertIn('I am running the extension: 4.5.6', stderr)
+
 
 if __name__ == '__main__':
   absltest.main()
