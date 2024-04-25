@@ -13,7 +13,7 @@
     "compatibilityMode": "ERROR"
   },
   "localOverrideHashes": {
-    "bazel_tools": "7631c24ab20d40e76d3fe317703b2519af9dc7e10edeef7bfe1d362f0495b513"
+    "bazel_tools": "2db28a52a5aed3ab881eae06856ddfbe3d47c08108fd8002e0f8e615764f4f76"
   },
   "moduleDepGraph": {
     "<root>": {
