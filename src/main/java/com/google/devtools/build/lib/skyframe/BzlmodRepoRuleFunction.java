@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFile
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpec;
-import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalValue;
+import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -133,17 +133,17 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
       return BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE;
     }
 
-    SingleExtensionEvalValue extensionEval =
-        (SingleExtensionEvalValue) env.getValue(SingleExtensionEvalValue.key(extensionId.get()));
-    if (extensionEval == null) {
+    SingleExtensionValue extensionValue =
+        (SingleExtensionValue) env.getValue(SingleExtensionValue.key(extensionId.get()));
+    if (extensionValue == null) {
       return null;
     }
 
-    String internalRepo = extensionEval.getCanonicalRepoNameToInternalNames().get(repositoryName);
+    String internalRepo = extensionValue.getCanonicalRepoNameToInternalNames().get(repositoryName);
     if (internalRepo == null) {
       return BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE;
     }
-    RepoSpec extRepoSpec = extensionEval.getGeneratedRepoSpecs().get(internalRepo);
+    RepoSpec extRepoSpec = extensionValue.getGeneratedRepoSpecs().get(internalRepo);
     return createRuleFromSpec(extRepoSpec, repositoryName, starlarkSemantics, env);
   }
 

@@ -54,6 +54,9 @@ public class BzlmodRepoCycleReporter implements CyclesReporter.SingleCycleReport
   private static final Predicate<SkyKey> IS_EXTENSION_IMPL =
       SkyFunctions.isSkyFunction(SkyFunctions.SINGLE_EXTENSION_EVAL);
 
+  private static final Predicate<SkyKey> IS_EXTENSION_VALIDATION =
+      SkyFunctions.isSkyFunction(SkyFunctions.SINGLE_EXTENSION);
+
   private static final Predicate<SkyKey> IS_REPO_MAPPING =
       SkyFunctions.isSkyFunction(SkyFunctions.REPOSITORY_MAPPING);
 
@@ -107,6 +110,7 @@ public class BzlmodRepoCycleReporter implements CyclesReporter.SingleCycleReport
                 IS_PACKAGE_LOOKUP,
                 IS_REPO_RULE,
                 IS_EXTENSION_IMPL,
+                IS_EXTENSION_VALIDATION,
                 IS_BZL_LOAD,
                 IS_CONTAINING_PACKAGE,
                 IS_REPO_MAPPING,
