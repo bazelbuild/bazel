@@ -365,6 +365,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:runtime/build_event_streamer_utils",
+        "//src/main/java/com/google/devtools/build/lib:runtime/test_summary_options",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
