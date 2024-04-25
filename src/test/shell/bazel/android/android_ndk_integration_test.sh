@@ -40,6 +40,8 @@ source "${CURRENT_DIR}/../../integration_test_setup.sh" \
 
 resolve_android_toolchains
 
+add_to_bazelrc "build --extra_toolchains=@androidndk//:all"
+
 function create_android_binary() {
   mkdir -p java/bazel
   cat > java/bazel/BUILD <<EOF
@@ -176,7 +178,7 @@ EOF
 
 function check_num_sos() {
   num_sos=$(unzip -Z1 bazel-bin/java/bazel/bin.apk '*.so' | wc -l | sed -e 's/[[:space:]]//g')
-  assert_equals "5" "$num_sos"
+  assert_equals "4" "$num_sos"
 }
 
 function check_soname() {
@@ -203,17 +205,11 @@ function test_android_binary() {
   setup_android_ndk_support
   create_android_binary
 
-  # TODO(b/161709111): enable platform-based toolchain resolution when
-  # --fat_apk_cpu fully supports it. Now it sets a split transition that clears
-  # out --platforms. The mapping in android_helper.sh re-enables a test Android
-  # platform for ARM but not x86. Enabling it for x86 requires an
-  # Android-compatible cc toolchain in tools/cpp/BUILD.tools.
-  add_to_bazelrc "build --noincompatible_enable_android_toolchain_resolution"
-  add_to_bazelrc "build --noincompatible_enable_cc_toolchain_resolution"
+  cpus="armeabi-v7a,arm64-v8a,x86,x86_64"
 
-  cpus="armeabi,armeabi-v7a,arm64-v8a,x86,x86_64"
-
-  bazel build -s //java/bazel:bin --fat_apk_cpu="$cpus" || fail "build failed"
+  bazel build -s //java/bazel:bin --fat_apk_cpu="$cpus" \
+    --android_platforms=//test_android_platforms:x86,//test_android_platforms:x86_64,//test_android_platforms:armeabi-v7a,//test_android_platforms:arm64-v8a \
+     || fail "build failed"
   check_num_sos
   check_soname
 }
@@ -224,18 +220,11 @@ function test_android_binary_sibling_repository_layout() {
   setup_android_ndk_support
   create_android_binary
 
-  # TODO(b/161709111): enable platform-based toolchain resolution when
-  # --fat_apk_cpu fully supports it. Now it sets a split transition that clears
-  # out --platforms. The mapping in android_helper.sh re-enables a test Android
-  # platform for ARM but not x86. Enabling it for x86 requires an
-  # Android-compatible cc toolchain in tools/cpp/BUILD.tools.
-  add_to_bazelrc "build --noincompatible_enable_android_toolchain_resolution"
-  add_to_bazelrc "build --noincompatible_enable_cc_toolchain_resolution"
-
-  cpus="armeabi,armeabi-v7a,arm64-v8a,x86,x86_64"
+  cpus="armeabi-v7a,arm64-v8a,x86,x86_64"
 
   bazel build --experimental_sibling_repository_layout -s \
       //java/bazel:bin --fat_apk_cpu="$cpus" \
+      --android_platforms=//test_android_platforms:x86,//test_android_platforms:x86_64,//test_android_platforms:armeabi-v7a,//test_android_platforms:arm64-v8a \
       || fail "build failed"
   check_num_sos
   check_soname
@@ -247,19 +236,12 @@ function test_android_binary_clang() {
   setup_android_ndk_support
   create_android_binary
 
-  # TODO(b/161709111): enable platform-based toolchain resolution when
-  # --fat_apk_cpu fully supports it. Now it sets a split transition that clears
-  # out --platforms. The mapping in android_helper.sh re-enables a test Android
-  # platform for ARM but not x86. Enabling it for x86 requires an
-  # Android-compatible cc toolchain in tools/cpp/BUILD.tools.
-  add_to_bazelrc "build --noincompatible_enable_android_toolchain_resolution"
-  add_to_bazelrc "build --noincompatible_enable_cc_toolchain_resolution"
-
-  cpus="armeabi,armeabi-v7a,arm64-v8a,x86,x86_64"
+  cpus="armeabi-v7a,arm64-v8a,x86,x86_64"
 
   bazel build -s //java/bazel:bin \
       --fat_apk_cpu="$cpus" \
       --android_compiler=clang5.0.300080 \
+      --android_platforms=//test_android_platforms:x86,//test_android_platforms:x86_64,//test_android_platforms:armeabi-v7a,//test_android_platforms:arm64-v8a \
       || fail "build failed"
   check_num_sos
   check_soname
@@ -397,46 +379,6 @@ EOF
     || fail "build failed with --features=compiler_param_file"
 }
 
-function test_crosstool_stlport() {
-  create_new_workspace
-  setup_android_sdk_support
-  setup_android_ndk_support
-  cat > BUILD <<EOF
-cc_binary(
-    name = "foo",
-    srcs = ["foo.cc"],
-    linkopts = ["-ldl"],
-)
-EOF
-  cat > foo.cc <<EOF
-#include <string>
-#include <jni.h>
-#include <android/log.h>
-#include <cstdio>
-#include <iostream>
-
-using namespace std;
-int main(){
-  string foo = "foo";
-  string bar = "bar";
-  string foobar = foo + bar;
-  return 0;
-}
-EOF
-  assert_build //:foo \
-    --noincompatible_enable_cc_toolchain_resolution \
-    --cpu=armeabi-v7a \
-    --crosstool_top=@androidndk//:toolchain-stlport \
-    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
-
-  assert_build //:foo \
-    --noincompatible_enable_cc_toolchain_resolution \
-    --features=compiler_param_file \
-    --cpu=armeabi-v7a \
-    --crosstool_top=@androidndk//:toolchain-stlport \
-    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
-}
-
 function test_crosstool_libcpp() {
   create_new_workspace
   setup_android_sdk_support
@@ -475,45 +417,6 @@ EOF
     --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
 }
 
-function test_crosstool_gnu_libstdcpp() {
-  create_new_workspace
-  setup_android_sdk_support
-  setup_android_ndk_support
-  cat > BUILD <<EOF
-cc_binary(
-    name = "foo",
-    srcs = ["foo.cc"],
-)
-EOF
-  cat > foo.cc <<EOF
-#include <string>
-#include <jni.h>
-#include <android/log.h>
-#include <cstdio>
-#include <iostream>
-
-using namespace std;
-int main(){
-  string foo = "foo";
-  string bar = "bar";
-  string foobar = foo + bar;
-  return 0;
-}
-EOF
-  assert_build //:foo \
-    --noincompatible_enable_cc_toolchain_resolution \
-    --cpu=armeabi-v7a \
-    --crosstool_top=@androidndk//:toolchain-gnu-libstdcpp \
-    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
-
-  assert_build //:foo \
-    --noincompatible_enable_cc_toolchain_resolution \
-    --features=compiler_param_file \
-    --cpu=armeabi-v7a \
-    --crosstool_top=@androidndk//:toolchain-gnu-libstdcpp \
-    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
-}
-
 function test_platforms_and_toolchains() {
   create_new_workspace
   setup_android_sdk_support
@@ -524,12 +427,6 @@ cc_binary(
     srcs = ["foo.cc"],
     linkopts = ["-ldl", "-lm"],
 )
-
-platform(
-    name = 'android_arm',
-    constraint_values = ['@platforms//cpu:armv7', '@platforms//os:android'],
-    visibility = ['//visibility:public']
-)
 EOF
   cat > foo.cc <<EOF
 #include <string>
@@ -549,49 +446,13 @@ EOF
   assert_build //:foo \
     --cpu=armeabi-v7a \
     --crosstool_top=@androidndk//:toolchain-libcpp \
-    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
-    --platforms=//:android_arm \
-    --extra_toolchains=@androidndk//:all
+    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
 
   assert_build //:foo \
     --features=compiler_param_file \
     --cpu=armeabi-v7a \
     --crosstool_top=@androidndk//:toolchain-libcpp \
-    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
-    --platforms=//:android_arm \
-    --extra_toolchains=@androidndk//:all
-}
-
-function test_crosstool_libcpp_with_multiarch() {
-  create_new_workspace
-  setup_android_sdk_support
-  setup_android_ndk_support
-  create_android_binary
-
-  # TODO(b/161709111): enable platform-based toolchain resolution when
-  # --fat_apk_cpu fully supports it. Now it sets a split transition that clears
-  # out --platforms. The mapping in android_helper.sh re-enables a test Android
-  # platform for ARM but not x86. Enabling it for x86 requires an
-  # Android-compatible cc toolchain in tools/cpp/BUILD.tools.
-  add_to_bazelrc "build --noincompatible_enable_android_toolchain_resolution"
-
-  cpus="armeabi,armeabi-v7a,arm64-v8a,x86,x86_64"
-
-  assert_build //java/bazel:bin \
-    --noincompatible_enable_cc_toolchain_resolution \
-    --fat_apk_cpu="$cpus" \
-    --android_crosstool_top=@androidndk//:toolchain-libcpp \
     --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
-
-  assert_build //java/bazel:bin \
-    --noincompatible_enable_cc_toolchain_resolution \
-    --features=compiler_param_file \
-    --fat_apk_cpu="$cpus" \
-    --android_crosstool_top=@androidndk//:toolchain-libcpp \
-    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
-
-  check_num_sos
-  check_soname
 }
 
 run_suite "Android NDK integration tests"
