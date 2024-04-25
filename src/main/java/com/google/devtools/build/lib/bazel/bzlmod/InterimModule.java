@@ -50,9 +50,6 @@ public abstract class InterimModule extends ModuleBase {
   /** List of bazel compatible versions that would run/fail this module */
   public abstract ImmutableList<String> getBazelCompatibility();
 
-  /** The reason why this module was yanked or empty if it hasn't been yanked. */
-  public abstract Optional<String> getYankedInfo();
-
   /** The specification of a dependency. */
   @AutoValue
   public abstract static class DepSpec {
@@ -105,8 +102,7 @@ public abstract class InterimModule extends ModuleBase {
         .setName("")
         .setVersion(Version.EMPTY)
         .setKey(ModuleKey.ROOT)
-        .setCompatibilityLevel(0)
-        .setYankedInfo(Optional.empty());
+        .setCompatibilityLevel(0);
   }
 
   /**
@@ -136,9 +132,6 @@ public abstract class InterimModule extends ModuleBase {
 
     /** Optional; defaults to {@link #setName}. */
     public abstract Builder setRepoName(String value);
-
-    /** Optional; defaults to {@link Optional#empty()}. */
-    public abstract Builder setYankedInfo(Optional<String> value);
 
     public abstract Builder setBazelCompatibility(ImmutableList<String> value);
 
