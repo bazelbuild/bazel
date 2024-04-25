@@ -981,11 +981,15 @@ public final class UiEventHandler implements EventHandler {
    * Stop the update thread and wait for it to terminate. As the update thread, which is a separate
    * thread, might have to call a synchronized method between being interrupted and terminating, DO
    * NOT CALL from a SYNCHRONIZED block, as this will give the opportunity for dead locks.
+   *
+   * If this is called from the updateThread itself, ignore the interrupt/join, as it is hopefully
+   * handling a FATAL, and should be terminating anyway.
    */
   private void stopUpdateThread() {
     shutdown = true;
     Thread threadToWaitFor = updateThread.getAndSet(null);
-    if (threadToWaitFor != null) {
+    // we could be second to wait here, or be the current thread, which would hang
+    if (threadToWaitFor != null && threadToWaitFor != Thread.currentThread()) {
       threadToWaitFor.interrupt();
       Uninterruptibles.joinUninterruptibly(threadToWaitFor);
     }
