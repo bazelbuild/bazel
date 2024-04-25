@@ -63,9 +63,14 @@ public final class FilesetTraversalParamsFactory {
    * @param pkgBoundaryMode what to do when the traversal hits a subdirectory that is also a
    * @param strictFilesetOutput whether Fileset assumes that output Artifacts are regular files.
    */
-  public static FilesetTraversalParams fileTraversal(Label ownerLabel, Artifact fileToTraverse,
-      PathFragment destPath, SymlinkBehavior symlinkBehaviorMode,
-      PackageBoundaryMode pkgBoundaryMode, boolean strictFilesetOutput) {
+  public static FilesetTraversalParams fileTraversal(
+      Label ownerLabel,
+      Artifact fileToTraverse,
+      PathFragment destPath,
+      SymlinkBehavior symlinkBehaviorMode,
+      PackageBoundaryMode pkgBoundaryMode,
+      boolean strictFilesetOutput,
+      boolean permitDirectories) {
     return DirectoryTraversalParams.getDirectoryTraversalParams(
         ownerLabel,
         DirectTraversalRoot.forFileOrDirectory(fileToTraverse),
@@ -74,6 +79,7 @@ public final class FilesetTraversalParamsFactory {
         symlinkBehaviorMode,
         pkgBoundaryMode,
         strictFilesetOutput,
+        permitDirectories,
         !fileToTraverse.isSourceArtifact());
   }
 
@@ -138,6 +144,7 @@ public final class FilesetTraversalParamsFactory {
         SymlinkBehavior symlinkBehaviorMode,
         PackageBoundaryMode pkgBoundaryMode,
         boolean strictFilesetOutput,
+        boolean permitDirectories,
         boolean isGenerated) {
       DirectTraversal traversal =
           DirectTraversal.getDirectTraversal(
@@ -145,6 +152,7 @@ public final class FilesetTraversalParamsFactory {
               symlinkBehaviorMode == SymlinkBehavior.DEREFERENCE,
               pkgBoundaryMode,
               strictFilesetOutput,
+              permitDirectories,
               isGenerated);
       return new AutoValue_FilesetTraversalParamsFactory_DirectoryTraversalParams(
           ownerLabelForErrorMessages, destPath, getOrderedExcludes(excludes), traversal);

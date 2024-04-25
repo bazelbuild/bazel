@@ -83,6 +83,18 @@ public final class FilesetEntryFunction implements SkyFunction {
       return FilesetEntryValue.EMPTY;
     }
 
+    // Check if directory traversal is permitted
+    if (resolvedRoot.getType().isDirectory() && !params.getDirectTraversal().permitDirectories()) {
+      throw new FilesetEntryFunctionException(
+          new RecursiveFilesystemTraversalException(
+              String.format(
+                  "%s contains a directory artifact '%s' and is restricted by %s",
+                  params.getOwnerLabelForErrorMessages(),
+                  params.getDestPath(),
+                  "tools/allowlists/fileset_dir_in_files_allowlist"),
+              RecursiveFilesystemTraversalException.Type.FILE_OPERATION_FAILURE));
+    }
+
     // The "direct" traversal params are present, which is the case when the FilesetEntry
     // specifies a package's BUILD file, a directory or a list of files.
 

@@ -182,6 +182,9 @@ public interface FilesetTraversalParams {
     /** Returns whether Filesets treat outputs in a strict manner, assuming regular files. */
     public abstract boolean isStrictFilesetOutput();
 
+    /** Returns whether directories are permitted and can be traversed. */
+    public abstract boolean permitDirectories();
+
     @Memoized
     @Override
     public abstract int hashCode();
@@ -193,6 +196,7 @@ public interface FilesetTraversalParams {
       fp.addBoolean(isFollowingSymlinks());
       fp.addBoolean(isGenerated());
       fp.addBoolean(isStrictFilesetOutput());
+      fp.addBoolean(permitDirectories());
       getPackageBoundaryMode().fingerprint(fp);
       return fp.digestAndReset();
     }
@@ -202,9 +206,15 @@ public interface FilesetTraversalParams {
         boolean followingSymlinks,
         PackageBoundaryMode packageBoundaryMode,
         boolean isStrictFilesetOutput,
+        boolean permitSourceDirectories,
         boolean isGenerated) {
       return new AutoValue_FilesetTraversalParams_DirectTraversal(
-          root, isGenerated, followingSymlinks, packageBoundaryMode, isStrictFilesetOutput);
+          root,
+          isGenerated,
+          followingSymlinks,
+          packageBoundaryMode,
+          isStrictFilesetOutput,
+          permitSourceDirectories);
     }
   }
 
