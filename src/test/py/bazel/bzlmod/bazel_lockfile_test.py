@@ -996,6 +996,114 @@ class BazelLockfileTest(test_base.TestBase):
 
     self.assertEqual(old_data, new_data)
 
+  def testLockfileRecreationUsesPreviousBuildResults(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext1 = use_extension("extension.bzl", "lockfile_ext1")',
+            'use_repo(lockfile_ext1, "hello1")',
+            'lockfile_ext2 = use_extension("extension.bzl", "lockfile_ext2")',
+            'use_repo(lockfile_ext2, "hello2")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            '',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _module_ext1_impl(ctx):',
+            '    repo_rule(name="hello1")',
+            '',
+            'lockfile_ext1 = module_extension(',
+            '    implementation=_module_ext1_impl,',
+            ')',
+            '',
+            'def _module_ext2_impl(ctx):',
+            '    repo_rule(name="hello2")',
+            '',
+            'lockfile_ext2 = module_extension(',
+            '    implementation=_module_ext2_impl,',
+            ')',
+        ],
+    )
+
+    self.RunBazel(['build', '@hello1//:all'])
+    # Return the lockfile to the state it had before the build: it didn't exist.
+    os.remove('MODULE.bazel.lock')
+
+    # Perform an intermediate build that evaluates more extensions.
+    self.RunBazel(['build', '@hello1//:all', '@hello2//:all'])
+    with open('MODULE.bazel.lock', 'r') as lock_file:
+      old_data = lock_file.read()
+    # Return the lockfile to the state it had before the build: it didn't exist.
+    os.remove('MODULE.bazel.lock')
+
+    # Rerun the original build with just ext1 and verify that extension results
+    # from intermediate builds are reused.
+    self.RunBazel(['build', '@hello1//:all'])
+    with open('MODULE.bazel.lock', 'r') as lock_file:
+      new_data = lock_file.read()
+
+    self.assertEqual(old_data, new_data)
+
+  def testLockfileRecreationOnlyUsesUpToDateBuildResults(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'lockfile_ext1 = use_extension("extension.bzl", "lockfile_ext1")',
+            'use_repo(lockfile_ext1, "hello1")',
+            'lockfile_ext2 = use_extension("extension.bzl", "lockfile_ext2")',
+            'use_repo(lockfile_ext2, "hello2")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            '',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _module_ext1_impl(ctx):',
+            '    repo_rule(name="hello1")',
+            '',
+            'lockfile_ext1 = module_extension(',
+            '    implementation=_module_ext1_impl,',
+            ')',
+            '',
+            'def _module_ext2_impl(ctx):',
+            '    repo_rule(name="hello2")',
+            '',
+            'lockfile_ext2 = module_extension(',
+            '    environ = ["FOO"],    implementation=_module_ext2_impl,',
+            ')',
+        ],
+    )
+
+    self.RunBazel(['build', '@hello1//:all'])
+    with open('MODULE.bazel.lock', 'r') as lock_file:
+      old_data = lock_file.read()
+    # Return the lockfile to the state it had before the build: it didn't exist.
+    os.remove('MODULE.bazel.lock')
+
+    # Perform an intermediate build that evaluates more extensions.
+    self.RunBazel(['build', '@hello1//:all', '@hello2//:all'])
+    # Return the lockfile to the state it had before the build: it didn't exist.
+    os.remove('MODULE.bazel.lock')
+
+    # Rerun the original build with just ext1, but invalidate ext2. The
+    # intermediate build result should not be reused.
+    self.RunBazel(['build', '--repo_env=FOO=invalidate_ext2', '@hello1//:all'])
+    with open('MODULE.bazel.lock', 'r') as lock_file:
+      new_data = lock_file.read()
+
+    self.assertEqual(old_data, new_data)
+
   def testExtensionOsAndArch(self):
     self.ScratchFile(
         'MODULE.bazel',
