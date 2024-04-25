@@ -65,7 +65,8 @@ static void PostException(JNIEnv *env, const char *exception_classname,
     success = env->ThrowNew(exception_class, message.c_str()) == 0;
   }
   if (!success) {
-    BAZEL_LOG(FATAL) << "Failure to throw java error: " << message.c_str();
+    BAZEL_LOG(FATAL) << "Failed to throw Java exception from JNI: "
+                     << message.c_str();
   }
 }
 
