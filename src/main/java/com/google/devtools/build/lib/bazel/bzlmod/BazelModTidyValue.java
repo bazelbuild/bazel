@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.List;
 import java.util.Map;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -31,6 +33,9 @@ import net.starlark.java.eval.StarlarkSemantics;
 public abstract class BazelModTidyValue implements SkyValue {
 
   @SerializationConstant public static final SkyKey KEY = () -> SkyFunctions.BAZEL_MOD_TIDY;
+
+  /** Buildozer fixups for incorrect use_repo declarations by the root module. */
+  public abstract ImmutableList<RootModuleFileFixup> fixups();
 
   /** The path of the buildozer binary provided by the "buildozer" module. */
   public abstract Path buildozer();
@@ -51,12 +56,14 @@ public abstract class BazelModTidyValue implements SkyValue {
   public abstract StarlarkSemantics starlarkSemantics();
 
   static BazelModTidyValue create(
+      List<RootModuleFileFixup> fixups,
       Path buildozer,
       Map<String, ModuleOverride> moduleOverrides,
       boolean ignoreDevDeps,
       LockfileMode lockfileMode,
       StarlarkSemantics starlarkSemantics) {
     return new AutoValue_BazelModTidyValue(
+        ImmutableList.copyOf(fixups),
         buildozer,
         ImmutableMap.copyOf(moduleOverrides),
         ignoreDevDeps,
