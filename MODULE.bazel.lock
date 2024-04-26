@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "e556c2e066b73d9d977dd87b497fb917a742c1851c28a1d133060777ef7eea8c",
+  "moduleFileHash": "ddf759ae37c28d648ececd226e38f5ce273d226138dfb0f7a6ea59b327470312",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -39,7 +39,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 68,
+            "line": 69,
             "column": 22
           },
           "imports": {
@@ -83,7 +83,7 @@
                   "com.google.http-client:google-http-client-gson:1.42.0",
                   "com.google.http-client:google-http-client:1.42.0",
                   "com.google.j2objc:j2objc-annotations:1.3",
-                  "com.google.turbine:turbine:0.4.0",
+                  "com.google.turbine:turbine:0.5.0",
                   "com.ryanharter.auto.value:auto-value-gson-extension:1.3.1",
                   "com.ryanharter.auto.value:auto-value-gson-runtime:1.3.1",
                   "com.ryanharter.auto.value:auto-value-gson-factory:1.3.1",
@@ -168,7 +168,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 69,
+                "line": 70,
                 "column": 14
               }
             },
@@ -183,7 +183,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 192,
+                "line": 193,
                 "column": 19
               }
             },
@@ -198,7 +198,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 192,
+                "line": 193,
                 "column": 19
               }
             },
@@ -213,7 +213,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 192,
+                "line": 193,
                 "column": 19
               }
             },
@@ -228,7 +228,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 192,
+                "line": 193,
                 "column": 19
               }
             },
@@ -243,7 +243,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 192,
+                "line": 193,
                 "column": 19
               }
             },
@@ -258,7 +258,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 192,
+                "line": 193,
                 "column": 19
               }
             },
@@ -273,7 +273,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 192,
+                "line": 193,
                 "column": 19
               }
             },
@@ -288,7 +288,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 192,
+                "line": 193,
                 "column": 19
               }
             },
@@ -303,7 +303,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 192,
+                "line": 193,
                 "column": 19
               }
             },
@@ -331,7 +331,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 332,
+                "line": 333,
                 "column": 22
               }
             }
@@ -345,7 +345,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 213,
+            "line": 214,
             "column": 32
           },
           "imports": {
@@ -385,7 +385,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 247,
+            "line": 248,
             "column": 23
           },
           "imports": {},
@@ -399,7 +399,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 248,
+                "line": 249,
                 "column": 17
               }
             }
@@ -413,7 +413,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 250,
+            "line": 251,
             "column": 20
           },
           "imports": {
@@ -431,7 +431,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 251,
+                "line": 252,
                 "column": 10
               }
             }
@@ -445,7 +445,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 262,
+            "line": 263,
             "column": 33
           },
           "imports": {
@@ -476,7 +476,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 283,
+            "line": 284,
             "column": 29
           },
           "imports": {
@@ -493,7 +493,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 286,
+            "line": 287,
             "column": 20
           },
           "imports": {
@@ -512,7 +512,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 287,
+                "line": 288,
                 "column": 12
               }
             }
@@ -526,7 +526,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 299,
+            "line": 300,
             "column": 32
           },
           "imports": {
@@ -545,7 +545,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 307,
+            "line": 308,
             "column": 31
           },
           "imports": {
@@ -562,7 +562,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 310,
+            "line": 311,
             "column": 48
           },
           "imports": {
@@ -579,7 +579,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 354,
+            "line": 355,
             "column": 35
           },
           "imports": {
@@ -596,7 +596,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 357,
+            "line": 358,
             "column": 42
           },
           "imports": {
@@ -618,7 +618,7 @@
         "rules_pkg": "rules_pkg@0.9.1",
         "io_bazel_skydoc": "stardoc@0.5.6",
         "zstd-jni": "zstd-jni@1.5.2-3.bcr.1",
-        "blake3": "blake3@1.3.3.bcr.1",
+        "blake3": "blake3@1.5.1.bcr.1",
         "sqlite3": "sqlite3@3.42.0.bcr.1",
         "zlib": "zlib@1.3",
         "rules_cc": "rules_cc@0.0.9",
@@ -629,6 +629,7 @@
         "rules_python": "rules_python@0.26.0",
         "rules_testing": "rules_testing@0.0.4",
         "com_google_googletest": "googletest@1.14.0",
+        "with_cfg.bzl": "with_cfg.bzl@0.2.4",
         "remoteapis": "remoteapis@_",
         "googleapis": "googleapis@_",
         "apple_support": "apple_support@1.8.1",
@@ -973,10 +974,10 @@
         }
       }
     },
-    "blake3@1.3.3.bcr.1": {
+    "blake3@1.5.1.bcr.1": {
       "name": "blake3",
-      "version": "1.3.3.bcr.1",
-      "key": "blake3@1.3.3.bcr.1",
+      "version": "1.5.1.bcr.1",
+      "key": "blake3@1.5.1.bcr.1",
       "repoName": "blake3",
       "executionPlatformsToRegister": [],
       "toolchainsToRegister": [],
@@ -991,13 +992,14 @@
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
-            "https://github.com/BLAKE3-team/BLAKE3/archive/refs/tags/1.3.3.tar.gz"
+            "https://github.com/BLAKE3-team/BLAKE3/archive/refs/tags/1.5.1.tar.gz"
           ],
-          "integrity": "sha256-J9K8TuWUW6dUNIWVIQQslJRj7nUU/xeq7zKOI++D/sA=",
-          "strip_prefix": "BLAKE3-1.3.3",
+          "integrity": "sha256-gizTf3AVLlmFQz0sUMj2suyDqvEaoxvp/nFIapF0Tzc=",
+          "strip_prefix": "BLAKE3-1.5.1",
           "remote_patches": {
-            "https://bcr.bazel.build/modules/blake3/1.3.3.bcr.1/patches/add_build_file.patch": "sha256-lKVoznUHSqWywOo27+g4J0csjL8lH3FEXjAFRJN5+Kw=",
-            "https://bcr.bazel.build/modules/blake3/1.3.3.bcr.1/patches/module_dot_bazel.patch": "sha256-4M/MRHdDFjS8iyVaKqy6QIc5Qea9pblUz7oj6I5aHfg="
+            "https://bcr.bazel.build/modules/blake3/1.5.1.bcr.1/patches/add_build_file.patch": "sha256-BmZOqWOTfHup68uNZXOh2mP+b971CWY3QufbkIe6eEM=",
+            "https://bcr.bazel.build/modules/blake3/1.5.1.bcr.1/patches/module_dot_bazel.patch": "sha256-dKnHpXqvNwW2m7vYxnfWEoBhphBysqbeBxAMVX3b5a0=",
+            "https://bcr.bazel.build/modules/blake3/1.5.1.bcr.1/patches/fix_windows_arm_build_pr_389.patch": "sha256-9G3QDBp5OuyYP7vwPKjqK+uTUZmjhLpKSE7nshz8guc="
           },
           "remote_patch_strip": 0
         }
@@ -1774,6 +1776,35 @@
             "https://bcr.bazel.build/modules/googletest/1.14.0/patches/module_dot_bazel.patch": "sha256-CSomzvti38LCuURDG5EEoa3O1tQF3cKKt/mknnP1qcc="
           },
           "remote_patch_strip": 0
+        }
+      }
+    },
+    "with_cfg.bzl@0.2.4": {
+      "name": "with_cfg.bzl",
+      "version": "0.2.4",
+      "key": "with_cfg.bzl@0.2.4",
+      "repoName": "with_cfg.bzl",
+      "executionPlatformsToRegister": [],
+      "toolchainsToRegister": [],
+      "extensionUsages": [],
+      "deps": {
+        "bazel_skylib": "bazel_skylib@1.5.0",
+        "bazel_tools": "bazel_tools@_",
+        "local_config_platform": "local_config_platform@_"
+      },
+      "repoSpec": {
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+        "ruleClassName": "http_archive",
+        "attributes": {
+          "urls": [
+            "https://github.com/fmeum/with_cfg.bzl/releases/download/v0.2.4/with_cfg.bzl-v0.2.4.tar.gz"
+          ],
+          "integrity": "sha256-BqKxtWpYxHGrQNivFmxNUfCYLhxrxGN1uAWRWz/AZY4=",
+          "strip_prefix": "with_cfg.bzl-0.2.4",
+          "remote_patches": {
+            "https://bcr.bazel.build/modules/with_cfg.bzl/0.2.4/patches/module_dot_bazel_version.patch": "sha256-nMJ63F1h826i8AWSmXwz9pZYDwKfOnM5QdrZqyCLYMo="
+          },
+          "remote_patch_strip": 1
         }
       }
     },
@@ -2839,7 +2870,7 @@
       "general": {
         "bzlTransitiveDigest": "7u0Bee/XL6UGuGmaseF4697gGH298WTn84dJcuZiDwk=",
         "recordedFileInputs": {
-          "@@//MODULE.bazel": "e556c2e066b73d9d977dd87b497fb917a742c1851c28a1d133060777ef7eea8c",
+          "@@//MODULE.bazel": "ddf759ae37c28d648ececd226e38f5ce273d226138dfb0f7a6ea59b327470312",
           "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "6b96a6a50f84f5403a718a27955a8c954943f76ee5c4def7f8b23401b2a417bf"
         },
         "recordedDirentsInputs": {},
@@ -5312,7 +5343,7 @@
         "recordedFileInputs": {
           "@@//src/tools/android/maven_android_install.json": "09bff3e33d291336046f7c9201630fb5e014f0e60b78b6f09b84e4f5f73ed04f",
           "@@rules_jvm_external~//rules_jvm_external_deps_install.json": "cafb5d2d8119391eb2b322ce3840d3352ea82d496bdb8cbd4b6779ec4d044dda",
-          "@@//maven_install.json": "8330632656f46859ec2600c18fed75624e2a8f46b81c12db34c8afeba527e5be"
+          "@@//maven_install.json": "54e1db85e9ec1f08deade399afe84c1784ccb1ff413ff90e91006d590eeedabb"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -5679,17 +5710,6 @@
               "downloaded_file_path": "v1/com/android/zipflinger/7.1.3/zipflinger-7.1.3.jar"
             }
           },
-          "com_google_turbine_turbine_0_4_0": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "1947490c23263ae1c0a95acceb7cb419724f236d14cfbbe5a558101e79842b28",
-              "urls": [
-                "https://repo1.maven.org/maven2/com/google/turbine/turbine/0.4.0/turbine-0.4.0.jar"
-              ],
-              "downloaded_file_path": "v1/com/google/turbine/turbine/0.4.0/turbine-0.4.0.jar"
-            }
-          },
           "io_grpc_grpc_protobuf_lite_1_56_1": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -5949,7 +5969,7 @@
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client-gson\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.j2objc\", \"artifact\": \"j2objc-annotations\", \"version\": \"1.3\" }",
-                "{ \"group\": \"com.google.turbine\", \"artifact\": \"turbine\", \"version\": \"0.4.0\" }",
+                "{ \"group\": \"com.google.turbine\", \"artifact\": \"turbine\", \"version\": \"0.5.0\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-extension\", \"version\": \"1.3.1\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-runtime\", \"version\": \"1.3.1\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-factory\", \"version\": \"1.3.1\" }",
@@ -6389,6 +6409,17 @@
                 "https://repo1.maven.org/maven2/com/android/tools/common/30.1.3/common-30.1.3.jar"
               ],
               "downloaded_file_path": "v1/com/android/tools/common/30.1.3/common-30.1.3.jar"
+            }
+          },
+          "com_google_turbine_turbine_0_5_0": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "3bb883977330ec99dd11d8bba0c9c9084b356189807920903984215a466c81ac",
+              "urls": [
+                "https://repo1.maven.org/maven2/com/google/turbine/turbine/0.5.0/turbine-0.5.0.jar"
+              ],
+              "downloaded_file_path": "v1/com/google/turbine/turbine/0.5.0/turbine-0.5.0.jar"
             }
           },
           "io_grpc_grpc_auth_1_48_1": {
@@ -8473,7 +8504,7 @@
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client-gson\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.j2objc\", \"artifact\": \"j2objc-annotations\", \"version\": \"1.3\" }",
-                "{ \"group\": \"com.google.turbine\", \"artifact\": \"turbine\", \"version\": \"0.4.0\" }",
+                "{ \"group\": \"com.google.turbine\", \"artifact\": \"turbine\", \"version\": \"0.5.0\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-extension\", \"version\": \"1.3.1\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-runtime\", \"version\": \"1.3.1\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-factory\", \"version\": \"1.3.1\" }",
