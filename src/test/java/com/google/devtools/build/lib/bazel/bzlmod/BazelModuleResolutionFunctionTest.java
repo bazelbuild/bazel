@@ -113,15 +113,15 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
                     SkyFunctions.MODULE_FILE,
                     new ModuleFileFunction(
                         TestRuleClassProvider.getRuleClassProvider().getBazelStarlarkEnvironment(),
-                        registryFactory,
                         rootDirectory,
                         ImmutableMap.of()))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
                 .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(rootDirectory))
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
-                .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory))
-                .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction(registryFactory))
+                .put(SkyFunctions.REGISTRY, new RegistryFunction(registryFactory))
+                .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
+                .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
                 .put(
                     SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
                     new ModuleExtensionRepoMappingEntriesFunction())

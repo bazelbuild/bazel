@@ -45,8 +45,8 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionRepoMappingEntr
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
-import com.google.devtools.build.lib.bazel.bzlmod.RegistryFactory;
 import com.google.devtools.build.lib.bazel.bzlmod.RegistryFactoryImpl;
+import com.google.devtools.build.lib.bazel.bzlmod.RegistryFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpecFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionUsagesFunction;
@@ -241,9 +241,6 @@ public class BazelRepositoryModule extends BlazeModule {
             clientEnvironmentSupplier,
             directories,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
-    RegistryFactory registryFactory =
-        new RegistryFactoryImpl(
-            directories.getWorkspace(), downloadManager, clientEnvironmentSupplier);
     singleExtensionEvalFunction =
         new SingleExtensionEvalFunction(directories, clientEnvironmentSupplier, downloadManager);
 
@@ -257,7 +254,6 @@ public class BazelRepositoryModule extends BlazeModule {
             SkyFunctions.MODULE_FILE,
             new ModuleFileFunction(
                 runtime.getRuleClassProvider().getBazelStarlarkEnvironment(),
-                registryFactory,
                 directories.getWorkspace(),
                 builtinModules))
         .addSkyFunction(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
@@ -269,8 +265,13 @@ public class BazelRepositoryModule extends BlazeModule {
         .addSkyFunction(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_EVAL, singleExtensionEvalFunction)
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
-        .addSkyFunction(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory))
-        .addSkyFunction(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction(registryFactory))
+        .addSkyFunction(
+            SkyFunctions.REGISTRY,
+            new RegistryFunction(
+                new RegistryFactoryImpl(
+                    directories.getWorkspace(), downloadManager, clientEnvironmentSupplier)))
+        .addSkyFunction(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
+        .addSkyFunction(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
         .addSkyFunction(
             SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
             new ModuleExtensionRepoMappingEntriesFunction());
