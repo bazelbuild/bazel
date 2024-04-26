@@ -544,8 +544,8 @@ EOF
 
 function test_run_under_script_script_path() {
   if $is_windows; then
-    # TODO: https://github.com/bazelbuild/bazel/issues/21940 - Fix escaping, etc
-    # so that this test works on windows.
+    # TODO(https://github.com/bazelbuild/bazel/issues/22148): Fix --run_under
+    # paths under windows.
     return
   fi
   local -r pkg="pkg${LINENO}"
@@ -596,8 +596,8 @@ EOF
 
   bazel run --run_under="//$pkg:greetings friend &&" -- "//$pkg:farewell" buddy \
       >$TEST_log || fail "expected test to pass"
-  # TODO: bazel-team - This is just demonstrating how things are, it's probably
-  # not how we want them to be.
+  # TODO(https://github.com/bazelbuild/bazel/issues/22148): bazel-team - This is
+  # just demonstrating how things are, it's probably not how we want them to be.
   if "$is_windows"; then
     expect_log "hello there friend"
     expect_log "goodbye buddy"

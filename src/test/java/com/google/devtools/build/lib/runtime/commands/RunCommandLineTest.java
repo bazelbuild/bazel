@@ -166,7 +166,6 @@ cd workingDir && \\
 
             /* runUnderPrefix= */ "echo hello &&",
             ImmutableList.of("C:/executable", "argv1", "arg w spaces"));
-    // TODO: https://github.com/bazelbuild/bazel/issues/21940 - Fix escaping.
     assertThat(result)
         .isEqualTo(
             """
@@ -176,7 +175,7 @@ cd workingDir && \\
               SET UNSET_ME_TOO=
               SET ENV_VAR=val
               SET ENV_VAR_WITH_SPACES=foo bar
-              /bin/bash -c 'echo hello && C:\\executable argv1 arg w spaces' %*\
+              /bin/bash -c 'echo hello && C:\\executable argv1 "arg w spaces"' %*\
             """);
   }
 
@@ -191,7 +190,6 @@ cd workingDir && \\
             ImmutableSortedMap.of("ENV_VAR", "val", "ENV_VAR_WITH_SPACES", "foo bar"),
             /* runUnderPrefix= */ null,
             ImmutableList.of("C:/executable", "argv1", "arg w spaces"));
-    // TODO: https://github.com/bazelbuild/bazel/issues/21940 - Fix escaping.
     assertThat(result)
         .isEqualTo(
             """
@@ -201,7 +199,7 @@ cd workingDir && \\
               SET UNSET_ME_TOO=
               SET ENV_VAR=val
               SET ENV_VAR_WITH_SPACES=foo bar
-              C:\\executable argv1 arg w spaces %*\
+              C:\\executable argv1 "arg w spaces" %*\
             """);
   }
 }

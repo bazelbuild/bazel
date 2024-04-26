@@ -271,8 +271,6 @@ class RunCommandLine {
               .collect(joining("\n  "));
       String commandLine = getCommandLine(shExecutable, runUnderPrefix, args);
 
-      // TODO: https://github.com/bazelbuild/bazel/issues/21940 - This formatting and escaping is
-      // just about certainly wrong.
       StringBuilder result = new StringBuilder();
       result.append("@echo off\n");
       result.append("cd /d ").append(workingDir).append("\n");
@@ -292,7 +290,7 @@ class RunCommandLine {
         if (i == 0) {
           command.append(args.get(i).replace('/', '\\'));
         } else {
-          command.append(" ").append(args.get(i));
+          command.append(" ").append(ShellUtils.windowsEscapeArg(args.get(i)));
         }
       }
       if (runUnderPrefix == null) {
