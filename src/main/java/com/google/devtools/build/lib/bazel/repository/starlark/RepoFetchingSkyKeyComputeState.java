@@ -22,9 +22,8 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import java.util.Map;
 import java.util.TreeMap;
-import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Exchanger;
 import java.util.concurrent.Future;
-import java.util.concurrent.SynchronousQueue;
 import javax.annotation.Nullable;
 
 /**
@@ -55,14 +54,8 @@ class RepoFetchingSkyKeyComputeState implements SkyKeyComputeState {
     record Failure(Throwable e) implements Signal {}
   }
 
-  /** The channel for the worker thread to send a signal to the host Skyframe thread. */
-  final BlockingQueue<Signal> signalQueue = new SynchronousQueue<>();
-
-  /**
-   * The channel for the host Skyframe thread to send fresh {@link SkyFunction.Environment} objects
-   * back to the worker thread.
-   */
-  final BlockingQueue<SkyFunction.Environment> delegateEnvQueue = new SynchronousQueue<>();
+  /** Used to ensure that the worker and Skyframe threads both are at a known place. */
+  private final Exchanger rendezvous = new Exchanger();
 
   /** The working thread that actually performs the fetching logic. */
   // This is volatile since we set it to null to indicate the worker thread isn't running, and this
@@ -81,8 +74,37 @@ class RepoFetchingSkyKeyComputeState implements SkyKeyComputeState {
   final Map<RepoRecordedInput, String> recordedInputValues = new TreeMap<>();
 
   SkyFunction.Environment signalForFreshEnv() throws InterruptedException {
-    signalQueue.put(new Signal.Restart());
-    return delegateEnvQueue.take();
+    // First unblock the Skyframe thread, then wait until it has something else to say. The only
+    // thing the Skyframe thread can do to this one is an interrupt so there is no need to do
+    // anything special in between.
+    rendezvousFromWorker(new Signal.Restart());
+    return rendezvousFromWorker(null);
+  }
+
+  SkyFunction.Environment rendezvousFromWorker(Signal signal) throws InterruptedException {
+    return (SkyFunction.Environment) rendezvous.exchange(signal);
+  }
+
+  Signal rendezvousFromHost(SkyFunction.Environment environment) throws InterruptedException {
+    return (Signal) rendezvous.exchange(environment);
+  }
+
+  Signal rendezvousUninterruptiblyFromHost(SkyFunction.Environment environment) {
+    while(true) {
+      try {
+        return (Signal) rendezvous.exchange(environment);
+      } catch (InterruptedException e) {
+      }
+    }
+  }
+
+  SkyFunction.Environment rendezvousUninterruptiblyFromWorker(Signal signal) {
+    while(true) {
+      try {
+        return (SkyFunction.Environment) rendezvous.exchange(signal);
+      } catch (InterruptedException e) {
+      }
+    }
   }
 
   public void join() {
@@ -104,8 +126,8 @@ class RepoFetchingSkyKeyComputeState implements SkyKeyComputeState {
     // part is that in case an interrupt happens, a Success or Failure is eventually posted by the
     // worker thread.
     while (true) {
-      Signal s = Uninterruptibles.takeUninterruptibly(signalQueue);
-      if (s instanceof Signal.Success || s instanceof Signal.Failure) {
+      Signal signal = rendezvousUninterruptiblyFromHost(null);
+      if (signal instanceof Signal.Success || signal instanceof Signal.Failure) {
         break;
       }
     }
