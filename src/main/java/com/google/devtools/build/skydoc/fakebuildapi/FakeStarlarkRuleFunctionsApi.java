@@ -192,8 +192,8 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi {
 
   @Override
   public Label label(Object input, StarlarkThread thread) throws EvalException {
-    if (input instanceof Label) {
-      return (Label) input;
+    if (input instanceof Label label) {
+      return label;
     }
     try {
       return Label.parseCanonical((String) input);

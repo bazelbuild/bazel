@@ -581,8 +581,8 @@ public final class JavaInfo extends NativeInfo
 
     @Override
     public JavaInfo wrap(Info info) throws RuleErrorException {
-      if (info instanceof JavaInfo) {
-        return (JavaInfo) info;
+      if (info instanceof JavaInfo javaInfo) {
+        return javaInfo;
       } else if (info instanceof StructImpl) {
         try {
           return new JavaInfo((StructImpl) info);

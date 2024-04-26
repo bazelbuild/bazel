@@ -547,8 +547,8 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
       return null;
     } catch (ExecutionException e) {
       Throwable cause = e.getCause();
-      if (cause instanceof ExecException) {
-        throw (ExecException) cause;
+      if (cause instanceof ExecException execException) {
+        throw execException;
       } else if (cause instanceof InterruptedException) {
         // If the branch was interrupted, it might be due to a user interrupt or due to our request
         // for cancellation. Assume the latter here because if this was actually a user interrupt,

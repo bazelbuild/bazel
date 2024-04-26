@@ -271,8 +271,8 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
 
     // Generic fake provider? (e.g. Starlark-defined, or trivial fake)
     // Return name set at construction, or by "export" operation, if any.
-    if (provider instanceof FakeProviderApi) {
-      return ((FakeProviderApi) provider).getName(); // may be "Unexported Provider"
+    if (provider instanceof FakeProviderApi fakeProviderApi) {
+      return fakeProviderApi.getName(); // may be "Unexported Provider"
     }
 
     // Specialized fake provider? (e.g. DefaultInfo)

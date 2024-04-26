@@ -385,10 +385,10 @@ public class CcToolchainConfigInfo extends NativeInfo implements CcToolchainConf
     ImmutableList.Builder<CToolchain.FlagGroup> flagGroups = ImmutableList.builder();
     ImmutableList.Builder<String> flags = ImmutableList.builder();
     for (Expandable expandable : flagGroup.getExpandables()) {
-      if (expandable instanceof FlagGroup) {
-        flagGroups.add(flagGroupToProto((FlagGroup) expandable));
-      } else if (expandable instanceof SingleChunkFlag) {
-        flags.add(((SingleChunkFlag) expandable).getString());
+      if (expandable instanceof FlagGroup expandableFlagGroup) {
+        flagGroups.add(flagGroupToProto(expandableFlagGroup));
+      } else if (expandable instanceof SingleChunkFlag singleChunkFlag) {
+        flags.add(singleChunkFlag.getString());
       } else if (expandable instanceof CcToolchainFeatures.Flag) {
         flags.add(((CcToolchainFeatures.Flag) expandable).getString());
       } else {

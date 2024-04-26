@@ -699,12 +699,12 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
 
     // Otherwise, there's an error.
     @Nullable Object result = handleError(depKey, wrappedValue);
-    if (result instanceof SkyValue) {
-      resultCallback.acceptValue(depKey, (SkyValue) result);
+    if (result instanceof SkyValue skyValue) {
+      resultCallback.acceptValue(depKey, skyValue);
       return true;
     }
-    if (result instanceof Exception
-        && resultCallback.tryHandleException(depKey, (Exception) result)) {
+    if (result instanceof Exception exception
+        && resultCallback.tryHandleException(depKey, exception)) {
       return true;
     }
     valuesMissing = true;
@@ -740,8 +740,8 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
 
     // Otherwise, there's an error.
     @Nullable Object result = handleError(depKey, wrappedValue);
-    if (result instanceof SkyValue) {
-      return (SkyValue) result;
+    if (result instanceof SkyValue skyValue) {
+      return skyValue;
     }
     if (result instanceof Exception) {
       SkyFunctionException.throwIfInstanceOf(

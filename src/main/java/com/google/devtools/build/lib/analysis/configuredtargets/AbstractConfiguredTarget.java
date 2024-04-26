@@ -312,16 +312,16 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
       Dict.Builder<String, Object> dict, Object key, Object providerInstance) {
     // The key may be of many types, but we need a string for the intended use.
     String keyAsString;
-    if (key instanceof String) {
-      keyAsString = (String) key;
+    if (key instanceof String string) {
+      keyAsString = string;
     } else if (key instanceof Provider.Key) {
       if (key instanceof StarlarkProvider.Key k) {
         keyAsString = k.getExtensionLabel() + "%" + k.getExportedName();
       } else {
         keyAsString = key.toString();
       }
-    } else if (key instanceof Class) {
-      keyAsString = ((Class<?>) key).getSimpleName();
+    } else if (key instanceof Class<?> aClass) {
+      keyAsString = aClass.getSimpleName();
     } else {
       // ???
       return;

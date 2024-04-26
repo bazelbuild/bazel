@@ -102,8 +102,8 @@ public final class JavaPackageConfigurationProvider implements StarlarkValue {
 
     @Override
     public JavaPackageConfigurationProvider wrap(Info value) throws RuleErrorException {
-      if (value instanceof StructImpl) {
-        return new JavaPackageConfigurationProvider((StructImpl) value);
+      if (value instanceof StructImpl structImpl) {
+        return new JavaPackageConfigurationProvider(structImpl);
       } else {
         throw new RuleErrorException(
             "expected an instance of JavaPackageConfigurationProvider, got: "

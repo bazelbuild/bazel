@@ -143,8 +143,8 @@ public class ActionExecutionException extends Exception implements DetailedExcep
 
     DetailedExitCode code =
         DetailedExitCode.of(exception.getFailureDetail(action.describe() + " failed: " + message));
-    if (exception instanceof LostInputsExecException) {
-      return ((LostInputsExecException) exception).fromExecException(message, action, code);
+    if (exception instanceof LostInputsExecException lostInputsExecException) {
+      return lostInputsExecException.fromExecException(message, action, code);
     }
 
     return fromExecException(exception, message, action, code);

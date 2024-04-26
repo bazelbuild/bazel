@@ -307,8 +307,8 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
       RepoSpec repoSpec, ImmutableMap<String, Module> loadedModules)
       throws BzlmodRepoRuleFunctionException {
     Object object = loadedModules.get(repoSpec.bzlFile()).getGlobal(repoSpec.ruleClassName());
-    if (object instanceof RuleFunction) {
-      return ((RuleFunction) object).getRuleClass();
+    if (object instanceof RuleFunction ruleFunction) {
+      return ruleFunction.getRuleClass();
     } else {
       InvalidRuleException e =
           new InvalidRuleException("Invalid repository rule: " + repoSpec.getRuleClass());

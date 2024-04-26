@@ -141,8 +141,8 @@ public abstract class ActionExecutionValue implements SkyValue {
         actionOutputMetadataStore.getAllArtifactData(),
         actionOutputMetadataStore.getAllTreeArtifactData(),
         outputSymlinks,
-        action instanceof IncludeScannable
-            ? ((IncludeScannable) action).getDiscoveredModules()
+        action instanceof IncludeScannable includeScannable
+            ? includeScannable.getDiscoveredModules()
             : NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 

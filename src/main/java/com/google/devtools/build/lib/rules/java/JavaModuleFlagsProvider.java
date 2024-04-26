@@ -127,8 +127,8 @@ abstract class JavaModuleFlagsProvider
     Object value = javaInfo.getValue("module_flags_info");
     if (value == null || value == Starlark.NONE) {
       return null;
-    } else if (value instanceof JavaModuleFlagsProvider) {
-      return (JavaModuleFlagsProvider) value;
+    } else if (value instanceof JavaModuleFlagsProvider javaModuleFlagsProvider) {
+      return javaModuleFlagsProvider;
     } else if (value instanceof StructImpl moduleFlagsInfo) {
       return JavaModuleFlagsProvider.create(
           moduleFlagsInfo.getValue("add_exports", Depset.class).toList(String.class),

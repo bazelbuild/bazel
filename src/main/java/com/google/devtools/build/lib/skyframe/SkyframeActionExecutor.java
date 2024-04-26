@@ -920,8 +920,8 @@ public final class SkyframeActionExecutor {
 
   private InputMetadataProvider createFileCache(
       InputMetadataProvider graphFileCache, @Nullable FileSystem actionFileSystem) {
-    if (actionFileSystem instanceof InputMetadataProvider) {
-      return (InputMetadataProvider) actionFileSystem;
+    if (actionFileSystem instanceof InputMetadataProvider inputMetadataProvider) {
+      return inputMetadataProvider;
     }
     return new DelegatingPairInputMetadataProvider(graphFileCache, perBuildFileCache);
   }
@@ -1122,8 +1122,8 @@ public final class SkyframeActionExecutor {
       // Action failures may be caused by lost inputs. Lost input failures have higher priority
       // because rewinding may be able to restore what was lost and allow the action to complete
       // without error.
-      if (e instanceof LostInputsActionExecutionException) {
-        lostInputsException = (LostInputsActionExecutionException) e;
+      if (e instanceof LostInputsActionExecutionException lostInputsActionExecutionException) {
+        lostInputsException = lostInputsActionExecutionException;
       } else {
         try {
           checkActionFileSystemForLostInputs(
@@ -1869,8 +1869,8 @@ public final class SkyframeActionExecutor {
     if (actionResult != null) {
       return actionResult.spawnResults();
     }
-    if (exception instanceof SpawnActionExecutionException) {
-      return ImmutableList.of(((SpawnActionExecutionException) exception).getSpawnResult());
+    if (exception instanceof SpawnActionExecutionException spawnActionExecutionException) {
+      return ImmutableList.of(spawnActionExecutionException.getSpawnResult());
     }
     return ImmutableList.of();
   }

@@ -1608,10 +1608,10 @@ public class RuleContext extends TargetContext
 
         // TODO(adonovan): define in terms of Starlark.len?
         boolean isEmpty = false;
-        if (attributeValue instanceof List) {
-          isEmpty = ((List<?>) attributeValue).isEmpty();
-        } else if (attributeValue instanceof Map) {
-          isEmpty = ((Map<?, ?>) attributeValue).isEmpty();
+        if (attributeValue instanceof List<?> list) {
+          isEmpty = list.isEmpty();
+        } else if (attributeValue instanceof Map<?, ?> map) {
+          isEmpty = map.isEmpty();
         }
         if (isEmpty) {
           reporter.attributeError(attr.getName(), "attribute must be non empty");

@@ -63,8 +63,8 @@ public class BazelRuleAnalysisThreadContext extends BazelStarlarkContext {
   public static BazelRuleAnalysisThreadContext fromOrFail(StarlarkThread thread, String what)
       throws EvalException {
     BazelStarlarkContext ctx = thread.getThreadLocal(BazelStarlarkContext.class);
-    if (ctx instanceof BazelRuleAnalysisThreadContext) {
-      return (BazelRuleAnalysisThreadContext) ctx;
+    if (ctx instanceof BazelRuleAnalysisThreadContext bazelRuleAnalysisThreadContext) {
+      return bazelRuleAnalysisThreadContext;
     }
     throw Starlark.errorf("%s can only be called from a rule or aspect implementation", what);
   }

@@ -155,8 +155,8 @@ public abstract class SpawnLogContext implements ActionContext {
     }
 
     if (input != null) {
-      if (input instanceof VirtualActionInput) {
-        byte[] blob = ((VirtualActionInput) input).getBytes().toByteArray();
+      if (input instanceof VirtualActionInput virtualActionInput) {
+        byte[] blob = virtualActionInput.getBytes().toByteArray();
         return builder
             .setHash(digestHashFunction.getHashFunction().hashBytes(blob).toString())
             .setSizeBytes(blob.length)

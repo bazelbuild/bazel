@@ -1436,8 +1436,8 @@ public abstract class PackageFunction implements SkyFunction {
         @Override
         BuildFileContainsErrorsException create(
             PackageIdentifier packId, String msg, DetailedExitCode detailedExitCode, Exception e) {
-          return e instanceof IOException
-              ? new BuildFileContainsErrorsException(packId, msg, (IOException) e, detailedExitCode)
+          return e instanceof IOException ioException
+              ? new BuildFileContainsErrorsException(packId, msg, ioException, detailedExitCode)
               : new BuildFileContainsErrorsException(packId, msg, detailedExitCode);
         }
       },

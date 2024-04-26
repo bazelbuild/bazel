@@ -111,8 +111,8 @@ public final class StrippingPathMapper {
     final StringStripper argStripper = new StringStripper(outputRoot.getPathString());
     final ExceptionlessMapFn<Object> structuredArgStripper =
         (object, args) -> {
-          if (object instanceof String) {
-            args.accept(argStripper.strip((String) object));
+          if (object instanceof String string) {
+            args.accept(argStripper.strip(string));
           } else {
             args.accept(CommandLineItem.expandToCommandLine(object));
           }

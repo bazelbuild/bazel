@@ -113,13 +113,13 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
 
   @Override
   protected void addExtraStarlarkKeys(Consumer<String> result) {
-    if (base instanceof AbstractConfiguredTarget) {
-      ((AbstractConfiguredTarget) base).addExtraStarlarkKeys(result);
+    if (base instanceof AbstractConfiguredTarget abstractConfiguredTarget) {
+      abstractConfiguredTarget.addExtraStarlarkKeys(result);
     }
     for (int i = 0; i < nonBaseProviders.getProviderCount(); i++) {
       Object classAt = nonBaseProviders.getProviderKeyAt(i);
-      if (classAt instanceof String) {
-        result.accept((String) classAt);
+      if (classAt instanceof String string) {
+        result.accept(string);
       }
     }
     result.accept(AbstractConfiguredTarget.ACTIONS_FIELD_NAME);

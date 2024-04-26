@@ -896,8 +896,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                     Starlark.type(returnValue)),
                 Transience.PERSISTENT);
           }
-          if (returnValue instanceof ModuleExtensionMetadata) {
-            moduleExtensionMetadata = Optional.of((ModuleExtensionMetadata) returnValue);
+          if (returnValue instanceof ModuleExtensionMetadata retMetadata) {
+            moduleExtensionMetadata = Optional.of(retMetadata);
           } else {
             moduleExtensionMetadata = Optional.empty();
           }

@@ -93,9 +93,9 @@ public class FakeRegistry implements Registry {
 
   @Override
   public boolean equals(Object other) {
-    return other instanceof FakeRegistry
-        && this.url.equals(((FakeRegistry) other).url)
-        && this.modules.equals(((FakeRegistry) other).modules);
+    return other instanceof FakeRegistry fakeRegistry
+        && this.url.equals(fakeRegistry.url)
+        && this.modules.equals(fakeRegistry.modules);
   }
 
   @Override

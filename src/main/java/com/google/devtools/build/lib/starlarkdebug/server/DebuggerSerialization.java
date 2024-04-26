@@ -46,21 +46,21 @@ final class DebuggerSerialization {
   }
 
   private static String getDescription(Object value) {
-    if (value instanceof String) {
-      return (String) value;
+    if (value instanceof String string) {
+      return string;
     }
     return Starlark.repr(value);
   }
 
   private static boolean hasChildren(Object value) {
-    if (value instanceof Map) {
-      return !((Map) value).isEmpty();
+    if (value instanceof Map<?, ?> map) {
+      return !map.isEmpty();
     }
     if (value instanceof Map.Entry) {
       return true;
     }
-    if (value instanceof Iterable) {
-      return ((Iterable) value).iterator().hasNext();
+    if (value instanceof Iterable<?> iterable) {
+      return iterable.iterator().hasNext();
     }
     if (value.getClass().isArray()) {
       return Array.getLength(value) > 0;
@@ -81,14 +81,14 @@ final class DebuggerSerialization {
   }
 
   static ImmutableList<Value> getChildren(ThreadObjectMap objectMap, Object value) {
-    if (value instanceof Map) {
-      return getChildren(objectMap, ((Map) value).entrySet());
+    if (value instanceof Map<?, ?> map) {
+      return getChildren(objectMap, map.entrySet());
     }
-    if (value instanceof Map.Entry) {
-      return getChildren(objectMap, (Map.Entry) value);
+    if (value instanceof Map.Entry<?, ?> mapEntry) {
+      return getChildren(objectMap, mapEntry);
     }
-    if (value instanceof Iterable) {
-      return getChildren(objectMap, (Iterable) value);
+    if (value instanceof Iterable<?> iterable) {
+      return getChildren(objectMap, iterable);
     }
     if (value.getClass().isArray()) {
       return getArrayChildren(objectMap, value);
@@ -97,11 +97,11 @@ final class DebuggerSerialization {
       return getDebugAttributes(objectMap, (Debug.ValueWithDebugAttributes) value);
     }
     // TODO(bazel-team): move child-listing logic to StarlarkValue where practical
-    if (value instanceof Structure) {
-      return getChildren(objectMap, (Structure) value);
+    if (value instanceof Structure structure) {
+      return getChildren(objectMap, structure);
     }
-    if (value instanceof StarlarkValue) {
-      return getChildren(objectMap, (StarlarkValue) value);
+    if (value instanceof StarlarkValue starlarkValue) {
+      return getChildren(objectMap, starlarkValue);
     }
     // fallback to assuming there are no children
     return ImmutableList.of();

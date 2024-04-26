@@ -253,8 +253,8 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
 
   @Override
   public Collection<Artifact> getOutputs() {
-    return outputs instanceof Artifact
-        ? ImmutableSet.of((Artifact) outputs)
+    return outputs instanceof Artifact artifact
+        ? ImmutableSet.of(artifact)
         : new OutputSet((Artifact[]) outputs);
   }
 

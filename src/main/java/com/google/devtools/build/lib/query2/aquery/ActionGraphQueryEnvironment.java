@@ -263,8 +263,8 @@ public class ActionGraphQueryEnvironment
   protected RuleConfiguredTarget getRuleConfiguredTarget(
       ConfiguredTargetValue configuredTargetValue) {
     ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
-    if (configuredTarget instanceof RuleConfiguredTarget) {
-      return (RuleConfiguredTarget) configuredTarget;
+    if (configuredTarget instanceof RuleConfiguredTarget ruleConfiguredTarget) {
+      return ruleConfiguredTarget;
     }
     return null;
   }

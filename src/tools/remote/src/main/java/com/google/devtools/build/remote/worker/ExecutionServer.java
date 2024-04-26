@@ -181,8 +181,8 @@ final class ExecutionServer extends ExecutionImplBase {
             }
           } catch (Exception e) {
             ExecuteResponse resp;
-            if (e instanceof ExecutionStatusException) {
-              resp = ((ExecutionStatusException) e).getResponse();
+            if (e instanceof ExecutionStatusException executionStatusException) {
+              resp = executionStatusException.getResponse();
             } else {
               logger.atSevere().withCause(e).log("Work failed: %s", opName);
               resp =

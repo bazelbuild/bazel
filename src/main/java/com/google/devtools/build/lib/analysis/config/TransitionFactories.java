@@ -35,8 +35,8 @@ public final class TransitionFactories {
       return NoTransition.createFactory();
     } else if (transition instanceof NullTransition) {
       return NullTransition.createFactory();
-    } else if (transition instanceof SplitTransition) {
-      return split((SplitTransition) transition);
+    } else if (transition instanceof SplitTransition splitTransition) {
+      return split(splitTransition);
     }
     return new AutoValue_TransitionFactories_IdentityFactory<T>(transition);
   }

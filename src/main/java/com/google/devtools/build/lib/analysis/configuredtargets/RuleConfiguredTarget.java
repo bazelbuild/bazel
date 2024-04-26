@@ -110,8 +110,8 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     // Initialize every StarlarkApiProvider
     for (int i = 0; i < providers.getProviderCount(); i++) {
       Object obj = providers.getProviderInstanceAt(i);
-      if (obj instanceof StarlarkApiProvider) {
-        ((StarlarkApiProvider) obj).init(this);
+      if (obj instanceof StarlarkApiProvider starlarkApiProvider) {
+        starlarkApiProvider.init(this);
       }
     }
 
@@ -218,8 +218,8 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   protected void addExtraStarlarkKeys(Consumer<String> result) {
     for (int i = 0; i < providers.getProviderCount(); i++) {
       Object classAt = providers.getProviderKeyAt(i);
-      if (classAt instanceof String) {
-        result.accept((String) classAt);
+      if (classAt instanceof String string) {
+        result.accept(string);
       }
     }
     result.accept(ACTIONS_FIELD_NAME);

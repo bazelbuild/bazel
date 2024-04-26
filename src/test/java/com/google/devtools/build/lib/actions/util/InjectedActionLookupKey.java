@@ -58,8 +58,8 @@ public final class InjectedActionLookupKey implements ActionLookupKey {
 
   @Override
   public boolean equals(Object obj) {
-    return obj instanceof InjectedActionLookupKey
-        && ((InjectedActionLookupKey) obj).name.equals(name);
+    return obj instanceof InjectedActionLookupKey injectedActionLookupKey
+        && injectedActionLookupKey.name.equals(name);
   }
 
   @Override

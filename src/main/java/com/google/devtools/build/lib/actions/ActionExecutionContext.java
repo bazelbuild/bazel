@@ -508,8 +508,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     try {
       fileOutErr.close();
     } finally {
-      if (actionFileSystem instanceof Closeable) {
-        ((Closeable) actionFileSystem).close();
+      if (actionFileSystem instanceof Closeable closeable) {
+        closeable.close();
       }
     }
   }

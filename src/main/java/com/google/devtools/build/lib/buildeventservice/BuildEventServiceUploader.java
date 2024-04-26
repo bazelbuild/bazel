@@ -199,8 +199,8 @@ public final class BuildEventServiceUploader implements Runnable {
         return;
       }
       // BuildCompletingEvent marks the end of the build in the BEP event stream.
-      if (event instanceof BuildCompletingEvent) {
-        ExitCode exitCode = ((BuildCompletingEvent) event).getExitCode();
+      if (event instanceof BuildCompletingEvent buildCompletingEvent) {
+        ExitCode exitCode = buildCompletingEvent.getExitCode();
         if (exitCode != null && exitCode.getNumericExitCode() == 0) {
           buildStatus = COMMAND_SUCCEEDED;
         } else {
@@ -599,13 +599,13 @@ public final class BuildEventServiceUploader implements Runnable {
         // of events that haven't been uploaded.
         EventLoopCommand event;
         while ((event = ackQueue.pollFirst()) != null) {
-          if (event instanceof SendRegularBuildEventCommand) {
-            cancelLocalFileUpload((SendRegularBuildEventCommand) event);
+          if (event instanceof SendRegularBuildEventCommand sendRegularBuildEventCommand) {
+            cancelLocalFileUpload(sendRegularBuildEventCommand);
           }
         }
         while ((event = eventQueue.pollFirst()) != null) {
-          if (event instanceof SendRegularBuildEventCommand) {
-            cancelLocalFileUpload((SendRegularBuildEventCommand) event);
+          if (event instanceof SendRegularBuildEventCommand sendRegularBuildEventCommand) {
+            cancelLocalFileUpload(sendRegularBuildEventCommand);
           }
         }
       }

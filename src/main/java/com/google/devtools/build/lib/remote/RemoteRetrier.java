@@ -37,8 +37,8 @@ public class RemoteRetrier extends Retrier {
   @Nullable
   private static Status fromException(Exception e) {
     for (Throwable cause = e; cause != null; cause = cause.getCause()) {
-      if (cause instanceof StatusRuntimeException) {
-        return ((StatusRuntimeException) cause).getStatus();
+      if (cause instanceof StatusRuntimeException statusRuntimeException) {
+        return statusRuntimeException.getStatus();
       }
     }
     return null;

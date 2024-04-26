@@ -374,8 +374,8 @@ public abstract class Artifact
      * consistent across calls to {@link #setGeneratingActionKey} and also serialization.
      */
     private static Object getOwnerToUseForHashCode(Object owner) {
-      return owner instanceof ActionLookupData
-          ? ((ActionLookupData) owner).getActionLookupKey()
+      return owner instanceof ActionLookupData actionLookupData
+          ? actionLookupData.getActionLookupKey()
           : owner;
     }
 
@@ -1408,8 +1408,8 @@ public abstract class Artifact
 
     @Override
     public boolean equals(Object obj) {
-      return obj instanceof OwnerlessArtifactWrapper
-          && this.artifact.equalsWithoutOwner(((OwnerlessArtifactWrapper) obj).artifact);
+      return obj instanceof OwnerlessArtifactWrapper ownerlessArtifactWrapper
+          && this.artifact.equalsWithoutOwner(ownerlessArtifactWrapper.artifact);
     }
 
     @Override

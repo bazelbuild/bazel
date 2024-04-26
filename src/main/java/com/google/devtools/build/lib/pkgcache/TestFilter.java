@@ -133,8 +133,7 @@ public final class TestFilter implements com.google.common.base.Predicate<Target
   @VisibleForTesting
   public static Predicate<Target> testTimeoutFilter(final Set<TestTimeout> allowedTimeouts) {
     return target ->
-        target instanceof Rule
-            && allowedTimeouts.contains(TestTimeout.getTestTimeout((Rule) target));
+        target instanceof Rule rule && allowedTimeouts.contains(TestTimeout.getTestTimeout(rule));
   }
 
   /**

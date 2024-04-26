@@ -107,8 +107,8 @@ public class PlatformFlagsProducer implements StateMachine, PlatformInfoProducer
 
   private void acceptParsedFlagsValue(
       @Nullable SkyValue value, @Nullable OptionsParsingException exception) {
-    if (value != null && value instanceof ParsedFlagsValue) {
-      this.parsedFlags = ((ParsedFlagsValue) value).flags();
+    if (value != null && value instanceof ParsedFlagsValue parsedFlagsValue) {
+      this.parsedFlags = parsedFlagsValue.flags();
       return;
     }
     if (exception != null) {

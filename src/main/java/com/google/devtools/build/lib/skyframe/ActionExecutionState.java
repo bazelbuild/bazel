@@ -390,8 +390,8 @@ final class ActionExecutionState {
 
     @Override
     public ActionExecutionValue get() throws ActionExecutionException, InterruptedException {
-      if (e instanceof InterruptedException) {
-        throw (InterruptedException) e;
+      if (e instanceof InterruptedException interruptedException) {
+        throw interruptedException;
       }
       throw (ActionExecutionException) e;
     }

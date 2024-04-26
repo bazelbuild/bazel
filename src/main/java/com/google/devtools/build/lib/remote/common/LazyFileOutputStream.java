@@ -68,8 +68,8 @@ public class LazyFileOutputStream extends OutputStream {
    */
   public void syncIfPossible() throws IOException {
     ensureOpen();
-    if (out instanceof FileOutputStream) {
-      ((FileOutputStream) out).getFD().sync();
+    if (out instanceof FileOutputStream fileOutputStream) {
+      fileOutputStream.getFD().sync();
     }
   }
 

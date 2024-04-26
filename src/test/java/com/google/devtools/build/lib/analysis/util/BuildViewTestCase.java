@@ -847,8 +847,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   /** Locates the first parameter file used by the action and returns its command line. */
   @Nullable
   protected final CommandLine paramFileCommandLineForAction(Action action) {
-    if (action instanceof SpawnAction) {
-      CommandLines commandLines = ((SpawnAction) action).getCommandLines();
+    if (action instanceof SpawnAction spawnAction) {
+      CommandLines commandLines = spawnAction.getCommandLines();
       for (CommandLineAndParamFileInfo pair : commandLines.unpack()) {
         if (pair.paramFileInfo != null) {
           return pair.commandLine;
@@ -883,8 +883,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   @Nullable
   protected final String paramFileStringContentsForAction(Action action)
       throws CommandLineExpansionException, InterruptedException, IOException {
-    if (action instanceof SpawnAction) {
-      CommandLines commandLines = ((SpawnAction) action).getCommandLines();
+    if (action instanceof SpawnAction spawnAction) {
+      CommandLines commandLines = spawnAction.getCommandLines();
       for (CommandLineAndParamFileInfo pair : commandLines.unpack()) {
         if (pair.paramFileInfo != null) {
           ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -906,8 +906,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     for (Artifact input : action.getInputs().toList()) {
       if (!(input instanceof SpecialArtifact)) {
         Action generatingAction = getGeneratingAction(input);
-        if (generatingAction instanceof ParameterFileWriteAction) {
-          return (ParameterFileWriteAction) generatingAction;
+        if (generatingAction instanceof ParameterFileWriteAction parameterFileWriteAction) {
+          return parameterFileWriteAction;
         }
       }
     }
@@ -1094,8 +1094,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected Artifact getArtifact(String label) throws LabelSyntaxException {
     ConfiguredTarget target = getConfiguredTarget(label, targetConfig);
-    if (target instanceof FileConfiguredTarget) {
-      return ((FileConfiguredTarget) target).getArtifact();
+    if (target instanceof FileConfiguredTarget fileConfiguredTarget) {
+      return fileConfiguredTarget.getArtifact();
     } else {
       return getFilesToBuild(target).getSingleton();
     }
@@ -1410,8 +1410,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       } catch (InterruptedException e) {
         throw new IllegalStateException(e);
       }
-      if (skyValue instanceof ActionLookupValue) {
-        for (ActionAnalysisMetadata action : ((ActionLookupValue) skyValue).getActions()) {
+      if (skyValue instanceof ActionLookupValue actionLookupValue) {
+        for (ActionAnalysisMetadata action : actionLookupValue.getActions()) {
           for (Artifact output : action.getOutputs()) {
             if (output.getRootRelativePath().equals(rootRelativePath)
                 && output.getRoot().equals(root)) {
@@ -2257,8 +2257,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     ExtraAction extraAction = null;
 
     for (Action action : actions) {
-      if (action instanceof ExtraAction) {
-        extraAction = (ExtraAction) action;
+      if (action instanceof ExtraAction loopAction) {
+        extraAction = loopAction;
         break;
       }
     }

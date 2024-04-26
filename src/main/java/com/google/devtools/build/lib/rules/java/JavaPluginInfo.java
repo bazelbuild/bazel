@@ -96,8 +96,8 @@ public abstract class JavaPluginInfo extends NativeInfo
       if (value instanceof JavaInfo) {
         // needed because currently native JavaInfo extends JavaPluginInfo
         throw new RuleErrorException("got element of type JavaInfo, want JavaPluginInfo");
-      } else if (value instanceof JavaPluginInfo) {
-        return (JavaPluginInfo) value;
+      } else if (value instanceof JavaPluginInfo javaPluginInfo) {
+        return javaPluginInfo;
       } else if (value instanceof StructImpl) {
         try {
           StructImpl info = (StructImpl) value;
@@ -154,8 +154,8 @@ public abstract class JavaPluginInfo extends NativeInfo
     }
 
     public static JavaPluginData wrap(Object obj) throws EvalException, RuleErrorException {
-      if (obj instanceof JavaPluginData) {
-        return (JavaPluginData) obj;
+      if (obj instanceof JavaPluginData javaPluginData) {
+        return javaPluginData;
       } else if (obj instanceof StructImpl struct) {
         return JavaPluginData.create(
             Depset.cast(struct.getValue("processor_classes"), String.class, "processor_classes"),

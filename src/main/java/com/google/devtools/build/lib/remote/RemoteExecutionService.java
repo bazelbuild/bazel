@@ -460,10 +460,10 @@ public class RemoteExecutionService {
       return (priorFuture != null ? priorFuture : freshFuture).join();
     } catch (CompletionException e) {
       Throwable cause = checkNotNull(e.getCause());
-      if (cause instanceof IOException) {
-        throw (IOException) cause;
-      } else if (cause instanceof ForbiddenActionInputException) {
-        throw (ForbiddenActionInputException) cause;
+      if (cause instanceof IOException ioException) {
+        throw ioException;
+      } else if (cause instanceof ForbiddenActionInputException forbiddenActionInputException) {
+        throw forbiddenActionInputException;
       } else {
         checkState(cause instanceof RuntimeException);
         throw (RuntimeException) cause;
@@ -1340,8 +1340,8 @@ public class RemoteExecutionService {
   }
 
   private static String prettyPrint(ActionInput actionInput) {
-    if (actionInput instanceof Artifact) {
-      return ((Artifact) actionInput).prettyPrint();
+    if (actionInput instanceof Artifact artifact) {
+      return artifact.prettyPrint();
     } else {
       return actionInput.getExecPathString();
     }

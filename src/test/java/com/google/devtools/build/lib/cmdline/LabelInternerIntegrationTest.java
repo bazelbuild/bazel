@@ -94,8 +94,8 @@ public final class LabelInternerIntegrationTest extends SkyframeIntegrationTestB
         .forEach(
             t -> {
               allPackageTargetsLabelInstances.add(t.getLabel());
-              if (t instanceof Rule) {
-                allRuleDepLabelInstances.addAll(((Rule) t).getLabels());
+              if (t instanceof Rule rule) {
+                allRuleDepLabelInstances.addAll(rule.getLabels());
               }
             });
 

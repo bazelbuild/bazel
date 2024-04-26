@@ -686,8 +686,8 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       return FileArtifactValue.createForDirectoryWithMtime(stat.getLastModifiedTime());
     }
 
-    if (stat instanceof FileStatusWithMetadata) {
-      return ((FileStatusWithMetadata) stat).getMetadata();
+    if (stat instanceof FileStatusWithMetadata fileStatusWithMetadata) {
+      return fileStatusWithMetadata.getMetadata();
     }
 
     FileStateValue fileStateValue =

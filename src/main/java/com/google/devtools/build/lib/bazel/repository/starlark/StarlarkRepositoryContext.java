@@ -630,24 +630,24 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     boolean needsRestart = false;
     for (String name : attr.getFieldNames()) {
       Object value = attr.getValue(name);
-      if (value instanceof Label) {
-        if (dependOnLabelIgnoringErrors((Label) value)) {
+      if (value instanceof Label label) {
+        if (dependOnLabelIgnoringErrors(label)) {
           needsRestart = true;
         }
       }
-      if (value instanceof Sequence) {
-        for (Object entry : (Sequence) value) {
-          if (entry instanceof Label) {
-            if (dependOnLabelIgnoringErrors((Label) entry)) {
+      if (value instanceof Sequence<?> sequence) {
+        for (Object entry : sequence) {
+          if (entry instanceof Label label2) {
+            if (dependOnLabelIgnoringErrors(label2)) {
               needsRestart = true;
             }
           }
         }
       }
-      if (value instanceof Dict) {
-        for (Object entry : ((Dict) value).keySet()) {
-          if (entry instanceof Label) {
-            if (dependOnLabelIgnoringErrors((Label) entry)) {
+      if (value instanceof Dict<?, ?> dict) {
+        for (Object entry : dict.keySet()) {
+          if (entry instanceof Label label2) {
+            if (dependOnLabelIgnoringErrors(label2)) {
               needsRestart = true;
             }
           }

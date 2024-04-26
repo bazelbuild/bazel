@@ -133,8 +133,8 @@ public final class PrepareDepsOfPatternsValue implements SkyValue {
 
   @Override
   public boolean equals(Object other) {
-    return other instanceof PrepareDepsOfPatternsValue
-        && targetPatternKeys.equals(((PrepareDepsOfPatternsValue) other).getTargetPatternKeys());
+    return other instanceof PrepareDepsOfPatternsValue prepareDepsOfPatternsValue
+        && targetPatternKeys.equals(prepareDepsOfPatternsValue.getTargetPatternKeys());
   }
 
   @Override

@@ -190,8 +190,8 @@ public final class RemoteModule extends BlazeModule {
         boolean retry = false;
         if (e instanceof ClosedChannelException) {
           retry = true;
-        } else if (e instanceof HttpException) {
-          int status = ((HttpException) e).response().status().code();
+        } else if (e instanceof HttpException httpException) {
+          int status = httpException.response().status().code();
           retry =
               status == HttpResponseStatus.INTERNAL_SERVER_ERROR.code()
                   || status == HttpResponseStatus.BAD_GATEWAY.code()

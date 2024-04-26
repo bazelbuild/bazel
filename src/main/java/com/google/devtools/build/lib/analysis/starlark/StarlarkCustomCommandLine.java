@@ -888,8 +888,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
     // It'd be nice to build this into DerivedArtifact's CommandLine interface so we don't have
     // to explicitly check if an object is a DerivedArtifact. Unfortunately that would require
     // a lot more dependencies on the Java library DerivedArtifact is built into.
-    return object instanceof DerivedArtifact
-        ? pathMapper.map(((DerivedArtifact) object).getExecPath()).getPathString()
+    return object instanceof DerivedArtifact derivedArtifact
+        ? pathMapper.map(derivedArtifact.getExecPath()).getPathString()
         : CommandLineItem.expandToCommandLine(object);
   }
 
@@ -1037,8 +1037,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
       int count = originalValues.size();
       // map_each can accept either each object, or each object + a directory expander.
       boolean wantsDirectoryExpander =
-          (mapFn instanceof StarlarkFunction)
-              && ((StarlarkFunction) mapFn).getParameterNames().size() >= 2;
+          mapFn instanceof StarlarkFunction starlarkFunction
+              && starlarkFunction.getParameterNames().size() >= 2;
       // We create a list that we reuse for the args to map_each
       List<Object> args = new ArrayList<>(2);
       args.add(null); // This will be overwritten each iteration.
@@ -1054,10 +1054,10 @@ public class StarlarkCustomCommandLine extends CommandLine {
       for (int i = 0; i < count; ++i) {
         args.set(0, originalValues.get(i));
         Object ret = Starlark.call(thread, mapFn, args, /*kwargs=*/ ImmutableMap.of());
-        if (ret instanceof String) {
-          consumer.accept((String) ret);
-        } else if (ret instanceof Sequence) {
-          for (Object val : ((Sequence<?>) ret)) {
+        if (ret instanceof String string) {
+          consumer.accept(string);
+        } else if (ret instanceof Sequence<?> sequence) {
+          for (Object val : sequence) {
             if (!(val instanceof String)) {
               throw new CommandLineExpansionException(
                   "Expected map_each to return string, None, or list of strings, "

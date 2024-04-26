@@ -698,8 +698,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     builder.addOutputs(outputArtifacts);
 
     if (unusedInputsList != Starlark.NONE) {
-      if (unusedInputsList instanceof Artifact) {
-        builder.setUnusedInputsList(Optional.of((Artifact) unusedInputsList));
+      if (unusedInputsList instanceof Artifact artifact) {
+        builder.setUnusedInputsList(Optional.of(artifact));
       } else {
         throw Starlark.errorf(
             "expected value of type 'File' for a member of parameter 'unused_inputs_list' but got"
@@ -790,8 +790,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     builder.setExecutionInfo(executionInfo);
 
     Label toolchainLabel = null;
-    if (toolchainUnchecked instanceof Label) {
-      toolchainLabel = (Label) toolchainUnchecked;
+    if (toolchainUnchecked instanceof Label label) {
+      toolchainLabel = label;
     } else if (toolchainUnchecked instanceof String) {
       try {
         toolchainLabel =
@@ -916,12 +916,12 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       }
 
       Object value = resourceSetMap.get(key);
-      if (value instanceof StarlarkInt) {
-        return ((StarlarkInt) value).toDouble();
+      if (value instanceof StarlarkInt starlarkInt) {
+        return starlarkInt.toDouble();
       }
 
-      if (value instanceof StarlarkFloat) {
-        return ((StarlarkFloat) value).toDouble();
+      if (value instanceof StarlarkFloat starlarkFloat) {
+        return starlarkFloat.toDouble();
       }
       throw new EvalException(
           String.format(

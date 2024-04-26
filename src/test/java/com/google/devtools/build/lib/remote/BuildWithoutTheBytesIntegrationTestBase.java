@@ -1324,10 +1324,10 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     var evaluator = getRuntimeWrapper().getSkyframeExecutor().getEvaluator();
     for (var artifact : getArtifacts(target)) {
       var value = evaluator.getExistingValue(Artifact.key(artifact));
-      if (value instanceof ActionExecutionValue) {
-        result.putAll(((ActionExecutionValue) value).getAllFileValues());
-      } else if (value instanceof TreeArtifactValue) {
-        result.putAll(((TreeArtifactValue) value).getChildValues());
+      if (value instanceof ActionExecutionValue actionExecutionValue) {
+        result.putAll(actionExecutionValue.getAllFileValues());
+      } else if (value instanceof TreeArtifactValue treeArtifactValue) {
+        result.putAll(treeArtifactValue.getChildValues());
       }
     }
     return result.buildOrThrow();
@@ -1336,10 +1336,10 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   protected FileArtifactValue getMetadata(Artifact output) throws Exception {
     var evaluator = getRuntimeWrapper().getSkyframeExecutor().getEvaluator();
     var value = evaluator.getExistingValue(Artifact.key(output));
-    if (value instanceof ActionExecutionValue) {
-      return ((ActionExecutionValue) value).getAllFileValues().get(output);
-    } else if (value instanceof TreeArtifactValue) {
-      return ((TreeArtifactValue) value).getChildValues().get(output);
+    if (value instanceof ActionExecutionValue actionExecutionValue) {
+      return actionExecutionValue.getAllFileValues().get(output);
+    } else if (value instanceof TreeArtifactValue treeArtifactValue) {
+      return treeArtifactValue.getChildValues().get(output);
     }
     return null;
   }

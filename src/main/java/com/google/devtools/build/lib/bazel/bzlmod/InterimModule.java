@@ -264,8 +264,8 @@ public abstract class InterimModule extends ModuleBase {
       @Nullable ModuleOverride override = overrides.get(depSpec.getName());
       if (override instanceof NonRegistryOverride) {
         newVersion = Version.EMPTY;
-      } else if (override instanceof SingleVersionOverride) {
-        Version overrideVersion = ((SingleVersionOverride) override).getVersion();
+      } else if (override instanceof SingleVersionOverride singleVersionOverride) {
+        Version overrideVersion = singleVersionOverride.getVersion();
         if (!overrideVersion.isEmpty()) {
           newVersion = overrideVersion;
         }

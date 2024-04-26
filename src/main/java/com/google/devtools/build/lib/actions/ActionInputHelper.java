@@ -157,8 +157,8 @@ public final class ActionInputHelper {
     Preconditions.checkNotNull(input, "input");
     Preconditions.checkNotNull(execRoot, "execRoot");
 
-    return (input instanceof Artifact)
-        ? ((Artifact) input).getPath()
+    return input instanceof Artifact artifact
+        ? artifact.getPath()
         : execRoot.getRelative(input.getExecPath());
   }
 }

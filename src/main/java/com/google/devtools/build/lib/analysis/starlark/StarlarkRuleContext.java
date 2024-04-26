@@ -293,8 +293,8 @@ public final class StarlarkRuleContext
               this, ((AspectContext) ruleContext).getMainAspectPrerequisitesCollection());
       for (Attribute attribute : attributes) {
         Object defaultValue = attribute.getDefaultValue(null);
-        if (defaultValue instanceof ComputedDefault) {
-          defaultValue = ((ComputedDefault) defaultValue).getDefault(ruleContext.attributes());
+        if (defaultValue instanceof ComputedDefault computedDefault) {
+          defaultValue = computedDefault.getDefault(ruleContext.attributes());
         }
         aspectBuilder.addAttribute(attribute, defaultValue);
       }
@@ -315,8 +315,8 @@ public final class StarlarkRuleContext
         }
         for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
           Object defaultValue = attribute.getDefaultValue(null);
-          if (defaultValue instanceof ComputedDefault) {
-            defaultValue = ((ComputedDefault) defaultValue).getDefault(ruleContext.attributes());
+          if (defaultValue instanceof ComputedDefault computedDefault) {
+            defaultValue = computedDefault.getDefault(ruleContext.attributes());
           }
           ruleBuilder.addAttribute(attribute, defaultValue);
         }

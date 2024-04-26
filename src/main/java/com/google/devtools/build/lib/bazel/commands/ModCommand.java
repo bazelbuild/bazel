@@ -594,9 +594,8 @@ public final class ModCommand implements BlazeCommand {
       buildozerCommand.build().execute();
     } catch (InterruptedException | CommandException e) {
       String suffix = "";
-      if (e instanceof AbnormalTerminationException) {
-        if (((AbnormalTerminationException) e).getResult().getTerminationStatus().getRawExitCode()
-            == 3) {
+      if (e instanceof AbnormalTerminationException abnormalTerminationException) {
+        if (abnormalTerminationException.getResult().getTerminationStatus().getRawExitCode() == 3) {
           // Buildozer exits with exit code 3 if it didn't make any changes.
           return BlazeCommandResult.success();
         }

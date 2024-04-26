@@ -194,8 +194,8 @@ public final class ConverterTester {
 
     @Override
     public boolean equals(Object other) {
-      if (other instanceof WrappedItem) {
-        return this.wrapped.equals(((WrappedItem) other).wrapped);
+      if (other instanceof WrappedItem wrappedItem) {
+        return this.wrapped.equals(wrappedItem.wrapped);
       }
       return this.wrapped.equals(other);
     }

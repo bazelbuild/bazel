@@ -261,8 +261,8 @@ public class AndroidResourcesInfo extends NativeInfo
       Preconditions.checkArgument(
           from instanceof Depset || from == net.starlark.java.eval.Starlark.UNBOUND);
 
-      if (from instanceof Depset) {
-        return nestedSet((Depset) from, with, fieldName);
+      if (from instanceof Depset depset) {
+        return nestedSet(depset, with, fieldName);
       }
       return NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     }

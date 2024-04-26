@@ -113,8 +113,8 @@ public abstract class BazelModuleContext {
   @Nullable
   public static BazelModuleContext of(Module m) {
     @Nullable Object data = m.getClientData();
-    if (data instanceof BazelModuleContext) {
-      return (BazelModuleContext) data;
+    if (data instanceof BazelModuleContext bazelModuleContext) {
+      return bazelModuleContext;
     } else {
       return null;
     }

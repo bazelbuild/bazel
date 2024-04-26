@@ -573,8 +573,8 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
 
       if (result instanceof NoneType) {
         return ImmutableMap.of();
-      } else if (result instanceof Dict) {
-        if (((Dict<?, ?>) result).isEmpty()) {
+      } else if (result instanceof Dict<?, ?> dict) {
+        if (dict.isEmpty()) {
           return ImmutableMap.of();
         }
         try {
@@ -609,8 +609,8 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
           return null;
         }
 
-      } else if (result instanceof Sequence) {
-        if (((Sequence<?>) result).isEmpty()) {
+      } else if (result instanceof Sequence<?> sequence) {
+        if (sequence.isEmpty()) {
           return ImmutableMap.of();
         }
         ImmutableMap.Builder<String, Map<String, Object>> builder = ImmutableMap.builder();

@@ -104,8 +104,8 @@ public class ConfigFeatureFlagTransitionFactory implements StarlarkExposedRuleTr
 
     @Override
     public boolean equals(Object other) {
-      return other instanceof ConfigFeatureFlagValuesTransition
-          && this.flagValues.equals(((ConfigFeatureFlagValuesTransition) other).flagValues);
+      return other instanceof ConfigFeatureFlagValuesTransition configFeatureFlagValuesTransition
+          && this.flagValues.equals(configFeatureFlagValuesTransition.flagValues);
     }
 
     @Override
@@ -157,8 +157,8 @@ public class ConfigFeatureFlagTransitionFactory implements StarlarkExposedRuleTr
 
   @Override
   public boolean equals(Object other) {
-    return other instanceof ConfigFeatureFlagTransitionFactory
-        && this.attributeName.equals(((ConfigFeatureFlagTransitionFactory) other).attributeName);
+    return other instanceof ConfigFeatureFlagTransitionFactory configFeatureFlagTransitionFactory
+        && this.attributeName.equals(configFeatureFlagTransitionFactory.attributeName);
   }
 
   @Override

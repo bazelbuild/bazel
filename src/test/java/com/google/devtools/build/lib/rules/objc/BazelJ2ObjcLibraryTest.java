@@ -816,8 +816,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
       if (!(input instanceof SpecialArtifact)) {
         if (input.getFilename().endsWith("linker.objlist")) {
           Action generatingAction = getGeneratingAction(input);
-          if (generatingAction instanceof ParameterFileWriteAction) {
-            return (ParameterFileWriteAction) generatingAction;
+          if (generatingAction instanceof ParameterFileWriteAction parameterFileWriteAction) {
+            return parameterFileWriteAction;
           }
         }
       }

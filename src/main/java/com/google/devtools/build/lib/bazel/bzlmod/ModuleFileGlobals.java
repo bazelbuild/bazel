@@ -950,8 +950,8 @@ public class ModuleFileGlobals {
     context.setNonModuleCalled();
     validateModuleName(moduleName);
     ImmutableList<String> urlList =
-        urls instanceof String
-            ? ImmutableList.of((String) urls)
+        urls instanceof String string
+            ? ImmutableList.of(string)
             : Sequence.cast(urls, String.class, "urls").getImmutableList();
     context.addOverride(
         moduleName,

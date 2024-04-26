@@ -65,10 +65,10 @@ class TargetCycleReporter extends AbstractLabelCycleReporter {
 
   @Override
   public String prettyPrint(Object key) {
-    if (key instanceof ConfiguredTargetKey) {
-      return ((ConfiguredTargetKey) key).prettyPrint();
-    } else if (key instanceof AspectKey) {
-      return ((AspectKey) key).prettyPrint();
+    if (key instanceof ConfiguredTargetKey configuredTargetKey) {
+      return configuredTargetKey.prettyPrint();
+    } else if (key instanceof AspectKey aspectKey) {
+      return aspectKey.prettyPrint();
     } else {
       return getLabel((SkyKey) key).toString();
     }
@@ -78,8 +78,8 @@ class TargetCycleReporter extends AbstractLabelCycleReporter {
   public Label getLabel(SkyKey key) {
     if (key instanceof ActionLookupKey) {
       return Preconditions.checkNotNull(((ActionLookupKey) key.argument()).getLabel(), key);
-    } else if (key instanceof TransitiveTargetKey) {
-      return ((TransitiveTargetKey) key).getLabel();
+    } else if (key instanceof TransitiveTargetKey transitiveTargetKey) {
+      return transitiveTargetKey.getLabel();
     } else {
       throw new UnsupportedOperationException(key.toString());
     }

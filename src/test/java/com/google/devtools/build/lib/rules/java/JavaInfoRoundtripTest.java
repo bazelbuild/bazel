@@ -155,8 +155,8 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
         builder.add(deepStripAttributes(item, shouldRemove));
       }
       return (T) StarlarkList.immutableCopyOf(builder.build());
-    } else if (obj instanceof Structure) {
-      for (String fieldName : ((Structure) obj).getFieldNames()) {
+    } else if (obj instanceof Structure structure) {
+      for (String fieldName : structure.getFieldNames()) {
         Dict.Builder<String, Object> builder = Dict.builder();
         if (!shouldRemove.test(fieldName)) {
           builder.put(

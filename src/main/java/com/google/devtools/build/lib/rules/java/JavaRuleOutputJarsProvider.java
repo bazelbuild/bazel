@@ -74,10 +74,10 @@ public abstract class JavaRuleOutputJarsProvider
         throws EvalException, RuleErrorException {
       ImmutableList.Builder<JavaOutput> result = ImmutableList.builder();
       for (Object info : outputs) {
-        if (info instanceof JavaOutput) {
-          result.add((JavaOutput) info);
-        } else if (info instanceof StructImpl) {
-          result.add(fromStarlarkJavaOutput((StructImpl) info));
+        if (info instanceof JavaOutput javaOutput) {
+          result.add(javaOutput);
+        } else if (info instanceof StructImpl structImpl) {
+          result.add(fromStarlarkJavaOutput(structImpl));
         } else {
           throw new RuleErrorException("expected JavaOutput, got: " + Starlark.type(info));
         }
@@ -353,8 +353,8 @@ public abstract class JavaRuleOutputJarsProvider
       throws EvalException, RuleErrorException {
     if (obj == Starlark.NONE) {
       return JavaRuleOutputJarsProvider.EMPTY;
-    } else if (obj instanceof JavaRuleOutputJarsProvider) {
-      return (JavaRuleOutputJarsProvider) obj;
+    } else if (obj instanceof JavaRuleOutputJarsProvider javaRuleOutputJarsProvider) {
+      return javaRuleOutputJarsProvider;
     } else if (obj instanceof StructImpl) {
       return JavaRuleOutputJarsProvider.builder()
           .addJavaOutput(

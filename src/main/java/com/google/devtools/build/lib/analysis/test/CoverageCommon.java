@@ -77,8 +77,8 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
         if (supportFilesElement instanceof Depset) {
           supportFilesBuilder.addTransitive(
               Depset.cast(supportFilesElement, Artifact.class, "coverage_support_files"));
-        } else if (supportFilesElement instanceof Artifact) {
-          supportFilesBuilder.add((Artifact) supportFilesElement);
+        } else if (supportFilesElement instanceof Artifact artifact) {
+          supportFilesBuilder.add(artifact);
         } else {
           throw Starlark.errorf(
               "at index %d of coverage_support_files, got element of type %s, want one of depset,"

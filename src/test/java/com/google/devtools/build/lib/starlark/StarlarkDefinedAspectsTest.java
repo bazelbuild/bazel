@@ -9546,8 +9546,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
       Map<AspectKey, ConfiguredAspect> aspectsMap, String aspectName) {
     for (Map.Entry<AspectKey, ConfiguredAspect> entry : aspectsMap.entrySet()) {
       AspectClass aspectClass = entry.getKey().getAspectClass();
-      if (aspectClass instanceof StarlarkAspectClass) {
-        String aspectExportedName = ((StarlarkAspectClass) aspectClass).getExportedName();
+      if (aspectClass instanceof StarlarkAspectClass starlarkAspectClass) {
+        String aspectExportedName = starlarkAspectClass.getExportedName();
         if (aspectExportedName.equals(aspectName)) {
           return entry.getValue();
         }
@@ -9560,8 +9560,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
       Map<AspectKey, ConfiguredAspect> aspectsMap, String aspectName, String targetName) {
     for (Map.Entry<AspectKey, ConfiguredAspect> entry : aspectsMap.entrySet()) {
       AspectClass aspectClass = entry.getKey().getAspectClass();
-      if (aspectClass instanceof StarlarkAspectClass) {
-        String aspectExportedName = ((StarlarkAspectClass) aspectClass).getExportedName();
+      if (aspectClass instanceof StarlarkAspectClass starlarkAspectClass) {
+        String aspectExportedName = starlarkAspectClass.getExportedName();
         String target = entry.getKey().getLabel().getName();
         if (aspectExportedName.equals(aspectName) && target.equals(targetName)) {
           return entry.getValue();

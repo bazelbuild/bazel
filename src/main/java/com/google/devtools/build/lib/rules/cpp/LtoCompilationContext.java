@@ -155,8 +155,8 @@ public final class LtoCompilationContext implements StarlarkValue {
     if (this == o) {
       return true;
     }
-    return (o instanceof LtoCompilationContext)
-        && ltoBitcodeFiles.equals(((LtoCompilationContext) o).ltoBitcodeFiles);
+    return o instanceof LtoCompilationContext ltoCompilationContext
+        && ltoBitcodeFiles.equals(ltoCompilationContext.ltoBitcodeFiles);
   }
 
   @Override

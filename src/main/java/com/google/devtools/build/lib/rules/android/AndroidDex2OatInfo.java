@@ -49,8 +49,8 @@ public final class AndroidDex2OatInfo extends NativeInfo
       return new AndroidDex2OatInfo(
           enabled,
           executeDex2OatOnHost,
-          sandboxForPregeneratingOatFilesForTests instanceof FilesToRunProvider
-              ? (FilesToRunProvider) sandboxForPregeneratingOatFilesForTests
+          sandboxForPregeneratingOatFilesForTests instanceof FilesToRunProvider filesToRunProvider
+              ? filesToRunProvider
               : null,
           framework instanceof Artifact ? (Artifact) framework : null,
           dalvikCache instanceof Artifact ? (Artifact) dalvikCache : null,

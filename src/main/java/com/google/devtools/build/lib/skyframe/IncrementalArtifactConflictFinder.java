@@ -492,8 +492,8 @@ public final class IncrementalArtifactConflictFinder {
   private static Artifact getOwningArtifactFromTrie(Object trieNode) {
     Preconditions.checkArgument(
         trieNode instanceof Artifact || trieNode instanceof ConcurrentHashMap);
-    if (trieNode instanceof Artifact) {
-      return (Artifact) trieNode;
+    if (trieNode instanceof Artifact artifact) {
+      return artifact;
     }
     Object nodeIter = trieNode;
     while (!(nodeIter instanceof Artifact)) {

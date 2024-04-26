@@ -350,8 +350,8 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
         // Values such as those of attribute "linkstamp" may be null.
         if (value != null) {
           try {
-            if (value instanceof Label) {
-              elem.setAttribute("value", labelPrinter.toString((Label) value));
+            if (value instanceof Label label) {
+              elem.setAttribute("value", labelPrinter.toString(label));
             } else {
               elem.setAttribute("value", value.toString());
             }

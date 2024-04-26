@@ -37,10 +37,10 @@ class FakeImmutableCacheByteStreamImpl extends ByteStreamImplBase {
     for (Map.Entry<Digest, Object> e : contents.entrySet()) {
       Object obj = e.getValue();
       ByteString data;
-      if (obj instanceof String) {
-        data = ByteString.copyFromUtf8((String) obj);
-      } else if (obj instanceof ByteString) {
-        data = (ByteString) obj;
+      if (obj instanceof String string) {
+        data = ByteString.copyFromUtf8(string);
+      } else if (obj instanceof ByteString byteString) {
+        data = byteString;
       } else {
         throw new AssertionError(
             "expected object to be either a String or a ByteString, got a "

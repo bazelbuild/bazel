@@ -297,8 +297,8 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         builder.cfg(ExecutionTransitionFactory.createFactory());
       } else if (trans.equals("exec")) {
         builder.cfg(ExecutionTransitionFactory.createFactory());
-      } else if (trans instanceof ExecutionTransitionFactory) {
-        builder.cfg((ExecutionTransitionFactory) trans);
+      } else if (trans instanceof ExecutionTransitionFactory executionTransitionFactory) {
+        builder.cfg(executionTransitionFactory);
       } else if (trans instanceof SplitTransition) {
         // TODO(jcater): remove TransitionFactories usage.
         builder.cfg(TransitionFactories.of((SplitTransition) trans));
@@ -377,8 +377,8 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     ImmutableList.Builder<StarlarkProviderIdentifier> result = ImmutableList.builder();
 
     for (Object obj : list) {
-      if (obj instanceof String) {
-        result.add(StarlarkProviderIdentifier.forLegacy((String) obj));
+      if (obj instanceof String string) {
+        result.add(StarlarkProviderIdentifier.forLegacy(string));
       } else if (obj instanceof Provider constructor) {
         if (!constructor.isExported()) {
           throw Starlark.errorf(

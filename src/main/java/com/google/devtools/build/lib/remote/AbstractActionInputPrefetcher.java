@@ -331,8 +331,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       ActionInput input,
       Priority priority) {
     try {
-      if (input instanceof VirtualActionInput) {
-        prefetchVirtualActionInput((VirtualActionInput) input);
+      if (input instanceof VirtualActionInput virtualActionInput) {
+        prefetchVirtualActionInput(virtualActionInput);
         return immediateVoidFuture();
       }
 

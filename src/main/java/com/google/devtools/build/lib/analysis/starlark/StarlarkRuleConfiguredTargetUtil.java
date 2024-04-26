@@ -328,8 +328,8 @@ public final class StarlarkRuleConfiguredTargetUtil {
           }
         }
       } else {
-        if (info instanceof StarlarkInfo) {
-          info = ((StarlarkInfo) info).unsafeOptimizeMemoryLayout();
+        if (info instanceof StarlarkInfo starlarkInfo) {
+          info = starlarkInfo.unsafeOptimizeMemoryLayout();
         }
         Provider.Key providerKey = getProviderKey(info);
         // Single declared provider
