@@ -1,4 +1,4 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2024 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,30 +11,21 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
-/** Codec for {@link Boolean}. */
-class BooleanCodec extends LeafObjectCodec<Boolean> {
-
-  @Override
-  public Class<Boolean> getEncodedClass() {
-    return Boolean.class;
-  }
-
-  @Override
-  public void serialize(LeafSerializationContext context, Boolean value, CodedOutputStream codedOut)
-      throws IOException {
-    codedOut.writeBoolNoTag(value);
-  }
-
-  @Override
-  public Boolean deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
-      throws IOException {
-    return codedIn.readBool();
-  }
+/**
+ * Context provided to {@link LeafObjectCodec} implementations.
+ *
+ * <p>This context permits delegation only to other {@link LeafObjectCodec} instances and dependency
+ * lookups.
+ */
+public interface LeafSerializationContext extends SerializationDependencyProvider {
+  /** Serializes {@code obj} using {@code codec} into {@code codedOut}. */
+  public <T> void serializeLeaf(
+      @Nullable T obj, LeafObjectCodec<T> codec, CodedOutputStream codedOut)
+      throws IOException, SerializationException;
 }

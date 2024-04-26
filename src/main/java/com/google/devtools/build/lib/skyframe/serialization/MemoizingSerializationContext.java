@@ -182,6 +182,28 @@ abstract class MemoizingSerializationContext extends SerializationContext {
   }
 
   @Override
+  public final <T> void serializeLeaf(
+      @Nullable T obj, LeafObjectCodec<T> codec, CodedOutputStream codedOut)
+      throws IOException, SerializationException {
+    if (writeIfNullOrConstant(obj, codedOut)) {
+      return;
+    }
+    int maybePrevious = getMemoizedIndex(obj);
+    if (maybePrevious != NO_VALUE) {
+      // There was a previous entry. Writes a backreference, subtracting 2 to avoid 0 (which
+      // indicates null), and -1 (which indicates an immediate value).
+      codedOut.writeSInt32NoTag(-maybePrevious - 2);
+      return;
+    }
+    // A new entry was added, emits -1 to signal an immediate value, then serializes the value.
+    codedOut.writeSInt32NoTag(-1);
+    codec.serialize((LeafSerializationContext) this, obj, codedOut);
+    // By necessity, a LeafCodec is treated like MEMOIZE_AFTER because when deserializing, the
+    // value will only be available as a backreference after its deserialization is complete.
+    int unusedId = memoize(obj);
+  }
+
+  @Override
   public final void addExplicitlyAllowedClass(Class<?> allowedClass) {
     explicitlyAllowedClasses.add(allowedClass);
   }

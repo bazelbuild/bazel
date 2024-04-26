@@ -35,7 +35,7 @@ import javax.annotation.Nullable;
  * only makes sense to tie the lifetime of a {@link CodedOutputStream} to the lifetime of a {@link
  * MemoizingSerializationContext}.
  */
-public abstract class SerializationContext implements SerializationDependencyProvider {
+public abstract class SerializationContext implements LeafSerializationContext {
   private final ObjectCodecRegistry codecRegistry;
   private final ImmutableClassToInstanceMap<Object> dependencies;
 
@@ -179,7 +179,7 @@ public abstract class SerializationContext implements SerializationDependencyPro
 
   public abstract boolean isMemoizing();
 
-  private final boolean writeIfNullOrConstant(@Nullable Object object, CodedOutputStream codedOut)
+  final boolean writeIfNullOrConstant(@Nullable Object object, CodedOutputStream codedOut)
       throws IOException {
     if (object == null) {
       codedOut.writeSInt32NoTag(0);

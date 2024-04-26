@@ -28,8 +28,9 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -487,23 +488,19 @@ public final class BuildOptions implements Cloneable {
 
     @Override
     public void serialize(
-        SerializationDependencyProvider dependencies,
-        BuildOptions options,
-        CodedOutputStream codedOut)
+        LeafSerializationContext context, BuildOptions options, CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      if (!dependencies.getDependency(OptionsChecksumCache.class).prime(options)) {
+      if (!context.getDependency(OptionsChecksumCache.class).prime(options)) {
         throw new SerializationException("Failed to prime cache for " + options.checksum());
       }
-      stringCodec().serialize(dependencies, options.checksum(), codedOut);
+      context.serializeLeaf(options.checksum(), stringCodec(), codedOut);
     }
 
     @Override
-    public BuildOptions deserialize(
-        SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+    public BuildOptions deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      String checksum = stringCodec().deserialize(dependencies, codedIn);
-      BuildOptions result =
-          dependencies.getDependency(OptionsChecksumCache.class).getOptions(checksum);
+      String checksum = context.deserializeLeaf(codedIn, stringCodec());
+      BuildOptions result = context.getDependency(OptionsChecksumCache.class).getOptions(checksum);
       if (result == null) {
         throw new SerializationException("No options instance for " + checksum);
       }

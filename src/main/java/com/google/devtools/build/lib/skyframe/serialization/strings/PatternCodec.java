@@ -15,8 +15,9 @@ package com.google.devtools.build.lib.skyframe.serialization.strings;
 
 import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
 
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -32,15 +33,15 @@ class PatternCodec extends LeafObjectCodec<Pattern> {
 
   @Override
   public void serialize(
-      SerializationDependencyProvider dependencies, Pattern pattern, CodedOutputStream codedOut)
+      LeafSerializationContext context, Pattern pattern, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    stringCodec().serialize(dependencies, pattern.pattern(), codedOut);
+    context.serializeLeaf(pattern.pattern(), stringCodec(), codedOut);
     codedOut.writeInt32NoTag(pattern.flags());
   }
 
   @Override
-  public Pattern deserialize(SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+  public Pattern deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
-    return Pattern.compile(stringCodec().deserialize(dependencies, codedIn), codedIn.readInt32());
+    return Pattern.compile(context.deserializeLeaf(codedIn, stringCodec()), codedIn.readInt32());
   }
 }

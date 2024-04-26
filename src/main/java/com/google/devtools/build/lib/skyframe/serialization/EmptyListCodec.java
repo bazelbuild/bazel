@@ -35,13 +35,10 @@ class EmptyListCodec extends LeafObjectCodec<List> {
 
   @Override
   public void serialize(
-      SerializationDependencyProvider dependencies,
-      List unusedValue,
-      CodedOutputStream unusedCodedOut) {}
+      LeafSerializationContext context, List unusedValue, CodedOutputStream unusedCodedOut) {}
 
   @Override
-  public List deserialize(
-      SerializationDependencyProvider dependencies, CodedInputStream unusedCodedIn) {
+  public List deserialize(LeafDeserializationContext context, CodedInputStream unusedCodedIn) {
     return Collections.emptyList();
   }
 }

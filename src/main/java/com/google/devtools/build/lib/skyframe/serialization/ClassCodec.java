@@ -37,26 +37,24 @@ class ClassCodec extends LeafObjectCodec<Class<?>> {
   }
 
   @Override
-  public void serialize(
-      SerializationDependencyProvider dependencies, Class<?> obj, CodedOutputStream codedOut)
+  public void serialize(LeafSerializationContext context, Class<?> obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
     codedOut.writeBoolNoTag(obj.isPrimitive());
     if (obj.isPrimitive()) {
       codedOut.writeInt32NoTag(Preconditions.checkNotNull(PRIMITIVE_CLASS_INDEX_MAP.get(obj), obj));
     } else {
-      stringCodec().serialize(dependencies, obj.getName(), codedOut);
+      context.serializeLeaf(obj.getName(), stringCodec(), codedOut);
     }
   }
 
   @Override
-  public Class<?> deserialize(
-      SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+  public Class<?> deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     boolean isPrimitive = codedIn.readBool();
     if (isPrimitive) {
       return PRIMITIVE_CLASS_INDEX_MAP.inverse().get(codedIn.readInt32());
     }
-    String className = stringCodec().deserialize(dependencies, codedIn);
+    String className = context.deserializeLeaf(codedIn, stringCodec());
     try {
       return Class.forName(className);
     } catch (ClassNotFoundException e) {

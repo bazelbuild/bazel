@@ -146,7 +146,11 @@ public abstract class DeserializationContext implements AsyncDeserializationCont
     return deserializeAndMaybeMemoize(registry.getCodecDescriptorByTag(tag).getCodec(), codedIn);
   }
 
-  @ForOverride
+  @Nullable
+  final Object maybeGetConstantByTag(int tag) {
+    return registry.maybeGetConstantByTag(tag);
+  }
+
   abstract Object getMemoizedBackReference(int memoIndex);
 
   /**

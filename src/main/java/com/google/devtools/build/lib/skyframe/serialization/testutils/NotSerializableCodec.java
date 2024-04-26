@@ -14,8 +14,9 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.NotSerializableException;
@@ -35,16 +36,13 @@ public class NotSerializableCodec extends LeafObjectCodec<Object> {
 
   @Override
   public void serialize(
-      SerializationDependencyProvider dependencies,
-      Object unusedObj,
-      CodedOutputStream unusedCodedOut)
+      LeafSerializationContext context, Object unusedObj, CodedOutputStream unusedCodedOut)
       throws NotSerializableException {
     throw new NotSerializableException(type + " marked not serializable");
   }
 
   @Override
-  public Object deserialize(
-      SerializationDependencyProvider dependencies, CodedInputStream unusedCodedIn)
+  public Object deserialize(LeafDeserializationContext context, CodedInputStream unusedCodedIn)
       throws NotSerializableException {
     throw new NotSerializableException(type + " marked not serializable");
   }
