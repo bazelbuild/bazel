@@ -139,8 +139,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
       HttpDownloader httpDownloader = new HttpDownloader();
       DownloadManager downloadManager = new DownloadManager(repositoryCache, httpDownloader);
       RegistryFactory registryFactory =
-          new RegistryFactoryImpl(
-              directories.getWorkspace(), downloadManager, Suppliers.ofInstance(ImmutableMap.of()));
+          new RegistryFactoryImpl(downloadManager, Suppliers.ofInstance(ImmutableMap.of()));
 
       // Allow tests to override the following functions to use fake registry or custom built-in
       // modules
@@ -160,7 +159,9 @@ public class BazelPackageLoader extends AbstractPackageLoader {
       }
       if (!this.extraSkyFunctions.containsKey(SkyFunctions.REGISTRY)) {
         addExtraSkyFunctions(
-            ImmutableMap.of(SkyFunctions.REGISTRY, new RegistryFunction(registryFactory)));
+            ImmutableMap.of(
+                SkyFunctions.REGISTRY,
+                new RegistryFunction(registryFactory, directories.getWorkspace())));
       }
 
       addExtraSkyFunctions(

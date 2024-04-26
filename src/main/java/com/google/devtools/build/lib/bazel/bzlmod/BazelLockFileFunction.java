@@ -70,7 +70,7 @@ public class BazelLockFileFunction implements SkyFunction {
     }
 
     try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.BZLMOD, "parse lockfile")) {
-      return getLockfileValue(lockfilePath, rootDirectory, LOCKFILE_MODE.get(env));
+      return getLockfileValue(lockfilePath, LOCKFILE_MODE.get(env));
     } catch (IOException | JsonSyntaxException | NullPointerException e) {
       throw new BazelLockfileFunctionException(
           ExternalDepsException.withMessage(
@@ -83,7 +83,7 @@ public class BazelLockFileFunction implements SkyFunction {
   }
 
   public static BazelLockFileValue getLockfileValue(
-      RootedPath lockfilePath, Path rootDirectory, LockfileMode lockfileMode)
+      RootedPath lockfilePath, LockfileMode lockfileMode)
       throws IOException, BazelLockfileFunctionException {
     try {
       String json = FileSystemUtils.readContent(lockfilePath.asPath(), UTF_8);
@@ -94,8 +94,7 @@ public class BazelLockFileFunction implements SkyFunction {
                 lockfilePath
                     .asPath()
                     .getParentDirectory()
-                    .getRelative(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME),
-                rootDirectory)
+                    .getRelative(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME))
             .fromJson(json, BazelLockFileValue.class);
       } else {
         // This is an old version, its information can't be used.

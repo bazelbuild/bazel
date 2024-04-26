@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
-import com.google.devtools.build.lib.vfs.Path;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
@@ -85,12 +84,10 @@ public class IndexRegistryTest extends FoundationTestCase {
   public void setUp() throws Exception {
     eventRecorder = new EventRecorder();
     eventBus.register(eventRecorder);
-    Path workspaceRoot = scratch.dir("/ws");
     repositoryCache = new RepositoryCache();
     downloadManager = new DownloadManager(repositoryCache, new HttpDownloader());
     registryFactory =
-        new RegistryFactoryImpl(
-            workspaceRoot, downloadManager, Suppliers.ofInstance(ImmutableMap.of()));
+        new RegistryFactoryImpl(downloadManager, Suppliers.ofInstance(ImmutableMap.of()));
   }
 
   @Test

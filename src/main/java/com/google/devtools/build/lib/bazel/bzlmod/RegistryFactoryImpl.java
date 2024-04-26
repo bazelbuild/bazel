@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.bazel.bzlmod.IndexRegistry.KnownFileHashesM
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
-import com.google.devtools.build.lib.vfs.Path;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
@@ -29,26 +28,22 @@ import java.util.function.Supplier;
 
 /** Prod implementation of {@link RegistryFactory}. */
 public class RegistryFactoryImpl implements RegistryFactory {
-  private final Path workspacePath;
   private final DownloadManager downloadManager;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
 
   public RegistryFactoryImpl(
-      Path workspacePath,
-      DownloadManager downloadManager,
-      Supplier<Map<String, String>> clientEnvironmentSupplier) {
-    this.workspacePath = workspacePath;
+      DownloadManager downloadManager, Supplier<Map<String, String>> clientEnvironmentSupplier) {
     this.downloadManager = downloadManager;
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
   }
 
   @Override
   public Registry createRegistry(
-      String unresolvedUrl,
+      String url,
       ImmutableMap<String, Optional<Checksum>> knownFileHashes,
       LockfileMode lockfileMode)
       throws URISyntaxException {
-    URI uri = new URI(unresolvedUrl.replace("%workspace%", workspacePath.getPathString()));
+    URI uri = new URI(url);
     if (uri.getScheme() == null) {
       throw new URISyntaxException(
           uri.toString(),
@@ -73,7 +68,6 @@ public class RegistryFactoryImpl implements RegistryFactory {
         };
     return new IndexRegistry(
         uri,
-        unresolvedUrl,
         downloadManager,
         clientEnvironmentSupplier.get(),
         knownFileHashes,

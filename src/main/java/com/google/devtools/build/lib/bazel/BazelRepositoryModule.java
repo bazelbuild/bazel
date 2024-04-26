@@ -270,8 +270,8 @@ public class BazelRepositoryModule extends BlazeModule {
         .addSkyFunction(
             SkyFunctions.REGISTRY,
             new RegistryFunction(
-                new RegistryFactoryImpl(
-                    directories.getWorkspace(), downloadManager, clientEnvironmentSupplier)))
+                new RegistryFactoryImpl(downloadManager, clientEnvironmentSupplier),
+                directories.getWorkspace()))
         .addSkyFunction(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
         .addSkyFunction(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
         .addSkyFunction(

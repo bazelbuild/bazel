@@ -64,7 +64,7 @@ public class YankedVersionsFunction implements SkyFunction {
               Event.warn(
                   String.format(
                       "Could not read metadata file for module %s from registry %s: %s",
-                      key.getModuleName(), key.getRegistryUrl(), e.getMessage())));
+                      key.getModuleKey().getName(), key.getRegistryUrl(), e.getMessage())));
       // This is failing open: If we can't read the metadata file, we allow yanked modules to be
       // fetched.
       return YankedVersionsValue.create(Optional.empty());

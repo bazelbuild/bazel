@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -22,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.ArchiveRepoSpecBuilder;
-import com.google.devtools.build.lib.bazel.bzlmod.AttributeValues;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleCreator;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
@@ -51,7 +49,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
@@ -193,7 +190,7 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
 
     var attributes =
         ImmutableMap.<String, Object>builder()
-            .putAll(resolveRemotePatchesUrl(repoSpec).attributes())
+            .putAll(repoSpec.attributes().attributes())
             .put("name", repositoryName.getName())
             .buildOrThrow();
     try {
@@ -215,35 +212,6 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     } catch (EvalException e) {
       throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
     }
-  }
-
-  /* Resolves repo specs containing remote patches that are stored with %workspace% place holder*/
-  @SuppressWarnings("unchecked")
-  private AttributeValues resolveRemotePatchesUrl(RepoSpec repoSpec) {
-    if (repoSpec
-        .getRuleClass()
-        .equals(ArchiveRepoSpecBuilder.HTTP_ARCHIVE_PATH + "%http_archive")) {
-      return AttributeValues.create(
-          repoSpec.attributes().attributes().entrySet().stream()
-              .collect(
-                  toImmutableMap(
-                      Map.Entry::getKey,
-                      e -> {
-                        if (e.getKey().equals("remote_patches")) {
-                          Map<String, String> remotePatches = (Map<String, String>) e.getValue();
-                          return remotePatches.keySet().stream()
-                              .collect(
-                                  toImmutableMap(
-                                      key ->
-                                          key.replace(
-                                              "%workspace%",
-                                              directories.getWorkspace().getPathString()),
-                                      remotePatches::get));
-                        }
-                        return e.getValue();
-                      })));
-    }
-    return repoSpec.attributes();
   }
 
   // Starlark rules loaded from bazel_tools that may define Bazel module repositories and thus must

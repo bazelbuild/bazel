@@ -1312,9 +1312,10 @@ class BazelLockfileTest(test_base.TestBase):
             '',
             'def _ext_1_impl(ctx):',
             '    print("Ext 1 is being evaluated")',
-            '    num_tags = len([',
-            '        tag for mod in ctx.modules for tag in mod.tags.tag',
-            '    ])',
+            (
+                '    num_tags = len([tag for mod in ctx.modules for tag in'
+                ' mod.tags.tag])'
+            ),
             '    repo_rule(name="dep", value="Ext 1 saw %s tags" % num_tags)',
             '',
             'ext_1 = module_extension(',
@@ -1324,9 +1325,10 @@ class BazelLockfileTest(test_base.TestBase):
             '',
             'def _ext_2_impl(ctx):',
             '    print("Ext 2 is being evaluated")',
-            '    num_tags = len([',
-            '        tag for mod in ctx.modules for tag in mod.tags.tag',
-            '    ])',
+            (
+                '    num_tags = len([tag for mod in ctx.modules for tag in'
+                ' mod.tags.tag])'
+            ),
             '    repo_rule(name="dep", value="Ext 2 saw %s tags" % num_tags)',
             '',
             'ext_2 = module_extension(',
@@ -1336,9 +1338,10 @@ class BazelLockfileTest(test_base.TestBase):
             '',
             'def _ext_3_impl(ctx):',
             '    print("Ext 3 is being evaluated")',
-            '    num_tags = len([',
-            '        tag for mod in ctx.modules for tag in mod.tags.tag',
-            '    ])',
+            (
+                '    num_tags = len([tag for mod in ctx.modules for tag in'
+                ' mod.tags.tag])'
+            ),
             '    repo_rule(name="dep", value="Ext 3 saw %s tags" % num_tags)',
             '',
             'ext_3 = module_extension(',
@@ -1513,19 +1516,9 @@ class BazelLockfileTest(test_base.TestBase):
           ['build', '--registry=file:///%workspace%/registry', '//:lala']
       )
 
-      with open('MODULE.bazel.lock', 'r') as json_file:
-        lockfile = json.load(json_file)
-      ss_dep = lockfile['moduleDepGraph']['ss@1.3-1']
-      remote_patches = ss_dep['repoSpec']['attributes']['remote_patches']
-      ext_usage_location = ss_dep['extensionUsages'][0]['proxies'][0][
-          'location'
-      ]['file']
+      with open('MODULE.bazel.lock', 'r') as f:
+        self.assertNotIn(self.my_registry.getURL(), f.read())
 
-      self.assertNotIn(self.my_registry.getURL(), ext_usage_location)
-      self.assertIn('%workspace%', ext_usage_location)
-      for key in remote_patches.keys():
-        self.assertNotIn(self.my_registry.getURL(), key)
-        self.assertIn('%workspace%', key)
     finally:
       self.my_registry.stop()
 

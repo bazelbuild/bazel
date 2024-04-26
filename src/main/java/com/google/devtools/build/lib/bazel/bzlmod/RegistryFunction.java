@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -27,9 +28,11 @@ import javax.annotation.Nullable;
 /** A simple SkyFunction that creates a {@link Registry} with a given URL. */
 public class RegistryFunction implements SkyFunction {
   private final RegistryFactory registryFactory;
+  private final Path workspaceRoot;
 
-  public RegistryFunction(RegistryFactory registryFactory) {
+  public RegistryFunction(RegistryFactory registryFactory, Path workspaceRoot) {
     this.registryFactory = registryFactory;
+    this.workspaceRoot = workspaceRoot;
   }
 
   @Override
@@ -46,7 +49,9 @@ public class RegistryFunction implements SkyFunction {
     RegistryKey key = (RegistryKey) skyKey.argument();
     try {
       return registryFactory.createRegistry(
-          key.getUrl(), lockfile.getRegistryFileHashes(), lockfileMode);
+          key.getUrl().replace("%workspace%", workspaceRoot.getPathString()),
+          lockfile.getRegistryFileHashes(),
+          lockfileMode);
     } catch (URISyntaxException e) {
       throw new RegistryException(
           ExternalDepsException.withCauseAndMessage(

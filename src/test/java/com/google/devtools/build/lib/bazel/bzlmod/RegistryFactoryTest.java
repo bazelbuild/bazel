@@ -24,8 +24,6 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.Lockfile
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
-import com.google.devtools.build.lib.testutil.FoundationTestCase;
-import com.google.devtools.build.lib.vfs.Path;
 import java.net.URISyntaxException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,14 +31,12 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link RegistryFactory}. */
 @RunWith(JUnit4.class)
-public class RegistryFactoryTest extends FoundationTestCase {
+public class RegistryFactoryTest {
 
   @Test
-  public void badSchemes() throws Exception {
-    Path workspaceRoot = scratch.dir("/ws");
+  public void badSchemes() {
     RegistryFactory registryFactory =
         new RegistryFactoryImpl(
-            workspaceRoot,
             new DownloadManager(new RepositoryCache(), new HttpDownloader()),
             Suppliers.ofInstance(ImmutableMap.of()));
     Throwable exception =
@@ -60,11 +56,9 @@ public class RegistryFactoryTest extends FoundationTestCase {
   }
 
   @Test
-  public void badPath() throws Exception {
-    Path workspaceRoot = scratch.dir("/ws");
+  public void badPath() {
     RegistryFactory registryFactory =
         new RegistryFactoryImpl(
-            workspaceRoot,
             new DownloadManager(new RepositoryCache(), new HttpDownloader()),
             Suppliers.ofInstance(ImmutableMap.of()));
     Throwable exception =

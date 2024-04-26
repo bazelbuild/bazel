@@ -64,9 +64,6 @@ public class IndexRegistry implements Registry {
     ENFORCE
   }
 
-  /** The unresolved version of the url. Ex: has %workspace% placeholder */
-  private final String unresolvedUri;
-
   private final URI uri;
   private final DownloadManager downloadManager;
   private final Map<String, String> clientEnv;
@@ -80,13 +77,11 @@ public class IndexRegistry implements Registry {
 
   public IndexRegistry(
       URI uri,
-      String unresolvedUri,
       DownloadManager downloadManager,
       Map<String, String> clientEnv,
       ImmutableMap<String, Optional<Checksum>> knownFileHashes,
       KnownFileHashesMode knownFileHashesMode) {
     this.uri = uri;
-    this.unresolvedUri = unresolvedUri;
     this.downloadManager = downloadManager;
     this.clientEnv = clientEnv;
     this.gson =
@@ -99,7 +94,7 @@ public class IndexRegistry implements Registry {
 
   @Override
   public String getUrl() {
-    return unresolvedUri;
+    return uri.toString();
   }
 
   private String constructUrl(String base, String... segments) {
@@ -176,7 +171,7 @@ public class IndexRegistry implements Registry {
       throws IOException, InterruptedException {
     String url =
         constructUrl(
-            uri.toString(), "modules", key.getName(), key.getVersion().toString(), "MODULE.bazel");
+            getUrl(), "modules", key.getName(), key.getVersion().toString(), "MODULE.bazel");
     Optional<byte[]> maybeContent = grabFile(url, eventHandler, /* useChecksum= */ true);
     return maybeContent.map(content -> ModuleFile.create(content, url));
   }
@@ -259,7 +254,8 @@ public class IndexRegistry implements Registry {
     Optional<String> jsonString = grabJsonFile(jsonUrl, eventHandler, /* useChecksum= */ true);
     if (jsonString.isEmpty()) {
       throw new FileNotFoundException(
-          String.format("Module %s's %s not found in registry %s", key, SOURCE_JSON_FILENAME, uri));
+          String.format(
+              "Module %s's %s not found in registry %s", key, SOURCE_JSON_FILENAME, getUrl()));
     }
     SourceJson sourceJson = parseJson(jsonString.get(), jsonUrl, SourceJson.class);
     switch (sourceJson.type) {
@@ -300,7 +296,7 @@ public class IndexRegistry implements Registry {
           var storedEventHandler = new StoredEventHandler();
           bazelRegistryJson =
               grabJson(
-                  constructUrl(uri.toString(), "bazel_registry.json"),
+                  constructUrl(getUrl(), "bazel_registry.json"),
                   BazelRegistryJson.class,
                   storedEventHandler,
                   /* useChecksum= */ true);
@@ -377,7 +373,7 @@ public class IndexRegistry implements Registry {
       for (Map.Entry<String, String> entry : sourceJson.patches.entrySet()) {
         remotePatches.put(
             constructUrl(
-                unresolvedUri,
+                getUrl(),
                 "modules",
                 key.getName(),
                 key.getVersion().toString(),
@@ -415,7 +411,7 @@ public class IndexRegistry implements Registry {
       throws IOException, InterruptedException {
     Optional<MetadataJson> metadataJson =
         grabJson(
-            constructUrl(uri.toString(), "modules", moduleName, "metadata.json"),
+            constructUrl(getUrl(), "modules", moduleName, "metadata.json"),
             MetadataJson.class,
             eventHandler,
             // metadata.json is not immutable
