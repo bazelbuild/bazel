@@ -3469,7 +3469,6 @@
     },
     "//tools/android:android_extensions.bzl%android_sdk_proxy_extensions": {
       "general": {
-        "bzlTransitiveDigest": "JQoCqdz3xQGJ+/ILJLx/pnLPCjAYRvq3Tmj3wkpmflI=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
