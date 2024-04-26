@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -73,7 +75,9 @@ public abstract class JavaPluginInfo extends NativeInfo
   public static class Provider extends StarlarkProviderWrapper<JavaPluginInfo>
       implements com.google.devtools.build.lib.packages.Provider {
     private Provider() {
-      super(Label.parseCanonicalUnchecked("@_builtins//:common/java/java_info.bzl"), PROVIDER_NAME);
+      super(
+          keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:common/java/java_info.bzl")),
+          PROVIDER_NAME);
     }
 
     @Override

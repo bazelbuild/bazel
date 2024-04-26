@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
@@ -246,11 +247,10 @@ public class CcStarlarkInternal implements StarlarkValue {
 
   private static final StarlarkProvider starlarkCcTestRunnerInfo =
       StarlarkProvider.builder(Location.BUILTIN)
-          .setExported(
+          .buildExported(
               new StarlarkProvider.Key(
-                  Label.parseCanonicalUnchecked("//tools/cpp/cc_test:toolchain.bzl"),
-                  "CcTestRunnerInfo"))
-          .build();
+                  keyForBuild(Label.parseCanonicalUnchecked("//tools/cpp/cc_test:toolchain.bzl")),
+                  "CcTestRunnerInfo"));
 
   @StarlarkMethod(name = "CcTestRunnerInfo", documented = false, structField = true)
   public StarlarkProvider ccTestRunnerInfo() throws EvalException {
@@ -358,12 +358,12 @@ public class CcStarlarkInternal implements StarlarkValue {
 
   private static final StarlarkProvider buildSettingInfo =
       StarlarkProvider.builder(Location.BUILTIN)
-          .setExported(
+          .buildExported(
               new StarlarkProvider.Key(
-                  Label.parseCanonicalUnchecked(
-                      "//third_party/bazel_skylib/rules:common_settings.bzl"),
-                  "BuildSettingInfo"))
-          .build();
+                  keyForBuild(
+                      Label.parseCanonicalUnchecked(
+                          "//third_party/bazel_skylib/rules:common_settings.bzl")),
+                  "BuildSettingInfo"));
 
   @StarlarkMethod(name = "BuildSettingInfo", documented = false, structField = true)
   public StarlarkProvider buildSettingInfo() throws EvalException {

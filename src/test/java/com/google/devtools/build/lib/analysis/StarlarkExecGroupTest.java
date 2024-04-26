@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -167,7 +168,8 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
         """);
 
     ConfiguredTarget target = getConfiguredTarget("//test:parent");
-    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "MyInfo");
+    Provider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "MyInfo");
     BuildConfigurationValue dep =
         getConfiguration((ConfiguredTarget) ((StructImpl) target.get(key)).getValue("dep"));
 
@@ -241,7 +243,8 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
         """);
 
     ConfiguredTarget target = getConfiguredTarget("//test:parent");
-    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "MyInfo");
+    Provider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "MyInfo");
     ConfiguredTarget dep = (ConfiguredTarget) ((StructImpl) target.get(key)).getValue("dep");
     BuildConfigurationValue passthruDepConfig =
         getConfiguration((ConfiguredTarget) ((StructImpl) dep.get(key)).getValue("dep"));
@@ -301,7 +304,8 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
         """);
 
     ConfiguredTarget target = getConfiguredTarget("//test:parent");
-    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "MyInfo");
+    Provider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "MyInfo");
     BuildConfigurationValue dep =
         getConfiguration((ConfiguredTarget) ((StructImpl) target.get(key)).getValue("dep"));
     BuildConfigurationValue execGroupDep =

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -47,7 +48,8 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
   private static final StarlarkProviderIdentifier boolProviderId =
       StarlarkProviderIdentifier.forKey(
           new StarlarkProvider.Key(
-              Label.parseCanonicalUnchecked("//foo:should_generate.bzl"), "BoolProvider"));
+              keyForBuild(Label.parseCanonicalUnchecked("//foo:should_generate.bzl")),
+              "BoolProvider"));
 
   @Before
   public final void setup() throws Exception {

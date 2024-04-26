@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.collect.Multimaps.toMultimap;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -75,7 +76,8 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
   private static StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget)
       throws Exception {
     Provider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonical("//myinfo:myinfo.bzl"), "MyInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//myinfo:myinfo.bzl")), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
   }
 

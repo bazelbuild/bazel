@@ -21,6 +21,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.ABSOLUTE_INCLUDES_PATH_FORMAT;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.BOTH_MODULE_NAME_AND_MODULE_MAP_SPECIFIED;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -1517,7 +1518,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
       throws Exception {
     Provider.Key key =
         new StarlarkProvider.Key(
-            Label.parseCanonical("@_builtins//:common/objc/providers.bzl"), providerName);
+            keyForBuiltins(Label.parseCanonical("@_builtins//:common/objc/providers.bzl")),
+            providerName);
     return (StructImpl) configuredTarget.get(key);
   }
 

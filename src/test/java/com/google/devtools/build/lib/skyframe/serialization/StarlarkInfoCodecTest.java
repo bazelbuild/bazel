@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -56,13 +57,12 @@ public final class StarlarkInfoCodecTest {
         .containsExactlyElementsIn(original.getFieldNames())
         .inOrder();
   }
-  ;
 
   /** Returns an exported, schemaless provider. */
   private static StarlarkProvider makeProvider() {
     return StarlarkProvider.builder(Location.BUILTIN)
-        .setExported(
-            new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//foo:bar.bzl"), "foo"))
-        .build();
+        .buildExported(
+            new StarlarkProvider.Key(
+                keyForBuild(Label.parseCanonicalUnchecked("//foo:bar.bzl")), "foo"));
   }
 }

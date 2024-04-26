@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -44,7 +46,8 @@ import org.junit.runners.JUnit4;
 public class ObjcStarlarkTest extends ObjcRuleTestCase {
   private static final Provider.Key APPLE_EXECUTABLE_BINARY_PROVIDER_KEY =
       new StarlarkProvider.Key(
-          Label.parseCanonicalUnchecked("@_builtins//:common/objc/linking_support.bzl"),
+          keyForBuiltins(
+              Label.parseCanonicalUnchecked("@_builtins//:common/objc/linking_support.bzl")),
           "AppleExecutableBinaryInfo");
 
   @Before
@@ -56,7 +59,8 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
   private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
     Provider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonical("//myinfo:myinfo.bzl"), "MyInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//myinfo:myinfo.bzl")), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
   }
 

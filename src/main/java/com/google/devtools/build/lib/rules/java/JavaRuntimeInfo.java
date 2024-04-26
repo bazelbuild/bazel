@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -130,7 +131,8 @@ public final class JavaRuntimeInfo extends StarlarkInfoWrapper {
 
     private Provider() {
       super(
-          Label.parseCanonicalUnchecked("@_builtins//:common/java/java_runtime.bzl"),
+          keyForBuiltins(
+              Label.parseCanonicalUnchecked("@_builtins//:common/java/java_runtime.bzl")),
           "JavaRuntimeInfo");
     }
 

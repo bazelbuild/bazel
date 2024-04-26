@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -81,7 +82,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   private static final Provider.Key starlarkJ2objcMappingFileProviderKey =
       new StarlarkProvider.Key(
-          Label.parseCanonicalUnchecked("@_builtins//:common/objc/providers.bzl"),
+          keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:common/objc/providers.bzl")),
           "J2ObjcMappingFileInfo");
 
   private StructImpl getJ2ObjcMappingFileInfoFromTarget(ConfiguredTarget configuredTarget)

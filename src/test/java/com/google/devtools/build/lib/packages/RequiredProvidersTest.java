@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -41,7 +42,8 @@ public class RequiredProvidersTest {
       new BuiltinProvider<StructImpl>("p_native", StructImpl.class) {};
 
   private static final StarlarkProvider P_STARLARK =
-      StarlarkProvider.builder(Location.BUILTIN).build();
+      StarlarkProvider.builder(Location.BUILTIN)
+          .buildWithIdentityToken(SymbolGenerator.create("test").generate());
 
   static {
     try {

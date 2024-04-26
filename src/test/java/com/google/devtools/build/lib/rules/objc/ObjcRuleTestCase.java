@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -75,7 +76,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   private static final Provider.Key APPLE_EXECUTABLE_BINARY_PROVIDER_KEY =
       new StarlarkProvider.Key(
-          Label.parseCanonicalUnchecked("@_builtins//:common/objc/linking_support.bzl"),
+          keyForBuiltins(
+              Label.parseCanonicalUnchecked("@_builtins//:common/objc/linking_support.bzl")),
           "AppleExecutableBinaryInfo");
 
   @Before
@@ -773,7 +775,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     return (StarlarkInfo)
         starlarkTarget.get(
             new StarlarkProvider.Key(
-                Label.parseCanonical("@_builtins//:common/objc/objc_info.bzl"), "ObjcInfo"));
+                keyForBuiltins(Label.parseCanonical("@_builtins//:common/objc/objc_info.bzl")),
+                "ObjcInfo"));
   }
 
   protected static ImmutableList<Artifact> getDirectSources(StarlarkInfo provider)

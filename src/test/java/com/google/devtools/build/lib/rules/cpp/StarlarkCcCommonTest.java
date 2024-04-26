@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.rules.cpp.SolibSymlinkAction.MAX_FILENAME_LENGTH;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -98,7 +99,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   private static StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget)
       throws LabelSyntaxException {
     Provider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonical("//myinfo:myinfo.bzl"), "MyInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//myinfo:myinfo.bzl")), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
   }
 
@@ -188,7 +190,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     Provider.Key key =
         new StarlarkProvider.Key(
-            Label.create(r.getLabel().getPackageIdentifier(), "rule.bzl"), "CruleInfo");
+            keyForBuild(Label.create(r.getLabel().getPackageIdentifier(), "rule.bzl")),
+            "CruleInfo");
     StarlarkInfo cruleInfo = (StarlarkInfo) r.get(key);
     Depset staticRuntimeLib = (Depset) cruleInfo.getValue("static");
     Depset dynamicRuntimeLib = (Depset) cruleInfo.getValue("dynamic");
@@ -6432,7 +6435,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     scratchObjectsProvidingRule();
 
-    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//foo:foo.bzl"), "FooInfo");
+    Provider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//foo:foo.bzl")), "FooInfo");
     LibraryToLink fooLibrary =
         Iterables.getOnlyElement(
             getConfiguredTarget("//foo:dep")
@@ -6451,7 +6455,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   public void testObjectsApiNeverReturningNones() throws Exception {
     scratchObjectsProvidingRule();
 
-    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//foo:foo.bzl"), "FooInfo");
+    Provider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//foo:foo.bzl")), "FooInfo");
 
     // Default toolchain is without PIC support, so pic_objects should be None
     StarlarkInfo fooInfoForPic =
@@ -6491,7 +6496,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     scratchObjectsProvidingRule();
 
-    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//foo:foo.bzl"), "FooInfo");
+    Provider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//foo:foo.bzl")), "FooInfo");
     LibraryToLink fooLibrary =
         Iterables.getOnlyElement(
             getConfiguredTarget("//foo:dep")
@@ -6525,7 +6531,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     scratchObjectsProvidingRule();
 
-    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//foo:foo.bzl"), "FooInfo");
+    Provider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//foo:foo.bzl")), "FooInfo");
     StarlarkInfo fooInfo =
         (StarlarkInfo) getConfiguredTarget("//foo:foo").get(StarlarkProviderIdentifier.forKey(key));
 

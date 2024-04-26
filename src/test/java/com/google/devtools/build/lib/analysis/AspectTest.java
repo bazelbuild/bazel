@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.analysis.BaseRuleClasses.ACTION_LIST
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -1741,7 +1742,7 @@ public class AspectTest extends AnalysisTestCase {
       throws LabelSyntaxException {
     Provider.Key key =
         new StarlarkProvider.Key(
-            Label.parseCanonical("//aspect_hints:hints_counter.bzl"), "HintsCntInfo");
+            keyForBuild(Label.parseCanonical("//aspect_hints:hints_counter.bzl")), "HintsCntInfo");
     return (StructImpl) configuredTarget.get(key);
   }
 

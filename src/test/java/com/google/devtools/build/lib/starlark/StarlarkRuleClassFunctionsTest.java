@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.ExecGroupSubject.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.RuleClassSubject.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.StarlarkDefinedAspectSubject.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -839,7 +840,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   private static StarlarkProviderIdentifier declared(String exportedName) {
-    return StarlarkProviderIdentifier.forKey(new StarlarkProvider.Key(FAKE_LABEL, exportedName));
+    return StarlarkProviderIdentifier.forKey(
+        new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), exportedName));
   }
 
   @Test
@@ -2212,7 +2214,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(data.getProvider()).isEqualTo(dataConstructor);
     assertThat(dataConstructor.isExported()).isTrue();
     assertThat(dataConstructor.getPrintableName()).isEqualTo("data");
-    assertThat(dataConstructor.getKey()).isEqualTo(new StarlarkProvider.Key(FAKE_LABEL, "data"));
+    assertThat(dataConstructor.getKey())
+        .isEqualTo(new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "data"));
   }
 
   @Test
@@ -2278,7 +2281,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(data3.getProvider()).isEqualTo(dataConstructor);
     assertThat(dataConstructor.isExported()).isTrue();
     assertThat(dataConstructor.getPrintableName()).isEqualTo("data");
-    assertThat(dataConstructor.getKey()).isEqualTo(new StarlarkProvider.Key(FAKE_LABEL, "data"));
+    assertThat(dataConstructor.getKey())
+        .isEqualTo(new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "data"));
   }
 
   @Test
@@ -2743,9 +2747,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     StarlarkDefinedAspect a = (StarlarkDefinedAspect) ev.lookup("a");
     StarlarkProvider p1 = (StarlarkProvider) ev.lookup("p1");
     assertThat(p.getPrintableName()).isEqualTo("p");
-    assertThat(p.getKey()).isEqualTo(new StarlarkProvider.Key(FAKE_LABEL, "p"));
+    assertThat(p.getKey()).isEqualTo(new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "p"));
     assertThat(p1.getPrintableName()).isEqualTo("p1");
-    assertThat(p1.getKey()).isEqualTo(new StarlarkProvider.Key(FAKE_LABEL, "p1"));
+    assertThat(p1.getKey()).isEqualTo(new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "p1"));
     assertThat(a.getAspectClass()).isEqualTo(new StarlarkAspectClass(FAKE_LABEL, "a"));
   }
 
@@ -2758,8 +2762,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     StarlarkProvider p = (StarlarkProvider) ev.lookup("p");
     StarlarkProvider p1 = (StarlarkProvider) ev.lookup("p1");
     assertThat(p).isEqualTo(p1);
-    assertThat(p.getKey()).isEqualTo(new StarlarkProvider.Key(FAKE_LABEL, "p"));
-    assertThat(p1.getKey()).isEqualTo(new StarlarkProvider.Key(FAKE_LABEL, "p"));
+    assertThat(p.getKey()).isEqualTo(new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "p"));
+    assertThat(p1.getKey()).isEqualTo(new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "p"));
   }
 
   @Test
@@ -3395,7 +3399,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         (StructImpl)
             myTarget.get(
                 new StarlarkProvider.Key(
-                    Label.parseCanonical("//initializer_testing:b.bzl"), "MyInfo"));
+                    keyForBuild(Label.parseCanonical("//initializer_testing:b.bzl")), "MyInfo"));
 
     assertThat((List<String>) info.getValue("srcs")).containsExactly("initializer_testing/a.ml");
     assertThat((List<String>) info.getValue("deps")).containsExactly("@@//:initial", "@@//:added");
@@ -3497,7 +3501,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         (StructImpl)
             myTarget.get(
                 new StarlarkProvider.Key(
-                    Label.parseCanonical("//initializer_testing:b.bzl"), "MyInfo"));
+                    keyForBuild(Label.parseCanonical("//initializer_testing:b.bzl")), "MyInfo"));
 
     assertThat(((Map<String, List<String>>) info.getValue("dict")).keySet()).containsExactly("k");
     assertThat(((Map<String, List<String>>) info.getValue("dict")).get("k")).containsExactly("val");
@@ -3545,7 +3549,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         (StructImpl)
             myTarget.get(
                 new StarlarkProvider.Key(
-                    Label.parseCanonical("//initializer_testing:b.bzl"), "MyInfo"));
+                    keyForBuild(Label.parseCanonical("//initializer_testing:b.bzl")), "MyInfo"));
 
     assertThat(((Map<ConfiguredTarget, String>) info.getValue("dict")).keySet())
         .containsExactly(key);
@@ -3590,7 +3594,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         (StructImpl)
             myTarget.get(
                 new StarlarkProvider.Key(
-                    Label.parseCanonical("//initializer_testing:b.bzl"), "MyInfo"));
+                    keyForBuild(Label.parseCanonical("//initializer_testing:b.bzl")), "MyInfo"));
 
     assertThat((StarlarkInt) info.getValue("tristate")).isEqualTo(StarlarkInt.of(1));
   }
@@ -3679,7 +3683,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         (StructImpl)
             myTarget.get(
                 new StarlarkProvider.Key(
-                    Label.parseCanonical("//initializer_testing:b.bzl"), "MyInfo"));
+                    keyForBuild(Label.parseCanonical("//initializer_testing:b.bzl")), "MyInfo"));
 
     assertThat((List<String>) info.getValue("srcs"))
         .containsExactly("initializer_testing/a.ml", "initializer_testing/b.ml");
@@ -3762,7 +3766,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         (StructImpl)
             myTarget.get(
                 new StarlarkProvider.Key(
-                    Label.parseCanonical("//initializer_testing:b.bzl"), "MyInfo"));
+                    keyForBuild(Label.parseCanonical("//initializer_testing:b.bzl")), "MyInfo"));
 
     assertThat((List<String>) info.getValue("deps")).containsExactly("@@//:initializer_default");
   }
@@ -3808,7 +3812,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         (StructImpl)
             myTarget.get(
                 new StarlarkProvider.Key(
-                    Label.parseCanonical("//initializer_testing:b.bzl"), "MyInfo"));
+                    keyForBuild(Label.parseCanonical("//initializer_testing:b.bzl")), "MyInfo"));
 
     assertThat((List<String>) info.getValue("deps")).containsExactly("@@//:attr_default");
   }
@@ -4085,7 +4089,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         (StructImpl)
             myTarget.get(
                 new StarlarkProvider.Key(
-                    Label.parseCanonical("//initializer_testing/builtins:b.bzl"), "MyInfo"));
+                    keyForBuild(Label.parseCanonical("//initializer_testing/builtins:b.bzl")),
+                    "MyInfo"));
 
     assertThat(info.getValue("_tool").toString())
         .isEqualTo("@@//initializer_testing/builtins:my_tool");
@@ -4344,7 +4349,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     Rule rule = getRuleContext(myTarget).getRule();
     StarlarkProvider.Key myInfoKey =
         new StarlarkProvider.Key(
-            Label.parseCanonicalUnchecked("//extend_rule_testing:child.bzl"), "MyInfo");
+            keyForBuild(Label.parseCanonicalUnchecked("//extend_rule_testing:child.bzl")),
+            "MyInfo");
     StarlarkInfo myInfo = (StarlarkInfo) myTarget.get(myInfoKey);
 
     assertNoEvents();
@@ -4367,7 +4373,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         .containsExactly("dep");
     StarlarkProvider.Key parentInfoKey =
         new StarlarkProvider.Key(
-            Label.parseCanonicalUnchecked("//extend_rule_testing/parent:parent.bzl"), "ParentInfo");
+            keyForBuild(Label.parseCanonicalUnchecked("//extend_rule_testing/parent:parent.bzl")),
+            "ParentInfo");
     assertThat(myTarget.get(parentInfoKey)).isNotNull();
   }
 
@@ -4446,7 +4453,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     Rule rule = getRuleContext(myTarget).getRule();
     StarlarkProvider.Key myInfoKey =
         new StarlarkProvider.Key(
-            Label.parseCanonicalUnchecked("//extend_rule_testing:child.bzl"), "ChildInfo");
+            keyForBuild(Label.parseCanonicalUnchecked("//extend_rule_testing:child.bzl")),
+            "ChildInfo");
     StarlarkInfo myInfo = (StarlarkInfo) myTarget.get(myInfoKey);
 
     assertNoEvents();
@@ -4470,7 +4478,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         .containsExactly("runtime_dep");
     StarlarkProvider.Key parentInfoKey =
         new StarlarkProvider.Key(
-            Label.parseCanonicalUnchecked("//extend_rule_testing/parent:parent.bzl"), "ParentInfo");
+            keyForBuild(Label.parseCanonicalUnchecked("//extend_rule_testing/parent:parent.bzl")),
+            "ParentInfo");
     assertThat(myTarget.get(parentInfoKey)).isNotNull();
   }
 
@@ -4619,13 +4628,17 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     ConfiguredTarget myTarget = getConfiguredTarget("//extend_rule_testing:my_target");
     StarlarkProvider.Key myInfo1Key =
         new StarlarkProvider.Key(
-            Label.parseCanonicalUnchecked("//extend_rule_testing:first_extension.bzl"), "MyInfo1");
+            keyForBuild(Label.parseCanonicalUnchecked("//extend_rule_testing:first_extension.bzl")),
+            "MyInfo1");
     StarlarkProvider.Key myInfo2Key =
         new StarlarkProvider.Key(
-            Label.parseCanonicalUnchecked("//extend_rule_testing:second_extension.bzl"), "MyInfo2");
+            keyForBuild(
+                Label.parseCanonicalUnchecked("//extend_rule_testing:second_extension.bzl")),
+            "MyInfo2");
     StarlarkProvider.Key parentInfoKey =
         new StarlarkProvider.Key(
-            Label.parseCanonicalUnchecked("//extend_rule_testing/parent:parent.bzl"), "ParentInfo");
+            keyForBuild(Label.parseCanonicalUnchecked("//extend_rule_testing/parent:parent.bzl")),
+            "ParentInfo");
 
     assertThat(myTarget.get(myInfo1Key)).isNotNull();
     assertThat(myTarget.get(myInfo2Key)).isNotNull();
@@ -4903,7 +4916,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     ConfiguredTarget myTarget = getConfiguredTarget("//extend_rule_testing:my_target");
     StarlarkProvider.Key parentInfoKey =
         new StarlarkProvider.Key(
-            Label.parseCanonicalUnchecked("//extend_rule_testing/parent:parent.bzl"), "ParentInfo");
+            keyForBuild(Label.parseCanonicalUnchecked("//extend_rule_testing/parent:parent.bzl")),
+            "ParentInfo");
     StarlarkInfo parentInfo = (StarlarkInfo) myTarget.get(parentInfoKey);
 
     assertNoEvents();

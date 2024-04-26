@@ -18,6 +18,7 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
@@ -822,10 +823,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       throws Exception {
     StarlarkProvider.Key key =
         new StarlarkProvider.Key(
-            getTarget(target.getLabel())
-                .getAssociatedRule()
-                .getRuleClassObject()
-                .getRuleDefinitionEnvironmentLabel(),
+            keyForBuild(
+                getTarget(target.getLabel())
+                    .getAssociatedRule()
+                    .getRuleClassObject()
+                    .getRuleDefinitionEnvironmentLabel()),
             providerSymbol);
     return (StarlarkInfo) target.get(key);
   }

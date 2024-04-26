@@ -18,6 +18,7 @@ import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static java.util.stream.Collectors.toList;
 import static org.junit.Assert.assertThrows;
 
@@ -115,7 +116,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
 
     StarlarkProvider.Key fooKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "foo");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "foo");
 
     assertThat(configuredAspect.get(fooKey).getProvider().getKey()).isEqualTo(fooKey);
   }
@@ -142,9 +143,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
 
     StarlarkProvider.Key fooKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "foo");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "foo");
     StarlarkProvider.Key barKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "bar");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "bar");
 
     assertThat(configuredAspect.get(fooKey).getProvider().getKey()).isEqualTo(fooKey);
     assertThat(configuredAspect.get(barKey).getProvider().getKey()).isEqualTo(barKey);
@@ -173,9 +174,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
 
     StarlarkProvider.Key fooKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "foo");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "foo");
     StarlarkProvider.Key barKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "bar");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "bar");
 
     assertThat(configuredAspect.get(fooKey).getProvider().getKey()).isEqualTo(fooKey);
     assertThat(configuredAspect.get(barKey).getProvider().getKey()).isEqualTo(barKey);
@@ -364,7 +365,7 @@ MyAspect = aspect(
     ConfiguredAspect configuredAspect = analysisResult.getAspectsMap().values().iterator().next();
     assertThat(configuredAspect).isNotNull();
     StarlarkProvider.Key infoKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "Info");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "Info");
     Object nameSet = ((StarlarkInfo) configuredAspect.get(infoKey)).getValue("target_labels");
     ImmutableList<String> names =
         ImmutableList.copyOf(
@@ -2724,7 +2725,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     StarlarkProvider.Key p3 =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "p3");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "p3");
     StructImpl p3Provider = (StructImpl) configuredAspect.get(p3);
     assertThat((Sequence<?>) p3Provider.getValue("value"))
         .containsExactly(
@@ -2791,7 +2792,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     StarlarkProvider.Key pCollector =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "PCollector");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "PCollector");
     StructImpl pCollectorProvider = (StructImpl) configuredTarget.get(pCollector);
     assertThat((Sequence<?>) pCollectorProvider.getValue("result"))
         .containsExactly("@//test:r1", "@//test:r0", "@//test:r0+PAspect");
@@ -2834,7 +2836,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     StarlarkProvider.Key pCollector =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "PCollector");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "PCollector");
     StructImpl collector = (StructImpl) configuredAspect.get(pCollector);
     assertThat(collector.getValue("aspect_attr")).isEqualTo(Label.parseCanonical("//test:foo"));
   }
@@ -2880,7 +2883,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     StarlarkProvider.Key pCollector =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "PCollector");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "PCollector");
     StructImpl collector = (StructImpl) configuredAspect.get(pCollector);
     assertThat(collector.getValue("attr_value")).isEqualTo(StarlarkInt.of(30));
   }
@@ -2938,7 +2942,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     StarlarkProvider.Key pCollector =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "PCollector");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "PCollector");
     StructImpl collector = (StructImpl) configuredAspect.get(pCollector);
     assertThat(collector.getValue("attr_value")).isEqualTo(StarlarkInt.of(30));
   }
@@ -2982,7 +2987,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     StarlarkProvider.Key pCollector =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "PCollector");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "PCollector");
     StructImpl collector = (StructImpl) configuredAspect.get(pCollector);
     assertThat(((Depset) collector.getValue("visited")).toList())
         .containsExactly(
@@ -3087,7 +3093,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     assertThat(configuredAspect).isNotNull();
 
     StarlarkProvider.Key myInfoKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "MyInfo");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "MyInfo");
     StructImpl myInfo = (StructImpl) configuredAspect.get(myInfoKey);
     assertThat(myInfo.getValue("hidden_attr_label")).isEqualTo("@//test:zzz");
   }
@@ -3249,7 +3255,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         """);
 
     StarlarkProvider.Key rootInfoKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:lib.bzl"), "RootInfo");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:lib.bzl")), "RootInfo");
 
     AnalysisResult analysisResultWithFiles = update("//test:test_with_files");
     ConfiguredTarget targetWithFiles =
@@ -3362,9 +3368,11 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         /* applyRootToGeneratingRules= */ true, /* applyDepToGeneratingRules= */ true);
 
     StarlarkProvider.Key rootInfoKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:lib.bzl"), "RootAspectInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:lib.bzl")), "RootAspectInfo");
     StarlarkProvider.Key depInfoKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:lib.bzl"), "DepAspectInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:lib.bzl")), "DepAspectInfo");
 
     AnalysisResult analysisResult = update("//test:test");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
@@ -3390,9 +3398,11 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         /* applyRootToGeneratingRules= */ false, /* applyDepToGeneratingRules= */ false);
 
     StarlarkProvider.Key rootInfoKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:lib.bzl"), "RootAspectInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:lib.bzl")), "RootAspectInfo");
     StarlarkProvider.Key depInfoKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:lib.bzl"), "DepAspectInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:lib.bzl")), "DepAspectInfo");
 
     AnalysisResult analysisResult = update("//test:test");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
@@ -3412,9 +3422,11 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         /* applyRootToGeneratingRules= */ true, /* applyDepToGeneratingRules= */ false);
 
     StarlarkProvider.Key rootInfoKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:lib.bzl"), "RootAspectInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:lib.bzl")), "RootAspectInfo");
     StarlarkProvider.Key depInfoKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:lib.bzl"), "DepAspectInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:lib.bzl")), "DepAspectInfo");
 
     AnalysisResult analysisResult = update("//test:test");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
@@ -3436,9 +3448,11 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         /* applyRootToGeneratingRules= */ false, /* applyDepToGeneratingRules= */ true);
 
     StarlarkProvider.Key rootInfoKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:lib.bzl"), "RootAspectInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:lib.bzl")), "RootAspectInfo");
     StarlarkProvider.Key depInfoKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:lib.bzl"), "DepAspectInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:lib.bzl")), "DepAspectInfo");
 
     AnalysisResult analysisResult = update("//test:test");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
@@ -3931,7 +3945,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
     assertThat(aspectA).isNotNull();
     StarlarkProvider.Key aResult =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "prov_a");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "prov_a");
     StructImpl aResultProvider = (StructImpl) aspectA.get(aResult);
     assertThat((Sequence<?>) aResultProvider.getValue("val"))
         .containsExactly(
@@ -3945,7 +3959,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect aspectB = getConfiguredAspect(configuredAspects, "aspect_b");
     assertThat(aspectA).isNotNull();
     StarlarkProvider.Key bResult =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "prov_b");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "prov_b");
     StructImpl bResultProvider = (StructImpl) aspectB.get(bResult);
     assertThat((Sequence<?>) bResultProvider.getValue("val"))
         .containsExactly(
@@ -4085,7 +4099,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
     assertThat(aspectA).isNotNull();
     StarlarkProvider.Key aResult =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "aspect_prov_a");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "aspect_prov_a");
     StructImpl aResultProvider = (StructImpl) aspectA.get(aResult);
     assertThat((Sequence<?>) aResultProvider.getValue("val"))
         .containsExactly(
@@ -4099,7 +4114,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect aspectB = getConfiguredAspect(configuredAspects, "aspect_b");
     assertThat(aspectA).isNotNull();
     StarlarkProvider.Key bResult =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "aspect_prov_b");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "aspect_prov_b");
     StructImpl bResultProvider = (StructImpl) aspectB.get(bResult);
     assertThat((Sequence<?>) bResultProvider.getValue("val"))
         .containsExactly(
@@ -4220,7 +4236,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     // aspect_c here should get its parameter value from rule_2
     ConfiguredTarget target1 = it.next();
     StarlarkProvider.Key provAkey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "prov_a");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "prov_a");
     StructImpl provA = (StructImpl) target1.get(provAkey);
     assertThat((Sequence<?>) provA.getValue("val"))
         .containsExactly(
@@ -4233,7 +4249,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     // aspect_c here should get its parameter value from rule_2
     ConfiguredTarget target2 = it.next();
     StarlarkProvider.Key provBkey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "prov_b");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "prov_b");
     StructImpl provB = (StructImpl) target2.get(provBkey);
     assertThat((Sequence<?>) provB.getValue("val"))
         .containsExactly(
@@ -4295,7 +4311,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
     assertThat(aspectA).isNotNull();
     StarlarkProvider.Key aResult =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "prov_a");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "prov_a");
     StructImpl aResultProvider = (StructImpl) aspectA.get(aResult);
     assertThat((Sequence<?>) aResultProvider.getValue("val"))
         .containsExactly(
@@ -4376,7 +4392,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     StarlarkProvider.Key requiredAspectProv =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "RequiredAspectProv");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "RequiredAspectProv");
     StructImpl requiredAspectProvider = (StructImpl) configuredTarget.get(requiredAspectProv);
     assertThat(requiredAspectProvider.getValue("p1_val"))
         .isEqualTo("In required_aspect, p1 = p1_v1 on target @//test:dep_target");
@@ -4384,7 +4401,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         .isEqualTo("In required_aspect, p2 not found on target @//test:dep_target");
 
     StarlarkProvider.Key baseAspectProv =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "BaseAspectProv");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "BaseAspectProv");
     StructImpl baseAspectProvider = (StructImpl) configuredTarget.get(baseAspectProv);
     assertThat(baseAspectProvider.getValue("p1_val"))
         .isEqualTo("In base_aspect, p1 not found on target @//test:dep_target");
@@ -4455,13 +4473,15 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     StarlarkProvider.Key requiredAspectProv =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "RequiredAspectProv");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "RequiredAspectProv");
     StructImpl requiredAspectProvider = (StructImpl) configuredTarget.get(requiredAspectProv);
     assertThat(requiredAspectProvider.getValue("p_val"))
         .isEqualTo("In required_aspect, p = p_v2 on target @//test:dep_target");
 
     StarlarkProvider.Key baseAspectProv =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "BaseAspectProv");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "BaseAspectProv");
     StructImpl baseAspectProvider = (StructImpl) configuredTarget.get(baseAspectProv);
     assertThat(baseAspectProvider.getValue("p_val"))
         .isEqualTo("In base_aspect, p = p_v2 on target @//test:dep_target");
@@ -4570,7 +4590,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     StarlarkProvider.Key baseAspectProv =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "BaseAspectProv");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "BaseAspectProv");
     StructImpl baseAspectProvider = (StructImpl) configuredTarget.get(baseAspectProv);
     assertThat((Sequence<?>) baseAspectProvider.getValue("result"))
         .containsExactly(
@@ -4697,7 +4718,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     StarlarkProvider.Key collectorProv =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "CollectorProv");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "CollectorProv");
     StructImpl collectorProvider = (StructImpl) configuredTarget.get(collectorProv);
     assertThat((Sequence<?>) collectorProvider.getValue("result"))
         .containsExactly(
@@ -5137,7 +5159,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect a3 = getConfiguredAspect(configuredAspects, "a3");
     assertThat(a3).isNotNull();
     StarlarkProvider.Key a3Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a3_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a3_result");
     StructImpl a3ResultProvider = (StructImpl) a3.get(a3Result);
     assertThat((Sequence<?>) a3ResultProvider.getValue("value"))
         .containsExactly(
@@ -5147,7 +5169,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect a2 = getConfiguredAspect(configuredAspects, "a2");
     assertThat(a2).isNotNull();
     StarlarkProvider.Key a2Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a2_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a2_result");
     StructImpl a2ResultProvider = (StructImpl) a2.get(a2Result);
     assertThat((Sequence<?>) a2ResultProvider.getValue("value"))
         .containsExactly(
@@ -5157,7 +5179,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a1_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a1_result");
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
@@ -5330,7 +5352,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a1_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a1_result");
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
@@ -5402,7 +5424,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a1_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a1_result");
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
@@ -5477,7 +5499,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a1_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a1_result");
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
@@ -5558,7 +5580,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a1_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a1_result");
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
@@ -5656,7 +5678,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a1_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a1_result");
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
@@ -5753,7 +5775,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect a2 = getConfiguredAspect(configuredAspects, "a2");
     assertThat(a2).isNotNull();
     StarlarkProvider.Key a2Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a2_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a2_result");
     StructImpl a2ResultProvider = (StructImpl) a2.get(a2Result);
     assertThat((Sequence<?>) a2ResultProvider.getValue("value"))
         .containsExactly(
@@ -5763,7 +5785,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a1_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a1_result");
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
@@ -5888,7 +5910,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect a3 = getConfiguredAspect(configuredAspects, "a3");
     assertThat(a3).isNotNull();
     StarlarkProvider.Key a3Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a3_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a3_result");
     StructImpl a3ResultProvider = (StructImpl) a3.get(a3Result);
     assertThat((Sequence<?>) a3ResultProvider.getValue("value"))
         .containsExactly(
@@ -6043,7 +6065,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a1_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a1_result");
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
@@ -6113,7 +6135,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect a1Ont1 = getConfiguredAspect(configuredAspects, "a1", "t1");
     assertThat(a1Ont1).isNotNull();
     StarlarkProvider.Key a1Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a1_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a1_result");
     StructImpl a1ResultProvider = (StructImpl) a1Ont1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly("aspect a1 on target @//test:t1 sees a2p = a2p_val");
@@ -6203,7 +6225,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a1_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a1_result");
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
@@ -6301,7 +6323,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a1_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a1_result");
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
@@ -6311,7 +6333,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect a2 = getConfiguredAspect(configuredAspects, "a2");
     assertThat(a2).isNotNull();
     StarlarkProvider.Key a2Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a2_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a2_result");
     StructImpl a2ResultProvider = (StructImpl) a2.get(a2Result);
     assertThat((Sequence<?>) a2ResultProvider.getValue("value"))
         .containsExactly(
@@ -6578,7 +6600,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect requiredAspect = getConfiguredAspect(configuredAspects, "required_aspect");
     assertThat(requiredAspect).isNotNull();
     StarlarkProvider.Key requiredAspectProv =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "RequiredAspectProv");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "RequiredAspectProv");
     StructImpl requiredAspectProvider = (StructImpl) requiredAspect.get(requiredAspectProv);
     assertThat((Sequence<?>) requiredAspectProvider.getValue("p_val"))
         .containsExactly("In required_aspect, p = main_val on target @//test:main_target");
@@ -6588,7 +6611,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect baseAspect = getConfiguredAspect(configuredAspects, "base_aspect");
     assertThat(baseAspect).isNotNull();
     StarlarkProvider.Key baseAspectProv =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "BaseAspectProv");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "BaseAspectProv");
     StructImpl baseAspectProvider = (StructImpl) baseAspect.get(baseAspectProv);
     assertThat((Sequence<?>) baseAspectProvider.getValue("p_val"))
         .containsExactly(
@@ -6690,7 +6714,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect baseAspect = getConfiguredAspect(configuredAspects, "base_aspect");
     assertThat(baseAspect).isNotNull();
     StarlarkProvider.Key baseAspectProv =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "BaseAspectProv");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "BaseAspectProv");
     StructImpl baseAspectProvider = (StructImpl) baseAspect.get(baseAspectProv);
     assertThat((Sequence<?>) baseAspectProvider.getValue("result"))
         .containsExactly(
@@ -6822,7 +6847,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
     assertThat(aspectA).isNotNull();
     StarlarkProvider.Key collectorProv =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "CollectorProv");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "CollectorProv");
     StructImpl collectorProvider = (StructImpl) aspectA.get(collectorProv);
     assertThat((Sequence<?>) collectorProvider.getValue("result"))
         .containsExactly(
@@ -6885,7 +6911,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect baseAspect = getConfiguredAspect(configuredAspects, "base_aspect");
     assertThat(baseAspect).isNotNull();
     StarlarkProvider.Key baseAspectProv =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "BaseAspectProvider");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "BaseAspectProvider");
     StructImpl baseAspectProvider = (StructImpl) baseAspect.get(baseAspectProv);
     assertThat(baseAspectProvider.getValue("result"))
         .isEqualTo("base_aspect can see required_aspect action");
@@ -6938,7 +6965,8 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     ConfiguredAspect baseAspect = getConfiguredAspect(configuredAspects, "base_aspect");
     assertThat(baseAspect).isNotNull();
     StarlarkProvider.Key baseAspectProv =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "BaseAspectProvider");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "BaseAspectProvider");
     StructImpl baseAspectProvider = (StructImpl) baseAspect.get(baseAspectProv);
     assertThat((Sequence<?>) baseAspectProvider.getValue("my_files"))
         .containsExactly("base_aspect can see file required_aspect_file");
@@ -7156,7 +7184,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     assertThat(aspectB).isNotNull();
 
     StarlarkProvider.Key provB =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "BInfo");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "BInfo");
     assertThat(((StructImpl) aspectB.get(provB)).getValue("value")).isEqualTo("bin");
 
     ConfiguredAspect aspectA =
@@ -7168,7 +7196,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     assertThat(aspectA).isNotNull();
 
     StarlarkProvider.Key provA =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "AInfo");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "AInfo");
     assertThat(((StructImpl) aspectA.get(provA)).getValue("value")).isEqualTo("@//test:lib");
   }
 

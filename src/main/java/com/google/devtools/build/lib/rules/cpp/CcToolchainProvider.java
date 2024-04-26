@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -55,7 +57,8 @@ public final class CcToolchainProvider {
       implements Provider {
     public CcToolchainInfoProvider() {
       super(
-          Label.parseCanonicalUnchecked("@_builtins//:common/cc/cc_toolchain_info.bzl"),
+          keyForBuiltins(
+              Label.parseCanonicalUnchecked("@_builtins//:common/cc/cc_toolchain_info.bzl")),
           STARLARK_NAME);
     }
 

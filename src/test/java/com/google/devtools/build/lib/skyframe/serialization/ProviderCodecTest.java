@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
@@ -38,9 +40,9 @@ public final class ProviderCodecTest {
     new SerializationTester(
             dummyProvider,
             StarlarkProvider.builder(Location.BUILTIN)
-                .setExported(
-                    new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//foo:bar.bzl"), "foo"))
-                .build())
+                .buildExported(
+                    new StarlarkProvider.Key(
+                        keyForBuild(Label.parseCanonicalUnchecked("//foo:bar.bzl")), "foo")))
         .addDependency(DummyProvider.class, dummyProvider)
         .runTests();
   }

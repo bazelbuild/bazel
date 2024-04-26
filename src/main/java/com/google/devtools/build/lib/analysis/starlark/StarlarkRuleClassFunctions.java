@@ -296,16 +296,15 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
               Dict.cast(fields, String.class, String.class, "fields"), Starlark::trimDocString));
     }
     if (init == Starlark.NONE) {
-      return builder.build();
-    } else {
-      if (init instanceof StarlarkCallable) {
-        builder.setInit((StarlarkCallable) init);
-      } else {
-        throw Starlark.errorf("got %s for init, want callable value", Starlark.type(init));
-      }
-      StarlarkProvider provider = builder.build();
-      return Tuple.of(provider, provider.createRawConstructor());
+      return builder.buildWithIdentityToken(thread.getNextIdentityToken());
     }
+    if (init instanceof StarlarkCallable callable) {
+      builder.setInit(callable);
+    } else {
+      throw Starlark.errorf("got %s for init, want callable value", Starlark.type(init));
+    }
+    StarlarkProvider provider = builder.buildWithIdentityToken(thread.getNextIdentityToken());
+    return Tuple.of(provider, provider.createRawConstructor());
   }
 
   @FormatMethod
