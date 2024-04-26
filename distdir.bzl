@@ -13,7 +13,7 @@
 # limitations under the License.
 """Defines a repository rule that generates an archive consisting of the specified files to fetch"""
 
-load("//src/tools/bzlmod:utils.bzl", "parse_http_artifacts")
+load("//src/tools/bzlmod:utils.bzl", "parse_http_artifacts", "parse_registry_files")
 
 _BUILD = """
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
@@ -87,10 +87,11 @@ def _repo_cache_tar_impl(ctx):
     """
     lockfile_path = ctx.path(ctx.attr.lockfile)
     http_artifacts = parse_http_artifacts(ctx, lockfile_path, ctx.attr.repos)
+    registry_files = parse_registry_files(ctx, lockfile_path)
 
     archive_files = []
     readme_content = "This directory contains repository cache artifacts for the following URLs:\n\n"
-    for artifact in http_artifacts:
+    for artifact in http_artifacts + registry_files:
         url = artifact["url"]
         if "integrity" in artifact:
             # ./tempfile could be a hard link if --experimental_repository_cache_hardlinks is used,

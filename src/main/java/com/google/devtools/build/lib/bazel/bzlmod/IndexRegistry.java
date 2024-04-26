@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum.MissingChecksumException;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -130,10 +131,11 @@ public class IndexRegistry implements Registry {
       Optional<Checksum> knownChecksum = knownFileHashes.get(url);
       if (knownChecksum == null) {
         if (knownFileHashesMode == KnownFileHashesMode.ENFORCE) {
-          throw new IOException(
+          throw new MissingChecksumException(
               String.format(
-                  "Missing checksum for registry file %s. Please update the lockfile with "
-                      + "`bazel mod deps --lockfile_mode=update`.",
+                  "Missing checksum for registry file %s not permitted with --lockfile_mode=error."
+                      + " Please run `bazel mod deps --lockfile_mode=update` to update your"
+                      + " lockfile.",
                   url));
         }
         // This is a new file, download without providing a checksum.

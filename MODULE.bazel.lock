@@ -2768,7 +2768,7 @@
   "moduleExtensions": {
     "//:extensions.bzl%bazel_android_deps": {
       "general": {
-        "bzlTransitiveDigest": "tunTSmgwd2uvTzkCLtdbuCp0AI+WR+ftiPNqZ0rmcZk=",
+        "bzlTransitiveDigest": "B5uVRXNnUrnGOBQizaLP3KiRFVjh+IMpW7klQTyeTmI=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -2914,10 +2914,10 @@
     },
     "//:extensions.bzl%bazel_build_deps": {
       "general": {
-        "bzlTransitiveDigest": "tunTSmgwd2uvTzkCLtdbuCp0AI+WR+ftiPNqZ0rmcZk=",
+        "bzlTransitiveDigest": "B5uVRXNnUrnGOBQizaLP3KiRFVjh+IMpW7klQTyeTmI=",
         "recordedFileInputs": {
           "@@//MODULE.bazel": "939a48e4dbb71472db80f16a6a639f65cb4ddb07d8e1fd01db14cf1d0323917d",
-          "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "1fffc063b7830519a4f8ea2b8a1192fef8c4065e4f2e5a1aeedd4f563a5bc683"
+          "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "cd4c891da2814af95e491c128908e78602e8119960d77c06444c7022dd249bdc"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -2936,23 +2936,23 @@
             "ruleClassName": "repo_cache_tar",
             "attributes": {
               "repos": [
-                "rules_cc~",
-                "rules_java~",
-                "rules_license~",
-                "rules_proto~",
-                "rules_python~",
-                "buildozer~",
-                "platforms",
-                "protobuf~",
-                "zlib~",
+                "abseil-cpp~",
                 "apple_support~",
                 "bazel_skylib~",
-                "rules_pkg~",
-                "abseil-cpp~",
-                "upb~",
-                "rules_jvm_external~",
+                "buildozer~",
                 "googletest~",
-                "stardoc~"
+                "platforms",
+                "protobuf~",
+                "rules_cc~",
+                "rules_java~",
+                "rules_jvm_external~",
+                "rules_license~",
+                "rules_pkg~",
+                "rules_proto~",
+                "rules_python~",
+                "stardoc~",
+                "upb~",
+                "zlib~"
               ],
               "lockfile": "@@//src/test/tools/bzlmod:MODULE.bazel.lock"
             }
@@ -3289,7 +3289,7 @@
     },
     "//:extensions.bzl%bazel_test_deps": {
       "general": {
-        "bzlTransitiveDigest": "tunTSmgwd2uvTzkCLtdbuCp0AI+WR+ftiPNqZ0rmcZk=",
+        "bzlTransitiveDigest": "B5uVRXNnUrnGOBQizaLP3KiRFVjh+IMpW7klQTyeTmI=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},

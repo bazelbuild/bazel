@@ -64,6 +64,31 @@ class BazelLockfileTest(test_base.TestBase):
     self.main_registry.stop()
     test_base.TestBase.tearDown(self)
 
+  def testInvalidLockfile(self):
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
+    self.RunBazel(['build', '//:all'])
+
+    with open(self.Path('MODULE.bazel.lock'), 'r') as f:
+      lockfile = json.loads(f.read().strip())
+      lockfile['registryFileHashes'] = 'I am a string'
+
+    with open(self.Path('MODULE.bazel.lock'), 'w') as f:
+      f.write(json.dumps(lockfile))
+
+    exit_code, _, stderr = self.RunBazel(['build', '//:all'], allow_failure=True)
+    stderr = '\n'.join(stderr)
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertRegex(
+      stderr,
+      (
+        'ERROR: Error computing the main repository mapping: in module '
+        'dependency chain .*: Failed to read and parse the '
+        'MODULE\\.bazel\\.lock file with error: '
+        'java\\.lang\\.IllegalStateException: Expected BEGIN_OBJECT but was '
+        'STRING .*\\. Try deleting it and rerun the build.'
+      ),
+    )
+
   def testChangeModuleInRegistryWithoutLockfile(self):
     # Add module 'sss' to the registry with dep on 'aaa'
     self.main_registry.createCcModule('sss', '1.3', {'aaa': '1.1'})
@@ -218,18 +243,16 @@ class BazelLockfileTest(test_base.TestBase):
         [
             'build',
             '--nobuild',
-            '--check_direct_dependencies=warning',
             '//:all',
         ],
     )
 
-    # Run with updated module and a different flag
-    self.ScratchFile('MODULE.bazel', ['module(name="lala")'])
+    # Run with updated module
+    self.ScratchFile('MODULE.bazel', ['bazel_dep(name="does_not_exist",version="0")'])
     exit_code, _, stderr = self.RunBazel(
         [
             'build',
             '--nobuild',
-            '--check_direct_dependencies=error',
             '--lockfile_mode=error',
             '//:all',
         ],
@@ -239,54 +262,10 @@ class BazelLockfileTest(test_base.TestBase):
     self.assertIn(
         (
             'ERROR: Error computing the main repository mapping:'
-            ' MODULE.bazel.lock is no longer up-to-date because: the root'
-            ' MODULE.bazel has been modified, the value of'
-            ' --check_direct_dependencies flag has been modified. Please run'
+            ' Missing checksum for registry file {}'.format(self.main_registry.getURL()) +
+            '/modules/does_not_exist/0/MODULE.bazel not permitted with'
+            ' --lockfile_mode=error. Please run'
             ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
-        ),
-        stderr,
-    )
-
-  def testLocalOverrideWithErrorMode(self):
-    self.ScratchFile(
-        'MODULE.bazel',
-        [
-            'module(name="lala")',
-            'bazel_dep(name="bar")',
-            'local_path_override(module_name="bar",path="bar")',
-        ],
-    )
-    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
-    self.ScratchFile('bar/MODULE.bazel', ['module(name="bar")'])
-    self.ScratchFile('bar/BUILD', ['filegroup(name = "hello from bar")'])
-    self.RunBazel(
-        [
-            'build',
-            '--nobuild',
-            '//:all',
-        ],
-    )
-
-    # Run with updated module and a different flag
-    self.ScratchFile(
-        'bar/MODULE.bazel',
-        [
-            'module(name="bar")',
-            'bazel_dep(name="hmmm")',
-        ],
-    )
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '--nobuild', '--lockfile_mode=error', '//:all'],
-        allow_failure=True,
-    )
-    self.AssertExitCode(exit_code, 48, stderr)
-    self.assertIn(
-        (
-            'ERROR: Error computing the main repository mapping:'
-            ' MODULE.bazel.lock is no longer up-to-date because: The'
-            ' MODULE.bazel file has changed for the overriden module: bar.'
-            ' Please run `bazel mod deps --lockfile_mode=update` to update your'
-            ' lockfile.'
         ),
         stderr,
     )
@@ -493,7 +472,6 @@ class BazelLockfileTest(test_base.TestBase):
 
     with open(self.Path('MODULE.bazel.lock'), 'r') as f:
       lockfile = json.loads(f.read().strip())
-      self.assertGreater(len(lockfile['moduleDepGraph']), 0)
       ext_keys = list(lockfile['moduleExtensions'].keys())
       self.assertIn('//:extension.bzl%extA', ext_keys)
       self.assertIn('//:extension.bzl%extB', ext_keys)

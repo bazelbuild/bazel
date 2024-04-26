@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.InterimModuleBuilder;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -231,6 +232,7 @@ public class DiscoveryTest extends FoundationTestCase {
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
     YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
+    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
   }
 
   @Test

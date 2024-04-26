@@ -14,27 +14,26 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction.LOCKFILE_MODE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
-import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
@@ -46,8 +45,6 @@ public class BazelLockFileModule extends BlazeModule {
 
   private SkyframeExecutor executor;
   private Path workspaceRoot;
-  private boolean enabled;
-  @Nullable private BazelModuleResolutionEvent moduleResolutionEvent;
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -55,42 +52,40 @@ public class BazelLockFileModule extends BlazeModule {
   public void beforeCommand(CommandEnvironment env) {
     executor = env.getSkyframeExecutor();
     workspaceRoot = env.getWorkspace();
-
-    enabled =
-        env.getOptions().getOptions(RepositoryOptions.class).lockfileMode == LockfileMode.UPDATE;
-    moduleResolutionEvent = null;
-    env.getEventBus().register(this);
   }
 
   @Override
   public void afterCommand() {
-    if (!enabled || moduleResolutionEvent == null) {
-      // Command does not use Bazel modules or the lockfile mode is not update.
-      // Since Skyframe caches events, they are replayed even when nothing has changed.
-      return;
-    }
-
-    BazelDepGraphValue depGraphValue;
+    MemoizingEvaluator evaluator = executor.getEvaluator();
     BazelModuleResolutionValue moduleResolutionValue;
+    BazelDepGraphValue depGraphValue;
+    BazelLockFileValue oldLockfile;
     try {
-      depGraphValue =
-          (BazelDepGraphValue) executor.getEvaluator().getExistingValue(BazelDepGraphValue.KEY);
+      PrecomputedValue lockfileModeValue =
+          (PrecomputedValue) evaluator.getExistingValue(LOCKFILE_MODE.getKey());
+      if (lockfileModeValue == null) {
+        // No command run on this server has triggered module resolution yet.
+        return;
+      }
+      LockfileMode lockfileMode = (LockfileMode) lockfileModeValue.get();
+      // Check the Skyframe value instead of the option since some commands (e.g. shutdown) don't
+      // propagate the options to Skyframe, but we can only operate on Skyframe values that were
+      // generated in UPDATE mode.
+      if (lockfileMode != LockfileMode.UPDATE) {
+        return;
+      }
       moduleResolutionValue =
-          (BazelModuleResolutionValue)
-              executor.getEvaluator().getExistingValue(BazelModuleResolutionValue.KEY);
+          (BazelModuleResolutionValue) evaluator.getExistingValue(BazelModuleResolutionValue.KEY);
+      depGraphValue = (BazelDepGraphValue) evaluator.getExistingValue(BazelDepGraphValue.KEY);
+      oldLockfile = (BazelLockFileValue) evaluator.getExistingValue(BazelLockFileValue.KEY);
     } catch (InterruptedException e) {
       // Not thrown in Bazel.
       throw new IllegalStateException(e);
     }
-
-    BazelLockFileValue oldLockfile = moduleResolutionEvent.getOnDiskLockfileValue();
-    ImmutableMap<String, Optional<Checksum>> fileHashes;
-    if (moduleResolutionValue == null) {
-      // BazelDepGraphFunction took the dep graph from the lockfile and didn't cause evaluation of
-      // BazelModuleResolutionFunction. The file hashes in the lockfile are still up-to-date.
-      fileHashes = oldLockfile.getRegistryFileHashes();
-    } else {
-      fileHashes = ImmutableSortedMap.copyOf(moduleResolutionValue.getRegistryFileHashes());
+    if (moduleResolutionValue == null || depGraphValue == null || oldLockfile == null) {
+      // An error during the actual build prevented the evaluation of these values and has already
+      // been reported at this point.
+      return;
     }
 
     // All nodes corresponding to module extensions that have been evaluated in the current build
@@ -121,9 +116,10 @@ public class BazelLockFileModule extends BlazeModule {
     // Create an updated version of the lockfile, keeping only the extension results from the old
     // lockfile that are still up-to-date and adding the newly resolved extension results.
     BazelLockFileValue newLockfile =
-        moduleResolutionEvent.getResolutionOnlyLockfileValue().toBuilder()
-            .setRegistryFileHashes(fileHashes)
+        BazelLockFileValue.builder()
             .setModuleExtensions(combinedExtensionInfos)
+            .setRegistryFileHashes(
+                ImmutableSortedMap.copyOf(moduleResolutionValue.getRegistryFileHashes()))
             .build();
 
     // Write the new value to the file, but only if needed. This is not just a performance
@@ -248,7 +244,7 @@ public class BazelLockFileModule extends BlazeModule {
    * @param workspaceRoot Root of the workspace where the lockfile is located
    * @param updatedLockfile The updated lockfile data to save
    */
-  public static void updateLockfile(Path workspaceRoot, BazelLockFileValue updatedLockfile) {
+  private static void updateLockfile(Path workspaceRoot, BazelLockFileValue updatedLockfile) {
     RootedPath lockfilePath =
         RootedPath.toRootedPath(Root.fromPath(workspaceRoot), LabelConstants.MODULE_LOCKFILE_NAME);
     try {
@@ -267,13 +263,5 @@ public class BazelLockFileModule extends BlazeModule {
       logger.atSevere().withCause(e).log(
           "Error while updating MODULE.bazel.lock file: %s", e.getMessage());
     }
-  }
-
-  @SuppressWarnings("unused")
-  @Subscribe
-  public void bazelModuleResolved(BazelModuleResolutionEvent moduleResolutionEvent) {
-    // Latest event wins, which is relevant in the case of `bazel mod tidy`, where a new event is
-    // sent after the command has modified the module file.
-    this.moduleResolutionEvent = moduleResolutionEvent;
   }
 }

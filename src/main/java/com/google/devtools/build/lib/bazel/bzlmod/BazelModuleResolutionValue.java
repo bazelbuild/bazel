@@ -30,9 +30,6 @@ import java.util.Optional;
  */
 @AutoValue
 abstract class BazelModuleResolutionValue implements SkyValue {
-  /* TODO(andreisolo): Also load the modules overridden by {@code single_version_override} or
-      NonRegistryOverride if we need to detect changes in the dependency graph caused by them.
-  */
 
   @SerializationConstant
   public static final SkyKey KEY = () -> SkyFunctions.BAZEL_MODULE_RESOLUTION;

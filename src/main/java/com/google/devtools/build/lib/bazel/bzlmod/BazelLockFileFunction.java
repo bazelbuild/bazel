@@ -17,9 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -54,19 +52,11 @@ public class BazelLockFileFunction implements SkyFunction {
 
   private final Path rootDirectory;
 
-  private static final BzlmodFlagsAndEnvVars EMPTY_FLAGS =
-      BzlmodFlagsAndEnvVars.create(
-          ImmutableSet.of(), ImmutableMap.of(), ImmutableList.of(), "", false, "", "");
-
   private static final BazelLockFileValue EMPTY_LOCKFILE =
       BazelLockFileValue.builder()
           .setLockFileVersion(BazelLockFileValue.LOCK_FILE_VERSION)
-          .setModuleFileHash("")
-          .setFlags(EMPTY_FLAGS)
-          .setLocalOverrideHashes(ImmutableMap.of())
-          .setModuleDepGraph(ImmutableMap.of())
-          .setModuleExtensions(ImmutableMap.of())
           .setRegistryFileHashes(ImmutableMap.of())
+          .setModuleExtensions(ImmutableMap.of())
           .build();
 
   public BazelLockFileFunction(Path rootDirectory) {
@@ -85,8 +75,9 @@ public class BazelLockFileFunction implements SkyFunction {
       return null;
     }
 
+    BazelLockFileValue lockfileValue;
     try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.BZLMOD, "parse lockfile")) {
-      return getLockfileValue(lockfilePath, rootDirectory);
+      lockfileValue = getLockfileValue(lockfilePath, rootDirectory);
     } catch (IOException | JsonSyntaxException | NullPointerException e) {
       throw new BazelLockfileFunctionException(
           ExternalDepsException.withMessage(
@@ -96,6 +87,17 @@ public class BazelLockFileFunction implements SkyFunction {
               e.getMessage()),
           Transience.PERSISTENT);
     }
+
+    if (lockfileValue.getLockFileVersion() != BazelLockFileValue.LOCK_FILE_VERSION) {
+      throw new BazelLockfileFunctionException(
+          ExternalDepsException.withMessage(
+              Code.BAD_MODULE,
+              "The version of MODULE.bazel.lock is not supported by this version of Bazel. Please "
+                  + "run `bazel mod deps --lockfile_mode=update` to update your lockfile."),
+          Transience.PERSISTENT);
+    }
+
+    return lockfileValue;
   }
 
   public static BazelLockFileValue getLockfileValue(RootedPath lockfilePath, Path rootDirectory)

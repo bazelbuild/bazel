@@ -16,10 +16,6 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction.LOCKFILE_MODE;
-import static com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction.IGNORE_DEV_DEPS;
-import static com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction.MODULE_OVERRIDES;
-import static com.google.devtools.build.lib.skyframe.PrecomputedValue.STARLARK_SEMANTICS;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -114,10 +110,6 @@ public class BazelModTidyFunction implements SkyFunction {
     return BazelModTidyValue.create(
         fixups.build(),
         buildozer.asPath(),
-        rootModuleFileValue.getIncludeLabelToCompiledModuleFile(),
-        MODULE_OVERRIDES.get(env),
-        IGNORE_DEV_DEPS.get(env),
-        LOCKFILE_MODE.get(env),
-        STARLARK_SEMANTICS.get(env));
+        rootModuleFileValue.getIncludeLabelToCompiledModuleFile());
   }
 }
