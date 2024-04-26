@@ -20,7 +20,7 @@ bazel_dep(name = "platforms", version = "0.0.9")
 bazel_dep(name = "rules_pkg", version = "0.9.1")
 bazel_dep(name = "stardoc", version = "0.5.6", repo_name = "io_bazel_skydoc")
 bazel_dep(name = "zstd-jni", version = "1.5.2-3.bcr.1")
-bazel_dep(name = "blake3", version = "1.3.3.bcr.1")
+bazel_dep(name = "blake3", version = "1.5.1.bcr.1")
 bazel_dep(name = "sqlite3", version = "3.42.0.bcr.1")
 bazel_dep(name = "zlib", version = "1.3")
 bazel_dep(name = "rules_cc", version = "0.0.9")
@@ -31,6 +31,7 @@ bazel_dep(name = "rules_jvm_external", version = "6.0")
 bazel_dep(name = "rules_python", version = "0.26.0")
 bazel_dep(name = "rules_testing", version = "0.0.4")
 bazel_dep(name = "googletest", version = "1.14.0", repo_name = "com_google_googletest")
+bazel_dep(name = "with_cfg.bzl", version = "0.2.4")
 
 # TODO(pcloudy): Add remoteapis and googleapis as Bazel modules in the BCR.
 bazel_dep(name = "remoteapis", version = "")
@@ -98,7 +99,7 @@ maven.install(
         "com.google.http-client:google-http-client:1.42.0",
         "com.google.http-client:google-http-client-gson:1.42.0",
         "com.google.j2objc:j2objc-annotations:1.3",
-        "com.google.turbine:turbine:0.4.0",
+        "com.google.turbine:turbine:0.5.0",
         "com.ryanharter.auto.value:auto-value-gson-extension:1.3.1",
         "com.ryanharter.auto.value:auto-value-gson-factory:1.3.1",
         "com.ryanharter.auto.value:auto-value-gson-runtime:1.3.1",
