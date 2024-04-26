@@ -200,7 +200,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       if (lockedExtension == null && extensionShouldHaveBeenLocked) {
         throw new SingleExtensionEvalFunctionException(
             ExternalDepsException.withMessage(
-                Code.BAD_MODULE,
+                Code.BAD_LOCKFILE,
                 "The module extension '%s'%s does not exist in the lockfile",
                 extensionId,
                 extension.getEvalFactors().isEmpty()
@@ -317,7 +317,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     if (lockfileMode.equals(LockfileMode.ERROR)) {
       throw new SingleExtensionEvalFunctionException(
           ExternalDepsException.withMessage(
-              Code.BAD_MODULE,
+              Code.BAD_LOCKFILE,
               "MODULE.bazel.lock is no longer up-to-date because: %s. "
                   + "Please run `bazel mod deps --lockfile_mode=update` to update your lockfile.",
               diffRecorder.getRecordedDiffMessages()),

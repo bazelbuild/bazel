@@ -91,6 +91,12 @@ final class Discovery {
           moduleFileValue =
               (ModuleFileValue) result.getOrThrow(skyKey, ExternalDepsException.class);
         } catch (ExternalDepsException e) {
+          if (e.getDetailedExitCode().getFailureDetail() == null
+              || e.getDetailedExitCode().getFailureDetail().getExternalDeps().getCode()
+                  != FailureDetails.ExternalDeps.Code.BAD_MODULE) {
+            // This is not due to a bad module, so don't print a dependency chain.
+            throw e;
+          }
           // Trace back a dependency chain to the root module. There can be multiple paths to the
           // failing module, but any of those is useful for debugging.
           List<ModuleKey> depChain = new ArrayList<>();

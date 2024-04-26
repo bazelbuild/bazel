@@ -81,7 +81,7 @@ public class BazelLockFileFunction implements SkyFunction {
     } catch (IOException | JsonSyntaxException | NullPointerException e) {
       throw new BazelLockfileFunctionException(
           ExternalDepsException.withMessage(
-              Code.BAD_MODULE,
+              Code.BAD_LOCKFILE,
               "Failed to read and parse the MODULE.bazel.lock file with error: %s."
                   + " Try deleting it and rerun the build.",
               e.getMessage()),
@@ -91,7 +91,7 @@ public class BazelLockFileFunction implements SkyFunction {
     if (lockfileValue.getLockFileVersion() != BazelLockFileValue.LOCK_FILE_VERSION) {
       throw new BazelLockfileFunctionException(
           ExternalDepsException.withMessage(
-              Code.BAD_MODULE,
+              Code.BAD_LOCKFILE,
               "The version of MODULE.bazel.lock is not supported by this version of Bazel. Please "
                   + "run `bazel mod deps --lockfile_mode=update` to update your lockfile."),
           Transience.PERSISTENT);

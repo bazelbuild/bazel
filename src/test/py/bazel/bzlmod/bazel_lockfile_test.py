@@ -81,9 +81,8 @@ class BazelLockfileTest(test_base.TestBase):
     self.assertRegex(
       stderr,
       (
-        'ERROR: Error computing the main repository mapping: in module '
-        'dependency chain .*: Failed to read and parse the '
-        'MODULE\\.bazel\\.lock file with error: '
+        'ERROR: Error computing the main repository mapping: Failed to read '
+        'and parse the MODULE\\.bazel\\.lock file with error: '
         'java\\.lang\\.IllegalStateException: Expected BEGIN_OBJECT but was '
         'STRING .*\\. Try deleting it and rerun the build.'
       ),
@@ -841,10 +840,10 @@ class BazelLockfileTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 48, stderr)
     self.assertIn(
         (
-            'ERROR: Error computing the main repository mapping:'
-            ' MODULE.bazel.lock is no longer up-to-date because: the version of'
-            ' the lockfile is not compatible with the current Bazel. Please run'
-            ' `bazel mod deps --lockfile_mode=update` to update your lockfile.'
+            'ERROR: Error computing the main repository mapping: The version'
+            ' of MODULE.bazel.lock is not supported by this version of Bazel.'
+            ' Please run `bazel mod deps --lockfile_mode=update` to update your'
+            ' lockfile.'
         ),
         stderr,
     )
