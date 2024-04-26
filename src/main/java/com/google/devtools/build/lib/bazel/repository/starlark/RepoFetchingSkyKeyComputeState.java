@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository.starlark;
 
+import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
@@ -84,25 +85,32 @@ class RepoFetchingSkyKeyComputeState implements SkyKeyComputeState {
     return delegateEnvQueue.take();
   }
 
-  @Override
-  public void close() {
-    var myWorkerThread = workerThread;
-    if (myWorkerThread != null) {
-      myWorkerThread.interrupt();
-    }
-    // DON'T set workerThread to null; someone should always call `closeAndWaitForTermination` to
-    // make sure the workerThread stops running.
+  public void join() {
+    Uninterruptibles.joinUninterruptibly(workerThread);
+    workerThread = null;
   }
 
-  public void closeAndWaitForTermination() throws InterruptedException {
-    var myWorkerThread = workerThread;
+  @Override
+  public void close() {
+    if (workerThread == null) {
+      return;
+    }
+    workerThread.interrupt();
+
+    // Wait until the worker thread actually gets interrupted. Be resilient to cases where despite
+    // the interrupt above, the worker thread was already trying to post a restart. I'm not sure if
+    // that can happen; theoretically, it looks like it shouldn't be but I'm not intimately familiar
+    // with the exact semantics of thread interruption and it's cheap to be resilient. The important
+    // part is that in case an interrupt happens, a Success or Failure is eventually posted by the
+    // worker thread.
+    while (true) {
+      Signal s = Uninterruptibles.takeUninterruptibly(signalQueue);
+      if (s instanceof Signal.Success || s instanceof Signal.Failure) {
+        break;
+      }
+    }
+
+    Uninterruptibles.joinUninterruptibly(workerThread);
     workerThread = null;
-    if (myWorkerThread != null) {
-      myWorkerThread.interrupt();
-      Uninterruptibles.joinUninterruptibly(myWorkerThread);
-    }
-    if (Thread.interrupted()) {
-      throw new InterruptedException();
-    }
   }
 }
