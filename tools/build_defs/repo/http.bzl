@@ -53,6 +53,7 @@ load(
     ":utils.bzl",
     "get_auth",
     "patch",
+    "remote_files",
     "update_attrs",
     "workspace_and_buildfile",
 )
@@ -139,6 +140,8 @@ def _http_archive_impl(ctx):
     auth = get_auth(ctx, all_urls)
 
     download_info = ctx.download_and_extract(
+        # TODO(fzakaria): all_urls here has the remote_patch URL which is incorrect
+        # I believe this to be a file
         all_urls,
         ctx.attr.add_prefix,
         ctx.attr.sha256,
@@ -149,6 +152,8 @@ def _http_archive_impl(ctx):
         integrity = ctx.attr.integrity,
     )
     workspace_and_buildfile(ctx)
+
+    remote_files(ctx, auth = auth)
     patch(ctx, auth = auth)
 
     return _update_integrity_attr(ctx, _http_archive_attrs, download_info)
@@ -303,6 +308,20 @@ following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
             "which doesn't support fuzz match and binary patch, but Bazel will fall back to use " +
             "patch command line tool if `patch_tool` attribute is specified or there are " +
             "arguments other than `-p` in `patch_args` attribute.",
+    ),
+    "remote_file_urls": attr.string_list_dict(
+        default = {},
+        doc =
+            "A list of URLs to files that are to be downloaded and made available to be used as " +
+            "overlaid files. This is useful when you want to add WORKSPACE or BUILD.bazel files " +
+            "atop an existing repository. The files are downloaded before applying " +
+            "the patches in the `patches` attribute.",
+    ),
+    "remote_file_integrity": attr.string_dict(
+        default = {},
+        doc =
+            "A map of file URL to its integrity value. These URLs should map to the files in " +
+            "the `remote_file_urls` attribute.",
     ),
     "remote_patches": attr.string_dict(
         default = {},

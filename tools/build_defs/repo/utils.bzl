@@ -91,6 +91,30 @@ def _download_patch(ctx, patch_url, integrity, auth):
     )
     return patch_path
 
+def remote_files(ctx, auth = None):
+    """Utility function for downloading remote files.
+
+    This rule is intended to be used in the implementation function of
+    a repository rule. It assumes the parameters `remote_file_urls` and
+    `remote_file_integrity` to be present in `ctx.attr`.
+
+    Args:
+      ctx: The repository context of the repository rule calling this utility
+        function.
+      auth: An optional dict specifying authentication information for some of the URLs.
+    """
+    for path, remote_file_urls in ctx.attr.remote_file_urls.items():
+        # integrity is optional but really recommended
+        integrity = ctx.attr.remote_file_integrity.get(path)
+
+        ctx.download(
+            remote_file_urls,
+            path,
+            canonical_id = ctx.attr.canonical_id,
+            auth = auth,
+            integrity = integrity,
+        )
+    
 def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_tool = None, patch_args = None, auth = None):
     """Implementation of patching an already extracted repository.
 
