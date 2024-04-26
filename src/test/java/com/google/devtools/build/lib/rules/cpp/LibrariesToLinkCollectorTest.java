@@ -163,7 +163,12 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
     useConfiguration(
         "--extra_toolchains=//toolchain:toolchain",
         "--dynamic_mode=fully",
-        "--incompatible_enable_cc_toolchain_resolution");
+        "--incompatible_enable_cc_toolchain_resolution",
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
 
     ConfiguredTarget target = getConfiguredTarget("@src//test:foo");
     assertThat(target).isNotNull();
@@ -264,7 +269,12 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
     useConfiguration(
         "--extra_toolchains=@toolchain//:toolchain",
         "--dynamic_mode=fully",
-        "--incompatible_enable_cc_toolchain_resolution");
+        "--incompatible_enable_cc_toolchain_resolution",
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
 
     ConfiguredTarget target = getConfiguredTarget("//src/test:foo");
     assertThat(target).isNotNull();

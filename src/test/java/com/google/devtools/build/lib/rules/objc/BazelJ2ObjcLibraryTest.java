@@ -294,6 +294,11 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "    srcs = ['test.java'],",
         "    deps = [':test_java_proto']",
         ")");
+    useConfiguration(
+        "--proto_toolchain_for_java=//tools/proto/toolchains:java",
+        "--platforms=" + MockObjcSupport.DARWIN_X86_64,
+        "--apple_platform_type=macos",
+        "--cpu=darwin_x86_64");
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget(
         "//java/com/google/dummy/test/proto:test");
@@ -303,7 +308,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     assertThat(classMappingFilesList.get(0).getExecPathString())
         .containsMatch(
-            "/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin/java/com/google/dummy/test/proto/test.clsmap.properties");
+            "/darwin_x86_64-fastbuild/bin/java/com/google/dummy/test/proto/test.clsmap.properties");
   }
 
   @Test
@@ -324,22 +329,26 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "    srcs = ['test.java'],",
         "    deps = [':test_java_proto']",
         ")");
+    useConfiguration(
+        "--proto_toolchain_for_java=//tools/proto/toolchains:java",
+        "--platforms=" + MockObjcSupport.DARWIN_X86_64,
+        "--apple_platform_type=macos",
+        "--cpu=darwin_x86_64");
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//x:test");
     StructImpl j2ObjcMappingFileInfo = getJ2ObjcMappingFileInfoFromTarget(target);
     ImmutableList<Artifact> classMappingFilesList =
         getArtifacts(j2ObjcMappingFileInfo, "class_mapping_files");
     assertThat(classMappingFilesList.get(0).getExecPathString())
-        .containsMatch(
-            "/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin/x/test.clsmap.properties");
+        .containsMatch("/darwin_x86_64-fastbuild/bin/x/test.clsmap.properties");
 
     StarlarkInfo objcProvider = getObjcInfo(target);
     CcCompilationContext ccCompilationContext =
         target.get(CcInfo.PROVIDER).getCcCompilationContext();
     assertThat(ccCompilationContext.getDeclaredIncludeSrcs().toList().toString())
-        .containsMatch("/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin]x/test.j2objc.pb.h");
+        .containsMatch("/darwin_x86_64-fastbuild/bin]x/test.j2objc.pb.h");
     assertThat(getSource(objcProvider).toString())
-        .containsMatch("/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin]x/test.j2objc.pb.m,");
+        .containsMatch("/darwin_x86_64-fastbuild/bin]x/test.j2objc.pb.m,");
   }
 
   @Test
@@ -374,6 +383,11 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             deps = ["@bla//foo:test_java_proto"],
         )
         """);
+    useConfiguration(
+        "--proto_toolchain_for_java=//tools/proto/toolchains:java",
+        "--platforms=" + MockObjcSupport.DARWIN_X86_64,
+        "--apple_platform_type=macos",
+        "--cpu=darwin_x86_64");
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//x:test");
 
@@ -382,19 +396,16 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         getArtifacts(j2ObjcMappingFileInfo, "class_mapping_files");
 
     assertThat(classMappingFilesList.get(0).getExecPathString())
-        .containsMatch(
-            "/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin/external/bla/foo/test.clsmap.properties");
+        .containsMatch("/darwin_x86_64-fastbuild/bin/external/bla/foo/test.clsmap.properties");
 
     StarlarkInfo objcProvider = getObjcInfo(target);
     CcCompilationContext ccCompilationContext =
         target.get(CcInfo.PROVIDER).getCcCompilationContext();
 
     assertThat(ccCompilationContext.getDeclaredIncludeSrcs().toList().toString())
-        .containsMatch(
-            "/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin]external/bla/foo/test.j2objc.pb.h");
+        .containsMatch("/darwin_x86_64-fastbuild/bin]external/bla/foo/test.j2objc.pb.h");
     assertThat(getSource(objcProvider).toString())
-        .containsMatch(
-            "/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin]external/bla/foo/test.j2objc.pb.m");
+        .containsMatch("/darwin_x86_64-fastbuild/bin]external/bla/foo/test.j2objc.pb.m");
     assertThat(ccCompilationContext.getIncludeDirs())
         .contains(
             getConfiguration(target)

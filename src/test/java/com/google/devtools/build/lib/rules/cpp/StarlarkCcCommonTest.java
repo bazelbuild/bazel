@@ -6284,35 +6284,65 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testLinkStampExpliciltyEnabledOverridesNoStampFlag() throws Exception {
-    useConfiguration("--nostamp");
+    useConfiguration(
+        "--nostamp",
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
     setupTestTransitiveLink(scratch, "stamp=1", "linking_contexts=dep_linking_contexts");
     assertStampEnabled(getLinkstampCompileAction("//foo:bin"));
   }
 
   @Test
   public void testLinkExplicitlyDisabledOverridesStampFlag() throws Exception {
-    useConfiguration("--nostamp");
+    useConfiguration(
+        "--nostamp",
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
     setupTestTransitiveLink(scratch, "stamp=0", "linking_contexts=dep_linking_contexts");
     assertStampDisabled(getLinkstampCompileAction("//foo:bin"));
   }
 
   @Test
   public void testLinkStampUseFlagStamp() throws Exception {
-    useConfiguration("--stamp");
+    useConfiguration(
+        "--stamp",
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
     setupTestTransitiveLink(scratch, "stamp=-1", "linking_contexts=dep_linking_contexts");
     assertStampEnabled(getLinkstampCompileAction("//foo:bin"));
   }
 
   @Test
   public void testLinkStampUseFlagNoStamp() throws Exception {
-    useConfiguration("--nostamp");
+    useConfiguration(
+        "--nostamp",
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
     setupTestTransitiveLink(scratch, "stamp=-1", "linking_contexts=dep_linking_contexts");
     assertStampDisabled(getLinkstampCompileAction("//foo:bin"));
   }
 
   @Test
   public void testLinkStampDisabledByDefaultDespiteStampFlag() throws Exception {
-    useConfiguration("--stamp");
+    useConfiguration(
+        "--stamp",
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
     setupTestTransitiveLink(scratch, "linking_contexts=dep_linking_contexts");
     assertStampDisabled(getLinkstampCompileAction("//foo:bin"));
   }

@@ -581,14 +581,17 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     switch (codeCoverageMode) {
       case NONE:
         useConfiguration(
-            "--apple_platform_type=ios", "--compilation_mode=" + compilationModeFlag(mode));
+            "--apple_platform_type=ios",
+            "--compilation_mode=" + compilationModeFlag(mode),
+            "--cpu=k8");
         break;
       case GCOV:
         allExpectedCoptsBuilder.addAll(CompilationSupport.CLANG_GCOV_COVERAGE_FLAGS);
         useConfiguration(
             "--apple_platform_type=ios",
             "--collect_code_coverage",
-            "--compilation_mode=" + compilationModeFlag(mode));
+            "--compilation_mode=" + compilationModeFlag(mode),
+            "--cpu=k8");
         break;
       case LLVMCOV:
         allExpectedCoptsBuilder.addAll(CompilationSupport.CLANG_LLVM_COVERAGE_FLAGS);
@@ -596,7 +599,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             "--apple_platform_type=ios",
             "--collect_code_coverage",
             "--experimental_use_llvm_covmap",
-            "--compilation_mode=" + compilationModeFlag(mode));
+            "--compilation_mode=" + compilationModeFlag(mode),
+            "--cpu=k8");
         break;
     }
     scratch.file("x/a.m");
@@ -615,7 +619,10 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             .addAll(ObjcConfiguration.DBG_COPTS);
 
     useConfiguration(
-        "--apple_platform_type=ios", "--compilation_mode=dbg", "--objc_debug_with_GLIBCXX=false");
+        "--apple_platform_type=ios",
+        "--compilation_mode=dbg",
+        "--objc_debug_with_GLIBCXX=false",
+        "--cpu=k8");
     scratch.file("x/a.m");
     ruleType.scratchTarget(scratch, "srcs", "['a.m']");
 
