@@ -681,7 +681,10 @@ public class StandaloneTestStrategy extends TestStrategy {
     }
     long endTimeMillis = actionExecutionContext.getClock().currentTimeMillis();
 
-    if (testAction.isSharded()) {
+    // Do not override a more informative test failure with a generic failure due to the missing
+    // shard file, which may have been caused by the test failing before the runner had a chance to
+    // touch the file
+    if (testResultDataBuilder.getTestPassed() && testAction.isSharded()) {
       if (testAction.checkShardingSupport()
           && !actionExecutionContext
               .getPathResolver()
