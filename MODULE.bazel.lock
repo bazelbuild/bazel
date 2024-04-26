@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "e32e677a18c4d02bebe4c5df2d8c1d348e16ad8be10c4b0ab6a925f204b3a98c",
+  "moduleFileHash": "e556c2e066b73d9d977dd87b497fb917a742c1851c28a1d133060777ef7eea8c",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -39,7 +39,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 67,
+            "line": 68,
             "column": 22
           },
           "imports": {
@@ -168,7 +168,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 68,
+                "line": 69,
                 "column": 14
               }
             },
@@ -183,7 +183,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 191,
+                "line": 192,
                 "column": 19
               }
             },
@@ -198,7 +198,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 191,
+                "line": 192,
                 "column": 19
               }
             },
@@ -213,7 +213,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 191,
+                "line": 192,
                 "column": 19
               }
             },
@@ -228,7 +228,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 191,
+                "line": 192,
                 "column": 19
               }
             },
@@ -243,7 +243,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 191,
+                "line": 192,
                 "column": 19
               }
             },
@@ -258,7 +258,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 191,
+                "line": 192,
                 "column": 19
               }
             },
@@ -273,7 +273,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 191,
+                "line": 192,
                 "column": 19
               }
             },
@@ -288,7 +288,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 191,
+                "line": 192,
                 "column": 19
               }
             },
@@ -303,7 +303,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 191,
+                "line": 192,
                 "column": 19
               }
             },
@@ -331,7 +331,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 331,
+                "line": 332,
                 "column": 22
               }
             }
@@ -345,7 +345,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 212,
+            "line": 213,
             "column": 32
           },
           "imports": {
@@ -385,7 +385,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 246,
+            "line": 247,
             "column": 23
           },
           "imports": {},
@@ -399,7 +399,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 247,
+                "line": 248,
                 "column": 17
               }
             }
@@ -413,7 +413,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 249,
+            "line": 250,
             "column": 20
           },
           "imports": {
@@ -431,7 +431,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 250,
+                "line": 251,
                 "column": 10
               }
             }
@@ -445,7 +445,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 261,
+            "line": 262,
             "column": 33
           },
           "imports": {
@@ -476,7 +476,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 282,
+            "line": 283,
             "column": 29
           },
           "imports": {
@@ -493,7 +493,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 285,
+            "line": 286,
             "column": 20
           },
           "imports": {
@@ -512,7 +512,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 286,
+                "line": 287,
                 "column": 12
               }
             }
@@ -526,7 +526,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 298,
+            "line": 299,
             "column": 32
           },
           "imports": {
@@ -545,7 +545,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 306,
+            "line": 307,
             "column": 31
           },
           "imports": {
@@ -562,7 +562,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 309,
+            "line": 310,
             "column": 48
           },
           "imports": {
@@ -579,7 +579,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 353,
+            "line": 354,
             "column": 35
           },
           "imports": {
@@ -596,7 +596,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 356,
+            "line": 357,
             "column": 42
           },
           "imports": {
@@ -619,6 +619,7 @@
         "io_bazel_skydoc": "stardoc@0.5.6",
         "zstd-jni": "zstd-jni@1.5.2-3.bcr.1",
         "blake3": "blake3@1.3.3.bcr.1",
+        "sqlite3": "sqlite3@3.42.0.bcr.1",
         "zlib": "zlib@1.3",
         "rules_cc": "rules_cc@0.0.9",
         "rules_java": "rules_java@7.5.0",
@@ -997,6 +998,36 @@
           "remote_patches": {
             "https://bcr.bazel.build/modules/blake3/1.3.3.bcr.1/patches/add_build_file.patch": "sha256-lKVoznUHSqWywOo27+g4J0csjL8lH3FEXjAFRJN5+Kw=",
             "https://bcr.bazel.build/modules/blake3/1.3.3.bcr.1/patches/module_dot_bazel.patch": "sha256-4M/MRHdDFjS8iyVaKqy6QIc5Qea9pblUz7oj6I5aHfg="
+          },
+          "remote_patch_strip": 0
+        }
+      }
+    },
+    "sqlite3@3.42.0.bcr.1": {
+      "name": "sqlite3",
+      "version": "3.42.0.bcr.1",
+      "key": "sqlite3@3.42.0.bcr.1",
+      "repoName": "sqlite3",
+      "executionPlatformsToRegister": [],
+      "toolchainsToRegister": [],
+      "extensionUsages": [],
+      "deps": {
+        "platforms": "platforms@0.0.8",
+        "bazel_tools": "bazel_tools@_",
+        "local_config_platform": "local_config_platform@_"
+      },
+      "repoSpec": {
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+        "ruleClassName": "http_archive",
+        "attributes": {
+          "urls": [
+            "https://sqlite.org/2023/sqlite-amalgamation-3420000.zip"
+          ],
+          "integrity": "sha256-HMgk0PXmdYKfo3AYMY/agz6lb36d4rQe3dn3ZDtewp4=",
+          "strip_prefix": "sqlite-amalgamation-3420000",
+          "remote_patches": {
+            "https://bcr.bazel.build/modules/sqlite3/3.42.0.bcr.1/patches/add_build_file.patch": "sha256-jv2puH58Mvf5zg3l26JdJHsAHBjb743lE3uV0FvSAd8=",
+            "https://bcr.bazel.build/modules/sqlite3/3.42.0.bcr.1/patches/module_dot_bazel.patch": "sha256-0nVrZCj8DjLNzeeLpBtVT9X0s4BQXqANYyu++q7Ikv8="
           },
           "remote_patch_strip": 0
         }
@@ -2660,7 +2691,7 @@
   "moduleExtensions": {
     "//:extensions.bzl%bazel_android_deps": {
       "general": {
-        "bzlTransitiveDigest": "1xHBfvy8lWUE+9Ns02wqVWqROfZKJJFwZw62RuYDutw=",
+        "bzlTransitiveDigest": "7u0Bee/XL6UGuGmaseF4697gGH298WTn84dJcuZiDwk=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -2778,6 +2809,11 @@
           ],
           [
             "",
+            "sqlite3",
+            "sqlite3~"
+          ],
+          [
+            "",
             "upb",
             "upb~"
           ],
@@ -2801,9 +2837,9 @@
     },
     "//:extensions.bzl%bazel_build_deps": {
       "general": {
-        "bzlTransitiveDigest": "1xHBfvy8lWUE+9Ns02wqVWqROfZKJJFwZw62RuYDutw=",
+        "bzlTransitiveDigest": "7u0Bee/XL6UGuGmaseF4697gGH298WTn84dJcuZiDwk=",
         "recordedFileInputs": {
-          "@@//MODULE.bazel": "e32e677a18c4d02bebe4c5df2d8c1d348e16ad8be10c4b0ab6a925f204b3a98c",
+          "@@//MODULE.bazel": "e556c2e066b73d9d977dd87b497fb917a742c1851c28a1d133060777ef7eea8c",
           "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "6b96a6a50f84f5403a718a27955a8c954943f76ee5c4def7f8b23401b2a417bf"
         },
         "recordedDirentsInputs": {},
@@ -2904,6 +2940,7 @@
                 "rules_pkg~",
                 "rules_proto~",
                 "rules_python~",
+                "sqlite3~",
                 "upb~",
                 "zlib~",
                 "zstd-jni~",
@@ -3147,6 +3184,11 @@
           ],
           [
             "",
+            "sqlite3",
+            "sqlite3~"
+          ],
+          [
+            "",
             "upb",
             "upb~"
           ],
@@ -3170,7 +3212,7 @@
     },
     "//:extensions.bzl%bazel_test_deps": {
       "general": {
-        "bzlTransitiveDigest": "1xHBfvy8lWUE+9Ns02wqVWqROfZKJJFwZw62RuYDutw=",
+        "bzlTransitiveDigest": "7u0Bee/XL6UGuGmaseF4697gGH298WTn84dJcuZiDwk=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -3295,6 +3337,11 @@
             "",
             "rules_python",
             "rules_python~"
+          ],
+          [
+            "",
+            "sqlite3",
+            "sqlite3~"
           ],
           [
             "",
