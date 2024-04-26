@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
@@ -254,11 +255,11 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   }
 
   public InterruptibleSupplier<ImmutableSet<PathFragment>>
-      getIgnoredPackagePrefixesPathFragments() {
+      getIgnoredPackagePrefixesPathFragments(RepositoryName repositoryName) {
     return () -> {
       IgnoredPackagePrefixesValue ignoredPackagePrefixesValue =
           (IgnoredPackagePrefixesValue)
-              walkableGraphSupplier.get().getValue(IgnoredPackagePrefixesValue.key());
+              walkableGraphSupplier.get().getValue(IgnoredPackagePrefixesValue.key(repositoryName));
       return ignoredPackagePrefixesValue == null
           ? ImmutableSet.of()
           : ignoredPackagePrefixesValue.getPatterns();
