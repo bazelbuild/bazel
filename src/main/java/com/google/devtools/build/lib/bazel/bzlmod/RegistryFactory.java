@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import java.net.URISyntaxException;
 import java.util.Optional;
@@ -28,6 +29,9 @@ public interface RegistryFactory {
    *
    * <p>Outside of tests, only {@link RegistryFunction} should call this method.
    */
-  Registry createRegistry(String url, ImmutableMap<String, Optional<Checksum>> fileHashes)
+  Registry createRegistry(
+      String url,
+      ImmutableMap<String, Optional<Checksum>> fileHashes,
+      RepositoryOptions.LockfileMode lockfileMode)
       throws URISyntaxException;
 }

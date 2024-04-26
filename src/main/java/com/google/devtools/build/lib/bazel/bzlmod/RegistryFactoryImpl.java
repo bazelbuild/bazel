@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.IndexRegistry.KnownFileHashesMode;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.vfs.Path;
@@ -43,7 +44,9 @@ public class RegistryFactoryImpl implements RegistryFactory {
 
   @Override
   public Registry createRegistry(
-      String unresolvedUrl, ImmutableMap<String, Optional<Checksum>> knownFileHashes)
+      String unresolvedUrl,
+      ImmutableMap<String, Optional<Checksum>> knownFileHashes,
+      LockfileMode lockfileMode)
       throws URISyntaxException {
     URI uri = new URI(unresolvedUrl.replace("%workspace%", workspacePath.getPathString()));
     if (uri.getScheme() == null) {
@@ -60,7 +63,10 @@ public class RegistryFactoryImpl implements RegistryFactory {
     }
     var knownFileHashesMode =
         switch (uri.getScheme()) {
-          case "http", "https" -> KnownFileHashesMode.USE_AND_UPDATE;
+          case "http", "https" ->
+              lockfileMode == LockfileMode.ERROR
+                  ? KnownFileHashesMode.ENFORCE
+                  : KnownFileHashesMode.USE_AND_UPDATE;
           case "file" -> KnownFileHashesMode.IGNORE;
           default ->
               throw new URISyntaxException(uri.toString(), "Unrecognized registry URL protocol");

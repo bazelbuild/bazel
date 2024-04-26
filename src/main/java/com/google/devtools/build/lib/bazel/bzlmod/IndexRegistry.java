@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -57,7 +58,8 @@ public class IndexRegistry implements Registry {
    */
   public enum KnownFileHashesMode {
     IGNORE,
-    USE_AND_UPDATE;
+    USE_AND_UPDATE,
+    ENFORCE
   }
 
   /** The unresolved version of the url. Ex: has %workspace% placeholder */
@@ -127,6 +129,13 @@ public class IndexRegistry implements Registry {
     if (knownFileHashesMode != KnownFileHashesMode.IGNORE && useChecksum) {
       Optional<Checksum> knownChecksum = knownFileHashes.get(url);
       if (knownChecksum == null) {
+        if (knownFileHashesMode == KnownFileHashesMode.ENFORCE) {
+          throw new IOException(
+              String.format(
+                  "Missing checksum for registry file %s. Please update the lockfile with "
+                      + "`bazel mod deps --lockfile_mode=update`.",
+                  url));
+        }
         // This is a new file, download without providing a checksum.
         checksum = Optional.empty();
       } else if (knownChecksum.isEmpty()) {
@@ -139,6 +148,12 @@ public class IndexRegistry implements Registry {
       }
     } else {
       checksum = Optional.empty();
+    }
+    if (knownFileHashesMode == KnownFileHashesMode.ENFORCE) {
+      Preconditions.checkState(
+          checksum.isPresent(),
+          "Cannot fetch a file without a checksum in ENFORCE mode. This is a bug in Bazel, please "
+              + "report at https://github.com/bazelbuild/bazel/issues/new/choose.");
     }
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.BZLMOD, () -> "download file: " + url)) {

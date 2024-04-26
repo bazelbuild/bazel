@@ -20,6 +20,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
@@ -45,12 +46,16 @@ public class RegistryFactoryTest extends FoundationTestCase {
     Throwable exception =
         assertThrows(
             URISyntaxException.class,
-            () -> registryFactory.createRegistry("/home/www", ImmutableMap.of()));
+            () ->
+                registryFactory.createRegistry(
+                    "/home/www", ImmutableMap.of(), LockfileMode.UPDATE));
     assertThat(exception).hasMessageThat().contains("Registry URL has no scheme");
     exception =
         assertThrows(
             URISyntaxException.class,
-            () -> registryFactory.createRegistry("foo://bar", ImmutableMap.of()));
+            () ->
+                registryFactory.createRegistry(
+                    "foo://bar", ImmutableMap.of(), LockfileMode.UPDATE));
     assertThat(exception).hasMessageThat().contains("Unrecognized registry URL protocol");
   }
 
@@ -67,7 +72,7 @@ public class RegistryFactoryTest extends FoundationTestCase {
             URISyntaxException.class,
             () ->
                 registryFactory.createRegistry(
-                    "file:c:/path/to/workspace/registry", ImmutableMap.of()));
+                    "file:c:/path/to/workspace/registry", ImmutableMap.of(), LockfileMode.UPDATE));
     assertThat(exception).hasMessageThat().contains("Registry URL path is not valid");
   }
 }

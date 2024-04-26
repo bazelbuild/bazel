@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -35,6 +36,8 @@ public class RegistryFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, RegistryException {
+    LockfileMode lockfileMode = BazelLockFileFunction.LOCKFILE_MODE.get(env);
+
     BazelLockFileValue lockfile = (BazelLockFileValue) env.getValue(BazelLockFileValue.KEY);
     if (lockfile == null) {
       return null;
@@ -42,7 +45,8 @@ public class RegistryFunction implements SkyFunction {
 
     RegistryKey key = (RegistryKey) skyKey.argument();
     try {
-      return registryFactory.createRegistry(key.getUrl(), lockfile.getRegistryFileHashes());
+      return registryFactory.createRegistry(
+          key.getUrl(), lockfile.getRegistryFileHashes(), lockfileMode);
     } catch (URISyntaxException e) {
       throw new RegistryException(
           ExternalDepsException.withCauseAndMessage(
