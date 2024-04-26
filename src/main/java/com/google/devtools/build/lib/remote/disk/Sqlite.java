@@ -100,6 +100,22 @@ public final class Sqlite {
       openStatements.add(stmt);
       return stmt;
     }
+
+    /**
+     * Executes a statement not expected to return a result.
+     *
+     * <p>For statements expected to return a result, or statements that will be executed multiple
+     * times, use {@link #newStatement}.
+     *
+     * @throws IOException if the string contains multiple SQL statements; or the single SQL
+     *     statement could not be parsed and validated; or the statement returned a non-empty
+     *     result; or an execution error occurred
+     */
+    public void executeUpdate(String sql) throws IOException {
+      try (Statement stmt = new Statement(this, sql)) {
+        stmt.executeUpdate();
+      }
+    }
   }
 
   /**

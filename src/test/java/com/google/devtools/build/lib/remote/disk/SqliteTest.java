@@ -144,6 +144,18 @@ public final class SqliteTest {
   }
 
   @Test
+  public void executeUpdate_oneShot_works() throws Exception {
+    try (Connection conn = Sqlite.newConnection(dbPath)) {
+      conn.executeUpdate("CREATE TABLE tbl (id INTEGER)");
+
+      try (Statement stmt = conn.newStatement("SELECT COUNT(*) FROM tbl");
+          Result result = stmt.executeQuery()) {
+        assertThat(result.next()).isTrue();
+      }
+    }
+  }
+
+  @Test
   public void executeUpdate_withParameters_works() throws Exception {
     try (Connection conn = Sqlite.newConnection(dbPath)) {
       try (Statement stmt = conn.newStatement("CREATE TABLE tbl AS SELECT ?, ?, ?")) {
