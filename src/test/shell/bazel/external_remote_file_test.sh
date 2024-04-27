@@ -133,10 +133,7 @@ http_archive(
 EOF
   write_default_lockfile "MODULE.bazel.lock"
 
-  # TODO(fzakaria): I found this command to fail since it tries to spawn sandbox
-  # within a sandbox. I'm not sure how the other tests that build cc_binary get
-  # around this.
-  bazel build @hello_world//:hello_world --spawn_strategy=local
+  bazel build @hello_world//:hello_world
 }
 
 run_suite "external remote file tests"
