@@ -1315,6 +1315,12 @@ public interface CcModuleApi<
             defaultValue = "unbound",
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)}),
         @Param(
+            name = "lto_compilation_context",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "None"),
+        @Param(
             name = "alwayslink",
             doc = "Whether to link the static library/objects in the --whole_archive block.",
             positional = false,
@@ -1356,6 +1362,7 @@ public interface CcModuleApi<
       Object interfaceLibrary,
       Object picObjectFiles, // Sequence<Artifact> expected
       Object nopicObjectFiles, // Sequence<Artifact> expected
+      Object ltoCopmilationContextObject,
       boolean alwayslink,
       String dynamicLibraryPath,
       String interfaceLibraryPath,

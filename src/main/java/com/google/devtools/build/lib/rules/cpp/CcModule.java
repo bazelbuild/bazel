@@ -538,6 +538,7 @@ public abstract class CcModule
       Object interfaceLibraryObject,
       Object picObjectFiles, // Sequence<Artifact> expected
       Object objectFiles, // Sequence<Artifact> expected
+      Object ltoCopmilationContextObject,
       boolean alwayslink,
       String dynamicLibraryPath,
       String interfaceLibraryPath,
@@ -575,6 +576,12 @@ public abstract class CcModule
     }
     ImmutableList<Artifact> picObjects = asArtifactImmutableList(picObjectFiles);
     ImmutableList<Artifact> nopicObjects = asArtifactImmutableList(objectFiles);
+
+    LtoCompilationContext ltoCompilationContext =
+        convertFromNoneable(ltoCopmilationContextObject, LtoCompilationContext.EMPTY);
+    if (!ltoCompilationContext.equals(LtoCompilationContext.EMPTY)) {
+      checkPrivateStarlarkificationAllowlist(thread);
+    }
 
     StringBuilder extensionErrorsBuilder = new StringBuilder();
     String extensionErrorMessage = "does not have any of the allowed extensions";
@@ -745,6 +752,7 @@ public abstract class CcModule
         .setPicObjectFiles(picObjects)
         .setAlwayslink(alwayslink)
         .setMustKeepDebug(mustKeepDebug)
+        .setLtoCompilationContext(ltoCompilationContext)
         .build();
   }
 

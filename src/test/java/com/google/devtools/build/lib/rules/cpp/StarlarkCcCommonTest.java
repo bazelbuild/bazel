@@ -7905,7 +7905,10 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "cc_common.create_library_to_link(actions=ctx.actions,"
                 + "feature_configuration=feature_configuration, cc_toolchain=toolchain,"
                 + " must_keep_debug=False)",
-            "library_to_link.must_keep_debug()");
+            "library_to_link.must_keep_debug()",
+            "cc_common.create_library_to_link(actions=ctx.actions,"
+                + "feature_configuration=feature_configuration, cc_toolchain=toolchain,"
+                + " lto_compilation_context=None)");
     for (String call : calls) {
       scratch.overwriteFile(
           "b/rule.bzl",
