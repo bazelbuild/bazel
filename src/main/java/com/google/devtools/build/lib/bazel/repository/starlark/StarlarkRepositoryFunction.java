@@ -21,12 +21,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Table.Cell;
-import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
-import com.google.devtools.build.lib.bazel.repository.starlark.RepoFetchingSkyKeyComputeState.Signal;
+import com.google.devtools.build.lib.bazel.repository.starlark.RepoFetchingSkyKeyComputeState.HostState.EnvironmentSent;
+import com.google.devtools.build.lib.bazel.repository.starlark.RepoFetchingSkyKeyComputeState.WorkerState;
+import com.google.devtools.build.lib.bazel.repository.starlark.RepoFetchingSkyKeyComputeState.HostState;
+import com.google.devtools.build.lib.bazel.repository.starlark.RepoFetchingSkyKeyComputeState.HostState.FullRestartRequested;
+import com.google.devtools.build.lib.bazel.repository.starlark.RepoFetchingSkyKeyComputeState.HostState.TerminationRequested;
 import com.google.devtools.build.lib.cmdline.Label.RepoMappingRecorder;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -39,7 +42,6 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
 import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput.EnvVar;
@@ -55,13 +57,11 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
-import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.util.Map;
-import java.util.concurrent.BrokenBarrierException;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -118,8 +118,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
     }
   }
 
-  private void workerThread() {
-
+  private void logMaybe(String msg) {
   }
 
   @Nullable
@@ -132,66 +131,39 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       Map<RepoRecordedInput, String> recordedInputValues,
       SkyKey key)
       throws RepositoryFunctionException, InterruptedException {
-    if (!useWorkers || env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
-      // Don't use the worker thread if we're in Skyframe error bubbling. For some reason, using a
-      // worker thread during error bubbling very frequently causes deadlocks on Linux platforms.
-      // The deadlock is rather elusive and this is just the immediate thing that seems to help.
-      // Fortunately, no Skyframe restarts should happen during error bubbling anyway, so this
-      // shouldn't be a performance concern. See https://github.com/bazelbuild/bazel/issues/21238
-      // for more context.
+    logMaybe(String.format("LOG %s/host: fetch starting", rule.getName()));
+    if (!useWorkers) {
       return fetchInternal(rule, outputDirectory, directories, env, recordedInputValues, key);
     }
-    var state = env.getState(RepoFetchingSkyKeyComputeState::new);
-    Environment workerEnv = new RepoFetchingWorkerSkyFunctionEnvironment(state, env);
-    var workerThread = state.workerThread;
-    if (workerThread == null) {
-      // No worker is running yet, which means we're just starting to fetch this repo. Start with a
-      // clean slate, and create the worker.
-      setupRepoRoot(outputDirectory);
-      workerThread =
-          Thread.ofVirtual()
-              .name("starlark-repository-" + rule.getName())
-              .start(
-                  () -> {
-                    try {
-                      SkyFunction.Environment workerEnvInThread = state.rendezvousFromWorker(null);
-                      Signal result = new Signal.Success(
-                          fetchInternal(
-                              rule,
-                              outputDirectory,
-                              directories,
-                              workerEnvInThread,
-                              state.recordedInputValues,
-                              key));
-                      state.rendezvousFromWorker(result);
-                    } catch (Throwable e) {
-                      // No matter what, we must inform the Skyframe thread that we are done. So
-                      // don't let an InterruptedException deter us from doing so.
-                      state.rendezvousUninterruptiblyFromWorker(new Signal.Failure(e));
-                    }
-                  });
-      state.workerThread = workerThread;
-    }
+
+    var state = env.getState(() ->
+      new RepoFetchingSkyKeyComputeState(rule.getName(),
+          s -> () -> fetchFromWorker(rule, outputDirectory, directories, key, s)));
 
     // The worker thread is probably waiting for an environment: either due to a restart (then it's
     // in signalForFreshEnv()) or because it was just started (then it's in the lambda passed to
     // Thread.start() above). However, it's not impossible that it got interrupted in the meantime,
     // in which case it'll be at the final rendezvousUninterruptibly() in the lambda above with
     // state.signal already set.
-    Signal signal;
+    WorkerState signal;
     do {
       try {
+        logMaybe(String.format("LOG %s/host: sending environment", rule.getName()));
+
         // First give the new environment to the worker thread, then see what it has to say.
         // But if it gets interrupted in between, handle that appropriately.
-        signal = state.rendezvousFromHost(workerEnv);
-        if (signal != null) {
+        Environment workerEnv = new RepoFetchingWorkerSkyFunctionEnvironment(state, env);
+        signal = state.rendezvousFromHost(new EnvironmentSent(workerEnv));
+        if (!(signal instanceof WorkerState.EnvironmentReceived)) {
+          // The worker thread unexpectedly said something. It probably got interrupted.
           break;
         }
 
-        signal = state.rendezvousFromHost(null);
+        signal = state.rendezvousFromHost(new HostState.WaitingForWorker());
       } catch (InterruptedException e) {
         // If the host Skyframe thread is interrupted for any reason, we make sure to shut down any
         // worker threads and wait for their termination before propagating the interrupt.
+        logMaybe(String.format("LOG %s/host: interrupt while env/answer", rule.getName()));
         state.close();
         throw e;
       }
@@ -200,15 +172,19 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
     // The worker thread finished its job, either successfully or not. Close the state and pass
     // whatever its result is to Skyframe.
     return switch (signal) {
-      case Signal.Restart unused ->
+      case WorkerState.EnvironmentRequested unused -> {
+        logMaybe(String.format("LOG %s/host: restart", rule.getName()));
         // The worker thread determined that it needs some new values. Restart the SkyFunction and
         // eventually send the new environment over to it.
-        null;
+        yield null;
+      }
 
-      case Signal.Success(RepositoryDirectoryValue.Builder result) -> {
-        state.join();
+      case WorkerState.Success(RepositoryDirectoryValue.Builder result) -> {
         if (!env.valuesMissing()) {
+          logMaybe(String.format("LOG %s/host: true success", rule.getName()));
           recordedInputValues.putAll(state.recordedInputValues);
+          state.rendezvousUninterruptiblyFromHost(new TerminationRequested());
+          state.join();
           yield result;
         }
 
@@ -221,17 +197,61 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
         // the value requested by a previous getValuesAndExceptions() that turns out to be in error:
         // in this case, SkyFunction.Environment sets valuesMissing to true and that's not reflected
         // in RFWSFE.
+        state.rendezvousUninterruptiblyFromHost(new FullRestartRequested());
         yield null;
       }
 
-      case Signal.Failure(Throwable e) -> {
-          state.join();
-          Throwables.throwIfInstanceOf(e, RepositoryFunctionException.class);
-          Throwables.throwIfInstanceOf(e, InterruptedException.class);
-          Throwables.throwIfUnchecked(e);
-          throw new IllegalStateException("unexpected exception type: " + e.getClass(), e);
+      case WorkerState.Failure(Throwable e) -> {
+        logMaybe(String.format("LOG %s/host: failure %s", rule.getName(), e));
+        state.join();
+        Throwables.throwIfInstanceOf(e, RepositoryFunctionException.class);
+        Throwables.throwIfInstanceOf(e, InterruptedException.class);
+        Throwables.throwIfUnchecked(e);
+        throw new IllegalStateException("unexpected exception type: " + e.getClass(), e);
+      }
+
+      default -> {
+        logMaybe(String.format("LOG %s/host: worker thread in unexpected state %s",
+            rule.getName(), signal));
+        throw new IllegalStateException(String.format(
+            "worker thread for repository %s in unexpected state %s", rule.getName(), signal));
       }
     };
+  }
+
+  private void fetchFromWorker(Rule rule, Path outputDirectory, BlazeDirectories directories,
+      SkyKey key, RepoFetchingSkyKeyComputeState state) {
+FullRestart:
+    while (true) {
+      try {
+        setupRepoRoot(outputDirectory);
+        Environment workerEnvInThread = state.getEnvironmentFromHost();
+        RepositoryDirectoryValue.Builder result =
+            fetchInternal(
+                rule,
+                outputDirectory,
+                directories,
+                workerEnvInThread,
+                state.recordedInputValues,
+                key);
+
+        // Report success, then wait for the host thread to decide what to do. Even if we succeed,
+        // it might decide that the work needs to be repeated.
+        state.rendezvousFromWorker(new WorkerState.Success(result));
+        switch (state.rendezvousFromWorker(new WorkerState.WaitingForRestartDecision())) {
+          case FullRestartRequested unused -> { continue FullRestart; }
+          case TerminationRequested unused -> { break FullRestart; }
+          default -> throw new IllegalStateException();
+        }
+      } catch (Throwable e) {
+        // No matter what, we must inform the Skyframe thread that we are done. So
+        // don't let an InterruptedException deter us from doing so.
+        state.rendezvousUninterruptiblyFromWorker(new WorkerState.Failure(e));
+        break;
+      }
+    }
+
+    logMaybe(String.format("LOG %s/worker: true death", rule.getName()));
   }
 
   @Nullable
