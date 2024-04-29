@@ -20,6 +20,7 @@ import build.bazel.remote.asset.v1.FetchGrpc;
 import build.bazel.remote.asset.v1.FetchGrpc.FetchBlockingStub;
 import build.bazel.remote.asset.v1.Qualifier;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.auth.Credentials;
 import com.google.common.annotations.VisibleForTesting;
@@ -65,6 +66,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   private final Optional<CallCredentials> credentials;
   private final RemoteRetrier retrier;
   private final RemoteCacheClient cacheClient;
+  private final DigestFunction.Value digestFunction;
   private final RemoteOptions options;
   private final boolean verboseFailures;
   @Nullable private final Downloader fallbackDownloader;
@@ -89,6 +91,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       Optional<CallCredentials> credentials,
       RemoteRetrier retrier,
       RemoteCacheClient cacheClient,
+      DigestFunction.Value digestFunction,
       RemoteOptions options,
       boolean verboseFailures,
       @Nullable Downloader fallbackDownloader) {
@@ -98,6 +101,7 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     this.credentials = credentials;
     this.retrier = retrier;
     this.cacheClient = cacheClient;
+    this.digestFunction = digestFunction;
     this.options = options;
     this.verboseFailures = verboseFailures;
     this.fallbackDownloader = fallbackDownloader;
@@ -130,7 +134,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
         RemoteActionExecutionContext.create(metadata);
 
     final FetchBlobRequest request =
-        newFetchBlobRequest(options.remoteInstanceName, urls, checksum, canonicalId, headers);
+        newFetchBlobRequest(
+            options.remoteInstanceName, urls, checksum, canonicalId, digestFunction, headers);
     try {
       FetchBlobResponse response =
           retrier.execute(
@@ -178,9 +183,12 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       List<URL> urls,
       Optional<Checksum> checksum,
       String canonicalId,
+      DigestFunction.Value digestFunction,
       Map<String, List<String>> headers) {
     FetchBlobRequest.Builder requestBuilder =
-        FetchBlobRequest.newBuilder().setInstanceName(instanceName);
+        FetchBlobRequest.newBuilder()
+            .setInstanceName(instanceName)
+            .setDigestFunction(digestFunction);
     for (URL url : urls) {
       requestBuilder.addUris(url.toString());
     }
