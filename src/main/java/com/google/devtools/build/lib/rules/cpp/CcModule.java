@@ -563,17 +563,6 @@ public abstract class CcModule
     boolean mustKeepDebug =
         convertFromNoneable(mustKeepDebugForStarlark, /* defaultValue= */ false);
 
-    if (checkObjectsBound(picObjectFiles, objectFiles)
-        && !isStarlarkCcCommonCalledFromBuiltins(thread)) {
-      if (!starlarkActionFactory
-          .getRuleContext()
-          .getConfiguration()
-          .getFragment(CppConfiguration.class)
-          .experimentalStarlarkCcImport()) {
-        throw Starlark.errorf(
-            "Cannot use objects/pic_objects without --experimental_starlark_cc_import");
-      }
-    }
     ImmutableList<Artifact> picObjects = asArtifactImmutableList(picObjectFiles);
     ImmutableList<Artifact> nopicObjects = asArtifactImmutableList(objectFiles);
 
@@ -2076,15 +2065,6 @@ public abstract class CcModule
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("%s", e.getMessage());
     }
-  }
-
-  private static boolean checkObjectsBound(Object... objects) {
-    for (Object object : objects) {
-      if (object != Starlark.UNBOUND) {
-        return true;
-      }
-    }
-    return false;
   }
 
   @Override

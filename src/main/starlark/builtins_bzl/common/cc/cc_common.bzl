@@ -315,6 +315,10 @@ def _create_library_to_link(
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     if must_keep_debug == _UNBOUND:
         must_keep_debug = False
+    if objects != _UNBOUND:
+        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    if pic_objects != _UNBOUND:
+        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
     # We cannot check if experimental_starlark_cc_import is set or not here,
     # since there is not ctx. So for a native code to perform the check
