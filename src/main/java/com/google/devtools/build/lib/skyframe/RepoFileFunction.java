@@ -150,9 +150,7 @@ public class RepoFileFunction implements SkyFunction {
     try (Mutability mu = Mutability.create("repo file", repoName)) {
       new DotBazelFileSyntaxChecker("REPO.bazel files", /* canLoadBzl= */ false)
           .check(starlarkFile);
-      Module predeclared =
-          Module.withPredeclared(
-              starlarkSemantics, starlarkEnv.getStarlarkGlobals().getRepoToplevels());
+      Module predeclared = Module.withPredeclared(starlarkSemantics, starlarkEnv.getRepoBazelEnv());
       Program program = Program.compileFile(starlarkFile, predeclared);
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
       thread.setPrintHandler(Event.makeDebugPrintHandler(handler));

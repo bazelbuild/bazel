@@ -373,7 +373,7 @@ public class ModuleFileFunction implements SkyFunction {
           .check(starlarkFile);
       net.starlark.java.eval.Module predeclaredEnv =
           net.starlark.java.eval.Module.withPredeclared(
-              starlarkSemantics, starlarkEnv.getStarlarkGlobals().getModuleToplevels());
+              starlarkSemantics, starlarkEnv.getModuleBazelEnv());
       Program program = Program.compileFile(starlarkFile, predeclaredEnv);
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
       context.storeInThread(thread);
