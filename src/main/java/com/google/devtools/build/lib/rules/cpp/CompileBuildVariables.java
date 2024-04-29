@@ -334,6 +334,7 @@ public enum CompileBuildVariables {
       CcToolchainVariables.Builder buildVariables,
       String sourceFile,
       String outputFile,
+      boolean isCodeCoverageEnabled,
       String gcnoFile,
       String dwoFile,
       boolean isUsingFission,
@@ -371,6 +372,10 @@ public enum CompileBuildVariables {
 
     if (gcnoFile != null) {
       buildVariables.addStringVariable(GCOV_GCNO_FILE.getVariableName(), gcnoFile);
+    } else if (isCodeCoverageEnabled) {
+      // TODO: Blaze currently uses `gcov_gcno_file` to detect if code coverage is enabled. It
+      // should use a different signal.
+      buildVariables.addStringVariable(GCOV_GCNO_FILE.getVariableName(), "");
     }
 
     if (dwoFile != null) {
