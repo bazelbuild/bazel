@@ -158,7 +158,7 @@ public class ModuleFileFunction implements SkyFunction {
     if (getModuleFileResult == null) {
       return null;
     }
-    getModuleFileResult.downloadEvents.replayOn(env.getListener());
+    getModuleFileResult.downloadEventHandler.replayOn(env.getListener());
     String moduleFileHash =
         new Fingerprint().addBytes(getModuleFileResult.moduleFile.getContent()).hexDigestAndReset();
 
@@ -222,7 +222,8 @@ public class ModuleFileFunction implements SkyFunction {
     return NonRootModuleFileValue.create(
         module,
         moduleFileHash,
-        RegistryFileDownloadEvent.collectToMap(getModuleFileResult.downloadEvents.getPosts()));
+        RegistryFileDownloadEvent.collectToMap(
+            getModuleFileResult.downloadEventHandler.getPosts()));
   }
 
   @Nullable
@@ -534,7 +535,9 @@ public class ModuleFileFunction implements SkyFunction {
    * @param registry can be null if this module has a non-registry override.
    */
   private record GetModuleFileResult(
-      ModuleFile moduleFile, @Nullable Registry registry, StoredEventHandler downloadEvents) {}
+      ModuleFile moduleFile,
+      @Nullable Registry registry,
+      StoredEventHandler downloadEventHandler) {}
 
   @Nullable
   private GetModuleFileResult getModuleFile(
@@ -567,11 +570,6 @@ public class ModuleFileFunction implements SkyFunction {
               moduleFileLabel.getUnambiguousCanonicalForm()),
           /* registry= */ null,
           new StoredEventHandler());
-    }
-
-    BazelLockFileValue lockFileValue = (BazelLockFileValue) env.getValue(BazelLockFileValue.KEY);
-    if (lockFileValue == null) {
-      return null;
     }
 
     // Otherwise, we should get the module file from a registry.
@@ -618,14 +616,14 @@ public class ModuleFileFunction implements SkyFunction {
 
     // Now go through the list of registries and use the first one that contains the requested
     // module.
-    StoredEventHandler downloadEvents = new StoredEventHandler();
+    StoredEventHandler downloadEventHandler = new StoredEventHandler();
     for (Registry registry : registryObjects) {
       try {
-        Optional<ModuleFile> moduleFile = registry.getModuleFile(key, downloadEvents);
+        Optional<ModuleFile> moduleFile = registry.getModuleFile(key, downloadEventHandler);
         if (moduleFile.isEmpty()) {
           continue;
         }
-        return new GetModuleFileResult(moduleFile.get(), registry, downloadEvents);
+        return new GetModuleFileResult(moduleFile.get(), registry, downloadEventHandler);
       } catch (IOException e) {
         throw errorf(
             Code.ERROR_ACCESSING_REGISTRY, e, "Error accessing registry %s", registry.getUrl());

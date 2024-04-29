@@ -28,7 +28,7 @@ public record RegistryFileDownloadEvent(String uri, Optional<Checksum> checksum)
                 RegistryFileDownloadEvent::failOnDifferentChecksums));
   }
 
-  /** A toMap merge function that throws an unchecked exception if the checksums differ. */
+  /** A Map#merge function that throws an unchecked exception if the checksums differ. */
   static Optional<Checksum> failOnDifferentChecksums(
       Optional<Checksum> checksum1, Optional<Checksum> checksum2) {
     if (checksum1.isEmpty() && checksum2.isEmpty()) {
@@ -39,7 +39,11 @@ public record RegistryFileDownloadEvent(String uri, Optional<Checksum> checksum)
         && checksum1.get().toString().equals(checksum2.get().toString())) {
       return checksum1;
     }
-    throw new IllegalStateException("Checksums differ: " + checksum1 + " vs " + checksum2);
+    throw new IllegalStateException(
+        "Checksums differ: "
+            + checksum1.get()
+            + " vs "
+            + checksum1.get().emitOtherHashInSameFormat(checksum2.get().getHashCode()));
   }
 
   private static Checksum computeHash(byte[] bytes) {

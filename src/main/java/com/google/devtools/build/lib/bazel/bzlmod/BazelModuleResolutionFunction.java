@@ -22,7 +22,6 @@ import static com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil.BZLM
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -48,16 +47,12 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.SequencedMap;
 import java.util.Set;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -70,6 +65,10 @@ public class BazelModuleResolutionFunction implements SkyFunction {
       new Precomputed<>("check_direct_dependency");
   public static final Precomputed<BazelCompatibilityMode> BAZEL_COMPATIBILITY_MODE =
       new Precomputed<>("bazel_compatibility_mode");
+
+  private static class ModuleResolutionComputeState implements Environment.SkyKeyComputeState {
+    Result discoverAndSelectResult;
+  }
 
   @Override
   @Nullable
@@ -99,19 +98,17 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     }
 
     var state = env.getState(ModuleResolutionComputeState::new);
-    if (state.selectionResult == null) {
-      ImmutableList.Builder<ImmutableMap<String, Optional<Checksum>>>
-          discoveryNestedRegistryFileHashes = ImmutableList.builder();
-      state.selectionResult =
-          discoverAndSelect(env, root, allowedYankedVersions, discoveryNestedRegistryFileHashes);
-      if (state.selectionResult == null) {
+    if (state.discoverAndSelectResult == null) {
+      state.discoverAndSelectResult = discoverAndSelect(env, root, allowedYankedVersions);
+      if (state.discoverAndSelectResult == null) {
         return null;
       }
-      state.discoveryNestedRegistryFileHashes = discoveryNestedRegistryFileHashes.build();
     }
 
+    SequencedMap<String, Optional<Checksum>> registryFileHashes =
+        new LinkedHashMap<>(state.discoverAndSelectResult.registryFileHashes);
     ImmutableSet<RepoSpecKey> repoSpecKeys =
-        state.selectionResult.getResolvedDepGraph().values().stream()
+        state.discoverAndSelectResult.selectionResult.getResolvedDepGraph().values().stream()
             // Modules with a null registry have a non-registry override. We don't need to
             // fetch or store the repo spec in this case.
             .filter(module -> module.getRegistry() != null)
@@ -119,15 +116,22 @@ public class BazelModuleResolutionFunction implements SkyFunction {
             .collect(toImmutableSet());
     SkyframeLookupResult repoSpecResults = env.getValuesAndExceptions(repoSpecKeys);
     ImmutableMap.Builder<ModuleKey, RepoSpec> remoteRepoSpecs = ImmutableMap.builder();
-    List<ImmutableMap<String, Optional<Checksum>>> repoSpecNestedRegistryFileHashes =
-        new ArrayList<>();
     for (RepoSpecKey repoSpecKey : repoSpecKeys) {
       RepoSpecValue repoSpecValue = (RepoSpecValue) repoSpecResults.get(repoSpecKey);
       if (repoSpecValue == null) {
         return null;
       }
       remoteRepoSpecs.put(repoSpecKey.getModuleKey(), repoSpecValue.repoSpec());
-      repoSpecNestedRegistryFileHashes.add(repoSpecValue.registryFileHashes());
+      repoSpecValue
+          .registryFileHashes()
+          .forEach(
+              (url, checksum) ->
+                  // We only ever download the same file from the same registry once, so
+                  // mismatching checksums can only occur with crafted setups (e.g., two
+                  // --registry flags that only differ by a terminating slash and with contents
+                  // that change during a single build). We crash in this case.
+                  registryFileHashes.merge(
+                      url, checksum, RegistryFileDownloadEvent::failOnDifferentChecksums));
     }
 
     ImmutableMap<ModuleKey, Module> finalDepGraph;
@@ -135,51 +139,42 @@ public class BazelModuleResolutionFunction implements SkyFunction {
         Profiler.instance().profile(ProfilerTask.BZLMOD, "compute final dep graph")) {
       finalDepGraph =
           computeFinalDepGraph(
-              state.selectionResult.getResolvedDepGraph(),
+              state.discoverAndSelectResult.selectionResult.getResolvedDepGraph(),
               root.getOverrides(),
               remoteRepoSpecs.buildOrThrow());
     }
 
-    var registryFileHashes =
-        Stream.concat(
-                state.discoveryNestedRegistryFileHashes.stream(),
-                repoSpecNestedRegistryFileHashes.stream())
-            .flatMap(map -> map.entrySet().stream())
-            .collect(
-                toImmutableMap(
-                    Map.Entry::getKey,
-                    Map.Entry::getValue,
-                    // We only ever download the same file from the same registry once, so
-                    // mismatching checksums can only occur with crafted setups (e.g., two
-                    // --registry flags that only differ by a terminating slash and with contents
-                    // that change during a single build). We crash in this case.
-                    RegistryFileDownloadEvent::failOnDifferentChecksums));
     return BazelModuleResolutionValue.create(
-        finalDepGraph, state.selectionResult.getUnprunedDepGraph(), registryFileHashes);
+        finalDepGraph,
+        state.discoverAndSelectResult.selectionResult.getUnprunedDepGraph(),
+        ImmutableMap.copyOf(registryFileHashes));
   }
 
+  private record Result(
+      Selection.Result selectionResult,
+      ImmutableMap<String, Optional<Checksum>> registryFileHashes) {}
+
   @Nullable
-  private static Selection.Result discoverAndSelect(
+  private static Result discoverAndSelect(
       Environment env,
       RootModuleFileValue root,
-      Optional<ImmutableSet<ModuleKey>> allowedYankedVersions,
-      ImmutableList.Builder<ImmutableMap<String, Optional<Checksum>>> nestedRegistryFileHashes)
+      Optional<ImmutableSet<ModuleKey>> allowedYankedVersions)
       throws BazelModuleResolutionFunctionException, InterruptedException {
-    ImmutableMap<ModuleKey, InterimModule> initialDepGraph;
+    Discovery.Result discoveryResult;
     try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.BZLMOD, "discovery")) {
-      initialDepGraph = Discovery.run(env, root, nestedRegistryFileHashes);
+      discoveryResult = Discovery.run(env, root);
     } catch (ExternalDepsException e) {
       throw new BazelModuleResolutionFunctionException(e, Transience.PERSISTENT);
     }
-    if (initialDepGraph == null) {
+    if (discoveryResult == null) {
       return null;
     }
 
-    verifyAllOverridesAreOnExistentModules(initialDepGraph, root.getOverrides());
+    verifyAllOverridesAreOnExistentModules(discoveryResult.depGraph(), root.getOverrides());
 
     Selection.Result selectionResult;
     try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.BZLMOD, "selection")) {
-      selectionResult = Selection.run(initialDepGraph, root.getOverrides());
+      selectionResult = Selection.run(discoveryResult.depGraph(), root.getOverrides());
     } catch (ExternalDepsException e) {
       throw new BazelModuleResolutionFunctionException(e, Transience.PERSISTENT);
     }
@@ -206,7 +201,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.BZLMOD, "verify root module direct deps")) {
       verifyRootModuleDirectDepsAreAccurate(
-          initialDepGraph.get(ModuleKey.ROOT),
+          discoveryResult.depGraph().get(ModuleKey.ROOT),
           resolvedDepGraph.get(ModuleKey.ROOT),
           Objects.requireNonNull(CHECK_DIRECT_DEPENDENCIES.get(env)),
           env.getListener());
@@ -225,7 +220,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
       checkNoYankedVersions(resolvedDepGraph, yankedVersionValues, allowedYankedVersions);
     }
 
-    return selectionResult;
+    return new Result(selectionResult, discoveryResult.registryFileHashes());
   }
 
   private static void verifyAllOverridesAreOnExistentModules(
@@ -365,11 +360,6 @@ public class BazelModuleResolutionFunction implements SkyFunction {
               remoteRepoSpecs.get(entry.getKey())));
     }
     return finalDepGraph.buildOrThrow();
-  }
-
-  private static class ModuleResolutionComputeState implements Environment.SkyKeyComputeState {
-    ImmutableList<ImmutableMap<String, Optional<Checksum>>> discoveryNestedRegistryFileHashes;
-    Selection.Result selectionResult;
   }
 
   static class BazelModuleResolutionFunctionException extends SkyFunctionException {
