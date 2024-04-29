@@ -1634,7 +1634,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                     CppRuleClasses.SUPPORTS_PIC,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     this.setBuildLanguageOptions("--incompatible_depset_for_libraries_to_link_getter");
-    setUpCcLinkingContextTest(false);
+    setUpCcLinkingContextTest();
     ConfiguredTarget a = getConfiguredTarget("//a:a");
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
 
@@ -1666,7 +1666,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testSolibLinkDefault() throws Exception {
-    setUpCcLinkingContextTest(false);
+    setUpCcLinkingContextTest();
     scratch.file(
         "foo/BUILD",
         """
@@ -1708,7 +1708,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testSolibLinkCustom() throws Exception {
-    setUpCcLinkingContextTest(false);
+    setUpCcLinkingContextTest();
     scratch.file(
         "foo/BUILD",
         """
@@ -1757,7 +1757,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testReallyLongSolibLink() throws Exception {
-    setUpCcLinkingContextTest(false);
+    setUpCcLinkingContextTest();
 
     String longpath =
         "this/is/a/really/really/really/really/really/really/really/really/really/really/"
@@ -1791,7 +1791,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
       throws Exception {
     useConfiguration("--features=-supports_interface_shared_libraries");
     this.setBuildLanguageOptions("--incompatible_depset_for_libraries_to_link_getter");
-    setUpCcLinkingContextTest(false);
+    setUpCcLinkingContextTest();
     ConfiguredTarget a = getConfiguredTarget("//a:a");
 
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
@@ -1851,10 +1851,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(bin).isNotNull();
   }
 
-  private void setUpCcLinkingContextTest(boolean enableExperimentalCcImport) throws Exception {
-    if (enableExperimentalCcImport) {
-      useConfiguration("--experimental_starlark_cc_import");
-    }
+  private void setUpCcLinkingContextTest() throws Exception {
     scratch.file(
         "a/BUILD",
         """
@@ -1963,8 +1960,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "    dynamic_library_symlink_path=dynamic_library_symlink_path,",
         "    interface_library_symlink_path=interface_library_symlink_path,",
         "    alwayslink=alwayslink, ",
-        enableExperimentalCcImport ? "    objects=objects, " : "",
-        enableExperimentalCcImport ? "    pic_objects=pic_objects" : "",
         "    )",
         "def _impl(ctx):",
         "  toolchain = find_cc_toolchain(ctx)",
@@ -5585,7 +5580,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testWrongExtensionThrowsError() throws Exception {
-    setUpCcLinkingContextTest(false);
+    setUpCcLinkingContextTest();
     scratch.file(
         "foo/BUILD",
         """
@@ -6980,7 +6975,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   @Test
   public void testMixedLinkerInputsWithOwnerAndWithout() throws Exception {
     setBuildLanguageOptions("--noincompatible_require_linker_input_cc_api");
-    setUpCcLinkingContextTest(false);
+    setUpCcLinkingContextTest();
     scratch.file(
         "foo/BUILD",
         """
