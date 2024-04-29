@@ -115,6 +115,7 @@ public final class ProfilerTest {
             BugReporter.defaultInstance(),
             WorkerProcessMetricsCollector.instance(),
             ResourceManager.instance(),
+            /* collectWorkerDataInProfiler= */ false,
             /* collectLoadAverage= */ false,
             /* collectSystemNetworkUsage= */ false,
             /* collectResourceManagerEstimation= */ false,
@@ -140,6 +141,7 @@ public final class ProfilerTest {
             BugReporter.defaultInstance(),
             WorkerProcessMetricsCollector.instance(),
             ResourceManager.instance(),
+            /* collectWorkerDataInProfiler= */ false,
             /* collectLoadAverage= */ false,
             /* collectSystemNetworkUsage= */ false,
             /* collectResourceManagerEstimation= */ false,
@@ -250,6 +252,7 @@ public final class ProfilerTest {
             BugReporter.defaultInstance(),
             WorkerProcessMetricsCollector.instance(),
             ResourceManager.instance(),
+            /* collectWorkerDataInProfiler= */ false,
             /* collectLoadAverage= */ false,
             /* collectSystemNetworkUsage= */ false,
             /* collectResourceManagerEstimation= */ false,
@@ -333,6 +336,7 @@ public final class ProfilerTest {
             BugReporter.defaultInstance(),
             workerProcessMetricsCollector,
             ResourceManager.instance(),
+            /* collectWorkerDataInProfiler= */ true,
             /* collectLoadAverage= */ false,
             /* collectSystemNetworkUsage= */ false,
             /* collectResourceManagerEstimation= */ false,
@@ -369,6 +373,7 @@ public final class ProfilerTest {
             BugReporter.defaultInstance(),
             WorkerProcessMetricsCollector.instance(),
             ResourceManager.instance(),
+            /* collectWorkerDataInProfiler= */ false,
             /* collectLoadAverage= */ false,
             /* collectSystemNetworkUsage= */ false,
             /* collectResourceManagerEstimation= */ false,
@@ -499,6 +504,7 @@ public final class ProfilerTest {
             BugReporter.defaultInstance(),
             WorkerProcessMetricsCollector.instance(),
             ResourceManager.instance(),
+            /* collectWorkerDataInProfiler= */ false,
             /* collectLoadAverage= */ false,
             /* collectSystemNetworkUsage= */ false,
             /* collectResourceManagerEstimation= */ false,
@@ -617,8 +623,7 @@ public final class ProfilerTest {
     profiler.stop();
 
     JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
-    ImmutableList<TraceEvent> filteredEvents =
-        removeWorkerMetricsEvents(removeCounterEvents(jsonProfile.getTraceEvents()));
+    List<TraceEvent> filteredEvents = removeCounterEvents(jsonProfile.getTraceEvents());
     assertThat(filteredEvents)
         .hasSize(
             4 /* thread names */
@@ -641,20 +646,6 @@ public final class ProfilerTest {
   // non-deterministic depending on the duration of the profile.
   private static ImmutableList<TraceEvent> removeCounterEvents(List<TraceEvent> events) {
     return events.stream().filter(e -> !"C".equals(e.type())).collect(toImmutableList());
-  }
-
-  private static ImmutableList<TraceEvent> removeWorkerMetricsEvents(List<TraceEvent> events) {
-    ImmutableList<TraceEvent> workerMetricsEvents =
-        events.stream()
-            .filter(e -> e.name().equals("Worker metrics collection"))
-            .collect(toImmutableList());
-    if (workerMetricsEvents.isEmpty()) {
-      return ImmutableList.copyOf(events);
-    }
-    long workerMetricsThreadId = workerMetricsEvents.get(0).threadId();
-    return events.stream()
-        .filter(e -> e.threadId() != workerMetricsThreadId)
-        .collect(toImmutableList());
   }
 
   /**
@@ -717,6 +708,7 @@ public final class ProfilerTest {
             BugReporter.defaultInstance(),
             WorkerProcessMetricsCollector.instance(),
             ResourceManager.instance(),
+            /* collectWorkerDataInProfiler= */ false,
             /* collectLoadAverage= */ false,
             /* collectSystemNetworkUsage= */ false,
             /* collectResourceManagerEstimation= */ false,
@@ -783,6 +775,7 @@ public final class ProfilerTest {
             BugReporter.defaultInstance(),
             WorkerProcessMetricsCollector.instance(),
             ResourceManager.instance(),
+            /* collectWorkerDataInProfiler= */ false,
             /* collectLoadAverage= */ false,
             /* collectSystemNetworkUsage= */ false,
             /* collectResourceManagerEstimation= */ false,
@@ -819,6 +812,7 @@ public final class ProfilerTest {
             BugReporter.defaultInstance(),
             WorkerProcessMetricsCollector.instance(),
             ResourceManager.instance(),
+            /* collectWorkerDataInProfiler= */ false,
             /* collectLoadAverage= */ false,
             /* collectSystemNetworkUsage= */ false,
             /* collectResourceManagerEstimation= */ false,
@@ -850,6 +844,7 @@ public final class ProfilerTest {
             BugReporter.defaultInstance(),
             WorkerProcessMetricsCollector.instance(),
             ResourceManager.instance(),
+            /* collectWorkerDataInProfiler= */ false,
             /* collectLoadAverage= */ false,
             /* collectSystemNetworkUsage= */ false,
             /* collectResourceManagerEstimation= */ false,
@@ -889,6 +884,7 @@ public final class ProfilerTest {
             BugReporter.defaultInstance(),
             WorkerProcessMetricsCollector.instance(),
             ResourceManager.instance(),
+            /* collectWorkerDataInProfiler= */ false,
             /* collectLoadAverage= */ false,
             /* collectSystemNetworkUsage= */ false,
             /* collectResourceManagerEstimation= */ false,
@@ -927,6 +923,7 @@ public final class ProfilerTest {
             BugReporter.defaultInstance(),
             WorkerProcessMetricsCollector.instance(),
             ResourceManager.instance(),
+            /* collectWorkerDataInProfiler= */ false,
             /* collectLoadAverage= */ false,
             /* collectSystemNetworkUsage= */ false,
             /* collectResourceManagerEstimation= */ false,

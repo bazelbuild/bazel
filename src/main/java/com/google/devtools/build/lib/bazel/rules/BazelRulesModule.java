@@ -315,14 +315,6 @@ public final class BazelRulesModule extends BlazeModule {
         help = "No-op",
         oldName = "incompatible_build_transitive_python_runfiles")
     public boolean buildTransitiveRunfilesTrees;
-
-    @Option(
-        name = "experimental_collect_worker_data_in_profiler",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.LOGGING,
-        effectTags = {OptionEffectTag.NO_OP},
-        help = "No-op.")
-    public boolean collectWorkerDataInProfiler;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
