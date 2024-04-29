@@ -596,11 +596,14 @@ public class ModuleFileFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    List<Registry> registryObjects =
-        registryKeys.stream()
-            .map(registryResult::get)
-            .map(Registry.class::cast)
-            .collect(toImmutableList());
+    List<Registry> registryObjects = new ArrayList<>(registryKeys.size());
+    for (RegistryKey registryKey : registryKeys) {
+      Registry registry = (Registry) registryResult.get(registryKey);
+      if (registry == null) {
+        return null;
+      }
+      registryObjects.add(registry);
+    }
 
     // Now go through the list of registries and use the first one that contains the requested
     // module.
