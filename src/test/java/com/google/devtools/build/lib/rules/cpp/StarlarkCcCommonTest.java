@@ -1511,6 +1511,61 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCreateLtoCompilationContextIsPrivate() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":my_rule.bzl", "my_rule")
+
+        my_rule(name = "x")
+        """);
+    scratch.file(
+        "test/my_rule.bzl",
+        """
+        def _impl(ctx):
+            obj = ctx.actions.declare_file("foo.o")
+            thin_link_obj = ctx.actions.declare_file("foo.indexing.o")
+            ctx.actions.write(obj, "this string is not a valid object file")
+            ctx.actions.write(thin_link_obj, "this string is not a valid thin link object file")
+            cc_common.create_lto_compilation_context(objects = {obj: (thin_link_obj, ["-O3"])})
+
+        my_rule = rule(
+            _impl,
+        )
+        """);
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:x"));
+    assertThat(e).hasMessageThat().contains("cannot use private API");
+  }
+
+  @Test
+  public void testCreateLtoCompilationContext() throws Exception {
+    String rustPrefix = "rust/private";
+    scratch.file(
+        rustPrefix + "/BUILD",
+        """
+        load(":my_rule.bzl", "my_rule")
+
+        my_rule(name = "x")
+        """);
+    scratch.file(
+        rustPrefix + "/my_rule.bzl",
+        """
+        def _impl(ctx):
+            obj = ctx.actions.declare_file("foo.o")
+            thin_link_obj = ctx.actions.declare_file("foo.indexing.o")
+            ctx.actions.write(obj, "this string is not a valid object file")
+            ctx.actions.write(thin_link_obj, "this string is not a valid thin link object file")
+            cc_common.create_lto_compilation_context(objects = {obj: (thin_link_obj, ["-O3"])})
+
+        my_rule = rule(
+            _impl,
+        )
+        """);
+    getConfiguredTarget("//" + rustPrefix + ":x");
+    assertNoEvents();
+  }
+
+  @Test
   public void testCcLinkingContextOnWindows() throws Exception {
     if (!AnalysisMock.get().isThisBazel()) {
       return;

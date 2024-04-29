@@ -161,6 +161,10 @@ def _link(
         build_config = build_config,
     )
 
+def _create_lto_compilation_context(*, objects = {}):
+    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return cc_common_internal.create_lto_compilation_context(objects = objects)
+
 def _create_compilation_outputs(*, objects = None, pic_objects = None, lto_compilation_context = _UNBOUND, dwo_objects = _UNBOUND, pic_dwo_objects = _UNBOUND):
     if lto_compilation_context != _UNBOUND or dwo_objects != _UNBOUND or pic_dwo_objects != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
@@ -857,6 +861,7 @@ def _implementation_deps_allowed_by_allowlist(*, ctx):
 
 cc_common = struct(
     link = _link,
+    create_lto_compilation_context = _create_lto_compilation_context,
     create_compilation_outputs = _create_compilation_outputs,
     merge_compilation_outputs = _merge_compilation_outputs,
     # Ideally we would like to get rid of this Java symbol and replace it with Starlark one.
