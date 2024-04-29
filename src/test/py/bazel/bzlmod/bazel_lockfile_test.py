@@ -1352,9 +1352,6 @@ class BazelLockfileTest(test_base.TestBase):
             'generatedRepoSpecs'
         ]['dep']['attributes']['value'],
     )
-    # The usages of ext_2 changed, but the extension is not re-evaluated,
-    # so its previous, now stale resolution result must have been removed.
-    self.assertNotIn(ext_2_key, lockfile['moduleExtensions'])
     # The only usage of ext_3 was removed.
     self.assertNotIn(ext_3_key, lockfile['moduleExtensions'])
 
@@ -1550,15 +1547,7 @@ class BazelLockfileTest(test_base.TestBase):
         ],
     )
     _, _, stderr = self.RunBazel(['build', '//:all'])
-    stderr = '\n'.join(stderr)
-
-    self.assertNotIn('Ext is being evaluated', stderr)
-    with open('MODULE.bazel.lock', 'r') as json_file:
-      lockfile = json.load(json_file)
-    # The order of usages of ext changed, but the extension
-    # is not re-evaluated, so its previous, now stale
-    # resolution result must have been removed.
-    self.assertNotIn(ext_key, lockfile['moduleExtensions'])
+    self.assertNotIn('Ext is being evaluated', '\n'.join(stderr))
 
     # Trigger evaluation of the extension.
     _, _, stderr = self.RunBazel(['build', '@dep//:all'])

@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -146,7 +145,6 @@ public class BazelLockFileModule extends BlazeModule {
       if (shouldKeepExtension(
           moduleExtensionId,
           firstEntryFactors,
-          firstEntryExtension.getUsagesDigest(),
           newExtensionInfos.get(moduleExtensionId),
           depGraphValue)) {
         updatedExtensionMap.put(moduleExtensionId, factorToLockedExtension);
@@ -185,56 +183,46 @@ public class BazelLockFileModule extends BlazeModule {
   }
 
   /**
-   * Decide whether to keep this extension or not depending on all of:
+   * Keep an extension if and only if:
    *
    * <ol>
-   *   <li>If its dependency on os & arch didn't change
-   *   <li>If its usages haven't changed
+   *   <li>it still has usages
+   *   <li>its dependency on os & arch didn't change
+   *   <li>it hasn't become reproducible
    * </ol>
    *
+   * We do not check for changes in the usage hash of the extension or e.g. hashes of files accessed
+   * during the evaluation. These values are checked in SingleExtensionEvalFunction.
+   *
    * @param lockedExtensionKey object holding the old extension id and state of os and arch
-   * @param oldUsagesDigest the digest of usages of this extension in the existing lockfile
    * @param newExtensionInfo the in-memory lockfile entry produced by the most recent up-to-date
    *     evaluation of this extension (if any)
    * @param depGraphValue the dep graph value
    * @return True if this extension should still be in lockfile, false otherwise
    */
   private boolean shouldKeepExtension(
-      ModuleExtensionId extensionId,
+      ModuleExtensionId moduleExtensionId,
       ModuleExtensionEvalFactors lockedExtensionKey,
-      byte[] oldUsagesDigest,
       @Nullable LockFileModuleExtension.WithFactors newExtensionInfo,
       BazelDepGraphValue depGraphValue) {
-
-    // If there is a new event for this extension, compare it with the existing ones
-    if (newExtensionInfo != null) {
-      boolean doNotLockExtension = !newExtensionInfo.moduleExtension().shouldLockExtension();
-      boolean dependencyOnOsChanged =
-          lockedExtensionKey.getOs().isEmpty()
-              != newExtensionInfo.extensionFactors().getOs().isEmpty();
-      boolean dependencyOnArchChanged =
-          lockedExtensionKey.getArch().isEmpty()
-              != newExtensionInfo.extensionFactors().getArch().isEmpty();
-      if (doNotLockExtension || dependencyOnOsChanged || dependencyOnArchChanged) {
-        return false;
-      }
-    }
-
-    // Otherwise, compare the current usages of this extension with the ones in the lockfile. We
-    // trim the usages to only the information that influences the evaluation of the extension so
-    // that irrelevant changes (e.g. locations or imports) don't cause the extension to be removed.
-    // Note: Extension results can still be stale for other reasons, e.g. because their transitive
-    // bzl hash changed, but such changes will be detected in SingleExtensionEvalFunction.
-    var usagesValue = SingleExtensionUsagesFunction.createValue(depGraphValue, extensionId);
-    if (usagesValue.isEmpty()) {
-      // The extension is no longer used anywhere, drop it.
+    if (!depGraphValue.getExtensionUsagesTable().containsRow(moduleExtensionId)) {
       return false;
     }
-    return Arrays.equals(
-        SingleExtensionUsagesValue.hashForEvaluation(
-            GsonTypeAdapterUtil.createSingleExtensionUsagesValueHashGson(),
-            SingleExtensionUsagesFunction.createValue(depGraphValue, extensionId).get()),
-        oldUsagesDigest);
+
+    // If there is no new extension info, the properties of the existing extension entry can't have
+    // changed.
+    if (newExtensionInfo == null) {
+      return true;
+    }
+
+    boolean doNotLockExtension = !newExtensionInfo.moduleExtension().shouldLockExtension();
+    boolean dependencyOnOsChanged =
+        lockedExtensionKey.getOs().isEmpty()
+            != newExtensionInfo.extensionFactors().getOs().isEmpty();
+    boolean dependencyOnArchChanged =
+        lockedExtensionKey.getArch().isEmpty()
+            != newExtensionInfo.extensionFactors().getArch().isEmpty();
+    return !doNotLockExtension && !dependencyOnOsChanged && !dependencyOnArchChanged;
   }
 
   /**

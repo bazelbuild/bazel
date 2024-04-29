@@ -56,10 +56,13 @@ public abstract class SingleExtensionUsagesValue implements SkyValue {
   /** The repo mappings to use for each module that used this extension. */
   public abstract ImmutableMap<ModuleKey, RepositoryMapping> getRepoMappings();
 
-  abstract Builder toBuilder();
-
-  public static Builder builder() {
-    return new AutoValue_SingleExtensionUsagesValue.Builder();
+  public static SingleExtensionUsagesValue create(
+      ImmutableMap<ModuleKey, ModuleExtensionUsage> extensionUsages,
+      String extensionUniqueName,
+      ImmutableList<AbridgedModule> abridgedModules,
+      ImmutableMap<ModuleKey, RepositoryMapping> repoMappings) {
+    return new AutoValue_SingleExtensionUsagesValue(
+        extensionUsages, extensionUniqueName, abridgedModules, repoMappings);
   }
 
   /**
@@ -74,43 +77,25 @@ public abstract class SingleExtensionUsagesValue implements SkyValue {
   }
 
   /**
-   * Returns a new value with all information removed that does not influence the evaluation of the
-   * extension.
+   * Returns a new value with only the information that influences the evaluation of the extension
+   * and isn't tracked elsewhere.
    */
   SingleExtensionUsagesValue trimForEvaluation() {
-    return toBuilder()
-        .setExtensionUsages(
-            ImmutableMap.copyOf(
-                Maps.transformValues(
-                    getExtensionUsages(), ModuleExtensionUsage::trimForEvaluation)))
-        // The unique name of the extension is not accessible to the extension's implementation
-        // function.
+    return SingleExtensionUsagesValue.create(
+        ImmutableMap.copyOf(
+            Maps.transformValues(getExtensionUsages(), ModuleExtensionUsage::trimForEvaluation)),
+        // extensionUniqueName: Not accessible to the extension's implementation function.
         // TODO: Reconsider this when resolving #19055.
-        .setExtensionUniqueName("")
-        // The usage of repo mappings by the extension's implementation function is tracked on the
-        // level of individual entries and all label attributes are provided as `Label`, which
-        // exclusively reference canonical repository names.
-        .setRepoMappings(ImmutableMap.of())
-        .build();
+        "",
+        getAbridgedModules(),
+        // repoMappings: The usage of repo mappings by the extension's implementation function is
+        // tracked on the level of individual entries and all label attributes are provided as
+        // `Label`, which exclusively reference canonical repository names.
+        ImmutableMap.of());
   }
 
   public static Key key(ModuleExtensionId id) {
     return Key.create(id);
-  }
-
-  /** Builder for {@link SingleExtensionUsagesValue}. */
-  @AutoValue.Builder
-  abstract static class Builder {
-
-    public abstract Builder setExtensionUsages(ImmutableMap<ModuleKey, ModuleExtensionUsage> value);
-
-    public abstract Builder setExtensionUniqueName(String value);
-
-    public abstract Builder setAbridgedModules(ImmutableList<AbridgedModule> value);
-
-    public abstract Builder setRepoMappings(ImmutableMap<ModuleKey, RepositoryMapping> value);
-
-    public abstract SingleExtensionUsagesValue build();
   }
 
   @AutoCodec
