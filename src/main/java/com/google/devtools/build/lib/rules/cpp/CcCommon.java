@@ -529,10 +529,6 @@ public final class CcCommon implements StarlarkValue {
       allRequestedFeaturesBuilder.add(CppRuleClasses.PROPELLER_OPTIMIZE);
     }
 
-    if (cppConfiguration.getMemProfProfileLabel() != null) {
-      allRequestedFeaturesBuilder.add(CppRuleClasses.MEMPROF_OPTIMIZE);
-    }
-
     for (String feature : allFeatures.build()) {
       if (!allUnsupportedFeatures.contains(feature)) {
         allRequestedFeaturesBuilder.add(feature);
