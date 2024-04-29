@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "e556c2e066b73d9d977dd87b497fb917a742c1851c28a1d133060777ef7eea8c",
+  "moduleFileHash": "5c669218ba13e671cabe5e24bcb6c853fb10e173731582e942feed9823806512",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -58,15 +58,15 @@
                   "com.github.ben-manes.caffeine:caffeine:3.0.5",
                   "com.github.kevinstern:software-and-algorithms:1.0",
                   "com.github.stephenc.jcip:jcip-annotations:1.0-1",
-                  "com.google.api-client:google-api-client-gson:1.35.2",
                   "com.google.api-client:google-api-client:1.35.2",
+                  "com.google.api-client:google-api-client-gson:1.35.2",
                   "com.google.auth:google-auth-library-credentials:1.6.0",
                   "com.google.auth:google-auth-library-oauth2-http:1.6.0",
-                  "com.google.auto.service:auto-service-annotations:1.0.1",
-                  "com.google.auto.service:auto-service:1.0",
-                  "com.google.auto.value:auto-value-annotations:1.9",
-                  "com.google.auto.value:auto-value:1.8.2",
                   "com.google.auto:auto-common:1.2.1",
+                  "com.google.auto.service:auto-service:1.0",
+                  "com.google.auto.service:auto-service-annotations:1.0.1",
+                  "com.google.auto.value:auto-value:1.8.2",
+                  "com.google.auto.value:auto-value-annotations:1.9",
                   "com.google.code.findbugs:jsr305:3.0.2",
                   "com.google.code.gson:gson:2.9.0",
                   "com.google.code.java-allocation-instrumenter:java-allocation-instrumenter:3.3.0",
@@ -75,18 +75,18 @@
                   "com.google.errorprone:error_prone_check_api:2.22.0",
                   "com.google.errorprone:error_prone_core:2.22.0",
                   "com.google.errorprone:error_prone_type_annotations:2.22.0",
-                  "com.google.flogger:flogger-system-backend:0.5.1",
                   "com.google.flogger:flogger:0.5.1",
+                  "com.google.flogger:flogger-system-backend:0.5.1",
                   "com.google.flogger:google-extensions:0.5.1",
                   "com.google.guava:failureaccess:1.0.1",
                   "com.google.guava:guava:31.1-jre",
-                  "com.google.http-client:google-http-client-gson:1.42.0",
                   "com.google.http-client:google-http-client:1.42.0",
+                  "com.google.http-client:google-http-client-gson:1.42.0",
                   "com.google.j2objc:j2objc-annotations:1.3",
                   "com.google.turbine:turbine:0.4.0",
                   "com.ryanharter.auto.value:auto-value-gson-extension:1.3.1",
-                  "com.ryanharter.auto.value:auto-value-gson-runtime:1.3.1",
                   "com.ryanharter.auto.value:auto-value-gson-factory:1.3.1",
+                  "com.ryanharter.auto.value:auto-value-gson-runtime:1.3.1",
                   "com.squareup:javapoet:1.12.0",
                   "commons-collections:commons-collections:3.2.2",
                   "commons-lang:commons-lang:2.6",
@@ -96,24 +96,25 @@
                   "io.grpc:grpc-context:1.48.1",
                   "io.grpc:grpc-core:1.48.1",
                   "io.grpc:grpc-netty:1.48.1",
-                  "io.grpc:grpc-protobuf-lite:1.48.1",
                   "io.grpc:grpc-protobuf:1.48.1",
+                  "io.grpc:grpc-protobuf-lite:1.48.1",
                   "io.grpc:grpc-stub:1.48.1",
                   "io.netty:netty-buffer:4.1.93.Final",
-                  "io.netty:netty-codec-http2:4.1.93.Final",
-                  "io.netty:netty-codec-http:4.1.93.Final",
                   "io.netty:netty-codec:4.1.93.Final",
+                  "io.netty:netty-codec-http:4.1.93.Final",
+                  "io.netty:netty-codec-http2:4.1.93.Final",
                   "io.netty:netty-common:4.1.93.Final",
-                  "io.netty:netty-handler-proxy:4.1.93.Final",
                   "io.netty:netty-handler:4.1.93.Final",
-                  "io.netty:netty-resolver-dns:4.1.93.Final",
+                  "io.netty:netty-handler-proxy:4.1.93.Final",
                   "io.netty:netty-resolver:4.1.93.Final",
+                  "io.netty:netty-resolver-dns:4.1.93.Final",
                   "io.netty:netty-tcnative-boringssl-static:jar:linux-aarch_64:2.0.56.Final",
                   "io.netty:netty-tcnative-boringssl-static:jar:linux-x86_64:2.0.56.Final",
                   "io.netty:netty-tcnative-boringssl-static:jar:osx-aarch_64:2.0.56.Final",
                   "io.netty:netty-tcnative-boringssl-static:jar:osx-x86_64:2.0.56.Final",
                   "io.netty:netty-tcnative-boringssl-static:jar:windows-x86_64:2.0.56.Final",
                   "io.netty:netty-tcnative-classes:2.0.56.Final",
+                  "io.netty:netty-transport:4.1.93.Final",
                   "io.netty:netty-transport-classes-epoll:4.1.93.Final",
                   "io.netty:netty-transport-classes-kqueue:4.1.93.Final",
                   "io.netty:netty-transport-native-epoll:jar:linux-aarch_64:4.1.93.Final",
@@ -125,24 +126,25 @@
                   "io.netty:netty-transport-native-unix-common:jar:linux-x86_64:4.1.93.Final",
                   "io.netty:netty-transport-native-unix-common:jar:osx-aarch_64:4.1.93.Final",
                   "io.netty:netty-transport-native-unix-common:jar:osx-x86_64:4.1.93.Final",
-                  "io.netty:netty-transport:4.1.93.Final",
                   "io.reactivex.rxjava3:rxjava:3.1.2",
                   "it.unimi.dsi:fastutil:7.2.1",
                   "javax.activation:javax.activation-api:1.2.0",
                   "javax.annotation:javax.annotation-api:1.3.2",
                   "javax.inject:javax.inject:1",
-                  "net.bytebuddy:byte-buddy-agent:1.14.5",
                   "net.bytebuddy:byte-buddy:1.14.5",
+                  "net.bytebuddy:byte-buddy-agent:1.14.5",
                   "org.apache.commons:commons-compress:1.20",
                   "org.apache.commons:commons-pool2:2.8.0",
                   "org.apache.tomcat:tomcat-annotations-api:8.0.5",
                   "org.apache.velocity:velocity:1.7",
                   "org.checkerframework:checker-qual:3.19.0",
+                  "org.openjdk.jmh:jmh-core:1.37",
+                  "org.openjdk.jmh:jmh-generator-annprocess:1.37",
+                  "org.ow2.asm:asm:9.2",
                   "org.ow2.asm:asm-analysis:9.2",
                   "org.ow2.asm:asm-commons:9.2",
                   "org.ow2.asm:asm-tree:9.2",
                   "org.ow2.asm:asm-util:9.2",
-                  "org.ow2.asm:asm:9.2",
                   "org.pcollections:pcollections:3.1.4",
                   "org.threeten:threeten-extra:1.5.0",
                   "org.tukaani:xz:1.9",
@@ -183,7 +185,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 192,
+                "line": 195,
                 "column": 19
               }
             },
@@ -198,7 +200,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 192,
+                "line": 195,
                 "column": 19
               }
             },
@@ -213,7 +215,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 192,
+                "line": 195,
                 "column": 19
               }
             },
@@ -228,7 +230,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 192,
+                "line": 195,
                 "column": 19
               }
             },
@@ -243,7 +245,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 192,
+                "line": 195,
                 "column": 19
               }
             },
@@ -258,7 +260,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 192,
+                "line": 195,
                 "column": 19
               }
             },
@@ -273,7 +275,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 192,
+                "line": 195,
                 "column": 19
               }
             },
@@ -288,7 +290,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 192,
+                "line": 195,
                 "column": 19
               }
             },
@@ -303,7 +305,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 192,
+                "line": 195,
                 "column": 19
               }
             },
@@ -331,7 +333,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 332,
+                "line": 335,
                 "column": 22
               }
             }
@@ -345,7 +347,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 213,
+            "line": 216,
             "column": 32
           },
           "imports": {
@@ -385,7 +387,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 247,
+            "line": 250,
             "column": 23
           },
           "imports": {},
@@ -399,7 +401,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 248,
+                "line": 251,
                 "column": 17
               }
             }
@@ -413,7 +415,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 250,
+            "line": 253,
             "column": 20
           },
           "imports": {
@@ -431,7 +433,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 251,
+                "line": 254,
                 "column": 10
               }
             }
@@ -445,7 +447,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 262,
+            "line": 265,
             "column": 33
           },
           "imports": {
@@ -476,7 +478,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 283,
+            "line": 286,
             "column": 29
           },
           "imports": {
@@ -493,7 +495,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 286,
+            "line": 289,
             "column": 20
           },
           "imports": {
@@ -512,7 +514,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 287,
+                "line": 290,
                 "column": 12
               }
             }
@@ -526,7 +528,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 299,
+            "line": 302,
             "column": 32
           },
           "imports": {
@@ -545,7 +547,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 307,
+            "line": 310,
             "column": 31
           },
           "imports": {
@@ -562,7 +564,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 310,
+            "line": 313,
             "column": 48
           },
           "imports": {
@@ -579,7 +581,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 354,
+            "line": 357,
             "column": 35
           },
           "imports": {
@@ -596,7 +598,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 357,
+            "line": 360,
             "column": 42
           },
           "imports": {
@@ -2839,7 +2841,7 @@
       "general": {
         "bzlTransitiveDigest": "7u0Bee/XL6UGuGmaseF4697gGH298WTn84dJcuZiDwk=",
         "recordedFileInputs": {
-          "@@//MODULE.bazel": "e556c2e066b73d9d977dd87b497fb917a742c1851c28a1d133060777ef7eea8c",
+          "@@//MODULE.bazel": "5c669218ba13e671cabe5e24bcb6c853fb10e173731582e942feed9823806512",
           "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "6b96a6a50f84f5403a718a27955a8c954943f76ee5c4def7f8b23401b2a417bf"
         },
         "recordedDirentsInputs": {},
@@ -5312,7 +5314,7 @@
         "recordedFileInputs": {
           "@@//src/tools/android/maven_android_install.json": "09bff3e33d291336046f7c9201630fb5e014f0e60b78b6f09b84e4f5f73ed04f",
           "@@rules_jvm_external~//rules_jvm_external_deps_install.json": "cafb5d2d8119391eb2b322ce3840d3352ea82d496bdb8cbd4b6779ec4d044dda",
-          "@@//maven_install.json": "8330632656f46859ec2600c18fed75624e2a8f46b81c12db34c8afeba527e5be"
+          "@@//maven_install.json": "4535279bdc5098bf5c653bd9b8a96dea3159acfd96b4890bfa4cdccba161af0e"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -5734,6 +5736,17 @@
               "downloaded_file_path": "v1/io/netty/netty-handler-proxy/4.1.93.Final/netty-handler-proxy-4.1.93.Final.jar"
             }
           },
+          "org_apache_commons_commons_math3_3_6_1": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "1e56d7b058d28b65abd256b8458e3885b674c1d588fa43cd7d1cbb9c7ef2b308",
+              "urls": [
+                "https://repo1.maven.org/maven2/org/apache/commons/commons-math3/3.6.1/commons-math3-3.6.1.jar"
+              ],
+              "downloaded_file_path": "v1/org/apache/commons/commons-math3/3.6.1/commons-math3-3.6.1.jar"
+            }
+          },
           "com_android_tools_build_builder_7_1_3": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -5924,15 +5937,15 @@
                 "{ \"group\": \"com.github.ben-manes.caffeine\", \"artifact\": \"caffeine\", \"version\": \"3.0.5\" }",
                 "{ \"group\": \"com.github.kevinstern\", \"artifact\": \"software-and-algorithms\", \"version\": \"1.0\" }",
                 "{ \"group\": \"com.github.stephenc.jcip\", \"artifact\": \"jcip-annotations\", \"version\": \"1.0-1\" }",
-                "{ \"group\": \"com.google.api-client\", \"artifact\": \"google-api-client-gson\", \"version\": \"1.35.2\" }",
                 "{ \"group\": \"com.google.api-client\", \"artifact\": \"google-api-client\", \"version\": \"1.35.2\" }",
+                "{ \"group\": \"com.google.api-client\", \"artifact\": \"google-api-client-gson\", \"version\": \"1.35.2\" }",
                 "{ \"group\": \"com.google.auth\", \"artifact\": \"google-auth-library-credentials\", \"version\": \"1.6.0\" }",
                 "{ \"group\": \"com.google.auth\", \"artifact\": \"google-auth-library-oauth2-http\", \"version\": \"1.6.0\" }",
-                "{ \"group\": \"com.google.auto.service\", \"artifact\": \"auto-service-annotations\", \"version\": \"1.0.1\" }",
-                "{ \"group\": \"com.google.auto.service\", \"artifact\": \"auto-service\", \"version\": \"1.0\" }",
-                "{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value-annotations\", \"version\": \"1.9\" }",
-                "{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value\", \"version\": \"1.8.2\" }",
                 "{ \"group\": \"com.google.auto\", \"artifact\": \"auto-common\", \"version\": \"1.2.1\" }",
+                "{ \"group\": \"com.google.auto.service\", \"artifact\": \"auto-service\", \"version\": \"1.0\" }",
+                "{ \"group\": \"com.google.auto.service\", \"artifact\": \"auto-service-annotations\", \"version\": \"1.0.1\" }",
+                "{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value\", \"version\": \"1.8.2\" }",
+                "{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value-annotations\", \"version\": \"1.9\" }",
                 "{ \"group\": \"com.google.code.findbugs\", \"artifact\": \"jsr305\", \"version\": \"3.0.2\" }",
                 "{ \"group\": \"com.google.code.gson\", \"artifact\": \"gson\", \"version\": \"2.9.0\" }",
                 "{ \"group\": \"com.google.code.java-allocation-instrumenter\", \"artifact\": \"java-allocation-instrumenter\", \"version\": \"3.3.0\" }",
@@ -5941,18 +5954,18 @@
                 "{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_check_api\", \"version\": \"2.22.0\" }",
                 "{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_core\", \"version\": \"2.22.0\" }",
                 "{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_type_annotations\", \"version\": \"2.22.0\" }",
-                "{ \"group\": \"com.google.flogger\", \"artifact\": \"flogger-system-backend\", \"version\": \"0.5.1\" }",
                 "{ \"group\": \"com.google.flogger\", \"artifact\": \"flogger\", \"version\": \"0.5.1\" }",
+                "{ \"group\": \"com.google.flogger\", \"artifact\": \"flogger-system-backend\", \"version\": \"0.5.1\" }",
                 "{ \"group\": \"com.google.flogger\", \"artifact\": \"google-extensions\", \"version\": \"0.5.1\" }",
                 "{ \"group\": \"com.google.guava\", \"artifact\": \"failureaccess\", \"version\": \"1.0.1\" }",
                 "{ \"group\": \"com.google.guava\", \"artifact\": \"guava\", \"version\": \"31.1-jre\" }",
-                "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client-gson\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client\", \"version\": \"1.42.0\" }",
+                "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client-gson\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.j2objc\", \"artifact\": \"j2objc-annotations\", \"version\": \"1.3\" }",
                 "{ \"group\": \"com.google.turbine\", \"artifact\": \"turbine\", \"version\": \"0.4.0\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-extension\", \"version\": \"1.3.1\" }",
-                "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-runtime\", \"version\": \"1.3.1\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-factory\", \"version\": \"1.3.1\" }",
+                "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-runtime\", \"version\": \"1.3.1\" }",
                 "{ \"group\": \"com.squareup\", \"artifact\": \"javapoet\", \"version\": \"1.12.0\" }",
                 "{ \"group\": \"commons-collections\", \"artifact\": \"commons-collections\", \"version\": \"3.2.2\" }",
                 "{ \"group\": \"commons-lang\", \"artifact\": \"commons-lang\", \"version\": \"2.6\" }",
@@ -5962,24 +5975,25 @@
                 "{ \"group\": \"io.grpc\", \"artifact\": \"grpc-context\", \"version\": \"1.48.1\" }",
                 "{ \"group\": \"io.grpc\", \"artifact\": \"grpc-core\", \"version\": \"1.48.1\" }",
                 "{ \"group\": \"io.grpc\", \"artifact\": \"grpc-netty\", \"version\": \"1.48.1\" }",
-                "{ \"group\": \"io.grpc\", \"artifact\": \"grpc-protobuf-lite\", \"version\": \"1.48.1\" }",
                 "{ \"group\": \"io.grpc\", \"artifact\": \"grpc-protobuf\", \"version\": \"1.48.1\" }",
+                "{ \"group\": \"io.grpc\", \"artifact\": \"grpc-protobuf-lite\", \"version\": \"1.48.1\" }",
                 "{ \"group\": \"io.grpc\", \"artifact\": \"grpc-stub\", \"version\": \"1.48.1\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-buffer\", \"version\": \"4.1.93.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-codec-http2\", \"version\": \"4.1.93.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-codec-http\", \"version\": \"4.1.93.Final\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-codec\", \"version\": \"4.1.93.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-codec-http\", \"version\": \"4.1.93.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-codec-http2\", \"version\": \"4.1.93.Final\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-common\", \"version\": \"4.1.93.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-handler-proxy\", \"version\": \"4.1.93.Final\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-handler\", \"version\": \"4.1.93.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-resolver-dns\", \"version\": \"4.1.93.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-handler-proxy\", \"version\": \"4.1.93.Final\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-resolver\", \"version\": \"4.1.93.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-resolver-dns\", \"version\": \"4.1.93.Final\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-aarch_64\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-x86_64\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-aarch_64\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-x86_64\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"windows-x86_64\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-classes\", \"version\": \"2.0.56.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport\", \"version\": \"4.1.93.Final\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-classes-epoll\", \"version\": \"4.1.93.Final\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-classes-kqueue\", \"version\": \"4.1.93.Final\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-epoll\", \"version\": \"4.1.93.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-aarch_64\" }",
@@ -5991,24 +6005,25 @@
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.93.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-x86_64\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.93.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-aarch_64\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.93.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-x86_64\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport\", \"version\": \"4.1.93.Final\" }",
                 "{ \"group\": \"io.reactivex.rxjava3\", \"artifact\": \"rxjava\", \"version\": \"3.1.2\" }",
                 "{ \"group\": \"it.unimi.dsi\", \"artifact\": \"fastutil\", \"version\": \"7.2.1\" }",
                 "{ \"group\": \"javax.activation\", \"artifact\": \"javax.activation-api\", \"version\": \"1.2.0\" }",
                 "{ \"group\": \"javax.annotation\", \"artifact\": \"javax.annotation-api\", \"version\": \"1.3.2\" }",
                 "{ \"group\": \"javax.inject\", \"artifact\": \"javax.inject\", \"version\": \"1\" }",
-                "{ \"group\": \"net.bytebuddy\", \"artifact\": \"byte-buddy-agent\", \"version\": \"1.14.5\" }",
                 "{ \"group\": \"net.bytebuddy\", \"artifact\": \"byte-buddy\", \"version\": \"1.14.5\" }",
+                "{ \"group\": \"net.bytebuddy\", \"artifact\": \"byte-buddy-agent\", \"version\": \"1.14.5\" }",
                 "{ \"group\": \"org.apache.commons\", \"artifact\": \"commons-compress\", \"version\": \"1.20\" }",
                 "{ \"group\": \"org.apache.commons\", \"artifact\": \"commons-pool2\", \"version\": \"2.8.0\" }",
                 "{ \"group\": \"org.apache.tomcat\", \"artifact\": \"tomcat-annotations-api\", \"version\": \"8.0.5\" }",
                 "{ \"group\": \"org.apache.velocity\", \"artifact\": \"velocity\", \"version\": \"1.7\" }",
                 "{ \"group\": \"org.checkerframework\", \"artifact\": \"checker-qual\", \"version\": \"3.19.0\" }",
+                "{ \"group\": \"org.openjdk.jmh\", \"artifact\": \"jmh-core\", \"version\": \"1.37\" }",
+                "{ \"group\": \"org.openjdk.jmh\", \"artifact\": \"jmh-generator-annprocess\", \"version\": \"1.37\" }",
+                "{ \"group\": \"org.ow2.asm\", \"artifact\": \"asm\", \"version\": \"9.2\" }",
                 "{ \"group\": \"org.ow2.asm\", \"artifact\": \"asm-analysis\", \"version\": \"9.2\" }",
                 "{ \"group\": \"org.ow2.asm\", \"artifact\": \"asm-commons\", \"version\": \"9.2\" }",
                 "{ \"group\": \"org.ow2.asm\", \"artifact\": \"asm-tree\", \"version\": \"9.2\" }",
                 "{ \"group\": \"org.ow2.asm\", \"artifact\": \"asm-util\", \"version\": \"9.2\" }",
-                "{ \"group\": \"org.ow2.asm\", \"artifact\": \"asm\", \"version\": \"9.2\" }",
                 "{ \"group\": \"org.pcollections\", \"artifact\": \"pcollections\", \"version\": \"3.1.4\" }",
                 "{ \"group\": \"org.threeten\", \"artifact\": \"threeten-extra\", \"version\": \"1.5.0\" }",
                 "{ \"group\": \"org.tukaani\", \"artifact\": \"xz\", \"version\": \"1.9\" }",
@@ -6286,6 +6301,17 @@
                 "https://repo1.maven.org/maven2/com/google/cloud/google-cloud-core-grpc/2.22.0/google-cloud-core-grpc-2.22.0.jar"
               ],
               "downloaded_file_path": "v1/com/google/cloud/google-cloud-core-grpc/2.22.0/google-cloud-core-grpc-2.22.0.jar"
+            }
+          },
+          "net_sf_jopt_simple_jopt_simple_5_0_4": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "df26cc58f235f477db07f753ba5a3ab243ebe5789d9f89ecf68dd62ea9a66c28",
+              "urls": [
+                "https://repo1.maven.org/maven2/net/sf/jopt-simple/jopt-simple/5.0.4/jopt-simple-5.0.4.jar"
+              ],
+              "downloaded_file_path": "v1/net/sf/jopt-simple/jopt-simple/5.0.4/jopt-simple-5.0.4.jar"
             }
           },
           "androidx_databinding_databinding_compiler_3_4_0_alpha10": {
@@ -8448,15 +8474,15 @@
                 "{ \"group\": \"com.github.ben-manes.caffeine\", \"artifact\": \"caffeine\", \"version\": \"3.0.5\" }",
                 "{ \"group\": \"com.github.kevinstern\", \"artifact\": \"software-and-algorithms\", \"version\": \"1.0\" }",
                 "{ \"group\": \"com.github.stephenc.jcip\", \"artifact\": \"jcip-annotations\", \"version\": \"1.0-1\" }",
-                "{ \"group\": \"com.google.api-client\", \"artifact\": \"google-api-client-gson\", \"version\": \"1.35.2\" }",
                 "{ \"group\": \"com.google.api-client\", \"artifact\": \"google-api-client\", \"version\": \"1.35.2\" }",
+                "{ \"group\": \"com.google.api-client\", \"artifact\": \"google-api-client-gson\", \"version\": \"1.35.2\" }",
                 "{ \"group\": \"com.google.auth\", \"artifact\": \"google-auth-library-credentials\", \"version\": \"1.6.0\" }",
                 "{ \"group\": \"com.google.auth\", \"artifact\": \"google-auth-library-oauth2-http\", \"version\": \"1.6.0\" }",
-                "{ \"group\": \"com.google.auto.service\", \"artifact\": \"auto-service-annotations\", \"version\": \"1.0.1\" }",
-                "{ \"group\": \"com.google.auto.service\", \"artifact\": \"auto-service\", \"version\": \"1.0\" }",
-                "{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value-annotations\", \"version\": \"1.9\" }",
-                "{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value\", \"version\": \"1.8.2\" }",
                 "{ \"group\": \"com.google.auto\", \"artifact\": \"auto-common\", \"version\": \"1.2.1\" }",
+                "{ \"group\": \"com.google.auto.service\", \"artifact\": \"auto-service\", \"version\": \"1.0\" }",
+                "{ \"group\": \"com.google.auto.service\", \"artifact\": \"auto-service-annotations\", \"version\": \"1.0.1\" }",
+                "{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value\", \"version\": \"1.8.2\" }",
+                "{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value-annotations\", \"version\": \"1.9\" }",
                 "{ \"group\": \"com.google.code.findbugs\", \"artifact\": \"jsr305\", \"version\": \"3.0.2\" }",
                 "{ \"group\": \"com.google.code.gson\", \"artifact\": \"gson\", \"version\": \"2.9.0\" }",
                 "{ \"group\": \"com.google.code.java-allocation-instrumenter\", \"artifact\": \"java-allocation-instrumenter\", \"version\": \"3.3.0\" }",
@@ -8465,18 +8491,18 @@
                 "{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_check_api\", \"version\": \"2.22.0\" }",
                 "{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_core\", \"version\": \"2.22.0\" }",
                 "{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_type_annotations\", \"version\": \"2.22.0\" }",
-                "{ \"group\": \"com.google.flogger\", \"artifact\": \"flogger-system-backend\", \"version\": \"0.5.1\" }",
                 "{ \"group\": \"com.google.flogger\", \"artifact\": \"flogger\", \"version\": \"0.5.1\" }",
+                "{ \"group\": \"com.google.flogger\", \"artifact\": \"flogger-system-backend\", \"version\": \"0.5.1\" }",
                 "{ \"group\": \"com.google.flogger\", \"artifact\": \"google-extensions\", \"version\": \"0.5.1\" }",
                 "{ \"group\": \"com.google.guava\", \"artifact\": \"failureaccess\", \"version\": \"1.0.1\" }",
                 "{ \"group\": \"com.google.guava\", \"artifact\": \"guava\", \"version\": \"31.1-jre\" }",
-                "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client-gson\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client\", \"version\": \"1.42.0\" }",
+                "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client-gson\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.j2objc\", \"artifact\": \"j2objc-annotations\", \"version\": \"1.3\" }",
                 "{ \"group\": \"com.google.turbine\", \"artifact\": \"turbine\", \"version\": \"0.4.0\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-extension\", \"version\": \"1.3.1\" }",
-                "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-runtime\", \"version\": \"1.3.1\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-factory\", \"version\": \"1.3.1\" }",
+                "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-runtime\", \"version\": \"1.3.1\" }",
                 "{ \"group\": \"com.squareup\", \"artifact\": \"javapoet\", \"version\": \"1.12.0\" }",
                 "{ \"group\": \"commons-collections\", \"artifact\": \"commons-collections\", \"version\": \"3.2.2\" }",
                 "{ \"group\": \"commons-lang\", \"artifact\": \"commons-lang\", \"version\": \"2.6\" }",
@@ -8486,24 +8512,25 @@
                 "{ \"group\": \"io.grpc\", \"artifact\": \"grpc-context\", \"version\": \"1.48.1\" }",
                 "{ \"group\": \"io.grpc\", \"artifact\": \"grpc-core\", \"version\": \"1.48.1\" }",
                 "{ \"group\": \"io.grpc\", \"artifact\": \"grpc-netty\", \"version\": \"1.48.1\" }",
-                "{ \"group\": \"io.grpc\", \"artifact\": \"grpc-protobuf-lite\", \"version\": \"1.48.1\" }",
                 "{ \"group\": \"io.grpc\", \"artifact\": \"grpc-protobuf\", \"version\": \"1.48.1\" }",
+                "{ \"group\": \"io.grpc\", \"artifact\": \"grpc-protobuf-lite\", \"version\": \"1.48.1\" }",
                 "{ \"group\": \"io.grpc\", \"artifact\": \"grpc-stub\", \"version\": \"1.48.1\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-buffer\", \"version\": \"4.1.93.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-codec-http2\", \"version\": \"4.1.93.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-codec-http\", \"version\": \"4.1.93.Final\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-codec\", \"version\": \"4.1.93.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-codec-http\", \"version\": \"4.1.93.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-codec-http2\", \"version\": \"4.1.93.Final\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-common\", \"version\": \"4.1.93.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-handler-proxy\", \"version\": \"4.1.93.Final\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-handler\", \"version\": \"4.1.93.Final\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-resolver-dns\", \"version\": \"4.1.93.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-handler-proxy\", \"version\": \"4.1.93.Final\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-resolver\", \"version\": \"4.1.93.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-resolver-dns\", \"version\": \"4.1.93.Final\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-aarch_64\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-x86_64\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-aarch_64\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-x86_64\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-boringssl-static\", \"version\": \"2.0.56.Final\", \"packaging\": \"jar\", \"classifier\": \"windows-x86_64\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-tcnative-classes\", \"version\": \"2.0.56.Final\" }",
+                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport\", \"version\": \"4.1.93.Final\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-classes-epoll\", \"version\": \"4.1.93.Final\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-classes-kqueue\", \"version\": \"4.1.93.Final\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-epoll\", \"version\": \"4.1.93.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-aarch_64\" }",
@@ -8515,24 +8542,25 @@
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.93.Final\", \"packaging\": \"jar\", \"classifier\": \"linux-x86_64\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.93.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-aarch_64\" }",
                 "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport-native-unix-common\", \"version\": \"4.1.93.Final\", \"packaging\": \"jar\", \"classifier\": \"osx-x86_64\" }",
-                "{ \"group\": \"io.netty\", \"artifact\": \"netty-transport\", \"version\": \"4.1.93.Final\" }",
                 "{ \"group\": \"io.reactivex.rxjava3\", \"artifact\": \"rxjava\", \"version\": \"3.1.2\" }",
                 "{ \"group\": \"it.unimi.dsi\", \"artifact\": \"fastutil\", \"version\": \"7.2.1\" }",
                 "{ \"group\": \"javax.activation\", \"artifact\": \"javax.activation-api\", \"version\": \"1.2.0\" }",
                 "{ \"group\": \"javax.annotation\", \"artifact\": \"javax.annotation-api\", \"version\": \"1.3.2\" }",
                 "{ \"group\": \"javax.inject\", \"artifact\": \"javax.inject\", \"version\": \"1\" }",
-                "{ \"group\": \"net.bytebuddy\", \"artifact\": \"byte-buddy-agent\", \"version\": \"1.14.5\" }",
                 "{ \"group\": \"net.bytebuddy\", \"artifact\": \"byte-buddy\", \"version\": \"1.14.5\" }",
+                "{ \"group\": \"net.bytebuddy\", \"artifact\": \"byte-buddy-agent\", \"version\": \"1.14.5\" }",
                 "{ \"group\": \"org.apache.commons\", \"artifact\": \"commons-compress\", \"version\": \"1.20\" }",
                 "{ \"group\": \"org.apache.commons\", \"artifact\": \"commons-pool2\", \"version\": \"2.8.0\" }",
                 "{ \"group\": \"org.apache.tomcat\", \"artifact\": \"tomcat-annotations-api\", \"version\": \"8.0.5\" }",
                 "{ \"group\": \"org.apache.velocity\", \"artifact\": \"velocity\", \"version\": \"1.7\" }",
                 "{ \"group\": \"org.checkerframework\", \"artifact\": \"checker-qual\", \"version\": \"3.19.0\" }",
+                "{ \"group\": \"org.openjdk.jmh\", \"artifact\": \"jmh-core\", \"version\": \"1.37\" }",
+                "{ \"group\": \"org.openjdk.jmh\", \"artifact\": \"jmh-generator-annprocess\", \"version\": \"1.37\" }",
+                "{ \"group\": \"org.ow2.asm\", \"artifact\": \"asm\", \"version\": \"9.2\" }",
                 "{ \"group\": \"org.ow2.asm\", \"artifact\": \"asm-analysis\", \"version\": \"9.2\" }",
                 "{ \"group\": \"org.ow2.asm\", \"artifact\": \"asm-commons\", \"version\": \"9.2\" }",
                 "{ \"group\": \"org.ow2.asm\", \"artifact\": \"asm-tree\", \"version\": \"9.2\" }",
                 "{ \"group\": \"org.ow2.asm\", \"artifact\": \"asm-util\", \"version\": \"9.2\" }",
-                "{ \"group\": \"org.ow2.asm\", \"artifact\": \"asm\", \"version\": \"9.2\" }",
                 "{ \"group\": \"org.pcollections\", \"artifact\": \"pcollections\", \"version\": \"3.1.4\" }",
                 "{ \"group\": \"org.threeten\", \"artifact\": \"threeten-extra\", \"version\": \"1.5.0\" }",
                 "{ \"group\": \"org.tukaani\", \"artifact\": \"xz\", \"version\": \"1.9\" }",
@@ -8605,6 +8633,17 @@
                 "https://repo1.maven.org/maven2/software/amazon/awssdk/aws-query-protocol/2.20.128/aws-query-protocol-2.20.128.jar"
               ],
               "downloaded_file_path": "v1/software/amazon/awssdk/aws-query-protocol/2.20.128/aws-query-protocol-2.20.128.jar"
+            }
+          },
+          "org_openjdk_jmh_jmh_core_1_37": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "dc0eaf2bbf0036a70b60798c785d6e03a9daf06b68b8edb0f1ba9eb3421baeb3",
+              "urls": [
+                "https://repo1.maven.org/maven2/org/openjdk/jmh/jmh-core/1.37/jmh-core-1.37.jar"
+              ],
+              "downloaded_file_path": "v1/org/openjdk/jmh/jmh-core/1.37/jmh-core-1.37.jar"
             }
           },
           "aopalliance_aopalliance_1_0": {
@@ -8795,6 +8834,17 @@
                 "https://repo1.maven.org/maven2/com/google/auto/auto-common/1.2.1/auto-common-1.2.1.jar"
               ],
               "downloaded_file_path": "v1/com/google/auto/auto-common/1.2.1/auto-common-1.2.1.jar"
+            }
+          },
+          "org_openjdk_jmh_jmh_generator_annprocess_1_37": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "6a5604b5b804e0daca1145df1077609321687734a8b49387e49f10557c186c77",
+              "urls": [
+                "https://repo1.maven.org/maven2/org/openjdk/jmh/jmh-generator-annprocess/1.37/jmh-generator-annprocess-1.37.jar"
+              ],
+              "downloaded_file_path": "v1/org/openjdk/jmh/jmh-generator-annprocess/1.37/jmh-generator-annprocess-1.37.jar"
             }
           },
           "io_netty_netty_transport_native_unix_common_4_1_93_Final": {
