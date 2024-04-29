@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.test.CoverageActionFinishedEvent;
+import com.google.devtools.build.lib.analysis.test.CoverageReportEvent;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
@@ -242,6 +243,8 @@ public class SkyframeBuilder implements Builder {
                 bugReporter);
         if (detailedExitCode != null) {
           detailedExitCodes.add(detailedExitCode);
+        } else {
+          skyframeExecutor.getEventBus().post(new CoverageReportEvent(coverageReportArtifacts));
         }
       }
     } finally {

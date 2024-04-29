@@ -87,6 +87,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeAnalysisAndExecutionResult
 import com.google.devtools.build.lib.skyframe.SkyframeAnalysisResult;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTestContext;
+import com.google.devtools.build.lib.skyframe.SkyframeBuildView.CoverageReportActionsWrapperSupplier;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -156,7 +157,8 @@ public class BuildView {
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
-  @Nullable private ImmutableSet<Artifact> memoizedCoverageArtifacts;
+  @Nullable
+  private CoverageReportActionsWrapperSupplier.CoverageArtifacts memoizedCoverageArtifacts;
 
   /** A factory class to create the coverage report action. May be null. */
   @Nullable private final CoverageReportActionFactory coverageReportActionFactory;
@@ -552,7 +554,8 @@ public class BuildView {
     // Coverage
     artifactsToBuild.addAll(
         memoizedGetCoverageArtifactsHelper(
-            configuredTargets, allTargetsToTest, eventHandler, eventBus, loadingResult));
+                configuredTargets, allTargetsToTest, eventHandler, eventBus, loadingResult)
+            .allCoverageArtifacts());
 
     // TODO(cparsons): If extra actions are ever removed, this filtering step can probably be
     //  removed as well: the only concern would be action conflicts involving coverage artifacts,
@@ -846,7 +849,7 @@ public class BuildView {
     }
   }
 
-  private ImmutableSet<Artifact> memoizedGetCoverageArtifactsHelper(
+  private CoverageReportActionsWrapperSupplier.CoverageArtifacts memoizedGetCoverageArtifactsHelper(
       Set<ConfiguredTarget> configuredTargets,
       Set<ConfiguredTarget> allTargetsToTest,
       EventHandler eventHandler,
@@ -856,11 +859,13 @@ public class BuildView {
     if (memoizedCoverageArtifacts != null) {
       return memoizedCoverageArtifacts;
     }
-    ImmutableSet.Builder<Artifact> resultBuilder = ImmutableSet.builder();
+    ImmutableSet.Builder<Artifact> allCoverageArtifacts = ImmutableSet.builder();
+    ImmutableSet.Builder<Artifact> coverageReportArtifacts = ImmutableSet.builder();
     // Coverage
     NestedSet<Artifact> baselineCoverageArtifacts = getBaselineCoverageArtifacts(configuredTargets);
-    resultBuilder.addAll(baselineCoverageArtifacts.toList());
+    allCoverageArtifacts.addAll(baselineCoverageArtifacts.toList());
 
+    Artifact coverageReport = null;
     if (coverageReportActionFactory != null) {
       CoverageReportActionsWrapper actionsWrapper =
           coverageReportActionFactory.createCoverageReportActionsWrapper(
@@ -875,10 +880,13 @@ public class BuildView {
               loadingResult.getWorkspaceName());
       if (actionsWrapper != null) {
         skyframeExecutor.injectCoverageReportData(actionsWrapper.getActions());
-        actionsWrapper.getCoverageOutputs().forEach(resultBuilder::add);
+        actionsWrapper.getCoverageOutputs().forEach(allCoverageArtifacts::add);
+        actionsWrapper.getCoverageOutputs().forEach(coverageReportArtifacts::add);
       }
     }
-    memoizedCoverageArtifacts = resultBuilder.build();
+    memoizedCoverageArtifacts =
+        new CoverageReportActionsWrapperSupplier.CoverageArtifacts(
+            allCoverageArtifacts.build(), coverageReportArtifacts.build());
     return memoizedCoverageArtifacts;
   }
 }

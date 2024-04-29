@@ -75,6 +75,7 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransiti
 import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
 import com.google.devtools.build.lib.analysis.test.CoverageActionFinishedEvent;
 import com.google.devtools.build.lib.analysis.test.CoverageArtifactsKnownEvent;
+import com.google.devtools.build.lib.analysis.test.CoverageReportEvent;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
@@ -760,13 +761,14 @@ public final class SkyframeBuildView {
         // combined report that matters.
         // When --nokeep_going and there's an earlier error, we should skip this and fail fast.
         if ((!mainEvaluationResult.hasError() && !hasExclusiveTestsError) || keepGoing) {
-          ImmutableSet<Artifact> coverageArtifacts =
+          var coverageArtifacts =
               coverageReportActionsWrapperSupplier.getCoverageArtifacts(
                   buildResultListener.getAnalyzedTargets(), buildResultListener.getAnalyzedTests());
-          eventBus.post(CoverageArtifactsKnownEvent.create(coverageArtifacts));
+          eventBus.post(
+              CoverageArtifactsKnownEvent.create(coverageArtifacts.allCoverageArtifacts()));
           additionalArtifactsResult =
               skyframeExecutor.evaluateSkyKeys(
-                  eventHandler, Artifact.keys(coverageArtifacts), keepGoing);
+                  eventHandler, Artifact.keys(coverageArtifacts.allCoverageArtifacts()), keepGoing);
           eventBus.post(new CoverageActionFinishedEvent());
           if (additionalArtifactsResult.hasError()) {
             detailedExitCodes.add(
@@ -780,6 +782,8 @@ public final class SkyframeBuildView {
                         bugReporter,
                         /* includeExecutionPhase= */ true)
                     .executionDetailedExitCode());
+          } else {
+            eventBus.post(new CoverageReportEvent(coverageArtifacts.coverageReportArtifacts()));
           }
         }
       } finally {
@@ -1481,7 +1485,11 @@ public final class SkyframeBuildView {
   /** Provides the list of coverage artifacts to be built. */
   @FunctionalInterface
   public interface CoverageReportActionsWrapperSupplier {
-    ImmutableSet<Artifact> getCoverageArtifacts(
+    record CoverageArtifacts(
+        ImmutableSet<Artifact> allCoverageArtifacts,
+        ImmutableSet<Artifact> coverageReportArtifacts) {}
+
+    CoverageArtifacts getCoverageArtifacts(
         Set<ConfiguredTarget> configuredTargets, Set<ConfiguredTarget> allTargetsToTest)
         throws InterruptedException;
   }

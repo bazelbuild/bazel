@@ -168,6 +168,12 @@ public final class BuildEventIdUtil {
         .build();
   }
 
+  public static BuildEventId coverageReport() {
+    return BuildEventId.newBuilder()
+        .setCoverageReport(BuildEventId.CoverageReportId.getDefaultInstance())
+        .build();
+  }
+
   public static BuildEventId aspectConfigured(Label label, String aspect) {
     BuildEventId.TargetConfiguredId configuredId =
         BuildEventId.TargetConfiguredId.newBuilder()
