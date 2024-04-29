@@ -275,7 +275,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       if ((features & IS_NESTED_SET) != 0) {
         @SuppressWarnings("unchecked")
         NestedSet<Object> nestedSet = (NestedSet<Object>) arguments.get(argi++);
-        originalValues = nestedSet.toListNoMemoUpdate();
+        originalValues = nestedSet.toList();
       } else {
         int count = (Integer) arguments.get(argi++);
         originalValues = arguments.subList(argi, argi + count);
