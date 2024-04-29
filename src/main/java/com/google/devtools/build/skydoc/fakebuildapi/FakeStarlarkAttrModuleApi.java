@@ -36,6 +36,7 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
 
   @Override
   public Descriptor intAttribute(
+      Object configurable,
       StarlarkInt defaultInt,
       Object doc,
       Boolean mandatory,
@@ -48,6 +49,7 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
 
   @Override
   public Descriptor stringAttribute(
+      Object configurable,
       Object defaultString,
       Object doc,
       Boolean mandatory,
@@ -64,6 +66,7 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
 
   @Override
   public Descriptor labelAttribute(
+      Object configurable,
       Object defaultO,
       Object doc,
       Boolean executable,
@@ -88,7 +91,12 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
 
   @Override
   public Descriptor stringListAttribute(
-      Boolean mandatory, Boolean allowEmpty, Object defaultList, Object doc, StarlarkThread thread)
+      Boolean mandatory,
+      Boolean allowEmpty,
+      Object configurable,
+      Object defaultList,
+      Object doc,
+      StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(
         AttributeType.STRING_LIST,
@@ -102,6 +110,7 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
   public Descriptor intListAttribute(
       Boolean mandatory,
       Boolean allowEmpty,
+      Object configurable,
       Sequence<?> defaultList,
       Object doc,
       StarlarkThread thread)
@@ -113,6 +122,7 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
   @Override
   public Descriptor labelListAttribute(
       Boolean allowEmpty,
+      Object configurable,
       Object defaultList,
       Object doc,
       Object allowFiles,
@@ -136,6 +146,7 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
   @Override
   public Descriptor labelKeyedStringDictAttribute(
       Boolean allowEmpty,
+      Object configurable,
       Object defaultList,
       Object doc,
       Object allowFiles,
@@ -161,7 +172,8 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
 
   @Override
   public Descriptor boolAttribute(
-      Boolean defaultO, Object doc, Boolean mandatory, StarlarkThread thread) throws EvalException {
+      Object configurable, Boolean defaultO, Object doc, Boolean mandatory, StarlarkThread thread)
+      throws EvalException {
     return new FakeDescriptor(
         AttributeType.BOOLEAN,
         toTrimmedString(doc),
@@ -187,7 +199,12 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
 
   @Override
   public Descriptor stringDictAttribute(
-      Boolean allowEmpty, Dict<?, ?> defaultO, Object doc, Boolean mandatory, StarlarkThread thread)
+      Boolean allowEmpty,
+      Object configurable,
+      Dict<?, ?> defaultO,
+      Object doc,
+      Boolean mandatory,
+      StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(
         AttributeType.STRING_DICT, toTrimmedString(doc), mandatory, ImmutableList.of(), defaultO);
@@ -195,7 +212,12 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
 
   @Override
   public Descriptor stringListDictAttribute(
-      Boolean allowEmpty, Dict<?, ?> defaultO, Object doc, Boolean mandatory, StarlarkThread thread)
+      Boolean allowEmpty,
+      Object configurable,
+      Dict<?, ?> defaultO,
+      Object doc,
+      Boolean mandatory,
+      StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(
         AttributeType.STRING_LIST_DICT,

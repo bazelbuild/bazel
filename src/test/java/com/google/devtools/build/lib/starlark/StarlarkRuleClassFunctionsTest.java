@@ -420,7 +420,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         my_macro = macro(
             implementation=_impl,
             attrs = {
-                "target_suffix": attr.string(),
+                "target_suffix": attr.string(configurable=False),
             },
         )
         """);
@@ -833,6 +833,72 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(attr.getAllowedFileTypesPredicate().apply("a.xml")).isTrue();
     assertThat(attr.getAllowedFileTypesPredicate().apply("a.txt")).isFalse();
     assertThat(attr.isSingleArtifact()).isTrue();
+  }
+
+  @Test
+  public void testRuleCannotSetConfigurableOnAttr() throws Exception {
+    scratch.file("lib/BUILD");
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name, xyz):
+            print("xyz is %s" % xyz)
+        my_rule = rule(
+            implementation=_impl,
+            attrs = {
+              "xyz": attr.string(configurable=False),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_rule")
+        my_rule(
+            name = "abc",
+            xyz = select({"//some:condition": ":target1", "//some:other_condition": ":target2"}),
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getPackage("pkg");
+    assertThat(pkg).isNull();
+    assertContainsEvent(
+        "attribute 'xyz' has the 'configurable' argument set, which is not allowed in"
+            + " rule definitions");
+  }
+
+  @Test
+  public void testAspectCannotSetConfigurableOnAttr() throws Exception {
+    scratch.file("lib/BUILD");
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name, xyz):
+            print("xyz is %s" % xyz)
+        my_aspect = aspect(
+            implementation=_impl,
+            attrs = {
+              "xyz": attr.string(configurable=False),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_aspect")
+        my_aspect(
+            name = "abc",
+            xyz = select({"//some:condition": ":target1", "//some:other_condition": ":target2"}),
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getPackage("pkg");
+    assertThat(pkg).isNull();
+    assertContainsEvent(
+        "attribute 'xyz' has the 'configurable' argument set, which is not allowed in aspect"
+            + " definitions");
   }
 
   private static StarlarkProviderIdentifier legacy(String legacyId) {

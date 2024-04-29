@@ -182,14 +182,17 @@ public final class MacroClass {
     // passed instead of label, ensure values are immutable.)
     for (Map.Entry<String, Object> entry : ImmutableMap.copyOf(attrValues).entrySet()) {
       String attrName = entry.getKey();
+      Attribute attribute = attributes.get(attrName);
       Object normalizedValue =
           // copyAndLiftStarlarkValue ensures immutability.
           BuildType.copyAndLiftStarlarkValue(
-              name, attributes.get(attrName), entry.getValue(), pkgBuilder.getLabelConverter());
+              name, attribute, entry.getValue(), pkgBuilder.getLabelConverter());
       // TODO(#19922): Validate that LABEL_LIST type attributes don't contain duplicates, to match
       // the behavior of rules. This probably requires factoring out logic from
       // AggregatingAttributeMapper.
-      // TODO(#19922): select() promotion here
+      if (attribute.isConfigurable() && !(normalizedValue instanceof SelectorList)) {
+        normalizedValue = SelectorList.wrapSingleValue(normalizedValue);
+      }
       attrValues.put(attrName, normalizedValue);
     }
 
