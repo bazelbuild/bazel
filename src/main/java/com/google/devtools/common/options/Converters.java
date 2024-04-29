@@ -715,4 +715,44 @@ public final class Converters {
       return "Converts to a CaffeineSpec, or null if the input is empty";
     }
   }
+
+  /** A {@link Converter} for a size in bytes with an optional multiplier suffix. */
+  public static final class ByteSizeConverter extends Converter.Contextless<Long> {
+    private static final Pattern PATTERN =
+        Pattern.compile("(?<value>[0-9]+)(?<multiplier>[KMGT]?)");
+
+    private static final ImmutableMap<String, Long> MULTIPLIER_MAP =
+        ImmutableMap.of(
+            "K",
+            1024L,
+            "M",
+            1024L * 1024L,
+            "G",
+            1024L * 1024L * 1024L,
+            "T",
+            1024L * 1024L * 1024L * 1024L);
+
+    @Override
+    public Long convert(String input) throws OptionsParsingException {
+      Matcher m = PATTERN.matcher(input);
+      if (!m.matches()) {
+        throw new OptionsParsingException("Invalid size: " + input);
+      }
+      try {
+        long value = Long.parseLong(m.group("value"));
+        String mult = m.group("multiplier");
+        if (!mult.isEmpty()) {
+          value = Math.multiplyExact(value, (long) MULTIPLIER_MAP.get(mult));
+        }
+        return value;
+      } catch (NumberFormatException | ArithmeticException e) {
+        throw new OptionsParsingException("Invalid size: " + input, e);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a size in bytes, optionally followed by a K, M, G or T multiplier";
+    }
+  }
 }
