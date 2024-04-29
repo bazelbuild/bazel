@@ -1077,15 +1077,20 @@ def cc_shared_library_initializer(**kwargs):
     """Initializes dynamic_deps_attrs"""
     if "dynamic_deps" in kwargs and cc_helper.is_non_empty_list_or_select(kwargs["dynamic_deps"], "dynamic_deps"):
         # Propagate an aspect if dynamic_deps attribute is specified.
+        # Use += for lists rather than extend or append to allow for the case where deps
+        # is a select.
         all_deps = []
         if "deps" in kwargs:
-            all_deps.extend(kwargs["deps"])
+            all_deps += kwargs["deps"]
 
         if "linkshared" not in kwargs or not kwargs["linkshared"]:
+            # The += [...] pattern below doesn't work if malloc or link_extra_lib are
+            # themselves selects, but as of March 2024, there is no way to combine mixed
+            # selects and these attributes usually point to label flags anyway.
             if "link_extra_lib" in kwargs:
-                all_deps.append(kwargs["link_extra_lib"])
+                all_deps += [kwargs["link_extra_lib"]]
             if "malloc" in kwargs:
-                all_deps.append(kwargs["malloc"])
+                all_deps += [kwargs["malloc"]]
 
         return kwargs | {"_deps_analyzed_by_graph_structure_aspect": all_deps}
     return kwargs
