@@ -17,6 +17,9 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
+import static java.util.stream.Collectors.flatMapping;
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.toList;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
@@ -73,6 +76,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -1474,5 +1478,86 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "Error in use_extension: in call to use_extension(), parameter 'isolate' is experimental "
             + "and thus unavailable with the current flags. It may be enabled by setting "
             + "--experimental_isolated_extension_usages");
+  }
+
+  @Test
+  public void inferredExtensionName() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "ext1 = use_extension('@rules_bbb//bbb/extensions:bbb_deps.bzl', 'bbb_deps')",
+        "ext1.tag1()",
+        "ext2 = use_extension('@rules_bbb//bbb/extensions:bbb_deps.bzl')",
+        "ext2.tag2()",
+        "ext3 = use_extension('@rules_bbb//bbb/extensions:foo/bar/bbb_deps.bzl', 'bbb_deps')",
+        "ext3.tag3()",
+        "ext4 = use_extension('@rules_bbb//bbb/extensions:foo/bar/bbb_deps.bzl')",
+        "ext4.tag4()",
+        "ext5 = use_extension('@ccc_deps.bzl', 'ccc_deps')",
+        "ext5.tag5()",
+        "ext6 = use_extension('@ccc_deps.bzl')",
+        "ext6.tag6()",
+        "rule1 = use_repo_rule('@rules_ddd//ddd:ddd_repo.bzl')",
+        "rule1(name = 'repo1')",
+        "rule2 = use_repo_rule('@rules_ddd//ddd:foo/bar/ddd_repo.bzl')",
+        "rule2(name = 'repo2')",
+        "rule3 = use_repo_rule('@ccc_repo.bzl')",
+        "rule3(name = 'repo3')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+    RootModuleFileValue rootModuleFileValue = result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
+    var tagsByExtension =
+        rootModuleFileValue.getModule().getExtensionUsages().stream()
+            .collect(
+                groupingBy(
+                    usage -> usage.getExtensionBzlFile() + "%" + usage.getExtensionName(),
+                    flatMapping(usage -> usage.getTags().stream().map(Tag::getTagName), toList())));
+    assertThat(tagsByExtension)
+        .containsExactly(
+            "@rules_bbb//bbb/extensions:bbb_deps.bzl%bbb_deps",
+            List.of("tag1", "tag2"),
+            "@rules_bbb//bbb/extensions:foo/bar/bbb_deps.bzl%bbb_deps",
+            List.of("tag3", "tag4"),
+            "@ccc_deps.bzl//:ccc_deps.bzl%ccc_deps",
+            List.of("tag5", "tag6"),
+            "//:MODULE.bazel%_repo_rules",
+            List.of(
+                "@rules_ddd//ddd:ddd_repo.bzl%ddd_repo",
+                "@rules_ddd//ddd:foo/bar/ddd_repo.bzl%ddd_repo", "@ccc_repo.bzl%ccc_repo"));
+  }
+
+  @Test
+  public void inferredExtensionName_noBzlExtension() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "use_extension('//:extensions')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertContainsEvent(
+        "Error in use_extension: The extension file '//:extensions' must have a .bzl extension");
+  }
+
+  @Test
+  public void inferredExtensionName_invalidLabel() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(), "use_extension('@:extensions')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertContainsEvent(
+        "Error in use_extension: The extension file '@:extensions' is not a valid label: invalid "
+            + "repository name ':extensions': repo names may contain only A-Z, a-z, 0-9, '-', '_', '.' and '~' "
+            + "and must not start with '~'");
   }
 }

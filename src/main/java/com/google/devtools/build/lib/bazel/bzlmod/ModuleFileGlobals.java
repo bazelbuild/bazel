@@ -387,7 +387,10 @@ public class ModuleFileGlobals {
             name = "extension_name",
             doc =
                 "The name of the module extension to use. A symbol with this name must be exported"
-                    + " by the Starlark file."),
+                    + " by the Starlark file.  If not specified, the name of the rule is understood"
+                    + " to be the basename of the .bzl file, minus the .bzl extension.",
+            defaultValue = "unbound",
+            allowedTypes = {@ParamType(type = String.class)}),
         @Param(
             name = "dev_dependency",
             doc =
@@ -415,7 +418,7 @@ public class ModuleFileGlobals {
       useStarlarkThread = true)
   public ModuleExtensionProxy useExtension(
       String rawExtensionBzlFile,
-      String extensionName,
+      Object maybeExtensionName,
       boolean devDependency,
       boolean isolate,
       StarlarkThread thread)
@@ -423,11 +426,17 @@ public class ModuleFileGlobals {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "use_extension()");
     context.setNonModuleCalled();
 
-    if (extensionName.equals(ModuleExtensionId.INNATE_EXTENSION_NAME)) {
+    if (maybeExtensionName.equals(ModuleExtensionId.INNATE_EXTENSION_NAME)) {
       throw Starlark.errorf(
           "innate extensions cannot be directly used; try `use_repo_rule` instead");
     }
 
+    String extensionName;
+    if (maybeExtensionName == Starlark.UNBOUND) {
+      extensionName = inferName(rawExtensionBzlFile);
+    } else {
+      extensionName = (String) maybeExtensionName;
+    }
     String extensionBzlFile = normalizeLabelString(context.getModuleBuilder(), rawExtensionBzlFile);
     ModuleExtensionUsageBuilder newUsageBuilder =
         new ModuleExtensionUsageBuilder(
@@ -501,6 +510,27 @@ public class ModuleFileGlobals {
       // Preserve backwards compatibility by not failing eagerly, rather keep the invalid label and
       // let the module repo fail when fetched.
       return rawLabel;
+    }
+  }
+
+  private static String inferName(String extensionBzlFile) throws EvalException {
+    try {
+      // We do not care about the canonical repository name here.
+      Label.PackageContext packageContext =
+          Label.PackageContext.of(
+              PackageIdentifier.EMPTY_PACKAGE_ID, RepositoryMapping.ALWAYS_FALLBACK);
+      String bzlFileName =
+          Label.parseWithPackageContext(extensionBzlFile, packageContext).getName();
+      if (!bzlFileName.endsWith(".bzl")) {
+        throw Starlark.errorf(
+            "The extension file '%s' must have a .bzl extension", extensionBzlFile);
+      }
+      // Turn "foo/bar/baz.bzl" into "baz".
+      return bzlFileName.substring(
+          bzlFileName.lastIndexOf('/') + 1, bzlFileName.length() - ".bzl".length());
+    } catch (LabelSyntaxException e) {
+      throw Starlark.errorf(
+          "The extension file '%s' is not a valid label: %s", extensionBzlFile, e.getMessage());
     }
   }
 
@@ -639,13 +669,22 @@ public class ModuleFileGlobals {
             name = "repo_rule_name",
             doc =
                 "The name of the repo rule to use. A symbol with this name must be exported by the"
-                    + " Starlark file."),
+                    + " Starlark file. If not specified, the name of the rule is understood to be"
+                    + " the basename of the .bzl file, minus the .bzl extension.",
+            defaultValue = "unbound",
+            allowedTypes = {@ParamType(type = String.class)}),
       },
       useStarlarkThread = true)
-  public RepoRuleProxy useRepoRule(String bzlFile, String ruleName, StarlarkThread thread)
+  public RepoRuleProxy useRepoRule(String bzlFile, Object maybeRuleName, StarlarkThread thread)
       throws EvalException {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "use_repo_rule()");
     context.setNonModuleCalled();
+    String ruleName;
+    if (maybeRuleName == Starlark.UNBOUND) {
+      ruleName = inferName(bzlFile);
+    } else {
+      ruleName = (String) maybeRuleName;
+    }
     // The builder for the singular "innate" extension of this module. Note that there's only one
     // such usage (and it's fabricated), so the usage location just points to this file.
     ModuleExtensionUsageBuilder newUsageBuilder =
