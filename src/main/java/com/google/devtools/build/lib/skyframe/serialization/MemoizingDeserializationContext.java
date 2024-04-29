@@ -76,6 +76,27 @@ abstract class MemoizingDeserializationContext extends DeserializationContext {
   }
 
   @Override
+  public final <T> T deserializeLeaf(CodedInputStream codedIn, LeafObjectCodec<T> codec)
+      throws IOException, SerializationException {
+    int tag = codedIn.readSInt32();
+    if (tag == 0) {
+      return null;
+    }
+    Object maybeConstant = maybeGetConstantByTag(tag);
+    if (maybeConstant != null) {
+      return codec.safeCast(maybeConstant);
+    }
+    if (tag < -1) {
+      // Subtracts 2 to undo the corresponding operation in SerializationContext.serializeLeaf.
+      return codec.safeCast(getMemoizedBackReference(-tag - 2));
+    }
+    checkState(tag == -1, "Unexpected tag for immediate value; %s", tag);
+    T value = codec.deserialize((LeafDeserializationContext) this, codedIn);
+    memoize(memoTable.size(), value);
+    return value;
+  }
+
+  @Override
   public final void registerInitialValue(Object initialValue) {
     checkState(tagForMemoizedBefore != -1, "Not called with memoize before: %s", initialValue);
     int tag = tagForMemoizedBefore;

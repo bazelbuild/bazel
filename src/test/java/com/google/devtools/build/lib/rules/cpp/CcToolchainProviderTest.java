@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -92,7 +93,8 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
         """);
 
     ConfiguredTarget ct = getConfiguredTarget("//test:target");
-    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//test:rule.bzl"), "MyInfo");
+    Provider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:rule.bzl")), "MyInfo");
     StructImpl info = (StructImpl) ct.get(key);
 
     assertThat((String) info.getValue("ar_executable")).endsWith("/usr/bin/mock-ar");

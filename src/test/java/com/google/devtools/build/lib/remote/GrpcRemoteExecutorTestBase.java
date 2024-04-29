@@ -268,6 +268,24 @@ public abstract class GrpcRemoteExecutorTestBase {
   }
 
   @Test
+  public void executeRemotely_retryExecuteIfNotFoundStream()
+      throws IOException, InterruptedException {
+    executionService.whenExecute(DUMMY_REQUEST).thenAck().finish();
+    executionService
+        .whenWaitExecution(DUMMY_REQUEST)
+        .thenError(Status.NOT_FOUND.asRuntimeException());
+    executionService.whenExecute(DUMMY_REQUEST).thenAck().finish();
+    executionService.whenWaitExecution(DUMMY_REQUEST).thenDone(DUMMY_RESPONSE);
+
+    ExecuteResponse response =
+        executor.executeRemotely(context, DUMMY_REQUEST, OperationObserver.NO_OP);
+
+    assertThat(executionService.getExecTimes()).isEqualTo(2);
+    assertThat(executionService.getWaitTimes()).isEqualTo(2);
+    assertThat(response).isEqualTo(DUMMY_RESPONSE);
+  }
+
+  @Test
   public void executeRemotely_retryExecuteOnFinish() throws IOException, InterruptedException {
     executionService.whenExecute(DUMMY_REQUEST).thenAck().finish();
     executionService.whenWaitExecution(DUMMY_REQUEST).thenAck().finish();
@@ -285,7 +303,7 @@ public abstract class GrpcRemoteExecutorTestBase {
   public void executeRemotely_notFoundLoop_reportError() {
     for (int i = 0; i <= MAX_RETRY_ATTEMPTS; ++i) {
       executionService.whenExecute(DUMMY_REQUEST).thenAck().finish();
-      executionService.whenWaitExecution(DUMMY_REQUEST).thenAck().thenError(Code.NOT_FOUND);
+      executionService.whenWaitExecution(DUMMY_REQUEST).thenError(Code.NOT_FOUND);
     }
 
     IOException e =
@@ -316,7 +334,7 @@ public abstract class GrpcRemoteExecutorTestBase {
   @Test
   public void executeRemotely_retryExecuteOnNoResultDoneOperation()
       throws IOException, InterruptedException {
-    executionService.whenExecute(DUMMY_REQUEST).thenAck().thenError(Code.UNAVAILABLE);
+    executionService.whenExecute(DUMMY_REQUEST).thenError(Code.UNAVAILABLE);
     executionService.whenExecute(DUMMY_REQUEST).thenAck().thenDone(DUMMY_RESPONSE);
 
     ExecuteResponse response =

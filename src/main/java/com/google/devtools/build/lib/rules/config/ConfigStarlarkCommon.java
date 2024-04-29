@@ -45,8 +45,8 @@ public class ConfigStarlarkCommon implements ConfigStarlarkCommonApi {
       Object name, boolean mandatory, StarlarkThread thread) throws EvalException {
 
     Label label;
-    if (name instanceof Label) {
-      label = (Label) name;
+    if (name instanceof Label nameLabel) {
+      label = nameLabel;
     } else if (name instanceof String) {
       LabelConverter converter = LabelConverter.forBzlEvaluatingThread(thread);
       try {

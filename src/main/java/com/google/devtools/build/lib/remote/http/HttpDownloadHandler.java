@@ -74,8 +74,8 @@ final class HttpDownloadHandler extends AbstractHttpHandler<HttpObject> {
     }
     checkState(userPromise != null, "response before request");
 
-    if (msg instanceof HttpResponse) {
-      response = (HttpResponse) msg;
+    if (msg instanceof HttpResponse httpResponse) {
+      response = httpResponse;
       if (!response.protocolVersion().equals(HttpVersion.HTTP_1_1)) {
         HttpException error =
             new HttpException(

@@ -57,6 +57,12 @@ final class ImmutableSerializationContext extends SerializationContext {
   }
 
   @Override
+  public <T> void serializeLeaf(T obj, LeafObjectCodec<T> codec, CodedOutputStream codedOut)
+      throws SerializationException, IOException {
+    codec.serialize((LeafSerializationContext) this, obj, codedOut);
+  }
+
+  @Override
   boolean writeBackReferenceIfMemoized(Object obj, CodedOutputStream codedOut) {
     return false;
   }

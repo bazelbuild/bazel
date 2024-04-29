@@ -77,8 +77,8 @@ public abstract class TransitiveTraversalValue implements SkyValue {
         }
 
         AdvertisedProviderSet providers =
-            target instanceof Rule
-                ? ((Rule) target).getRuleClassObject().getAdvertisedProviders()
+            target instanceof Rule rule
+                ? rule.getRuleClassObject().getAdvertisedProviders()
                 : AdvertisedProviderSet.EMPTY;
 
         value = new TransitiveTraversalValueWithoutError(providers, target.getTargetKind());

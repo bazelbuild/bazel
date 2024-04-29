@@ -538,6 +538,7 @@ public abstract class CcModule
       Object interfaceLibraryObject,
       Object picObjectFiles, // Sequence<Artifact> expected
       Object objectFiles, // Sequence<Artifact> expected
+      Object ltoCopmilationContextObject,
       boolean alwayslink,
       String dynamicLibraryPath,
       String interfaceLibraryPath,
@@ -562,19 +563,14 @@ public abstract class CcModule
     boolean mustKeepDebug =
         convertFromNoneable(mustKeepDebugForStarlark, /* defaultValue= */ false);
 
-    if (checkObjectsBound(picObjectFiles, objectFiles)
-        && !isStarlarkCcCommonCalledFromBuiltins(thread)) {
-      if (!starlarkActionFactory
-          .getRuleContext()
-          .getConfiguration()
-          .getFragment(CppConfiguration.class)
-          .experimentalStarlarkCcImport()) {
-        throw Starlark.errorf(
-            "Cannot use objects/pic_objects without --experimental_starlark_cc_import");
-      }
-    }
     ImmutableList<Artifact> picObjects = asArtifactImmutableList(picObjectFiles);
     ImmutableList<Artifact> nopicObjects = asArtifactImmutableList(objectFiles);
+
+    LtoCompilationContext ltoCompilationContext =
+        convertFromNoneable(ltoCopmilationContextObject, LtoCompilationContext.EMPTY);
+    if (!ltoCompilationContext.equals(LtoCompilationContext.EMPTY)) {
+      checkPrivateStarlarkificationAllowlist(thread);
+    }
 
     StringBuilder extensionErrorsBuilder = new StringBuilder();
     String extensionErrorMessage = "does not have any of the allowed extensions";
@@ -745,6 +741,7 @@ public abstract class CcModule
         .setPicObjectFiles(picObjects)
         .setAlwayslink(alwayslink)
         .setMustKeepDebug(mustKeepDebug)
+        .setLtoCompilationContext(ltoCompilationContext)
         .build();
   }
 
@@ -2070,15 +2067,6 @@ public abstract class CcModule
     }
   }
 
-  private static boolean checkObjectsBound(Object... objects) {
-    for (Object object : objects) {
-      if (object != Starlark.UNBOUND) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   @Override
   @SuppressWarnings("unchecked")
   public Tuple compile(
@@ -2460,6 +2448,34 @@ public abstract class CcModule
     } catch (RuleErrorException e) {
       throw Starlark.errorf("%s", e.getMessage());
     }
+  }
+
+  @Override
+  @SuppressWarnings("unchecked")
+  public LtoCompilationContext createLtoCompilationContextFromStarlark(
+      Object objectsObject, StarlarkThread thread) throws EvalException {
+    checkPrivateStarlarkificationAllowlist(thread);
+    Dict<Artifact, Tuple> objects =
+        Dict.cast(objectsObject, Artifact.class, Tuple.class, "objects");
+    LtoCompilationContext.Builder builder = new LtoCompilationContext.Builder();
+    for (Artifact k : objects) {
+      Tuple t = objects.get(k);
+      if (t.size() != 2) {
+        throw new EvalException(
+            "wrong length tuple for an (index_file, copts), want 2, got " + t.size());
+      }
+      Object minimizedBitcode = t.get(0);
+      if (!(minimizedBitcode instanceof Artifact)) {
+        throw new EvalException("expected Artifact for minimized bitcode, got something else");
+      }
+      Object copts = t.get(1);
+      if (!(copts instanceof StarlarkList)) {
+        throw new EvalException("expected list for copts, got something else");
+      }
+      builder.addBitcodeFile(
+          k, (Artifact) minimizedBitcode, ImmutableList.copyOf((StarlarkList<String>) copts));
+    }
+    return builder.build();
   }
 
   @Override

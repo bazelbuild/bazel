@@ -83,8 +83,10 @@ public class ConfigFeatureFlagTaggedTrimmingTransitionFactory
 
     @Override
     public boolean equals(Object other) {
-      return other instanceof ConfigFeatureFlagTaggedTrimmingTransition
-          && this.flags.equals(((ConfigFeatureFlagTaggedTrimmingTransition) other).flags);
+      return other
+              instanceof
+              ConfigFeatureFlagTaggedTrimmingTransition configFeatureFlagTaggedTrimmingTransition
+          && this.flags.equals(configFeatureFlagTaggedTrimmingTransition.flags);
     }
 
     @Override

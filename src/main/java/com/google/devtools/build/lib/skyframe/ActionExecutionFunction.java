@@ -1061,8 +1061,8 @@ public final class ActionExecutionFunction implements SkyFunction {
             input, ((ActionExecutionValue) retrievedMetadata).getExistingFileArtifactValue(input));
       } else if (retrievedMetadata instanceof MissingArtifactValue) {
         inputData.putWithNoDepOwner(input, FileArtifactValue.MISSING_FILE_MARKER);
-      } else if (retrievedMetadata instanceof FileArtifactValue) {
-        inputData.putWithNoDepOwner(input, (FileArtifactValue) retrievedMetadata);
+      } else if (retrievedMetadata instanceof FileArtifactValue fileArtifactValue) {
+        inputData.putWithNoDepOwner(input, fileArtifactValue);
       } else {
         throw new IllegalStateException(
             "unknown metadata for " + input.getExecPathString() + ": " + retrievedMetadata);
@@ -1642,8 +1642,8 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
 
     private void handleActionExecutionExceptionFromSkykey(SkyKey key, ActionExecutionException e) {
-      if (key instanceof Artifact) {
-        handleActionExecutionExceptionPerArtifact((Artifact) key, e);
+      if (key instanceof Artifact artifact) {
+        handleActionExecutionExceptionPerArtifact(artifact, e);
         return;
       }
       Set<Artifact> associatedInputs = skyKeyToDerivedArtifactSetForExceptions.get().get(key);

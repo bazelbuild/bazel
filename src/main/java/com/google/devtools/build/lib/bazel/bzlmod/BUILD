@@ -106,6 +106,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/skyframe",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -133,7 +134,6 @@ java_library(
         "ModuleExtensionEvalFactors.java",
         "ModuleExtensionEvalStarlarkThreadContext.java",
         "ModuleExtensionRepoMappingEntriesValue.java",
-        "ModuleExtensionResolutionEvent.java",
         "ModuleFileGlobals.java",
         "ModuleFileValue.java",
         "ModuleOverride.java",
@@ -143,8 +143,8 @@ java_library(
         "RegistryKey.java",
         "RegistryOverride.java",
         "RepoSpecKey.java",
-        "SingleExtensionEvalValue.java",
         "SingleExtensionUsagesValue.java",
+        "SingleExtensionValue.java",
         "SingleVersionOverride.java",
         "YankedVersionsValue.java",
     ],
@@ -156,6 +156,7 @@ java_library(
         ":module_extension_metadata",
         ":registry",
         ":repo_rule_creator",
+        ":root_module_file_fixup",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -199,6 +200,7 @@ java_library(
         "RepoSpecFunction.java",
         "Selection.java",
         "SingleExtensionEvalFunction.java",
+        "SingleExtensionFunction.java",
         "SingleExtensionUsagesFunction.java",
         "StarlarkBazelModule.java",
         "TypeCheckedTag.java",
@@ -215,6 +217,7 @@ java_library(
         ":repo_rule_creator",
         ":repo_rule_value",
         ":resolution",
+        ":root_module_file_fixup",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
@@ -295,6 +298,7 @@ java_library(
     ],
     deps = [
         ":resolution",
+        ":root_module_file_fixup",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
@@ -316,6 +320,7 @@ java_library(
         ":exception",
         ":resolution",
         ":resolution_impl",
+        ":root_module_file_fixup",
         ":tidy",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
@@ -373,7 +378,7 @@ java_library(
     deps = [
         ":common",
         ":module_extension",
-        ":module_file_fixup_event",
+        ":root_module_file_fixup",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -388,13 +393,12 @@ java_library(
 )
 
 java_library(
-    name = "module_file_fixup_event",
+    name = "root_module_file_fixup",
     srcs = [
-        "RootModuleFileFixupEvent.java",
+        "RootModuleFileFixup.java",
     ],
     deps = [
         ":module_extension",
-        "//src/main/java/com/google/devtools/build/lib/events",
         "//third_party:guava",
     ],
 )

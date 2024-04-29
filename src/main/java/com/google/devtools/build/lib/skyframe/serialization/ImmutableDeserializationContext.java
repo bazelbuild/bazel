@@ -52,6 +52,12 @@ public final class ImmutableDeserializationContext extends DeserializationContex
   }
 
   @Override
+  public <T> T deserializeLeaf(CodedInputStream codedIn, LeafObjectCodec<T> codec)
+      throws SerializationException, IOException {
+    return codec.deserialize((LeafDeserializationContext) this, codedIn);
+  }
+
+  @Override
   Object getMemoizedBackReference(int memoIndex) {
     throw new UnsupportedOperationException(
         "The tag should never be less than 0 in the stateless case");

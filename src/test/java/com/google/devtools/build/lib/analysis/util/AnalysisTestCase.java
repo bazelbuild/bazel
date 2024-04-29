@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.util;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -753,7 +754,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected StarlarkInfo getStarlarkProvider(
       ProviderCollection target, String label, String providerSymbol) throws Exception {
     StarlarkProvider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonical(label), providerSymbol);
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical(label)), providerSymbol);
     return (StarlarkInfo) target.get(key);
   }
 }

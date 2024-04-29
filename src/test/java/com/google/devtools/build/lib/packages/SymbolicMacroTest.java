@@ -227,7 +227,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         my_macro = macro(
             implementation=_impl,
             attrs = {
-              "xyz": attr.string(default="DEFAULT")
+              "xyz": attr.string(default="DEFAULT", configurable=False)
             },
         )
         """);
@@ -253,7 +253,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         my_macro = macro(
             implementation=_impl,
             attrs = {
-              "xyz": attr.string(default="DEFAULT")
+              "xyz": attr.string(default="DEFAULT", configurable=False)
             },
         )
         """);
@@ -282,7 +282,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         my_macro = macro(
             implementation=_impl,
             attrs = {
-              "_xyz": attr.string(default="IMPLICIT")
+              "_xyz": attr.string(default="IMPLICIT", configurable=False)
             },
         )
         """);
@@ -308,7 +308,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         my_macro = macro(
             implementation=_impl,
             attrs = {
-              "xyz": attr.string(default="DEFAULT")
+              "xyz": attr.string(default="DEFAULT", configurable=False)
             },
         )
         """);
@@ -405,8 +405,8 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         my_macro = macro(
             implementation=_impl,
             attrs = {
-              "xyz": attr.label(),
-              "_xyz": attr.label(default=":BUILD")
+              "xyz": attr.label(configurable = False),
+              "_xyz": attr.label(default=":BUILD", configurable=False)
             },
         )
         """);
@@ -436,7 +436,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         my_macro = macro(
             implementation=_impl,
             attrs = {
-              "xyz": attr.int_list(),
+              "xyz": attr.int_list(configurable=False),
             },
         )
         """);
@@ -486,4 +486,147 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
   // TODO: #19922 - Add more test cases for interaction between macros and environment_group,
   // package_group, implicit/explicit input files, and the package() function. But all of these
   // behaviors are about to change (from allowed to prohibited).
+
+  @Test
+  public void attrsAllowSelectsByDefault() throws Exception {
+    scratch.file("lib/BUILD");
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name, xyz):
+            print("xyz is %s" % xyz)
+        my_macro = macro(
+            implementation=_impl,
+            attrs = {
+              "xyz": attr.string(),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(
+            name = "abc",
+            xyz = select({"//some:condition": ":target1", "//some:other_condition": ":target2"}),
+        )
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    assertContainsEvent(
+        "xyz is select({Label(\"//some:condition\"): \":target1\","
+            + " Label(\"//some:other_condition\"): \":target2\"})");
+  }
+
+  @Test
+  public void configurableAttrValuesArePromotedToSelects() throws Exception {
+    scratch.file("lib/BUILD");
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+def _impl(name, configurable_xyz, nonconfigurable_xyz):
+    print("configurable_xyz is '%s' (type %s)" % (str(configurable_xyz), type(configurable_xyz)))
+    print(
+        "nonconfigurable_xyz is '%s' (type %s)" % (str(
+            nonconfigurable_xyz), type(nonconfigurable_xyz)))
+
+my_macro = macro(
+    implementation=_impl,
+    attrs = {
+      "configurable_xyz": attr.string(),
+      "nonconfigurable_xyz": attr.string(configurable=False),
+    },
+)
+""");
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(
+            name = "abc",
+            configurable_xyz = "configurable",
+            nonconfigurable_xyz = "nonconfigurable",
+        )
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    assertContainsEvent(
+        "configurable_xyz is 'select({\"//conditions:default\": \"configurable\"})' (type select)");
+    assertContainsEvent("nonconfigurable_xyz is 'nonconfigurable' (type string)");
+  }
+
+  @Test
+  public void nonconfigurableAttrValuesProhibitSelects() throws Exception {
+    scratch.file("lib/BUILD");
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name, xyz):
+            print("xyz is %s" % xyz)
+        my_macro = macro(
+            implementation=_impl,
+            attrs = {
+              "xyz": attr.string(configurable=False),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(
+            name = "abc",
+            xyz = select({"//some:condition": ":target1", "//some:other_condition": ":target2"}),
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getPackage("pkg");
+    assertThat(pkg).isNotNull();
+    assertThat(pkg.containsErrors()).isTrue();
+    assertContainsEvent("attribute \"xyz\" is not configurable");
+  }
+
+  // TODO(b/331193690): Prevent selects from being evaluated as bools
+  @Test
+  public void selectableAttrCanBeEvaluatedAsBool() throws Exception {
+    scratch.file("lib/BUILD");
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+def _impl(name, xyz):
+    # Allowed for now when xyz is a select().
+    # In the future, we'll ban implicit conversion and only allow
+    # if there's an explicit bool(xyz).
+    if xyz:
+      print ("xyz evaluates to True")
+    else:
+      print("xyz evaluates to False")
+
+
+
+my_macro = macro(
+    implementation=_impl,
+    attrs = {
+      "xyz": attr.string(),
+    },
+)
+""");
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(
+            name = "abc",
+            xyz = select({"//conditions:default" :"False"}),
+        )
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    assertContainsEvent("xyz evaluates to True");
+    assertDoesNotContainEvent("xyz evaluates to False");
+  }
 }

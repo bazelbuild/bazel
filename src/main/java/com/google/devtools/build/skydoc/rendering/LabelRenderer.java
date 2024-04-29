@@ -79,8 +79,8 @@ public final class LabelRenderer {
     return new Printer() {
       @Override
       public Printer repr(Object o) {
-        if (o instanceof Label) {
-          return repr(render((Label) o));
+        if (o instanceof Label label) {
+          return repr(render(label));
         } else {
           return super.repr(o);
         }

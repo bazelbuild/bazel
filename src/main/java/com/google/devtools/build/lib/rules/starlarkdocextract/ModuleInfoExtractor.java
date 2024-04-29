@@ -210,20 +210,20 @@ public final class ModuleInfoExtractor {
           // generated.
           return;
         }
-        if (value instanceof StarlarkRuleFunction) {
-          visitRule(qualifiedName, (StarlarkRuleFunction) value);
-        } else if (value instanceof MacroFunction) {
-          visitMacroFunction(qualifiedName, (MacroFunction) value);
-        } else if (value instanceof StarlarkProvider) {
-          visitProvider(qualifiedName, (StarlarkProvider) value);
-        } else if (value instanceof StarlarkFunction) {
-          visitFunction(qualifiedName, (StarlarkFunction) value);
-        } else if (value instanceof StarlarkDefinedAspect) {
-          visitAspect(qualifiedName, (StarlarkDefinedAspect) value);
-        } else if (value instanceof RepositoryRuleFunction) {
-          visitRepositoryRule(qualifiedName, (RepositoryRuleFunction) value);
-        } else if (value instanceof ModuleExtension) {
-          visitModuleExtension(qualifiedName, (ModuleExtension) value);
+        if (value instanceof StarlarkRuleFunction starlarkRuleFunction) {
+          visitRule(qualifiedName, starlarkRuleFunction);
+        } else if (value instanceof MacroFunction macroFunction) {
+          visitMacroFunction(qualifiedName, macroFunction);
+        } else if (value instanceof StarlarkProvider starlarkProvider) {
+          visitProvider(qualifiedName, starlarkProvider);
+        } else if (value instanceof StarlarkFunction starlarkFunction) {
+          visitFunction(qualifiedName, starlarkFunction);
+        } else if (value instanceof StarlarkDefinedAspect starlarkDefinedAspect) {
+          visitAspect(qualifiedName, starlarkDefinedAspect);
+        } else if (value instanceof RepositoryRuleFunction repositoryRuleFunction) {
+          visitRepositoryRule(qualifiedName, repositoryRuleFunction);
+        } else if (value instanceof ModuleExtension moduleExtension) {
+          visitModuleExtension(qualifiedName, moduleExtension);
         } else if (value instanceof Structure) {
           recurseIntoStructure(
               qualifiedName, (Structure) value, /* shouldVisitVerifiedForAncestor= */ true);

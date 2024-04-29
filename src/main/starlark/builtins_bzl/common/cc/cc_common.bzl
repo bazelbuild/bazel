@@ -161,6 +161,10 @@ def _link(
         build_config = build_config,
     )
 
+def _create_lto_compilation_context(*, objects = {}):
+    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return cc_common_internal.create_lto_compilation_context(objects = objects)
+
 def _create_compilation_outputs(*, objects = None, pic_objects = None, lto_compilation_context = _UNBOUND, dwo_objects = _UNBOUND, pic_dwo_objects = _UNBOUND):
     if lto_compilation_context != _UNBOUND or dwo_objects != _UNBOUND or pic_dwo_objects != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
@@ -298,14 +302,23 @@ def _create_library_to_link(
         interface_library = None,
         pic_objects = _UNBOUND,
         objects = _UNBOUND,
+        lto_compilation_context = _UNBOUND,
         alwayslink = False,
         dynamic_library_symlink_path = "",
         interface_library_symlink_path = "",
         must_keep_debug = _UNBOUND):
+    if lto_compilation_context != _UNBOUND:
+        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    else:  # lto_compilation_context == _UNBOUND
+        lto_compilation_context = None
     if must_keep_debug != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     if must_keep_debug == _UNBOUND:
         must_keep_debug = False
+    if objects != _UNBOUND:
+        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    if pic_objects != _UNBOUND:
+        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
     # We cannot check if experimental_starlark_cc_import is set or not here,
     # since there is not ctx. So for a native code to perform the check
@@ -322,6 +335,7 @@ def _create_library_to_link(
         "dynamic_library_symlink_path": dynamic_library_symlink_path,
         "interface_library_symlink_path": interface_library_symlink_path,
         "must_keep_debug": must_keep_debug,
+        "lto_compilation_context": lto_compilation_context,
     }
     if pic_objects != _UNBOUND:
         kwargs["pic_objects"] = pic_objects
@@ -857,6 +871,7 @@ def _implementation_deps_allowed_by_allowlist(*, ctx):
 
 cc_common = struct(
     link = _link,
+    create_lto_compilation_context = _create_lto_compilation_context,
     create_compilation_outputs = _create_compilation_outputs,
     merge_compilation_outputs = _merge_compilation_outputs,
     # Ideally we would like to get rid of this Java symbol and replace it with Starlark one.

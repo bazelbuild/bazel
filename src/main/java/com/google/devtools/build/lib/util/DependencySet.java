@@ -239,8 +239,8 @@ public final class DependencySet {
 
   @Override
   public boolean equals(Object other) {
-    return other instanceof DependencySet
-        && ((DependencySet) other).dependencies.equals(dependencies);
+    return other instanceof DependencySet dependencySet
+        && dependencySet.dependencies.equals(dependencies);
   }
 
   @Override

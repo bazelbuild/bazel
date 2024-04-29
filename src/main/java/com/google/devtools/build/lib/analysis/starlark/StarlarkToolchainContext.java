@@ -86,10 +86,10 @@ public abstract class StarlarkToolchainContext implements ToolchainContextApi {
   }
 
   private Label transformKey(StarlarkThread starlarkThread, Object key) throws EvalException {
-    if (key instanceof Label) {
-      return (Label) key;
-    } else if (key instanceof ToolchainTypeInfo) {
-      return ((ToolchainTypeInfo) key).typeLabel();
+    if (key instanceof Label label) {
+      return label;
+    } else if (key instanceof ToolchainTypeInfo toolchainTypeInfo) {
+      return toolchainTypeInfo.typeLabel();
     } else if (key instanceof String) {
       try {
         LabelConverter converter = LabelConverter.forBzlEvaluatingThread(starlarkThread);

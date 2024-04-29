@@ -576,8 +576,8 @@ public class ModuleFileFunction implements SkyFunction {
     // TODO(wyv): Move registry object creation to BazelRepositoryModule so we don't repeatedly
     //   create them, and we can better report the error (is it a flag error or override error?).
     List<String> registries = Objects.requireNonNull(REGISTRIES.get(env));
-    if (override instanceof RegistryOverride) {
-      String overrideRegistry = ((RegistryOverride) override).getRegistry();
+    if (override instanceof RegistryOverride registryOverride) {
+      String overrideRegistry = registryOverride.getRegistry();
       if (!overrideRegistry.isEmpty()) {
         registries = ImmutableList.of(overrideRegistry);
       }
@@ -596,11 +596,14 @@ public class ModuleFileFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    List<Registry> registryObjects =
-        registryKeys.stream()
-            .map(registryResult::get)
-            .map(Registry.class::cast)
-            .collect(toImmutableList());
+    List<Registry> registryObjects = new ArrayList<>(registryKeys.size());
+    for (RegistryKey registryKey : registryKeys) {
+      Registry registry = (Registry) registryResult.get(registryKey);
+      if (registry == null) {
+        return null;
+      }
+      registryObjects.add(registry);
+    }
 
     // Now go through the list of registries and use the first one that contains the requested
     // module.

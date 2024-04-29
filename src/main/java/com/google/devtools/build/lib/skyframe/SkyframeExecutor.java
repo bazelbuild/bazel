@@ -1906,8 +1906,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ErrorInfo error = firstError.getValue();
       Throwable e = error.getException();
       // Wrap loading failed exceptions
-      if (e instanceof NoSuchThingException) {
-        e = new InvalidConfigurationException(((NoSuchThingException) e).getDetailedExitCode(), e);
+      if (e instanceof NoSuchThingException noSuchThingException) {
+        e = new InvalidConfigurationException(noSuchThingException.getDetailedExitCode(), e);
       } else if (e == null && !error.getCycleInfo().isEmpty()) {
         cyclesReporter.reportCycles(error.getCycleInfo(), firstError.getKey(), eventHandler);
         e =
@@ -4239,8 +4239,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     graph.parallelForEach(
         node -> {
           SkyKey k = node.getKey();
-          if (k instanceof FileStateKey) {
-            RootedPath rootedPath = ((FileStateKey) k).argument();
+          if (k instanceof FileStateKey fileStateKey) {
+            RootedPath rootedPath = fileStateKey.argument();
             if (workingSetRootedPaths.contains(rootedPath)) {
               leafs.add(k);
             }

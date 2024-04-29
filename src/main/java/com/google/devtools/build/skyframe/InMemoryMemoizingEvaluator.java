@@ -109,7 +109,9 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
         @Nullable GroupedDeps directDeps) {
       super.evaluated(skyKey, state, newValue, newError, directDeps);
 
-      if (state.changed()) {
+      if (directDeps == null) {
+        // In this case, no actual evaluation work was done so let's not record it.
+      } else if (state.changed()) {
         built.add(skyKey.functionName(), 1);
       } else {
         cleaned.add(skyKey.functionName(), 1);

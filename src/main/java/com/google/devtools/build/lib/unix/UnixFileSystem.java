@@ -323,7 +323,12 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   protected void chmod(PathFragment path, int mode) throws IOException {
-    NativePosixFiles.chmod(path.toString(), mode);
+    long comp = Blocker.begin();
+    try {
+      NativePosixFiles.chmod(path.toString(), mode);
+    } finally {
+      Blocker.end(comp);
+    }
   }
 
   @Override

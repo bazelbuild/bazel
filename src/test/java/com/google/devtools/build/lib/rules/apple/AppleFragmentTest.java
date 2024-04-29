@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -98,7 +99,8 @@ public class AppleFragmentTest extends BuildViewTestCase {
     // platform's cpu in a tool's rule context.
     useConfiguration("--extra_execution_platforms=//:macos_arm64");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//:a");
-    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//:rules.bzl"), "MyInfo");
+    Provider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//:rules.bzl")), "MyInfo");
     StructImpl myInfo = (StructImpl) configuredTarget.get(key);
     assertThat((String) myInfo.getValue("exec_cpu")).isEqualTo("arm64");
   }

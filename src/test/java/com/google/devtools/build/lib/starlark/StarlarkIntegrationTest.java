@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
 import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -97,7 +98,8 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
     Provider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonical("//myinfo:myinfo.bzl"), "MyInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//myinfo:myinfo.bzl")), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
   }
 
@@ -1913,7 +1915,8 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:r");
     Provider.Key key =
         new StarlarkProvider.Key(
-            Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl"),
+            keyForBuild(
+                Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl")),
             "my_provider");
     StructImpl declaredProvider = (StructImpl) configuredTarget.get(key);
     assertThat(declaredProvider).isNotNull();
@@ -1941,7 +1944,8 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     ConfiguredTarget configuredTarget  = getConfiguredTarget("//test:r");
     Provider.Key key =
         new StarlarkProvider.Key(
-            Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl"),
+            keyForBuild(
+                Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl")),
             "my_provider");
     StructImpl declaredProvider = (StructImpl) configuredTarget.get(key);
     assertThat(declaredProvider).isNotNull();
@@ -1969,7 +1973,8 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     ConfiguredTarget configuredTarget  = getConfiguredTarget("//test:r");
     Provider.Key key =
         new StarlarkProvider.Key(
-            Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl"),
+            keyForBuild(
+                Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl")),
             "my_provider");
     StructImpl declaredProvider = (StructImpl) configuredTarget.get(key);
     assertThat(declaredProvider).isNotNull();
@@ -2481,7 +2486,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         """);
 
     StarlarkProvider.Key pInfoKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:rule.bzl"), "PInfo");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:rule.bzl")), "PInfo");
 
     ConfiguredTarget targetXXX = getConfiguredTarget("//test:xxx");
     StructImpl structXXX = (StructImpl) targetXXX.get(pInfoKey);
@@ -2754,9 +2759,11 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         """);
 
     StarlarkProvider.Key myInfoKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:extension.bzl"), "MyInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:extension.bzl")), "MyInfo");
     StarlarkProvider.Key myDepKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:extension.bzl"), "MyDep");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:extension.bzl")), "MyDep");
 
     ConfiguredTarget outerTarget = getConfiguredTarget("//test:r");
     StructImpl outerInfo = (StructImpl) outerTarget.get(myInfoKey);

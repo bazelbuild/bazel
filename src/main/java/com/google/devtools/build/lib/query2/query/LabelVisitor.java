@@ -398,8 +398,8 @@ final class LabelVisitor {
       observeNode(target);
 
       // LabelVisitor has some legacy special handling of OutputFiles.
-      if (target instanceof OutputFile) {
-        Rule rule = ((OutputFile) target).getGeneratingRule();
+      if (target instanceof OutputFile outputFile) {
+        Rule rule = outputFile.getGeneratingRule();
         observeEdge(target, null, rule);
         visit(null, null, rule, depth + 1, count + 1);
       }

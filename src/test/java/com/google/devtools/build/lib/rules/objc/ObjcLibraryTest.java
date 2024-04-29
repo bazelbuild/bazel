@@ -21,6 +21,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.ABSOLUTE_INCLUDES_PATH_FORMAT;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.BOTH_MODULE_NAME_AND_MODULE_MAP_SPECIFIED;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -68,7 +69,11 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Test case for objc_library. */
+/**
+ * Test case for objc_library.
+ *
+ * <p>TODO(b/322845822): remove uses of `--cpu=k8` in tests.
+ */
 @RunWith(JUnit4.class)
 public class ObjcLibraryTest extends ObjcRuleTestCase {
 
@@ -122,8 +127,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         """);
 
     setBuildLanguageOptions("--incompatible_disable_objc_library_transition");
-    useConfiguration("--macos_cpus=arm64,x86_64");
-
+    useConfiguration("--macos_cpus=arm64,x86_64", "--cpu=k8");
     ConfiguredTarget cc = getConfiguredTarget("//bin:cc");
     Artifact objcObject =
         ActionsTestUtil.getFirstArtifactEndingWith(
@@ -1011,7 +1015,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "--apple_platform_type=ios",
         "--platforms=" + MockObjcSupport.IOS_X86_64,
         "--compilation_mode=dbg",
-        "--incompatible_avoid_hardcoded_objc_compilation_flags");
+        "--incompatible_avoid_hardcoded_objc_compilation_flags",
+        "--cpu=k8");
     scratch.file("x/a.m");
     RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
 
@@ -1025,7 +1030,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "--platforms=" + MockObjcSupport.IOS_X86_64,
         "--compilation_mode=dbg",
         "--objc_debug_with_GLIBCXX=false",
-        "--incompatible_avoid_hardcoded_objc_compilation_flags");
+        "--incompatible_avoid_hardcoded_objc_compilation_flags",
+        "--cpu=k8");
     scratch.file("x/a.m");
     RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
 
@@ -1044,7 +1050,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "--apple_platform_type=ios",
         "--platforms=" + MockObjcSupport.IOS_X86_64,
         "--compilation_mode=opt",
-        "--incompatible_avoid_hardcoded_objc_compilation_flags");
+        "--incompatible_avoid_hardcoded_objc_compilation_flags",
+        "--cpu=k8");
     scratch.file("x/a.m");
     RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
 
@@ -1148,7 +1155,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilationActionsWithPch() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--platforms=" + MockObjcSupport.IOS_X86_64);
+    useConfiguration(
+        "--apple_platform_type=ios", "--platforms=" + MockObjcSupport.IOS_X86_64, "--cpu=k8");
     scratch.file("objc/foo.pch");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -1481,7 +1489,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testAppleSdkDefaultPlatformEnv() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--platforms=" + MockObjcSupport.IOS_X86_64);
+    useConfiguration(
+        "--apple_platform_type=ios", "--platforms=" + MockObjcSupport.IOS_X86_64, "--cpu=k8");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
@@ -1509,7 +1518,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
       throws Exception {
     Provider.Key key =
         new StarlarkProvider.Key(
-            Label.parseCanonical("@_builtins//:common/objc/providers.bzl"), providerName);
+            keyForBuiltins(Label.parseCanonical("@_builtins//:common/objc/providers.bzl")),
+            providerName);
     return (StructImpl) configuredTarget.get(key);
   }
 
@@ -2165,6 +2175,11 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             deps = [":foo"],
         )
         """);
+    useConfiguration(
+        "--proto_toolchain_for_java=//tools/proto/toolchains:java",
+        "--platforms=" + MockObjcSupport.DARWIN_X86_64,
+        "--apple_platform_type=macos",
+        "--cpu=darwin_x86_64");
 
     CcInfo ccInfo = getConfiguredTarget("//x:bar").get(CcInfo.PROVIDER);
 
@@ -2175,7 +2190,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                     .flatMap(List::stream)
                     .map(LibraryToLink::getStaticLibrary)
                     .collect(toImmutableList())))
-        .contains("/ x/libbaz.a");
+        .contains("bin x/libbaz.a");
   }
 
   @Test

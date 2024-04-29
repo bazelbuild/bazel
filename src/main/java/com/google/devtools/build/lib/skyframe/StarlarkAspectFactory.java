@@ -130,8 +130,8 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
     if (requiredConfigFragments != null) {
       builder.addProvider(requiredConfigFragments);
     }
-    if (aspectStarlarkObject instanceof Iterable) {
-      addDeclaredProviders(builder, (Iterable) aspectStarlarkObject);
+    if (aspectStarlarkObject instanceof Iterable<?> iterable) {
+      addDeclaredProviders(builder, iterable);
     } else {
       // Either an old-style struct or a single declared provider (not in a list)
       Info info = (Info) aspectStarlarkObject;
@@ -156,8 +156,8 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
           }
         }
       } else {
-        if (info instanceof StarlarkInfo) {
-          info = ((StarlarkInfo) info).unsafeOptimizeMemoryLayout();
+        if (info instanceof StarlarkInfo starlarkInfo) {
+          info = starlarkInfo.unsafeOptimizeMemoryLayout();
         }
         builder.addStarlarkDeclaredProvider(info);
       }
@@ -178,8 +178,8 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
                 + "a sequence of declared providers, instead got a %s at index %d",
             Starlark.type(o), i);
       }
-      if (o instanceof StarlarkInfo) {
-        o = ((StarlarkInfo) o).unsafeOptimizeMemoryLayout();
+      if (o instanceof StarlarkInfo starlarkInfo) {
+        o = starlarkInfo.unsafeOptimizeMemoryLayout();
       }
       builder.addStarlarkDeclaredProvider((Info) o);
       i++;

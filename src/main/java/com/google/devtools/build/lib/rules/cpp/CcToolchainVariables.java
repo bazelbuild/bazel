@@ -355,13 +355,13 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       structuredVariableCache.putIfAbsent(name, variableOrError);
     }
 
-    if (variableOrError instanceof VariableValue) {
-      return (VariableValue) variableOrError;
+    if (variableOrError instanceof VariableValue variableValue) {
+      return variableValue;
     }
     if (throwOnMissingVariable) {
       throw new ExpansionException(
-          variableOrError instanceof String
-              ? (String) variableOrError
+          variableOrError instanceof String string
+              ? string
               : String.format(
                   "Invalid toolchain configuration: Cannot find variable named '%s'.", name));
     }
@@ -1449,8 +1449,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     VariableValue getNonStructuredVariable(String name) {
       if (keyToIndex.containsKey(name)) {
         Object o = values.get(keyToIndex.get(name));
-        if (o instanceof String) {
-          return new StringValue((String) o);
+        if (o instanceof String string) {
+          return new StringValue(string);
         }
         return (VariableValue) o;
       }

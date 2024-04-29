@@ -88,8 +88,8 @@ public class LeaseService {
           if (key.functionName().equals(SkyFunctions.ACTION_EXECUTION)) {
             try {
               var value = memoizingEvaluator.getExistingValue(key);
-              return value instanceof ActionExecutionValue
-                  && isRemote((ActionExecutionValue) value);
+              return value instanceof ActionExecutionValue actionExecutionValue
+                  && isRemote(actionExecutionValue);
             } catch (InterruptedException ignored) {
               return false;
             }

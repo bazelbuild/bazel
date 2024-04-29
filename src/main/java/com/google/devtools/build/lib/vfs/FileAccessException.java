@@ -15,8 +15,9 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
 
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -55,9 +56,7 @@ public class FileAccessException extends IOException {
 
     @Override
     public void serialize(
-        SerializationDependencyProvider dependencies,
-        FileAccessException fae,
-        CodedOutputStream codedOut)
+        LeafSerializationContext context, FileAccessException fae, CodedOutputStream codedOut)
         throws SerializationException, IOException {
       String message = fae.getMessage();
       if (message == null) {
@@ -65,18 +64,18 @@ public class FileAccessException extends IOException {
         return;
       }
       codedOut.writeBoolNoTag(true);
-      stringCodec().serialize(dependencies, message, codedOut);
+      context.serializeLeaf(message, stringCodec(), codedOut);
     }
 
     @Override
     public FileAccessException deserialize(
-        SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+        LeafDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       boolean hasMessage = codedIn.readBool();
       if (!hasMessage) {
         return new FileAccessException(null);
       }
-      String message = stringCodec().deserialize(dependencies, codedIn);
+      String message = context.deserializeLeaf(codedIn, stringCodec());
       return new FileAccessException(message);
     }
   }

@@ -28,14 +28,13 @@ public final class BigIntegerCodec extends LeafObjectCodec<BigInteger> {
 
   @Override
   public void serialize(
-      SerializationDependencyProvider dependencies, BigInteger obj, CodedOutputStream codedOut)
+      LeafSerializationContext context, BigInteger obj, CodedOutputStream codedOut)
       throws IOException {
     codedOut.writeByteArrayNoTag(obj.toByteArray());
   }
 
   @Override
-  public BigInteger deserialize(
-      SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+  public BigInteger deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     return new BigInteger(codedIn.readByteArray());
   }

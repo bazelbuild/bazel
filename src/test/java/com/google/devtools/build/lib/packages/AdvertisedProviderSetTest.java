@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -72,7 +73,8 @@ public class AdvertisedProviderSetTest {
                     .addStarlark(
                         StarlarkProviderIdentifier.forKey(
                             new StarlarkProvider.Key(
-                                Label.parseCanonicalUnchecked("//my:label1.bzl"), "exportedName1")))
+                                keyForBuild(Label.parseCanonicalUnchecked("//my:label1.bzl")),
+                                "exportedName1")))
                     .build()))
         .isEqualTo(
             HashCode.fromString(
@@ -83,11 +85,13 @@ public class AdvertisedProviderSetTest {
                     .addStarlark(
                         StarlarkProviderIdentifier.forKey(
                             new StarlarkProvider.Key(
-                                Label.parseCanonicalUnchecked("//my:label1.bzl"), "exportedName1")))
+                                keyForBuild(Label.parseCanonicalUnchecked("//my:label1.bzl")),
+                                "exportedName1")))
                     .addStarlark(
                         StarlarkProviderIdentifier.forKey(
                             new StarlarkProvider.Key(
-                                Label.parseCanonicalUnchecked("//my:label2.bzl"), "exportedName2")))
+                                keyForBuild(Label.parseCanonicalUnchecked("//my:label2.bzl")),
+                                "exportedName2")))
                     .build()))
         .isEqualTo(
             HashCode.fromString(
@@ -98,7 +102,8 @@ public class AdvertisedProviderSetTest {
                     .addStarlark(
                         StarlarkProviderIdentifier.forKey(
                             new StarlarkProvider.Key(
-                                Label.parseCanonicalUnchecked("//my:label2.bzl"), "exportedName2")))
+                                keyForBuild(Label.parseCanonicalUnchecked("//my:label2.bzl")),
+                                "exportedName2")))
                     .build()))
         .isEqualTo(
             HashCode.fromString(

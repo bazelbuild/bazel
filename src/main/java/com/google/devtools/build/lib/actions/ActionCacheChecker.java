@@ -534,8 +534,8 @@ public class ActionCacheChecker {
           action.discoversInputs(),
           "Actions that don't know their inputs must discover them: %s",
           action);
-      if (action instanceof ActionCacheAwareAction
-          && ((ActionCacheAwareAction) action).storeInputsExecPathsInActionCache()) {
+      if (action instanceof ActionCacheAwareAction actionCacheAwareAction
+          && actionCacheAwareAction.storeInputsExecPathsInActionCache()) {
         actionInputs = NestedSetBuilder.wrap(Order.STABLE_ORDER, resolvedCacheArtifacts);
       } else {
         actionInputs =
@@ -764,8 +764,8 @@ public class ActionCacheChecker {
     }
 
     boolean storeAllInputsInActionCache =
-        action instanceof ActionCacheAwareAction
-            && ((ActionCacheAwareAction) action).storeInputsExecPathsInActionCache();
+        action instanceof ActionCacheAwareAction actionCacheAwareAction
+            && actionCacheAwareAction.storeInputsExecPathsInActionCache();
     ImmutableSet<Artifact> excludePathsFromActionCache =
         !storeAllInputsInActionCache && action.discoversInputs()
             ? action.getMandatoryInputs().toSet()

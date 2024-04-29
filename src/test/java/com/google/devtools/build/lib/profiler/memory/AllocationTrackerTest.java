@@ -65,8 +65,8 @@ public final class AllocationTrackerTest {
   private class SamplerValue implements HasBinary {
     @Override
     public Object binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
-      if (op == TokenKind.PLUS && thisLeft && that instanceof StarlarkInt) {
-        int size = ((StarlarkInt) that).toIntUnchecked(); // test values are small
+      if (op == TokenKind.PLUS && thisLeft && that instanceof StarlarkInt starlarkInt) {
+        int size = starlarkInt.toIntUnchecked(); // test values are small
         Object obj = new Object();
         live.add(obj); // ensure that obj outlives the test assertions
         tracker.sampleAllocation(1, "", obj, size);

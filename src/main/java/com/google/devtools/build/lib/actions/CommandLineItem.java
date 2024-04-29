@@ -96,8 +96,8 @@ public interface CommandLineItem {
     // Since StarlarkValue should be moved out of Bazel, this refactoring would be blocked on making
     // a BuildStarlarkValue subinterface for Bazel-specific Starlark types. It would then be
     // BuildStarlarkValue, rather than StarlarkValue, that extends CommandLineItem.
-    if (object instanceof CommandLineItem) {
-      return ((CommandLineItem) object).expandToCommandLine();
+    if (object instanceof CommandLineItem commandLineItem) {
+      return commandLineItem.expandToCommandLine();
     } else {
       return object.toString();
     }

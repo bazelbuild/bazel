@@ -223,8 +223,8 @@ public class GraphTester {
                 @Override
                 public boolean tryHandleException(SkyKey key, Exception e) {
                   assertThat(key).isEqualTo(dep.first);
-                  if (e instanceof SomeErrorException) {
-                    exceptionRef.set((SomeErrorException) e);
+                  if (e instanceof SomeErrorException someErrorException) {
+                    exceptionRef.set(someErrorException);
                     return true;
                   }
                   return false;

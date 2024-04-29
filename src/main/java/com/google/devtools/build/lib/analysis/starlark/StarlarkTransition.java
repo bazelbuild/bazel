@@ -417,8 +417,8 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
       extends ConfigurationTransition.Visitor<TransitionException> {
     @Override
     default void accept(ConfigurationTransition transition) throws TransitionException {
-      if (transition instanceof StarlarkTransition) {
-        this.accept((StarlarkTransition) transition);
+      if (transition instanceof StarlarkTransition starlarkTransition) {
+        this.accept(starlarkTransition);
       }
     }
 

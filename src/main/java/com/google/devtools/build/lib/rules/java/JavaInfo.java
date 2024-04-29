@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
@@ -576,13 +578,15 @@ public final class JavaInfo extends NativeInfo
   public static class JavaInfoProvider extends StarlarkProviderWrapper<JavaInfo>
       implements com.google.devtools.build.lib.packages.Provider {
     private JavaInfoProvider() {
-      super(Label.parseCanonicalUnchecked("@_builtins//:common/java/java_info.bzl"), STARLARK_NAME);
+      super(
+          keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:common/java/java_info.bzl")),
+          STARLARK_NAME);
     }
 
     @Override
     public JavaInfo wrap(Info info) throws RuleErrorException {
-      if (info instanceof JavaInfo) {
-        return (JavaInfo) info;
+      if (info instanceof JavaInfo javaInfo) {
+        return javaInfo;
       } else if (info instanceof StructImpl) {
         try {
           return new JavaInfo((StructImpl) info);

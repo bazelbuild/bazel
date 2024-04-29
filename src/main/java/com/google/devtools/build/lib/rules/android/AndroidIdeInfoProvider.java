@@ -368,10 +368,10 @@ public final class AndroidIdeInfoProvider extends NativeInfo
       JavaOutput resourceJarJavaOutput;
       if (isNone(resourceJar)) {
         resourceJarJavaOutput = null;
-      } else if (resourceJar instanceof JavaOutput) {
-        resourceJarJavaOutput = (JavaOutput) resourceJar;
-      } else if (resourceJar instanceof StructImpl) {
-        resourceJarJavaOutput = JavaOutput.fromStarlarkJavaOutput((StructImpl) resourceJar);
+      } else if (resourceJar instanceof JavaOutput javaOutput) {
+        resourceJarJavaOutput = javaOutput;
+      } else if (resourceJar instanceof StructImpl structImpl) {
+        resourceJarJavaOutput = JavaOutput.fromStarlarkJavaOutput(structImpl);
       } else {
         throw new EvalException(
             "resource_jar is not None, a native JavaOutput, nor a Starlark JavaOutput");

@@ -335,8 +335,8 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
 
         if (value instanceof FileArtifactValue || value instanceof TreeArtifactValue) {
           fsVal = (HasDigest) value;
-        } else if (value instanceof ActionExecutionValue) {
-          fsVal = ((ActionExecutionValue) value).getExistingFileArtifactValue(artifact);
+        } else if (value instanceof ActionExecutionValue actionExecutionValue) {
+          fsVal = actionExecutionValue.getExistingFileArtifactValue(artifact);
         } else {
           return NON_EXISTENT_FILE_INFO;
         }

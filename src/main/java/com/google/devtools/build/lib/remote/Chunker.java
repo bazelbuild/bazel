@@ -325,8 +325,8 @@ public class Chunker {
     public Builder setInput(long size, ActionInput actionInput, Path execRoot) {
       checkState(inputStream == null);
       this.size = size;
-      if (actionInput instanceof VirtualActionInput) {
-        inputStream = () -> ((VirtualActionInput) actionInput).getBytes().newInput();
+      if (actionInput instanceof VirtualActionInput virtualActionInput) {
+        inputStream = () -> virtualActionInput.getBytes().newInput();
       } else {
         inputStream = () -> ActionInputHelper.toInputPath(actionInput, execRoot).getInputStream();
       }

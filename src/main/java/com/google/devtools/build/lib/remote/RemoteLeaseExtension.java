@@ -201,8 +201,8 @@ public class RemoteLeaseExtension implements LeaseExtension {
       if (!missingDigests.contains(buildDigest(metadata))) {
         metadata.extendExpireAtEpochMilli(expireAtEpochMilli);
         if (token != null) {
-          if (artifact instanceof TreeFileArtifact) {
-            token.extendOutputTreeFile((TreeFileArtifact) artifact, expireAtEpochMilli);
+          if (artifact instanceof TreeFileArtifact treeFileArtifact) {
+            token.extendOutputTreeFile(treeFileArtifact, expireAtEpochMilli);
           } else {
             token.extendOutputFile(artifact, expireAtEpochMilli);
           }

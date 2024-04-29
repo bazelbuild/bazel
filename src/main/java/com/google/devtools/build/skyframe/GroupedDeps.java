@@ -228,8 +228,8 @@ public class GroupedDeps implements Iterable<List<SkyKey>> {
   public List<SkyKey> getDepGroup(int i) {
     int index = i == 0 ? 0 : groupIndices.get(i - 1);
     Object obj = elements.get(index);
-    if (obj instanceof SkyKey) {
-      return ImmutableList.of((SkyKey) obj);
+    if (obj instanceof SkyKey skyKey) {
+      return ImmutableList.of(skyKey);
     }
     int groupSize = (int) obj;
     List<?> slice = elements.subList(index + 1, index + 1 + groupSize);
@@ -359,8 +359,8 @@ public class GroupedDeps implements Iterable<List<SkyKey>> {
   public ImmutableSet<SkyKey> toSet() {
     ImmutableSet.Builder<SkyKey> builder = ImmutableSet.builderWithExpectedSize(size);
     for (Object obj : elements) {
-      if (obj instanceof SkyKey) {
-        builder.add((SkyKey) obj);
+      if (obj instanceof SkyKey skyKey) {
+        builder.add(skyKey);
       }
     }
     return builder.build();

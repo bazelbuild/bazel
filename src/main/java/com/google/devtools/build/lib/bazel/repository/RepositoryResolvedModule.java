@@ -117,8 +117,8 @@ public final class RepositoryResolvedModule extends BlazeModule {
       // In WORKSPACE files, the Label constructor is not available.
       // Fortunately, in all places where a label is needed,
       // we can pass the canonical string associated with this label.
-      if (o instanceof Label) {
-        return this.repr(((Label) o).getCanonicalForm());
+      if (o instanceof Label label) {
+        return this.repr(label.getCanonicalForm());
       }
       return super.repr(o);
     }

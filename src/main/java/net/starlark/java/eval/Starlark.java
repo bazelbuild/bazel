@@ -66,8 +66,9 @@ public final class Starlark {
    */
   public static final Object UNBOUND = new UnboundMarker();
 
+  /** A type representing no argument passed to {@code StarlarkMethod}s */
   @Immutable
-  private static final class UnboundMarker implements StarlarkValue {
+  public static final class UnboundMarker implements StarlarkValue {
     private UnboundMarker() {}
 
     @Override

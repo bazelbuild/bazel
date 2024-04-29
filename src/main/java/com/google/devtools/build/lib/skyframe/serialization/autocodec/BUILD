@@ -1,5 +1,4 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
-load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -136,25 +135,4 @@ java_library(
         "//third_party/java/javapoet",
         "//third_party/protobuf:protobuf_java",
     ],
-)
-
-# .tar archive of dependencies used for bootstrapping.
-pkg_tar(
-    name = "bootstrap_autocodec",
-    # The .jar files are created within the .tar file under third_party/bazel_bootstrap so that
-    # they will appear there in bazel-distfile, which in turn makes them visible for bootstrapping
-    # from the LIBRARY_JARS rule of bazel/scripts/bootstrap/compile.sh.
-    srcs = [
-        ":autocodec-annotation",
-        ":autocodec-processor",
-        ":registered-singleton",
-        ":serialization-constant-annotation",
-        ":serialization-constant-processor",
-        ":serialization-processing-exception",
-        ":type-operations",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
-        "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
-    ],
-    package_dir = "third_party/bazel_bootstrap",
-    visibility = ["//visibility:public"],
 )

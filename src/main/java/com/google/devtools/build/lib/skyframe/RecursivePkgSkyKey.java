@@ -37,8 +37,8 @@ public abstract class RecursivePkgSkyKey extends RecursivePkgKey implements SkyK
   @Override
   public boolean equals(Object o) {
     return super.equals(o)
-        && ((o instanceof RecursivePkgSkyKey))
-        && ((RecursivePkgSkyKey) o).functionName().equals(functionName());
+        && o instanceof RecursivePkgSkyKey recursivePkgSkyKey
+        && recursivePkgSkyKey.functionName().equals(functionName());
   }
 
   /** Don't bother to memoize hashCode because {@link RecursivePkgKey#hashCode} is cheap enough. */

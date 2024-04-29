@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -118,7 +119,8 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
 
     ConfiguredTarget b = getConfiguredTarget("//test:my_rule");
     StarlarkProvider.Key myRuleInfo =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:rules.bzl"), "MyRuleInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:rules.bzl")), "MyRuleInfo");
     assertThat(((StarlarkInfo) b.get(myRuleInfo)).getValue("value")).isEqualTo("default_value");
   }
 
@@ -153,7 +155,8 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
 
     ConfiguredTarget b = getConfiguredTarget("//test:my_rule");
     StarlarkProvider.Key myRuleInfo =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:rules.bzl"), "MyRuleInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:rules.bzl")), "MyRuleInfo");
     assertThat(((StarlarkInfo) b.get(myRuleInfo)).getValue("value"))
         .isEqualTo("command_line_value");
   }

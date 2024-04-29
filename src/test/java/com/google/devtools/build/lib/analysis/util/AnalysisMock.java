@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.RegistryFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpecFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionUsagesFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
@@ -176,6 +177,7 @@ public abstract class AnalysisMock extends LoadingMock {
         .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
         .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(directories.getWorkspace()))
         .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
+        .put(SkyFunctions.SINGLE_EXTENSION, new SingleExtensionFunction())
         .put(
             SkyFunctions.SINGLE_EXTENSION_EVAL,
             new SingleExtensionEvalFunction(directories, ImmutableMap::of, downloadManager))

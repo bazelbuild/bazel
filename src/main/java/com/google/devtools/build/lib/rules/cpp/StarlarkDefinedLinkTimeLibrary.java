@@ -224,8 +224,8 @@ public class StarlarkDefinedLinkTimeLibrary implements ExtraLinkTimeLibrary, Str
       }
       for (String key : library.objectMap.keySet()) {
         Object value = library.objectMap.get(key);
-        if (value instanceof Depset) {
-          depsetMapBuilder.computeIfAbsent(key, k -> ImmutableList.builder()).add((Depset) value);
+        if (value instanceof Depset depset) {
+          depsetMapBuilder.computeIfAbsent(key, k -> ImmutableList.builder()).add(depset);
         } else {
           constantsMap.put(key, value);
         }

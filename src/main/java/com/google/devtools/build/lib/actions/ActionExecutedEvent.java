@@ -262,8 +262,8 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
       }
     }
     try {
-      if (action instanceof CommandAction) {
-        actionBuilder.addAllCommandLine(((CommandAction) action).getArguments());
+      if (action instanceof CommandAction commandAction) {
+        actionBuilder.addAllCommandLine(commandAction.getArguments());
       }
     } catch (CommandLineExpansionException e) {
       // Command-line not available, so just not report it

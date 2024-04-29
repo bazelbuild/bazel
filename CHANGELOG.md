@@ -1,3 +1,19 @@
+## Release 8.0.0-pre.20240415.1 (2024-04-25)
+
+```
+Baseline: 1115e526662c041214aecb3b4c9550b91f79275a
+```
+
+Important changes:
+
+  - toolchain type requirements of rules are now treated as implicit
+    dependencies in `bazel query`. This includes those defined via
+    the `toolchains` parameter of starlark `rule()` definitions.
+  - Starlark `min` and `max` buitins now allow a `key` callback,
+    similarly to `sorted`.
+
+This release contains contributions from many people at Google, as well as Alexandre Boulgakov, Brentley Jones, Cameron Martin, Emil Waijers, Fabian Meumertzheim, Xdng Yng.
+
 ## Release 8.0.0-pre.20240404.3 (2024-04-17)
 
 ```

@@ -477,8 +477,8 @@ public final class FunctionTransitionUtil {
         // Convert NoneType to null.
         if (optionValue instanceof NoneType) {
           optionValue = null;
-        } else if (optionValue instanceof StarlarkInt) {
-          optionValue = ((StarlarkInt) optionValue).toIntUnchecked();
+        } else if (optionValue instanceof StarlarkInt starlarkInt) {
+          optionValue = starlarkInt.toIntUnchecked();
         } else if (optionValue instanceof List<?>) {
           // Converting back to the Java-native type makes it easier to check if a Starlark
           // transition set the same value a native transition would. This is important for
@@ -516,8 +516,8 @@ public final class FunctionTransitionUtil {
                           optionValueAsList.stream()
                               .map(
                                   element ->
-                                      element instanceof Label
-                                          ? ((Label) element).getUnambiguousCanonicalForm()
+                                      element instanceof Label label
+                                          ? label.getUnambiguousCanonicalForm()
                                           : element.toString())
                               .collect(joining(",")),
                           starlarkTransition.getPackageContext());
@@ -529,8 +529,8 @@ public final class FunctionTransitionUtil {
                 Object converted =
                     def.getConverter()
                         .convert(e.toString(), starlarkTransition.getPackageContext());
-                if (converted instanceof List) {
-                  valueBuilder.addAll((List<?>) converted);
+                if (converted instanceof List<?> list) {
+                  valueBuilder.addAll(list);
                 } else {
                   valueBuilder.add(converted);
                 }

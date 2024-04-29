@@ -72,8 +72,8 @@ public class AttributeValuesAdapter extends TypeAdapter<AttributeValues> {
   private JsonElement serializeObject(Object obj) {
     if (obj.equals(Starlark.NONE)) {
       return JsonNull.INSTANCE;
-    } else if (obj instanceof Boolean) {
-      return new JsonPrimitive((Boolean) obj);
+    } else if (obj instanceof Boolean bool) {
+      return new JsonPrimitive(bool);
     } else if (obj instanceof StarlarkInt) {
       try {
         return new JsonPrimitive(((StarlarkInt) obj).toInt("serialization into the lockfile"));
@@ -145,8 +145,8 @@ public class AttributeValuesAdapter extends TypeAdapter<AttributeValues> {
    * @return serialized object
    */
   private String serializeObjToString(Object obj) {
-    if (obj instanceof Label) {
-      String labelString = ((Label) obj).getUnambiguousCanonicalForm();
+    if (obj instanceof Label label) {
+      String labelString = label.getUnambiguousCanonicalForm();
       Preconditions.checkState(labelString.startsWith("@@"));
       return labelString;
     }

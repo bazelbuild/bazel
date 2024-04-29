@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.starlark.StarlarkSubrule.getRuleAttrName;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -1778,7 +1779,8 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   private StructImpl getProvider(String targetLabel, String providerLabel, String providerName)
       throws LabelSyntaxException {
     ConfiguredTarget target = getConfiguredTarget(targetLabel);
-    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical(providerLabel), providerName);
+    Provider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical(providerLabel)), providerName);
     return (StructImpl) target.get(key);
   }
 }

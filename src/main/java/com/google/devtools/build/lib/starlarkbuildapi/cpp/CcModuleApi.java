@@ -691,6 +691,24 @@ public interface CcModuleApi<
       throws EvalException;
 
   @StarlarkMethod(
+      name = "create_lto_compilation_context",
+      doc = "Create LTO compilation context",
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "objects",
+            doc = "map of full object to index object",
+            positional = false,
+            named = true,
+            defaultValue = "{}",
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+            })
+      })
+  LtoCompilationContextApi createLtoCompilationContextFromStarlark(
+      Object objectsObject, StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
       name = "create_compilation_outputs",
       doc = "Create compilation outputs object.",
       useStarlarkThread = true,
@@ -1297,6 +1315,12 @@ public interface CcModuleApi<
             defaultValue = "unbound",
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)}),
         @Param(
+            name = "lto_compilation_context",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "None"),
+        @Param(
             name = "alwayslink",
             doc = "Whether to link the static library/objects in the --whole_archive block.",
             positional = false,
@@ -1338,6 +1362,7 @@ public interface CcModuleApi<
       Object interfaceLibrary,
       Object picObjectFiles, // Sequence<Artifact> expected
       Object nopicObjectFiles, // Sequence<Artifact> expected
+      Object ltoCopmilationContextObject,
       boolean alwayslink,
       String dynamicLibraryPath,
       String interfaceLibraryPath,

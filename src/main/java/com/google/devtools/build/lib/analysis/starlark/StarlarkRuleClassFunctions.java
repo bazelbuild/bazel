@@ -296,16 +296,15 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
               Dict.cast(fields, String.class, String.class, "fields"), Starlark::trimDocString));
     }
     if (init == Starlark.NONE) {
-      return builder.build();
-    } else {
-      if (init instanceof StarlarkCallable) {
-        builder.setInit((StarlarkCallable) init);
-      } else {
-        throw Starlark.errorf("got %s for init, want callable value", Starlark.type(init));
-      }
-      StarlarkProvider provider = builder.build();
-      return Tuple.of(provider, provider.createRawConstructor());
+      return builder.buildWithIdentityToken(thread.getNextIdentityToken());
     }
+    if (init instanceof StarlarkCallable callable) {
+      builder.setInit(callable);
+    } else {
+      throw Starlark.errorf("got %s for init, want callable value", Starlark.type(init));
+    }
+    StarlarkProvider provider = builder.buildWithIdentityToken(thread.getNextIdentityToken());
+    return Tuple.of(provider, provider.createRawConstructor());
   }
 
   @FormatMethod
@@ -600,6 +599,13 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
       Attribute attr = descriptor.build(name);
 
+      // "configurable" may only be user-set for symbolic macros, not rules.
+      if (attr.configurableAttrWasUserSet()) {
+        throw Starlark.errorf(
+            "attribute '%s' has the 'configurable' argument set, which is not allowed in rule"
+                + " definitions",
+            name);
+      }
       if (attr.skipValidations()) {
         // This is mitigation for internal Blaze builds, and not planned to be a Bazel feature,
         // and therefore has no extendable allowlists.
@@ -904,6 +910,14 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       String nativeName = nameDescriptorPair.first;
       boolean hasDefault = nameDescriptorPair.second.hasDefault();
       Attribute attribute = nameDescriptorPair.second.build(nameDescriptorPair.first);
+
+      // "configurable" may only be user-set for symbolic macros, not aspects.
+      if (attribute.configurableAttrWasUserSet()) {
+        throw Starlark.errorf(
+            "attribute '%s' has the 'configurable' argument set, which is not allowed in aspect"
+                + " definitions",
+            nativeName);
+      }
 
       if (!Attribute.isImplicit(nativeName) && !Attribute.isLateBound(nativeName)) {
         if (attribute.getType() == Type.STRING) {

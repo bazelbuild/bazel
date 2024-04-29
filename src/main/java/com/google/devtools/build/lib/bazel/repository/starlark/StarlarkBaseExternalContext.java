@@ -353,8 +353,8 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       Object urlOrList, boolean ensureNonEmpty, boolean checksumGiven)
       throws RepositoryFunctionException, EvalException {
     ImmutableList<String> urlStrings;
-    if (urlOrList instanceof String) {
-      urlStrings = ImmutableList.of((String) urlOrList);
+    if (urlOrList instanceof String string) {
+      urlStrings = ImmutableList.of(string);
     } else {
       urlStrings = checkAllUrls((Iterable<?>) urlOrList);
     }
@@ -1148,10 +1148,10 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       throws EvalException, InterruptedException {
     if (path instanceof String) {
       return new StarlarkPath(this, workingDirectory.getRelative(path.toString()));
-    } else if (path instanceof Label) {
-      return getPathFromLabel((Label) path);
-    } else if (path instanceof StarlarkPath) {
-      return (StarlarkPath) path;
+    } else if (path instanceof Label label) {
+      return getPathFromLabel(label);
+    } else if (path instanceof StarlarkPath starlarkPath) {
+      return starlarkPath;
     } else {
       // This can never happen because we check it in the Starlark interpreter.
       throw new IllegalArgumentException("expected string or label for path");
@@ -1583,8 +1583,8 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
 
     List<String> args = new ArrayList<>(arguments.size());
     for (Object arg : arguments) {
-      if (arg instanceof Label) {
-        args.add(getPathFromLabel((Label) arg).toString());
+      if (arg instanceof Label label) {
+        args.add(getPathFromLabel(label).toString());
       } else {
         // String or StarlarkPath expected
         args.add(arg.toString());

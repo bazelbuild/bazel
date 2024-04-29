@@ -123,8 +123,8 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
     AspectsList.Builder builder = new AspectsList.Builder();
 
     for (AspectClass aspectClass : topLevelAspectsClasses) {
-      if (aspectClass instanceof StarlarkAspectClass) {
-        StarlarkAspect starlarkAspect = loadStarlarkAspect(env, (StarlarkAspectClass) aspectClass);
+      if (aspectClass instanceof StarlarkAspectClass starlarkAspectClass) {
+        StarlarkAspect starlarkAspect = loadStarlarkAspect(env, starlarkAspectClass);
         if (starlarkAspect == null) {
           return null;
         }

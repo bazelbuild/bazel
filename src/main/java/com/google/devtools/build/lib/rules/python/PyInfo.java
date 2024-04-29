@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.rules.python;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -24,6 +27,7 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import net.starlark.java.eval.EvalException;
 
 /** Instance of the provider type for the Python rules. */
@@ -74,8 +78,8 @@ public final class PyInfo {
   }
 
   private static class BaseProvider extends StarlarkProviderWrapper<PyInfo> {
-    private BaseProvider(String bzlLabel) {
-      super(Label.parseCanonicalUnchecked(bzlLabel), "PyInfo");
+    private BaseProvider(BzlLoadValue.Key bzlKey) {
+      super(bzlKey, "PyInfo");
     }
 
     @Override
@@ -87,14 +91,19 @@ public final class PyInfo {
   /** The PyInfo provider type object for the builtin provider. */
   public static class BuiltinPyInfoProvider extends BaseProvider {
     private BuiltinPyInfoProvider() {
-      super("@_builtins//:common/python/providers.bzl");
+      super(
+          keyForBuiltins(
+              Label.parseCanonicalUnchecked("@_builtins//:common/python/providers.bzl")));
     }
   }
 
   /** The PyInfo provider type object for the rules_python provider. */
   public static class RulesPythonPyInfoProvider extends BaseProvider {
     private RulesPythonPyInfoProvider() {
-      super("//third_party/bazel_rules/rules_python/python/private/common:providers.bzl");
+      super(
+          keyForBuild(
+              Label.parseCanonicalUnchecked(
+                  "//third_party/bazel_rules/rules_python/python/private/common:providers.bzl")));
     }
   }
 }

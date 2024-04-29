@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -3195,7 +3196,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     ConfiguredTarget a = getConfiguredTarget("//a");
     StarlarkProvider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonical("//a:a.bzl"), "key_provider");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//a:a.bzl")), "key_provider");
 
     StarlarkInfo keyInfo = (StarlarkInfo) a.get(key);
     Sequence<?> keys = (Sequence) keyInfo.getValue("keys");
@@ -3231,7 +3232,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     ConfiguredTarget buildSetting = getConfiguredTarget("//test:int_flag");
     Provider.Key key =
         new StarlarkProvider.Key(
-            Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl"),
+            keyForBuild(
+                Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl")),
             "BuildSettingInfo");
     StructImpl buildSettingInfo = (StructImpl) buildSetting.get(key);
 
@@ -3245,7 +3247,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     ConfiguredTarget buildSetting = getConfiguredTarget("//test:int_flag");
     Provider.Key key =
         new StarlarkProvider.Key(
-            Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl"),
+            keyForBuild(
+                Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl")),
             "BuildSettingInfo");
     StructImpl buildSettingInfo = (StructImpl) buildSetting.get(key);
 
@@ -3278,7 +3281,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     ConfiguredTarget buildSetting = getConfiguredTarget("//test:string_flag");
     Provider.Key key =
         new StarlarkProvider.Key(
-            Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl"),
+            keyForBuild(
+                Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl")),
             "BuildSettingInfo");
     StructImpl buildSettingInfo = (StructImpl) buildSetting.get(key);
 
@@ -3291,7 +3295,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     buildSetting = getConfiguredTarget("//test:string_flag");
     key =
         new StarlarkProvider.Key(
-            Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl"),
+            keyForBuild(
+                Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl")),
             "BuildSettingInfo");
     buildSettingInfo = (StructImpl) buildSetting.get(key);
 
@@ -3326,7 +3331,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     ConfiguredTarget buildSetting = getConfiguredTarget("//test:string_list_flag");
     Provider.Key key =
         new StarlarkProvider.Key(
-            Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl"),
+            keyForBuild(
+                Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl")),
             "BuildSettingInfo");
     StructImpl buildSettingInfo = (StructImpl) buildSetting.get(key);
 
@@ -3340,7 +3346,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     buildSetting = getConfiguredTarget("//test:string_list_flag");
     key =
         new StarlarkProvider.Key(
-            Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl"),
+            keyForBuild(
+                Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl")),
             "BuildSettingInfo");
     buildSettingInfo = (StructImpl) buildSetting.get(key);
 
@@ -3356,7 +3363,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     buildSetting = getConfiguredTarget("//test:string_list_flag");
     key =
         new StarlarkProvider.Key(
-            Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl"),
+            keyForBuild(
+                Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl")),
             "BuildSettingInfo");
     buildSettingInfo = (StructImpl) buildSetting.get(key);
 
@@ -3478,7 +3486,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//rule:test_rule.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//rule:test_rule.bzl")), "result"));
 
     assertThat(info).isNotNull();
     return (String) info.getValue("value_from_toolchain");
@@ -3547,7 +3556,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//demo:test_rule.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//demo:test_rule.bzl")), "result"));
 
     assertThat(info).isNotNull();
     boolean hasConstraint = (boolean) info.getValue("has_constraint");
@@ -3559,7 +3569,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//demo:test_rule.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//demo:test_rule.bzl")), "result"));
 
     assertThat(info).isNotNull();
     hasConstraint = (boolean) info.getValue("has_constraint");
@@ -3607,7 +3618,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         (StructImpl)
             target.get(
                 new StarlarkProvider.Key(
-                    Label.parseCanonicalUnchecked("//something:defs.bzl"), "result"));
+                    keyForBuild(Label.parseCanonicalUnchecked("//something:defs.bzl")), "result"));
     assertThat(info).isNotNull();
     assertThat(info.getValue("toolchain_value")).isEqualTo("foo");
     assertThat(info.getValue("exec_groups")).isInstanceOf(StarlarkExecGroupCollection.class);
@@ -3666,7 +3677,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         (StructImpl)
             target.get(
                 new StarlarkProvider.Key(
-                    Label.parseCanonicalUnchecked("//something:defs.bzl"), "result"));
+                    keyForBuild(Label.parseCanonicalUnchecked("//something:defs.bzl")), "result"));
     assertThat(info).isNotNull();
     assertThat(info.getValue("toolchain_value")).isEqualTo("foo");
     assertThat(info.getValue("exec_groups")).isInstanceOf(StarlarkExecGroupCollection.class);

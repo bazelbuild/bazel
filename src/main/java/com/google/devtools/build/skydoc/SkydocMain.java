@@ -458,8 +458,8 @@ public class SkydocMain {
       // bound to global variables take on the name of the global variable.
       thread.setPostAssignHook(
           (name, value) -> {
-            if (value instanceof FakeProviderApi) {
-              ((FakeProviderApi) value).setName(name);
+            if (value instanceof FakeProviderApi fakeProviderApi) {
+              fakeProviderApi.setName(name);
             }
           });
 

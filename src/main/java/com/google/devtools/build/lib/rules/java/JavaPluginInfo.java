@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -73,7 +75,9 @@ public abstract class JavaPluginInfo extends NativeInfo
   public static class Provider extends StarlarkProviderWrapper<JavaPluginInfo>
       implements com.google.devtools.build.lib.packages.Provider {
     private Provider() {
-      super(Label.parseCanonicalUnchecked("@_builtins//:common/java/java_info.bzl"), PROVIDER_NAME);
+      super(
+          keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:common/java/java_info.bzl")),
+          PROVIDER_NAME);
     }
 
     @Override
@@ -96,8 +100,8 @@ public abstract class JavaPluginInfo extends NativeInfo
       if (value instanceof JavaInfo) {
         // needed because currently native JavaInfo extends JavaPluginInfo
         throw new RuleErrorException("got element of type JavaInfo, want JavaPluginInfo");
-      } else if (value instanceof JavaPluginInfo) {
-        return (JavaPluginInfo) value;
+      } else if (value instanceof JavaPluginInfo javaPluginInfo) {
+        return javaPluginInfo;
       } else if (value instanceof StructImpl) {
         try {
           StructImpl info = (StructImpl) value;
@@ -154,8 +158,8 @@ public abstract class JavaPluginInfo extends NativeInfo
     }
 
     public static JavaPluginData wrap(Object obj) throws EvalException, RuleErrorException {
-      if (obj instanceof JavaPluginData) {
-        return (JavaPluginData) obj;
+      if (obj instanceof JavaPluginData javaPluginData) {
+        return javaPluginData;
       } else if (obj instanceof StructImpl struct) {
         return JavaPluginData.create(
             Depset.cast(struct.getValue("processor_classes"), String.class, "processor_classes"),

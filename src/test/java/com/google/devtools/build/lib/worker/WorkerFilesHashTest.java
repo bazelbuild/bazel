@@ -162,11 +162,11 @@ public final class WorkerFilesHashTest {
         if (metadataOrException == null) {
           return null;
         }
-        if (metadataOrException instanceof IOException) {
-          throw (IOException) metadataOrException;
+        if (metadataOrException instanceof IOException ioException) {
+          throw ioException;
         }
-        if (metadataOrException instanceof FileArtifactValue) {
-          return (FileArtifactValue) metadataOrException;
+        if (metadataOrException instanceof FileArtifactValue fileArtifactValue) {
+          return fileArtifactValue;
         }
         throw new AssertionError("Unexpected value: " + metadataOrException);
       }

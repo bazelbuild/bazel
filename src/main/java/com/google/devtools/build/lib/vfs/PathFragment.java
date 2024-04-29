@@ -18,8 +18,9 @@ import static com.google.devtools.build.lib.skyframe.serialization.strings.Unsaf
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.CommandLineItem;
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
@@ -848,16 +849,15 @@ public abstract class PathFragment
 
     @Override
     public void serialize(
-        SerializationDependencyProvider dependencies, PathFragment obj, CodedOutputStream codedOut)
+        LeafSerializationContext context, PathFragment obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      stringCodec().serialize(dependencies, obj.normalizedPath, codedOut);
+      context.serializeLeaf(obj.normalizedPath, stringCodec(), codedOut);
     }
 
     @Override
-    public PathFragment deserialize(
-        SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+    public PathFragment deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      return createAlreadyNormalized(stringCodec().deserialize(dependencies, codedIn));
+      return createAlreadyNormalized(context.deserializeLeaf(codedIn, stringCodec()));
     }
   }
 }

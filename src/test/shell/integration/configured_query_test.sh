@@ -1402,6 +1402,36 @@ EOF
   expect_log "@repo//:japanese"
 }
 
+function test_external_repo_scope_with_bazelignore() {
+  if [ "${PRODUCT_NAME}" != "bazel" ]; then
+    # Tests of external repositories only work under bazel.
+    return 0
+  fi
+
+  local -r dir=$FUNCNAME
+
+  mkdir -p $dir/repo
+  touch $dir/repo/REPO.bazel
+  cat > $dir/repo/BUILD <<EOF
+sh_library(name='maple', deps=[':japanese'])
+sh_library(name='japanese')
+EOF
+
+  mkdir -p $dir/main
+  write_default_lockfile $dir/main/MODULE.bazel.lock
+  cat > $dir/main/WORKSPACE <<EOF
+local_repository(name = "repo", path = "../repo")
+EOF
+  touch $dir/main/BUILD
+  echo does_not_exist > $dir/main/.bazelignore
+
+  cd $dir/main
+  bazel cquery @repo//... &>"$TEST_log" || fail "Unexpected failure"
+  expect_not_log "no targets found beneath"
+  expect_log "@repo//:maple"
+  expect_log "@repo//:japanese"
+}
+
 function test_test_arg_in_bazelrc() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg

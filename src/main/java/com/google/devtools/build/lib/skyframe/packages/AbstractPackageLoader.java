@@ -448,8 +448,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         return new StarlarkModuleLoadingException("Cycle encountered while loading " + label);
       }
       Throwable e = Preconditions.checkNotNull(error.getException());
-      if (e instanceof BzlLoadFailedException) {
-        return new StarlarkModuleLoadingException((BzlLoadFailedException) e);
+      if (e instanceof BzlLoadFailedException bzlLoadFailedException) {
+        return new StarlarkModuleLoadingException(bzlLoadFailedException);
       }
       throw new IllegalStateException(
           "Unexpected Exception type from BzlLoadValue for " + label + " with error: " + error, e);
@@ -482,8 +482,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
           pkgId, "Cycle encountered while loading package " + pkgId);
     }
     Throwable e = Preconditions.checkNotNull(error.getException());
-    if (e instanceof NoSuchPackageException) {
-      return (NoSuchPackageException) e;
+    if (e instanceof NoSuchPackageException noSuchPackageException) {
+      return noSuchPackageException;
     }
     throw new IllegalStateException(
         "Unexpected Exception type from PackageValue for '" + pkgId + "'' with error: " + error, e);

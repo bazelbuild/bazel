@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getDirectJars;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getJavacArguments;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
@@ -577,7 +578,8 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         )
         """);
     ConfiguredTarget target = getConfiguredTarget("//x:foo_rule");
-    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//x:aspect.bzl"), "MyInfo");
+    Provider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//x:aspect.bzl")), "MyInfo");
     StructImpl myInfo = (StructImpl) target.get(key);
     Boolean result = (Boolean) myInfo.getValue("result");
 

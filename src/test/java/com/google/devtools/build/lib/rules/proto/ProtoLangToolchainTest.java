@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -294,11 +295,11 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
             .getProvider(FilesToRunProvider.class);
     StarlarkProvider provider =
         StarlarkProvider.builder(Location.BUILTIN)
-            .setExported(
+            .buildExported(
                 new StarlarkProvider.Key(
-                    Label.parseCanonicalUnchecked("@_builtins//:common/proto/protoinfo.bzl"),
-                    "ProtoSourceInfo"))
-            .build();
+                    keyForBuiltins(
+                        Label.parseCanonicalUnchecked("@_builtins//:common/proto/protoinfo.bzl")),
+                    "ProtoSourceInfo"));
     ImmutableList<StructImpl> providedProtoSources =
         ImmutableList.of(
             StarlarkInfo.create(

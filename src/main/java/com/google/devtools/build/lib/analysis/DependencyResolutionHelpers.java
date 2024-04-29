@@ -112,12 +112,12 @@ public final class DependencyResolutionHelpers {
       addToolchainDeps(toolchainContexts, outgoingLabels);
     } else if (target instanceof InputFile || target instanceof EnvironmentGroup) {
       addVisibilityDepLabels(target.getVisibilityDependencyLabels(), outgoingLabels);
-    } else if (target instanceof Rule) {
-      fromRule = (Rule) target;
+    } else if (target instanceof Rule rule) {
+      fromRule = rule;
       attributeMap = ConfiguredAttributeMapper.of(fromRule, configConditions, config);
       visitRule(node, aspects, attributeMap, toolchainContexts, outgoingLabels);
-    } else if (target instanceof PackageGroup) {
-      outgoingLabels.putAll(VISIBILITY_DEPENDENCY, ((PackageGroup) target).getIncludes());
+    } else if (target instanceof PackageGroup packageGroup) {
+      outgoingLabels.putAll(VISIBILITY_DEPENDENCY, packageGroup.getIncludes());
     } else {
       throw new IllegalStateException(target.getLabel().toString());
     }
@@ -372,8 +372,8 @@ public final class DependencyResolutionHelpers {
         Object defaultValue = attribute.getDefaultValue(rule);
         attributeValue =
             type.cast(
-                defaultValue instanceof ComputedDefault
-                    ? ((ComputedDefault) defaultValue).getDefault(attributeMap)
+                defaultValue instanceof ComputedDefault computedDefault
+                    ? computedDefault.getDefault(attributeMap)
                     : defaultValue);
       }
     } else if (attribute.isLateBound()) {

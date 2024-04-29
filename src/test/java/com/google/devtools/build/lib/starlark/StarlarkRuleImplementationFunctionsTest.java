@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
@@ -63,6 +64,7 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -191,7 +193,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
   private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
     Provider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonical("//myinfo:myinfo.bzl"), "MyInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//myinfo:myinfo.bzl")), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
   }
 
@@ -1472,7 +1475,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     assertThat(provider).isInstanceOf(StructImpl.class);
     assertThat(((StructImpl) provider).getProvider().getKey())
         .isEqualTo(
-            new StarlarkProvider.Key(Label.parseCanonical("//test:foo.bzl"), "foo_provider"));
+            new StarlarkProvider.Key(
+                keyForBuild(Label.parseCanonical("//test:foo.bzl")), "foo_provider"));
   }
 
   @Test
@@ -1519,7 +1523,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     Object provider = getMyInfoFromTarget(configuredTarget).getValue("proxy");
     assertThat(provider).isInstanceOf(StructImpl.class);
     assertThat(((StructImpl) provider).getProvider().getKey())
-        .isEqualTo(new StarlarkProvider.Key(Label.parseCanonical("//test:foo.bzl"), "FooInfo"));
+        .isEqualTo(
+            new StarlarkProvider.Key(
+                keyForBuild(Label.parseCanonical("//test:foo.bzl")), "FooInfo"));
   }
 
   @Test
@@ -1658,7 +1664,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     assertThat(provider).isInstanceOf(StructImpl.class);
     assertThat(((StructImpl) provider).getProvider().getKey())
         .isEqualTo(
-            new StarlarkProvider.Key(Label.parseCanonical("//test:foo.bzl"), "foo_provider"));
+            new StarlarkProvider.Key(
+                keyForBuild(Label.parseCanonical("//test:foo.bzl")), "foo_provider"));
     assertThat(((StructImpl) provider).getValue("a")).isEqualTo(StarlarkInt.of(123));
   }
 
@@ -1711,7 +1718,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     assertThat(provider).isInstanceOf(StructImpl.class);
     assertThat(((StructImpl) provider).getProvider().getKey())
         .isEqualTo(
-            new StarlarkProvider.Key(Label.parseCanonical("//test:foo.bzl"), "foo_provider"));
+            new StarlarkProvider.Key(
+                keyForBuild(Label.parseCanonical("//test:foo.bzl")), "foo_provider"));
   }
 
   @Test
@@ -3902,6 +3910,13 @@ args.add_all(depset([Label("@@canonical1~//foo:bar"), Label("@@canonical2~//foo:
         r(name = 'exec_configured_child')
         """);
 
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
+
     ConfiguredTarget target = getConfiguredTarget("//test:foo");
 
     assertThat(target).isNotNull();
@@ -3920,6 +3935,6 @@ args.add_all(depset([Label("@@canonical1~//foo:bar"), Label("@@canonical2~//foo:
             .orElse(null);
     assertThat(a2).isNotNull();
     assertThat(a2.getRoot().getExecPathString())
-        .matches(getRelativeOutputPath() + "/[\\w\\-]+\\-exec\\-[\\w\\-]+/bin");
+        .matches(getRelativeOutputPath() + "/[\\w\\-]+\\-exec/bin");
   }
 }

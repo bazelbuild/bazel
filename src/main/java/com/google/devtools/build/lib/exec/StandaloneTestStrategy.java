@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.runtime.TestSummaryOptions;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction;
@@ -89,8 +90,11 @@ public class StandaloneTestStrategy extends TestStrategy {
   protected final Path tmpDirRoot;
 
   public StandaloneTestStrategy(
-      ExecutionOptions executionOptions, BinTools binTools, Path tmpDirRoot) {
-    super(executionOptions, binTools);
+      ExecutionOptions executionOptions,
+      TestSummaryOptions testSummaryOptions,
+      BinTools binTools,
+      Path tmpDirRoot) {
+    super(executionOptions, testSummaryOptions, binTools);
     this.tmpDirRoot = tmpDirRoot;
   }
 
@@ -677,7 +681,10 @@ public class StandaloneTestStrategy extends TestStrategy {
     }
     long endTimeMillis = actionExecutionContext.getClock().currentTimeMillis();
 
-    if (testAction.isSharded()) {
+    // Do not override a more informative test failure with a generic failure due to the missing
+    // shard file, which may have been caused by the test failing before the runner had a chance to
+    // touch the file
+    if (testResultDataBuilder.getTestPassed() && testAction.isSharded()) {
       if (testAction.checkShardingSupport()
           && !actionExecutionContext
               .getPathResolver()

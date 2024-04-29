@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.python;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -460,12 +462,12 @@ public abstract class PyBuiltins implements StarlarkValue {
 
   private static final StarlarkProvider starlarkVisibleForTestingInfo =
       StarlarkProvider.builder(Location.BUILTIN)
-          .setExported(
+          .buildExported(
               new StarlarkProvider.Key(
-                  Label.parseCanonicalUnchecked(
-                      "//tools/build_defs/python/tests/base_rules:util.bzl"),
-                  "VisibleForTestingInfo"))
-          .build();
+                  keyForBuild(
+                      Label.parseCanonicalUnchecked(
+                          "//tools/build_defs/python/tests/base_rules:util.bzl")),
+                  "VisibleForTestingInfo"));
 
   @StarlarkMethod(name = "VisibleForTestingInfo", documented = false, structField = true)
   public StarlarkProvider visibleForTestingInfo() throws EvalException {

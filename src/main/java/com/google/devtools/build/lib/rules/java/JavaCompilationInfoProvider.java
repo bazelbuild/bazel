@@ -76,8 +76,8 @@ public abstract class JavaCompilationInfoProvider
       throws EvalException, RuleErrorException {
     if (value == null || value == Starlark.NONE) {
       return null;
-    } else if (value instanceof JavaCompilationInfoProvider) {
-      return (JavaCompilationInfoProvider) value;
+    } else if (value instanceof JavaCompilationInfoProvider javaCompilationInfoProvider) {
+      return javaCompilationInfoProvider;
     } else if (value instanceof StructImpl info) {
       Builder builder =
           new Builder()

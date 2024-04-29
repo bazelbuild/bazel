@@ -1149,8 +1149,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   protected static FailureDetail createUnsuccessfulKeyFailure(Exception exception) {
-    return exception instanceof DetailedException
-        ? ((DetailedException) exception).getDetailedExitCode().getFailureDetail()
+    return exception instanceof DetailedException detailedException
+        ? detailedException.getDetailedExitCode().getFailureDetail()
         : FailureDetail.newBuilder()
             .setMessage(exception.getMessage())
             .setQuery(Query.newBuilder().setCode(Code.SKYQUERY_TARGET_EXCEPTION))

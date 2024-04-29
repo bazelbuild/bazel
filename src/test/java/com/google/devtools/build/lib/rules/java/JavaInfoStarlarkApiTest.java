@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -1243,7 +1244,8 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     StarlarkInfo info =
         (StarlarkInfo)
             target.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "MyInfo"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//foo:extension.bzl")), "MyInfo"));
     assertThat(info).isNotNull();
     assertThat(info.getValue("source_jars")).isInstanceOf(Depset.class);
   }
@@ -1626,7 +1628,8 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//foo:extension.bzl")), "result"));
 
     return JavaInfo.PROVIDER.wrap(info.getValue("property", Info.class));
   }

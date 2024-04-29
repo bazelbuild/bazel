@@ -112,14 +112,14 @@ public final class Utils {
       throw new InterruptedException();
     } catch (ExecutionException e) {
       Throwable cause = e.getCause();
-      if (cause instanceof InterruptedException) {
-        throw (InterruptedException) cause;
+      if (cause instanceof InterruptedException interruptedException) {
+        throw interruptedException;
       }
-      if (cause instanceof IOException) {
-        throw (IOException) cause;
+      if (cause instanceof IOException ioException) {
+        throw ioException;
       }
-      if (cause instanceof RuntimeException) {
-        throw (RuntimeException) cause;
+      if (cause instanceof RuntimeException runtimeException) {
+        throw runtimeException;
       }
       throw new IOException(cause);
     } catch (InterruptedException e) {
@@ -390,8 +390,8 @@ public final class Utils {
 
   public static String grpcAwareErrorMessage(Throwable error, boolean verboseFailures) {
     String errorMessage;
-    if (error instanceof IOException) {
-      errorMessage = grpcAwareErrorMessage((IOException) error);
+    if (error instanceof IOException ioException) {
+      errorMessage = grpcAwareErrorMessage(ioException);
     } else {
       errorMessage = error.getMessage();
     }
@@ -641,8 +641,8 @@ public final class Utils {
                   var cause = e.getCause();
                   if (cause instanceof InterruptedException) {
                     return immediateFailedFuture(cause);
-                  } else if (cause instanceof IOException) {
-                    error = (IOException) cause;
+                  } else if (cause instanceof IOException ioException) {
+                    error = ioException;
                   } else {
                     error = new IOException(cause);
                   }

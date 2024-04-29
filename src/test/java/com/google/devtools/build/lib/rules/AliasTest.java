@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -332,7 +333,8 @@ public class AliasTest extends BuildViewTestCase {
   private static StructImpl getMyInfoFromTarget(ConfiguredAspect configuredAspect)
       throws Exception {
     Provider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonical("//myinfo:myinfo.bzl"), "MyInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//myinfo:myinfo.bzl")), "MyInfo");
     return (StructImpl) configuredAspect.get(key);
   }
 

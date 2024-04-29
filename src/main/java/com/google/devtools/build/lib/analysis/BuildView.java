@@ -775,8 +775,8 @@ public class BuildView {
     for (Artifact.DerivedArtifact artifact :
         provider.getTransitiveExtraActionArtifacts().toList()) {
       ActionLookupKey owner = artifact.getArtifactOwner();
-      if (owner instanceof AspectKey) {
-        if (aspectClasses.contains(((AspectKey) owner).getAspectClass())) {
+      if (owner instanceof AspectKey aspectKey) {
+        if (aspectClasses.contains(aspectKey.getAspectClass())) {
           artifacts.add(artifact);
         }
       }
@@ -798,8 +798,8 @@ public class BuildView {
       final boolean isExclusive = topLevelOptions.runTestsExclusively();
       for (ConfiguredTarget configuredTarget : allTestTargets) {
         Target target = labelToTargetMap.get(configuredTarget.getLabel());
-        if (target instanceof Rule) {
-          if (isExclusive || TargetUtils.isExclusiveTestRule((Rule) target)) {
+        if (target instanceof Rule rule) {
+          if (isExclusive || TargetUtils.isExclusiveTestRule(rule)) {
             exclusiveTests.add(configuredTarget);
           } else if (TargetUtils.isExclusiveIfLocalTestRule((Rule) target)
               && TargetUtils.isLocalTestRule((Rule) target)) {

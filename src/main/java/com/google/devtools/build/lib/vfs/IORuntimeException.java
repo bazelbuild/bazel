@@ -69,8 +69,8 @@ public class IORuntimeException extends RuntimeException {
   @Nullable
   public IOException getCauseIOException() {
     Throwable cause = getCause();
-    if (cause instanceof IOException) {
-      return (IOException) cause;
+    if (cause instanceof IOException ioException) {
+      return ioException;
     } else {
       return null;
     }

@@ -1136,8 +1136,8 @@ public class BzlLoadFunction implements SkyFunction {
     ImmutableList.Builder<Pair<String, Location>> loads = ImmutableList.builder();
     for (StarlarkFile file : files) {
       for (Statement stmt : file.getStatements()) {
-        if (stmt instanceof LoadStatement) {
-          StringLiteral module = ((LoadStatement) stmt).getImport();
+        if (stmt instanceof LoadStatement loadStatement) {
+          StringLiteral module = loadStatement.getImport();
           loads.add(Pair.of(module.getValue(), module.getStartLocation()));
         }
       }
@@ -1536,8 +1536,8 @@ public class BzlLoadFunction implements SkyFunction {
           String.format(
               "Encountered error while reading extension file '%s': %s", file, cause.getMessage());
     DetailedExitCode detailedExitCode =
-        cause instanceof DetailedException
-            ? ((DetailedException) cause).getDetailedExitCode()
+        cause instanceof DetailedException detailedException
+            ? detailedException.getDetailedExitCode()
             : BzlLoadFailedException.createDetailedExitCode(
                 errorMessage, Code.CONTAINING_PACKAGE_NOT_FOUND);
       return new BzlLoadFailedException(

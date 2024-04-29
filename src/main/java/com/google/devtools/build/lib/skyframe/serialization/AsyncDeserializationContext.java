@@ -36,7 +36,7 @@ import javax.annotation.Nullable;
  *       to guarantee that the provided value is complete due to the cycle.
  * </ul>
  */
-public interface AsyncDeserializationContext extends SerializationDependencyProvider {
+public interface AsyncDeserializationContext extends LeafDeserializationContext {
   /** Defines a way to set a field in a given object. */
   interface FieldSetter<T> {
     /**

@@ -375,8 +375,8 @@ public final class GlobFunctionWithMultipleRecursiveFunctions extends GlobFuncti
 
   @SuppressWarnings("unchecked") // cast to NestedSet<PathFragment>
   private static void addToMatches(Object toAdd, NestedSetBuilder<PathFragment> matches) {
-    if (toAdd instanceof PathFragment) {
-      matches.add((PathFragment) toAdd);
+    if (toAdd instanceof PathFragment pathFragment) {
+      matches.add(pathFragment);
     } else if (toAdd instanceof NestedSet) {
       matches.addTransitive((NestedSet<PathFragment>) toAdd);
     }

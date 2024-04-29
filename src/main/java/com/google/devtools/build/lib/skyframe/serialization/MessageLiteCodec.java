@@ -49,14 +49,13 @@ public final class MessageLiteCodec extends LeafObjectCodec<MessageLite> {
 
   @Override
   public void serialize(
-      SerializationDependencyProvider dependencies, MessageLite message, CodedOutputStream codedOut)
+      LeafSerializationContext context, MessageLite message, CodedOutputStream codedOut)
       throws IOException {
     codedOut.writeMessageNoTag(message);
   }
 
   @Override
-  public MessageLite deserialize(
-      SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+  public MessageLite deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
       throws IOException, SerializationException {
     // Don't hold on to full byte array when constructing this proto.
     codedIn.enableAliasing(false);

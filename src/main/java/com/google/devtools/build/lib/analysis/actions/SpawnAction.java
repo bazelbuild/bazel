@@ -254,8 +254,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     } catch (CommandLineExpansionException e) {
       throw createCommandLineException(e);
     } catch (ExecException e) {
-      if (e instanceof SpawnExecException) {
-        throw ((SpawnExecException) e).toActionExecutionException(this);
+      if (e instanceof SpawnExecException spawnExecException) {
+        throw spawnExecException.toActionExecutionException(this);
       }
       throw ActionExecutionException.fromExecException(e, this);
     }

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -75,7 +76,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   private static final Provider.Key APPLE_EXECUTABLE_BINARY_PROVIDER_KEY =
       new StarlarkProvider.Key(
-          Label.parseCanonicalUnchecked("@_builtins//:common/objc/linking_support.bzl"),
+          keyForBuiltins(
+              Label.parseCanonicalUnchecked("@_builtins//:common/objc/linking_support.bzl")),
           "AppleExecutableBinaryInfo");
 
   @Before
@@ -581,14 +583,17 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     switch (codeCoverageMode) {
       case NONE:
         useConfiguration(
-            "--apple_platform_type=ios", "--compilation_mode=" + compilationModeFlag(mode));
+            "--apple_platform_type=ios",
+            "--compilation_mode=" + compilationModeFlag(mode),
+            "--cpu=k8");
         break;
       case GCOV:
         allExpectedCoptsBuilder.addAll(CompilationSupport.CLANG_GCOV_COVERAGE_FLAGS);
         useConfiguration(
             "--apple_platform_type=ios",
             "--collect_code_coverage",
-            "--compilation_mode=" + compilationModeFlag(mode));
+            "--compilation_mode=" + compilationModeFlag(mode),
+            "--cpu=k8");
         break;
       case LLVMCOV:
         allExpectedCoptsBuilder.addAll(CompilationSupport.CLANG_LLVM_COVERAGE_FLAGS);
@@ -596,7 +601,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             "--apple_platform_type=ios",
             "--collect_code_coverage",
             "--experimental_use_llvm_covmap",
-            "--compilation_mode=" + compilationModeFlag(mode));
+            "--compilation_mode=" + compilationModeFlag(mode),
+            "--cpu=k8");
         break;
     }
     scratch.file("x/a.m");
@@ -615,7 +621,10 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             .addAll(ObjcConfiguration.DBG_COPTS);
 
     useConfiguration(
-        "--apple_platform_type=ios", "--compilation_mode=dbg", "--objc_debug_with_GLIBCXX=false");
+        "--apple_platform_type=ios",
+        "--compilation_mode=dbg",
+        "--objc_debug_with_GLIBCXX=false",
+        "--cpu=k8");
     scratch.file("x/a.m");
     ruleType.scratchTarget(scratch, "srcs", "['a.m']");
 
@@ -766,7 +775,8 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     return (StarlarkInfo)
         starlarkTarget.get(
             new StarlarkProvider.Key(
-                Label.parseCanonical("@_builtins//:common/objc/objc_info.bzl"), "ObjcInfo"));
+                keyForBuiltins(Label.parseCanonical("@_builtins//:common/objc/objc_info.bzl")),
+                "ObjcInfo"));
   }
 
   protected static ImmutableList<Artifact> getDirectSources(StarlarkInfo provider)

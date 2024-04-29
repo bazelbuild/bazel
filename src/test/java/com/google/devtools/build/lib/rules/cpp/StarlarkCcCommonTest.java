@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.rules.cpp.SolibSymlinkAction.MAX_FILENAME_LENGTH;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -98,7 +99,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   private static StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget)
       throws LabelSyntaxException {
     Provider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonical("//myinfo:myinfo.bzl"), "MyInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//myinfo:myinfo.bzl")), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
   }
 
@@ -188,7 +190,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     Provider.Key key =
         new StarlarkProvider.Key(
-            Label.create(r.getLabel().getPackageIdentifier(), "rule.bzl"), "CruleInfo");
+            keyForBuild(Label.create(r.getLabel().getPackageIdentifier(), "rule.bzl")),
+            "CruleInfo");
     StarlarkInfo cruleInfo = (StarlarkInfo) r.get(key);
     Depset staticRuntimeLib = (Depset) cruleInfo.getValue("static");
     Depset dynamicRuntimeLib = (Depset) cruleInfo.getValue("dynamic");
@@ -1508,6 +1511,61 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCreateLtoCompilationContextIsPrivate() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        load(":my_rule.bzl", "my_rule")
+
+        my_rule(name = "x")
+        """);
+    scratch.file(
+        "test/my_rule.bzl",
+        """
+        def _impl(ctx):
+            obj = ctx.actions.declare_file("foo.o")
+            thin_link_obj = ctx.actions.declare_file("foo.indexing.o")
+            ctx.actions.write(obj, "this string is not a valid object file")
+            ctx.actions.write(thin_link_obj, "this string is not a valid thin link object file")
+            cc_common.create_lto_compilation_context(objects = {obj: (thin_link_obj, ["-O3"])})
+
+        my_rule = rule(
+            _impl,
+        )
+        """);
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:x"));
+    assertThat(e).hasMessageThat().contains("cannot use private API");
+  }
+
+  @Test
+  public void testCreateLtoCompilationContext() throws Exception {
+    String rustPrefix = "rust/private";
+    scratch.file(
+        rustPrefix + "/BUILD",
+        """
+        load(":my_rule.bzl", "my_rule")
+
+        my_rule(name = "x")
+        """);
+    scratch.file(
+        rustPrefix + "/my_rule.bzl",
+        """
+        def _impl(ctx):
+            obj = ctx.actions.declare_file("foo.o")
+            thin_link_obj = ctx.actions.declare_file("foo.indexing.o")
+            ctx.actions.write(obj, "this string is not a valid object file")
+            ctx.actions.write(thin_link_obj, "this string is not a valid thin link object file")
+            cc_common.create_lto_compilation_context(objects = {obj: (thin_link_obj, ["-O3"])})
+
+        my_rule = rule(
+            _impl,
+        )
+        """);
+    getConfiguredTarget("//" + rustPrefix + ":x");
+    assertNoEvents();
+  }
+
+  @Test
   public void testCcLinkingContextOnWindows() throws Exception {
     if (!AnalysisMock.get().isThisBazel()) {
       return;
@@ -1576,7 +1634,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                     CppRuleClasses.SUPPORTS_PIC,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
     this.setBuildLanguageOptions("--incompatible_depset_for_libraries_to_link_getter");
-    setUpCcLinkingContextTest(false);
+    setUpCcLinkingContextTest();
     ConfiguredTarget a = getConfiguredTarget("//a:a");
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
 
@@ -1608,7 +1666,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testSolibLinkDefault() throws Exception {
-    setUpCcLinkingContextTest(false);
+    setUpCcLinkingContextTest();
     scratch.file(
         "foo/BUILD",
         """
@@ -1650,7 +1708,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testSolibLinkCustom() throws Exception {
-    setUpCcLinkingContextTest(false);
+    setUpCcLinkingContextTest();
     scratch.file(
         "foo/BUILD",
         """
@@ -1699,7 +1757,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testReallyLongSolibLink() throws Exception {
-    setUpCcLinkingContextTest(false);
+    setUpCcLinkingContextTest();
 
     String longpath =
         "this/is/a/really/really/really/really/really/really/really/really/really/really/"
@@ -1733,7 +1791,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
       throws Exception {
     useConfiguration("--features=-supports_interface_shared_libraries");
     this.setBuildLanguageOptions("--incompatible_depset_for_libraries_to_link_getter");
-    setUpCcLinkingContextTest(false);
+    setUpCcLinkingContextTest();
     ConfiguredTarget a = getConfiguredTarget("//a:a");
 
     StructImpl info = ((StructImpl) getMyInfoFromTarget(a).getValue("info"));
@@ -1793,10 +1851,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(bin).isNotNull();
   }
 
-  private void setUpCcLinkingContextTest(boolean enableExperimentalCcImport) throws Exception {
-    if (enableExperimentalCcImport) {
-      useConfiguration("--experimental_starlark_cc_import");
-    }
+  private void setUpCcLinkingContextTest() throws Exception {
     scratch.file(
         "a/BUILD",
         """
@@ -1905,8 +1960,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "    dynamic_library_symlink_path=dynamic_library_symlink_path,",
         "    interface_library_symlink_path=interface_library_symlink_path,",
         "    alwayslink=alwayslink, ",
-        enableExperimentalCcImport ? "    objects=objects, " : "",
-        enableExperimentalCcImport ? "    pic_objects=pic_objects" : "",
         "    )",
         "def _impl(ctx):",
         "  toolchain = find_cc_toolchain(ctx)",
@@ -5527,7 +5580,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testWrongExtensionThrowsError() throws Exception {
-    setUpCcLinkingContextTest(false);
+    setUpCcLinkingContextTest();
     scratch.file(
         "foo/BUILD",
         """
@@ -6284,35 +6337,65 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testLinkStampExpliciltyEnabledOverridesNoStampFlag() throws Exception {
-    useConfiguration("--nostamp");
+    useConfiguration(
+        "--nostamp",
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
     setupTestTransitiveLink(scratch, "stamp=1", "linking_contexts=dep_linking_contexts");
     assertStampEnabled(getLinkstampCompileAction("//foo:bin"));
   }
 
   @Test
   public void testLinkExplicitlyDisabledOverridesStampFlag() throws Exception {
-    useConfiguration("--nostamp");
+    useConfiguration(
+        "--nostamp",
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
     setupTestTransitiveLink(scratch, "stamp=0", "linking_contexts=dep_linking_contexts");
     assertStampDisabled(getLinkstampCompileAction("//foo:bin"));
   }
 
   @Test
   public void testLinkStampUseFlagStamp() throws Exception {
-    useConfiguration("--stamp");
+    useConfiguration(
+        "--stamp",
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
     setupTestTransitiveLink(scratch, "stamp=-1", "linking_contexts=dep_linking_contexts");
     assertStampEnabled(getLinkstampCompileAction("//foo:bin"));
   }
 
   @Test
   public void testLinkStampUseFlagNoStamp() throws Exception {
-    useConfiguration("--nostamp");
+    useConfiguration(
+        "--nostamp",
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
     setupTestTransitiveLink(scratch, "stamp=-1", "linking_contexts=dep_linking_contexts");
     assertStampDisabled(getLinkstampCompileAction("//foo:bin"));
   }
 
   @Test
   public void testLinkStampDisabledByDefaultDespiteStampFlag() throws Exception {
-    useConfiguration("--stamp");
+    useConfiguration(
+        "--stamp",
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
     setupTestTransitiveLink(scratch, "linking_contexts=dep_linking_contexts");
     assertStampDisabled(getLinkstampCompileAction("//foo:bin"));
   }
@@ -6402,7 +6485,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     scratchObjectsProvidingRule();
 
-    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//foo:foo.bzl"), "FooInfo");
+    Provider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//foo:foo.bzl")), "FooInfo");
     LibraryToLink fooLibrary =
         Iterables.getOnlyElement(
             getConfiguredTarget("//foo:dep")
@@ -6421,7 +6505,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   public void testObjectsApiNeverReturningNones() throws Exception {
     scratchObjectsProvidingRule();
 
-    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//foo:foo.bzl"), "FooInfo");
+    Provider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//foo:foo.bzl")), "FooInfo");
 
     // Default toolchain is without PIC support, so pic_objects should be None
     StarlarkInfo fooInfoForPic =
@@ -6461,7 +6546,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     scratchObjectsProvidingRule();
 
-    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//foo:foo.bzl"), "FooInfo");
+    Provider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//foo:foo.bzl")), "FooInfo");
     LibraryToLink fooLibrary =
         Iterables.getOnlyElement(
             getConfiguredTarget("//foo:dep")
@@ -6495,7 +6581,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     scratchObjectsProvidingRule();
 
-    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//foo:foo.bzl"), "FooInfo");
+    Provider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//foo:foo.bzl")), "FooInfo");
     StarlarkInfo fooInfo =
         (StarlarkInfo) getConfiguredTarget("//foo:foo").get(StarlarkProviderIdentifier.forKey(key));
 
@@ -6888,7 +6975,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   @Test
   public void testMixedLinkerInputsWithOwnerAndWithout() throws Exception {
     setBuildLanguageOptions("--noincompatible_require_linker_input_cc_api");
-    setUpCcLinkingContextTest(false);
+    setUpCcLinkingContextTest();
     scratch.file(
         "foo/BUILD",
         """
@@ -7090,91 +7177,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         .containsExactly("public1_impl.h", "public2_impl.h");
     assertThat(baseArtifactNames(ccCompilationContext.getTextualHdrs()))
         .containsExactly("public1.inc", "public2.inc");
-  }
-
-  @Test
-  public void testObjectFilesInCreateLibraryToLinkApiGuardedByFlag() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig, CcToolchainConfig.builder().withFeatures("foo_feature"));
-    useConfiguration("--noexperimental_starlark_cc_import");
-    scratch.file(
-        "a/BUILD",
-        """
-        load(":rule.bzl", "crule")
-
-        cc_toolchain_alias(name = "alias")
-
-        crule(name = "r")
-        """);
-
-    scratch.file(
-        "a/rule.bzl",
-        """
-        def _impl(ctx):
-            toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
-            feature_configuration = cc_common.configure_features(
-                ctx = ctx,
-                cc_toolchain = toolchain,
-                requested_features = ["foo_feature"],
-            )
-            cc_common.create_library_to_link(
-                actions = ctx.actions,
-                feature_configuration = feature_configuration,
-                cc_toolchain = toolchain,
-                objects = [],
-            )
-            return CcInfo()
-
-        crule = rule(
-            _impl,
-            attrs = {
-                "_cc_toolchain": attr.label(default = Label("//a:alias")),
-            },
-            fragments = ["cpp"],
-        )
-        """);
-    checkError("//a:r", "Cannot use objects/pic_objects without --experimental_starlark_cc_import");
-  }
-
-  @Test
-  public void testObjectFilesInCreateLibrary() throws Exception {
-    setUpCcLinkingContextTest(true);
-    scratch.file(
-        "b/BUILD",
-        """
-        load("//tools/build_defs/cc:rule.bzl", "crule")
-
-        crule(
-            name = "import_objects",
-            objects = ["object.o"],
-            pic_objects = ["object.pic.o"],
-            pic_static_library = "lib.pic.a",
-            static_library = "lib.a",
-        )
-        """);
-
-    assertNoEvents();
-    ConfiguredTarget lib = getConfiguredTarget("//b:import_objects");
-    CcLinkingContext ccLinkingContext = lib.get(CcInfo.PROVIDER).getCcLinkingContext();
-    ImmutableList<LibraryToLink> libraries =
-        ccLinkingContext.getLinkerInputs().toList().stream()
-            .flatMap(i -> i.getLibraries().stream())
-            .collect(ImmutableList.toImmutableList());
-
-    assertThat(
-            baseArtifactNames(
-                libraries.stream()
-                    .flatMap(l -> l.getObjectFiles().stream())
-                    .collect(ImmutableList.toImmutableList())))
-        .containsExactly("object.o");
-    assertThat(
-            baseArtifactNames(
-                libraries.stream()
-                    .flatMap(l -> l.getPicObjectFiles().stream())
-                    .collect(ImmutableList.toImmutableList())))
-        .containsExactly("object.pic.o");
   }
 
   private void setupDebugPackageProviderTest(String fission) throws Exception {
@@ -7813,7 +7815,10 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "cc_common.create_library_to_link(actions=ctx.actions,"
                 + "feature_configuration=feature_configuration, cc_toolchain=toolchain,"
                 + " must_keep_debug=False)",
-            "library_to_link.must_keep_debug()");
+            "library_to_link.must_keep_debug()",
+            "cc_common.create_library_to_link(actions=ctx.actions,"
+                + "feature_configuration=feature_configuration, cc_toolchain=toolchain,"
+                + " lto_compilation_context=None)");
     for (String call : calls) {
       scratch.overwriteFile(
           "b/rule.bzl",

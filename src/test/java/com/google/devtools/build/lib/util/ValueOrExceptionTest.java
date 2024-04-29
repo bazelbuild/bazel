@@ -114,8 +114,8 @@ public final class ValueOrExceptionTest {
 
     @Override
     public boolean equals(Object o) {
-      if (o instanceof TestValue) {
-        return ((TestValue) o).content == content;
+      if (o instanceof TestValue testValue) {
+        return testValue.content == content;
       } else {
         return false;
       }
@@ -140,8 +140,8 @@ public final class ValueOrExceptionTest {
 
     @Override
     public boolean equals(Object o) {
-      if (o instanceof TestException) {
-        return ((TestException) o).getMessage().equals(getMessage());
+      if (o instanceof TestException testException) {
+        return testException.getMessage().equals(getMessage());
       } else {
         return false;
       }

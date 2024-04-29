@@ -95,8 +95,8 @@ public class ApiExporter {
     for (Entry<String, Object> entry : globals.entrySet()) {
       String name = entry.getKey();
       Object obj = entry.getValue();
-      if (obj instanceof GuardedValue) {
-        obj = ((GuardedValue) obj).getObject();
+      if (obj instanceof GuardedValue guardedValue) {
+        obj = guardedValue.getObject();
       }
 
       Value.Builder value = Value.newBuilder();
@@ -175,8 +175,8 @@ public class ApiExporter {
     }
 
     // annotated Java method?
-    if (x instanceof BuiltinFunction) {
-      return valueFromAnnotation(((BuiltinFunction) x).getAnnotation());
+    if (x instanceof BuiltinFunction builtinFunction) {
+      return valueFromAnnotation(builtinFunction.getAnnotation());
     }
 
     // application-defined callable?  Treat as def f(**kwargs).

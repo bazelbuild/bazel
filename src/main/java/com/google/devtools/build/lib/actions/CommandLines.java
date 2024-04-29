@@ -499,8 +499,8 @@ public abstract class CommandLines {
         CommandLine commandLine;
         ParamFileInfo paramFileInfo = null;
 
-        if (obj instanceof CommandLine) {
-          commandLine = (CommandLine) obj;
+        if (obj instanceof CommandLine c) {
+          commandLine = c;
           if (i + 1 < commandLines.length && commandLines[i + 1] instanceof ParamFileInfo) {
             paramFileInfo = (ParamFileInfo) commandLines[++i];
           }
@@ -530,8 +530,8 @@ public abstract class CommandLines {
     public Iterable<String> arguments(
         @Nullable ArtifactExpander artifactExpander, PathMapper pathMapper)
         throws CommandLineExpansionException, InterruptedException {
-      if (arg instanceof PathStrippable) {
-        return ImmutableList.of(((PathStrippable) arg).expand(pathMapper::map));
+      if (arg instanceof PathStrippable pathStrippable) {
+        return ImmutableList.of(pathStrippable.expand(pathMapper::map));
       }
       return ImmutableList.of(CommandLineItem.expandToCommandLine(arg));
     }

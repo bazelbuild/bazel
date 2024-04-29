@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.exec.StreamedTestOutput;
 import com.google.devtools.build.lib.exec.TestLogHelper;
 import com.google.devtools.build.lib.exec.TestXmlOutputParser;
 import com.google.devtools.build.lib.exec.TestXmlOutputParserException;
+import com.google.devtools.build.lib.runtime.TestSummaryOptions;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction.Code;
@@ -153,10 +154,13 @@ public abstract class TestStrategy implements TestActionContext {
   // executable base name.
   private final Map<String, Integer> tmpIndex = new HashMap<>();
   protected final ExecutionOptions executionOptions;
+  protected final TestSummaryOptions testSummaryOptions;
   protected final BinTools binTools;
 
-  public TestStrategy(ExecutionOptions executionOptions, BinTools binTools) {
+  public TestStrategy(
+      ExecutionOptions executionOptions, TestSummaryOptions testSummaryOptions, BinTools binTools) {
     this.executionOptions = executionOptions;
+    this.testSummaryOptions = testSummaryOptions;
     this.binTools = binTools;
   }
 
@@ -258,7 +262,7 @@ public abstract class TestStrategy implements TestActionContext {
   public int getTestAttempts(TestRunnerAction action) {
     return action.getTestProperties().isFlaky()
         ? getTestAttemptsForFlakyTest(action)
-        : getTestAttempts(action, /*defaultTestAttempts=*/ 1);
+        : getTestAttempts(action, /* defaultTestAttempts= */ 1);
   }
 
   private int getTestAttempts(TestRunnerAction action, int defaultTestAttempts) {
@@ -267,7 +271,7 @@ public abstract class TestStrategy implements TestActionContext {
   }
 
   public int getTestAttemptsForFlakyTest(TestRunnerAction action) {
-    return getTestAttempts(action, /*defaultTestAttempts=*/ 3);
+    return getTestAttempts(action, /* defaultTestAttempts= */ 3);
   }
 
   private static int getTestAttemptsPerLabel(
@@ -360,7 +364,7 @@ public abstract class TestStrategy implements TestActionContext {
       ActionExecutionContext actionExecutionContext,
       TestResultData testResultData,
       String testName,
-      Path testLog)
+      @Nullable Path testLog)
       throws IOException {
     boolean isPassed = testResultData.getTestPassed();
     try {
@@ -376,15 +380,29 @@ public abstract class TestStrategy implements TestActionContext {
       if (isPassed) {
         actionExecutionContext.getEventHandler().handle(Event.of(EventKind.PASS, null, testName));
       } else {
+        PathFragment testLogPathToOutput = null;
+        if (testLog != null) {
+          testLogPathToOutput =
+              testSummaryOptions.printRelativeTestLogPaths
+                  ? testLog
+                      .asFragment()
+                      .relativeTo(actionExecutionContext.getExecRoot().asFragment())
+                  : testLog.asFragment();
+        }
         if (testResultData.hasStatusDetails()) {
           actionExecutionContext
               .getEventHandler()
               .handle(Event.error(testName + ": " + testResultData.getStatusDetails()));
         }
         if (testResultData.getStatus() == BlazeTestStatus.TIMEOUT) {
+          String message =
+              String.format(
+                  "%s%s",
+                  testName,
+                  testLogPathToOutput != null ? " (see " + testLogPathToOutput + ")" : "");
           actionExecutionContext
               .getEventHandler()
-              .handle(Event.of(EventKind.TIMEOUT, null, testName + " (see " + testLog + ")"));
+              .handle(Event.of(EventKind.TIMEOUT, null, message));
         } else if (testResultData.getStatus() == BlazeTestStatus.INCOMPLETE) {
           actionExecutionContext
               .getEventHandler()
@@ -395,7 +413,12 @@ public abstract class TestStrategy implements TestActionContext {
                   .setWaitResponse(testResultData.getExitCode())
                   .setTimedOut(testResultData.getStatus() == BlazeTestStatus.TIMEOUT)
                   .build();
-          String message = String.format("%s (%s) (see %s)", testName, ts.toShortString(), testLog);
+          String message =
+              String.format(
+                  "%s (%s)%s",
+                  testName,
+                  ts.toShortString(),
+                  testLogPathToOutput != null ? " (see " + testLogPathToOutput + ")" : "");
           actionExecutionContext.getEventHandler().handle(Event.of(EventKind.FAIL, null, message));
         }
       }

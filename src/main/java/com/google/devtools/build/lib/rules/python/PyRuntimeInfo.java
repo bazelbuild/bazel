@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.python;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 import static net.starlark.java.eval.Starlark.NONE;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -26,6 +28,7 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.starlarkbuildapi.python.PyRuntimeInfoApi;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -120,8 +123,8 @@ public final class PyRuntimeInfo {
   }
 
   private static class BaseProvider extends StarlarkProviderWrapper<PyRuntimeInfo> {
-    private BaseProvider(String bzlLabel) {
-      super(Label.parseCanonicalUnchecked(bzlLabel), "PyRuntimeInfo");
+    private BaseProvider(BzlLoadValue.Key bzlKey) {
+      super(bzlKey, "PyRuntimeInfo");
     }
 
     @Override
@@ -134,7 +137,9 @@ public final class PyRuntimeInfo {
   private static class BuiltinProvider extends BaseProvider {
 
     private BuiltinProvider() {
-      super("@_builtins//:common/python/providers.bzl");
+      super(
+          keyForBuiltins(
+              Label.parseCanonicalUnchecked("@_builtins//:common/python/providers.bzl")));
     }
   }
 
@@ -142,7 +147,10 @@ public final class PyRuntimeInfo {
   private static class RulesPythonProvider extends BaseProvider {
 
     private RulesPythonProvider() {
-      super("//third_party/bazel_rules/rules_python/python/private/common:providers.bzl");
+      super(
+          keyForBuild(
+              Label.parseCanonicalUnchecked(
+                  "//third_party/bazel_rules/rules_python/python/private/common:providers.bzl")));
     }
   }
 }

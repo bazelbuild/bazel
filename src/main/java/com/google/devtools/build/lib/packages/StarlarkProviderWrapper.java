@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 
 /**
  * A helper for wrapping an instance of a Starlark-defined provider with a native class {@code T}.
@@ -36,11 +36,11 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 public abstract class StarlarkProviderWrapper<T> {
   private final StarlarkProvider.Key key;
 
-  protected StarlarkProviderWrapper(Label label, String name) {
-    this.key = new StarlarkProvider.Key(label, name);
+  protected StarlarkProviderWrapper(BzlLoadValue.Key loadKey, String name) {
+    this.key = new StarlarkProvider.Key(loadKey, name);
   }
 
-  /*
+  /**
    * Converts an instance of the Starlark-defined provider to an instance of the wrapping class
    * {@code T}.
    *
