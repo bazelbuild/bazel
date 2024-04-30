@@ -798,7 +798,7 @@ class OptionsParserImpl {
       String suggestion;
       // Do not offer suggestions for short-form options.
       if (arg.startsWith("--")) {
-        suggestion = SpellChecker.didYouMean(arg, collectSuggestedOptions(arg));
+        suggestion = SpellChecker.didYouMean(arg, getAllValidArgs());
       } else {
         suggestion = "";
       }
@@ -844,9 +844,7 @@ class OptionsParserImpl {
         Optional.empty());
   }
 
-  // Suggests options that are similar to the given one.
-  private Iterable<String> collectSuggestedOptions(String arg) {
-    boolean includeNoPrefix = arg.startsWith("--no");
+  private Iterable<String> getAllValidArgs() {
     return () ->
         optionsData.getAllOptionDefinitions().stream()
             .filter(entry -> !shouldIgnoreOption(entry.getValue()))
@@ -854,7 +852,7 @@ class OptionsParserImpl {
                 definition -> {
                   Stream.Builder<String> builder = Stream.builder();
                   builder.add("--" + definition.getKey());
-                  if (includeNoPrefix && definition.getValue().usesBooleanValueSyntax()) {
+                  if (definition.getValue().usesBooleanValueSyntax()) {
                     builder.add("--no" + definition.getKey());
                   }
                   return builder.build();
