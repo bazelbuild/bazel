@@ -42,6 +42,7 @@ import javax.annotation.Nullable;
 
 /** Module providing on-demand spawn logging. */
 public final class SpawnLogModule extends BlazeModule {
+  private static final String EXEC_LOG_FILENAME = "execution_log.binpb.zstd";
 
   @Nullable private SpawnLogContext spawnLogContext;
   @Nullable private Path outputPath;
@@ -123,7 +124,7 @@ public final class SpawnLogModule extends BlazeModule {
 
       // Use a well-known temporary path to avoid accumulation of potentially large files in /tmp
       // due to abnormally terminated invocations (e.g., when running out of memory).
-      Path tempPath = outputBase.getRelative("execution.log");
+      Path tempPath = outputBase.getRelative(EXEC_LOG_FILENAME);
 
       spawnLogContext =
           new ExpandedSpawnLogContext(
@@ -182,7 +183,7 @@ public final class SpawnLogModule extends BlazeModule {
     try {
       spawnLogContext.close();
       if (spawnLogContext.shouldPublish()) {
-        event.getResult().getBuildToolLogCollection().addLocalFile("execution.log", outputPath);
+        event.getResult().getBuildToolLogCollection().addLocalFile(EXEC_LOG_FILENAME, outputPath);
       }
     } catch (IOException e) {
       abruptExit =
