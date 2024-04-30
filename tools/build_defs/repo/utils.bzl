@@ -251,7 +251,10 @@ def read_netrc(ctx, filename):
       dict mapping a machine names to a dict with the information provided
       about them
     """
-    contents = ctx.read(filename)
+
+    # Do not cause the repo rule to rerun due to changes to auth info when it is
+    # successful. Failures are not cached.
+    contents = ctx.read(filename, watch = "no")
     return parse_netrc(contents, filename)
 
 def parse_netrc(contents, filename = None):
