@@ -9470,7 +9470,7 @@
         ]
       },
       "os:osx,arch:x86_64": {
-        "bzlTransitiveDigest": "pS9mIyvNUVSqdRSfOUDB2R88coUdBuWtJZbYlBr85Dg=",
+        "bzlTransitiveDigest": "CS/1Pw/d30m8Me8qw4v8Pa+5BGjlWsvf1KKl8ZmUosM=",
         "recordedFileInputs": {
           "@@//requirements.txt": "ff12967a755bb8e9b4c92524f6471a99e14c30474a3d428547c55745ec8f23a0"
         },
@@ -9478,8 +9478,8 @@
         "envVariables": {},
         "generatedRepoSpecs": {
           "bazel_pip_dev_deps": {
-            "bzlFile": "@@rules_python~//python/private/bzlmod:pip_repository.bzl",
-            "ruleClassName": "pip_repository",
+            "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
+            "ruleClassName": "pip_hub_repository_bzlmod",
             "attributes": {
               "repo_name": "bazel_pip_dev_deps",
               "whl_map": {
@@ -9497,8 +9497,6 @@
               "requirement": "bazel-runfiles==0.24.0",
               "repo": "bazel_pip_dev_deps_38",
               "repo_prefix": "bazel_pip_dev_deps_38_",
-              "whl_patches": {},
-              "experimental_target_platforms": [],
               "python_interpreter": "",
               "python_interpreter_target": "@@rules_python~~python~python_3_8_x86_64-apple-darwin//:bin/python3",
               "quiet": true,
@@ -9508,17 +9506,7 @@
               "download_only": false,
               "pip_data_exclude": [],
               "enable_implicit_namespace_pkgs": false,
-              "environment": {},
-              "group_name": "",
-              "group_deps": []
-            }
-          },
-          "bazel_pip_dev_deps_38__groups": {
-            "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
-            "ruleClassName": "group_library",
-            "attributes": {
-              "repo_prefix": "bazel_pip_dev_deps_38_",
-              "groups": {}
+              "environment": {}
             }
           }
         },
