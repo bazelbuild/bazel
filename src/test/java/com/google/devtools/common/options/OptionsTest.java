@@ -440,7 +440,9 @@ public class OptionsTest {
         assertThrows(
             OptionsParsingException.class,
             () -> Options.parse(HttpOptions.class, new String[] {"--no-debug"}));
-    assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --no-debug");
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("Unrecognized option: --no-debug (did you mean '--nodebug'?)");
   }
 
   public static class J extends OptionsBase {
