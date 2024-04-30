@@ -20,13 +20,6 @@ FdoProfileInfo = provider(
 )
 
 def _impl(ctx):
-    # proto_profile and memprof_profile can only be used if at least one of profile
-    # are provided.
-    if ctx.file.proto_profile and not ctx.file.proto_profile.is_source:
-        fail("Attribute proto_profile: the target is not an input file")
-    if ctx.file.memprof_profile and not ctx.file.memprof_profile.is_source:
-        fail("Attribute memprof_profile: the target is not an input file")
-
     return FdoProfileInfo(
         artifact = ctx.file.profile,
         proto_profile_artifact = ctx.file.proto_profile,
