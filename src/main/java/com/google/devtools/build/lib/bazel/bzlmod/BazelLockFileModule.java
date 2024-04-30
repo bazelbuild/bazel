@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.Lockfile
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -43,7 +44,7 @@ import javax.annotation.Nullable;
  */
 public class BazelLockFileModule extends BlazeModule {
 
-  private MemoizingEvaluator evaluator;
+  private SkyframeExecutor executor;
   private Path workspaceRoot;
   @Nullable private BazelModuleResolutionEvent moduleResolutionEvent;
 
@@ -51,7 +52,7 @@ public class BazelLockFileModule extends BlazeModule {
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
-    evaluator = env.getSkyframeExecutor().getEvaluator();
+    executor = env.getSkyframeExecutor();
     workspaceRoot = env.getWorkspace();
     RepositoryOptions options = env.getOptions().getOptions(RepositoryOptions.class);
     if (options.lockfileMode.equals(LockfileMode.UPDATE)) {
@@ -76,7 +77,8 @@ public class BazelLockFileModule extends BlazeModule {
     // first if needed.
     Map<ModuleExtensionId, LockFileModuleExtension.WithFactors> newExtensionInfos =
         new ConcurrentHashMap<>();
-    evaluator
+    executor
+        .getEvaluator()
         .getInMemoryGraph()
         .parallelForEach(
             entry -> {
@@ -90,7 +92,8 @@ public class BazelLockFileModule extends BlazeModule {
 
     BazelDepGraphValue depGraphValue;
     try {
-      depGraphValue = (BazelDepGraphValue) evaluator.getExistingValue(BazelDepGraphValue.KEY);
+      depGraphValue =
+          (BazelDepGraphValue) executor.getEvaluator().getExistingValue(BazelDepGraphValue.KEY);
     } catch (InterruptedException e) {
       // Not thrown in Bazel.
       throw new IllegalStateException(e);
