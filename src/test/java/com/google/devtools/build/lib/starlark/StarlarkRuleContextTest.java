@@ -28,7 +28,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -39,11 +41,13 @@ import com.google.devtools.build.lib.analysis.actions.BuildInfoFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkExecGroupCollection;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
@@ -53,6 +57,7 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
@@ -2721,6 +2726,42 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(contentUnchecked).isInstanceOf(String.class);
     // Args content ends the file with a newline
     assertThat(ev.eval("action.content")).isEqualTo("lambda:a\nlambda:b\nlocal:c;local:d\n");
+  }
+
+  @Test
+  public void testArgsMapEachWithPathMapper() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        getSimpleUnderTestDefinition("ctx.actions.write(out, '')"),
+        testingRuleDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
+    setRuleContext(ruleContext);
+
+    ev.update("file1", ev.eval("ruleContext.actions.declare_file('file1')"));
+    ev.update("file2", ev.eval("ruleContext.actions.declare_file('dir/file2')"));
+    Object result =
+        ev.eval(
+            "ruleContext.actions.args().add_all("
+                + "  [file1, file2],"
+                + "  allow_closure=True,"
+                + "  map_each=lambda f: 'file:%s:%s:%s:%s:%s' % ("
+                // Verify that mapped roots are comparable.
+                + "        f.path, f.dirname, f.root.path, type(f.root), f.root <= f.root)"
+                + ")");
+
+    PathMapper stripConfig =
+        execPath -> execPath.subFragment(0, 1).getRelative(execPath.subFragment(2));
+
+    assertThat(result).isInstanceOf(Args.class);
+    CommandLine args = ((Args) result).build(() -> RepositoryMapping.ALWAYS_FALLBACK);
+    String out = TestConstants.PRODUCT_NAME + "-out";
+    assertThat(args.arguments(null, stripConfig))
+        .containsExactly(
+            String.format("file:%1$s/bin/test/file1:%1$s/bin/test:%1$s/bin:mapped_root:True", out),
+            String.format(
+                "file:%1$s/bin/test/dir/file2:%1$s/bin/test/dir:%1$s/bin:mapped_root:True", out))
+        .inOrder();
   }
 
   @Test
