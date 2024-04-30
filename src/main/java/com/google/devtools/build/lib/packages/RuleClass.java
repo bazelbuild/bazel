@@ -1619,10 +1619,11 @@ public class RuleClass implements RuleClassData {
     }
   }
 
-  private final String name; // e.g. "cc_library"
+  // record containing both the common rule_class 'name' (e.g. "cc_library") as
+  // well as the unique 'key' for the rule class. Key has the same value as
+  // 'name' for native rules and a combination of label + name for Starlark.
+  private final RuleClassId ruleClassId;
   private final ImmutableList<StarlarkThread.CallStackEntry> callstack; // of call to 'rule'
-
-  private final String key; // Just the name for native, label + name for Starlark
 
   /**
    * The kind of target represented by this RuleClass (e.g. "cc_library rule"). Note: Even though
@@ -1800,9 +1801,8 @@ public class RuleClass implements RuleClassData {
       ImmutableList<Attribute> attributes,
       @Nullable BuildSetting buildSetting,
       ImmutableList<? extends StarlarkSubruleApi> subrules) {
-    this.name = name;
+    this.ruleClassId = RuleClassId.create(name, key);
     this.callstack = callstack;
-    this.key = key;
     this.type = type;
     this.starlarkParent = starlarkParent;
     this.initializer = initializer;
@@ -1901,7 +1901,7 @@ public class RuleClass implements RuleClassData {
   /** Returns the class of rule that this RuleClass represents (e.g. "cc_library"). */
   @Override
   public String getName() {
-    return name;
+    return ruleClassId.name();
   }
 
   public RuleClass getStarlarkParent() {
@@ -1934,7 +1934,12 @@ public class RuleClass implements RuleClassData {
 
   /** Returns a unique key. Used for profiling purposes. */
   public String getKey() {
-    return key;
+    return ruleClassId.key();
+  }
+
+  /** Returns the record containing both the name and key. */
+  public RuleClassId getRuleClassId() {
+    return this.ruleClassId;
   }
 
   /** Returns the target kind of this class of rule (e.g. "cc_library rule"). */
@@ -2160,7 +2165,7 @@ public class RuleClass implements RuleClassData {
                 "%s: no such attribute '%s' in '%s' rule%s",
                 rule.getLabel(),
                 attributeName,
-                name,
+                ruleClassId.name(),
                 SpellChecker.didYouMean(
                     attributeName,
                     rule.getAttributes().stream()
@@ -2240,7 +2245,7 @@ public class RuleClass implements RuleClassData {
         rule.reportError(
             String.format(
                 "%s: missing value for mandatory attribute '%s' in '%s' rule",
-                rule.getLabel(), attr.getName(), name),
+                rule.getLabel(), attr.getName(), ruleClassId.name()),
             pkgBuilder.getLocalEventHandler());
       }
 
@@ -2301,7 +2306,7 @@ public class RuleClass implements RuleClassData {
     // attribute gets an '$implicit_tests' attribute, whose value is a shared per-package list of
     // all test labels, populated later.
     // TODO(blaze-rules-team): This should be in test_suite's implementation, not here.
-    if (this.name.equals("test_suite") && !this.isStarlark) {
+    if (this.ruleClassId.name().equals("test_suite") && !this.isStarlark) {
       Attribute implicitTests = this.getAttributeByName("$implicit_tests");
       NonconfigurableAttributeMapper attributeMapper = NonconfigurableAttributeMapper.of(rule);
       if (implicitTests != null && attributeMapper.get("tests", BuildType.LABEL_LIST).isEmpty()) {
@@ -2493,7 +2498,7 @@ public class RuleClass implements RuleClassData {
 
   @Override
   public String toString() {
-    return name;
+    return ruleClassId.name();
   }
 
   public boolean isDocumented() {

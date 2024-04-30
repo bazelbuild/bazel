@@ -173,6 +173,7 @@ java_library(
         ":repository_mapping_value",
         ":rule_configured_target_value",
         ":sky_functions",
+        ":sky_key_stats",
         ":sky_value_dirtiness_checker",
         ":skyfocus",
         ":skyfocus_options",
@@ -182,6 +183,7 @@ java_library(
         ":skyframe_error_processor",
         ":skyframe_executor_repository_helpers_holder",
         ":skyframe_incremental_build_monitor",
+        ":skyframe_stats",
         ":skymeld_inconsistency_receiver",
         ":starlark_builtins_value",
         ":state_informing_sky_function_environment",
@@ -3200,5 +3202,20 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "sky_key_stats",
+    srcs = ["SkyKeyStats.java"],
+)
+
+java_library(
+    name = "skyframe_stats",
+    srcs = ["SkyframeStats.java"],
+    deps = [
+        ":sky_key_stats",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
     ],
 )

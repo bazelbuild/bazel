@@ -1033,54 +1033,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     skyframeBuildView.clearLegacyData();
   }
 
-  /** Used with dump --rules. */
-  public static class RuleStat {
-    private final String key;
-    private final String name;
-    private final boolean isRule;
-    private long count;
-    private long actionCount;
-
-    public RuleStat(String key, String name, boolean isRule) {
-      this.key = key;
-      this.name = name;
-      this.isRule = isRule;
-    }
-
-    public void addRule(long actionCount) {
-      this.count++;
-      this.actionCount += actionCount;
-    }
-
-    /** Returns a key that uniquely identifies this rule or aspect. */
-    public String getKey() {
-      return key;
-    }
-
-    /** Returns a name for the rule or aspect. */
-    public String getName() {
-      return name;
-    }
-
-    /** Returns whether this is a rule or an aspect. */
-    public boolean isRule() {
-      return isRule;
-    }
-
-    /** Returns the instance count of this rule or aspect class. */
-    public long getCount() {
-      return count;
-    }
-
-    /** Returns the total action count of all instance of this rule or aspect class. */
-    public long getActionCount() {
-      return actionCount;
-    }
-  }
-
-  /** Computes statistics on heap-resident rules and aspects. */
-  public abstract List<RuleStat> getRuleStats(ExtendedEventHandler eventHandler)
-      throws InterruptedException;
+  /**
+   * Computes statistics on heap-resident rules and aspects and SkyKey/Values. Returns null if
+   * unsupported.
+   */
+  @Nullable
+  public abstract SkyframeStats getSkyframeStats(ExtendedEventHandler eventHandler);
 
   /**
    * Decides if graph edges should be stored during this evaluation and checks if the state from the
