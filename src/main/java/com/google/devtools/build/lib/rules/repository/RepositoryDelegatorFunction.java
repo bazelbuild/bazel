@@ -90,6 +90,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   public static final Precomputed<Optional<Path>> VENDOR_DIRECTORY =
       new Precomputed<>("vendor_directory");
 
+  public static final Precomputed<Boolean> DISABLE_NATIVE_REPO_RULES =
+      new Precomputed<>("disable_native_repo_rules");
+
   // The marker file version is inject in the rule key digest so the rule key is always different
   // when we decide to update the format.
   private static final int MARKER_FILE_VERSION = 7;

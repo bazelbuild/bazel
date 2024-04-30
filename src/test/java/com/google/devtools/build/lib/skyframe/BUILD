@@ -268,6 +268,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_info",
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_name_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/packages:PackageFactoryBuilderWithSkyframeForTesting",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",

@@ -375,7 +375,18 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
           new IOException(rule + " must create a directory"), Transience.TRANSIENT);
     }
 
+    // Make sure the fetched repo has a boundary file.
     if (!WorkspaceFileHelper.isValidRepoRoot(outputDirectory)) {
+      if (outputDirectory.isSymbolicLink()) {
+        // The created repo is actually just a symlink to somewhere else (think local_repository).
+        // In this case, we shouldn't try to create the repo boundary file ourselves, but report an
+        // error instead.
+        throw new RepositoryFunctionException(
+            new IOException(
+                "No MODULE.bazel, REPO.bazel, or WORKSPACE file found in " + outputDirectory),
+            Transience.TRANSIENT);
+      }
+      // Otherwise, we can just create an empty REPO.bazel file.
       try {
         FileSystemUtils.createEmptyFile(outputDirectory.getRelative(LabelConstants.REPO_FILE_NAME));
         if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE)) {

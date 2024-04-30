@@ -52,7 +52,7 @@ public final class PlatformMappingValueTest {
   private static final BuildOptions DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS =
       BuildOptions.getDefaultBuildOptionsForFragments(BUILD_CONFIG_PLATFORM_OPTIONS);
   private static final Label DEFAULT_TARGET_PLATFORM =
-      Label.parseCanonicalUnchecked("@local_config_platform//:host");
+      Label.parseCanonicalUnchecked("@bazel_tools//tools:host_platform");
 
   @Test
   public void testMapNoMappings() throws OptionsParsingException {
