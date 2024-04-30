@@ -160,7 +160,7 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
    * appear ordered first by their options class (the order in which they were passed to {@link
    * #from(Collection, boolean)}, and then in alphabetic order within each options class.
    */
-  public Iterable<Map.Entry<String, OptionDefinition>> getAllOptionDefinitions() {
+  public Collection<Map.Entry<String, OptionDefinition>> getAllOptionDefinitions() {
     return nameToField.entrySet();
   }
 
