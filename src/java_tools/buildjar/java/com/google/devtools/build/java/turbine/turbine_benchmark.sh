@@ -59,7 +59,7 @@ function reset_and_modify_file() {
   reset_file
   # Add a public method with a unique name to the file to ensure that the incremental build is
   # not using any cached results.
-  sed -i"" -e "s/^}/  public void foo$(uuid | tr '-' '_')() {}\n}/g" "$FILE_TO_MODIFY"
+  sed -i"" -e "s/^}/  public void foo$(uuidgen | tr '-' '_')() {}\n}/g" "$FILE_TO_MODIFY"
 }
 export -f reset_and_modify_file
 

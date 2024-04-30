@@ -39,7 +39,7 @@ TURBINE_PATH="$(
 echo "===== Collecting profile for $REPRESENTATIVE_TARGET ====="
 
 # The random path serves as a cache breaker for the build below.
-PROFILE="$(pwd)/_turbine_pgo/profile.$(uuid -v4).iprof"
+PROFILE="$(pwd)/_turbine_pgo/profile.$(uuidgen).iprof"
 PROFILE_JAVACOPTS="-XX:ProfilesDumpFile=$PROFILE"
 
 function cleanup() {
