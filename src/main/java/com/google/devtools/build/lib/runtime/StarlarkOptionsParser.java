@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.devtools.build.lib.analysis.config.CoreOptionConverters.BUILD_SETTING_CONVERTERS;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
+import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -27,7 +28,7 @@ import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.packages.BuildSetting;
-import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
@@ -38,10 +39,13 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.SequencedSet;
 import java.util.TreeMap;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -50,6 +54,10 @@ import javax.annotation.Nullable;
  * of parsing and setting the starlark options for this {@link OptionsParser}.
  */
 public class StarlarkOptionsParser {
+
+  // Use the plain strings rather than reaching into the Alias class and adding a dependency edge.
+  private static final String ALIAS_RULE_NAME = "alias";
+  private static final String ALIAS_ACTUAL_ATTRIBUTE_NAME = "actual";
 
   private final OptionsParser nativeOptionsParser;
 
@@ -282,7 +290,7 @@ public class StarlarkOptionsParser {
   }
 
   /**
-   * Returns the given build setting's {@link Target}.
+   * Returns the given build setting's {@link Target}, following (unconfigured) aliases if needed.
    *
    * @return the target, or null if the {@link BuildSettingLoader} needs to do more work to retrieve
    *     the target
@@ -293,23 +301,65 @@ public class StarlarkOptionsParser {
       return buildSettings.get(targetToBuild);
     }
 
-    Target buildSetting;
-    try {
-      buildSetting = buildSettingLoader.loadBuildSetting(targetToBuild);
-      if (buildSetting == null) {
-        return null;
+    Target target;
+    String targetToLoadNext = targetToBuild;
+    SequencedSet<Label> aliasChain = new LinkedHashSet<>();
+    while (true) {
+      try {
+        target = buildSettingLoader.loadBuildSetting(targetToLoadNext);
+        if (target == null) {
+          return null;
+        }
+      } catch (InterruptedException | TargetParsingException e) {
+        Thread.currentThread().interrupt();
+        throw new OptionsParsingException(
+            "Error loading option " + targetToBuild + ": " + e.getMessage(), targetToBuild, e);
       }
-    } catch (InterruptedException | TargetParsingException e) {
-      Thread.currentThread().interrupt();
+      if (!aliasChain.add(target.getLabel())) {
+        throw new OptionsParsingException(
+                String.format(
+                        "Failed to load build setting '%s' due to a cycle in alias chain: %s",
+                        targetToBuild,
+                        formatAliasChain(Stream.concat(aliasChain.stream(), Stream.of(target.getLabel())))),
+                targetToBuild);
+      }
+      if (target.getAssociatedRule() == null) {
+        throw new OptionsParsingException(
+                String.format("Unrecognized option: %s", formatAliasChain(aliasChain.stream())),
+                targetToBuild);
+      }
+      if (target.getAssociatedRule().isBuildSetting()) {
+        break;
+      }
+      // Follow the unconfigured values of aliases.
+      if (target.getAssociatedRule().getRuleClass().equals(ALIAS_RULE_NAME)) {
+        targetToLoadNext = switch (target.getAssociatedRule().getAttr(ALIAS_ACTUAL_ATTRIBUTE_NAME)) {
+          case Label label -> label.getUnambiguousCanonicalForm();
+          case BuildType.SelectorList<?> ignored -> throw new OptionsParsingException(
+                  String.format(
+                          "Failed to load build setting '%s' as it resolves to an alias with an actual"
+                                  + " value that uses select(), which is not supported: %s",
+                          targetToBuild,
+                          formatAliasChain(aliasChain.stream())),
+                  targetToBuild);
+          case null, default -> throw new IllegalStateException(
+                  String.format(
+                          "Alias target '%s' with 'actual' attr value not equals to a label or a selectorlist",
+                          target.getLabel()));
+        };
+        continue;
+      }
       throw new OptionsParsingException(
-          "Error loading option " + targetToBuild + ": " + e.getMessage(), targetToBuild, e);
-    }
-    Rule associatedRule = buildSetting.getAssociatedRule();
-    if (associatedRule == null || associatedRule.getRuleClassObject().getBuildSetting() == null) {
-      throw new OptionsParsingException("Unrecognized option: " + targetToBuild, targetToBuild);
-    }
-    buildSettings.put(targetToBuild, buildSetting);
-    return buildSetting;
+              String.format("Unrecognized option: %s", formatAliasChain(aliasChain.stream())),
+              targetToBuild);
+    };
+
+    buildSettings.put(targetToBuild, target);
+    return target;
+  }
+
+  private static String formatAliasChain(Stream<Label> aliasChain) {
+    return aliasChain.map(Label::getCanonicalForm).collect(joining(" -> "));
   }
 
   @VisibleForTesting
