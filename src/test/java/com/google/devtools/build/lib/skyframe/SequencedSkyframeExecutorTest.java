@@ -110,6 +110,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
+import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.XattrProviderOverrider;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetBuiltEvent;
@@ -647,6 +648,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         new FilesystemValueChecker(
                 new TimestampGranularityMonitor(BlazeClock.instance()),
                 SyscallCache.NO_CACHE,
+                XattrProviderOverrider.NO_OVERRIDE,
                 /* numThreads= */ 20)
             .getDirtyKeys(
                 skyframeExecutor.getEvaluator().getValues(),
