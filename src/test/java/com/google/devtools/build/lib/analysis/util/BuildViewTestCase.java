@@ -435,19 +435,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected BuildOptions createBuildOptions(String... args)
       throws OptionsParsingException, InvalidConfigurationException {
-    ImmutableList.Builder<String> allArgs = new ImmutableList.Builder<>();
-
-    // Add standard flags.
-    allArgs.add("--experimental_extended_sanity_checks");
-    // Always default to k8, even on mac and windows. Tests that need different platform should set
-    // it using {@link useConfiguration()} with (--platforms=foo) explicitly.
-    allArgs.add("--platforms=" + TestConstants.PLATFORM_LABEL);
-    allArgs.add("--host_platform=" + TestConstants.PLATFORM_LABEL);
-
-    // Now the flags from the test.
-    allArgs.add(args);
-
-    return skyframeExecutor.createBuildOptionsForTesting(reporter, allArgs.build());
+    ImmutableList<String> allArgs = ImmutableList.copyOf(args);
+    return skyframeExecutor.createBuildOptionsForTesting(reporter, allArgs);
   }
 
   protected Target getTarget(String label)
