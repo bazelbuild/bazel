@@ -672,7 +672,9 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
         .hasMessageThat()
         .isEqualTo(
             "Failed to load build setting '//test:one' as it resolves to an alias with an actual"
-                + " value that uses select(), which is not supported: //test:one -> //test/pkg:two");
+                + " value that uses select(): //test:one -> //test/pkg:two. This is not supported"
+                + " as build settings are needed to determine the configuration the select is"
+                + " evaluated in.");
   }
 
   @Test

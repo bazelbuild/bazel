@@ -55,10 +55,6 @@ import javax.annotation.Nullable;
  */
 public class StarlarkOptionsParser {
 
-  // Use the plain strings rather than reaching into the Alias class and adding a dependency edge.
-  private static final String ALIAS_RULE_NAME = "alias";
-  private static final String ALIAS_ACTUAL_ATTRIBUTE_NAME = "actual";
-
   private final OptionsParser nativeOptionsParser;
 
   /**
@@ -332,13 +328,15 @@ public class StarlarkOptionsParser {
         break;
       }
       // Follow the unconfigured values of aliases.
-      if (target.getAssociatedRule().getRuleClass().equals(ALIAS_RULE_NAME)) {
-        targetToLoadNext = switch (target.getAssociatedRule().getAttr(ALIAS_ACTUAL_ATTRIBUTE_NAME)) {
+      if (target.getAssociatedRule().getRuleClass().equals("alias")) {
+        targetToLoadNext = switch (target.getAssociatedRule().getAttr("actual")) {
           case Label label -> label.getUnambiguousCanonicalForm();
           case BuildType.SelectorList<?> ignored -> throw new OptionsParsingException(
                   String.format(
                           "Failed to load build setting '%s' as it resolves to an alias with an actual"
-                                  + " value that uses select(), which is not supported: %s",
+                                  + " value that uses select(): %s. This is not supported as build"
+                                  + " settings are needed to determine the configuration the select"
+                                  + " is evaluated in.",
                           targetToBuild,
                           formatAliasChain(aliasChain.stream())),
                   targetToBuild);
