@@ -136,6 +136,48 @@ EOF
   bazel build @hello_world//:hello_world
 }
 
+test_overlay_remote_file_fail_with_integrity() {
+  EXTREPODIR=`pwd`
+  EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
+
+  # Generate the remote files to overlay
+  # this could be like the Bazel Central Repository
+  # Generate the remote patch file
+  cat > BUILD.bazel <<'EOF'
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+
+cc_binary(
+    name = "hello_world",
+    srcs = ["hello_world.c"],
+)
+EOF
+  touch WORKSPACE
+
+  # Test that the patches attribute of http_archive is honored
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="hello_world",
+  strip_prefix="hello_world-0.1.2",
+  urls=["${EXTREPOURL}/hello_world.zip"],
+  remote_file_urls={
+    "WORKSPACE": ["${EXTREPOURL}/WORKSPACE"],
+    "BUILD.bazel": ["${EXTREPOURL}/BUILD.bazel"],
+  },
+  remote_file_integrity={
+    "WORKSPACE": "sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFZ=",
+    "BUILD.bazel": "sha256-0bs+dwSOzHTbNAgDS02I3giLAZu2/NLn7BJWwQGN/Pk=",
+  },
+)
+EOF
+  write_default_lockfile "MODULE.bazel.lock"
+
+  bazel build @hello_world//:hello_world &> $TEST_log 2>&1 && fail "Expected to fail"
+  expect_log "but wanted sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFY="
+}
+
 test_overlay_remote_file_without_integrity() {
   EXTREPODIR=`pwd`
   EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
