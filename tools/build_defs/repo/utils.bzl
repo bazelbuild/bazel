@@ -91,26 +91,6 @@ def _download_patch(ctx, patch_url, integrity, auth):
     )
     return patch_path
 
-def _validate_path(ctx, relative_path):
-    """Validate that the path is a child of the repository directory
-    
-    Effectively tests that the path contains no ".." components.
-    Args:
-      ctx: The repository context of the repository rule calling this utility
-        function.
-      relative_path: The path to validate.
-    """
-    repo_dir = ctx.path(".")
-    resolved_repo_dir = repo_dir.realpath
-    path = repo_dir.get_child(relative_path)
-    resolved_path = path.realpath
-
-    if not str(resolved_path).startswith(str(resolved_repo_dir) + "/"):
-        fail("Invalid path: '{}' is not a child of the repository directory '{}'."
-            .format(relative_path, resolved_repo_dir))
-
-    return str(path)
-
 
 def remote_files(ctx, auth = None):
     """Utility function for downloading remote files.
@@ -131,7 +111,7 @@ def remote_files(ctx, auth = None):
             canonical_id = ctx.attr.canonical_id,
             auth = auth,
             # integrity is optional but really recommended
-            integrity = ctx.attr.remote_file_integrity.get(path),
+            integrity = ctx.attr.remote_file_integrity.get(path, ""),
             block = False,
         )
         for path, remote_file_urls in ctx.attr.remote_file_urls.items()]
@@ -139,13 +119,6 @@ def remote_files(ctx, auth = None):
     # Wait until the requess are done
     for p in pending:
         p.wait()
-
-    # kind of silly, but the validation has to happen AFTER
-    # we download the files.
-    # The validation relies on `realpath` which throws an error
-    # if the file does not exist.
-    for path in ctx.attr.remote_file_urls:
-        _validate_path(ctx, path)
 
     
 def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_tool = None, patch_args = None, auth = None):
