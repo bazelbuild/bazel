@@ -38,11 +38,6 @@ public class AndroidStarlarkCommon
         Artifact, JavaInfo, FilesToRunProvider, ConstraintValueInfo, StarlarkRuleContext> {
 
   @Override
-  public AndroidDeviceBrokerInfo createDeviceBrokerInfo(String deviceBrokerType) {
-    return new AndroidDeviceBrokerInfo(deviceBrokerType);
-  }
-
-  @Override
   public String getSourceDirectoryRelativePathFromResource(Artifact resource) {
     return AndroidCommon.getSourceDirectoryRelativePathFromResource(resource).toString();
   }
