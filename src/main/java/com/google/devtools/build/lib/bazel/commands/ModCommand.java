@@ -37,7 +37,10 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionEvent;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
+import com.google.devtools.build.lib.bazel.bzlmod.CompiledModuleFile;
+import com.google.devtools.build.lib.bazel.bzlmod.ExternalDepsException;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFile;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
@@ -632,18 +635,33 @@ public final class ModCommand implements BlazeCommand {
             "Unexpected error while reading module file after running buildozer: " + e.getMessage(),
             Code.BUILDOZER_FAILED);
       }
+      CompiledModuleFile compiledModuleFile;
+      try {
+        compiledModuleFile =
+            CompiledModuleFile.parseAndCompile(
+                ModuleFile.create(moduleFileContents, moduleFilePath.asPath().getPathString()),
+                ModuleKey.ROOT,
+                modTidyValue.starlarkSemantics(),
+                env.getRuntime().getRuleClassProvider().getBazelStarlarkEnvironment(),
+                env.getReporter());
+      } catch (ExternalDepsException e) {
+        return reportAndCreateFailureResult(
+            env,
+            "Unexpected error while compiling module file after running buildozer: "
+                + e.getMessage(),
+            Code.BUILDOZER_FAILED);
+      }
       ModuleFileValue.RootModuleFileValue newRootModuleFileValue;
       try {
         newRootModuleFileValue =
             ModuleFileFunction.evaluateRootModuleFile(
-                moduleFileContents,
-                moduleFilePath,
+                compiledModuleFile,
+                modTidyValue.includeLabelToCompiledModuleFile(),
                 ModuleFileFunction.getBuiltinModules(
                     env.getDirectories().getEmbeddedBinariesRoot()),
                 modTidyValue.moduleOverrides(),
                 modTidyValue.ignoreDevDeps(),
                 modTidyValue.starlarkSemantics(),
-                env.getRuntime().getRuleClassProvider().getBazelStarlarkEnvironment(),
                 env.getReporter());
       } catch (SkyFunctionException | InterruptedException e) {
         return reportAndCreateFailureResult(
