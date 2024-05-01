@@ -249,9 +249,9 @@ function test_packages_cleared() {
       'devtools\.build\.lib\..*\.Package$')"
   [[ "$package_count" -ge 9 ]] \
       || fail "package count $package_count too low: did you move/rename the class?"
-  local glob_count="$(extract_histogram_count "$histo_file" "GlobValueWithImmutableSet$")"
-  [[ "$glob_count" -ge 2 ]] \
-      || fail "glob count $glob_count too low: did you move/rename the class?"
+  local globs_count="$(extract_histogram_count "$histo_file" "GlobsValue$")"
+  [[ "$globs_count" -ge 2 ]] \
+      || fail "globs count $globs_count too low: did you move/rename the class?"
   local module_count="$(extract_histogram_count "$histo_file" 'eval.Module$')"
   [[ "$module_count" -gt 25 ]] \
       || fail "Module count $module_count too low: was the class renamed/moved?" # was 74
@@ -273,9 +273,9 @@ function test_packages_cleared() {
   # A few packages aren't cleared.
   [[ "$package_count" -le 26 ]] \
       || fail "package count $package_count too high"
-  glob_count="$(extract_histogram_count "$histo_file" "GlobValueWithImmutableSet$")"
-  [[ "$glob_count" -le 1 ]] \
-      || fail "glob count $glob_count too high"
+  globs_count="$(extract_histogram_count "$histo_file" "GlobsValue$")"
+  [[ "$globs_count" -le 1 ]] \
+      || fail "globs count $globs_count too high"
   module_count="$(extract_histogram_count "$histo_file" 'eval.Module$')"
   [[ "$module_count" -lt 190 ]] \
       || fail "Module count $module_count too high"

@@ -71,6 +71,7 @@ final class PackageFunctionWithoutGlobDeps extends PackageFunction {
   @Override
   protected void handleGlobDepsAndPropagateFilesystemExceptions(
       PackageIdentifier packageIdentifier,
+      Root packageRoot,
       LoadedPackage loadedPackage,
       Environment env,
       boolean packageWasInError) {

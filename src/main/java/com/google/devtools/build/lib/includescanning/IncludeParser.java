@@ -338,6 +338,7 @@ class IncludeParser {
             containingPackageLookupValue.getContainingPackageName().getPackageFragment();
         String pattern = findFilters.get(i);
         try {
+          // TODO: b/290998109#comment60 - Convert to create GLOBS node in IncludeParser.
           globKeys.add(
               GlobValue.key(
                   containingPackageLookupValue.getContainingPackageName(),

@@ -168,7 +168,8 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       boolean shouldUseRepoDotBazel,
       SkyKeyStateReceiver skyKeyStateReceiver,
-      BugReporter bugReporter) {
+      BugReporter bugReporter,
+      boolean globUnderSingleDep) {
     super(
         skyframeExecutorConsumerOnInit,
         pkgFactory,
@@ -193,7 +194,8 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         diffAwarenessFactories,
         workspaceInfoFromDiffReceiver,
         new SequencedRecordingDifferencer(),
-        repositoryHelpersHolder);
+        repositoryHelpersHolder,
+        globUnderSingleDep);
   }
 
   @Override
@@ -804,6 +806,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     private BugReporter bugReporter = BugReporter.defaultInstance();
     private SkyKeyStateReceiver skyKeyStateReceiver = SkyKeyStateReceiver.NULL_INSTANCE;
     private SyscallCache syscallCache = null;
+    private boolean globUnderSingleDep = true;
 
     private Builder() {}
 
@@ -839,7 +842,8 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
               actionOnIOExceptionReadingBuildFile,
               shouldUseRepoDotBazel,
               skyKeyStateReceiver,
-              bugReporter);
+              bugReporter,
+              globUnderSingleDep);
       skyframeExecutor.init();
       return skyframeExecutor;
     }
@@ -962,6 +966,12 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     @CanIgnoreReturnValue
     public Builder setSyscallCache(SyscallCache syscallCache) {
       this.syscallCache = syscallCache;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setGlobUnderSingleDep(boolean globUnderSingleDep) {
+      this.globUnderSingleDep = globUnderSingleDep;
       return this;
     }
   }

@@ -30,6 +30,8 @@ import java.util.Objects;
 /** {@link SkyValue} corresponding to the computation result of the {@link GlobsFunction}. */
 public class GlobsValue implements SkyValue {
 
+  // TODO: b/290998109 - Storing the matches seem unnecessary except for tests. Consider only
+  // storing `matches` when testing.
   private final ImmutableSet<PathFragment> matches;
 
   public GlobsValue(ImmutableSet<PathFragment> matches) {
@@ -192,6 +194,11 @@ public class GlobsValue implements SkyValue {
      */
     public ImmutableSet<GlobRequest> getGlobRequests() {
       return globRequests;
+    }
+
+    @Override
+    public boolean skipsBatchPrefetch() {
+      return true;
     }
 
     @Override

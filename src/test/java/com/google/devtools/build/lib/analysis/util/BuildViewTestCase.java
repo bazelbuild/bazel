@@ -253,18 +253,34 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   @Before
-  public final void initializeSkyframeExecutor() throws Exception {
-    initializeSkyframeExecutor(/*doPackageLoadingChecks=*/ true);
+  public void initializeSkyframeExecutor() throws Exception {
+    initializeSkyframeExecutor(/* doPackageLoadingChecks= */ true);
   }
 
   public void initializeSkyframeExecutor(boolean doPackageLoadingChecks) throws Exception {
     initializeSkyframeExecutor(
-        /*doPackageLoadingChecks=*/ doPackageLoadingChecks,
-        /*diffAwarenessFactories=*/ ImmutableList.of());
+        /* doPackageLoadingChecks= */ doPackageLoadingChecks,
+        /* diffAwarenessFactories= */ ImmutableList.of(),
+        /* globUnderSingleDep= */ true);
   }
 
   public void initializeSkyframeExecutor(
       boolean doPackageLoadingChecks, ImmutableList<DiffAwareness.Factory> diffAwarenessFactories)
+      throws Exception {
+    initializeSkyframeExecutor(
+        doPackageLoadingChecks, diffAwarenessFactories, /* globUnderSingleDep= */ true);
+  }
+
+  /**
+   * Only {@link com.google.devtools.build.lib.skyframe.PackageFunctionTest} still covers testing
+   * Skyframe Hybrid globbing by passing in the test parameter globUnderSingleDep.
+   *
+   * <p>All other tests adopt GLOBS strategy by setting {@code globUnderSingleDep} to {@code true}.
+   */
+  public void initializeSkyframeExecutor(
+      boolean doPackageLoadingChecks,
+      ImmutableList<DiffAwareness.Factory> diffAwarenessFactories,
+      boolean globUnderSingleDep)
       throws Exception {
     analysisMock = getAnalysisMock();
     directories =
@@ -320,6 +336,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .setSyscallCache(SyscallCache.NO_CACHE)
             .setDiffAwarenessFactories(diffAwarenessFactories)
             .setRepositoryHelpersHolder(getRepositoryHelpersHolder())
+            .setGlobUnderSingleDep(globUnderSingleDep)
             .build();
     if (usesInliningBzlLoadFunction()) {
       injectInliningBzlLoadFunction(skyframeExecutor, ruleClassProvider, directories);

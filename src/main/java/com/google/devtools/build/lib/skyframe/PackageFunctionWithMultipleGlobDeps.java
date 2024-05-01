@@ -60,7 +60,8 @@ import javax.annotation.Nullable;
  * node in the dependency graph.
  *
  * <p>{@link PackageFunctionWithMultipleGlobDeps} subclass is created when the globbing strategy is
- * {@link com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy#SKYFRAME_HYBRID} .
+ * {@link
+ * com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy#MULTIPLE_GLOB_HYBRID}.
  * Incremental evaluation adopts {@code SKYFRAME_HYBRID} globbing strategy in order to use the
  * unchanged {@link GlobValue} stored in Skyframe when incrementally reloading the package.
  */
@@ -99,6 +100,7 @@ final class PackageFunctionWithMultipleGlobDeps extends PackageFunction {
   @Override
   protected void handleGlobDepsAndPropagateFilesystemExceptions(
       PackageIdentifier packageIdentifier,
+      Root packageRoot,
       LoadedPackage loadedPackage,
       Environment env,
       boolean packageWasInError)
@@ -198,7 +200,7 @@ final class PackageFunctionWithMultipleGlobDeps extends PackageFunction {
    * encountering all glob calls (meaning the real pass can still have the core problem with
    * Skyframe restarts).
    */
-  private static class SkyframeHybridGlobber implements Globber {
+  private static final class SkyframeHybridGlobber implements Globber {
     private final PackageIdentifier packageId;
     private final Root packageRoot;
     private final Environment env;
