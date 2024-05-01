@@ -872,7 +872,32 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testStampTests() throws Exception {
+  public void testStampTests_enabled() throws Exception {
+    writeStampTestFiles();
+
+    useConfiguration("--stamp");
+    assertStamping(false, "//test:a");
+    assertStamping(false, "//test:b");
+    assertStamping(true, "//test:c");
+    assertStamping(true, "//test:d");
+    assertStamping(false, "//test:e");
+    assertStamping(true, "//test:f");
+  }
+
+  @Test
+  public void testStampTests_disabled() throws Exception {
+    writeStampTestFiles();
+
+    useConfiguration("--nostamp");
+    assertStamping(false, "//test:a");
+    assertStamping(false, "//test:b");
+    assertStamping(true, "//test:c");
+    assertStamping(false, "//test:d");
+    assertStamping(false, "//test:e");
+    assertStamping(true, "//test:f");
+  }
+
+  private void writeStampTestFiles() throws Exception {
     scratch.file(
         "test/BUILD",
         """
@@ -910,29 +935,6 @@ public class CcCommonTest extends BuildViewTestCase {
             stamp = 1,
         )
         """);
-
-    assertStamping(false, "//test:a");
-    assertStamping(false, "//test:b");
-    assertStamping(true, "//test:c");
-    assertStamping(true, "//test:d");
-    assertStamping(false, "//test:e");
-    assertStamping(true, "//test:f");
-
-    useConfiguration("--stamp");
-    assertStamping(false, "//test:a");
-    assertStamping(false, "//test:b");
-    assertStamping(true, "//test:c");
-    assertStamping(true, "//test:d");
-    assertStamping(false, "//test:e");
-    assertStamping(true, "//test:f");
-
-    useConfiguration("--nostamp");
-    assertStamping(false, "//test:a");
-    assertStamping(false, "//test:b");
-    assertStamping(true, "//test:c");
-    assertStamping(false, "//test:d");
-    assertStamping(false, "//test:e");
-    assertStamping(true, "//test:f");
   }
 
   private void assertStamping(boolean enabled, String label) throws Exception {

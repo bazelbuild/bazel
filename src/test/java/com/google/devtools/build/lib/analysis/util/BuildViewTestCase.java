@@ -438,9 +438,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     ImmutableList.Builder<String> allArgs = new ImmutableList.Builder<>();
 
     // Add standard flags.
-
-    // TODO(dmarting): Add --stamp option only to test that requires it.
-    allArgs.add("--stamp"); // Stamp is now defaulted to false.
     allArgs.add("--experimental_extended_sanity_checks");
     // Always default to k8, even on mac and windows. Tests that need different platform should set
     // it using {@link useConfiguration()} with (--platforms=foo) explicitly.
