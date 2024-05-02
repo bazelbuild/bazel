@@ -1061,6 +1061,29 @@ EOF
     || fail "Expected build to succeed"
 }
 
+function test_bad_state_linux_sandboxing() {
+  mkdir pkg
+
+  # This test is meant to catch a bad state being left over by an unfinished
+  # linux-sandboxing initialization. Since it's difficult to replicate the same
+  # conditions that end up in that state, this instead runs a null build
+  # where linux-sandboxing is unsupported by passing -1 grace seconds.
+  # Then we create inaccessibleHelperFile/Dir (the bad state) artificially and
+  # run a null build again making sure there is no crash.
+  bazel build --local_termination_grace_seconds=-1 \
+    || fail "Expected build to succeed"
+  file_path="$(bazel info output_base)/sandbox/inaccessibleHelperFile"
+  dir_path="$(bazel info output_base)/sandbox/inaccessibleHelperDir"
+
+  touch $file_path
+  mkdir $dir_path
+  chmod 000 $file_path
+  chmod 000 $dir_path
+
+  bazel build --local_termination_grace_seconds=-1 \
+    || fail "Expected build to succeed"
+}
+
 function is_bazel() {
   [ $TEST_WORKSPACE == "_main" ]
 }
