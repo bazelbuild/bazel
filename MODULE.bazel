@@ -156,7 +156,7 @@ maven.install(
         "javax.inject:javax.inject:1",
         "net.bytebuddy:byte-buddy:1.14.5",
         "net.bytebuddy:byte-buddy-agent:1.14.5",
-        "org.apache.commons:commons-compress:1.20",
+        "org.apache.commons:commons-compress:1.26.1",
         "org.apache.commons:commons-pool2:2.8.0",
         "org.apache.tomcat:tomcat-annotations-api:8.0.5",
         "org.apache.velocity:velocity:1.7",
