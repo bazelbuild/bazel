@@ -80,7 +80,7 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
   public void testParseWithRepoMapping() throws Exception {
     RepositoryMapping repoMapping =
         RepositoryMapping.create(
-            ImmutableMap.of("foo", RepositoryName.MAIN, "dep", RepositoryName.create("dep~1.0")),
+            ImmutableMap.of("foo", RepositoryName.MAIN, "dep", RepositoryName.create("dep~v1.0")),
             RepositoryName.MAIN);
     PlatformMappingFunction.Mappings mappings =
         parse(
