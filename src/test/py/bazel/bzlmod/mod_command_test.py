@@ -504,7 +504,7 @@ class ModCommandTest(test_base.TestBase):
             'mod',
             'dump_repo_mapping',
             '',
-            'foo~2.0',
+            'foo~v2.0',
         ],
     )
     root_mapping, foo_mapping = [json.loads(l) for l in stdout]
@@ -512,8 +512,8 @@ class ModCommandTest(test_base.TestBase):
     self.assertContainsSubset(
         {
             'my_project': '',
-            'foo1': 'foo~1.0',
-            'foo2': 'foo~2.0',
+            'foo1': 'foo~v1.0',
+            'foo2': 'foo~v2.0',
             'myrepo2': 'ext2~~ext~repo1',
             'bazel_tools': 'bazel_tools',
         }.items(),
@@ -522,7 +522,7 @@ class ModCommandTest(test_base.TestBase):
 
     self.assertContainsSubset(
         {
-            'foo': 'foo~2.0',
+            'foo': 'foo~v2.0',
             'ext_mod': 'ext~',
             'my_repo3': 'ext~~ext~repo3',
             'bazel_tools': 'bazel_tools',
