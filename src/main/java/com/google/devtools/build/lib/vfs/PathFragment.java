@@ -69,15 +69,28 @@ public abstract sealed class PathFragment
 
   /** Creates a new normalized path fragment. */
   public static PathFragment create(String path) {
+    return createInternal(path, OS);
+  }
+
+  public static PathFragment createForOs(String path, com.google.devtools.build.lib.util.OS os)
+      throws PathUnsupportedOnThisOs {
+    try {
+      return createInternal(path, OsPathPolicy.getFilePathOs(os));
+    } catch (OsPathPolicy.UncheckedPathUnsupportedOnThisOsException e) {
+      throw new PathUnsupportedOnThisOs(e);
+    }
+  }
+
+  private static PathFragment createInternal(String path, OsPathPolicy osPathPolicy) {
     if (path.isEmpty()) {
       return EMPTY_FRAGMENT;
     }
-    int normalizationLevel = OS.needsToNormalize(path);
+    int normalizationLevel = osPathPolicy.needsToNormalize(path);
     String normalizedPath =
         normalizationLevel != OsPathPolicy.NORMALIZED
-            ? OS.normalize(path, normalizationLevel)
+            ? osPathPolicy.normalize(path, normalizationLevel)
             : path;
-    int driveStrLength = OS.getDriveStrLength(normalizedPath);
+    int driveStrLength = osPathPolicy.getDriveStrLength(normalizedPath);
     return makePathFragment(normalizedPath, driveStrLength);
   }
 
@@ -126,6 +139,16 @@ public abstract sealed class PathFragment
    * for Windows-style absolute paths (e.g. "a:/b").
    */
   public abstract int getDriveStrLength();
+
+  /**
+   * Thrown by {@link #createForOs(String, com.google.devtools.build.lib.util.OS)} * when a path
+   * cannot be normalized on the current host OS.
+   */
+  public static final class PathUnsupportedOnThisOs extends Exception {
+    private PathUnsupportedOnThisOs(OsPathPolicy.UncheckedPathUnsupportedOnThisOsException e) {
+      super(e.getMessage(), e);
+    }
+  }
 
   private static final class RelativePathFragment extends PathFragment {
     // DON'T add any fields here unless you know what you are doing. Adding another field will
