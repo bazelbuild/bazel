@@ -1817,6 +1817,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .collect(toImmutableList());
   }
 
+  protected ImmutableList<Action> getActions(String label, String mnemonic) throws Exception {
+    return ((RuleConfiguredTarget) getConfiguredTarget(label))
+        .getActions().stream()
+            .map(Action.class::cast)
+            .filter(action -> action.getMnemonic().equals(mnemonic))
+            .collect(toImmutableList());
+  }
+
   protected ImmutableList<Action> getActions(String label) throws Exception {
     return ((RuleConfiguredTarget) getConfiguredTarget(label))
         .getActions().stream().map(Action.class::cast).collect(toImmutableList());

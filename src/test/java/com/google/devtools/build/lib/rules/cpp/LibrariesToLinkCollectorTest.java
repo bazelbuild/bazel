@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
@@ -173,7 +174,7 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("@src//test:foo");
     assertThat(target).isNotNull();
     Artifact binary = getExecutable(target);
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binary);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binary);
     assertThat(linkAction).isNotNull();
 
     String workspace = getTarget("//toolchain:toolchain").getPackage().getWorkspaceName();
@@ -279,7 +280,7 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//src/test:foo");
     assertThat(target).isNotNull();
     Artifact binary = getExecutable(target);
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binary);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(binary);
     assertThat(linkAction).isNotNull();
 
     List<String> linkArgs = linkAction.getArguments();

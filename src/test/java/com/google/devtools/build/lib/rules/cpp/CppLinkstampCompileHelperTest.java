@@ -23,6 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
@@ -62,7 +63,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     Artifact executable = getExecutable(target);
-    CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
+    SpawnAction generatingAction = (SpawnAction) getGeneratingAction(executable);
 
     Artifact compiledLinkstamp =
         ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
@@ -125,7 +126,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//x:libfoo.so");
     Artifact executable = getExecutable(target);
-    CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
+    SpawnAction generatingAction = (SpawnAction) getGeneratingAction(executable);
     Artifact compiledLinkstamp =
         ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
     assertThat(generatingAction.getInputs().toList()).contains(compiledLinkstamp);
@@ -171,7 +172,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
         """);
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     Artifact executable = getExecutable(target);
-    CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
+    SpawnAction generatingAction = (SpawnAction) getGeneratingAction(executable);
     Artifact compiledLinkstamp =
         ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
     assertThat(generatingAction.getInputs().toList()).contains(compiledLinkstamp);
@@ -200,7 +201,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
         """);
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     Artifact executable = getExecutable(target);
-    CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
+    SpawnAction generatingAction = (SpawnAction) getGeneratingAction(executable);
     Artifact compiledLinkstamp =
         ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
     assertThat(generatingAction.getInputs().toList()).contains(compiledLinkstamp);
@@ -250,7 +251,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
             cppConfiguration);
     boolean usePic = CppHelper.usePicForBinaries(cppConfiguration, featureConfiguration);
 
-    CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
+    SpawnAction generatingAction = (SpawnAction) getGeneratingAction(executable);
 
     Artifact compiledLinkstamp =
         ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
@@ -289,7 +290,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
         """);
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     Artifact executable = getExecutable(target);
-    CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
+    SpawnAction generatingAction = (SpawnAction) getGeneratingAction(executable);
     Artifact compiledLinkstamp =
         ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
     assertThat(generatingAction.getInputs().toList()).contains(compiledLinkstamp);
@@ -320,7 +321,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
         """);
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     Artifact executable = getExecutable(target);
-    CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
+    SpawnAction generatingAction = (SpawnAction) getGeneratingAction(executable);
     Artifact compiledLinkstamp =
         ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
     assertThat(generatingAction.getInputs().toList()).contains(compiledLinkstamp);
@@ -357,7 +358,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
         """);
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     Artifact executable = getExecutable(target);
-    CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
+    SpawnAction generatingAction = (SpawnAction) getGeneratingAction(executable);
     Artifact compiledLinkstamp =
         ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "ls.o");
     assertThat(generatingAction.getInputs().toList()).contains(compiledLinkstamp);

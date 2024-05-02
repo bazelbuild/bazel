@@ -58,7 +58,6 @@ import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
 import com.google.devtools.build.lib.rules.android.deployinfo.AndroidDeployInfoOuterClass.AndroidDeployInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
-import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
@@ -573,7 +572,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     Artifact copiedLib = getOnlyElement(getNativeLibrariesInApk(app));
     Artifact linkedLib = getGeneratingAction(copiedLib).getInputs().getSingleton();
-    CppLinkAction action = (CppLinkAction) getGeneratingAction(linkedLib);
+    SpawnAction action = (SpawnAction) getGeneratingAction(linkedLib);
 
     assertThat(action.getArguments()).containsAtLeast("-first_flag", "-second_flag");
 
@@ -655,7 +654,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     Artifact copiedLib = getOnlyElement(getNativeLibrariesInApk(app));
     Artifact linkedLib = getGeneratingAction(copiedLib).getInputs().getSingleton();
-    CppLinkAction action = (CppLinkAction) getGeneratingAction(linkedLib);
+    SpawnAction action = (SpawnAction) getGeneratingAction(linkedLib);
 
     assertThat(action.getArguments()).containsAtLeast("-first_flag", "-second_flag");
 

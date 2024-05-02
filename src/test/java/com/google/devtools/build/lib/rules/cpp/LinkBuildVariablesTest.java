@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
@@ -37,7 +38,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests that {@code CppLinkAction} is populated with the correct build variables. */
+/** Tests that C++ linking action is populated with the correct build variables. */
 @RunWith(JUnit4.class)
 public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
@@ -293,7 +294,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     scratch.file("x/a.cc");
 
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
-    CppLinkAction linkAction = getCppLinkAction(target, LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
+    SpawnAction linkAction = getCppLinkAction(target, LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
     String rootExecPath = linkAction.getPrimaryOutput().getRoot().getExecPathString();
 
     LtoBackendAction backendAction =
@@ -302,12 +303,12 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
                 linkAction, "x/libfoo.so.lto/" + rootExecPath + "/x/_objs/foo/a.pic.o");
     assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
 
-    CppLinkAction indexAction =
-        (CppLinkAction)
+    SpawnAction indexAction =
+        (SpawnAction)
             getPredecessorByInputName(
                 backendAction,
                 "x/libfoo.so.lto/" + rootExecPath + "/x/_objs/foo/a.pic.o.thinlto.bc");
-    CcToolchainVariables variables = indexAction.getLinkCommandLineForTesting().getBuildVariables();
+    CcToolchainVariables variables = getLinkCommandLine(indexAction).getBuildVariables();
 
     String interfaceLibraryBuilder =
         getVariableValue(
@@ -422,7 +423,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     scratch.file("x/a.cc");
 
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
-    CppLinkAction linkAction = getCppLinkAction(target, LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
+    SpawnAction linkAction = getCppLinkAction(target, LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
     String rootExecPath = linkAction.getPrimaryOutput().getRoot().getExecPathString();
 
     LtoBackendAction backendAction =
@@ -431,12 +432,12 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
                 linkAction, "x/libfoo.so.lto/" + rootExecPath + "/x/_objs/foo/a.pic.o");
     assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
 
-    CppLinkAction indexAction =
-        (CppLinkAction)
+    SpawnAction indexAction =
+        (SpawnAction)
             getPredecessorByInputName(
                 backendAction,
                 "x/libfoo.so.lto/" + rootExecPath + "/x/_objs/foo/a.pic.o.thinlto.bc");
-    CcToolchainVariables variables = indexAction.getLinkCommandLineForTesting().getBuildVariables();
+    CcToolchainVariables variables = getLinkCommandLine(indexAction).getBuildVariables();
 
     assertThat(variables.isAvailable(LinkBuildVariables.OUTPUT_EXECPATH.getVariableName()))
         .isFalse();
