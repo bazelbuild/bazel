@@ -13,10 +13,21 @@
 # limitations under the License.
 """Testing for helper functions."""
 
-import imp
+import importlib.util
+import importlib.machinery
 import unittest
 
-pkg_bzl = imp.load_source(
+def load_source(modname, filename):
+    loader = importlib.machinery.SourceFileLoader(modname, filename)
+    spec = importlib.util.spec_from_file_location(modname, filename, loader=loader)
+    module = importlib.util.module_from_spec(spec)
+    # The module is always executed and not cached in sys.modules.
+    # Uncomment the following line to cache the module.
+    # sys.modules[module.__name__] = module
+    loader.exec_module(module)
+    return module
+
+pkg_bzl = load_source(
     'pkg_bzl',
     'tools/build_defs/pkg/path.bzl')
 
