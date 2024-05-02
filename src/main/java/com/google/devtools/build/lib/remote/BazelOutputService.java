@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.BatchStatRequest;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.BatchStatResponse;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.CleanRequest;
@@ -250,7 +251,7 @@ public class BazelOutputService implements OutputService {
         () ->
             channel.withChannelBlocking(
                 channel -> {
-                  try {
+                  try (var sc = Profiler.instance().profile("BazelOutputService.StartBuild")) {
                     return BazelOutputServiceGrpc.newBlockingStub(channel).startBuild(request);
                   } catch (StatusRuntimeException e) {
                     throw new IOException(e);
@@ -295,7 +296,7 @@ public class BazelOutputService implements OutputService {
         () ->
             channel.withChannelBlocking(
                 channel -> {
-                  try {
+                  try (var sc = Profiler.instance().profile("BazelOutputService.StageArtifacts")) {
                     return BazelOutputServiceGrpc.newBlockingStub(channel).stageArtifacts(request);
                   } catch (StatusRuntimeException e) {
                     throw new IOException(e);
@@ -335,7 +336,7 @@ public class BazelOutputService implements OutputService {
         () ->
             channel.withChannelBlocking(
                 channel -> {
-                  try {
+                  try (var sc = Profiler.instance().profile("BazelOutputService.FinalizeBuild")) {
                     return BazelOutputServiceGrpc.newBlockingStub(channel).finalizeBuild(request);
                   } catch (StatusRuntimeException e) {
                     throw new IOException(e);
@@ -376,7 +377,8 @@ public class BazelOutputService implements OutputService {
         () ->
             channel.withChannelBlocking(
                 channel -> {
-                  try {
+                  try (var sc =
+                      Profiler.instance().profile("BazelOutputService.FinalizeArtifacts")) {
                     return BazelOutputServiceGrpc.newBlockingStub(channel)
                         .finalizeArtifacts(request);
                   } catch (StatusRuntimeException e) {
@@ -643,7 +645,7 @@ public class BazelOutputService implements OutputService {
         () ->
             channel.withChannelBlocking(
                 channel -> {
-                  try {
+                  try (var sc = Profiler.instance().profile("BazelOutputService.Clean")) {
                     return BazelOutputServiceGrpc.newBlockingStub(channel).clean(request);
                   } catch (StatusRuntimeException e) {
                     throw new IOException(e);
@@ -657,7 +659,7 @@ public class BazelOutputService implements OutputService {
         () ->
             channel.withChannelBlocking(
                 channel -> {
-                  try {
+                  try (var sc = Profiler.instance().profile("BazelOutputService.BatchStat")) {
                     return BazelOutputServiceGrpc.newBlockingStub(channel).batchStat(request);
                   } catch (StatusRuntimeException e) {
                     throw new IOException(e);
