@@ -5421,7 +5421,7 @@
         "recordedFileInputs": {
           "@@//src/tools/android/maven_android_install.json": "09bff3e33d291336046f7c9201630fb5e014f0e60b78b6f09b84e4f5f73ed04f",
           "@@rules_jvm_external~//rules_jvm_external_deps_install.json": "cafb5d2d8119391eb2b322ce3840d3352ea82d496bdb8cbd4b6779ec4d044dda",
-          "@@//maven_install.json": "eeabc47f580911512dad33c1bcbd54f676d70f4ee1b209978d900ad6cd60527b"
+          "@@//maven_install.json": "f43bfe813d2967c815549f8fbb36a234c8e2235c8f54b10dc5da177b1aa0ea9f"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -6908,12 +6908,24 @@
               "repin_instructions": ""
             }
           },
+          "org_apache_commons_commons_lang3_3_14_0": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "7b96bf3ee68949abb5bc465559ac270e0551596fa34523fddf890ec418dde13c",
+              "urls": [
+                "https://repo1.maven.org/maven2/org/apache/commons/commons-lang3/3.14.0/commons-lang3-3.14.0.jar"
+              ],
+              "downloaded_file_path": "v1/org/apache/commons/commons-lang3/3.14.0/commons-lang3-3.14.0.jar"
+            }
+          },
           "org_apache_commons_commons_compress_1_20": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
             "attributes": {
               "sha256": "0aeb625c948c697ea7b205156e112363b59ed5e2551212cd4e460bdb72c7c06e",
               "urls": [
+                "https://dl.google.com/android/maven2/org/apache/commons/commons-compress/1.20/commons-compress-1.20.jar",
                 "https://repo1.maven.org/maven2/org/apache/commons/commons-compress/1.20/commons-compress-1.20.jar"
               ],
               "downloaded_file_path": "v1/org/apache/commons/commons-compress/1.20/commons-compress-1.20.jar"
@@ -8029,6 +8041,17 @@
               "downloaded_file_path": "v1/software/amazon/awssdk/s3/2.20.128/s3-2.20.128.jar"
             }
           },
+          "org_apache_commons_commons_compress_1_26_1": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "27bb5d40f37c3bb7205b4a0540247df057715e9f6cbbd97d626ab8b50318bb04",
+              "urls": [
+                "https://repo1.maven.org/maven2/org/apache/commons/commons-compress/1.26.1/commons-compress-1.26.1.jar"
+              ],
+              "downloaded_file_path": "v1/org/apache/commons/commons-compress/1.26.1/commons-compress-1.26.1.jar"
+            }
+          },
           "com_squareup_javapoet_1_8_0": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -8343,6 +8366,17 @@
               "downloaded_file_path": "v1/org/slf4j/slf4j-api/1.7.30/slf4j-api-1.7.30.jar"
             }
           },
+          "commons_io_commons_io_2_15_1": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "a58af12ee1b68cfd2ebb0c27caef164f084381a00ec81a48cc275fd7ea54e154",
+              "urls": [
+                "https://repo1.maven.org/maven2/commons-io/commons-io/2.15.1/commons-io-2.15.1.jar"
+              ],
+              "downloaded_file_path": "v1/commons-io/commons-io/2.15.1/commons-io-2.15.1.jar"
+            }
+          },
           "org_jetbrains_annotations_13_0": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -8478,6 +8512,17 @@
                 "https://repo1.maven.org/maven2/com/google/api-client/google-api-client/1.35.2/google-api-client-1.35.2.jar"
               ],
               "downloaded_file_path": "v1/com/google/api-client/google-api-client/1.35.2/google-api-client-1.35.2.jar"
+            }
+          },
+          "commons_codec_commons_codec_1_16_1": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "ec87bfb55f22cbd1b21e2190eeda28b2b312ed2a431ee49fbdcc01812d04a5e4",
+              "urls": [
+                "https://repo1.maven.org/maven2/commons-codec/commons-codec/1.16.1/commons-codec-1.16.1.jar"
+              ],
+              "downloaded_file_path": "v1/commons-codec/commons-codec/1.16.1/commons-codec-1.16.1.jar"
             }
           },
           "org_ow2_asm_asm_commons_9_2": {
