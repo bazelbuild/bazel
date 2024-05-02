@@ -75,7 +75,7 @@ class RepoFetchingSkyKeyComputeState implements SkyKeyComputeState {
   /** The executor service that manages the worker thread. */
   // We hold on to this alongside `workerFuture` because it offers a convenient mechanism to make
   // sure the worker thread has shut down (with its blocking `close()` method).
-  private ListeningExecutorService workerExecutorService;
+  ListeningExecutorService workerExecutorService;
 
   private final String repoName;
 
@@ -136,6 +136,7 @@ class RepoFetchingSkyKeyComputeState implements SkyKeyComputeState {
     if (myWorkerFuture != null) {
       myWorkerFuture.cancel(true);
     }
+    workerExecutorService.shutdownNow();
   }
 
   /**

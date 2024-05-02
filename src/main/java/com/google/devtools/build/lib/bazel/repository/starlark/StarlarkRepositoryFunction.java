@@ -140,6 +140,17 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       return fetchInternal(args);
     }
     var state = env.getState(() -> new RepoFetchingSkyKeyComputeState(rule.getName()));
+    if (state.workerExecutorService.isShutdown()) {
+      // If we get here and the worker executor is shut down, this can only mean that the worker
+      // future was cancelled while we (the host Skyframe thread) were inactive (as in, having
+      // returned `null` but not yet restarted). So we wait for the previous worker thread to finish
+      // first.
+      // TODO: instead of this complicated dance, consider making it legal for
+      //  `SkyKeyComputeState#close()` to block. This would undo the advice added in commit 8ef0a51,
+      //  but would allow us to merge `close()` and `closeAndWaitForTermination()` and avoid some
+      //  headache.
+      state.closeAndWaitForTermination();
+    }
     boolean shouldShutDownWorkerExecutorInFinally = true;
     try {
       var workerFuture = state.workerFuture;
