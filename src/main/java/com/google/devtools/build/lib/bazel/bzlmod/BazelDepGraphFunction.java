@@ -30,6 +30,7 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
@@ -186,7 +187,7 @@ public class BazelDepGraphFunction implements SkyFunction {
       return null;
     }
 
-    ImmutableList<String> registries = ImmutableList.copyOf(ModuleFileFunction.REGISTRIES.get(env));
+    ImmutableSet<String> registries = ImmutableSet.copyOf(ModuleFileFunction.REGISTRIES.get(env));
     ImmutableMap<String, String> moduleOverrides =
         ModuleFileFunction.MODULE_OVERRIDES.get(env).entrySet().stream()
             .collect(
