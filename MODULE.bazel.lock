@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "eba5503742af5785c2d0d81d88e7407c7f23494b5162c055227435549b8774d1",
+  "moduleFileHash": "34bc7fff6553fd04a7df2f9cf415de0813e9a1e62e28b1cf2ce4fd0eb8cdac59",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -133,7 +133,7 @@
                   "javax.inject:javax.inject:1",
                   "net.bytebuddy:byte-buddy:1.14.5",
                   "net.bytebuddy:byte-buddy-agent:1.14.5",
-                  "org.apache.commons:commons-compress:1.20",
+                  "org.apache.commons:commons-compress:1.26.1",
                   "org.apache.commons:commons-pool2:2.8.0",
                   "org.apache.tomcat:tomcat-annotations-api:8.0.5",
                   "org.apache.velocity:velocity:1.7",
@@ -2916,7 +2916,7 @@
       "general": {
         "bzlTransitiveDigest": "tunTSmgwd2uvTzkCLtdbuCp0AI+WR+ftiPNqZ0rmcZk=",
         "recordedFileInputs": {
-          "@@//MODULE.bazel": "eba5503742af5785c2d0d81d88e7407c7f23494b5162c055227435549b8774d1",
+          "@@//MODULE.bazel": "34bc7fff6553fd04a7df2f9cf415de0813e9a1e62e28b1cf2ce4fd0eb8cdac59",
           "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "4315fd0f326ba0b7493bc97ec47982b9dbdd631e12ac799f31016c72a40fdfa8"
         },
         "recordedDirentsInputs": {},
@@ -6097,7 +6097,7 @@
                 "{ \"group\": \"javax.inject\", \"artifact\": \"javax.inject\", \"version\": \"1\" }",
                 "{ \"group\": \"net.bytebuddy\", \"artifact\": \"byte-buddy\", \"version\": \"1.14.5\" }",
                 "{ \"group\": \"net.bytebuddy\", \"artifact\": \"byte-buddy-agent\", \"version\": \"1.14.5\" }",
-                "{ \"group\": \"org.apache.commons\", \"artifact\": \"commons-compress\", \"version\": \"1.20\" }",
+                "{ \"group\": \"org.apache.commons\", \"artifact\": \"commons-compress\", \"version\": \"1.26.1\" }",
                 "{ \"group\": \"org.apache.commons\", \"artifact\": \"commons-pool2\", \"version\": \"2.8.0\" }",
                 "{ \"group\": \"org.apache.tomcat\", \"artifact\": \"tomcat-annotations-api\", \"version\": \"8.0.5\" }",
                 "{ \"group\": \"org.apache.velocity\", \"artifact\": \"velocity\", \"version\": \"1.7\" }",
@@ -8690,7 +8690,7 @@
                 "{ \"group\": \"javax.inject\", \"artifact\": \"javax.inject\", \"version\": \"1\" }",
                 "{ \"group\": \"net.bytebuddy\", \"artifact\": \"byte-buddy\", \"version\": \"1.14.5\" }",
                 "{ \"group\": \"net.bytebuddy\", \"artifact\": \"byte-buddy-agent\", \"version\": \"1.14.5\" }",
-                "{ \"group\": \"org.apache.commons\", \"artifact\": \"commons-compress\", \"version\": \"1.20\" }",
+                "{ \"group\": \"org.apache.commons\", \"artifact\": \"commons-compress\", \"version\": \"1.26.1\" }",
                 "{ \"group\": \"org.apache.commons\", \"artifact\": \"commons-pool2\", \"version\": \"2.8.0\" }",
                 "{ \"group\": \"org.apache.tomcat\", \"artifact\": \"tomcat-annotations-api\", \"version\": \"8.0.5\" }",
                 "{ \"group\": \"org.apache.velocity\", \"artifact\": \"velocity\", \"version\": \"1.7\" }",
