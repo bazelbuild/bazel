@@ -565,8 +565,6 @@ the [linkstatic attribute](/reference/be/c-cpp#cc_binary.linkstatic) on build ru
 
 Modes:
 
-* `auto`: Translates to a platform-dependent mode;
-  `default` for linux and `off` for cygwin.
 * `default`: Allows bazel to choose whether to link dynamically.
   See [linkstatic](/reference/be/c-cpp#cc_binary.linkstatic) for more
   information.
