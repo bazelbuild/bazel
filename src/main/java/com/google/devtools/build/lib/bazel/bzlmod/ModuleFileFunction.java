@@ -22,6 +22,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.CompiledModuleFile.IncludeStatement;
@@ -81,7 +82,8 @@ import net.starlark.java.eval.SymbolGenerator;
  */
 public class ModuleFileFunction implements SkyFunction {
 
-  public static final Precomputed<List<String>> REGISTRIES = new Precomputed<>("registries");
+  public static final Precomputed<ImmutableSet<String>> REGISTRIES =
+      new Precomputed<>("registries");
   public static final Precomputed<Boolean> IGNORE_DEV_DEPS =
       new Precomputed<>("ignore_dev_dependency");
 
@@ -582,13 +584,11 @@ public class ModuleFileFunction implements SkyFunction {
               + " non-registry override?",
           key.getName());
     }
-    // TODO(wyv): Move registry object creation to BazelRepositoryModule so we don't repeatedly
-    //   create them, and we can better report the error (is it a flag error or override error?).
-    List<String> registries = Objects.requireNonNull(REGISTRIES.get(env));
+    ImmutableSet<String> registries = Objects.requireNonNull(REGISTRIES.get(env));
     if (override instanceof RegistryOverride registryOverride) {
       String overrideRegistry = registryOverride.getRegistry();
       if (!overrideRegistry.isEmpty()) {
-        registries = ImmutableList.of(overrideRegistry);
+        registries = ImmutableSet.of(overrideRegistry);
       }
     } else if (override != null) {
       // This should never happen.

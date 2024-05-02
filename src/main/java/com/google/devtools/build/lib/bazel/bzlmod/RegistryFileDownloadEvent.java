@@ -18,32 +18,13 @@ public record RegistryFileDownloadEvent(String uri, Optional<Checksum> checksum)
 
   static ImmutableMap<String, Optional<Checksum>> collectToMap(
       Collection<Postable> postables) {
-    return postables.stream()
-        .filter(RegistryFileDownloadEvent.class::isInstance)
-        .map(RegistryFileDownloadEvent.class::cast)
-        .collect(
-            ImmutableMap.toImmutableMap(
-                RegistryFileDownloadEvent::uri,
-                RegistryFileDownloadEvent::checksum,
-                RegistryFileDownloadEvent::failOnDifferentChecksums));
-  }
-
-  /** A Map#merge function that throws an unchecked exception if the checksums differ. */
-  static Optional<Checksum> failOnDifferentChecksums(
-      Optional<Checksum> checksum1, Optional<Checksum> checksum2) {
-    if (checksum1.isEmpty() && checksum2.isEmpty()) {
-      return Optional.empty();
+    ImmutableMap.Builder<String, Optional<Checksum>> builder = ImmutableMap.builder();
+    for (Postable postable : postables) {
+      if (postable instanceof RegistryFileDownloadEvent event) {
+        builder.put(event.uri(), event.checksum());
+      }
     }
-    if (checksum1.isPresent()
-        && checksum2.isPresent()
-        && checksum1.get().toString().equals(checksum2.get().toString())) {
-      return checksum1;
-    }
-    throw new IllegalStateException(
-        "Checksums differ: "
-            + checksum1.get()
-            + " vs "
-            + checksum1.get().emitOtherHashInSameFormat(checksum2.get().getHashCode()));
+    return builder.buildKeepingLast();
   }
 
   private static Checksum computeHash(byte[] bytes) {

@@ -122,16 +122,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
         return null;
       }
       remoteRepoSpecs.put(repoSpecKey.getModuleKey(), repoSpecValue.repoSpec());
-      repoSpecValue
-          .registryFileHashes()
-          .forEach(
-              (url, checksum) ->
-                  // We only ever download the same file from the same registry once, so
-                  // mismatching checksums can only occur with crafted setups (e.g., two
-                  // --registry flags that only differ by a terminating slash and with contents
-                  // that change during a single build). We crash in this case.
-                  registryFileHashes.merge(
-                      url, checksum, RegistryFileDownloadEvent::failOnDifferentChecksums));
+      registryFileHashes.putAll(repoSpecValue.registryFileHashes());
     }
 
     ImmutableMap<ModuleKey, Module> finalDepGraph;

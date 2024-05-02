@@ -15,12 +15,16 @@
 
 package com.google.devtools.build.lib.bazel;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -134,8 +138,8 @@ public class BazelRepositoryModule extends BlazeModule {
   public static final String DEFAULT_CACHE_LOCATION = "cache/repos/v1";
 
   // Default list of registries.
-  public static final ImmutableList<String> DEFAULT_REGISTRIES =
-      ImmutableList.of("https://bcr.bazel.build/");
+  public static final ImmutableSet<String> DEFAULT_REGISTRIES =
+      ImmutableSet.of("https://bcr.bazel.build/");
 
   // A map of repository handlers that can be looked up by rule class name.
   private final ImmutableMap<String, RepositoryFunction> repositoryHandlers;
@@ -153,7 +157,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private ImmutableMap<String, ModuleOverride> moduleOverrides = ImmutableMap.of();
   private Optional<RootedPath> resolvedFileReplacingWorkspace = Optional.empty();
   private FileSystem filesystem;
-  private List<String> registries;
+  private ImmutableSet<String> registries;
   private final AtomicBoolean ignoreDevDeps = new AtomicBoolean(false);
   private CheckDirectDepsMode checkDirectDepsMode = CheckDirectDepsMode.WARNING;
   private BazelCompatibilityMode bazelCompatibilityMode = BazelCompatibilityMode.ERROR;
@@ -530,7 +534,7 @@ public class BazelRepositoryModule extends BlazeModule {
       }
 
       if (repoOptions.registries != null && !repoOptions.registries.isEmpty()) {
-        registries = repoOptions.registries;
+        registries = normalizeRegistries(repoOptions.registries);
       } else {
         registries = DEFAULT_REGISTRIES;
       }
@@ -558,6 +562,14 @@ public class BazelRepositoryModule extends BlazeModule {
       singleExtensionEvalFunction.setRepositoryRemoteExecutor(remoteExecutor);
       delegatingDownloader.setDelegate(env.getRuntime().getDownloaderSupplier().get());
     }
+  }
+
+  private static ImmutableSet<String> normalizeRegistries(List<String> registries) {
+    // Ensure that registries aren't duplicated even after `/modules/...` paths are appended to
+    // them.
+    return registries.stream()
+        .map(url -> CharMatcher.is('/').trimTrailingFrom(url))
+        .collect(toImmutableSet());
   }
 
   /**

@@ -119,12 +119,7 @@ final class Discovery {
                   .getModule()
                   .withDepSpecsTransformed(
                       InterimModule.applyOverrides(overrides, rootModuleName)));
-          moduleFileValue
-              .getRegistryFileHashes()
-              .forEach(
-                  (url, checksum) ->
-                      registryFileHashes.merge(
-                          url, checksum, RegistryFileDownloadEvent::failOnDifferentChecksums));
+          registryFileHashes.putAll(moduleFileValue.getRegistryFileHashes());
           unexpanded.add(depKey);
         }
       }
