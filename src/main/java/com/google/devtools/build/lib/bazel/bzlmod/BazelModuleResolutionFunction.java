@@ -66,6 +66,10 @@ public class BazelModuleResolutionFunction implements SkyFunction {
   public static final Precomputed<BazelCompatibilityMode> BAZEL_COMPATIBILITY_MODE =
       new Precomputed<>("bazel_compatibility_mode");
 
+  private record Result(
+      Selection.Result selectionResult,
+      ImmutableMap<String, Optional<Checksum>> registryFileHashes) {}
+
   private static class ModuleResolutionComputeState implements Environment.SkyKeyComputeState {
     Result discoverAndSelectResult;
   }
@@ -140,10 +144,6 @@ public class BazelModuleResolutionFunction implements SkyFunction {
         state.discoverAndSelectResult.selectionResult.getUnprunedDepGraph(),
         ImmutableMap.copyOf(registryFileHashes));
   }
-
-  private record Result(
-      Selection.Result selectionResult,
-      ImmutableMap<String, Optional<Checksum>> registryFileHashes) {}
 
   @Nullable
   private static Result discoverAndSelect(
