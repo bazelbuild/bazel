@@ -38,7 +38,6 @@ import com.sun.tools.javac.util.Log;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * A plugin that performs Error Prone analysis. Error Prone is a static analysis framework that we
@@ -135,22 +134,10 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
   @Override
   public void finish() {
     statisticsBuilder.totalErrorProneTime(elapsed.elapsed());
-    initializationTime(timings).ifPresent(statisticsBuilder::errorProneInitializationTime);
+    statisticsBuilder.errorProneInitializationTime(timings.initializationTime());
     timings.timings().entrySet().stream()
         .sorted(Map.Entry.<String, Duration>comparingByValue().reversed())
         .limit(10) // best-effort to stay under the action metric size limit
         .forEachOrdered(e -> statisticsBuilder.addBugpatternTiming(e.getKey(), e.getValue()));
-  }
-
-  // TODO(cushon): remove once ErrorProneTimings#initializationTime makes it into an EP release
-  private static Optional<Duration> initializationTime(ErrorProneTimings timings) {
-    try {
-      return Optional.of(
-          (Duration) ErrorProneTimings.class.getMethod("initializationTime").invoke(timings));
-    } catch (NoSuchMethodException e) {
-      return Optional.empty();
-    } catch (ReflectiveOperationException e) {
-      throw new LinkageError(e.getMessage(), e);
-    }
   }
 }
