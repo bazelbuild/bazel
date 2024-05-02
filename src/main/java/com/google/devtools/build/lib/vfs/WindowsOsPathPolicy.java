@@ -23,7 +23,11 @@ import java.io.IOException;
 @VisibleForTesting
 class WindowsOsPathPolicy implements OsPathPolicy {
 
-  static final WindowsOsPathPolicy INSTANCE = new WindowsOsPathPolicy();
+  static final WindowsOsPathPolicy INSTANCE =
+      new WindowsOsPathPolicy(new DefaultShortPathResolver());
+
+  static final WindowsOsPathPolicy CROSS_PLATFORM_INSTANCE =
+      new WindowsOsPathPolicy(new CrossPlatformShortPathResolver());
 
   static final int NEEDS_SHORT_PATH_NORMALIZATION = NEEDS_NORMALIZE + 1;
 
@@ -33,7 +37,7 @@ class WindowsOsPathPolicy implements OsPathPolicy {
   private final ShortPathResolver shortPathResolver;
 
   interface ShortPathResolver {
-    String resolveShortPath(String path);
+    String resolveShortPath(String path) throws UncheckedPathUnsupportedOnThisOsException;
   }
 
   static class DefaultShortPathResolver implements ShortPathResolver {
@@ -51,10 +55,15 @@ class WindowsOsPathPolicy implements OsPathPolicy {
     }
   }
 
-  WindowsOsPathPolicy() {
-    this(new DefaultShortPathResolver());
+  static class CrossPlatformShortPathResolver implements ShortPathResolver {
+    @Override
+    public String resolveShortPath(String path) {
+      throw new UncheckedPathUnsupportedOnThisOsException(
+          "Windows short paths can only be resolved on a Windows host: " + path);
+    }
   }
 
+  @VisibleForTesting
   WindowsOsPathPolicy(ShortPathResolver shortPathResolver) {
     this.shortPathResolver = shortPathResolver;
   }

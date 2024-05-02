@@ -96,10 +96,21 @@ public interface OsPathPolicy {
   }
 
   // We *should* use a case-insensitive policy for OS.DARWIN, but we currently don't handle this.
-  OsPathPolicy HOST_POLICY = of(OS.getCurrent());
+  OsPathPolicy HOST_POLICY = getFilePathOs(OS.getCurrent());
 
   static OsPathPolicy getFilePathOs() {
     return HOST_POLICY;
+  }
+
+  static OsPathPolicy getFilePathOs(OS os) {
+    if (os != OS.WINDOWS) {
+      // We *should* use a case-insensitive policy for OS.DARWIN, but we currently don't handle
+      // this.
+      return UnixOsPathPolicy.INSTANCE;
+    }
+    return os == OS.getCurrent()
+        ? WindowsOsPathPolicy.INSTANCE
+        : WindowsOsPathPolicy.CROSS_PLATFORM_INSTANCE;
   }
 
   /** Utilities for implementations of {@link OsPathPolicy}. */
@@ -141,6 +152,17 @@ public interface OsPathPolicy {
         }
       }
       return segmentCount;
+    }
+  }
+
+  /**
+   * Unchecked exception thrown by {@link OsPathPolicy} implementations when a path cannot be
+   * normalized on the current host OS.
+   */
+  final class UncheckedPathUnsupportedOnThisOsException
+      extends UnsupportedOperationException {
+    UncheckedPathUnsupportedOnThisOsException(String message) {
+      super(message);
     }
   }
 }
