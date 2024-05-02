@@ -396,7 +396,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
     registry.addModule(
         BzlmodTestUtil.createModuleKey("origin_repo", "0.1"),
         "module(name='origin_repo', version='0.1')");
-    Path originRepoPath = moduleRoot.getRelative("origin_repo~0.1");
+    Path originRepoPath = moduleRoot.getRelative("origin_repo~v0.1");
     scratch.file(originRepoPath.getRelative("WORKSPACE").getPathString());
     scratch.file(
         originRepoPath.getRelative("BUILD").getPathString(), //

@@ -103,7 +103,7 @@ public class ModuleArgTest {
 
     assertThat(
             arg.resolveToRepoNames(modulesIndex, depGraph, moduleKeyToCanonicalNames, rootMapping))
-        .containsExactly("foo@2.0", RepositoryName.create("foo~2.0"));
+        .containsExactly("foo@2.0", RepositoryName.create("foo~v2.0"));
   }
 
   @Test
