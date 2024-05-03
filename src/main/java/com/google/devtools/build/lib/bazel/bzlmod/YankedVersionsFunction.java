@@ -37,17 +37,27 @@ public class YankedVersionsFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     var key = (YankedVersionsValue.Key) skyKey.argument();
 
+    BazelLockFileValue lockfile = (BazelLockFileValue) env.getValue(BazelLockFileValue.KEY);
+    if (lockfile == null) {
+      return null;
+    }
     Registry registry = (Registry) env.getValue(RegistryKey.create(key.getRegistryUrl()));
     if (registry == null) {
       return null;
     }
 
+    if (!registry.shouldFetchYankedVersions(
+        key.getModuleKey(), lockfile.getRegistryFileHashes()::containsKey)) {
+      return YankedVersionsValue.create(Optional.empty());
+    }
+
     try (SilentCloseable c =
         Profiler.instance()
             .profile(
-                ProfilerTask.BZLMOD, () -> "getting yanked versions: " + key.getModuleName())) {
+                ProfilerTask.BZLMOD,
+                () -> "getting yanked versions: " + key.getModuleKey().getName())) {
       return YankedVersionsValue.create(
-          registry.getYankedVersions(key.getModuleName(), env.getListener()));
+          registry.getYankedVersions(key.getModuleKey().getName(), env.getListener()));
     } catch (IOException e) {
       env.getListener()
           .handle(

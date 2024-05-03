@@ -44,6 +44,7 @@ import java.net.URL;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 /**
  * Represents a Bazel module registry that serves a list of module metadata from a static HTTP
@@ -254,13 +255,7 @@ public class IndexRegistry implements Registry {
   @Override
   public RepoSpec getRepoSpec(ModuleKey key, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException {
-    String jsonUrl =
-        constructUrl(
-            uri.toString(),
-            "modules",
-            key.getName(),
-            key.getVersion().toString(),
-            SOURCE_JSON_FILENAME);
+    String jsonUrl = getSourceJsonUrl(key);
     Optional<String> jsonString = grabJsonFile(jsonUrl, eventHandler, /* useChecksum= */ true);
     if (jsonString.isEmpty()) {
       throw new FileNotFoundException(
@@ -292,7 +287,11 @@ public class IndexRegistry implements Registry {
     }
   }
 
-  @SuppressWarnings("OptionalAssignedToNull")
+  private String getSourceJsonUrl(ModuleKey key) {
+    return constructUrl(
+        getUrl(), "modules", key.getName(), key.getVersion().toString(), SOURCE_JSON_FILENAME);
+  }
+
   private Optional<BazelRegistryJson> getBazelRegistryJson(ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException {
     if (bazelRegistryJson == null) {
@@ -438,6 +437,24 @@ public class IndexRegistry implements Registry {
           String.format(
               "Could not parse module %s's metadata file: %s", moduleName, e.getMessage()));
     }
+  }
+
+  @Override
+  public boolean shouldFetchYankedVersions(
+      ModuleKey selectedModuleKey, Predicate<String> fileHashIsKnown) {
+    // If the source.json hash is known, this module has been selected before when selection
+    // succeeded, which means that
+    // either:
+    // * it wasn't yanked at that point in time and any successful selection since then has not seen
+    // a higher module
+    //   version, or
+    // * it was yanked at that point in time, but explicitly allowed via
+    // BZLMOD_ALLOW_YANKED_VERSIONS.
+    // In both cases, we don't fetch yanked versions.
+    // TODO: Should we store whether we are in the second case and refetch yanked versions if the
+    // environment variable
+    //  changes?
+    return !fileHashIsKnown.test(getSourceJsonUrl(selectedModuleKey));
   }
 
   /** Represents fields available in {@code metadata.json} for each module. */

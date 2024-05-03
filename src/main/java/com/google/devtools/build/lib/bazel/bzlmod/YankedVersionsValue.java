@@ -39,13 +39,13 @@ public abstract class YankedVersionsValue implements SkyValue {
   abstract static class Key implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
-    abstract String getModuleName();
+    abstract ModuleKey getModuleKey();
 
     abstract String getRegistryUrl();
 
     @AutoCodec.Instantiator
-    static Key create(String moduleName, String registryUrl) {
-      return interner.intern(new AutoValue_YankedVersionsValue_Key(moduleName, registryUrl));
+    static Key create(ModuleKey moduleKey, String registryUrl) {
+      return interner.intern(new AutoValue_YankedVersionsValue_Key(moduleKey, registryUrl));
     }
 
     @Override

@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 /**
  * Fake implementation of {@link Registry}, where modules can be freely added and stored in memory.
@@ -97,6 +98,15 @@ public class FakeRegistry implements Registry {
   public Optional<ImmutableMap<Version, String>> getYankedVersions(
       String moduleName, ExtendedEventHandler eventHandler) {
     return Optional.ofNullable(yankedVersionMap.get(moduleName));
+  }
+
+  @Override
+  public boolean shouldFetchYankedVersions(
+      ModuleKey selectedModuleKey, Predicate<String> fileHashIsKnown) {
+    return !fileHashIsKnown.test(
+        "%s/modules/%s/%s/source.json"
+            .formatted(
+                url, selectedModuleKey.getName(), selectedModuleKey.getVersion().toString()));
   }
 
   @Override
