@@ -1962,7 +1962,7 @@ end_of_record"
 
   cat bes.txt | tr '\n' ' ' > $TEST_log
   report_sha=$(sha256sum bazel-out/_coverage/_coverage_report.dat | cut -d ' ' -f 1)
-  expect_log "coverage_report {   coverage_report {     uri: \"bytestream://[^\"]*/${report_sha}/[^\"]*\""
+  expect_log "log {     name: \"coverage_report.lcov\"     uri: \"bytestream://[^\"]*/${report_sha}/[^\"]*\""
 }
 
 function test_remote_cache_eviction_retries() {
