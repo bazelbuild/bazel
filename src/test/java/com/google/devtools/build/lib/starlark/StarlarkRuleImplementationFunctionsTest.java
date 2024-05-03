@@ -2093,7 +2093,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         """);
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_glob");
-    assertContainsEvent("The native module can be accessed only from a BUILD thread.");
+    assertContainsEvent("glob() can only be used while evaluating a BUILD file and its macros");
   }
 
   @Test

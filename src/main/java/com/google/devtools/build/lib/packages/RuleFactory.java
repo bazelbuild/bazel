@@ -282,7 +282,7 @@ public class RuleFactory {
       }
       BazelStarlarkContext.checkLoadingOrWorkspacePhase(thread, ruleClass.getName());
       try {
-        Package.Builder pkgBuilder = PackageFactory.getContext(thread);
+        Package.Builder pkgBuilder = Package.Builder.fromOrFail(thread, "rules");
         RuleFactory.createAndAddRule(
             pkgBuilder,
             ruleClass,

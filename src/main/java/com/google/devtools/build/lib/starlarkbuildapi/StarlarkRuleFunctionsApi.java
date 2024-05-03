@@ -225,9 +225,21 @@ dictionary. There are also reserved attribute names that must not be included:
 site of the rule. Such attributes can be assigned a default value (as in
 <code>attr.label(default="//pkg:foo")</code>) to create an implicit dependency on a label.
 
+<p>Certain APIs are not available within symbolic macros. These include:
+<ul>
+  <li>package(), licenses()
+  <li>environment_group()
+  <li>glob(), subpackages()
+  <li>existing_rules(), existing_rule(),
+  <li>(for WORKSPACE threads) workspace(), register_toolchains(),
+      register_execution_platforms(), bind(), repository rule instantiation
+</ul>
+
 <p>To limit memory usage, there is a cap on the number of attributes that may be declared.
 """),
-        // TODO(#19922): Make good on the above threat of enforcing a cap on the number of
+        // TODO: #19922 - Make a concepts page for symbolic macros, migrate some details like the
+        // list of disallowed APIs to there.
+        // TODO: #19922 - Make good on the above threat of enforcing a cap on the number of
         // attributes.
         @Param(
             name = "doc",

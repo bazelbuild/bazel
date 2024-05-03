@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.packages.PackageFactory.getContext;
 import static java.util.Comparator.naturalOrder;
 
 import com.google.common.base.Joiner;
@@ -29,7 +28,6 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
@@ -98,7 +96,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     BazelStarlarkContext.checkLoadingPhase(thread, "native.glob");
-    Package.Builder pkgBuilder = getContext(thread);
+    Package.Builder pkgBuilder =
+        Package.Builder.fromOrFailDisallowingSymbolicMacros(thread, "glob()");
 
     List<String> includes = Types.STRING_LIST.convert(include, "'glob' argument");
     List<String> excludes = Types.STRING_LIST.convert(exclude, "'glob' argument");
@@ -436,7 +435,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       return Starlark.NONE;
     }
     BazelStarlarkContext.checkLoadingOrWorkspacePhase(thread, "native.existing_rule");
-    Package.Builder pkgBuilder = getContext(thread);
+    Package.Builder pkgBuilder =
+        Package.Builder.fromOrFailDisallowingSymbolicMacros(thread, "existing_rule()");
     Target target = pkgBuilder.getTarget(name);
     if (target instanceof Rule /* `instanceof` also verifies that target != null */) {
       Rule rule = (Rule) target;
@@ -509,7 +509,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       return Dict.empty();
     }
     BazelStarlarkContext.checkLoadingOrWorkspacePhase(thread, "native.existing_rules");
-    Package.Builder pkgBuilder = getContext(thread);
+    Package.Builder pkgBuilder =
+        Package.Builder.fromOrFailDisallowingSymbolicMacros(thread, "existing_rules()");
     if (thread
         .getSemantics()
         .getBool(BuildLanguageOptions.INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW)) {
@@ -532,7 +533,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       String name, Sequence<?> packagesO, Sequence<?> includesO, StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.checkLoadingPhase(thread, "native.package_group");
-    Package.Builder pkgBuilder = getContext(thread);
+    Package.Builder pkgBuilder = Package.Builder.fromOrFail(thread, "package_group()");
 
     List<String> packages =
         Types.STRING_LIST.convert(packagesO, "'package_group.packages argument'");
@@ -568,7 +569,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       Sequence<?> srcs, Object visibilityO, Object licensesO, StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.checkLoadingPhase(thread, "native.exports_files");
-    Package.Builder pkgBuilder = getContext(thread);
+    Package.Builder pkgBuilder = Package.Builder.fromOrFail(thread, "exports_files()");
     List<String> files = Types.STRING_LIST.convert(srcs, "'exports_files' operand");
 
     RuleVisibility visibility =
@@ -609,8 +610,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   @Override
   public String packageName(StarlarkThread thread) throws EvalException {
     BazelStarlarkContext.checkLoadingPhase(thread, "native.package_name");
-    PackageIdentifier packageId = getContext(thread).getPackageIdentifier();
-    return packageId.getPackageFragment().getPathString();
+    Package.Builder pkgBuilder = Package.Builder.fromOrFail(thread, "package_name()");
+    return pkgBuilder.getPackageIdentifier().getPackageFragment().getPathString();
   }
 
   @Override
@@ -623,18 +624,19 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   @Override
   public String repoName(StarlarkThread thread) throws EvalException {
     BazelStarlarkContext.checkLoadingPhase(thread, "native.repo_name");
-    return getContext(thread).getPackageIdentifier().getRepository().getName();
+    Package.Builder pkgBuilder = Package.Builder.fromOrFail(thread, "repo_name()");
+    return pkgBuilder.getPackageIdentifier().getRepository().getName();
   }
 
   @Override
   public Label packageRelativeLabel(Object input, StarlarkThread thread) throws EvalException {
     BazelStarlarkContext.checkLoadingPhase(thread, "native.package_relative_label");
-    if (input instanceof Label) {
-      return (Label) input;
+    if (input instanceof Label inputLabel) {
+      return inputLabel;
     }
     try {
-      String s = (String) input;
-      return getContext(thread).getLabelConverter().convert(s);
+      Package.Builder pkgBuilder = Package.Builder.fromOrFail(thread, "package_relative_label()");
+      return pkgBuilder.getLabelConverter().convert((String) input);
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("invalid label in native.package_relative_label: %s", e.getMessage());
     }
@@ -644,14 +646,16 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
   @Nullable
   public String moduleName(StarlarkThread thread) throws EvalException {
     BazelStarlarkContext.checkLoadingPhase(thread, "native.module_name");
-    return getContext(thread).getAssociatedModuleName().orElse(null);
+    Package.Builder pkgBuilder = Package.Builder.fromOrFail(thread, "module_name()");
+    return pkgBuilder.getAssociatedModuleName().orElse(null);
   }
 
   @Override
   @Nullable
   public String moduleVersion(StarlarkThread thread) throws EvalException {
     BazelStarlarkContext.checkLoadingPhase(thread, "native.module_version");
-    return getContext(thread).getAssociatedModuleVersion().orElse(null);
+    Package.Builder pkgBuilder = Package.Builder.fromOrFail(thread, "module_version()");
+    return pkgBuilder.getAssociatedModuleVersion().orElse(null);
   }
 
   private static Dict<String, Object> getRuleDict(Rule rule, Mutability mu) throws EvalException {
@@ -832,7 +836,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       Sequence<?> include, Sequence<?> exclude, boolean allowEmpty, StarlarkThread thread)
       throws EvalException, InterruptedException {
     BazelStarlarkContext.checkLoadingPhase(thread, "native.subpackages");
-    Package.Builder pkgBuilder = getContext(thread);
+    Package.Builder pkgBuilder =
+        Package.Builder.fromOrFailDisallowingSymbolicMacros(thread, "subpackages()");
 
     List<String> includes = Types.STRING_LIST.convert(include, "'subpackages' argument");
     List<String> excludes = Types.STRING_LIST.convert(exclude, "'subpackages' argument");
