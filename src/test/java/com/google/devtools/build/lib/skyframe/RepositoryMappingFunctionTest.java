@@ -266,9 +266,9 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
                     TestConstants.LEGACY_WORKSPACE_NAME,
                     RepositoryName.MAIN,
                     "bbb1",
-                    RepositoryName.create("bbb~1.0"),
+                    RepositoryName.create("bbb~v1.0"),
                     "bbb2",
-                    RepositoryName.create("bbb~2.0")),
+                    RepositoryName.create("bbb~v2.0")),
                 "aaa",
                 "0.1"));
   }
@@ -304,7 +304,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
             valueForBzlmod(
                 ImmutableMap.of(
                     "bbb", RepositoryName.create("bbb~"),
-                    "ddd", RepositoryName.create("ddd~1.0")),
+                    "ddd", RepositoryName.create("ddd~v1.0")),
                 name,
                 "bbb",
                 "1.0"));
@@ -326,7 +326,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .addModule(createModuleKey("bbb", "2.0"), "module(name='bbb', version='2.0')")
         .addModule(createModuleKey("ccc", "1.0"), "module(name='ccc', version='1.0')");
 
-    RepositoryName name = RepositoryName.create("bbb~1.0");
+    RepositoryName name = RepositoryName.create("bbb~v1.0");
     SkyKey skyKey = RepositoryMappingValue.key(name);
     EvaluationResult<RepositoryMappingValue> result = eval(skyKey);
 
@@ -338,7 +338,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             valueForBzlmod(
                 ImmutableMap.of(
-                    "bbb", RepositoryName.create("bbb~1.0"),
+                    "bbb", RepositoryName.create("bbb~v1.0"),
                     "com_foo_bar_c", RepositoryName.create("ccc~")),
                 name,
                 "bbb",

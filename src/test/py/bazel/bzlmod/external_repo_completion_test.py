@@ -235,7 +235,7 @@ echo ${{COMPREPLY[*]}}
 
     # Canonical repo names are not completed.
     self.assertCountEqual([], self.complete('build @@'))
-    self.assertCountEqual([], self.complete('build @@foo~2.'))
+    self.assertCountEqual([], self.complete('build @@foo~v2.'))
 
     # Packages are completed in external repos with apparent repo names.
     self.assertCountEqual(
@@ -279,7 +279,7 @@ echo ${{COMPREPLY[*]}}
     )
 
     # Targets are completed in external repos with canonical repo names.
-    self.assertCountEqual(['lib_foo'], self.complete('build @@foo~2.0//:'))
+    self.assertCountEqual(['lib_foo'], self.complete('build @@foo~v2.0//:'))
     self.assertCountEqual(
         ['zipper'], self.complete('build @@ext~//tools/zip:zipp')
     )

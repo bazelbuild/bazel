@@ -43,11 +43,11 @@ public final class PlatformMappingValueTest {
 
   private static final Label PLATFORM_ONE = Label.parseCanonicalUnchecked("//platforms:one");
   private static final Label PLATFORM_TWO =
-      Label.parseCanonicalUnchecked("@dep~1.0//platforms:two");
+      Label.parseCanonicalUnchecked("@dep~v1.0//platforms:two");
   private static final RepositoryMapping REPO_MAPPING =
       RepositoryMapping.create(
           ImmutableMap.of(
-              "", RepositoryName.MAIN, "dep", RepositoryName.createUnvalidated("dep~1.0")),
+              "", RepositoryName.MAIN, "dep", RepositoryName.createUnvalidated("dep~v1.0")),
           RepositoryName.MAIN);
   private static final Label DEFAULT_TARGET_PLATFORM =
       Label.parseCanonicalUnchecked("@bazel_tools//tools:host_platform");
