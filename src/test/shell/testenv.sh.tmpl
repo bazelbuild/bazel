@@ -260,7 +260,7 @@ function setup_localjdk_javabase() {
   if [[ $PLATFORM =~ msys ]]; then
     jdk_dir="$(cygpath -m $(cd $(rlocation local_jdk/bin/java.exe)/../..; pwd))"
   else
-    jdk_dir="$(dirname $(dirname $(rlocation local_jdk/bin/java)))"
+    jdk_dir="$(dirname "$(dirname "$(rlocation local_jdk/bin/java)")")"
   fi
   bazel_javabase="${jdk_dir}"
 }
