@@ -124,7 +124,11 @@ pkg_tar(
         "@zstd-jni//:zstd-jni",
     ],
     package_dir = "derived/jars",
-    strip_prefix = "external",
+    remap_paths = {
+        "external/": "",
+        "../": "",
+    },
+    strip_prefix = ".",
     # Public but bazel-only visibility.
     visibility = ["//:__subpackages__"],
 )
@@ -180,14 +184,22 @@ pkg_tar(
 pkg_tar(
     name = "platforms-srcs",
     srcs = ["@platforms//:srcs"],
-    strip_prefix = "external",
+    remap_paths = {
+        "external/": "",
+        "../": "",
+    },
+    strip_prefix = ".",
     visibility = ["//:__subpackages__"],
 )
 
 pkg_tar(
     name = "rules_java-srcs",
     srcs = ["@rules_java//:distribution"],
-    strip_prefix = "external",
+    remap_paths = {
+        "external/": "",
+        "../": "",
+    },
+    strip_prefix = ".",
     visibility = ["//:__subpackages__"],
 )
 
@@ -205,7 +217,11 @@ pkg_tar(
     name = "maven-srcs",
     srcs = ["@maven//:srcs"] + ["MAVEN_CANONICAL_REPO_NAME"],
     package_dir = "derived/maven",
-    strip_prefix = "external/" + get_canonical_repo_name("@maven"),
+    remap_paths = {
+        "external/" + get_canonical_repo_name("@maven") + "/": "",
+        "../" + get_canonical_repo_name("@maven") + "/": "",
+    },
+    strip_prefix = ".",
     visibility = ["//:__subpackages__"],
 )
 
