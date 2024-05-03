@@ -16,6 +16,7 @@
  * The implementation of the OutputJar methods.
  */
 #include "src/tools/singlejar/output_jar.h"
+#include "src/main/cpp/util/file.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -938,18 +939,28 @@ void OutputJar::ClasspathResource(const std::string &resource_name,
     }
   }
   MappedFile mapped_file;
-  if (mapped_file.Open(resource_path)) {
-    Concatenator *classpath_resource = new Concatenator(resource_name);
-    classpath_resource->Append(
-        reinterpret_cast<const char *>(mapped_file.start()),
-        mapped_file.size());
-    classpath_resources_.emplace_back(classpath_resource);
-    known_members_.emplace(resource_name, EntryInfo{classpath_resource});
-  } else if (IsDir(resource_path)) {
+  if (IsDir(resource_path)) {
     // add an empty entry for the directory so its path ends up in the
     // manifest
     classpath_resources_.emplace_back(new Concatenator(resource_name + "/"));
     known_members_.emplace(resource_name, EntryInfo{&null_combiner_});
+
+    // Recursively add directory contents.
+    std::function<void(const std::string&)> adder_callback = [&](const std::string &path) {
+      std::string name = Basename(path);
+      OutputJar::ClasspathResource(resource_name + "/" + name, resource_path + "/" + name);
+    };
+    std::shared_ptr<blaze_util::CallbackDirEntryConsumer> dir_entry_adder(
+        new blaze_util::CallbackDirEntryConsumer(adder_callback));
+
+    blaze_util::ForEachDirectoryEntry(resource_path, dir_entry_adder.get());
+  } else if (mapped_file.Open(resource_path)) {
+      Concatenator *classpath_resource = new Concatenator(resource_name);
+      classpath_resource->Append(
+          reinterpret_cast<const char *>(mapped_file.start()),
+          mapped_file.size());
+      classpath_resources_.emplace_back(classpath_resource);
+      known_members_.emplace(resource_name, EntryInfo{classpath_resource});
   } else {
     diag_err(1, "%s:%d: %s", __FILE__, __LINE__, resource_path.c_str());
   }
