@@ -69,7 +69,7 @@ if $is_windows; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
-set_up() {
+function set_up() {
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
   cd "${WRKDIR}"
   write_default_lockfile "MODULE.bazel.lock"
@@ -95,13 +95,56 @@ function get_extrepourl() {
 }
 
 
+test_overlay_remote_file_multiple_segments() {
+  EXTREPODIR=`pwd`
+  EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
+
+  # Generate the remote files to overlay
+  mkdir -p child
+    cat > child/foo_bar.c <<'EOF'
+#include <stdio.h>
+int main() {
+  printf("Foo, Bar!\n");
+  return 0;
+}
+EOF
+  cat > child/BUILD.bazel <<'EOF'
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+
+cc_binary(
+    name = "foo_bar",
+    srcs = ["foo_bar.c"],
+)
+EOF
+  touch BUILD.bazel
+  touch WORKSPACE
+
+  mkdir main
+  cd main
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+  name="hello_world",
+  strip_prefix="hello_world-0.1.2",
+  urls=["${EXTREPOURL}/hello_world.zip"],
+  remote_file_urls={
+    "WORKSPACE": ["${EXTREPOURL}/WORKSPACE"],
+    "BUILD.bazel": ["${EXTREPOURL}/BUILD.bazel"],
+    "child/foo_bar.c": ["${EXTREPOURL}/child/foo_bar.c"],
+    "child/BUILD.bazel": ["${EXTREPOURL}/child/BUILD.bazel"],
+  },
+)
+EOF
+  write_default_lockfile "MODULE.bazel.lock"
+
+  bazel build @hello_world//child:foo_bar
+} 
+
 test_overlay_remote_file_with_integrity() {
   EXTREPODIR=`pwd`
   EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
 
   # Generate the remote files to overlay
-  # this could be like the Bazel Central Repository
-  # Generate the remote patch file
   cat > BUILD.bazel <<'EOF'
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 
@@ -112,7 +155,6 @@ cc_binary(
 EOF
   touch WORKSPACE
 
-  # Test that the patches attribute of http_archive is honored
   mkdir main
   cd main
   cat > WORKSPACE <<EOF
@@ -141,8 +183,6 @@ test_overlay_remote_file_fail_with_integrity() {
   EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
 
   # Generate the remote files to overlay
-  # this could be like the Bazel Central Repository
-  # Generate the remote patch file
   cat > BUILD.bazel <<'EOF'
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 
@@ -153,7 +193,6 @@ cc_binary(
 EOF
   touch WORKSPACE
 
-  # Test that the patches attribute of http_archive is honored
   mkdir main
   cd main
   cat > WORKSPACE <<EOF
@@ -183,8 +222,6 @@ test_overlay_remote_file_without_integrity() {
   EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
 
   # Generate the remote files to overlay
-  # this could be like the Bazel Central Repository
-  # Generate the remote patch file
   cat > BUILD.bazel <<'EOF'
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 
@@ -195,7 +232,6 @@ cc_binary(
 EOF
   touch WORKSPACE
 
-  # Test that the patches attribute of http_archive is honored
   mkdir main
   cd main
   cat > WORKSPACE <<EOF
@@ -220,8 +256,6 @@ test_overlay_remote_file_disallow_relative_outside_repo() {
   EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
 
   # Generate the remote files to overlay
-  # this could be like the Bazel Central Repository
-  # Generate the remote patch file
   cat > BUILD.bazel <<'EOF'
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 
@@ -232,7 +266,6 @@ cc_binary(
 EOF
   touch WORKSPACE
 
-  # Test that the patches attribute of http_archive is honored
   mkdir main
   cd main
   cat > WORKSPACE <<EOF
@@ -257,9 +290,6 @@ test_overlay_remote_file_disallow_absolute_path() {
   EXTREPODIR=`pwd`
   EXTREPOURL="$(get_extrepourl ${EXTREPODIR})"
 
-  # Generate the remote files to overlay
-  # this could be like the Bazel Central Repository
-  # Generate the remote patch file
   cat > BUILD.bazel <<'EOF'
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 
@@ -270,7 +300,6 @@ cc_binary(
 EOF
   touch WORKSPACE
 
-  # Test that the patches attribute of http_archive is honored
   mkdir main
   cd main
   cat > WORKSPACE <<EOF

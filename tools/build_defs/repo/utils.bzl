@@ -110,13 +110,12 @@ def remote_files(ctx, auth = None):
             path,
             canonical_id = ctx.attr.canonical_id,
             auth = auth,
-            # integrity is optional but really recommended
             integrity = ctx.attr.remote_file_integrity.get(path, ""),
             block = False,
         )
         for path, remote_file_urls in ctx.attr.remote_file_urls.items()]
 
-    # Wait until the requess are done
+    # Wait until the requests are done
     for p in pending:
         p.wait()
 
