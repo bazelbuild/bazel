@@ -251,13 +251,7 @@ public class BazelLockFileModule extends BlazeModule {
       FileSystemUtils.writeContent(
           lockfilePath.asPath(),
           UTF_8,
-          GsonTypeAdapterUtil.createLockFileGson(
-                      lockfilePath
-                          .asPath()
-                          .getParentDirectory()
-                          .getRelative(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME))
-                  .toJson(updatedLockfile)
-              + "\n");
+          GsonTypeAdapterUtil.LOCKFILE_GSON.toJson(updatedLockfile) + "\n");
     } catch (IOException e) {
       logger.atSevere().withCause(e).log(
           "Error while updating MODULE.bazel.lock file: %s", e.getMessage());

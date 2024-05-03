@@ -88,7 +88,7 @@ public class FakeRegistry implements Registry {
             "%s/modules/%s/%s/source.json"
                 .formatted(url, key.getName(), key.getVersion().toString()),
             Optional.of(
-                GsonTypeAdapterUtil.createSingleExtensionUsagesValueHashGson()
+                GsonTypeAdapterUtil.SINGLE_EXTENSION_USAGES_VALUE_GSON
                     .toJson(repoSpec)
                     .getBytes(UTF_8))));
     return repoSpec;

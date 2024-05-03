@@ -225,8 +225,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                       .setBzlTransitiveDigest(extension.getBzlTransitiveDigest())
                       .setUsagesDigest(
                           SingleExtensionUsagesValue.hashForEvaluation(
-                              GsonTypeAdapterUtil.createSingleExtensionUsagesValueHashGson(),
-                              usagesValue))
+                              GsonTypeAdapterUtil.SINGLE_EXTENSION_USAGES_VALUE_GSON, usagesValue))
                       .setRecordedFileInputs(moduleExtensionResult.getRecordedFileInputs())
                       .setRecordedDirentsInputs(moduleExtensionResult.getRecordedDirentsInputs())
                       .setEnvVariables(extension.getEnvVars())
@@ -282,7 +281,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       // relevant for the evaluation of the extension.
       if (!Arrays.equals(
           SingleExtensionUsagesValue.hashForEvaluation(
-              GsonTypeAdapterUtil.createSingleExtensionUsagesValueHashGson(), usagesValue),
+              GsonTypeAdapterUtil.SINGLE_EXTENSION_USAGES_VALUE_GSON, usagesValue),
           lockedExtension.getUsagesDigest())) {
         diffRecorder.record("The usages of the extension '" + extensionId + "' have changed");
       }

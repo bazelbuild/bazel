@@ -90,12 +90,7 @@ public class BazelLockFileFunction implements SkyFunction {
       Matcher matcher = LOCKFILE_VERSION_PATTERN.matcher(json);
       int version = matcher.find() ? Integer.parseInt(matcher.group(1)) : -1;
       if (version == BazelLockFileValue.LOCK_FILE_VERSION) {
-        return GsonTypeAdapterUtil.createLockFileGson(
-                lockfilePath
-                    .asPath()
-                    .getParentDirectory()
-                    .getRelative(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME))
-            .fromJson(json, BazelLockFileValue.class);
+        return GsonTypeAdapterUtil.LOCKFILE_GSON.fromJson(json, BazelLockFileValue.class);
       } else {
         // This is an old version, its information can't be used.
         if (lockfileMode == LockfileMode.ERROR) {
