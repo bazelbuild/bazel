@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions.SelectRestriction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionMetadataTag;
@@ -59,8 +58,6 @@ public final class BuildOptionDetails {
       for (FragmentOptions options : buildOptions) {
         ImmutableList<OptionDefinition> optionDefinitions =
             OptionsParser.getOptionDefinitions(options.getClass());
-        Map<OptionDefinition, SelectRestriction> selectRestrictions =
-            options.getSelectRestrictions();
 
         for (OptionDefinition optionDefinition : optionDefinitions) {
           if (ImmutableList.copyOf(optionDefinition.getOptionMetadataTags())
@@ -75,11 +72,7 @@ public final class BuildOptionDetails {
           }
           map.put(
               optionDefinition.getOptionName(),
-              new OptionDetails(
-                  options.getClass(),
-                  value,
-                  optionDefinition.allowsMultiple(),
-                  selectRestrictions.get(optionDefinition)));
+              new OptionDetails(options.getClass(), value, optionDefinition.allowsMultiple()));
         }
       }
     } catch (IllegalAccessException e) {
@@ -92,14 +85,10 @@ public final class BuildOptionDetails {
   private static final class OptionDetails {
 
     private OptionDetails(
-        Class<? extends FragmentOptions> optionsClass,
-        Object value,
-        boolean allowsMultiple,
-        @Nullable SelectRestriction selectRestriction) {
+        Class<? extends FragmentOptions> optionsClass, Object value, boolean allowsMultiple) {
       this.optionsClass = optionsClass;
       this.value = value;
       this.allowsMultiple = allowsMultiple;
-      this.selectRestriction = selectRestriction;
     }
 
     /** The {@link FragmentOptions} class that defines this option. */
@@ -110,12 +99,6 @@ public final class BuildOptionDetails {
 
     /** Whether or not this option supports multiple values. */
     private final boolean allowsMultiple;
-
-    /**
-     * Information on whether this option is permitted to appear in {@code config_setting}s. Null if
-     * there is no such restriction.
-     */
-    @Nullable private final SelectRestriction selectRestriction;
   }
 
   /**
@@ -184,16 +167,5 @@ public final class BuildOptionDetails {
   public boolean allowsMultipleValues(String optionName) {
     OptionDetails optionDetails = nativeOptionsMap.get(optionName);
     return optionDetails != null && optionDetails.allowsMultiple;
-  }
-
-  /**
-   * Returns information about whether an option may appear in a {@code config_setting}.
-   *
-   * <p>Returns null for unrecognized options or options that have no restriction.
-   */
-  @Nullable
-  public SelectRestriction getSelectRestriction(String optionName) {
-    OptionDetails optionDetails = nativeOptionsMap.get(optionName);
-    return optionDetails == null ? null : optionDetails.selectRestriction;
   }
 }
