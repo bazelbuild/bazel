@@ -19,12 +19,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
-import com.google.common.hash.Hashing;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.gson.Gson;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import java.util.Optional;
 import net.starlark.java.syntax.Location;
@@ -95,21 +91,10 @@ public abstract class ModuleExtensionUsage {
   }
 
   /**
-   * Turns the given collection of usages for a particular extension into a hash that can be
-   * compared for equality with another hash obtained in this way and compares equal only if the two
-   * original collections of usages are equivalent for the purpose of evaluating the extension.
-   */
-  static byte[] hashForEvaluation(Gson gson, ImmutableMap<ModuleKey, ModuleExtensionUsage> usages) {
-    ImmutableMap<ModuleKey, ModuleExtensionUsage> trimmedUsages =
-        ImmutableMap.copyOf(Maps.transformValues(usages, ModuleExtensionUsage::trimForEvaluation));
-    return Hashing.sha256().hashUnencodedChars(gson.toJson(trimmedUsages)).asBytes();
-  }
-
-  /**
    * Returns a new usage with all information removed that does not influence the evaluation of the
    * extension.
    */
-  private ModuleExtensionUsage trimForEvaluation() {
+  ModuleExtensionUsage trimForEvaluation() {
     // We start with the full usage and selectively remove information that does not influence the
     // evaluation of the extension. Compared to explicitly copying over the parts that do, this
     // preserves correctness in case new fields are added without updating this code.

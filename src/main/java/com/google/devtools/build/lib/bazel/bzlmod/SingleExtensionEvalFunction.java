@@ -224,9 +224,9 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                   LockFileModuleExtension.builder()
                       .setBzlTransitiveDigest(extension.getBzlTransitiveDigest())
                       .setUsagesDigest(
-                          ModuleExtensionUsage.hashForEvaluation(
-                              GsonTypeAdapterUtil.createModuleExtensionUsagesHashGson(),
-                              usagesValue.getExtensionUsages()))
+                          SingleExtensionUsagesValue.hashForEvaluation(
+                              GsonTypeAdapterUtil.createSingleExtensionUsagesValueHashGson(),
+                              usagesValue))
                       .setRecordedFileInputs(moduleExtensionResult.getRecordedFileInputs())
                       .setRecordedDirentsInputs(moduleExtensionResult.getRecordedDirentsInputs())
                       .setEnvVariables(extension.getEnvVars())
@@ -281,9 +281,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       // Check extension data in lockfile is still valid, disregarding usage information that is not
       // relevant for the evaluation of the extension.
       if (!Arrays.equals(
-          ModuleExtensionUsage.hashForEvaluation(
-              GsonTypeAdapterUtil.createModuleExtensionUsagesHashGson(),
-              usagesValue.getExtensionUsages()),
+          SingleExtensionUsagesValue.hashForEvaluation(
+              GsonTypeAdapterUtil.createSingleExtensionUsagesValueHashGson(), usagesValue),
           lockedExtension.getUsagesDigest())) {
         diffRecorder.record("The usages of the extension '" + extensionId + "' have changed");
       }

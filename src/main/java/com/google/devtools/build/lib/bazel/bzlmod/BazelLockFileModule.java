@@ -25,14 +25,13 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.Lockfile
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -44,7 +43,7 @@ import javax.annotation.Nullable;
  */
 public class BazelLockFileModule extends BlazeModule {
 
-  private MemoizingEvaluator evaluator;
+  private SkyframeExecutor executor;
   private Path workspaceRoot;
   @Nullable private BazelModuleResolutionEvent moduleResolutionEvent;
 
@@ -52,7 +51,7 @@ public class BazelLockFileModule extends BlazeModule {
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
-    evaluator = env.getSkyframeExecutor().getEvaluator();
+    executor = env.getSkyframeExecutor();
     workspaceRoot = env.getWorkspace();
     RepositoryOptions options = env.getOptions().getOptions(RepositoryOptions.class);
     if (options.lockfileMode.equals(LockfileMode.UPDATE)) {
@@ -77,7 +76,8 @@ public class BazelLockFileModule extends BlazeModule {
     // first if needed.
     Map<ModuleExtensionId, LockFileModuleExtension.WithFactors> newExtensionInfos =
         new ConcurrentHashMap<>();
-    evaluator
+    executor
+        .getEvaluator()
         .getInMemoryGraph()
         .parallelForEach(
             entry -> {
@@ -89,13 +89,23 @@ public class BazelLockFileModule extends BlazeModule {
               }
             });
 
+    BazelDepGraphValue depGraphValue;
+    try {
+      depGraphValue =
+          (BazelDepGraphValue) executor.getEvaluator().getExistingValue(BazelDepGraphValue.KEY);
+    } catch (InterruptedException e) {
+      // Not thrown in Bazel.
+      throw new IllegalStateException(e);
+    }
+
     BazelLockFileValue oldLockfile = moduleResolutionEvent.getOnDiskLockfileValue();
     // Create an updated version of the lockfile, keeping only the extension results from the old
     // lockfile that are still up-to-date and adding the newly resolved extension results.
     BazelLockFileValue newLockfile =
         moduleResolutionEvent.getResolutionOnlyLockfileValue().toBuilder()
             .setModuleExtensions(
-                combineModuleExtensions(oldLockfile.getModuleExtensions(), newExtensionInfos))
+                combineModuleExtensions(
+                    oldLockfile.getModuleExtensions(), newExtensionInfos, depGraphValue))
             .build();
 
     // Write the new value to the file, but only if needed. This is not just a performance
@@ -119,7 +129,8 @@ public class BazelLockFileModule extends BlazeModule {
                   ModuleExtensionId,
                   ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
               oldExtensionInfos,
-          Map<ModuleExtensionId, LockFileModuleExtension.WithFactors> newExtensionInfos) {
+          Map<ModuleExtensionId, LockFileModuleExtension.WithFactors> newExtensionInfos,
+          BazelDepGraphValue depGraphValue) {
     Map<ModuleExtensionId, ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
         updatedExtensionMap = new HashMap<>();
 
@@ -136,8 +147,8 @@ public class BazelLockFileModule extends BlazeModule {
       if (shouldKeepExtension(
           moduleExtensionId,
           firstEntryFactors,
-          firstEntryExtension.getUsagesDigest(),
-          newExtensionInfos.get(moduleExtensionId))) {
+          newExtensionInfos.get(moduleExtensionId),
+          depGraphValue)) {
         updatedExtensionMap.put(moduleExtensionId, factorToLockedExtension);
       }
     }
@@ -174,47 +185,46 @@ public class BazelLockFileModule extends BlazeModule {
   }
 
   /**
-   * Decide whether to keep this extension or not depending on all of:
+   * Keep an extension if and only if:
    *
    * <ol>
-   *   <li>If its dependency on os & arch didn't change
-   *   <li>If its usages haven't changed
+   *   <li>it still has usages
+   *   <li>its dependency on os & arch didn't change
+   *   <li>it hasn't become reproducible
    * </ol>
    *
+   * We do not check for changes in the usage hash of the extension or e.g. hashes of files accessed
+   * during the evaluation. These values are checked in SingleExtensionEvalFunction.
+   *
    * @param lockedExtensionKey object holding the old extension id and state of os and arch
-   * @param oldUsagesDigest the digest of usages of this extension in the existing lockfile
+   * @param newExtensionInfo the in-memory lockfile entry produced by the most recent up-to-date
+   *     evaluation of this extension (if any)
+   * @param depGraphValue the dep graph value
    * @return True if this extension should still be in lockfile, false otherwise
    */
   private boolean shouldKeepExtension(
-      ModuleExtensionId extensionId,
+      ModuleExtensionId moduleExtensionId,
       ModuleExtensionEvalFactors lockedExtensionKey,
-      byte[] oldUsagesDigest,
-      @Nullable LockFileModuleExtension.WithFactors newExtensionInfo) {
-
-    // If there is a new event for this extension, compare it with the existing ones
-    if (newExtensionInfo != null) {
-      boolean doNotLockExtension = !newExtensionInfo.moduleExtension().shouldLockExtension();
-      boolean dependencyOnOsChanged =
-          lockedExtensionKey.getOs().isEmpty()
-              != newExtensionInfo.extensionFactors().getOs().isEmpty();
-      boolean dependencyOnArchChanged =
-          lockedExtensionKey.getArch().isEmpty()
-              != newExtensionInfo.extensionFactors().getArch().isEmpty();
-      if (doNotLockExtension || dependencyOnOsChanged || dependencyOnArchChanged) {
-        return false;
-      }
+      @Nullable LockFileModuleExtension.WithFactors newExtensionInfo,
+      BazelDepGraphValue depGraphValue) {
+    if (!depGraphValue.getExtensionUsagesTable().containsRow(moduleExtensionId)) {
+      return false;
     }
 
-    // Otherwise, compare the current usages of this extension with the ones in the lockfile. We
-    // trim the usages to only the information that influences the evaluation of the extension so
-    // that irrelevant changes (e.g. locations or imports) don't cause the extension to be removed.
-    // Note: Extension results can still be stale for other reasons, e.g. because their transitive
-    // bzl hash changed, but such changes will be detected in SingleExtensionEvalFunction.
-    return Arrays.equals(
-        ModuleExtensionUsage.hashForEvaluation(
-            GsonTypeAdapterUtil.createModuleExtensionUsagesHashGson(),
-            moduleResolutionEvent.getExtensionUsagesById().row(extensionId)),
-        oldUsagesDigest);
+    // If there is no new extension info, the properties of the existing extension entry can't have
+    // changed.
+    if (newExtensionInfo == null) {
+      return true;
+    }
+
+    boolean doNotLockExtension = !newExtensionInfo.moduleExtension().shouldLockExtension();
+    boolean dependencyOnOsChanged =
+        lockedExtensionKey.getOs().isEmpty()
+            != newExtensionInfo.extensionFactors().getOs().isEmpty();
+    boolean dependencyOnArchChanged =
+        lockedExtensionKey.getArch().isEmpty()
+            != newExtensionInfo.extensionFactors().getArch().isEmpty();
+    return !doNotLockExtension && !dependencyOnOsChanged && !dependencyOnArchChanged;
   }
 
   /**
