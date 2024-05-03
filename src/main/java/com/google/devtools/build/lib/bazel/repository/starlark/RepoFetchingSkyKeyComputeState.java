@@ -147,6 +147,8 @@ class RepoFetchingSkyKeyComputeState implements SkyKeyComputeState {
   public void closeAndWaitForTermination() throws InterruptedException {
     close();
     workerExecutorService.close(); // This blocks
+    // We reset the state object back to its very initial state, since the host SkyFunction may be
+    // re-entered (for example b/330892334 and  https://github.com/bazelbuild/bazel/issues/21238).
     reset();
     if (Thread.interrupted()) {
       throw new InterruptedException();
