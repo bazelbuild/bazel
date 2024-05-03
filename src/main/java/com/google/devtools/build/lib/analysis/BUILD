@@ -2752,18 +2752,6 @@ java_library(
 )
 
 java_library(
-    name = "test/coverage_report_event",
-    srcs = ["test/CoverageReportEvent.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
-        "//third_party:flogger",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
     name = "test/execution_info",
     srcs = ["test/ExecutionInfo.java"],
     deps = [

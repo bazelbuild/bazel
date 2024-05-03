@@ -254,9 +254,6 @@ message BuildEventId {
   // Identifier of an event providing the ExecRequest of a run command.
   message ExecRequestId {}
 
-  // Identifier of an event providing the coverage report.
-  message CoverageReportId {}
-
   oneof id {
     UnknownBuildEventId unknown = 1;
     ProgressId progress = 2;
@@ -287,7 +284,6 @@ message BuildEventId {
     ConvenienceSymlinksIdentifiedId convenience_symlinks_identified = 25;
     CoverageActionsFinishedId coverage_actions_finished = 27;
     ExecRequestId exec_request = 28;
-    CoverageReportId coverage_report = 30;
   }
 }
 
@@ -1358,11 +1354,6 @@ message EnvironmentVariable {
   bytes value = 2;
 }
 
-// Event that contains the combined coverage report files.
-message CoverageReport {
-  repeated File coverage_report = 1;
-}
-
 // Message describing a build event. Events will have an identifier that
 // is unique within a given build invocation; they also announce follow-up
 // events as children. More details, which are specific to the kind of event
@@ -1399,6 +1390,5 @@ message BuildEvent {
     BuildMetadata build_metadata = 26;
     ConvenienceSymlinksIdentified convenience_symlinks_identified = 27;
     ExecRequestConstructed exec_request = 29;
-    CoverageReport coverage_report = 31;
   }
 }

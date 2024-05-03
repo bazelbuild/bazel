@@ -271,7 +271,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:test/analysis_failure_propagation_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/coverage_action_finished_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/coverage_artifacts_known_event",
-        "//src/main/java/com/google/devtools/build/lib/analysis:test/coverage_report_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",

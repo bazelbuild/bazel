@@ -210,12 +210,6 @@ workspace as if Bazel had been run locally.
 }
 ```
 
-## CoverageReport {:#coveragereport}
-
-If [`--combined_report`] is used with the `coverage` command, a `CoverageReport`
-event is sent at the end of the build indicating the files of the combined
-coverage report.
-
 ## Fetch {:#fetch}
 
 Indicates that a Fetch operation occurred as a part of the command execution.
