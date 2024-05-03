@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.bzlmod.IndexRegistry.KnownFileHashesMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
@@ -41,7 +42,8 @@ public class RegistryFactoryImpl implements RegistryFactory {
   public Registry createRegistry(
       String url,
       ImmutableMap<String, Optional<Checksum>> knownFileHashes,
-      LockfileMode lockfileMode)
+      LockfileMode lockfileMode,
+      ImmutableSet<ModuleKey> yankedButAllowedModules)
       throws URISyntaxException {
     URI uri = new URI(url);
     if (uri.getScheme() == null) {
@@ -71,6 +73,7 @@ public class RegistryFactoryImpl implements RegistryFactory {
         downloadManager,
         clientEnvironmentSupplier.get(),
         knownFileHashes,
-        knownFileHashesMode);
+        knownFileHashesMode,
+        yankedButAllowedModules);
   }
 }

@@ -20,6 +20,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -28,7 +29,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Predicate;
 
 /**
  * Fake implementation of {@link Registry}, where modules can be freely added and stored in memory.
@@ -101,12 +101,8 @@ public class FakeRegistry implements Registry {
   }
 
   @Override
-  public boolean shouldFetchYankedVersions(
-      ModuleKey selectedModuleKey, Predicate<String> fileHashIsKnown) {
-    return !fileHashIsKnown.test(
-        "%s/modules/%s/%s/source.json"
-            .formatted(
-                url, selectedModuleKey.getName(), selectedModuleKey.getVersion().toString()));
+  public boolean shouldFetchYankedVersions(ModuleKey selectedModuleKey) {
+    return true;
   }
 
   @Override
@@ -139,7 +135,8 @@ public class FakeRegistry implements Registry {
     public Registry createRegistry(
         String url,
         ImmutableMap<String, Optional<Checksum>> fileHashes,
-        LockfileMode lockfileMode) {
+        LockfileMode lockfileMode,
+        ImmutableSet<ModuleKey> yankedButAllowedModules) {
       return Preconditions.checkNotNull(registries.get(url), "unknown registry url: %s", url);
     }
   }

@@ -46,8 +46,7 @@ public class YankedVersionsFunction implements SkyFunction {
       return null;
     }
 
-    if (!registry.shouldFetchYankedVersions(
-        key.getModuleKey(), lockfile.getRegistryFileHashes()::containsKey)) {
+    if (!registry.shouldFetchYankedVersions(key.getModuleKey())) {
       return YankedVersionsValue.create(Optional.empty());
     }
 

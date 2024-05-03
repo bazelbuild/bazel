@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -50,11 +51,15 @@ abstract class BazelModuleResolutionValue implements SkyValue {
    */
   abstract ImmutableMap<String, Optional<Checksum>> getRegistryFileHashes();
 
+  /** Module versions that are known to be yanked but were explicitly allowed by the user. */
+  abstract ImmutableSet<ModuleKey> getYankedButAllowedModules();
+
   static BazelModuleResolutionValue create(
       ImmutableMap<ModuleKey, Module> resolvedDepGraph,
       ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph,
-      ImmutableMap<String, Optional<Checksum>> registryFileHashes) {
+      ImmutableMap<String, Optional<Checksum>> registryFileHashes,
+      ImmutableSet<ModuleKey> yankedButAllowedModules) {
     return new AutoValue_BazelModuleResolutionValue(
-        resolvedDepGraph, unprunedDepGraph, registryFileHashes);
+        resolvedDepGraph, unprunedDepGraph, registryFileHashes, yankedButAllowedModules);
   }
 }

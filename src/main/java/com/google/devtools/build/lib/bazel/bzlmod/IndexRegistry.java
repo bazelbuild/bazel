@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum.MissingChecksumException;
@@ -44,7 +45,6 @@ import java.net.URL;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.function.Predicate;
 
 /**
  * Represents a Bazel module registry that serves a list of module metadata from a static HTTP
@@ -69,6 +69,7 @@ public class IndexRegistry implements Registry {
   private final Map<String, String> clientEnv;
   private final Gson gson;
   private final ImmutableMap<String, Optional<Checksum>> knownFileHashes;
+  private final ImmutableSet<ModuleKey> yankedButAllowedModules;
   private final KnownFileHashesMode knownFileHashesMode;
   private volatile Optional<BazelRegistryJson> bazelRegistryJson;
   private volatile StoredEventHandler bazelRegistryJsonEvents;
@@ -80,7 +81,8 @@ public class IndexRegistry implements Registry {
       DownloadManager downloadManager,
       Map<String, String> clientEnv,
       ImmutableMap<String, Optional<Checksum>> knownFileHashes,
-      KnownFileHashesMode knownFileHashesMode) {
+      KnownFileHashesMode knownFileHashesMode,
+      ImmutableSet<ModuleKey> yankedButAllowedModules) {
     this.uri = uri;
     this.downloadManager = downloadManager;
     this.clientEnv = clientEnv;
@@ -90,6 +92,7 @@ public class IndexRegistry implements Registry {
             .create();
     this.knownFileHashes = knownFileHashes;
     this.knownFileHashesMode = knownFileHashesMode;
+    this.yankedButAllowedModules = yankedButAllowedModules;
   }
 
   @Override
@@ -436,21 +439,16 @@ public class IndexRegistry implements Registry {
   }
 
   @Override
-  public boolean shouldFetchYankedVersions(
-      ModuleKey selectedModuleKey, Predicate<String> fileHashIsKnown) {
+  public boolean shouldFetchYankedVersions(ModuleKey selectedModuleKey) {
     // If the source.json hash is known, this module has been selected before when selection
-    // succeeded, which means that
-    // either:
+    // succeeded, which means that either:
     // * it wasn't yanked at that point in time and any successful selection since then has not seen
-    // a higher module
-    //   version, or
+    //   a higher module version, or
     // * it was yanked at that point in time, but explicitly allowed via
-    // BZLMOD_ALLOW_YANKED_VERSIONS.
-    // In both cases, we don't fetch yanked versions.
-    // TODO: Should we store whether we are in the second case and refetch yanked versions if the
-    // environment variable
-    //  changes?
-    return !fileHashIsKnown.test(getSourceJsonUrl(selectedModuleKey));
+    //   BZLMOD_ALLOW_YANKED_VERSIONS.
+    // In the first case, we don't fetch yanked versions.
+    return yankedButAllowedModules.contains(selectedModuleKey)
+        || !knownFileHashes.containsKey(getSourceJsonUrl(selectedModuleKey));
   }
 
   /** Represents fields available in {@code metadata.json} for each module. */

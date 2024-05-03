@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Optional;
-import java.util.function.Predicate;
 
 /** A database where module metadata is stored. */
 public interface Registry extends SkyValue {
@@ -52,8 +51,7 @@ public interface Registry extends SkyValue {
 
   /**
    * Returns whether the (mutable) yanked versions should be fetched from the registry for the given
-   * module contained in the post-selection dependency graph, given the knowledge of certain
-   * registry file hashes contained in the lockfile.
+   * module contained in the post-selection dependency graph.
    */
-  boolean shouldFetchYankedVersions(ModuleKey selectedModuleKey, Predicate<String> fileHashIsKnown);
+  boolean shouldFetchYankedVersions(ModuleKey selectedModuleKey);
 }

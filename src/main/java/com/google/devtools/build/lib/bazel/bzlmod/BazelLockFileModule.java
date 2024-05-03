@@ -117,9 +117,10 @@ public class BazelLockFileModule extends BlazeModule {
     // lockfile that are still up-to-date and adding the newly resolved extension results.
     BazelLockFileValue newLockfile =
         BazelLockFileValue.builder()
-            .setModuleExtensions(combinedExtensionInfos)
             .setRegistryFileHashes(
                 ImmutableSortedMap.copyOf(moduleResolutionValue.getRegistryFileHashes()))
+            .setYankedButAllowedModules(moduleResolutionValue.getYankedButAllowedModules())
+            .setModuleExtensions(combinedExtensionInfos)
             .build();
 
     // Write the new value to the file, but only if needed. This is not just a performance

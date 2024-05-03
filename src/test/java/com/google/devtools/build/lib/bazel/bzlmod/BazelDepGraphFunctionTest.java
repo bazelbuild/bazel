@@ -367,7 +367,8 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
     @Override
     @Nullable
     public SkyValue compute(SkyKey skyKey, Environment env) {
-      return BazelModuleResolutionValue.create(depGraph, ImmutableMap.of(), ImmutableMap.of());
+      return BazelModuleResolutionValue.create(
+          depGraph, ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of());
     }
   }
 }

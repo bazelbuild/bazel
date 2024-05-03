@@ -68,7 +68,8 @@ public class BazelModuleResolutionFunction implements SkyFunction {
 
   private record Result(
       Selection.Result selectionResult,
-      ImmutableMap<String, Optional<Checksum>> registryFileHashes) {}
+      ImmutableMap<String, Optional<Checksum>> registryFileHashes,
+      ImmutableSet<ModuleKey> yankedButAllowedModules) {}
 
   private static class ModuleResolutionComputeState implements Environment.SkyKeyComputeState {
     Result discoverAndSelectResult;
@@ -142,7 +143,8 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     return BazelModuleResolutionValue.create(
         finalDepGraph,
         state.discoverAndSelectResult.selectionResult.getUnprunedDepGraph(),
-        ImmutableMap.copyOf(registryFileHashes));
+        ImmutableMap.copyOf(registryFileHashes),
+        state.discoverAndSelectResult.yankedButAllowedModules);
   }
 
   @Nullable
@@ -206,12 +208,15 @@ public class BazelModuleResolutionFunction implements SkyFunction {
           env.getListener());
     }
 
+    ImmutableSet<ModuleKey> yankedButAllowedModules;
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.BZLMOD, "check no yanked versions")) {
-      checkNoYankedVersions(resolvedDepGraph, yankedVersionValues, allowedYankedVersions);
+      yankedButAllowedModules =
+          checkNoYankedVersions(resolvedDepGraph, yankedVersionValues, allowedYankedVersions);
     }
 
-    return new Result(selectionResult, discoveryResult.registryFileHashes());
+    return new Result(
+        selectionResult, discoveryResult.registryFileHashes(), yankedButAllowedModules);
   }
 
   private static void verifyAllOverridesAreOnExistentModules(
@@ -305,36 +310,53 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     }
   }
 
-  private static void checkNoYankedVersions(
+  /**
+   * Fail if any selected module is yanked and not explicitly allowed.
+   *
+   * @return the set of yanked but explicitly allowed modules
+   */
+  private static ImmutableSet<ModuleKey> checkNoYankedVersions(
       ImmutableMap<ModuleKey, InterimModule> depGraph,
       ImmutableMap<YankedVersionsValue.Key, YankedVersionsValue> yankedVersionValues,
       Optional<ImmutableSet<ModuleKey>> allowedYankedVersions)
       throws BazelModuleResolutionFunctionException {
+    ImmutableSet.Builder<ModuleKey> yankedButAllowedModules = ImmutableSet.builder();
     for (InterimModule m : depGraph.values()) {
       if (m.getRegistry() == null) {
         // Non-registry modules do not have yanked versions.
         continue;
       }
-      Optional<String> yankedInfo =
-          YankedVersionsUtil.getYankedInfo(
-              m.getKey(),
-              yankedVersionValues.get(
-                  YankedVersionsValue.Key.create(m.getKey(), m.getRegistry().getUrl())),
-              allowedYankedVersions);
-      if (yankedInfo.isPresent()) {
-        throw new BazelModuleResolutionFunctionException(
-            ExternalDepsException.withMessage(
-                Code.VERSION_RESOLUTION_ERROR,
-                "Yanked version detected in your resolved dependency graph: %s, for the reason: "
-                    + "%s.\nYanked versions may contain serious vulnerabilities and should not be "
-                    + "used. To fix this, use a bazel_dep on a newer version of this module. To "
-                    + "continue using this version, allow it using the --allow_yanked_versions "
-                    + "flag or the BZLMOD_ALLOW_YANKED_VERSIONS env variable.",
-                m.getKey(),
-                yankedInfo.get()),
-            Transience.PERSISTENT);
+      ModuleKey key = m.getKey();
+      YankedVersionsValue yankedVersionsValue =
+          yankedVersionValues.get(
+              YankedVersionsValue.Key.create(m.getKey(), m.getRegistry().getUrl()));
+      if (yankedVersionsValue.yankedVersions().isEmpty()) {
+        // No yanked version information available or no need to check it.
+        continue;
       }
+      String yankedInfo = yankedVersionsValue.yankedVersions().get().get(key.getVersion());
+      if (yankedInfo == null) {
+        // The version is not yanked.
+        continue;
+      }
+      if (allowedYankedVersions.isEmpty() || allowedYankedVersions.get().contains(key)) {
+        // The version is yanked but explicitly allowed.
+        yankedButAllowedModules.add(key);
+        continue;
+      }
+      throw new BazelModuleResolutionFunctionException(
+          ExternalDepsException.withMessage(
+              Code.VERSION_RESOLUTION_ERROR,
+              "Yanked version detected in your resolved dependency graph: %s, for the reason: "
+                  + "%s.\nYanked versions may contain serious vulnerabilities and should not be "
+                  + "used. To fix this, use a bazel_dep on a newer version of this module. To "
+                  + "continue using this version, allow it using the --allow_yanked_versions "
+                  + "flag or the BZLMOD_ALLOW_YANKED_VERSIONS env variable.",
+              m.getKey(),
+              yankedInfo),
+          Transience.PERSISTENT);
     }
+    return yankedButAllowedModules.build();
   }
 
   private static ImmutableMap<ModuleKey, Module> computeFinalDepGraph(

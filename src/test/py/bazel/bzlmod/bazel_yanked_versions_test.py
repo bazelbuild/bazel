@@ -16,7 +16,9 @@
 
 import os
 import tempfile
+
 from absl.testing import absltest
+
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
 
@@ -40,6 +42,8 @@ class BazelYankedVersionsTest(test_base.TestBase):
         'ddd', '1.0', {'yanked1': '1.0', 'yanked2': '1.0'}
     ).createCcModule(
         'eee', '1.0', {'yanked1': '1.0'}
+    ).createCcModule(
+      'fff', '1.0'
     ).createCcModule(
         'yanked1', '1.0'
     ).createCcModule(
@@ -225,6 +229,64 @@ class BazelYankedVersionsTest(test_base.TestBase):
             '//:main',
         ],
         env_add={'BZLMOD_ALLOW_YANKED_VERSIONS': 'yanked2@1.0'},
+    )
+
+  def testYankedVersionsFetchedIncrementally(self):
+    self.writeBazelrcFile(allow_yanked_versions=False)
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'bazel_dep(name = "aaa", version = "1.0")',
+      ],
+    )
+    self.ScratchFile(
+      'BUILD',
+      [
+        'cc_binary(',
+        '  name = "main",',
+        '  srcs = ["main.cc"],',
+        '  deps = ["@aaa//:lib_aaa"],',
+        ')',
+      ],
+    )
+    self.RunBazel(['build', '--nobuild', '//:main'])
+
+    # Yank aaa@1.0 and aaa@1.1.
+    self.main_registry.addMetadata('aaa', yanked_versions={'1.0': 'already dodgy', '1.1': 'still dodgy'})
+
+    # Without any changes, both a cold and a warm build still pass.
+    self.RunBazel(['build', '--nobuild', '//:main'])
+    self.RunBazel(['shutdown'])
+    self.RunBazel(['build', '--nobuild', '//:main'])
+
+    # Adding an unrelated dependency should not cause yanked versions to be fetched again.
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'bazel_dep(name = "aaa", version = "1.0")',
+        'bazel_dep(name = "fff", version = "1.0")',
+      ],
+    )
+    self.RunBazel(['build', '--nobuild', '//:main'])
+    self.RunBazel(['shutdown'])
+    self.RunBazel(['build', '--nobuild', '//:main'])
+
+    # If a new version of aaa is selected, yanked versions should be fetched again.
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'bazel_dep(name = "aaa", version = "1.0")',
+        'bazel_dep(name = "fff", version = "1.0")',
+        # Depends on aaa@1.1.
+        'bazel_dep(name = "bbb", version = "1.1")',
+      ],
+    )
+    exit_code, _, stderr = self.RunBazel(['build', '--nobuild', '//:main'], allow_failure=True)
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+      'Yanked version detected in your resolved dependency graph: '
+      + 'aaa@1.1, for the reason: still dodgy.',
+      ''.join(stderr),
     )
 
 
