@@ -1072,7 +1072,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
             "module(name='foo',version='1.0')",
             "bazel_dep(name='bar',version='2.0',repo_name='bar_alias')")
         .addModule(createModuleKey("bar", "2.0"), "module(name='bar',version='2.0')");
-    Path fooDir = moduleRoot.getRelative("foo~1.0");
+    Path fooDir = moduleRoot.getRelative("foo~v1.0");
     scratch.file(fooDir.getRelative("WORKSPACE").getPathString());
     scratch.file(fooDir.getRelative("BUILD").getPathString());
     scratch.file(
@@ -1081,7 +1081,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         "load('@bar_alias//:test.scl', 'haha')",
         "l = Label('@foo//:whatever')",
         "hoho = haha");
-    Path barDir = moduleRoot.getRelative("bar~2.0");
+    Path barDir = moduleRoot.getRelative("bar~v2.0");
     scratch.file(barDir.getRelative("WORKSPACE").getPathString());
     scratch.file(barDir.getRelative("BUILD").getPathString());
     scratch.file(barDir.getRelative("test.scl").getPathString(), "haha = 5");

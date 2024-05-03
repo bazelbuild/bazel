@@ -4851,8 +4851,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testLabelWithStrictVisibility() throws Exception {
-    RepositoryName currentRepo = RepositoryName.createUnvalidated("module~1.2.3");
-    RepositoryName otherRepo = RepositoryName.createUnvalidated("dep~4.5");
+    RepositoryName currentRepo = RepositoryName.createUnvalidated("module~v1.2.3");
+    RepositoryName otherRepo = RepositoryName.createUnvalidated("dep~v4.5");
     Label bzlLabel =
         Label.create(
             PackageIdentifier.create(currentRepo, PathFragment.create("lib")), "label.bzl");
@@ -4871,14 +4871,15 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             clientData);
 
     assertThat(eval(module, "Label('//foo:bar').workspace_root"))
-        .isEqualTo("external/module~1.2.3");
+        .isEqualTo("external/module~v1.2.3");
     assertThat(eval(module, "Label('@my_module//foo:bar').workspace_root"))
-        .isEqualTo("external/module~1.2.3");
-    assertThat(eval(module, "Label('@@module~1.2.3//foo:bar').workspace_root"))
-        .isEqualTo("external/module~1.2.3");
-    assertThat(eval(module, "Label('@dep//foo:bar').workspace_root")).isEqualTo("external/dep~4.5");
-    assertThat(eval(module, "Label('@@dep~4.5//foo:bar').workspace_root"))
-        .isEqualTo("external/dep~4.5");
+        .isEqualTo("external/module~v1.2.3");
+    assertThat(eval(module, "Label('@@module~v1.2.3//foo:bar').workspace_root"))
+        .isEqualTo("external/module~v1.2.3");
+    assertThat(eval(module, "Label('@dep//foo:bar').workspace_root"))
+        .isEqualTo("external/dep~v4.5");
+    assertThat(eval(module, "Label('@@dep~v4.5//foo:bar').workspace_root"))
+        .isEqualTo("external/dep~v4.5");
     assertThat(eval(module, "Label('@@//foo:bar').workspace_root")).isEqualTo("");
 
     assertThat(eval(module, "str(Label('@@//foo:bar'))")).isEqualTo("@@//foo:bar");
@@ -4888,13 +4889,13 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         .hasMessageThat()
         .isEqualTo(
             "'workspace_name' is not allowed on invalid Label @@[unknown repo '' requested from"
-                + " @@module~1.2.3]//foo:bar");
+                + " @@module~v1.2.3]//foo:bar");
     assertThat(
             assertThrows(
                 EvalException.class, () -> eval(module, "Label('@//foo:bar').workspace_root")))
         .hasMessageThat()
         .isEqualTo(
             "'workspace_root' is not allowed on invalid Label @@[unknown repo '' requested from"
-                + " @@module~1.2.3]//foo:bar");
+                + " @@module~v1.2.3]//foo:bar");
   }
 }

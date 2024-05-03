@@ -42,11 +42,11 @@ public final class PlatformMappingValueTest {
       BUILD_CONFIG_PLATFORM_OPTIONS = ImmutableSet.of(CoreOptions.class, PlatformOptions.class);
 
   private static final Label PLATFORM1 = Label.parseCanonicalUnchecked("//platforms:one");
-  private static final Label PLATFORM2 = Label.parseCanonicalUnchecked("@dep~1.0//platforms:two");
+  private static final Label PLATFORM2 = Label.parseCanonicalUnchecked("@dep~v1.0//platforms:two");
   private static final RepositoryMapping REPO_MAPPING =
       RepositoryMapping.create(
           ImmutableMap.of(
-              "", RepositoryName.MAIN, "dep", RepositoryName.createUnvalidated("dep~1.0")),
+              "", RepositoryName.MAIN, "dep", RepositoryName.createUnvalidated("dep~v1.0")),
           RepositoryName.MAIN);
 
   private static final BuildOptions DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS =

@@ -310,6 +310,10 @@ public class BazelDepGraphFunction implements SkyFunction {
     // Starlark identifier, which in the case of an exported symbol cannot start with "_".
     Preconditions.checkArgument(attempt >= 1);
     String extensionNameDisambiguator = attempt == 1 ? "" : String.valueOf(attempt);
+    // Avoid emitting unique names that resemble Windows short paths as those can cause additional
+    // file IO during analysis (see WindowsShortPath). In both cases, the final tilde is followed
+    // by a Starlark identifier (either the exported name of the usage or the extension name),
+    // neither of which can start with a digit.
     return id.getIsolationKey()
         .map(
             namespace ->

@@ -16,10 +16,12 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.buildModule;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createRepositoryMapping;
 
+import com.google.devtools.build.lib.windows.WindowsShortPath;
 import java.util.stream.Stream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -80,8 +82,21 @@ public class ModuleTest {
                 "test_module",
                 "",
                 "my_foo",
-                "foo~1.0",
+                "foo~v1.0",
                 "my_bar",
-                "bar~2.0"));
+                "bar~v2.0"));
+  }
+
+  @Test
+  public void getCanonicalRepoName_isNotAWindowsShortPath() {
+    assertNotAShortPath(createModuleKey("foo", "").getCanonicalRepoNameWithoutVersion().getName());
+    assertNotAShortPath(createModuleKey("foo", "1").getCanonicalRepoNameWithVersion().getName());
+    assertNotAShortPath(createModuleKey("foo", "1.2").getCanonicalRepoNameWithVersion().getName());
+    assertNotAShortPath(
+        createModuleKey("foo", "1.2.3").getCanonicalRepoNameWithVersion().getName());
+  }
+
+  private static void assertNotAShortPath(String name) {
+    assertWithMessage("For %s", name).that(WindowsShortPath.isShortPath(name)).isFalse();
   }
 }
