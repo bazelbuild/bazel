@@ -303,6 +303,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
             stringValues::add,
             location,
             artifactExpander,
+            pathMapper,
             starlarkSemantics);
       } else {
         int count = expandedValues.size();
@@ -496,7 +497,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
                   mapEach,
                   location,
                   starlarkSemantics,
-                  (features & EXPAND_DIRECTORIES) != 0 ? artifactExpander : null);
+                  (features & EXPAND_DIRECTORIES) != 0 ? artifactExpander : null,
+                  PathMapper.NOOP);
           try {
             actionKeyContext.addNestedSetToFingerprint(commandLineItemMapFn, fingerprint, values);
           } finally {
@@ -532,6 +534,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
               fingerprint::addString,
               location,
               artifactExpander,
+              PathMapper.NOOP,
               starlarkSemantics);
         } else {
           for (Object value : maybeExpandedValues) {
@@ -1026,12 +1029,14 @@ public class StarlarkCustomCommandLine extends CommandLine {
       Consumer<String> consumer,
       Location loc,
       @Nullable ArtifactExpander artifactExpander,
+      PathMapper pathMapper,
       StarlarkSemantics starlarkSemantics)
       throws CommandLineExpansionException, InterruptedException {
     try (Mutability mu = Mutability.create("map_each")) {
       // This computation produces only a String list, which doesn't require reference semantics,
       // so createTransient() is safe.
-      StarlarkThread thread = StarlarkThread.createTransient(mu, starlarkSemantics);
+      StarlarkThread thread =
+          StarlarkThread.createTransient(mu, pathMapper.storeIn(starlarkSemantics));
       // TODO(b/77140311): Error if we issue print statements.
       thread.setPrintHandler((th, msg) -> {});
       int count = originalValues.size();
@@ -1093,18 +1098,22 @@ public class StarlarkCustomCommandLine extends CommandLine {
      */
     private final boolean hasArtifactExpander;
 
+    private final PathMapper pathMapper;
+
     @Nullable private ArtifactExpander artifactExpander;
 
     CommandLineItemMapEachAdaptor(
         StarlarkCallable mapFn,
         Location location,
         StarlarkSemantics starlarkSemantics,
-        @Nullable ArtifactExpander artifactExpander) {
+        @Nullable ArtifactExpander artifactExpander,
+        PathMapper pathMapper) {
       this.mapFn = mapFn;
       this.location = location;
       this.starlarkSemantics = starlarkSemantics;
       this.hasArtifactExpander = artifactExpander != null;
       this.artifactExpander = artifactExpander;
+      this.pathMapper = pathMapper;
     }
 
     @Override
@@ -1112,7 +1121,13 @@ public class StarlarkCustomCommandLine extends CommandLine {
         throws CommandLineExpansionException, InterruptedException {
       checkState(artifactExpander != null || !hasArtifactExpander);
       applyMapEach(
-          mapFn, maybeExpandDirectory(object), args, location, artifactExpander, starlarkSemantics);
+          mapFn,
+          maybeExpandDirectory(object),
+          args,
+          location,
+          artifactExpander,
+          pathMapper,
+          starlarkSemantics);
     }
 
     private List<Object> maybeExpandDirectory(Object object) throws CommandLineExpansionException {
@@ -1205,7 +1220,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public String getDirname() {
+    public String getDirnameForStarlark(StarlarkSemantics semantics) {
       PathFragment parent = execPath.getParentDirectory();
       return (parent == null) ? "/" : parent.getSafePathString();
     }
@@ -1226,7 +1241,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public FileRootApi getRoot() {
+    public FileRootApi getRootForStarlark(StarlarkSemantics semantics) {
       return fileset.getRoot();
     }
 
@@ -1249,7 +1264,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public String getExecPathString() {
+    public String getExecPathStringForStarlark(StarlarkSemantics semantics) {
       return execPath.getPathString();
     }
 
@@ -1261,7 +1276,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
     @Override
     public String expandToCommandLine() {
-      return getExecPathString();
+      return execPath.getPathString();
     }
 
     @Override

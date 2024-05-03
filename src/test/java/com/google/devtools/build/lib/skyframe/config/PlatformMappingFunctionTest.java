@@ -40,7 +40,6 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
-import com.google.devtools.common.options.OptionsParser;
 import java.util.List;
 import java.util.Optional;
 import org.junit.Test;
@@ -56,9 +55,6 @@ import org.junit.runners.JUnit4;
 public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
   private static final Label PLATFORM1 = Label.parseCanonicalUnchecked("//platforms:one");
-
-  private static final Label DEFAULT_TARGET_PLATFORM =
-      Label.parseCanonicalUnchecked("@bazel_tools//tools:host_platform");
 
   /** Extra options for this test. */
   public static class DummyTestOptions extends FragmentOptions {
@@ -88,15 +84,6 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     public List<String> list;
   }
 
-  private static final ImmutableList<Class<? extends FragmentOptions>> BUILD_CONFIG_OPTIONS =
-      ImmutableList.of(
-          // Needed for --platforms
-          PlatformOptions.class,
-          // All other native flags
-          DummyTestOptions.class);
-
-  // Make sure PlatformMappingFunction can use the new options class.
-
   /** Test fragment. */
   @RequiresOptions(options = {DummyTestOptions.class})
   public static final class DummyTestOptionsFragment extends Fragment {
@@ -121,13 +108,8 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     return builder.build();
   }
 
-  private BuildOptions createBuildOptions() {
-    return BuildOptions.of(
-        BUILD_CONFIG_OPTIONS, OptionsParser.builder().optionsClasses(BUILD_CONFIG_OPTIONS).build());
-  }
-
   @Test
-  public void testMappingFileDoesNotExist() {
+  public void invalidMappingFile_doesNotExist_customLocation() {
     PlatformMappingException exception =
         assertThrows(
             PlatformMappingException.class,
@@ -139,18 +121,18 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testMappingFileDoesNotExistDefaultLocation() throws Exception {
+  public void invalidMappingFile_doesNotExist_defaultLocation() throws Exception {
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(null));
 
     BuildOptions mapped = platformMappingValue.map(createBuildOptions());
 
     assertThat(mapped.get(PlatformOptions.class).platforms)
-        .containsExactly(DEFAULT_TARGET_PLATFORM);
+        .containsExactly(Label.parseCanonicalUnchecked("@bazel_tools//tools:host_platform"));
   }
 
   @Test
-  public void testMappingFileIsDirectory() throws Exception {
+  public void invalidMappingFile_isDirectory() throws Exception {
     scratch.dir("somedir");
 
     PlatformMappingException exception =
@@ -174,8 +156,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
 
-    BuildOptions modifiedOptions = createBuildOptions();
-    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
+    BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 
@@ -198,8 +179,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
 
-    BuildOptions modifiedOptions = createBuildOptions();
-    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
+    BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 
@@ -226,8 +206,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
-    BuildOptions modifiedOptions = createBuildOptions();
-    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
+    BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 
@@ -249,8 +228,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
 
-    BuildOptions modifiedOptions = createBuildOptions();
-    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
+    BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 
@@ -279,8 +257,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
 
-    BuildOptions modifiedOptions = createBuildOptions();
-    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
+    BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 
@@ -302,8 +279,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
 
-    BuildOptions modifiedOptions = createBuildOptions();
-    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
+    BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 
@@ -324,8 +300,8 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
 
-    BuildOptions modifiedOptions = createBuildOptions();
-    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
+    BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
+
     BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 
     assertThat(mapped.getStarlarkOptions())
@@ -345,9 +321,8 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
 
-    BuildOptions modifiedOptions = createBuildOptions();
-    modifiedOptions.get(DummyTestOptions.class).list = ImmutableList.of("from_config");
-    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
+    BuildOptions modifiedOptions =
+        createBuildOptions("--platforms=//platforms:one", "--list=from_config");
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 
@@ -467,8 +442,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
 
-    BuildOptions modifiedOptions = createBuildOptions();
-    modifiedOptions.get(DummyTestOptions.class).strOption = "one";
+    BuildOptions modifiedOptions = createBuildOptions("--str_option=one");
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 
@@ -489,11 +463,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
 
-    BuildOptions modifiedOptions =
-        createBuildOptions().toBuilder()
-            .addStarlarkOption(
-                Label.parseCanonicalUnchecked("//flag:my_string_flag"), "mapped_value")
-            .build();
+    BuildOptions modifiedOptions = createBuildOptions("--//flag:my_string_flag=mapped_value");
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 

@@ -225,6 +225,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:diff_awareness_manager",
         "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_state_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:directory_tree_digest_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:directory_tree_digest_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:file_function",

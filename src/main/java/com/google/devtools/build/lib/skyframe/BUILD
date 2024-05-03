@@ -48,6 +48,7 @@ java_library(
         "LocalRepositoryLookupFunction.java",
         "PackageFunction.java",
         "PackageFunctionWithMultipleGlobDeps.java",
+        "PackageFunctionWithSingleGlobsDep.java",
         "PackageFunctionWithoutGlobDeps.java",
         "PrepareDepsOfPatternFunction.java",
         "SequencedSkyframeExecutor.java",
@@ -138,6 +139,8 @@ java_library(
         ":glob_descriptor",
         ":glob_function",
         ":glob_value",
+        ":globs_function",
+        ":globs_value",
         ":ignored_package_prefixes_function",
         ":ignored_package_prefixes_value",
         ":incremental_artifact_conflict_finder",
@@ -173,6 +176,7 @@ java_library(
         ":repository_mapping_value",
         ":rule_configured_target_value",
         ":sky_functions",
+        ":sky_key_stats",
         ":sky_value_dirtiness_checker",
         ":skyfocus",
         ":skyfocus_options",
@@ -182,6 +186,7 @@ java_library(
         ":skyframe_error_processor",
         ":skyframe_executor_repository_helpers_holder",
         ":skyframe_incremental_build_monitor",
+        ":skyframe_stats",
         ":skymeld_inconsistency_receiver",
         ":starlark_builtins_value",
         ":state_informing_sky_function_environment",
@@ -593,7 +598,7 @@ java_library(
         ":artifact_function",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
-        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:jsr305",
     ],
 )
@@ -1484,7 +1489,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/io:file_symlink_infinite_expansion_exception",
         "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
         "//src/main/java/com/google/devtools/build/lib/packages/producers",
-        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:jsr305",
     ],
 )
@@ -2635,7 +2640,7 @@ java_library(
     deps = [
         ":sane_analysis_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",
     ],
 )
@@ -2704,7 +2709,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
-        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -3200,5 +3205,20 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "sky_key_stats",
+    srcs = ["SkyKeyStats.java"],
+)
+
+java_library(
+    name = "skyframe_stats",
+    srcs = ["SkyframeStats.java"],
+    deps = [
+        ":sky_key_stats",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
     ],
 )

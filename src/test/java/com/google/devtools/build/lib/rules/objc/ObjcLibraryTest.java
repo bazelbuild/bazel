@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -58,7 +59,6 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkerInput;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
-import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -2007,7 +2007,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testLinkActionMnemonic() throws Exception {
     scratchConfiguredTarget("foo", "x", "objc_library(name = 'x', srcs = ['a.m'])");
 
-    CppLinkAction archiveAction = (CppLinkAction) archiveAction("//foo:x");
+    SpawnAction archiveAction = (SpawnAction) archiveAction("//foo:x");
     assertThat(archiveAction.getMnemonic()).isEqualTo("CppArchive");
   }
 

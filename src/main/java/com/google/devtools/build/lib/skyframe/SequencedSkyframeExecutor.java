@@ -20,10 +20,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
+import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multiset;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
@@ -54,12 +56,9 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.BuildFileName;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClassId;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -103,7 +102,6 @@ import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -170,7 +168,8 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       boolean shouldUseRepoDotBazel,
       SkyKeyStateReceiver skyKeyStateReceiver,
-      BugReporter bugReporter) {
+      BugReporter bugReporter,
+      boolean globUnderSingleDep) {
     super(
         skyframeExecutorConsumerOnInit,
         pkgFactory,
@@ -195,7 +194,8 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         diffAwarenessFactories,
         workspaceInfoFromDiffReceiver,
         new SequencedRecordingDifferencer(),
-        repositoryHelpersHolder);
+        repositoryHelpersHolder,
+        globUnderSingleDep);
   }
 
   @Override
@@ -500,9 +500,11 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  public List<RuleStat> getRuleStats(ExtendedEventHandler eventHandler)
-      throws InterruptedException {
-    Map<String, RuleStat> ruleStats = new HashMap<>();
+  @Nullable
+  public SkyframeStats getSkyframeStats(ExtendedEventHandler eventHandler) {
+    Map<String, SkyKeyStats> ruleStats = new HashMap<>();
+    Map<String, SkyKeyStats> aspectStats = new HashMap<>();
+    Multiset<SkyFunctionName> functionCount = HashMultiset.create();
     for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue :
         memoizingEvaluator.getDoneValues().entrySet()) {
       SkyValue value = skyKeyAndValue.getValue();
@@ -510,31 +512,35 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       SkyFunctionName functionName = key.functionName();
       if (value instanceof RuleConfiguredTargetValue ctValue) {
         ConfiguredTarget configuredTarget = ctValue.getConfiguredTarget();
-        if (configuredTarget instanceof RuleConfiguredTarget) {
-
-          Rule rule;
-          try {
-            rule = (Rule) getPackageManager().getTarget(eventHandler, configuredTarget.getLabel());
-          } catch (NoSuchPackageException | NoSuchTargetException e) {
-            throw new IllegalStateException(
-                "Failed to get Rule target from package when calculating stats.", e);
-          }
-          RuleClass ruleClass = rule.getRuleClassObject();
-          RuleStat ruleStat =
+        if (configuredTarget instanceof RuleConfiguredTarget ruleCfgTarget) {
+          RuleClassId ruleClassId = ruleCfgTarget.getRuleClassId();
+          SkyKeyStats ruleStat =
               ruleStats.computeIfAbsent(
-                  ruleClass.getKey(), k -> new RuleStat(k, ruleClass.getName(), true));
-          ruleStat.addRule(ctValue.getNumActions());
+                  ruleClassId.key(), k -> new SkyKeyStats(k, ruleClassId.name()));
+          ruleStat.countWithActions(ctValue.getNumActions());
         }
       } else if (functionName.equals(SkyFunctions.ASPECT)) {
         AspectValue aspectValue = (AspectValue) value;
+
+        // Aspect can't be retrieved from the value, move on.
+        if (aspectValue.isCleared()) {
+          continue;
+        }
         AspectClass aspectClass = aspectValue.getAspect().getAspectClass();
-        RuleStat ruleStat =
-            ruleStats.computeIfAbsent(
-                aspectClass.getKey(), k -> new RuleStat(k, aspectClass.getName(), false));
-        ruleStat.addRule(aspectValue.getNumActions());
+        SkyKeyStats aspectStat =
+            aspectStats.computeIfAbsent(
+                aspectClass.getKey(), k -> new SkyKeyStats(k, aspectClass.getName()));
+        aspectStat.countWithActions(aspectValue.getNumActions());
       }
+
+      // We record rules and aspects again here so function count is correct.
+      functionCount.add(functionName);
     }
-    return new ArrayList<>(ruleStats.values());
+    return new SkyframeStats(
+        /* ruleStats= */ ImmutableList.sortedCopyOf(SkyKeyStats.BY_COUNT_DESC, ruleStats.values()),
+        /* aspectStats= */ ImmutableList.sortedCopyOf(
+            SkyKeyStats.BY_COUNT_DESC, aspectStats.values()),
+        functionCount);
   }
 
   public void dumpSkyframeStateInParallel(
@@ -800,6 +806,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     private BugReporter bugReporter = BugReporter.defaultInstance();
     private SkyKeyStateReceiver skyKeyStateReceiver = SkyKeyStateReceiver.NULL_INSTANCE;
     private SyscallCache syscallCache = null;
+    private boolean globUnderSingleDep = true;
 
     private Builder() {}
 
@@ -835,7 +842,8 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
               actionOnIOExceptionReadingBuildFile,
               shouldUseRepoDotBazel,
               skyKeyStateReceiver,
-              bugReporter);
+              bugReporter,
+              globUnderSingleDep);
       skyframeExecutor.init();
       return skyframeExecutor;
     }
@@ -958,6 +966,12 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     @CanIgnoreReturnValue
     public Builder setSyscallCache(SyscallCache syscallCache) {
       this.syscallCache = syscallCache;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setGlobUnderSingleDep(boolean globUnderSingleDep) {
+      this.globUnderSingleDep = globUnderSingleDep;
       return this;
     }
   }

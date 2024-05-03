@@ -241,11 +241,29 @@ public abstract class PackageFunction implements SkyFunction {
      * Globs are resolved using {@code PackageFunctionWithMultipleGlobDeps#SkyframeHybridGlobber},
      * which declares proper Skyframe dependencies.
      *
+     * <p>This strategy is formerly named {@code SKYFRAME_HYBRID}.
+     *
      * <p>Use when {@link PackageFunction} will be used to load packages incrementally (e.g. on both
-     * clean builds and incremental builds, perhaps with cached globs). This is Bazel's normal
-     * use-case.
+     * clean builds and incremental builds, perhaps with cached globs). This used to be Bazel's
+     * normal use-case and still is the preferred strategy if incremental evaluation performance
+     * requirement is strict.
      */
-    SKYFRAME_HYBRID,
+    MULTIPLE_GLOB_HYBRID,
+
+    /**
+     * Globs are resolved using {@code PackageFunctionWithSingleGlobsDep#GlobsGlobber}. This
+     * strategy is similar to {@link #MULTIPLE_GLOB_HYBRID} except that there is a single GLOBS
+     * Skyframe dependency including all globs defined in the package's BUILD file.
+     *
+     * <p>The {@code GLOBS} strategy is designed to replace {@code SKYFRAME_HYBRID} as Bazel's
+     * normal use case in that it coarsens the Glob-land subgraph and saving memory without
+     * meaningfully sacrificing performance.
+     *
+     * <p>However, incremental evaluation performance might regress when switching from {@link
+     * #MULTIPLE_GLOB_HYBRID} to {@link #SINGLE_GLOBS_HYBRID}. See {@link GlobFunction} for more
+     * details.
+     */
+    SINGLE_GLOBS_HYBRID,
 
     /**
      * Globs are resolved using {@link NonSkyframeGlobber}, which does not declare Skyframe
@@ -277,6 +295,7 @@ public abstract class PackageFunction implements SkyFunction {
   @ForOverride
   protected abstract void handleGlobDepsAndPropagateFilesystemExceptions(
       PackageIdentifier packageIdentifier,
+      Root packageRoot,
       LoadedPackage loadedPackage,
       Environment env,
       boolean packageWasInError)
@@ -516,7 +535,11 @@ public abstract class PackageFunction implements SkyFunction {
 
     try {
       handleGlobDepsAndPropagateFilesystemExceptions(
-          packageId, state.loadedPackage, env, pkgBuilder.containsErrors());
+          packageId,
+          packageLookupValue.getRoot(),
+          state.loadedPackage,
+          env,
+          pkgBuilder.containsErrors());
     } catch (InternalInconsistentFilesystemException e) {
       throw e.throwPackageFunctionException();
     } catch (FileSymlinkException e) {
@@ -1261,7 +1284,7 @@ public abstract class PackageFunction implements SkyFunction {
     private ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile =
         PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE;
     private boolean shouldUseRepoDotBazel = true;
-    @Nullable private GlobbingStrategy globbingStrategy = GlobbingStrategy.SKYFRAME_HYBRID;
+    private GlobbingStrategy globbingStrategy = GlobbingStrategy.SINGLE_GLOBS_HYBRID;
     private Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactoryForMetrics =
         k -> ThreadStateReceiver.NULL_INSTANCE;
     private AtomicReference<Semaphore> cpuBoundSemaphore = new AtomicReference<>();
@@ -1336,8 +1359,21 @@ public abstract class PackageFunction implements SkyFunction {
 
     public PackageFunction build() {
       switch (globbingStrategy) {
-        case SKYFRAME_HYBRID -> {
+        case MULTIPLE_GLOB_HYBRID -> {
           return new PackageFunctionWithMultipleGlobDeps(
+              packageFactory,
+              pkgLocator,
+              showLoadingProgress,
+              numPackagesSuccessfullyLoaded,
+              bzlLoadFunctionForInlining,
+              packageProgress,
+              actionOnIOExceptionReadingBuildFile,
+              shouldUseRepoDotBazel,
+              threadStateReceiverFactoryForMetrics,
+              cpuBoundSemaphore);
+        }
+        case SINGLE_GLOBS_HYBRID -> {
+          return new PackageFunctionWithSingleGlobsDep(
               packageFactory,
               pkgLocator,
               showLoadingProgress,

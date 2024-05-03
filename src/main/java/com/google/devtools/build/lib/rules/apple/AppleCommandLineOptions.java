@@ -21,9 +21,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
@@ -31,9 +28,6 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-import java.io.IOException;
 import java.util.List;
 
 /** Command-line options for building for Apple platforms. */
@@ -386,16 +380,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
     }
 
     return DottedVersion.maybeUnwrap(option);
-  }
-
-  void serialize(SerializationContext context, CodedOutputStream out)
-      throws IOException, SerializationException {
-    context.serialize(this, out);
-  }
-
-  static AppleCommandLineOptions deserialize(DeserializationContext context, CodedInputStream in)
-      throws IOException, SerializationException {
-    return context.deserialize(in);
   }
 
   /** Converter for the Apple configuration distinguisher. */

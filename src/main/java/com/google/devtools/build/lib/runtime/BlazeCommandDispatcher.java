@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.devtools.build.lib.runtime.BlazeOptionHandler.BAD_OPTION_TAG;
 import static com.google.devtools.build.lib.runtime.BlazeOptionHandler.ERROR_SEPARATOR;
+import static com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie;
 import static com.google.devtools.common.options.Converters.BLAZE_ALIASING_FLAG;
 
 import com.github.benmanes.caffeine.cache.CacheLoader;
@@ -434,9 +435,10 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           // and will be calling afterCommand soon in the future - a module's afterCommand might
           // rightfully assume its beforeCommand has already been called.
           storedEventHandler.handle(Event.error(e.getMessage()));
-          // It's not ideal but we can only return one exit code, so we just pick the code of the
-          // last exception.
-          earlyExitCode = e.getDetailedExitCode();
+
+          // Use the highest priority exit code, or the first one that is encountered if all exit
+          // codes have equivalent priority.
+          earlyExitCode = chooseMoreImportantWithFirstIfTie(earlyExitCode, e.getDetailedExitCode());
         }
       }
       reporter.removeHandler(storedEventHandler);

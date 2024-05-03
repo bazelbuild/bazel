@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -110,6 +111,13 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     @SuppressWarnings("unchecked")
     Iterable<Artifact> artifacts = (Iterable<Artifact>) myInfo.getValue(field);
     return artifacts;
+  }
+
+  private LinkCommandLine getLinkCommandLine(SpawnAction cppLinkAction) {
+    var commandLines = cppLinkAction.getCommandLines().unpack();
+    assertThat(commandLines).hasSize(2);
+    assertThat(commandLines.get(1).commandLine).isInstanceOf(LinkCommandLine.class);
+    return (LinkCommandLine) commandLines.get(1).commandLine;
   }
 
   @Test
@@ -5984,8 +5992,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createFilesForTestingLinking(scratch, "tools/build_defs/foo", /* linkProviderLines= */ "");
     assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
     ConfiguredTarget target = getConfiguredTarget("//foo:bin");
-    CppLinkAction action =
-        (CppLinkAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), "bin"));
+    SpawnAction action =
+        (SpawnAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), "bin"));
     assertThat(action.getArguments()).containsAtLeast("-DEP1_LINKOPT", "-DEP2_LINKOPT");
   }
 
@@ -6412,7 +6420,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
       throws LabelSyntaxException, EvalException {
     ConfiguredTarget target = getConfiguredTarget(label);
     Artifact executable = (Artifact) getMyInfoFromTarget(target).getValue("executable");
-    CppLinkAction generatingAction = (CppLinkAction) getGeneratingAction(executable);
+    SpawnAction generatingAction = (SpawnAction) getGeneratingAction(executable);
     Artifact compiledLinkstamp =
         ActionsTestUtil.getFirstArtifactEndingWith(generatingAction.getInputs(), "version.o");
     CppCompileAction linkstampCompileAction =
@@ -7963,18 +7971,12 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createFilesForTestingLinking(scratch, "tools/build_defs/foo", "variables_extension = foo_dict");
     assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
     ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
-    CppLinkAction action =
-        (CppLinkAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".a"));
+    SpawnAction action =
+        (SpawnAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".a"));
 
-    action
-        .getLinkCommandLineForTesting()
-        .getBuildVariables()
-        .getSequenceVariable("string_sequence_variable");
-    action.getLinkCommandLineForTesting().getBuildVariables().getStringVariable("string_variable");
-    action
-        .getLinkCommandLineForTesting()
-        .getBuildVariables()
-        .getSequenceVariable("string_depset_variable");
+    getLinkCommandLine(action).getBuildVariables().getSequenceVariable("string_sequence_variable");
+    getLinkCommandLine(action).getBuildVariables().getStringVariable("string_variable");
+    getLinkCommandLine(action).getBuildVariables().getSequenceVariable("string_depset_variable");
   }
 
   @Test
@@ -7983,19 +7985,13 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         scratch, "output_type = 'executable'", "variables_extension = foo_dict");
     ConfiguredTarget target = getConfiguredTarget("//foo:bin");
     assertThat(target).isNotNull();
-    CppLinkAction action =
-        (CppLinkAction)
+    SpawnAction action =
+        (SpawnAction)
             getGeneratingAction((Artifact) getMyInfoFromTarget(target).getValue("executable"));
 
-    action
-        .getLinkCommandLineForTesting()
-        .getBuildVariables()
-        .getSequenceVariable("string_sequence_variable");
-    action.getLinkCommandLineForTesting().getBuildVariables().getStringVariable("string_variable");
-    action
-        .getLinkCommandLineForTesting()
-        .getBuildVariables()
-        .getSequenceVariable("string_depset_variable");
+    getLinkCommandLine(action).getBuildVariables().getSequenceVariable("string_sequence_variable");
+    getLinkCommandLine(action).getBuildVariables().getStringVariable("string_variable");
+    getLinkCommandLine(action).getBuildVariables().getSequenceVariable("string_depset_variable");
   }
 
   @Test
@@ -8036,8 +8032,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         """);
     ConfiguredTarget target = getConfiguredTarget("//foo:bin");
     assertThat(target).isNotNull();
-    CppLinkAction action =
-        (CppLinkAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".map"));
+    SpawnAction action =
+        (SpawnAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".map"));
     assertThat(artifactsToStrings(action.getOutputs())).contains("bin foo/bin.map");
   }
 

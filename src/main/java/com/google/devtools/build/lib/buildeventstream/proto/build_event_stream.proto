@@ -1140,6 +1140,51 @@ message BuildMetrics {
     // Number of SkyValues that were evaluated and found clean, i.e. equal to
     // their previous version.
     repeated EvaluationStat cleaned_values = 13;
+
+    // For SkyKeys in 'done values' where the SkyValue is of type
+    // RuleConfiguredTargetValue, we pull those out separately and report the
+    // ruleClass and action count.
+    message RuleClassCount {
+      // Unique key for the rule class.
+      string key = 1;
+
+      // String name of the rule_class (not guaranteed unique)
+      string rule_class = 2;
+
+      // how many rule instances of this type were seen.
+      uint64 count = 3;
+
+      // how many actions were created by this rule class.
+      uint64 action_count = 4;
+    }
+    repeated RuleClassCount rule_class = 14;
+
+    // For SkyKeys whose function name is ASPECT break out that information
+    message AspectCount {
+      // Unique key for Aspect.
+      string key = 1;
+
+      // usually the same as above, but can differ in some cases.
+      string aspect_name = 2;
+
+      // number of aspects created of this type.
+      uint64 count = 3;
+
+      // number of actions created by aspects of this type.
+      uint64 action_count = 4;
+    }
+    repeated AspectCount aspect = 15;
+
+    // This is a summary table of all SkyFunctions and the number of Keys
+    // created of that type.
+    message SkyFunctionCount {
+      // See SkyFunctions.java for name
+      string sky_function_name = 1;
+
+      // Number of SkyKey/SkyValues with this name
+      uint64 count = 2;
+    }
+    repeated SkyFunctionCount sky_function = 16;
   }
 
   BuildGraphMetrics build_graph_metrics = 8;

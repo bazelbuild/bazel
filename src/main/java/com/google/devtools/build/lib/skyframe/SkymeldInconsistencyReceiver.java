@@ -28,11 +28,11 @@ import javax.annotation.Nullable;
  * pre-execution nodes in Skymeld mode.
  */
 public class SkymeldInconsistencyReceiver implements GraphInconsistencyReceiver {
+  // TODO: b/290998109#comment60 - After the GLOB nodes are replaced by GLOBS, the missing children
+  // below might be unexpected.
   private static final ImmutableMap<SkyFunctionName, SkyFunctionName>
       SKYMELD_EXPECTED_MISSING_CHILDREN =
-          ImmutableMap.of(
-              SkyFunctions.ACTION_EXECUTION, SkyFunctions.GLOB,
-              SkyFunctions.GLOB, SkyFunctions.GLOB);
+          ImmutableMap.of(SkyFunctions.ACTION_EXECUTION, SkyFunctions.GLOB);
 
   private final boolean heuristicallyDropNodes;
 

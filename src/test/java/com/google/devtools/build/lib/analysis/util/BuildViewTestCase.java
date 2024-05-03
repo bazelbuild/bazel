@@ -253,18 +253,34 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   @Before
-  public final void initializeSkyframeExecutor() throws Exception {
-    initializeSkyframeExecutor(/*doPackageLoadingChecks=*/ true);
+  public void initializeSkyframeExecutor() throws Exception {
+    initializeSkyframeExecutor(/* doPackageLoadingChecks= */ true);
   }
 
   public void initializeSkyframeExecutor(boolean doPackageLoadingChecks) throws Exception {
     initializeSkyframeExecutor(
-        /*doPackageLoadingChecks=*/ doPackageLoadingChecks,
-        /*diffAwarenessFactories=*/ ImmutableList.of());
+        /* doPackageLoadingChecks= */ doPackageLoadingChecks,
+        /* diffAwarenessFactories= */ ImmutableList.of(),
+        /* globUnderSingleDep= */ true);
   }
 
   public void initializeSkyframeExecutor(
       boolean doPackageLoadingChecks, ImmutableList<DiffAwareness.Factory> diffAwarenessFactories)
+      throws Exception {
+    initializeSkyframeExecutor(
+        doPackageLoadingChecks, diffAwarenessFactories, /* globUnderSingleDep= */ true);
+  }
+
+  /**
+   * Only {@link com.google.devtools.build.lib.skyframe.PackageFunctionTest} still covers testing
+   * Skyframe Hybrid globbing by passing in the test parameter globUnderSingleDep.
+   *
+   * <p>All other tests adopt GLOBS strategy by setting {@code globUnderSingleDep} to {@code true}.
+   */
+  public void initializeSkyframeExecutor(
+      boolean doPackageLoadingChecks,
+      ImmutableList<DiffAwareness.Factory> diffAwarenessFactories,
+      boolean globUnderSingleDep)
       throws Exception {
     analysisMock = getAnalysisMock();
     directories =
@@ -320,6 +336,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .setSyscallCache(SyscallCache.NO_CACHE)
             .setDiffAwarenessFactories(diffAwarenessFactories)
             .setRepositoryHelpersHolder(getRepositoryHelpersHolder())
+            .setGlobUnderSingleDep(globUnderSingleDep)
             .build();
     if (usesInliningBzlLoadFunction()) {
       injectInliningBzlLoadFunction(skyframeExecutor, ruleClassProvider, directories);
@@ -435,22 +452,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected BuildOptions createBuildOptions(String... args)
       throws OptionsParsingException, InvalidConfigurationException {
-    ImmutableList.Builder<String> allArgs = new ImmutableList.Builder<>();
-
-    // Add standard flags.
-
-    // TODO(dmarting): Add --stamp option only to test that requires it.
-    allArgs.add("--stamp"); // Stamp is now defaulted to false.
-    allArgs.add("--experimental_extended_sanity_checks");
-    // Always default to k8, even on mac and windows. Tests that need different platform should set
-    // it using {@link useConfiguration()} with (--platforms=foo) explicitly.
-    allArgs.add("--platforms=" + TestConstants.PLATFORM_LABEL);
-    allArgs.add("--host_platform=" + TestConstants.PLATFORM_LABEL);
-
-    // Now the flags from the test.
-    allArgs.add(args);
-
-    return skyframeExecutor.createBuildOptionsForTesting(reporter, allArgs.build());
+    ImmutableList<String> allArgs = ImmutableList.copyOf(args);
+    return skyframeExecutor.createBuildOptionsForTesting(reporter, allArgs);
   }
 
   protected Target getTarget(String label)
@@ -1811,6 +1814,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         .getActions().stream()
             .map(Action.class::cast)
             .filter(action -> action.getClass().equals(actionClass))
+            .collect(toImmutableList());
+  }
+
+  protected ImmutableList<Action> getActions(String label, String mnemonic) throws Exception {
+    return ((RuleConfiguredTarget) getConfiguredTarget(label))
+        .getActions().stream()
+            .map(Action.class::cast)
+            .filter(action -> action.getMnemonic().equals(mnemonic))
             .collect(toImmutableList());
   }
 

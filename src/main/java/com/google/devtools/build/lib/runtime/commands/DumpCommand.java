@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.runtime.commands;
 
-import static java.util.stream.Collectors.toList;
-
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -46,8 +44,9 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.SkyKeyStats;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor.RuleStat;
+import com.google.devtools.build.lib.skyframe.SkyframeStats;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.util.MemoryAccountant;
 import com.google.devtools.build.lib.util.MemoryAccountant.Stats;
@@ -226,39 +225,35 @@ public class DumpCommand implements BlazeCommand {
   public static class DumpOptions extends OptionsBase {
 
     @Option(
-      name = "packages",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.BAZEL_MONITORING},
-      help = "Dump package cache content."
-    )
+        name = "packages",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.BAZEL_MONITORING},
+        help = "Dump package cache content.")
     public boolean dumpPackages;
 
     @Option(
-      name = "action_cache",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.BAZEL_MONITORING},
-      help = "Dump action cache content."
-    )
+        name = "action_cache",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.BAZEL_MONITORING},
+        help = "Dump action cache content.")
     public boolean dumpActionCache;
 
     @Option(
-      name = "rule_classes",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.BAZEL_MONITORING},
-      help = "Dump rule classes."
-    )
+        name = "rule_classes",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.BAZEL_MONITORING},
+        help = "Dump rule classes.")
     public boolean dumpRuleClasses;
 
     @Option(
-      name = "rules",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.BAZEL_MONITORING},
-      help = "Dump rules, including counts and memory usage (if memory is tracked)."
-    )
+        name = "rules",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.BAZEL_MONITORING},
+        help = "Dump rules, including counts and memory usage (if memory is tracked).")
     public boolean dumpRules;
 
     @Option(
@@ -303,9 +298,7 @@ public class DumpCommand implements BlazeCommand {
     public MemoryMode memory;
   }
 
-  /**
-   * Different ways to dump information about Skyframe.
-   */
+  /** Different ways to dump information about Skyframe. */
   public enum SkyframeDumpOption {
     OFF,
     SUMMARY,
@@ -316,9 +309,7 @@ public class DumpCommand implements BlazeCommand {
     FUNCTION_GRAPH,
   }
 
-  /**
-   * Enum converter for SkyframeDumpOption.
-   */
+  /** Enum converter for SkyframeDumpOption. */
   public static class SkyframeDumpEnumConverter extends EnumConverter<SkyframeDumpOption> {
     public SkyframeDumpEnumConverter() {
       super(SkyframeDumpOption.class, "Skyframe Dump option");
@@ -469,33 +460,34 @@ public class DumpCommand implements BlazeCommand {
       SkyframeExecutor executor,
       PrintStream out)
       throws InterruptedException {
-    List<RuleStat> ruleStats = executor.getRuleStats(eventHandler);
-    if (ruleStats.isEmpty()) {
+    SkyframeStats skyframeStats = executor.getSkyframeStats(eventHandler);
+    if (skyframeStats.ruleStats().isEmpty()) {
       out.print("No rules in Bazel server, please run a build command first.");
       return;
     }
-    List<RuleStat> rules = ruleStats.stream().filter(RuleStat::isRule).collect(toList());
-    List<RuleStat> aspects = ruleStats.stream().filter(r -> !r.isRule()).collect(toList());
+    ImmutableList<SkyKeyStats> rules = skyframeStats.ruleStats();
+    ImmutableList<SkyKeyStats> aspects = skyframeStats.aspectStats();
     Map<String, RuleBytes> ruleBytes = new HashMap<>();
     Map<String, RuleBytes> aspectBytes = new HashMap<>();
     AllocationTracker allocationTracker = workspace.getAllocationTracker();
     if (allocationTracker != null) {
       allocationTracker.getRuleMemoryConsumption(ruleBytes, aspectBytes);
     }
-    printRuleStatsOfType(rules, "RULE", out, ruleBytes, allocationTracker != null);
-    printRuleStatsOfType(aspects, "ASPECT", out, aspectBytes, allocationTracker != null);
+    printRuleStatsOfType(rules, "RULE", out, ruleBytes, allocationTracker != null, false);
+    printRuleStatsOfType(aspects, "ASPECT", out, aspectBytes, allocationTracker != null, true);
   }
 
   private static void printRuleStatsOfType(
-      List<RuleStat> ruleStats,
+      ImmutableList<SkyKeyStats> ruleStats,
       String type,
       PrintStream out,
       Map<String, RuleBytes> ruleToBytes,
-      boolean bytesEnabled) {
+      boolean bytesEnabled,
+      boolean trimKey) {
     if (ruleStats.isEmpty()) {
       return;
     }
-    ruleStats.sort(Comparator.comparing(RuleStat::getCount).reversed());
+    // ruleStats are already sorted.
     int longestName =
         ruleStats.stream().map(r -> r.getName().length()).max(Integer::compareTo).get();
     int maxNameWidth = 30;
@@ -511,9 +503,9 @@ public class DumpCommand implements BlazeCommand {
       printWithPaddingBefore(out, "EACH", eachColumnWidth);
     }
     out.println();
-    for (RuleStat ruleStat : ruleStats) {
+    for (SkyKeyStats ruleStat : ruleStats) {
       printWithPadding(
-          out, truncateName(ruleStat.getName(), ruleStat.isRule(), maxNameWidth), nameColumnWidth);
+          out, truncateName(ruleStat.getName(), trimKey, maxNameWidth), nameColumnWidth);
       printWithPaddingBefore(out, formatLong(ruleStat.getCount()), numberColumnWidth);
       printWithPaddingBefore(out, formatLong(ruleStat.getActionCount()), numberColumnWidth);
       if (bytesEnabled) {
@@ -527,9 +519,9 @@ public class DumpCommand implements BlazeCommand {
     out.println();
   }
 
-  private static String truncateName(String name, boolean isRule, int maxNameWidth) {
+  private static String truncateName(String name, boolean trimKey, int maxNameWidth) {
     // If this is an aspect, we'll chop off everything except the aspect name
-    if (!isRule) {
+    if (trimKey) {
       int dividerIndex = name.lastIndexOf('%');
       if (dividerIndex >= 0) {
         name = name.substring(dividerIndex + 1);

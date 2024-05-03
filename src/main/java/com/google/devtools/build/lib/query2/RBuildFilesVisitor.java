@@ -144,7 +144,8 @@ public class RBuildFilesVisitor extends ParallelQueryVisitor<SkyKey, PackageIden
     // globs, but these cannot be included in load statements and so we don't traverse
     // through these either.
     if (!rdep.functionName().equals(SkyFunctions.PACKAGE_LOOKUP)
-        && !rdep.functionName().equals(SkyFunctions.GLOB)) {
+        && !rdep.functionName().equals(SkyFunctions.GLOB)
+        && !rdep.functionName().equals(SkyFunctions.GLOBS)) {
       keysToVisitNext.add(rdep);
     }
   }

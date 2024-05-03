@@ -49,6 +49,7 @@ public class SingleExtensionUsagesFunction implements SkyFunction {
     }
 
     ModuleExtensionId id = (ModuleExtensionId) skyKey.argument();
+    // We never request an extension without usages in Skyframe.
     ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> usagesTable =
         bazelDepGraphValue.getExtensionUsagesTable();
     return SingleExtensionUsagesValue.create(

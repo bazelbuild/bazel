@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
-import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaGenJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
@@ -1822,10 +1821,9 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         """);
     useConfiguration("--incompatible_auto_exec_groups");
 
-    ImmutableList<Action> actions = getActions("//test:custom_rule_name", CppLinkAction.class);
+    ImmutableList<Action> actions = getActions("//test:custom_rule_name", "CppLink");
 
     assertThat(actions).hasSize(1);
-    assertThat(actions.get(0).getMnemonic()).isEqualTo("CppLink");
     assertThat(actions.get(0).getOwner().getExecutionPlatform().label())
         .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
   }
@@ -1873,10 +1871,9 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         """);
     useConfiguration("--incompatible_auto_exec_groups");
 
-    ImmutableList<Action> actions = getActions("//test:custom_rule_name", CppLinkAction.class);
+    ImmutableList<Action> actions = getActions("//test:custom_rule_name", "CppLink");
 
     assertThat(actions).hasSize(1);
-    assertThat(actions.get(0).getMnemonic()).isEqualTo("CppLink");
     assertThat(actions.get(0).getOwner().getExecutionPlatform().label())
         .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
   }
@@ -1943,14 +1940,10 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
                 .withToolchainTargetConstraints("@@//platforms:constraint_1")
                 .withToolchainExecConstraints("@@//platforms:constraint_1"));
 
-    ImmutableList<Action> actions = getActions("//test:custom_rule_name", CppLinkAction.class);
-    ImmutableList<Action> cppLTOActions =
-        actions.stream()
-            .filter(action -> action.getMnemonic().equals("CppLTOIndexing"))
-            .collect(toImmutableList());
+    ImmutableList<Action> cppLtoActions = getActions("//test:custom_rule_name", "CppLTOIndexing");
 
-    assertThat(cppLTOActions).hasSize(1);
-    assertThat(cppLTOActions.get(0).getOwner().getExecutionPlatform().label())
+    assertThat(cppLtoActions).hasSize(1);
+    assertThat(cppLtoActions.get(0).getOwner().getExecutionPlatform().label())
         .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
   }
 
@@ -2007,10 +2000,9 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     useConfiguration("--incompatible_auto_exec_groups");
 
     ImmutableList<Action> cppCompileActions =
-        getActions("//bazel_internal/test_rules/cc:custom_rule_name", CppCompileAction.class);
+        getActions("//bazel_internal/test_rules/cc:custom_rule_name", "CppLinkstampCompile");
 
     assertThat(cppCompileActions).hasSize(1);
-    assertThat(cppCompileActions.get(0).getMnemonic()).isEqualTo("CppLinkstampCompile");
     assertThat(cppCompileActions.get(0).getOwner().getExecutionPlatform().label())
         .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
   }

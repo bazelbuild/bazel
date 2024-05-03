@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -59,8 +58,10 @@ import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** This module provides the Sandbox spawn strategy. */
@@ -531,10 +532,25 @@ public final class SandboxModule extends BlazeModule {
    */
   private static void checkSandboxBaseTopOnlyContainsPersistentDirs(Path sandboxBase) {
     try {
-      ImmutableList<String> directoryEntries =
+      List<String> directoryEntries =
           sandboxBase.getDirectoryEntries().stream()
               .map(Path::getBaseName)
-              .collect(toImmutableList());
+              .collect(Collectors.toList());
+      // If sandbox initialization failed in-between creating the inaccessible dir/file and adding
+      // the Linux sandboxing strategy to spawnRunners, then the sandbox base will be in a bad
+      // state. We check for that here and clean up.
+      if (directoryEntries.contains(SandboxHelpers.INACCESSIBLE_HELPER_DIR)) {
+        Path inaccessibleHelperDir = sandboxBase.getChild(SandboxHelpers.INACCESSIBLE_HELPER_DIR);
+        inaccessibleHelperDir.chmod(0700);
+        directoryEntries.remove(SandboxHelpers.INACCESSIBLE_HELPER_DIR);
+        inaccessibleHelperDir.deleteTree();
+      }
+      if (directoryEntries.contains(SandboxHelpers.INACCESSIBLE_HELPER_FILE)) {
+        Path inaccessibleHelperFile = sandboxBase.getChild(SandboxHelpers.INACCESSIBLE_HELPER_FILE);
+        directoryEntries.remove(SandboxHelpers.INACCESSIBLE_HELPER_FILE);
+        inaccessibleHelperFile.delete();
+      }
+
       if (!SANDBOX_BASE_PERSISTENT_DIRS.containsAll(directoryEntries)) {
         StringBuilder message =
             new StringBuilder(

@@ -494,6 +494,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private SkyfocusState skyfocusState = SkyfocusState.DISABLED;
 
+  /**
+   * Determines the type of hybrid globbing strategy to use when {@link
+   * #tracksStateForIncrementality()} is {@code true}. See {@link #getGlobbingStrategy()} for more
+   * details.
+   */
+  private final boolean globUnderSingleDep;
+
   // Leaf keys to be kept regardless of the working set.
   private static final ImmutableSet<SkyKey> INCLUDE_KEYS_FOR_SKYFOCUS_IF_EXIST =
       ImmutableSet.of(
@@ -552,7 +559,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       @Nullable Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       @Nullable WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver,
       @Nullable RecordingDifferencer recordingDiffer,
-      @Nullable SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder) {
+      @Nullable SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder,
+      boolean globUnderSingleDep) {
     // Strictly speaking, these arguments are not required for initialization, but all current
     // callsites have them at hand, so we might as well set them during construction.
     this.skyframeExecutorConsumerOnInit = skyframeExecutorConsumerOnInit;
@@ -607,6 +615,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.workspaceInfoFromDiffReceiver = workspaceInfoFromDiffReceiver;
     this.recordingDiffer = recordingDiffer;
     this.repositoryHelpersHolder = repositoryHelpersHolder;
+    this.globUnderSingleDep = globUnderSingleDep;
   }
 
   private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions() {
@@ -650,6 +659,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.BZL_LOAD, newBzlLoadFunction(ruleClassProvider));
     this.globFunction = newGlobFunction();
     map.put(SkyFunctions.GLOB, this.globFunction);
+    map.put(SkyFunctions.GLOBS, new GlobsFunction());
     map.put(SkyFunctions.TARGET_PATTERN, new TargetPatternFunction());
     map.put(SkyFunctions.PREPARE_DEPS_OF_PATTERNS, new PrepareDepsOfPatternsFunction());
     map.put(SkyFunctions.PREPARE_DEPS_OF_PATTERN, new PrepareDepsOfPatternFunction(pkgLocator));
@@ -1009,7 +1019,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     try {
       memoizingEvaluator.noteEvaluationsAtSameVersionMayBeFinished(eventHandler);
     } finally {
-      progressReceiver.globDeps = new ConcurrentHashMap<>();
       globFunction.complete();
       clearSyscallCache();
       // So that the supplier object can be GC-ed.
@@ -1033,54 +1042,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     skyframeBuildView.clearLegacyData();
   }
 
-  /** Used with dump --rules. */
-  public static class RuleStat {
-    private final String key;
-    private final String name;
-    private final boolean isRule;
-    private long count;
-    private long actionCount;
-
-    public RuleStat(String key, String name, boolean isRule) {
-      this.key = key;
-      this.name = name;
-      this.isRule = isRule;
-    }
-
-    public void addRule(long actionCount) {
-      this.count++;
-      this.actionCount += actionCount;
-    }
-
-    /** Returns a key that uniquely identifies this rule or aspect. */
-    public String getKey() {
-      return key;
-    }
-
-    /** Returns a name for the rule or aspect. */
-    public String getName() {
-      return name;
-    }
-
-    /** Returns whether this is a rule or an aspect. */
-    public boolean isRule() {
-      return isRule;
-    }
-
-    /** Returns the instance count of this rule or aspect class. */
-    public long getCount() {
-      return count;
-    }
-
-    /** Returns the total action count of all instance of this rule or aspect class. */
-    public long getActionCount() {
-      return actionCount;
-    }
-  }
-
-  /** Computes statistics on heap-resident rules and aspects. */
-  public abstract List<RuleStat> getRuleStats(ExtendedEventHandler eventHandler)
-      throws InterruptedException;
+  /**
+   * Computes statistics on heap-resident rules and aspects and SkyKey/Values. Returns null if
+   * unsupported.
+   */
+  @Nullable
+  public abstract SkyframeStats getSkyframeStats(ExtendedEventHandler eventHandler);
 
   /**
    * Decides if graph edges should be stored during this evaluation and checks if the state from the
@@ -1112,9 +1079,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   @ForOverride
   protected GlobbingStrategy getGlobbingStrategy() {
-    return tracksStateForIncrementality()
-        ? GlobbingStrategy.SKYFRAME_HYBRID
-        : GlobbingStrategy.NON_SKYFRAME;
+    if (tracksStateForIncrementality()) {
+      return globUnderSingleDep
+          ? GlobbingStrategy.SINGLE_GLOBS_HYBRID
+          : GlobbingStrategy.MULTIPLE_GLOB_HYBRID;
+    }
+    return GlobbingStrategy.NON_SKYFRAME;
   }
 
   /**
@@ -2989,13 +2959,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     /** This receiver is only needed for execution, so it is null otherwise. */
     @Nullable private EvaluationProgressReceiver executionProgressReceiver = null;
 
-    // In non-incremental builds, we want to remove the glob subgraph after the rdep PACKAGE is
-    // done. However, edges are not stored. So, we use the `globDeps` map to temporarily store the
-    // relationship between GLOB and their dependent GLOBs.
-    // After the rdep PACKAGE has been evaluated, all direct or transitive dependent GLOBs will be
-    // recursively removed from both the in-memory graph and `globDeps` map.
-    private Map<GlobDescriptor, ImmutableList<GlobDescriptor>> globDeps = new ConcurrentHashMap<>();
-
     @Override
     public void dirtied(SkyKey skyKey, DirtyType dirtyType) {
       if (ignoreInvalidations) {
@@ -3104,30 +3067,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         }
       }
 
-      if (!heuristicallyDropNodes || directDeps == null) {
+      if (!heuristicallyDropNodes
+          || directDeps == null
+          || !getGlobbingStrategy().equals(GlobbingStrategy.SINGLE_GLOBS_HYBRID)) {
+        // `--heuristically_drop_nodes` is only meaningful when this is a non-incremental build with
+        // SINGLE_GLOBS_HYBRID strategy.
         return;
       }
 
-      if (skyKey.functionName().equals(SkyFunctions.GLOB)) {
-        checkState(!globDeps.containsKey(skyKey), skyKey);
-        ImmutableList.Builder<GlobDescriptor> directDepGlobsBuilder = ImmutableList.builder();
-        for (SkyKey dep : directDeps.getAllElementsAsIterable()) {
-          if (dep.functionName().equals(SkyFunctions.GLOB)) {
-            checkArgument(dep instanceof GlobDescriptor, dep);
-            directDepGlobsBuilder.add((GlobDescriptor) dep);
-          }
-        }
-
-        ImmutableList<GlobDescriptor> directDepGlobs = directDepGlobsBuilder.build();
-        if (!directDepGlobs.isEmpty()) {
-          globDeps.put((GlobDescriptor) skyKey, directDepGlobs);
-        }
-      }
-
+      // With non-incremental build, edges are not stored. So GLOBS node will not be useful anymore
+      // after PACKAGE evaluation completes, making it safe to be removed.
+      // See `SequencedSkyframeExecutor#decideKeepIncrementalState()` and b/261019506#comment1.
       if (skyKey.functionName().equals(SkyFunctions.PACKAGE)) {
         for (SkyKey dep : directDeps.getAllElementsAsIterable()) {
-          if (dep.functionName().equals(SkyFunctions.GLOB)) {
-            recursivelyRemoveGlobFromGraph((GlobDescriptor) dep);
+          if (dep.functionName().equals(SkyFunctions.GLOBS)) {
+            memoizingEvaluator.getInMemoryGraph().remove(dep);
           }
         }
       }
@@ -3156,16 +3110,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           // signaled when the node finishes evaluation.
           memoizingEvaluator.getInMemoryGraph().removeIfDone(key);
           return;
-        }
-      }
-    }
-
-    private void recursivelyRemoveGlobFromGraph(GlobDescriptor root) {
-      memoizingEvaluator.getInMemoryGraph().remove(root);
-      ImmutableList<GlobDescriptor> adjacentDeps = globDeps.remove(root);
-      if (adjacentDeps != null) {
-        for (GlobDescriptor nextLevelDep : adjacentDeps) {
-          recursivelyRemoveGlobFromGraph(nextLevelDep);
         }
       }
     }

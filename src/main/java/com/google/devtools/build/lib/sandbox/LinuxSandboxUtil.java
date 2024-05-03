@@ -25,6 +25,7 @@ import java.util.Map;
 
 /** Utility functions for the {@code linux-sandbox} embedded tool. */
 public final class LinuxSandboxUtil {
+
   private static final String LINUX_SANDBOX = "linux-sandbox" + OsUtils.executableExtension();
 
   /** Returns whether using the {@code linux-sandbox} is supported in the command environment. */
@@ -99,7 +100,7 @@ public final class LinuxSandboxUtil {
   public static Path getInaccessibleHelperFile(Path sandboxBase) throws IOException {
     // The order of the permissions settings calls matters, see
     // https://github.com/bazelbuild/bazel/issues/16364
-    Path inaccessibleHelperFile = sandboxBase.getRelative("inaccessibleHelperFile");
+    Path inaccessibleHelperFile = sandboxBase.getRelative(SandboxHelpers.INACCESSIBLE_HELPER_FILE);
     FileSystemUtils.touchFile(inaccessibleHelperFile);
     inaccessibleHelperFile.setExecutable(false);
     inaccessibleHelperFile.setWritable(false);

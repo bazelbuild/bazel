@@ -102,8 +102,13 @@ function test_bootstrap() {
 
     JAVABASE=$(echo reduced*)
 
-    env EXTRA_BAZEL_ARGS="--tool_java_runtime_version=local_jdk" ./compile.sh \
-        || fail "Expected to be able to bootstrap bazel. If you updated MODULE.bazel, see the NOTE in that file."
+    env EXTRA_BAZEL_ARGS="--java_runtime_version=21 \
+      --java_language_version=21 \
+      --tool_java_runtime_version=21 \
+      --tool_java_language_version=21" \
+      ./compile.sh \
+      || fail "Expected to be able to bootstrap bazel.\
+ If you updated MODULE.bazel, see the NOTE in that file."
 
     ./output/bazel \
       --server_javabase=$JAVABASE --host_jvm_args=--add-opens=java.base/java.nio=ALL-UNNAMED \

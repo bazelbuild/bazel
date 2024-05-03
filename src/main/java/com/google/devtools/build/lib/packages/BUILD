@@ -178,3 +178,11 @@ java_library(
         "//src/main/java/net/starlark/java/eval",
     ],
 )
+
+java_library(
+    name = "rule_class_id",
+    srcs = ["RuleClassId.java"],
+    deps = [
+        "//third_party:auto_value",
+    ],
+)
