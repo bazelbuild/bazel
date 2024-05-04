@@ -22,7 +22,6 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -64,6 +63,7 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCom
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverride;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.WorkerForRepoFetching;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.DelegatingDownloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
@@ -121,9 +121,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -163,9 +160,6 @@ public class BazelRepositoryModule extends BlazeModule {
   private List<String> allowedYankedVersions = ImmutableList.of();
   private boolean disableNativeRepoRules;
   private SingleExtensionEvalFunction singleExtensionEvalFunction;
-  private final ExecutorService repoFetchingWorkerThreadPool =
-      Executors.newFixedThreadPool(
-          100, new ThreadFactoryBuilder().setNameFormat("repo-fetching-worker-%d").build());
 
   @Nullable private CredentialModule credentialModule;
 
@@ -316,37 +310,8 @@ public class BazelRepositoryModule extends BlazeModule {
 
     RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);
     if (repoOptions != null) {
-      switch (repoOptions.workerForRepoFetching) {
-        case OFF:
-          starlarkRepositoryFunction.setWorkerExecutorService(null);
-          break;
-        case PLATFORM:
-          starlarkRepositoryFunction.setWorkerExecutorService(repoFetchingWorkerThreadPool);
-          break;
-        case VIRTUAL:
-        case AUTO:
-          try {
-            // Since Google hasn't migrated to JDK 21 yet, we can't directly call
-            // Executors.newVirtualThreadPerTaskExecutor here. But a bit of reflection never hurt
-            // anyone... right? (OSS Bazel already ships with a bundled JDK 21)
-            starlarkRepositoryFunction.setWorkerExecutorService(
-                (ExecutorService)
-                    Executors.class
-                        .getDeclaredMethod("newThreadPerTaskExecutor", ThreadFactory.class)
-                        .invoke(
-                            null, Thread.ofVirtual().name("starlark-repository-", 0).factory()));
-          } catch (ReflectiveOperationException e) {
-            if (repoOptions.workerForRepoFetching == RepositoryOptions.WorkerForRepoFetching.AUTO) {
-              starlarkRepositoryFunction.setWorkerExecutorService(null);
-            } else {
-              throw new AbruptExitException(
-                  detailedExitCode(
-                      "couldn't create virtual worker thread executor for repo fetching",
-                      Code.BAD_DOWNLOADER_CONFIG),
-                  e);
-            }
-          }
-      }
+      starlarkRepositoryFunction.setUseWorkers(
+          repoOptions.workerForRepoFetching != WorkerForRepoFetching.OFF);
       downloadManager.setDisableDownload(repoOptions.disableDownload);
       if (repoOptions.repositoryDownloaderRetries >= 0) {
         downloadManager.setRetries(repoOptions.repositoryDownloaderRetries);
