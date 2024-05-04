@@ -83,7 +83,7 @@ _common_attrs = {
             "always be cloned with --depth=1). Setting such a date close to " +
             "the specified commit may allow for a shallow clone of the " +
             "repository even if the server does not support shallow fetches " +
-            "of arbitary commits. Due to bugs in git's --shallow-since " +
+            "of arbitrary commits. Due to bugs in git's --shallow-since " +
             "implementation, using this attribute is not recommended as it " +
             "may result in fetch failures.",
     ),
