@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
-import com.google.devtools.build.lib.analysis.test.CoverageActionFinishedEvent;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
@@ -127,9 +126,6 @@ public class SkyframeBuilder implements Builder {
     skyframeExecutor
         .getEventBus()
         .post(new ExecutionProgressReceiverAvailableEvent(executionProgressReceiver));
-    // When not in Skymeld mode, TargetCompleteEvents don't need to be held back.
-    // See {@link CoverageActionFinishedEvent}.
-    skyframeExecutor.getEventBus().post(new CoverageActionFinishedEvent());
 
     List<DetailedExitCode> detailedExitCodes = new ArrayList<>();
     EvaluationResult<?> result;

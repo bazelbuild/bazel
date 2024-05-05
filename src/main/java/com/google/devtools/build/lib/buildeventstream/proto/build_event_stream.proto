@@ -248,9 +248,6 @@ message BuildEventId {
   // Identifier of an event providing convenience symlinks information.
   message ConvenienceSymlinksIdentifiedId {}
 
-  // Identifier of an event signalling that the coverage actions are finished.
-  message CoverageActionsFinishedId {}
-
   // Identifier of an event providing the ExecRequest of a run command.
   message ExecRequestId {}
 
@@ -282,7 +279,6 @@ message BuildEventId {
     WorkspaceConfigId workspace = 23;
     BuildMetadataId build_metadata = 24;
     ConvenienceSymlinksIdentifiedId convenience_symlinks_identified = 25;
-    CoverageActionsFinishedId coverage_actions_finished = 27;
     ExecRequestId exec_request = 28;
   }
 }
