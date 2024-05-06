@@ -202,12 +202,10 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
         fingerprintValueService.getOrClaimGetOperation(fingerprint, distinguisher, getOperation);
     if (previous != null) {
       // This object was previously requested. Discards `getOperation`.
-      if (previous instanceof ListenableFuture) {
-        @SuppressWarnings("unchecked")
-        ListenableFuture<Object> futureValue = (ListenableFuture<Object>) previous;
+      if (previous instanceof ListenableFuture<?> previousValue) {
         addReadStatusFuture(
             Futures.transformAsync(
-                futureValue,
+                previousValue,
                 value -> {
                   try {
                     setter.set(parent, value);
@@ -284,8 +282,8 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
 
   @Override
   Object makeSynchronous(Object obj) throws SerializationException {
-    if (obj instanceof ListenableFuture) {
-      return waitForDeserializationFuture((ListenableFuture<?>) obj);
+    if (obj instanceof ListenableFuture<?> future) {
+      return waitForDeserializationFuture(future);
     }
     return obj;
   }
@@ -296,11 +294,11 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
     int startingReadCount = readStatusFutures == null ? 0 : readStatusFutures.size();
 
     Object value;
-    if (codec instanceof DeferredObjectCodec) {
+    if (codec instanceof DeferredObjectCodec<?> deferredCodec) {
       // On other analogous codepaths, `ObjectCodec.safeCast' is applied to the resulting value.
       // Not all codecs have this property, notably DynamicCodec, but DeferredObjectCodec's type
       // parameters guarantee type of the deserialized value.
-      value = ((DeferredObjectCodec<?>) codec).deserializeDeferred(this, codedIn);
+      value = deferredCodec.deserializeDeferred(this, codedIn);
     } else {
       value = codec.safeCast(codec.deserialize(this, codedIn));
     }
