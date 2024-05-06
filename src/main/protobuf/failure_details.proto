@@ -227,6 +227,7 @@ message Spawn {
     UNSPECIFIED_EXECUTION_FAILURE = 12 [(metadata) = { exit_code: 1 }];
     FORBIDDEN_INPUT = 13 [(metadata) = { exit_code: 1 }];
     REMOTE_CACHE_EVICTED = 14 [(metadata) = { exit_code: 39 }];
+    SPAWN_LOG_IO_EXCEPTION = 15 [(metadata) = { exit_code: 36 }];
   }
   Code code = 1;
 
