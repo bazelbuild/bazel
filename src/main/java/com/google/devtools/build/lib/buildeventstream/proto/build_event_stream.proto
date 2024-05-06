@@ -251,6 +251,8 @@ message BuildEventId {
   // Identifier of an event providing the ExecRequest of a run command.
   message ExecRequestId {}
 
+  reserved 27;
+
   oneof id {
     UnknownBuildEventId unknown = 1;
     ProgressId progress = 2;

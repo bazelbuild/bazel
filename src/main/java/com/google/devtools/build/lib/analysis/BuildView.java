@@ -855,13 +855,13 @@ public class BuildView {
       throws InterruptedException {
     if (memoizedCoverageArtifacts == null) {
       memoizedCoverageArtifacts =
-          memoizedGetCoverageArtifactsHelperInternal(
+          constructCoverageArtifacts(
               configuredTargets, allTargetsToTest, eventHandler, eventBus, loadingResult);
     }
     return memoizedCoverageArtifacts;
   }
 
-  private ImmutableSet<Artifact> memoizedGetCoverageArtifactsHelperInternal(
+  private ImmutableSet<Artifact> constructCoverageArtifacts(
       Set<ConfiguredTarget> configuredTargets,
       Set<ConfiguredTarget> allTargetsToTest,
       EventHandler eventHandler,
