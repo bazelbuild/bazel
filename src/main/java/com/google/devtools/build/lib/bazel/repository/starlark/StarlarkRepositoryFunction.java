@@ -21,12 +21,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Table;
-import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
-import com.google.devtools.build.lib.bazel.repository.starlark.RepoFetchingSkyKeyComputeState.Signal;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -61,7 +59,6 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -74,7 +71,7 @@ import net.starlark.java.eval.StarlarkThread;
 public final class StarlarkRepositoryFunction extends RepositoryFunction {
   private final DownloadManager downloadManager;
   private double timeoutScaling = 1.0;
-  @Nullable private ExecutorService workerExecutorService = null;
+  private boolean useWorkers;
   @Nullable private ProcessWrapper processWrapper = null;
   @Nullable private RepositoryRemoteExecutor repositoryRemoteExecutor;
   @Nullable private SyscallCache syscallCache;
@@ -95,15 +92,15 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
     this.syscallCache = checkNotNull(syscallCache);
   }
 
-  public void setWorkerExecutorService(@Nullable ExecutorService workerExecutorService) {
-    this.workerExecutorService = workerExecutorService;
+  public void setUseWorkers(boolean useWorkers) {
+    this.useWorkers = useWorkers;
   }
 
   @Override
   protected void setupRepoRootBeforeFetching(Path repoRoot) throws RepositoryFunctionException {
     // DON'T delete the repo root here if we're using a worker thread, since when this SkyFunction
     // restarts, fetching is still happening inside the worker thread.
-    if (workerExecutorService == null) {
+    if (!useWorkers) {
       setupRepoRoot(repoRoot);
     }
   }
@@ -112,8 +109,20 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
   public void reportSkyframeRestart(Environment env, RepositoryName repoName) {
     // DON'T report a "restarting." event if we're using a worker thread, since the actual fetch
     // function run by the worker thread never restarts.
-    if (workerExecutorService == null) {
+    if (!useWorkers) {
       super.reportSkyframeRestart(env, repoName);
+    }
+  }
+
+  private record FetchArgs(
+      Rule rule,
+      Path outputDirectory,
+      BlazeDirectories directories,
+      Environment env,
+      Map<RepoRecordedInput, String> recordedInputValues,
+      SkyKey key) {
+    FetchArgs toWorkerArgs(Environment env, Map<RepoRecordedInput, String> recordedInputValues) {
+      return new FetchArgs(rule, outputDirectory, directories, env, recordedInputValues, key);
     }
   }
 
@@ -127,81 +136,84 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       Map<RepoRecordedInput, String> recordedInputValues,
       SkyKey key)
       throws RepositoryFunctionException, InterruptedException {
-    if (workerExecutorService == null
-        || env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
-      // Don't use the worker thread if we're in Skyframe error bubbling. For some reason, using a
-      // worker thread during error bubbling very frequently causes deadlocks on Linux platforms.
-      // The deadlock is rather elusive and this is just the immediate thing that seems to help.
-      // Fortunately, no Skyframe restarts should happen during error bubbling anyway, so this
-      // shouldn't be a performance concern. See https://github.com/bazelbuild/bazel/issues/21238
-      // for more context.
-      return fetchInternal(rule, outputDirectory, directories, env, recordedInputValues, key);
+    var args = new FetchArgs(rule, outputDirectory, directories, env, recordedInputValues, key);
+    if (!useWorkers) {
+      return fetchInternal(args);
     }
-    var state = env.getState(RepoFetchingSkyKeyComputeState::new);
-    var workerFuture = state.workerFuture;
-    if (workerFuture == null) {
-      // No worker is running yet, which means we're just starting to fetch this repo. Start with a
-      // clean slate, and create the worker.
-      setupRepoRoot(outputDirectory);
-      Environment workerEnv = new RepoFetchingWorkerSkyFunctionEnvironment(state, env);
-      workerFuture =
-          workerExecutorService.submit(
-              () -> {
-                try {
-                  return fetchInternal(
-                      rule,
-                      outputDirectory,
-                      directories,
-                      workerEnv,
-                      state.recordedInputValues,
-                      key);
-                } finally {
-                  state.signalQueue.put(Signal.DONE);
-                }
-              });
-      state.workerFuture = workerFuture;
-    } else {
-      // A worker is already running. This can only mean one thing -- we just had a Skyframe
-      // restart, and need to send over a fresh Environment.
-      state.delegateEnvQueue.put(env);
+    var state = env.getState(() -> new RepoFetchingSkyKeyComputeState(rule.getName()));
+    if (state.workerExecutorService.isShutdown()) {
+      // If we get here and the worker executor is shut down, this can only mean that the worker
+      // future was cancelled while we (the host Skyframe thread) were inactive (as in, having
+      // returned `null` but not yet restarted). So we wait for the previous worker thread to finish
+      // first.
+      // TODO: instead of this complicated dance, consider making it legal for
+      //  `SkyKeyComputeState#close()` to block. This would undo the advice added in commit 8ef0a51,
+      //  but would allow us to merge `close()` and `closeAndWaitForTermination()` and avoid some
+      //  headache.
+      state.closeAndWaitForTermination();
     }
-    Signal signal;
+    boolean shouldShutDownWorkerExecutorInFinally = true;
     try {
-      signal = state.signalQueue.take();
-    } catch (InterruptedException e) {
-      // This means that we caught a Ctrl-C. Make sure to close the state object to interrupt the
-      // worker thread, wait for it to finish, and then propagate the InterruptedException.
-      state.close();
-      signal = Uninterruptibles.takeUninterruptibly(state.signalQueue);
-      Thread.interrupted(); // clear the interrupted status
-      throw new InterruptedException();
-    }
-    switch (signal) {
-      case RESTART:
+      var workerFuture = state.workerFuture;
+      if (workerFuture == null) {
+        // No worker is running yet, which means we're just starting to fetch this repo. Start with
+        // a clean slate, and create the worker.
+        setupRepoRoot(outputDirectory);
+        Environment workerEnv = new RepoFetchingWorkerSkyFunctionEnvironment(state, env);
+        workerFuture =
+            state.startWorker(
+                () -> fetchInternal(args.toWorkerArgs(workerEnv, state.recordedInputValues)));
+      } else {
+        // A worker is already running. This can only mean one thing -- we just had a Skyframe
+        // restart, and need to send over a fresh Environment.
+        state.delegateEnvQueue.put(env);
+      }
+      state.signalSemaphore.acquire();
+      if (!workerFuture.isDone()) {
+        // This means that the worker is still running, and expecting a fresh Environment. Return
+        // null to trigger a Skyframe restart, but *don't* shut down the worker executor.
+        shouldShutDownWorkerExecutorInFinally = false;
         return null;
-      case DONE:
-        try {
-          RepositoryDirectoryValue.Builder result = workerFuture.get();
-          recordedInputValues.putAll(state.recordedInputValues);
-          return result;
-        } catch (ExecutionException e) {
-          Throwables.throwIfInstanceOf(e.getCause(), RepositoryFunctionException.class);
-          Throwables.throwIfUnchecked(e.getCause());
-          throw new IllegalStateException(
-              "unexpected exception type: " + e.getClass(), e.getCause());
-        } catch (CancellationException e) {
-          // This can only happen if the state object was invalidated due to memory pressure, in
-          // which case we can simply reattempt the fetch.
-          env.getListener()
-              .post(
-                  RepositoryFetchProgress.ongoing(
-                      RepositoryName.createUnvalidated(rule.getName()),
-                      "fetch interrupted due to memory pressure; restarting."));
-          return fetch(rule, outputDirectory, directories, env, recordedInputValues, key);
-        }
+      }
+      RepositoryDirectoryValue.Builder result = workerFuture.get();
+      recordedInputValues.putAll(state.recordedInputValues);
+      return result;
+    } catch (ExecutionException e) {
+      Throwables.throwIfInstanceOf(e.getCause(), RepositoryFunctionException.class);
+      Throwables.throwIfUnchecked(e.getCause());
+      throw new IllegalStateException("unexpected exception type: " + e.getClass(), e.getCause());
+    } catch (CancellationException e) {
+      // This can only happen if the state object was invalidated due to memory pressure, in
+      // which case we can simply reattempt the fetch.
+      env.getListener()
+          .post(
+              RepositoryFetchProgress.ongoing(
+                  RepositoryName.createUnvalidated(rule.getName()),
+                  "fetch interrupted due to memory pressure; restarting."));
+      return fetch(rule, outputDirectory, directories, env, recordedInputValues, key);
+    } finally {
+      if (shouldShutDownWorkerExecutorInFinally) {
+        // Unless we know the worker is waiting on a fresh Environment, we should *always* shut down
+        // the worker executor and reset the state by the time we finish executing (successfully or
+        // otherwise). This ensures that 1) no background work happens without our knowledge, and
+        // 2) if the SkyFunction is re-entered for any reason (for example b/330892334 and
+        // https://github.com/bazelbuild/bazel/issues/21238), we don't have lingering state messing
+        // things up.
+        state.closeAndWaitForTermination();
+      }
     }
-    // TODO(wyv): use a switch expression above instead and remove this.
-    throw new IllegalStateException();
+  }
+
+  @Nullable
+  private RepositoryDirectoryValue.Builder fetchInternal(FetchArgs args)
+      throws RepositoryFunctionException, InterruptedException {
+    return fetchInternal(
+        args.rule,
+        args.outputDirectory,
+        args.directories,
+        args.env,
+        args.recordedInputValues,
+        args.key);
   }
 
   @Nullable
