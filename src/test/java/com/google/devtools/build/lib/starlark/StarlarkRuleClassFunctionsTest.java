@@ -4373,6 +4373,41 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void extendRule_ccBinary() throws Exception {
+    mockToolsConfig.overwrite(
+        "tools/allowlists/extend_rule_allowlist/BUILD",
+        """
+        package_group(
+            name = "extend_rule_allowlist",
+            packages = ["//..."],
+        )
+        """);
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        """
+        def _impl(ctx):
+            return ctx.super()
+
+        my_binary = rule(
+            implementation = _impl,
+            parent = native.cc_binary,
+        )
+        """);
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        """
+        load(":child.bzl", "my_binary")
+
+        my_binary(
+            name = "my_target",
+            srcs = ["a.cc"],
+        )
+        """);
+
+    getConfiguredTarget("//extend_rule_testing:my_target");
+  }
+
+  @Test
   public void extendRule_basicUse() throws Exception {
     scratchParentRule("parent_library"); // parent has srcs and deps attribute
     scratch.file(
@@ -5208,9 +5243,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     ev.update("config", new StarlarkConfig());
     ev.execAndExport("parent_library = rule(impl, build_setting = config.int())");
-    ev.checkEvalError(notExtendableError("parent_library"), "rule(impl, parent = parent_library)");
-
-    ev.execAndExport("parent_library = rule(impl, outputs = {'deploy': '%{name}_deploy.jar'})");
     ev.checkEvalError(notExtendableError("parent_library"), "rule(impl, parent = parent_library)");
   }
 
