@@ -26,6 +26,7 @@ import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
@@ -516,6 +517,7 @@ public class HttpDownloaderTest {
                   httpDownloader.downloadAndReadOneUrl(
                       new URL(String.format("http://localhost:%d/foo", server.getLocalPort())),
                       StaticCredentials.EMPTY,
+                      Optional.empty(),
                       eventHandler,
                       Collections.emptyMap()),
                   UTF_8))
@@ -551,8 +553,87 @@ public class HttpDownloaderTest {
               httpDownloader.downloadAndReadOneUrl(
                   new URL(String.format("http://localhost:%d/foo", server.getLocalPort())),
                   StaticCredentials.EMPTY,
+                  Optional.empty(),
                   eventHandler,
                   Collections.emptyMap()));
+    }
+  }
+
+  @Test
+  public void downloadAndReadOneUrl_checksumProvided()
+      throws IOException, Checksum.InvalidChecksumException, InterruptedException {
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              () -> {
+                try (Socket socket = server.accept()) {
+                  readHttpRequest(socket.getInputStream());
+                  sendLines(
+                      socket,
+                      "HTTP/1.1 200 OK",
+                      "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                      "Connection: close",
+                      "Content-Type: text/plain",
+                      "Content-Length: 5",
+                      "",
+                      "hello");
+                }
+                return null;
+              });
+
+      assertThat(
+              new String(
+                  httpDownloader.downloadAndReadOneUrl(
+                      new URL(String.format("http://localhost:%d/foo", server.getLocalPort())),
+                      StaticCredentials.EMPTY,
+                      Optional.of(
+                          Checksum.fromString(
+                              RepositoryCache.KeyType.SHA256,
+                              Hashing.sha256().hashString("hello", UTF_8).toString())),
+                      eventHandler,
+                      ImmutableMap.of()),
+                  UTF_8))
+          .isEqualTo("hello");
+    }
+  }
+
+  @Test
+  public void downloadAndReadOneUrl_checksumMismatch() throws IOException {
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              () -> {
+                try (Socket socket = server.accept()) {
+                  readHttpRequest(socket.getInputStream());
+                  sendLines(
+                      socket,
+                      "HTTP/1.1 200 OK",
+                      "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                      "Connection: close",
+                      "Content-Type: text/plain",
+                      "Content-Length: 9",
+                      "",
+                      "malicious");
+                }
+                return null;
+              });
+
+      var e =
+          assertThrows(
+              UnrecoverableHttpException.class,
+              () ->
+                  httpDownloader.downloadAndReadOneUrl(
+                      new URL(String.format("http://localhost:%d/foo", server.getLocalPort())),
+                      StaticCredentials.EMPTY,
+                      Optional.of(
+                          Checksum.fromString(
+                              RepositoryCache.KeyType.SHA256,
+                              Hashing.sha256().hashUnencodedChars("hello").toString())),
+                      eventHandler,
+                      ImmutableMap.of()));
+      assertThat(e).hasMessageThat().contains("Checksum was");
     }
   }
 

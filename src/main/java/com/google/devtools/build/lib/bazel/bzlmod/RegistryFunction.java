@@ -35,9 +35,14 @@ public class RegistryFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, RegistryException {
+    BazelLockFileValue lockfile = (BazelLockFileValue) env.getValue(BazelLockFileValue.KEY);
+    if (lockfile == null) {
+      return null;
+    }
+
     RegistryKey key = (RegistryKey) skyKey.argument();
     try {
-      return registryFactory.createRegistry(key.getUrl());
+      return registryFactory.createRegistry(key.getUrl(), lockfile.getRegistryFileHashes());
     } catch (URISyntaxException e) {
       throw new RegistryException(
           ExternalDepsException.withCauseAndMessage(

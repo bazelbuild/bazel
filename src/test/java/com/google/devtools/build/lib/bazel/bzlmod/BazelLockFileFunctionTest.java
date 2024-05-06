@@ -22,6 +22,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -192,6 +193,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
                                 .setFlags(flags)
                                 .setLocalOverrideHashes(localOverrideHashes)
                                 .setModuleDepGraph(key.depGraph())
+                                .setRegistryFileHashes(ImmutableMap.of())
                                 .build());
 
                         return new SkyValue() {};
@@ -203,7 +205,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     PrecomputedValue.STARLARK_SEMANTICS.set(
         differencer,
         StarlarkSemantics.builder().setBool(BuildLanguageOptions.ENABLE_BZLMOD, true).build());
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of());
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
     YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
@@ -275,7 +277,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
 
     ImmutableList<String> yankedVersions = ImmutableList.of("2.4", "2.3");
     LocalPathOverride override = LocalPathOverride.create("override_path");
-    ImmutableList<String> registries = ImmutableList.of("registry1", "registry2");
+    ImmutableSet<String> registries = ImmutableSet.of("registry1", "registry2");
     ImmutableMap<String, String> moduleOverride = ImmutableMap.of("my_dep_1", override.getPath());
 
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);

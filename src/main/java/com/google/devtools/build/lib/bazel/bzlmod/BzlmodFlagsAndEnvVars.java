@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 
 /** Stores the values of flags and environment variables that affect the resolution */
@@ -25,7 +26,7 @@ import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 abstract class BzlmodFlagsAndEnvVars {
 
   public static BzlmodFlagsAndEnvVars create(
-      ImmutableList<String> registries,
+      ImmutableSet<String> registries,
       ImmutableMap<String, String> moduleOverrides,
       ImmutableList<String> yankedVersions,
       String envVarYankedVersions,
@@ -43,7 +44,7 @@ abstract class BzlmodFlagsAndEnvVars {
   }
 
   /** Registries provided via command line */
-  public abstract ImmutableList<String> cmdRegistries();
+  public abstract ImmutableSet<String> cmdRegistries();
 
   /** ModulesOverride provided via command line */
   public abstract ImmutableMap<String, String> cmdModuleOverrides();

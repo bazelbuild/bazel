@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createMo
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
@@ -344,7 +345,7 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
             .addModule(
                 createModuleKey("b", "1.0"),
                 "module(name='b', version='1.0', bazel_compatibility=['<=5.1.4', '-5.1.2']);");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
   }
 
   @Test
@@ -407,7 +408,7 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
                 "bazel_dep(name='b', version='1.0')")
             .addModule(createModuleKey("b", "1.0"), "module(name='b', version='1.0');")
             .addYankedVersion("b", ImmutableMap.of(Version.parse("1.0"), "1.0 is a bad version!"));
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
   }
 
   @Test
@@ -437,7 +438,7 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
                 "module(name='b', version='1.1')",
                 "bazel_dep(name='c', version='1.0')");
 
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
     EvaluationResult<BazelModuleResolutionValue> result =
         evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
 
@@ -483,9 +484,8 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
                 "bazel_dep(name='c', version='1.0')",
                 "print('hello from b@1.1')");
 
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
-    EvaluationResult<BazelModuleResolutionValue> result =
-        evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+    evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
 
     assertContainsEvent("hello from root module");
     assertContainsEvent("hello from overridden a");
