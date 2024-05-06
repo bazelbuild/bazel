@@ -30,9 +30,11 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
@@ -464,6 +466,36 @@ public abstract class SpawnLogContextTestBase {
                             .setPath("out/dir/file.txt")
                             .setDigest(getDigest("abc"))
                             .build()))
+            .build());
+  }
+
+  @Test
+  public void testParamFileInput() throws Exception {
+    ParamFileActionInput paramFileInput =
+        new ParamFileActionInput(
+            PathFragment.create("foo.params"),
+            ImmutableList.of("a", "b", "c"),
+            ParameterFileType.UNQUOTED,
+            UTF_8);
+
+    // Do not materialize the file on disk, which would be the case when running remotely.
+    SpawnBuilder spawn = defaultSpawnBuilder().withInputs(paramFileInput);
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    context.logSpawn(
+        spawn.build(),
+        // ParamFileActionInputs appear in the input map but not in the metadata provider.
+        createInputMetadataProvider(),
+        createInputMap(paramFileInput),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addInputs(File.newBuilder().setPath("foo.params").setDigest(getDigest("a\nb\nc\n")))
             .build());
   }
 
@@ -963,13 +995,13 @@ public abstract class SpawnLogContextTestBase {
     return new StaticInputMetadataProvider(builder.buildOrThrow());
   }
 
-  protected static SortedMap<PathFragment, ActionInput> createInputMap(Artifact... artifacts)
+  protected static SortedMap<PathFragment, ActionInput> createInputMap(ActionInput... actionInputs)
       throws Exception {
-    return createInputMap(EmptyRunfilesSupplier.INSTANCE, artifacts);
+    return createInputMap(EmptyRunfilesSupplier.INSTANCE, actionInputs);
   }
 
   protected static SortedMap<PathFragment, ActionInput> createInputMap(
-      RunfilesSupplier runfilesSupplier, Artifact... artifacts) throws Exception {
+      RunfilesSupplier runfilesSupplier, ActionInput... actionInputs) throws Exception {
     ImmutableSortedMap.Builder<PathFragment, ActionInput> builder =
         ImmutableSortedMap.naturalOrder();
     for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> entry :
@@ -982,8 +1014,8 @@ public abstract class SpawnLogContextTestBase {
         builder.put(execPath, artifact != null ? artifact : VirtualActionInput.EMPTY_MARKER);
       }
     }
-    for (Artifact artifact : artifacts) {
-      if (artifact.isTreeArtifact()) {
+    for (ActionInput actionInput : actionInputs) {
+      if (actionInput instanceof Artifact artifact && artifact.isTreeArtifact()) {
         // Emulate SpawnInputExpander: expand to children, preserve if empty.
         TreeArtifactValue treeMetadata = createTreeArtifactValue(artifact);
         if (treeMetadata.getChildren().isEmpty()) {
@@ -994,7 +1026,7 @@ public abstract class SpawnLogContextTestBase {
           }
         }
       } else {
-        builder.put(artifact.getExecPath(), artifact);
+        builder.put(actionInput.getExecPath(), actionInput);
       }
     }
     return builder.buildOrThrow();
