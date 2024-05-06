@@ -151,6 +151,7 @@ public final class CppLinkstampCompileHelper {
         ccToolchainProvider,
         sourceFile.getExecPathString(),
         outputFile.getExecPathString(),
+        /* isCodeCoverageEnabled= */ false,
         /* gcnoFile= */ null,
         /* isUsingFission= */ false,
         /* dwoFile= */ null,
