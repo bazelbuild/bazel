@@ -147,6 +147,7 @@ public enum CompileBuildVariables {
       CppConfiguration cppConfiguration,
       String sourceFile,
       String outputFile,
+      boolean isCodeCoverageEnabled,
       String gcnoFile,
       boolean isUsingFission,
       String dwoFile,
@@ -179,6 +180,7 @@ public enum CompileBuildVariables {
           ccToolchainProvider.getBuildVariables(thread, buildOptions, cppConfiguration),
           sourceFile,
           outputFile,
+          isCodeCoverageEnabled,
           gcnoFile,
           isUsingFission,
           dwoFile,
@@ -216,6 +218,7 @@ public enum CompileBuildVariables {
       CppConfiguration cppConfiguration,
       String sourceFile,
       String outputFile,
+      boolean isCodeCoverageEnabled,
       String gcnoFile,
       boolean isUsingFission,
       String dwoFile,
@@ -250,6 +253,7 @@ public enum CompileBuildVariables {
         ccToolchainProvider.getBuildVariables(thread, buildOptions, cppConfiguration),
         sourceFile,
         outputFile,
+        isCodeCoverageEnabled,
         gcnoFile,
         isUsingFission,
         dwoFile,
@@ -280,6 +284,7 @@ public enum CompileBuildVariables {
       CcToolchainVariables parent,
       String sourceFile,
       String outputFile,
+      boolean isCodeCoverageEnabled,
       String gcnoFile,
       boolean isUsingFission,
       String dwoFile,
@@ -323,6 +328,7 @@ public enum CompileBuildVariables {
         buildVariables,
         sourceFile,
         outputFile,
+        isCodeCoverageEnabled,
         gcnoFile,
         dwoFile,
         isUsingFission,
@@ -343,6 +349,7 @@ public enum CompileBuildVariables {
       CcToolchainVariables.Builder buildVariables,
       String sourceFile,
       String outputFile,
+      boolean isCodeCoverageEnabled,
       String gcnoFile,
       String dwoFile,
       boolean isUsingFission,
@@ -380,6 +387,10 @@ public enum CompileBuildVariables {
 
     if (gcnoFile != null) {
       buildVariables.addStringVariable(GCOV_GCNO_FILE.getVariableName(), gcnoFile);
+    } else if (isCodeCoverageEnabled) {
+      // TODO: Blaze currently uses `gcov_gcno_file` to detect if code coverage is enabled. It
+      // should use a different signal.
+      buildVariables.addStringVariable(GCOV_GCNO_FILE.getVariableName(), "");
     }
 
     if (dwoFile != null) {

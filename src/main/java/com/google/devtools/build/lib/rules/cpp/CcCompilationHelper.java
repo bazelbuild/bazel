@@ -1153,6 +1153,7 @@ public final class CcCompilationHelper {
             usePic,
             /* needsFdoBuildVariables= */ false,
             ccCompilationContext.getCppModuleMap(),
+            /* enableCoverage= */ false,
             /* gcnoFile= */ null,
             /* isUsingFission= */ false,
             /* dwoFile= */ null,
@@ -1262,6 +1263,7 @@ public final class CcCompilationHelper {
       boolean usePic,
       boolean needsFdoBuildVariables,
       CppModuleMap cppModuleMap,
+      boolean enableCoverage,
       Artifact gcnoFile,
       boolean isUsingFission,
       Artifact dwoFile,
@@ -1348,6 +1350,7 @@ public final class CcCompilationHelper {
         buildVariables,
         toPathString(sourceFile),
         toPathString(builder.getOutputFile()),
+        enableCoverage,
         toPathString(gcnoFile),
         toPathString(dwoFile),
         isUsingFission,
@@ -1409,7 +1412,7 @@ public final class CcCompilationHelper {
             ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, outputName);
     // TODO(djasper): This is now duplicated. Refactor the various create..Action functions.
     Artifact gcnoFile =
-        isCodeCoverageEnabled
+        isCodeCoverageEnabled && !cppConfiguration.useLLVMCoverageMapFormat()
             ? CppHelper.getCompileOutputArtifact(
                 actionConstructionContext, label, gcnoFileName, configuration)
             : null;
@@ -1431,6 +1434,7 @@ public final class CcCompilationHelper {
             /* usePic= */ pic,
             /* needsFdoBuildVariables= */ ccRelativeName != null,
             ccCompilationContext.getCppModuleMap(),
+            isCodeCoverageEnabled,
             gcnoFile,
             generateDwo,
             dwoFile,
@@ -1480,6 +1484,7 @@ public final class CcCompilationHelper {
             generatePicAction,
             /* needsFdoBuildVariables= */ false,
             ccCompilationContext.getCppModuleMap(),
+            /* enableCoverage= */ false,
             /* gcnoFile= */ null,
             /* isUsingFission= */ false,
             /* dwoFile= */ null,
@@ -1547,7 +1552,7 @@ public final class CcCompilationHelper {
           CppHelper.getArtifactNameForCategory(
               ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, picOutputBase);
       Artifact gcnoFile =
-          enableCoverage
+          enableCoverage && !cppConfiguration.useLLVMCoverageMapFormat()
               ? CppHelper.getCompileOutputArtifact(
                   actionConstructionContext, label, gcnoFileName, configuration)
               : null;
@@ -1564,6 +1569,7 @@ public final class CcCompilationHelper {
               /* usePic= */ true,
               /* needsFdoBuildVariables= */ ccRelativeName != null && addObject,
               cppModuleMap,
+              enableCoverage,
               gcnoFile,
               generateDwo,
               dwoFile,
@@ -1624,7 +1630,7 @@ public final class CcCompilationHelper {
 
       // Create no-PIC compile actions
       Artifact gcnoFile =
-          enableCoverage
+          isCodeCoverageEnabled && !cppConfiguration.useLLVMCoverageMapFormat()
               ? CppHelper.getCompileOutputArtifact(
                   actionConstructionContext, label, gcnoFileName, configuration)
               : null;
@@ -1640,6 +1646,7 @@ public final class CcCompilationHelper {
               /* usePic= */ false,
               /* needsFdoBuildVariables= */ ccRelativeName != null,
               cppModuleMap,
+              isCodeCoverageEnabled,
               gcnoFile,
               generateDwo,
               noPicDwoFile,
@@ -1810,6 +1817,7 @@ public final class CcCompilationHelper {
             usePic,
             /* needsFdoBuildVariables= */ ccRelativeName != null,
             ccCompilationContext.getCppModuleMap(),
+            /* enableCoverage= */ false,
             /* gcnoFile= */ null,
             /* isUsingFission= */ false,
             /* dwoFile= */ null,
@@ -1837,6 +1845,7 @@ public final class CcCompilationHelper {
             usePic,
             /* needsFdoBuildVariables= */ ccRelativeName != null,
             ccCompilationContext.getCppModuleMap(),
+            /* enableCoverage= */ false,
             /* gcnoFile= */ null,
             /* isUsingFission= */ false,
             /* dwoFile= */ null,
