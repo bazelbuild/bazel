@@ -363,6 +363,9 @@ sh_test(
         "//src:java_tools_prebuilt.zip",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    tags = [
+        "requires-network",  # For Bzlmod
+    ],
 )
 
 sh_test(

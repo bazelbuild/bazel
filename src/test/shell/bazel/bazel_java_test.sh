@@ -1927,11 +1927,6 @@ EOF
 }
 
 function test_sandboxed_multiplexing() {
-  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
-    # TODO: Enable test after the next java_tools release.
-    return 0
-  fi
-
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
 load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
@@ -2082,6 +2077,106 @@ EOF
 
   bazel build //pkg:a >& $TEST_log && fail "build should fail"
   expect_log "buildozer 'add deps @c//:c' //pkg:a"
+}
+
+function test_one_version() {
+  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
+    # TODO: Enable test after the next java_tools release.
+    return 0
+  fi
+
+  # TODO: Remove patch on rules_java and add test for prebuilt tool after the next release.
+  cat << 'EOF' > MODULE.bazel
+bazel_dep(
+    name = "rules_java",
+    version = "7.5.0",
+)
+archive_override(
+    module_name = "rules_java",
+    urls = ["https://github.com/bazelbuild/rules_java/releases/download/7.5.0/rules_java-7.5.0.tar.gz"],
+    patches = ["//pkg:rules_java.patch"],
+)
+toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
+use_repo(toolchains, "remote_java_tools_linux")
+EOF
+
+  mkdir -p pkg
+  cat << 'EOF' > pkg/rules_java.patch
+--- MODULE.bazel
++++ MODULE.bazel
+@@ -13,6 +13,7 @@ bazel_dep(name = "bazel_skylib", version = "1.2.0")
+ # Required by @remote_java_tools, which is loaded via module extension.
+ bazel_dep(name = "rules_proto", version = "4.0.0")
+ bazel_dep(name = "rules_license", version = "0.0.3")
++bazel_dep(name = "abseil-cpp", version = "20240116.2", repo_name = "com_google_absl")
+
+ register_toolchains("//toolchains:all")
+
+EOF
+  cat << 'EOF' > pkg/BUILD
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+
+default_java_toolchain(
+    name = "java_toolchain",
+    source_version = "17",
+    target_version = "17",
+    # TODO: Replace this with a target under @rules_java after the next release.
+    oneversion = "@remote_java_tools_linux//:prebuilt_one_version",
+)
+
+java_binary(
+    name = "a",
+    srcs = ["A.java"],
+    main_class = "A",
+    deps = [
+        "//pkg/b1",
+        "//pkg/b2",
+    ]
+)
+EOF
+  cat << 'EOF' > pkg/A.java
+public class A extends B {
+  public static void main(String[] args) {
+    System.err.println("Hello, two worlds!");
+  }
+}
+EOF
+  mkdir -p pkg/b1
+  cat << 'EOF' > pkg/b1/BUILD
+java_library(
+    name = "b1",
+    srcs = ["B.java"],
+    visibility = ["//visibility:public"],
+)
+EOF
+  cat << 'EOF' > pkg/b1/B.java
+public class B {
+  public void foo() {}
+}
+EOF
+  mkdir -p pkg/b2
+  cat << 'EOF' > pkg/b2/BUILD
+java_library(
+    name = "b2",
+    srcs = ["B.java"],
+    visibility = ["//visibility:public"],
+)
+EOF
+  cat << 'EOF' > pkg/b2/B.java
+public class B {
+  public void bar() {}
+}
+EOF
+
+  bazel build //pkg:a \
+    --java_language_version=17 \
+    --extra_toolchains=//pkg:java_toolchain_definition \
+    --experimental_one_version_enforcement=error \
+    >& $TEST_log && fail "build should have failed"
+  expect_log "Found one definition violations on the runtime classpath:"
+  expect_log "B has incompatible definitions in:"
+  expect_log " //pkg/b1:b1"
+  expect_log " //pkg/b2:b2"
 }
 
 run_suite "Java integration tests"

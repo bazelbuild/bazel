@@ -379,6 +379,7 @@ filegroup(
         "//src/tools/bzlmod:srcs",
         "//src/tools/execlog:srcs",
         "//src/tools/launcher:srcs",
+        "//src/tools/one_version:srcs",
         "//src/tools/remote:srcs",
         "//src/tools/singlejar:srcs",
         "//src/tools/starlark/java/com/google/devtools/starlark/common:srcs",
@@ -443,6 +444,7 @@ genrule(
         "//src/java_tools/buildjar:srcs",
         "//src/java_tools/junitrunner:srcs",
         "//src/java_tools/singlejar:srcs",
+        "//src/tools/one_version:embedded_java_tools",
         "//src/tools/singlejar:embedded_java_tools",
         "//third_party/ijar:transitive_sources",
         "//third_party/java/jacoco:transitive_sources",
@@ -479,6 +481,7 @@ release_archive(
     visibility = ["//src/test/shell/bazel:__pkg__"],
     deps = [
         ":jars_java_tools_zip",
+        "//src/tools/one_version:one_version_transitive_zip",
         "//src/tools/singlejar:singlejar_transitive_zip",
         "//third_party/ijar:ijar_transitive_srcs_zip",
         "//third_party/java/jacoco:jacoco_jars_zip",
@@ -508,6 +511,7 @@ release_archive(
     visibility = ["//src/test/shell/bazel:__pkg__"],
     deps = [
         ":turbine_direct_graal_zip",
+        "//src/tools/one_version:one_version_deploy_zip",
         "//src/tools/singlejar:singlejar_deploy_zip",
         "//third_party/ijar:ijar_deploy_zip",
     ],

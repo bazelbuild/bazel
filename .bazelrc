@@ -23,7 +23,7 @@ build:ubuntu2004 --config=remote_shared
 # Alias
 build:remote --config=ubuntu2004
 
-build:macos --macos_minimum_os=10.11
+build:macos --macos_minimum_os=10.13
 
 # On Windows, we need pywin32 pip package, which doesn't work with the Python hermetic toolchain.
 # See https://github.com/bazelbuild/rules_python/issues/1356

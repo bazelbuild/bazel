@@ -398,8 +398,8 @@ public class JavaOptions extends FragmentOptions {
       name = "experimental_one_version_enforcement",
       defaultValue = "OFF",
       converter = OneVersionEnforcementLevelConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
           "When enabled, enforce that a java_binary rule can't contain more than one version "
               + "of the same class file on the classpath. This enforcement can break the build, or "
@@ -420,8 +420,8 @@ public class JavaOptions extends FragmentOptions {
   @Option(
       name = "one_version_enforcement_on_java_tests",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
           "When enabled, and with experimental_one_version_enforcement set to a non-NONE value,"
               + " enforce one version on java_test targets. This flag can be disabled to improve"
