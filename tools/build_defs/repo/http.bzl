@@ -312,15 +312,15 @@ following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
     "remote_file_urls": attr.string_list_dict(
         default = {},
         doc =
-            "A list of URLs to files that are to be downloaded and made available to be used as " +
-            "overlaid files. This is useful when you want to add WORKSPACE or BUILD.bazel files " +
-            "atop an existing repository. The files are downloaded before applying " +
-            "the patches in the `patches` attribute.",
+            "A list of URLs to files mapped to a relative path that are to be downloaded " +
+            "and made available to be used as overlaid files. This is useful when you want " +
+            "to add WORKSPACE or BUILD.bazel files atop an existing repository. The files " +
+            "are downloaded before applying the patches in the `patches` attribute.",
     ),
     "remote_file_integrity": attr.string_dict(
         default = {},
         doc =
-            "A map of file URL to its integrity value. These URLs should map to the files in " +
+            "A map of file relative paths to its integrity value. These URLs should map to the files in " +
             "the `remote_file_urls` attribute.",
     ),
     "remote_patches": attr.string_dict(
