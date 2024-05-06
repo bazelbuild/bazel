@@ -92,8 +92,8 @@ public abstract class DeserializationContext implements AsyncDeserializationCont
   }
 
   /** Returns a copy of the context with reset state. */
-  // TODO: b/297857068 - Only the NestedSetCodecWithStore and HeaderInfoCodec call this method.
-  // Delete it when it is no longer needed.
+  // TODO: b/297857068 - Only the NestedSetCodecWithStore requires this method. Delete it when it is
+  // no longer needed.
   public abstract DeserializationContext getFreshContext();
 
   final ObjectCodecRegistry getRegistry() {
