@@ -53,7 +53,7 @@ load(
     ":utils.bzl",
     "get_auth",
     "patch",
-    "remote_files",
+    "download_remote_files",
     "update_attrs",
     "workspace_and_buildfile",
 )
@@ -153,7 +153,7 @@ def _http_archive_impl(ctx):
     )
     workspace_and_buildfile(ctx)
 
-    remote_files(ctx, auth = auth)
+    download_remote_files(ctx, auth = auth)
     patch(ctx, auth = auth)
 
     return _update_integrity_attr(ctx, _http_archive_attrs, download_info)
@@ -312,16 +312,17 @@ following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
     "remote_file_urls": attr.string_list_dict(
         default = {},
         doc =
-            "A list of URLs to files mapped to a relative path that are to be downloaded " +
-            "and made available to be used as overlaid files. This is useful when you want " +
+            "A map of relative paths (key) to a list of URLs (value) that are to be downloaded " +
+            "and made available as overlaid files on the repo. This is useful when you want " +
             "to add WORKSPACE or BUILD.bazel files atop an existing repository. The files " +
-            "are downloaded before applying the patches in the `patches` attribute.",
+            "are downloaded before applying the patches in the `patches` attribute and the list of URLs " +
+            "should all be possible mirrors of the same file. The URLs are tried in order until one succeeds. ",
     ),
     "remote_file_integrity": attr.string_dict(
         default = {},
         doc =
-            "A map of file relative paths to its integrity value. These URLs should map to the files in " +
-            "the `remote_file_urls` attribute.",
+            "A map of file relative paths (key) to its integrity value (value). These relative paths should map " +
+            "to the files (key) in the `remote_file_urls` attribute.",
     ),
     "remote_patches": attr.string_dict(
         default = {},

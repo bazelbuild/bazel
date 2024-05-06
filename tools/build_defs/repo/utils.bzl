@@ -92,7 +92,7 @@ def _download_patch(ctx, patch_url, integrity, auth):
     return patch_path
 
 
-def remote_files(ctx, auth = None):
+def download_remote_files(ctx, auth = None):
     """Utility function for downloading remote files.
 
     This rule is intended to be used in the implementation function of
