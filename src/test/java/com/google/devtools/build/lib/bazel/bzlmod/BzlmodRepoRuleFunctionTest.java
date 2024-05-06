@@ -22,6 +22,7 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -146,7 +147,7 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
             differencer);
 
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of());
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
     YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
@@ -170,7 +171,7 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                 createModuleKey("bbb", "1.0"),
                 "module(name='bbb', version='1.0');bazel_dep(name='ccc',version='2.0')")
             .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0')");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     RepositoryName repo = RepositoryName.create("ccc~");
     EvaluationResult<BzlmodRepoRuleValue> result =
@@ -201,7 +202,7 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                 createModuleKey("bbb", "1.0"),
                 "module(name='bbb', version='1.0');bazel_dep(name='ccc',version='2.0')")
             .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0')");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     RepositoryName repo = RepositoryName.create("ccc~");
     EvaluationResult<BzlmodRepoRuleValue> result =
@@ -234,7 +235,7 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                 "module(name='bbb', version='1.0');bazel_dep(name='ccc',version='2.0')")
             .addModule(createModuleKey("ccc", "2.0"), "module(name='ccc', version='2.0')")
             .addModule(createModuleKey("ccc", "3.0"), "module(name='ccc', version='3.0')");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     RepositoryName repo = RepositoryName.create("ccc~");
     EvaluationResult<BzlmodRepoRuleValue> result =
@@ -270,7 +271,7 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                 "module(name='ccc', version='2.0');bazel_dep(name='ddd',version='2.0')")
             .addModule(createModuleKey("ddd", "1.0"), "module(name='ddd', version='1.0')")
             .addModule(createModuleKey("ddd", "2.0"), "module(name='ddd', version='2.0')");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     RepositoryName repo = RepositoryName.create("ddd~v2.0");
     EvaluationResult<BzlmodRepoRuleValue> result =

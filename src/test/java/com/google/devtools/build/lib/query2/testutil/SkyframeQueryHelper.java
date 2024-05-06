@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.packages.Rule.ALL_LABELS;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -380,7 +381,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                     PrecomputedValue.injected(
                         ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
                     PrecomputedValue.injected(
-                        ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
+                        ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())),
                     PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
                     PrecomputedValue.injected(
                         BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
@@ -417,7 +418,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
             PrecomputedValue.injected(
-                ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
+                ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())),
             PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
             PrecomputedValue.injected(RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, false),
             PrecomputedValue.injected(

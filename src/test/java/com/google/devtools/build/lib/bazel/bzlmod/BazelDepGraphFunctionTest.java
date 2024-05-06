@@ -61,7 +61,6 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -147,7 +146,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
         differencer,
         StarlarkSemantics.builder().setBool(BuildLanguageOptions.ENABLE_BZLMOD, true).build());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of());
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of());
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
         differencer, CheckDirectDepsMode.OFF);
@@ -364,10 +363,8 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
 
     @Override
     @Nullable
-    public SkyValue compute(SkyKey skyKey, Environment env)
-        throws SkyFunctionException, InterruptedException {
-
-      return BazelModuleResolutionValue.create(depGraph, ImmutableMap.of());
+    public SkyValue compute(SkyKey skyKey, Environment env) {
+      return BazelModuleResolutionValue.create(depGraph, ImmutableMap.of(), ImmutableMap.of());
     }
   }
 }

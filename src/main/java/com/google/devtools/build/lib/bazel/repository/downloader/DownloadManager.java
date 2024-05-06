@@ -382,16 +382,37 @@ public class DownloadManager {
    * @param originalUrl the original URL of the file
    * @param eventHandler CLI progress reporter
    * @param clientEnv environment variables in shell issuing this command
+   * @param checksum checksum of the file used to verify the content and obtain repository cache
+   *     hits
    * @throws IllegalArgumentException on parameter badness, which should be checked beforehand
    * @throws IOException if download was attempted and ended up failing
    * @throws InterruptedException if this thread is being cast into oblivion
    */
   public byte[] downloadAndReadOneUrl(
-      URL originalUrl, ExtendedEventHandler eventHandler, Map<String, String> clientEnv)
+      URL originalUrl,
+      ExtendedEventHandler eventHandler,
+      Map<String, String> clientEnv,
+      Optional<Checksum> checksum)
       throws IOException, InterruptedException {
     if (Thread.interrupted()) {
       throw new InterruptedException();
     }
+
+    if (repositoryCache.isEnabled() && checksum.isPresent()) {
+      String cacheKey = checksum.get().toString();
+      try {
+        byte[] content = repositoryCache.getBytes(cacheKey, checksum.get().getKeyType());
+        if (content != null) {
+          // Cache hit!
+          eventHandler.post(
+              new RepositoryCacheHitEvent("Bazel module fetching", cacheKey, originalUrl));
+          return content;
+        }
+      } catch (IOException e) {
+        // Ignore error trying to get. We'll just download again.
+      }
+    }
+
     Map<URI, Map<String, List<String>>> authHeaders = ImmutableMap.of();
     ImmutableList<URL> rewrittenUrls = ImmutableList.of(originalUrl);
 
@@ -418,15 +439,27 @@ public class DownloadManager {
       authHeaders = rewriter.updateAuthHeaders(rewrittenUrlMappings, authHeaders, netrcCreds);
     }
 
+    if (disableDownload) {
+      throw new IOException(
+          String.format("Failed to download %s: download is disabled.", originalUrl));
+    }
+
     if (rewrittenUrls.isEmpty()) {
       throw new IOException(getRewriterBlockedAllUrlsMessage(ImmutableList.of(originalUrl)));
     }
 
     HttpDownloader httpDownloader = new HttpDownloader();
+    byte[] content = null;
     for (int attempt = 0; attempt <= retries; ++attempt) {
       try {
-        return httpDownloader.downloadAndReadOneUrl(
-            rewrittenUrls.get(0), credentialFactory.create(authHeaders), eventHandler, clientEnv);
+        content =
+            httpDownloader.downloadAndReadOneUrl(
+                rewrittenUrls.get(0),
+                credentialFactory.create(authHeaders),
+                checksum,
+                eventHandler,
+                clientEnv);
+        break;
       } catch (ContentLengthMismatchException e) {
         if (attempt == retries) {
           throw e;
@@ -435,8 +468,18 @@ public class DownloadManager {
         throw new InterruptedException(e.getMessage());
       }
     }
+    if (content == null) {
+      throw new IllegalStateException("Unexpected error: file should have been downloaded.");
+    }
 
-    throw new IllegalStateException("Unexpected error: file should have been downloaded.");
+    if (repositoryCache.isEnabled()) {
+      if (checksum.isPresent()) {
+        repositoryCache.put(checksum.get().toString(), content, checksum.get().getKeyType());
+      } else {
+        repositoryCache.put(content, KeyType.SHA256);
+      }
+    }
+    return content;
   }
 
   @Nullable

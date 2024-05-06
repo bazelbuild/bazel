@@ -185,6 +185,9 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                       ImmutableMap::of,
                       directories,
                       EXTERNAL_PACKAGE_HELPER))
+              .put(
+                  SkyFunctions.BAZEL_LOCK_FILE,
+                  new BazelLockFileFunction(directories.getWorkspace()))
               .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
               .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
               .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
