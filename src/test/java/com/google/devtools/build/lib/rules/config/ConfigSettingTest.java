@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.config;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -29,19 +28,15 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.License.LicenseType;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
-import com.google.devtools.common.options.OptionsParser;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -61,51 +56,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
         defaultValue = "super secret",
         metadataTags = {OptionMetadataTag.INTERNAL})
     public String internalOption;
-
-    @Option(
-        name = "nonselectable_option",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        defaultValue = "true")
-    public boolean nonselectableOption;
-
-    private static final OptionDefinition NONSELECTABLE_OPTION_DEFINITION =
-        OptionsParser.getOptionDefinitionByName(DummyTestOptions.class, "nonselectable_option");
-
-    @Option(
-        name = "nonselectable_allowlisted_option",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        defaultValue = "true")
-    public boolean nonselectableAllowlistedOption;
-
-    private static final OptionDefinition NONSELECTABLE_ALLOWLISTED_OPTION_DEFINITION =
-        OptionsParser.getOptionDefinitionByName(
-            DummyTestOptions.class, "nonselectable_allowlisted_option");
-
-    @Option(
-        name = "nonselectable_custom_message_option",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        defaultValue = "true")
-    public boolean nonselectableCustomMessageOption;
-
-    private static final OptionDefinition NONSELECTABLE_CUSTOM_MESSAGE_OPTION_DEFINITION =
-        OptionsParser.getOptionDefinitionByName(
-            DummyTestOptions.class, "nonselectable_custom_message_option");
-
-    @Override
-    public Map<OptionDefinition, SelectRestriction> getSelectRestrictions() {
-      return ImmutableMap.of(
-          NONSELECTABLE_OPTION_DEFINITION,
-          new SelectRestriction(/*visibleWithinToolsPackage=*/ false, /*errorMessage=*/ null),
-          NONSELECTABLE_ALLOWLISTED_OPTION_DEFINITION,
-          new SelectRestriction(/*visibleWithinToolsPackage=*/ true, /*errorMessage=*/ null),
-          NONSELECTABLE_CUSTOM_MESSAGE_OPTION_DEFINITION,
-          new SelectRestriction(
-              /*visibleWithinToolsPackage=*/ false,
-              /*errorMessage=*/ "For very important reasons."));
-    }
 
     @Option(
         name = "allow_multiple_option",
@@ -288,71 +238,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "        'compilation_mode': 'opt',",
         "        'not_an_option': 'bar',",
         "    })");
-  }
-
-  /** Tests that analysis fails on non-selectable options. */
-  @Test
-  public void nonselectableOption() throws Exception {
-    checkError(
-        "foo",
-        "badoption",
-        "option 'nonselectable_option' cannot be used in a config_setting",
-        "config_setting(",
-        "    name = 'badoption',",
-        "    values = {",
-        "        'nonselectable_option': 'true',",
-        "    },",
-        ")");
-  }
-
-  /**
-   * Tests that allowlisted non-selectable options can't be accessed outside of the tools package.
-   */
-  @Test
-  public void nonselectableAllowlistedOption_OutOfToolsPackage() throws Exception {
-    checkError(
-        "foo",
-        "badoption",
-        String.format(
-            "option 'nonselectable_allowlisted_option' cannot be used in a config_setting (it is "
-                + "allowlisted to %s//tools/... only)",
-            TestConstants.TOOLS_REPOSITORY.getCanonicalForm()),
-        "config_setting(",
-        "    name = 'badoption',",
-        "    values = {",
-        "        'nonselectable_allowlisted_option': 'true',",
-        "    },",
-        ")");
-  }
-
-  /** Tests that allowlisted non-selectable options can be accessed within the tools package. */
-  @Test
-  public void nonselectableAllowlistedOption_InToolsPackage() throws Exception {
-    scratch.file(
-        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/pkg/BUILD",
-        "config_setting(",
-        "    name = 'foo',",
-        "    values = {",
-        "        'nonselectable_allowlisted_option': 'true',",
-        "    })");
-    String fooLabel = TestConstants.TOOLS_REPOSITORY + "//tools/pkg:foo";
-    assertThat(getConfigMatchingProviderResultAsBoolean(fooLabel)).isTrue();
-  }
-
-  /** Tests that custom error messages are displayed for non-selectable options. */
-  @Test
-  public void nonselectableCustomMessageOption() throws Exception {
-    checkError(
-        "foo",
-        "badoption",
-        "option 'nonselectable_custom_message_option' cannot be used in a config_setting. "
-            + "For very important reasons.",
-        "config_setting(",
-        "    name = 'badoption',",
-        "    values = {",
-        "        'nonselectable_custom_message_option': 'true',",
-        "    },",
-        ")");
   }
 
   /** Tests that None is not specifiable for a key's value. */

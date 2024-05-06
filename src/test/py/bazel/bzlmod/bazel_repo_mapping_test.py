@@ -170,8 +170,8 @@ class BazelRepoMappingTest(test_base.TestBase):
 ,me,_main
 ,me_ws,_main
 foo~,foo,foo~
-foo~,quux,quux~1.0
-quux~1.0,quux,quux~1.0""",
+foo~,quux,quux~v1.0
+quux~v1.0,quux,quux~v1.0""",
         )
     with open(self.Path('bazel-bin/me.runfiles_manifest')) as f:
       self.assertIn('_repo_mapping ', f.read())
@@ -191,8 +191,8 @@ quux~1.0,quux,quux~1.0""",
         self.assertEqual(
             f.read().strip(),
             """bar~,bar,bar~
-bar~,quux,quux~2.0
-quux~2.0,quux,quux~2.0""",
+bar~,quux,quux~v2.0
+quux~v2.0,quux,quux~v2.0""",
         )
     with open(self.Path('bazel-bin/external/bar~/bar.runfiles_manifest')) as f:
       self.assertIn('_repo_mapping ', f.read())

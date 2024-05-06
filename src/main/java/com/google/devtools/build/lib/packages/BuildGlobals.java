@@ -75,7 +75,8 @@ public class BuildGlobals {
       StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.checkLoadingPhase(thread, "environment_group");
-    Package.Builder pkgBuilder = PackageFactory.getContext(thread);
+    Package.Builder pkgBuilder =
+        Package.Builder.fromOrFailDisallowingSymbolicMacros(thread, "environment_group()");
     List<Label> environments =
         BuildType.LABEL_LIST.convert(
             environmentsList, "'environment_group argument'", pkgBuilder.getLabelConverter());
@@ -116,7 +117,8 @@ public class BuildGlobals {
       StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.checkLoadingPhase(thread, "licenses");
-    Package.Builder pkgBuilder = PackageFactory.getContext(thread);
+    Package.Builder pkgBuilder =
+        Package.Builder.fromOrFailDisallowingSymbolicMacros(thread, "licenses()");
     try {
       License license = BuildType.LICENSE.convert(licensesList, "'licenses' operand");
       pkgBuilder.mergePackageArgsFrom(PackageArgs.builder().setLicense(license));

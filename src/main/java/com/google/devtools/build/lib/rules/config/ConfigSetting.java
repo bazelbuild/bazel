@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptionDetails;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions.SelectRestriction;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
@@ -58,7 +57,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.config.ConfigRuleClasses.ConfigSettingRule;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -236,11 +234,6 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
         .containsAll(constraintValues);
   }
 
-  private static RepositoryName getToolsRepository(RuleContext ruleContext) {
-    return RepositoryName.createUnvalidated(
-        ruleContext.attributes().get(ConfigSettingRule.TOOLS_REPOSITORY_ATTRIBUTE, Type.STRING));
-  }
-
   /**
    * Returns whether the given label falls under the {@code //tools} package (including subpackages)
    * of the tools repository.
@@ -310,28 +303,6 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
             String.format(PARSE_ERROR_MESSAGE + "unknown option: '%s'", optionName));
         foundMismatch = true;
         continue;
-      }
-
-      SelectRestriction selectRestriction = options.getSelectRestriction(optionName);
-      if (selectRestriction != null) {
-        boolean underToolsPackage =
-            isUnderToolsPackage(ruleContext.getRule().getLabel(), getToolsRepository(ruleContext));
-        if (!(selectRestriction.isVisibleWithinToolsPackage() && underToolsPackage)) {
-          String errorMessage =
-              String.format("option '%s' cannot be used in a config_setting", optionName);
-          if (selectRestriction.isVisibleWithinToolsPackage()) {
-            errorMessage +=
-                String.format(
-                    " (it is allowlisted to %s//tools/... only)",
-                    getToolsRepository(ruleContext).getCanonicalForm());
-          }
-          if (selectRestriction.getErrorMessage() != null) {
-            errorMessage += ". " + selectRestriction.getErrorMessage();
-          }
-          ruleContext.attributeError(ConfigSettingRule.SETTINGS_ATTRIBUTE, errorMessage);
-          foundMismatch = true;
-          continue;
-        }
       }
 
       OptionsParser parser;

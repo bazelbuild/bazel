@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
@@ -958,6 +959,14 @@ public class Package {
     // All instances of symbolic macros created during package construction.
     private final Map<String, MacroInstance> macros = new LinkedHashMap<>();
 
+    /**
+     * A stack of currently executing symbolic macros, outermost first.
+     *
+     * <p>Certain APIs are only available when this stack is empty (i.e. not in any symbolic macro).
+     * See user documentation on {@code macro()} ({@link StarlarkRuleFunctionsApi#macro}).
+     */
+    private final List<MacroInstance> macroStack = new ArrayList<>();
+
     private enum NameConflictCheckingPolicy {
       UNKNOWN,
       NOT_GUARANTEED,
@@ -1132,11 +1141,49 @@ public class Package {
     public static Builder fromOrFail(StarlarkThread thread, String what) throws EvalException {
       @Nullable BazelStarlarkContext ctx = thread.getThreadLocal(BazelStarlarkContext.class);
       if (!(ctx instanceof Builder)) {
-        // TODO: #19922 - Clarify in the message that we can't be in a symbolic ("first-class")
-        // macro.
-        throw Starlark.errorf("%s can only be used while evaluating a BUILD file", what);
+        // This error message might be a little misleading for APIs that can be called from either
+        // BUILD or WORKSPACE threads. In that case, we expect the calling API will do a separate
+        // check that we're in a WORKSPACE thread and emit an appropriate message before calling
+        // fromOrFail().
+        throw Starlark.errorf(
+            "%s can only be used while evaluating a BUILD file and its macros", what);
       }
       return (Builder) ctx;
+    }
+
+    /**
+     * Same as {@link #fromOrFail}, but also throws {@link EvalException} if we're currently
+     * executing a symbolic macro implementation.
+     *
+     * <p>Use this method when implementing APIs that should not be accessible from symbolic macros,
+     * such as {@code glob()} or {@code package()}.
+     *
+     * <p>This method succeeds when called from a legacy macro (that is not itself called from any
+     * symbolic macro).
+     */
+    @CanIgnoreReturnValue
+    public static Builder fromOrFailDisallowingSymbolicMacros(StarlarkThread thread, String what)
+        throws EvalException {
+      @Nullable BazelStarlarkContext ctx = thread.getThreadLocal(BazelStarlarkContext.class);
+      if (ctx instanceof Builder builder) {
+        if (builder.macroStack.isEmpty()) {
+          return builder;
+        }
+      }
+
+      boolean macrosEnabled =
+          thread
+              .getSemantics()
+              .getBool(BuildLanguageOptions.EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS);
+      // As in fromOrFail() above, some APIs can be used from either BUILD or WORKSPACE threads,
+      // so this error message might be misleading (e.g. if a symbolic macro attempts to call a
+      // feature available in WORKSPACE). But that type of misuse seems unlikely, and WORKSPACE is
+      // going away soon anyway, so we won't tweak the message for it.
+      throw Starlark.errorf(
+          macrosEnabled
+              ? "%s can only be used while evaluating a BUILD file or legacy macro"
+              : "%s can only be used while evaluating a BUILD file and its macros",
+          what);
     }
 
     PackageIdentifier getPackageIdentifier() {
@@ -1728,6 +1775,16 @@ public class Package {
     public void addMacro(MacroInstance macro) throws NameConflictException {
       checkForExistingMacroName(macro);
       macros.put(macro.getName(), macro);
+    }
+
+    /** Pushes a macro instance onto the stack of currently executing symbolic macros. */
+    public void pushMacro(MacroInstance macro) {
+      macroStack.add(macro);
+    }
+
+    /** Pops the stack of currently executing symbolic macros. */
+    public MacroInstance popMacro() {
+      return macroStack.remove(macroStack.size() - 1);
     }
 
     void addRegisteredExecutionPlatforms(List<TargetPattern> platforms) {

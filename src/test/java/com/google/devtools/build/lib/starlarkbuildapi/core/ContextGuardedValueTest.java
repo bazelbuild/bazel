@@ -58,7 +58,7 @@ public final class ContextGuardedValueTest {
   @Test
   public void bzlmodRepo_matchesStart() throws Exception {
     assertAllowed("@rules_foo~override//tools/lang", "@rules_foo//");
-    assertAllowed("@rules_foo~1.2.3//tools/lang", "@rules_foo//");
+    assertAllowed("@rules_foo~v1.2.3//tools/lang", "@rules_foo//");
   }
 
   @Test
@@ -91,7 +91,7 @@ public final class ContextGuardedValueTest {
     assertNotAllowed("@rules_cc_helper//tools/build_defs/cc", "@rules_cc//");
 
     // CC with Bzlmod
-    assertAllowed("@rules_cc~1.2.3~ext_name~local_cc_config//foo", "@local_cc_config//");
+    assertAllowed("@rules_cc~v1.2.3~ext_name~local_cc_config//foo", "@local_cc_config//");
   }
 
   private Object createClientData(String callerLabelStr) {

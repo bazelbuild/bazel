@@ -819,6 +819,13 @@ public class RuleClass implements RuleClassData {
         allowlistCheckers.addAll(parent.getAllowlistCheckers());
 
         advertisedProviders.addParent(parent.getAdvertisedProviders());
+
+        if (parent.getDefaultImplicitOutputsFunction() != SafeImplicitOutputsFunction.NONE) {
+          if (implicitOutputsFunction != SafeImplicitOutputsFunction.NONE) {
+            throw new IllegalArgumentException("Only a single parent may set implicit outputs");
+          }
+          implicitOutputsFunction = parent.getDefaultImplicitOutputsFunction();
+        }
       }
       // TODO(bazel-team): move this testonly attribute setting to somewhere else
       // preferably to some base RuleClass implementation.
@@ -892,7 +899,6 @@ public class RuleClass implements RuleClassData {
 
       if (starlark
           && (type == RuleClassType.NORMAL || type == RuleClassType.TEST)
-          && implicitOutputsFunction == SafeImplicitOutputsFunction.NONE
           && outputsToBindir
           && !starlarkTestable
           && !isAnalysisTest

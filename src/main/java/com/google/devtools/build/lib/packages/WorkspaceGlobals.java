@@ -68,7 +68,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     }
     // Add entry in repository map from "@name" --> "@" to avoid issue where bazel
     // treats references to @name as a separate external repo
-    PackageFactory.getContext(thread)
+    Package.Builder.fromOrFailDisallowingSymbolicMacros(thread, "workspace()")
         .setWorkspaceName(name)
         .addRepositoryMappingEntry(RepositoryName.MAIN, name, RepositoryName.MAIN);
   }
@@ -104,7 +104,9 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
   public void registerExecutionPlatforms(Sequence<?> platformLabels, StarlarkThread thread)
       throws EvalException {
     // Add to the package definition for later.
-    Package.Builder builder = PackageFactory.getContext(thread);
+    Package.Builder builder =
+        Package.Builder.fromOrFailDisallowingSymbolicMacros(
+            thread, "register_execution_platforms()");
     List<String> patterns = Sequence.cast(platformLabels, String.class, "platform_labels");
     builder.addRegisteredExecutionPlatforms(parsePatterns(patterns, builder, thread));
   }
@@ -113,7 +115,8 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
   public void registerToolchains(Sequence<?> toolchainLabels, StarlarkThread thread)
       throws EvalException {
     // Add to the package definition for later.
-    Package.Builder builder = PackageFactory.getContext(thread);
+    Package.Builder builder =
+        Package.Builder.fromOrFailDisallowingSymbolicMacros(thread, "register_toolchains()");
     List<String> patterns = Sequence.cast(toolchainLabels, String.class, "toolchain_labels");
     builder.addRegisteredToolchains(
         parsePatterns(patterns, builder, thread),
@@ -130,7 +133,8 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
       throw Starlark.errorf("%s", e.getMessage());
     }
     try {
-      Package.Builder builder = PackageFactory.getContext(thread);
+      Package.Builder builder =
+          Package.Builder.fromOrFailDisallowingSymbolicMacros(thread, "bind()");
       RuleClass ruleClass = ruleClassMap.get("bind");
       RepositoryName currentRepo = getCurrentRepoName(thread);
       WorkspaceFactoryHelper.addBindRule(

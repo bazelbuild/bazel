@@ -195,9 +195,9 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
         .containsExactly(
             RepositoryName.MAIN,
             ModuleKey.ROOT,
-            RepositoryName.create("dep~1.0"),
+            RepositoryName.create("dep~v1.0"),
             createModuleKey("dep", "1.0"),
-            RepositoryName.create("dep~2.0"),
+            RepositoryName.create("dep~v2.0"),
             createModuleKey("dep", "2.0"),
             RepositoryName.create("rules_cc~"),
             createModuleKey("rules_cc", "1.0"),

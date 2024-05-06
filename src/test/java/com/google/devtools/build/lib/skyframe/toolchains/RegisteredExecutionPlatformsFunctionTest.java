@@ -354,7 +354,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
             "register_execution_platforms('@eee//:plat', '//:plat')",
             "bazel_dep(name='eee',version='1.0')")
         .addModule(createModuleKey("eee", "1.0"), "module(name='eee', version='1.0')");
-    for (String repo : ImmutableList.of("bbb~1.0", "ccc~1.1", "ddd~1.0", "ddd~1.1", "eee~1.0")) {
+    for (String repo :
+        ImmutableList.of("bbb~v1.0", "ccc~v1.1", "ddd~v1.0", "ddd~v1.1", "eee~v1.0")) {
       scratch.file(moduleRoot.getRelative(repo).getRelative("WORKSPACE").getPathString());
       scratch.file(
           moduleRoot.getRelative(repo).getRelative("BUILD").getPathString(),

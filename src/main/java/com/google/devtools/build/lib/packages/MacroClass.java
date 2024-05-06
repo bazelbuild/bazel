@@ -251,6 +251,7 @@ public final class MacroClass {
       // ConfiguredRuleClassProvider. For instance, we could put it in the builder.
 
       try {
+        builder.pushMacro(macro);
         Starlark.call(
             thread,
             macro.getMacroClass().getImplementation(),
@@ -263,6 +264,9 @@ public final class MacroClass {
                 Package.error(
                     /* location= */ null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
         builder.setContainsErrors();
+      } finally {
+        MacroInstance top = builder.popMacro();
+        Preconditions.checkState(top == macro, "inconsistent macro stack state");
       }
     }
   }

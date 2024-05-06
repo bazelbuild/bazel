@@ -104,7 +104,10 @@ public abstract class ModuleKey {
       // getVersion().isEmpty() is true only for modules with non-registry overrides, which enforce
       // that there is a single version of the module in the dep graph.
       Preconditions.checkState(!getVersion().isEmpty());
-      suffix = getVersion().toString();
+      // Prepend "v" to prevent canonical repo names, which form segments of file paths, from
+      // looking like a Windows short path. Such paths segments would incur additional file IO
+      // during analysis (see WindowsShortPath).
+      suffix = "v" + getVersion().toString();
     } else {
       // This results in canonical repository names such as `rules_foo~` for the module `rules_foo`.
       // This particular format is chosen since:

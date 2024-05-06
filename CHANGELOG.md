@@ -1,3 +1,33 @@
+## Release 8.0.0-pre.20240422.4 (2024-05-03)
+
+```
+Baseline: d37762b494a4e122d46a5a71e3a8cc77fa15aa25
+
+Cherry picks:
+
+   + f14c99e83b339a3f926285f62807a03dea3b0479:
+     Automated rollback of commit
+     a091d90cded797ce8f6206b56ffd6f89e27e2c76.
+   + eb70fc222755a4249759729587600de828029e71:
+     Keep aspects that relate to uncleared configured targets from
+     being cleared.
+   + e22a6938b411b3ba29a8bfcf2a18208bf28d04b0:
+     Automated rollback of commit
+     76a214932da4a9dcf73d3cfe9313e0172d20e630.
+```
+
+Incompatible changes:
+
+  - On Windows, the default msys64 root is changed to `C:/msys64`
+    instead of `C:/tools/msys64`.
+
+Important changes:
+
+  - `distribs()` at the package level is no longer legal syntax. It
+    may still be set on individual targets, even though it is a no-op.
+
+This release contains contributions from many people at Google, as well as dependabot[bot], Fabian Meumertzheim, Son Luong Ngoc, Spencer Putt, Xdng Yng.
+
 ## Release 8.0.0-pre.20240415.1 (2024-04-25)
 
 ```

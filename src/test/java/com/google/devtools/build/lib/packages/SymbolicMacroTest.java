@@ -53,6 +53,22 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     assertThat(pkg.containsErrors()).isFalse();
   }
 
+  /**
+   * Convenience method for asserting that a package evaluates in error and produces an event
+   * containing the given substring.
+   *
+   * <p>Note that this is not suitable for errors that occur during top-level .bzl evaluation (i.e.,
+   * triggered by load() rather than during BUILD evaluation), since our test framework fails to
+   * produce a result in that case (b/26382502).
+   */
+  private void assertGetPackageFailsWithEvent(String pkgName, String msg) throws Exception {
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getPackage(pkgName);
+    assertThat(pkg).isNotNull();
+    assertThat(pkg.containsErrors()).isTrue();
+    assertContainsEvent(msg);
+  }
+
   @Test
   public void implementationIsInvokedWithNameParam() throws Exception {
     scratch.file(
@@ -90,11 +106,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         my_macro(name="abc")
         """);
 
-    reporter.removeHandler(failFastHandler);
-    Package pkg = getPackage("pkg");
-    assertThat(pkg).isNotNull();
-    assertThat(pkg.containsErrors()).isTrue();
-    assertContainsEvent("_impl() got unexpected keyword argument: name");
+    assertGetPackageFailsWithEvent("pkg", "_impl() got unexpected keyword argument: name");
   }
 
   @Test
@@ -143,17 +155,20 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     assertThat(pkg.getTargets()).containsKey("abc$inner$lib");
   }
 
-  // TODO: #19922 - Invert this, symbolic macros shouldn't be able to call glob().
-  @Test
-  public void macroCanCallGlob() throws Exception {
-    scratch.file("pkg/foo.txt");
+  /**
+   * Implementation of a test that ensures a given API cannot be called from inside a symbolic
+   * macro.
+   */
+  private void doCannotCallApiTest(String apiName, String usageLine) throws Exception {
     scratch.file(
         "pkg/foo.bzl",
-        """
-        def _impl(name):
-            print("Glob result: %s" % native.glob(["foo*"]))
-        my_macro = macro(implementation=_impl)
-        """);
+        String.format(
+            """
+            def _impl(name):
+                %s
+            my_macro = macro(implementation=_impl)
+            """,
+            usageLine));
     scratch.file(
         "pkg/BUILD",
         """
@@ -161,34 +176,49 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         my_macro(name="abc")
         """);
 
-    Package pkg = getPackage("pkg");
-    assertPackageNotInError(pkg);
-    assertContainsEvent("Glob result: [\"foo.bzl\", \"foo.txt\"]");
+    assertGetPackageFailsWithEvent(
+        "pkg",
+        String.format(
+            "%s can only be used while evaluating a BUILD file or legacy macro", apiName));
   }
 
-  // TODO: #19922 - Invert this, symbolic macros shouldn't be able to call existing_rules().
   @Test
-  public void macroCanCallExistingRules() throws Exception {
-    scratch.file(
-        "pkg/foo.bzl",
-        """
-        def _impl(name):
-            native.cc_binary(name = name + "$lib")
-            print("existing_rules() keys: %s" % native.existing_rules().keys())
-        my_macro = macro(implementation=_impl)
-        """);
-    scratch.file(
-        "pkg/BUILD",
-        """
-        load(":foo.bzl", "my_macro")
-        cc_library(name = "outer_target")
-        my_macro(name="abc")
-        """);
-
-    Package pkg = getPackage("pkg");
-    assertPackageNotInError(pkg);
-    assertContainsEvent("existing_rules() keys: [\"outer_target\", \"abc$lib\"]");
+  public void macroCannotCallPackage() throws Exception {
+    doCannotCallApiTest(
+        "package()", "native.package(default_visibility = ['//visibility:public'])");
   }
+
+  @Test
+  public void macroCannotCallGlob() throws Exception {
+    doCannotCallApiTest("glob()", "native.glob(['foo*'])");
+  }
+
+  @Test
+  public void macroCannotCallSubpackages() throws Exception {
+    doCannotCallApiTest("subpackages()", "native.subpackages(include = ['*'])");
+  }
+
+  @Test
+  public void macroCannotCallExistingRule() throws Exception {
+    doCannotCallApiTest("existing_rule()", "native.existing_rule('foo')");
+  }
+
+  @Test
+  public void macroCannotCallExistingRules() throws Exception {
+    doCannotCallApiTest("existing_rules()", "native.existing_rules()");
+  }
+
+  // There are other symbols that must not be called from within symbolic macros, but we don't test
+  // them because they can't be obtained from a symbolic macro implementation anyway, since they are
+  // not under `native` (at least, for BUILD-loaded .bzl files) and because symbolic macros can't
+  // take arbitrary parameter types from their caller. These untested symbols include:
+  //
+  //  - For BUILD threads: licenses(), environment_group()
+  //  - For WORKSPACE threads: workspace(), register_toolchains(), register_execution_platforms(),
+  //    bind(), and repository rules.
+  //
+  // Starlark-defined repository rules might technically be callable but we skip over that edge
+  // case here.
 
   // TODO: #19922 - This behavior is necessary to preserve compatibility with use cases for
   // native.existing_rules(), but it's a blocker for making symbolic macro evaluation lazy.
@@ -353,11 +383,8 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         )
         """);
 
-    reporter.removeHandler(failFastHandler);
-    Package pkg = getPackage("pkg");
-    assertThat(pkg).isNotNull();
-    assertThat(pkg.containsErrors()).isTrue();
-    assertContainsEvent("missing value for mandatory attribute 'xyz' in 'my_macro' macro");
+    assertGetPackageFailsWithEvent(
+        "pkg", "missing value for mandatory attribute 'xyz' in 'my_macro' macro");
   }
 
   @Test
@@ -386,11 +413,8 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         )
         """);
 
-    reporter.removeHandler(failFastHandler);
-    Package pkg = getPackage("pkg");
-    assertThat(pkg).isNotNull();
-    assertThat(pkg.containsErrors()).isTrue();
-    assertContainsEvent("no such attribute 'xyz' in 'my_macro' macro (did you mean 'xzz'?)");
+    assertGetPackageFailsWithEvent(
+        "pkg", "no such attribute 'xyz' in 'my_macro' macro (did you mean 'xzz'?)");
   }
 
   @Test
@@ -450,11 +474,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         )
         """);
 
-    reporter.removeHandler(failFastHandler);
-    Package pkg = getPackage("pkg");
-    assertThat(pkg).isNotNull();
-    assertThat(pkg.containsErrors()).isTrue();
-    assertContainsEvent("Error in append: trying to mutate a frozen list value");
+    assertGetPackageFailsWithEvent("pkg", "Error in append: trying to mutate a frozen list value");
   }
 
   @Test
@@ -483,9 +503,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     assertThat(pkg.getMacros()).containsKey("abc");
   }
 
-  // TODO: #19922 - Add more test cases for interaction between macros and environment_group,
-  // package_group, implicit/explicit input files, and the package() function. But all of these
-  // behaviors are about to change (from allowed to prohibited).
+  // TODO: #19922 - Add more test cases for implicit/explicit input files
 
   @Test
   public void attrsAllowSelectsByDefault() throws Exception {
@@ -582,11 +600,7 @@ my_macro = macro(
         )
         """);
 
-    reporter.removeHandler(failFastHandler);
-    Package pkg = getPackage("pkg");
-    assertThat(pkg).isNotNull();
-    assertThat(pkg.containsErrors()).isTrue();
-    assertContainsEvent("attribute \"xyz\" is not configurable");
+    assertGetPackageFailsWithEvent("pkg", "attribute \"xyz\" is not configurable");
   }
 
   // TODO(b/331193690): Prevent selects from being evaluated as bools

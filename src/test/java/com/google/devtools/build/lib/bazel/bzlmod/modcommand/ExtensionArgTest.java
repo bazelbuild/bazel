@@ -103,7 +103,7 @@ public class ExtensionArgTest {
                     baseModuleUnusedDeps))
         .isEqualTo(
             ModuleExtensionId.create(
-                Label.parseCanonical("@@foo~1.0//:abc.bzl"), "def", Optional.empty()));
+                Label.parseCanonical("@@foo~v1.0//:abc.bzl"), "def", Optional.empty()));
   }
 
   @Test
