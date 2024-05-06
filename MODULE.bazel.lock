@@ -2286,7 +2286,7 @@
   "moduleExtensions": {
     "//:extensions.bzl%bazel_android_deps": {
       "general": {
-        "bzlTransitiveDigest": "KBarN1/r/5veMYz+cUHOlEzjGUdmUkxNYymHZwCJULg=",
+        "bzlTransitiveDigest": "JZ51S3AABXH6rwSbL1o7a3YPujrEGmG7/C0iE3Cq+mA=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -2422,10 +2422,10 @@
     },
     "//:extensions.bzl%bazel_build_deps": {
       "general": {
-        "bzlTransitiveDigest": "KBarN1/r/5veMYz+cUHOlEzjGUdmUkxNYymHZwCJULg=",
+        "bzlTransitiveDigest": "JZ51S3AABXH6rwSbL1o7a3YPujrEGmG7/C0iE3Cq+mA=",
         "recordedFileInputs": {
           "@@//MODULE.bazel": "c07897f4cf2ea76f689df2779f50aed06ea638d666542078234ebb0efd3ea5a5",
-          "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "0cae3b3c6186baa47cd8a48fe55530f613f22016845926e7825dce52dd496540"
+          "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "411f9834de64236b4ec52ac0f0c3a31f4896736d03de5d0f2930699f18aec50b"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -2784,7 +2784,7 @@
     },
     "//:extensions.bzl%bazel_test_deps": {
       "general": {
-        "bzlTransitiveDigest": "KBarN1/r/5veMYz+cUHOlEzjGUdmUkxNYymHZwCJULg=",
+        "bzlTransitiveDigest": "JZ51S3AABXH6rwSbL1o7a3YPujrEGmG7/C0iE3Cq+mA=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -2954,7 +2954,7 @@
     },
     "//tools/android:android_extensions.bzl%remote_android_tools_extensions": {
       "general": {
-        "bzlTransitiveDigest": "S0n86BFe4SJ3lRaZiRA5D46oH52UO2hP1T50t/zldOw=",
+        "bzlTransitiveDigest": "ZggrqnDIPRFCqT9XaCYOxLiJx1XuMtOZNG1jvKYZ5lA=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -2981,7 +2981,7 @@
     },
     "//tools/test:extensions.bzl%remote_coverage_tools_extension": {
       "general": {
-        "bzlTransitiveDigest": "l5mcjH2gWmbmIycx97bzI2stD0Q0M5gpDc0aLOHKIm8=",
+        "bzlTransitiveDigest": "7n9r2sWPYvn/OzUdHUoiJN/1hgIqWKOFCEQFVwHZGU0=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
