@@ -174,7 +174,6 @@ public final class TargetCompleteEvent
           instrumentedFilesProvider.getBaselineCoverageArtifacts();
       if (!baselineCoverageArtifacts.isEmpty()) {
         this.baselineCoverageArtifacts = baselineCoverageArtifacts;
-        postedAfterBuilder.add(BuildEventIdUtil.coverageActionsFinished());
       } else {
         this.baselineCoverageArtifacts = null;
       }
