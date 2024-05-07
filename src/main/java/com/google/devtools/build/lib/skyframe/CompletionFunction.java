@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.SuccessfulArtifactFilter;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
@@ -147,8 +148,20 @@ public final class CompletionFunction<
     ValueT value = valueAndArtifactsToBuild.first;
     ArtifactsToBuild artifactsToBuild = valueAndArtifactsToBuild.second;
 
+    // Ensure that coverage artifacts are built before a target is considered completed.
     ImmutableList<Artifact> allArtifacts = artifactsToBuild.getAllArtifacts().toList();
-    SkyframeLookupResult inputDeps = env.getValuesAndExceptions(Artifact.keys(allArtifacts));
+    InstrumentedFilesInfo instrumentedFilesInfo =
+        value.getConfiguredObject().get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
+    Iterable<SkyKey> keysToRequest;
+    if (value.getConfiguredObject() instanceof ConfiguredTarget && instrumentedFilesInfo != null) {
+      keysToRequest =
+          Iterables.concat(
+              Artifact.keys(allArtifacts),
+              Artifact.keys(instrumentedFilesInfo.getBaselineCoverageArtifacts().toList()));
+    } else {
+      keysToRequest = Artifact.keys(allArtifacts);
+    }
+    SkyframeLookupResult inputDeps = env.getValuesAndExceptions(keysToRequest);
 
     boolean allArtifactsAreImportant = artifactsToBuild.areAllOutputGroupsImportant();
 
