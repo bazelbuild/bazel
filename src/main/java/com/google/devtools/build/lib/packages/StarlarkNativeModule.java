@@ -627,13 +627,17 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
   @Override
   public Label packageRelativeLabel(Object input, StarlarkThread thread) throws EvalException {
-    BazelStarlarkContext.checkLoadingPhase(thread, "native.package_relative_label");
-    if (input instanceof Label) {
-      return (Label) input;
+    // In an initializer, BazelStarlarkContext isn't available, just the label converter.
+    LabelConverter labelConverter = thread.getThreadLocal(LabelConverter.class);
+    if (labelConverter == null) {
+      BazelStarlarkContext.checkLoadingPhase(thread, "native.package_relative_label");
+      labelConverter = getContext(thread).getBuilder().getLabelConverter();
+    }
+    if (input instanceof Label inputLabel) {
+      return inputLabel;
     }
     try {
-      String s = (String) input;
-      return getContext(thread).getBuilder().getLabelConverter().convert(s);
+      return labelConverter.convert((String) input);
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("invalid label in native.package_relative_label: %s", e.getMessage());
     }
