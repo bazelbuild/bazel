@@ -17,6 +17,7 @@ syntax = "proto3";
 package tools.protos;
 
 import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
 
 option java_package = "com.google.devtools.build.lib.exec";
 option java_outer_classname = "Protos";
@@ -111,6 +112,8 @@ message SpawnMetrics {
   int64 memory_bytes_limit = 18;
   // Time limit or 0 if unavailable.
   google.protobuf.Duration time_limit = 19;
+  // Instant when the spawn started to execute.
+  google.protobuf.Timestamp start_time = 20;
 }
 
 // Details of an executed spawn.
