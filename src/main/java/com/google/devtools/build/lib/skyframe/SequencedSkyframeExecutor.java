@@ -298,28 +298,27 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   private GraphInconsistencyReceiver getGraphInconsistencyReceiverForCommand(
-      OptionsProvider options) throws AbruptExitException {
-    if (rewindingEnabled(options)) {
-      // Currently incompatible with Skymeld i.e. this code path won't be run in Skymeld mode. We
-      // may need to combine these GraphInconsistencyReceiver implementations in the future.
-      var rewindableReceiver = new RewindableGraphInconsistencyReceiver();
-      rewindableReceiver.setHeuristicallyDropNodes(heuristicallyDropNodes);
-      return rewindableReceiver;
-    }
-    if (isMergedSkyframeAnalysisExecution()
-        && ((options.getOptions(AnalysisOptions.class) != null
+      OptionsProvider options) {
+    var someNodeDroppingExpected =
+        (options.getOptions(AnalysisOptions.class) != null
                 && options.getOptions(AnalysisOptions.class).discardAnalysisCache)
             || !trackIncrementalState
-            || heuristicallyDropNodes)) {
-      return new SkymeldInconsistencyReceiver(heuristicallyDropNodes);
+            || heuristicallyDropNodes;
+    var skymeldInconsistenciesExpected =
+        someNodeDroppingExpected && isMergedSkyframeAnalysisExecution();
+    if (rewindingEnabled(options)) {
+      return new RewindableGraphInconsistencyReceiver(
+          heuristicallyDropNodes, skymeldInconsistenciesExpected);
     }
-    if (heuristicallyDropNodes) {
-      return new NodeDroppingInconsistencyReceiver();
+
+    if (heuristicallyDropNodes || skymeldInconsistenciesExpected) {
+      return new NodeDroppingInconsistencyReceiver(
+          heuristicallyDropNodes, skymeldInconsistenciesExpected);
     }
     return GraphInconsistencyReceiver.THROWING;
   }
 
-  private boolean rewindingEnabled(OptionsProvider options) throws AbruptExitException {
+  private boolean rewindingEnabled(OptionsProvider options) {
     var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
     return buildRequestOptions != null && buildRequestOptions.rewindLostInputs;
   }
