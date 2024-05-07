@@ -20,6 +20,7 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -28,10 +29,13 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
+import java.util.SequencedMap;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -43,13 +47,16 @@ import javax.annotation.Nullable;
 final class Discovery {
   private Discovery() {}
 
+  public record Result(
+      ImmutableMap<ModuleKey, InterimModule> depGraph,
+      ImmutableMap<String, Optional<Checksum>> registryFileHashes) {}
+
   /**
    * Runs module discovery. This function follows SkyFunction semantics (returns null if a Skyframe
    * dependency is missing and this function needs a restart).
    */
   @Nullable
-  public static ImmutableMap<ModuleKey, InterimModule> run(
-      Environment env, RootModuleFileValue root)
+  public static Result run(Environment env, RootModuleFileValue root)
       throws InterruptedException, ExternalDepsException {
     String rootModuleName = root.getModule().getName();
     ImmutableMap<String, ModuleOverride> overrides = root.getOverrides();
@@ -60,9 +67,11 @@ final class Discovery {
             .withDepSpecsTransformed(InterimModule.applyOverrides(overrides, rootModuleName)));
     Queue<ModuleKey> unexpanded = new ArrayDeque<>();
     Map<ModuleKey, ModuleKey> predecessors = new HashMap<>();
+    SequencedMap<String, Optional<Checksum>> registryFileHashes =
+        new LinkedHashMap<>(root.getRegistryFileHashes());
     unexpanded.add(ModuleKey.ROOT);
     while (!unexpanded.isEmpty()) {
-      Set<SkyKey> unexpandedSkyKeys = new HashSet<>();
+      Set<SkyKey> unexpandedSkyKeys = new LinkedHashSet<>();
       while (!unexpanded.isEmpty()) {
         InterimModule module = depGraph.get(unexpanded.remove());
         for (DepSpec depSpec : module.getDeps().values()) {
@@ -109,6 +118,7 @@ final class Discovery {
                   .getModule()
                   .withDepSpecsTransformed(
                       InterimModule.applyOverrides(overrides, rootModuleName)));
+          registryFileHashes.putAll(moduleFileValue.getRegistryFileHashes());
           unexpanded.add(depKey);
         }
       }
@@ -116,6 +126,6 @@ final class Discovery {
     if (env.valuesMissing()) {
       return null;
     }
-    return ImmutableMap.copyOf(depGraph);
+    return new Result(ImmutableMap.copyOf(depGraph), ImmutableMap.copyOf(registryFileHashes));
   }
 }

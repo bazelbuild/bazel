@@ -31,7 +31,7 @@ import org.junit.runners.JUnit4;
 
 /** Unit tests for {@link PersistentMap}. */
 @RunWith(JUnit4.class)
-public class PersistentMapTest {
+public final class PersistentMapTest {
   private static class PersistentStringMap extends PersistentMap<String, String> {
     boolean updateJournal = true;
     boolean keepJournal = false;
@@ -93,6 +93,28 @@ public class PersistentMapTest {
     createMap();
     map.put("foo", "bar");
     map.put("baz", "bang");
+    assertThat(map).containsEntry("foo", "bar");
+    assertThat(map).containsEntry("baz", "bang");
+    assertThat(map).hasSize(2);
+    long size = map.save();
+    assertThat(size).isEqualTo(mapFile.getFileSize());
+    assertThat(map).containsEntry("foo", "bar");
+    assertThat(map).containsEntry("baz", "bang");
+    assertThat(map).hasSize(2);
+
+    createMap(); // create a new map
+    assertThat(map).containsEntry("foo", "bar");
+    assertThat(map).containsEntry("baz", "bang");
+    assertThat(map).hasSize(2);
+  }
+
+  @Test
+  public void putIfAbsent() throws Exception {
+    createMap();
+    assertThat(map.putIfAbsent("foo", "bar")).isNull();
+    assertThat(map.putIfAbsent("foo", "ignored")).isEqualTo("bar");
+    assertThat(map.putIfAbsent("baz", "bang")).isNull();
+    assertThat(map.putIfAbsent("baz", "ignored")).isEqualTo("bang");
     assertThat(map).containsEntry("foo", "bar");
     assertThat(map).containsEntry("baz", "bang");
     assertThat(map).hasSize(2);

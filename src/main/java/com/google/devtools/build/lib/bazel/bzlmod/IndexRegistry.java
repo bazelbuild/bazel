@@ -21,8 +21,10 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -49,6 +51,15 @@ import java.util.Optional;
  */
 public class IndexRegistry implements Registry {
 
+  /**
+   * How to handle the list of file hashes known from the lockfile when downloading files from the
+   * registry.
+   */
+  public enum KnownFileHashesMode {
+    IGNORE,
+    USE_AND_UPDATE;
+  }
+
   /** The unresolved version of the url. Ex: has %workspace% placeholder */
   private final String unresolvedUri;
 
@@ -56,7 +67,10 @@ public class IndexRegistry implements Registry {
   private final DownloadManager downloadManager;
   private final Map<String, String> clientEnv;
   private final Gson gson;
+  private final ImmutableMap<String, Optional<Checksum>> knownFileHashes;
+  private final KnownFileHashesMode knownFileHashesMode;
   private volatile Optional<BazelRegistryJson> bazelRegistryJson;
+  private volatile StoredEventHandler bazelRegistryJsonEvents;
 
   private static final String SOURCE_JSON_FILENAME = "source.json";
 
@@ -64,7 +78,9 @@ public class IndexRegistry implements Registry {
       URI uri,
       String unresolvedUri,
       DownloadManager downloadManager,
-      Map<String, String> clientEnv) {
+      Map<String, String> clientEnv,
+      ImmutableMap<String, Optional<Checksum>> knownFileHashes,
+      KnownFileHashesMode knownFileHashesMode) {
     this.uri = uri;
     this.unresolvedUri = unresolvedUri;
     this.downloadManager = downloadManager;
@@ -73,6 +89,8 @@ public class IndexRegistry implements Registry {
         new GsonBuilder()
             .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
             .create();
+    this.knownFileHashes = knownFileHashes;
+    this.knownFileHashesMode = knownFileHashesMode;
   }
 
   @Override
@@ -92,14 +110,46 @@ public class IndexRegistry implements Registry {
   }
 
   /** Grabs a file from the given URL. Returns {@link Optional#empty} if the file doesn't exist. */
-  private Optional<byte[]> grabFile(String url, ExtendedEventHandler eventHandler)
+  private Optional<byte[]> grabFile(
+      String url, ExtendedEventHandler eventHandler, boolean useChecksum)
       throws IOException, InterruptedException {
+    var maybeContent = doGrabFile(url, eventHandler, useChecksum);
+    if (knownFileHashesMode == KnownFileHashesMode.USE_AND_UPDATE && useChecksum) {
+      eventHandler.post(RegistryFileDownloadEvent.create(url, maybeContent));
+    }
+    return maybeContent;
+  }
+
+  private Optional<byte[]> doGrabFile(
+      String url, ExtendedEventHandler eventHandler, boolean useChecksum)
+      throws IOException, InterruptedException {
+    Optional<Checksum> checksum;
+    if (knownFileHashesMode != KnownFileHashesMode.IGNORE && useChecksum) {
+      Optional<Checksum> knownChecksum = knownFileHashes.get(url);
+      if (knownChecksum == null) {
+        // This is a new file, download without providing a checksum.
+        checksum = Optional.empty();
+      } else if (knownChecksum.isEmpty()) {
+        // The file is known to not exist, so don't attempt to download it.
+        return Optional.empty();
+      } else {
+        // The file is known, download with a checksum to potentially obtain a repository cache hit
+        // and ensure that the remote file hasn't changed.
+        checksum = knownChecksum;
+      }
+    } else {
+      checksum = Optional.empty();
+    }
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.BZLMOD, () -> "download file: " + url)) {
       return Optional.of(
-          downloadManager.downloadAndReadOneUrl(new URL(url), eventHandler, clientEnv));
+          downloadManager.downloadAndReadOneUrl(new URL(url), eventHandler, clientEnv, checksum));
     } catch (FileNotFoundException e) {
       return Optional.empty();
+    } catch (IOException e) {
+      // Include the URL in the exception message for easier debugging.
+      throw new IOException(
+          "Failed to fetch registry file %s: %s".formatted(url, e.getMessage()), e);
     }
   }
 
@@ -109,7 +159,8 @@ public class IndexRegistry implements Registry {
     String url =
         constructUrl(
             uri.toString(), "modules", key.getName(), key.getVersion().toString(), "MODULE.bazel");
-    return grabFile(url, eventHandler).map(content -> ModuleFile.create(content, url));
+    Optional<byte[]> maybeContent = grabFile(url, eventHandler, /* useChecksum= */ true);
+    return maybeContent.map(content -> ModuleFile.create(content, url));
   }
 
   /** Represents fields available in {@code bazel_registry.json} for the registry. */
@@ -153,22 +204,20 @@ public class IndexRegistry implements Registry {
    * Grabs a JSON file from the given URL, and returns its content. Returns {@link Optional#empty}
    * if the file doesn't exist.
    */
-  private Optional<String> grabJsonFile(String url, ExtendedEventHandler eventHandler)
+  private Optional<String> grabJsonFile(
+      String url, ExtendedEventHandler eventHandler, boolean useChecksum)
       throws IOException, InterruptedException {
-    Optional<byte[]> bytes = grabFile(url, eventHandler);
-    if (bytes.isEmpty()) {
-      return Optional.empty();
-    }
-    return Optional.of(new String(bytes.get(), UTF_8));
+    return grabFile(url, eventHandler, useChecksum).map(value -> new String(value, UTF_8));
   }
 
   /**
    * Grabs a JSON file from the given URL, and returns it as a parsed object with fields in {@code
    * T}. Returns {@link Optional#empty} if the file doesn't exist.
    */
-  private <T> Optional<T> grabJson(String url, Class<T> klass, ExtendedEventHandler eventHandler)
+  private <T> Optional<T> grabJson(
+      String url, Class<T> klass, ExtendedEventHandler eventHandler, boolean useChecksum)
       throws IOException, InterruptedException {
-    Optional<String> jsonString = grabJsonFile(url, eventHandler);
+    Optional<String> jsonString = grabJsonFile(url, eventHandler, useChecksum);
     if (jsonString.isEmpty() || jsonString.get().isBlank()) {
       return Optional.empty();
     }
@@ -195,7 +244,7 @@ public class IndexRegistry implements Registry {
             key.getName(),
             key.getVersion().toString(),
             SOURCE_JSON_FILENAME);
-    Optional<String> jsonString = grabJsonFile(jsonUrl, eventHandler);
+    Optional<String> jsonString = grabJsonFile(jsonUrl, eventHandler, /* useChecksum= */ true);
     if (jsonString.isEmpty()) {
       throw new FileNotFoundException(
           String.format("Module %s's %s not found in registry %s", key, SOURCE_JSON_FILENAME, uri));
@@ -232,14 +281,18 @@ public class IndexRegistry implements Registry {
     if (bazelRegistryJson == null) {
       synchronized (this) {
         if (bazelRegistryJson == null) {
+          var storedEventHandler = new StoredEventHandler();
           bazelRegistryJson =
               grabJson(
                   constructUrl(uri.toString(), "bazel_registry.json"),
                   BazelRegistryJson.class,
-                  eventHandler);
+                  storedEventHandler,
+                  /* useChecksum= */ true);
+          bazelRegistryJsonEvents = storedEventHandler;
         }
       }
     }
+    bazelRegistryJsonEvents.replayOn(eventHandler);
     return bazelRegistryJson;
   }
 
@@ -348,7 +401,9 @@ public class IndexRegistry implements Registry {
         grabJson(
             constructUrl(uri.toString(), "modules", moduleName, "metadata.json"),
             MetadataJson.class,
-            eventHandler);
+            eventHandler,
+            // metadata.json is not immutable
+            /* useChecksum= */ false);
     if (metadataJson.isEmpty()) {
       return Optional.empty();
     }

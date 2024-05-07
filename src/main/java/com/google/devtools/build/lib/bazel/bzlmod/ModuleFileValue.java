@@ -18,12 +18,14 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** The result of {@link ModuleFileFunction}. */
@@ -41,12 +43,22 @@ public abstract class ModuleFileValue implements SkyValue {
   /** The hash string of Module.bazel (using SHA256) */
   public abstract String getModuleFileHash();
 
+  /**
+   * Hashes of files obtained (or known to be missing) from registries while obtaining this module
+   * file.
+   */
+  public abstract ImmutableMap<String, Optional<Checksum>> getRegistryFileHashes();
+
   /** The {@link ModuleFileValue} for non-root modules. */
   @AutoValue
   public abstract static class NonRootModuleFileValue extends ModuleFileValue {
 
-    public static NonRootModuleFileValue create(InterimModule module, String moduleFileHash) {
-      return new AutoValue_ModuleFileValue_NonRootModuleFileValue(module, moduleFileHash);
+    public static NonRootModuleFileValue create(
+        InterimModule module,
+        String moduleFileHash,
+        ImmutableMap<String, Optional<Checksum>> registryFileHashes) {
+      return new AutoValue_ModuleFileValue_NonRootModuleFileValue(
+          module, moduleFileHash, registryFileHashes);
     }
   }
 
@@ -76,6 +88,12 @@ public abstract class ModuleFileValue implements SkyValue {
      * point, although that seems quite difficult.
      */
     public abstract ImmutableMap<String, CompiledModuleFile> getIncludeLabelToCompiledModuleFile();
+
+    @Override
+    public ImmutableMap<String, Optional<Checksum>> getRegistryFileHashes() {
+      // The root module is not obtained from a registry.
+      return ImmutableMap.of();
+    }
 
     public static RootModuleFileValue create(
         InterimModule module,

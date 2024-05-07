@@ -82,4 +82,31 @@ public class AndroidStarlarkCommonTest extends AndroidBuildViewTestCase {
     assertThat(fooJavaInfo.getJavaPluginInfo()).isNotNull();
     assertThat(barJavaInfo.getJavaPluginInfo()).isNull();
   }
+
+  @Test
+  public void androidPlatformsTransition() throws Exception {
+    scratch.file(
+        "java/android/compatible.bzl",
+        """
+        def _impl(ctx):
+            pass
+
+        my_rule = rule(
+            implementation = _impl,
+            cfg = android_common.android_platforms_transition,
+        )
+        """);
+    scratch.file(
+        "java/android/BUILD",
+        """
+        load(":compatible.bzl", "my_rule")
+
+        my_rule(
+            name = "bar",
+        )
+        """);
+
+    // Just check that the rule can be analyzed.
+    assertThat(getConfiguredTarget("//java/android:bar")).isNotNull();
+  }
 }

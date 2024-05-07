@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -39,6 +38,7 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
+import com.google.devtools.build.lib.rules.android.AndroidPlatformsTransition;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
@@ -700,7 +700,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
 
   @Test
   public void testSubruleAttrs_cannotHaveNativeTransitions() throws Exception {
-    ev.update("native_transition", (StarlarkExposedRuleTransitionFactory) data -> null);
+    ev.update("native_transition", AndroidPlatformsTransition.create());
     ev.checkEvalErrorContains(
         "bad cfg for attribute '_foo': subrules may only have target/exec attributes.",
         "_my_subrule = subrule(",

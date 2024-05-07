@@ -52,10 +52,13 @@ public final class RewindableGraphInconsistencyReceiver implements GraphInconsis
   private final Multiset<Inconsistency> selfCounts = ConcurrentHashMultiset.create();
   private final Multiset<Inconsistency> childCounts = ConcurrentHashMultiset.create();
   private boolean rewindingInitiated = false;
-  private boolean heuristicallyDropNodes = false;
+  private final boolean heuristicallyDropNodes;
+  private final boolean skymeldInconsistenciesExpected;
 
-  public void setHeuristicallyDropNodes(boolean heuristicallyDropNodes) {
+  public RewindableGraphInconsistencyReceiver(
+      boolean heuristicallyDropNodes, boolean skymeldInconsistenciesExpected) {
     this.heuristicallyDropNodes = heuristicallyDropNodes;
+    this.skymeldInconsistenciesExpected = skymeldInconsistenciesExpected;
   }
 
   @Override
@@ -66,6 +69,12 @@ public final class RewindableGraphInconsistencyReceiver implements GraphInconsis
             key, otherKeys, inconsistency)) {
       // If `--heuristically_drop_nodes` is enabled, check whether the inconsistency is caused by
       // dropped state node. If so, tolerate the inconsistency and return.
+      return;
+    }
+
+    if (skymeldInconsistenciesExpected
+        && NodeDroppingInconsistencyReceiver.isExpectedInconsistencySkymeld(
+            key, otherKeys, inconsistency)) {
       return;
     }
 

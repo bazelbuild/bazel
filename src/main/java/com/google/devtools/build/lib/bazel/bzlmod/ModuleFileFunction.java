@@ -22,6 +22,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.CompiledModuleFile.IncludeStatement;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -80,7 +82,8 @@ import net.starlark.java.eval.SymbolGenerator;
  */
 public class ModuleFileFunction implements SkyFunction {
 
-  public static final Precomputed<List<String>> REGISTRIES = new Precomputed<>("registries");
+  public static final Precomputed<ImmutableSet<String>> REGISTRIES =
+      new Precomputed<>("registries");
   public static final Precomputed<Boolean> IGNORE_DEV_DEPS =
       new Precomputed<>("ignore_dev_dependency");
 
@@ -157,6 +160,7 @@ public class ModuleFileFunction implements SkyFunction {
     if (getModuleFileResult == null) {
       return null;
     }
+    getModuleFileResult.downloadEventHandler.replayOn(env.getListener());
     String moduleFileHash =
         new Fingerprint().addBytes(getModuleFileResult.moduleFile.getContent()).hexDigestAndReset();
 
@@ -217,8 +221,11 @@ public class ModuleFileFunction implements SkyFunction {
           module.getVersion());
     }
 
-
-    return NonRootModuleFileValue.create(module, moduleFileHash);
+    return NonRootModuleFileValue.create(
+        module,
+        moduleFileHash,
+        RegistryFileDownloadEvent.collectToMap(
+            getModuleFileResult.downloadEventHandler.getPosts()));
   }
 
   @Nullable
@@ -529,7 +536,10 @@ public class ModuleFileFunction implements SkyFunction {
    *
    * @param registry can be null if this module has a non-registry override.
    */
-  private record GetModuleFileResult(ModuleFile moduleFile, @Nullable Registry registry) {}
+  private record GetModuleFileResult(
+      ModuleFile moduleFile,
+      @Nullable Registry registry,
+      StoredEventHandler downloadEventHandler) {}
 
   @Nullable
   private GetModuleFileResult getModuleFile(
@@ -560,7 +570,8 @@ public class ModuleFileFunction implements SkyFunction {
           ModuleFile.create(
               readModuleFile(moduleFilePath.asPath()),
               moduleFileLabel.getUnambiguousCanonicalForm()),
-          /* registry= */ null);
+          /* registry= */ null,
+          new StoredEventHandler());
     }
 
     // Otherwise, we should get the module file from a registry.
@@ -573,13 +584,11 @@ public class ModuleFileFunction implements SkyFunction {
               + " non-registry override?",
           key.getName());
     }
-    // TODO(wyv): Move registry object creation to BazelRepositoryModule so we don't repeatedly
-    //   create them, and we can better report the error (is it a flag error or override error?).
-    List<String> registries = Objects.requireNonNull(REGISTRIES.get(env));
+    ImmutableSet<String> registries = Objects.requireNonNull(REGISTRIES.get(env));
     if (override instanceof RegistryOverride registryOverride) {
       String overrideRegistry = registryOverride.getRegistry();
       if (!overrideRegistry.isEmpty()) {
-        registries = ImmutableList.of(overrideRegistry);
+        registries = ImmutableSet.of(overrideRegistry);
       }
     } else if (override != null) {
       // This should never happen.
@@ -607,13 +616,14 @@ public class ModuleFileFunction implements SkyFunction {
 
     // Now go through the list of registries and use the first one that contains the requested
     // module.
+    StoredEventHandler downloadEventHandler = new StoredEventHandler();
     for (Registry registry : registryObjects) {
       try {
-        Optional<ModuleFile> moduleFile = registry.getModuleFile(key, env.getListener());
+        Optional<ModuleFile> moduleFile = registry.getModuleFile(key, downloadEventHandler);
         if (moduleFile.isEmpty()) {
           continue;
         }
-        return new GetModuleFileResult(moduleFile.get(), registry);
+        return new GetModuleFileResult(moduleFile.get(), registry, downloadEventHandler);
       } catch (IOException e) {
         throw errorf(
             Code.ERROR_ACCESSING_REGISTRY, e, "Error accessing registry %s", registry.getUrl());

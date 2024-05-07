@@ -120,6 +120,22 @@ public class Checksum {
     return hashCode.toString();
   }
 
+  @Override
+  public boolean equals(Object other) {
+    if (other == this) {
+      return true;
+    }
+    if (other instanceof Checksum c) {
+      return keyType.equals(c.keyType) && hashCode.equals(c.hashCode);
+    }
+    return false;
+  }
+
+  @Override
+  public int hashCode() {
+    return hashCode.hashCode() * 31 + keyType.hashCode();
+  }
+
   public HashCode getHashCode() {
     return hashCode;
   }
