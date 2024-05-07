@@ -154,11 +154,16 @@ function create_deploy_jar() {
   local output=$3
   shift 3
   local packages=""
+  # Only keep the services subdirectory of META-INF (needed for AutoService).
+  for i in $output/classes/META-INF/*; do
+    local package=$(basename $i)
+    if [[ "$package" != "services" ]]; then
+      rm -r "$i"
+    fi
+  done
   for i in $output/classes/*; do
     local package=$(basename $i)
-    if [[ "$package" != "META-INF" ]]; then
-      packages="$packages -C $output/classes $package"
-    fi
+    packages="$packages -C $output/classes $package"
   done
 
   log "Creating $name.jar..."

@@ -19,7 +19,7 @@ import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.zip.GZIPInputStream;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 
 /**
  * Creates a repository by unarchiving a .tar.gz file.
@@ -34,8 +34,9 @@ public class TarGzFunction extends CompressedTarFunction {
   @Override
   protected InputStream getDecompressorStream(DecompressorDescriptor descriptor)
       throws IOException {
-    return new GZIPInputStream(
+    return new GzipCompressorInputStream(
         new BufferedInputStream(
-            new FileInputStream(descriptor.archivePath().getPathFile()), BUFFER_SIZE));
+            new FileInputStream(descriptor.archivePath().getPathFile()), BUFFER_SIZE),
+        true);
   }
 }
