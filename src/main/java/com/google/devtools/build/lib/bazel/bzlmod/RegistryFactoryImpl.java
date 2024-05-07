@@ -41,8 +41,8 @@ public class RegistryFactoryImpl implements RegistryFactory {
   @Override
   public Registry createRegistry(
       String url,
-      ImmutableMap<String, Optional<Checksum>> knownFileHashes,
       LockfileMode lockfileMode,
+      ImmutableMap<String, Optional<Checksum>> knownFileHashes,
       ImmutableSet<ModuleKey> yankedButAllowedModules)
       throws URISyntaxException {
     URI uri = new URI(url);

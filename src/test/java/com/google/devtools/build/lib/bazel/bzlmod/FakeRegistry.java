@@ -134,8 +134,8 @@ public class FakeRegistry implements Registry {
     @Override
     public Registry createRegistry(
         String url,
-        ImmutableMap<String, Optional<Checksum>> fileHashes,
         LockfileMode lockfileMode,
+        ImmutableMap<String, Optional<Checksum>> fileHashes,
         ImmutableSet<ModuleKey> yankedButAllowedModules) {
       return Preconditions.checkNotNull(registries.get(url), "unknown registry url: %s", url);
     }

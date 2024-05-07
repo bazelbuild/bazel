@@ -32,8 +32,8 @@ public interface RegistryFactory {
    */
   Registry createRegistry(
       String url,
-      ImmutableMap<String, Optional<Checksum>> fileHashes,
       RepositoryOptions.LockfileMode lockfileMode,
+      ImmutableMap<String, Optional<Checksum>> fileHashes,
       ImmutableSet<ModuleKey> yankedButAllowedModules)
       throws URISyntaxException;
 }

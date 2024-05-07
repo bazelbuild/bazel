@@ -50,8 +50,8 @@ public class RegistryFunction implements SkyFunction {
     try {
       return registryFactory.createRegistry(
           key.getUrl().replace("%workspace%", workspaceRoot.getPathString()),
-          lockfile.getRegistryFileHashes(),
           lockfileMode,
+          lockfile.getRegistryFileHashes(),
           lockfile.getYankedButAllowedModules());
     } catch (URISyntaxException e) {
       throw new RegistryException(

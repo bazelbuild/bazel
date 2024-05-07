@@ -45,14 +45,14 @@ public class RegistryFactoryTest {
             URISyntaxException.class,
             () ->
                 registryFactory.createRegistry(
-                    "/home/www", ImmutableMap.of(), LockfileMode.UPDATE, ImmutableSet.of()));
+                    "/home/www", LockfileMode.UPDATE, ImmutableMap.of(), ImmutableSet.of()));
     assertThat(exception).hasMessageThat().contains("Registry URL has no scheme");
     exception =
         assertThrows(
             URISyntaxException.class,
             () ->
                 registryFactory.createRegistry(
-                    "foo://bar", ImmutableMap.of(), LockfileMode.UPDATE, ImmutableSet.of()));
+                    "foo://bar", LockfileMode.UPDATE, ImmutableMap.of(), ImmutableSet.of()));
     assertThat(exception).hasMessageThat().contains("Unrecognized registry URL protocol");
   }
 
@@ -68,8 +68,8 @@ public class RegistryFactoryTest {
             () ->
                 registryFactory.createRegistry(
                     "file:c:/path/to/workspace/registry",
-                    ImmutableMap.of(),
                     LockfileMode.UPDATE,
+                    ImmutableMap.of(),
                     ImmutableSet.of()));
     assertThat(exception).hasMessageThat().contains("Registry URL path is not valid");
   }
