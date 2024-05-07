@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableTable;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -57,12 +56,6 @@ public class BazelDepGraphFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws BazelDepGraphFunctionException, InterruptedException {
-    RootModuleFileValue root =
-        (RootModuleFileValue) env.getValue(ModuleFileValue.KEY_FOR_ROOT_MODULE);
-    if (root == null) {
-      return null;
-    }
-
     BazelModuleResolutionValue selectionResult =
         (BazelModuleResolutionValue) env.getValue(BazelModuleResolutionValue.KEY);
     if (env.valuesMissing()) {
