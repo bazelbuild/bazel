@@ -122,12 +122,6 @@ public abstract class SingleExtensionValue implements SkyValue {
       return interner.intern(new EvalKey(arg));
     }
 
-    @VisibleForSerialization
-    @AutoCodec.Interner
-    static EvalKey intern(EvalKey key) {
-      return interner.intern(key);
-    }
-
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.SINGLE_EXTENSION_EVAL;
