@@ -118,7 +118,8 @@ public abstract class SingleExtensionValue implements SkyValue {
       super(arg);
     }
 
-    private static EvalKey create(ModuleExtensionId arg) {
+    @AutoCodec.Instantiator
+    static EvalKey create(ModuleExtensionId arg) {
       return interner.intern(new EvalKey(arg));
     }
 
