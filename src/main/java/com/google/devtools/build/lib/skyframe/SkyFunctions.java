@@ -148,10 +148,10 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("BAZEL_MODULE_RESOLUTION");
   public static final SkyFunctionName BAZEL_MODULE_INSPECTION =
       SkyFunctionName.createHermetic("BAZEL_MODULE_INSPECTION");
-  public static final SkyFunctionName MODULE_EXTENSION_RESOLUTION =
-      SkyFunctionName.createHermetic("MODULE_EXTENSION_RESOLUTION");
   public static final SkyFunctionName SINGLE_EXTENSION_USAGES =
       SkyFunctionName.createHermetic("SINGLE_EXTENSION_USAGES");
+  public static final SkyFunctionName SINGLE_EXTENSION =
+      SkyFunctionName.createHermetic("SINGLE_EXTENSION");
   public static final SkyFunctionName SINGLE_EXTENSION_EVAL =
       SkyFunctionName.createNonHermetic("SINGLE_EXTENSION_EVAL");
   public static final SkyFunctionName BAZEL_DEP_GRAPH =

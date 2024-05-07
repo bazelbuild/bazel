@@ -15,16 +15,15 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCount;
-import static java.util.Comparator.comparing;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.eventbus.Subscribe;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
@@ -97,11 +96,8 @@ import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.SortedSet;
-import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -116,21 +112,6 @@ import org.mockito.Mockito;
 @RunWith(JUnit4.class)
 public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
-  private static class EventRecorder {
-    // Keep in deterministic order even though events are posted in Skyframe evaluation order.
-    private final SortedSet<RootModuleFileFixupEvent> fixupEvents =
-        new TreeSet<>(comparing(RootModuleFileFixupEvent::getSuccessMessage));
-
-    @Subscribe
-    public void onFixupEvent(RootModuleFileFixupEvent fixupEvent) {
-      fixupEvents.add(fixupEvent);
-    }
-
-    public List<RootModuleFileFixupEvent> fixupEvents() {
-      return ImmutableList.copyOf(fixupEvents);
-    }
-  }
-
   private Path workspaceRoot;
   private Path modulesRoot;
   private MemoizingEvaluator evaluator;
@@ -139,11 +120,9 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
   private RecordingDifferencer differencer;
   private final CyclesReporter cyclesReporter =
       new CyclesReporter(new BzlLoadCycleReporter(), new BzlmodRepoCycleReporter());
-  private final EventRecorder eventRecorder = new EventRecorder();
 
   @Before
   public void setup() throws Exception {
-    eventBus.register(eventRecorder);
     workspaceRoot = scratch.dir("/ws");
     String bazelToolsPath = "/ws/embedded_tools";
     scratch.file(bazelToolsPath + "/MODULE.bazel", "module(name = 'bazel_tools')");
@@ -186,8 +165,6 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     HashFunction hashFunction = fileSystem.getDigestFunction().getHashFunction();
 
     DownloadManager downloadManager = Mockito.mock(DownloadManager.class);
-    SingleExtensionEvalFunction singleExtensionEvalFunction =
-        new SingleExtensionEvalFunction(directories, ImmutableMap::of, downloadManager);
     StarlarkRepositoryFunction starlarkRepositoryFunction =
         new StarlarkRepositoryFunction(downloadManager);
 
@@ -287,7 +264,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                 .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
                 .put(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
-                .put(SkyFunctions.SINGLE_EXTENSION_EVAL, singleExtensionEvalFunction)
+                .put(SkyFunctions.SINGLE_EXTENSION, new SingleExtensionFunction())
+                .put(
+                    SkyFunctions.SINGLE_EXTENSION_EVAL,
+                    new SingleExtensionEvalFunction(directories, ImmutableMap::of, downloadManager))
                 .put(SkyFunctions.REGISTRY, new RegistryFunction(registryFactory))
                 .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
                 .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
@@ -1932,15 +1912,23 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + "\n"
             + "Fix the use_repo calls by running 'bazel mod tidy'.",
         ImmutableSet.of(EventKind.WARNING));
-    assertThat(eventRecorder.fixupEvents()).hasSize(1);
-    assertThat(eventRecorder.fixupEvents().get(0).getBuildozerCommands())
+    SingleExtensionValue evalValue =
+        (SingleExtensionValue)
+            evaluator
+                .getDoneValues()
+                .get(
+                    SingleExtensionValue.evalKey(
+                        ModuleExtensionId.create(
+                            Label.parseCanonical("@@ext~//:defs.bzl"), "ext", Optional.empty())));
+    assertThat(evalValue.getFixup()).isPresent();
+    assertThat(evalValue.getFixup().get().buildozerCommands())
         .containsExactly(
             "use_repo_add @ext//:defs.bzl ext missing_direct_dep non_dev_as_dev_dep",
             "use_repo_remove @ext//:defs.bzl ext dev_as_non_dev_dep indirect_dep invalid_dep",
             "use_repo_add dev @ext//:defs.bzl ext dev_as_non_dev_dep missing_direct_dev_dep",
             "use_repo_remove dev @ext//:defs.bzl ext indirect_dev_dep invalid_dev_dep"
                 + " non_dev_as_dev_dep");
-    assertThat(eventRecorder.fixupEvents().get(0).getSuccessMessage())
+    assertThat(evalValue.getFixup().get().getSuccessMessage())
         .isEqualTo("Updated use_repo calls for @ext//:defs.bzl%ext");
   }
 
@@ -2016,15 +2004,23 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + "\n"
             + "Fix the use_repo calls by running 'bazel mod tidy'.",
         ImmutableSet.of(EventKind.WARNING));
-    assertThat(eventRecorder.fixupEvents()).hasSize(1);
-    assertThat(eventRecorder.fixupEvents().get(0).getBuildozerCommands())
+    SingleExtensionValue evalValue =
+        (SingleExtensionValue)
+            evaluator
+                .getDoneValues()
+                .get(
+                    SingleExtensionValue.evalKey(
+                        ModuleExtensionId.create(
+                            Label.parseCanonical("@@ext~//:defs.bzl"), "ext", Optional.empty())));
+    assertThat(evalValue.getFixup()).isPresent();
+    assertThat(evalValue.getFixup().get().buildozerCommands())
         .containsExactly(
             "use_repo_add @ext//:defs.bzl ext direct_dev_dep indirect_dev_dep missing_direct_dep"
                 + " missing_direct_dev_dep",
             "use_repo_remove @ext//:defs.bzl ext invalid_dep",
             "use_repo_remove dev @ext//:defs.bzl ext direct_dev_dep indirect_dev_dep"
                 + " invalid_dev_dep");
-    assertThat(eventRecorder.fixupEvents().get(0).getSuccessMessage())
+    assertThat(evalValue.getFixup().get().getSuccessMessage())
         .isEqualTo("Updated use_repo calls for @ext//:defs.bzl%ext");
   }
 
@@ -2102,14 +2098,22 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + "\n"
             + "Fix the use_repo calls by running 'bazel mod tidy'.",
         ImmutableSet.of(EventKind.WARNING));
-    assertThat(eventRecorder.fixupEvents()).hasSize(1);
-    assertThat(eventRecorder.fixupEvents().get(0).getBuildozerCommands())
+    SingleExtensionValue evalValue =
+        (SingleExtensionValue)
+            evaluator
+                .getDoneValues()
+                .get(
+                    SingleExtensionValue.evalKey(
+                        ModuleExtensionId.create(
+                            Label.parseCanonical("@@ext~//:defs.bzl"), "ext", Optional.empty())));
+    assertThat(evalValue.getFixup()).isPresent();
+    assertThat(evalValue.getFixup().get().buildozerCommands())
         .containsExactly(
             "use_repo_remove @ext//:defs.bzl ext direct_dep indirect_dep invalid_dep",
             "use_repo_add dev @ext//:defs.bzl ext direct_dep indirect_dep missing_direct_dep"
                 + " missing_direct_dev_dep",
             "use_repo_remove dev @ext//:defs.bzl ext invalid_dev_dep");
-    assertThat(eventRecorder.fixupEvents().get(0).getSuccessMessage())
+    assertThat(evalValue.getFixup().get().getSuccessMessage())
         .isEqualTo("Updated use_repo calls for @ext//:defs.bzl%ext");
   }
 
@@ -2157,7 +2161,15 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("indirect_dep_data");
 
     assertEventCount(0, eventCollector);
-    assertThat(eventRecorder.fixupEvents()).isEmpty();
+    SingleExtensionValue evalValue =
+        (SingleExtensionValue)
+            evaluator
+                .getDoneValues()
+                .get(
+                    SingleExtensionValue.evalKey(
+                        ModuleExtensionId.create(
+                            Label.parseCanonical("@@ext~//:defs.bzl"), "ext", Optional.empty())));
+    assertThat(evalValue.getFixup()).isEmpty();
   }
 
   @Test
@@ -2235,15 +2247,38 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + "\n"
             + "Fix the use_repo calls by running 'bazel mod tidy'.",
         ImmutableSet.of(EventKind.WARNING));
-    assertThat(eventRecorder.fixupEvents()).hasSize(2);
-    assertThat(eventRecorder.fixupEvents().get(0).getBuildozerCommands())
+    SingleExtensionValue ext1Value =
+        (SingleExtensionValue)
+            evaluator
+                .getDoneValues()
+                .get(
+                    SingleExtensionValue.evalKey(
+                        ModuleExtensionId.create(
+                            Label.parseCanonical("@@ext~//:defs.bzl"),
+                            "ext",
+                            Optional.of(
+                                ModuleExtensionId.IsolationKey.create(ModuleKey.ROOT, "ext1")))));
+    assertThat(ext1Value.getFixup()).isPresent();
+    assertThat(ext1Value.getFixup().get().buildozerCommands())
         .containsExactly(
             "use_repo_add ext1 direct_dep missing_direct_dep", "use_repo_remove ext1 indirect_dep");
-    assertThat(eventRecorder.fixupEvents().get(0).getSuccessMessage())
+    assertThat(ext1Value.getFixup().get().getSuccessMessage())
         .isEqualTo("Updated use_repo calls for isolated usage 'ext1' of @ext//:defs.bzl%ext");
-    assertThat(eventRecorder.fixupEvents().get(1).getBuildozerCommands())
+    SingleExtensionValue ext2Value =
+        (SingleExtensionValue)
+            evaluator
+                .getDoneValues()
+                .get(
+                    SingleExtensionValue.evalKey(
+                        ModuleExtensionId.create(
+                            Label.parseCanonical("@@ext~//:defs.bzl"),
+                            "ext",
+                            Optional.of(
+                                ModuleExtensionId.IsolationKey.create(ModuleKey.ROOT, "ext2")))));
+    assertThat(ext2Value.getFixup()).isPresent();
+    assertThat(ext2Value.getFixup().get().buildozerCommands())
         .containsExactly("use_repo_add ext2 missing_direct_dep");
-    assertThat(eventRecorder.fixupEvents().get(1).getSuccessMessage())
+    assertThat(ext2Value.getFixup().get().getSuccessMessage())
         .isEqualTo("Updated use_repo calls for isolated usage 'ext2' of @ext//:defs.bzl%ext");
   }
 
@@ -2322,24 +2357,47 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + "\n"
             + "Fix the use_repo calls by running 'bazel mod tidy'.",
         ImmutableSet.of(EventKind.WARNING));
-    assertThat(eventRecorder.fixupEvents()).hasSize(2);
-    assertThat(eventRecorder.fixupEvents().get(0).getBuildozerCommands())
+    SingleExtensionValue ext1Value =
+        (SingleExtensionValue)
+            evaluator
+                .getDoneValues()
+                .get(
+                    SingleExtensionValue.evalKey(
+                        ModuleExtensionId.create(
+                            Label.parseCanonical("@@ext~//:defs.bzl"),
+                            "ext",
+                            Optional.of(
+                                ModuleExtensionId.IsolationKey.create(ModuleKey.ROOT, "ext1")))));
+    assertThat(ext1Value.getFixup()).isPresent();
+    assertThat(ext1Value.getFixup().get().buildozerCommands())
         .containsExactly(
             "use_repo_add ext1 direct_dep missing_direct_dep", "use_repo_remove ext1 indirect_dep");
-    assertThat(eventRecorder.fixupEvents().get(0).getSuccessMessage())
+    assertThat(ext1Value.getFixup().get().getSuccessMessage())
         .isEqualTo("Updated use_repo calls for isolated usage 'ext1' of @ext//:defs.bzl%ext");
-    assertThat(eventRecorder.fixupEvents().get(1).getBuildozerCommands())
+    SingleExtensionValue ext2Value =
+        (SingleExtensionValue)
+            evaluator
+                .getDoneValues()
+                .get(
+                    SingleExtensionValue.evalKey(
+                        ModuleExtensionId.create(
+                            Label.parseCanonical("@@ext~//:defs.bzl"),
+                            "ext",
+                            Optional.of(
+                                ModuleExtensionId.IsolationKey.create(ModuleKey.ROOT, "ext2")))));
+    assertThat(ext2Value.getFixup()).isPresent();
+    assertThat(ext2Value.getFixup().get().buildozerCommands())
         .containsExactly("use_repo_add ext2 missing_direct_dep");
-    assertThat(eventRecorder.fixupEvents().get(1).getSuccessMessage())
+    assertThat(ext2Value.getFixup().get().getSuccessMessage())
         .isEqualTo("Updated use_repo calls for isolated usage 'ext2' of @ext//:defs.bzl%ext");
   }
 
-  private EvaluationResult<SingleExtensionEvalValue> evaluateSimpleModuleExtension(
+  private EvaluationResult<SingleExtensionValue> evaluateSimpleModuleExtension(
       String returnStatement) throws Exception {
     return evaluateSimpleModuleExtension(returnStatement, /* devDependency= */ false);
   }
 
-  private EvaluationResult<SingleExtensionEvalValue> evaluateSimpleModuleExtension(
+  private EvaluationResult<SingleExtensionValue> evaluateSimpleModuleExtension(
       String returnStatement, boolean devDependency) throws Exception {
     String devDependencyStr = devDependency ? "True" : "False";
     scratch.file(
@@ -2360,7 +2418,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         ModuleExtensionId.create(Label.parseCanonical("//:defs.bzl"), "ext", Optional.empty());
     reporter.removeHandler(failFastHandler);
     return evaluator.evaluate(
-        ImmutableList.of(SingleExtensionEvalValue.key(extensionId)), evaluationContext);
+        ImmutableList.of(SingleExtensionValue.key(extensionId)), evaluationContext);
   }
 
   @Test
@@ -2429,8 +2487,8 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         ModuleExtensionId.create(Label.parseCanonical("//:defs.bzl"), "ext", Optional.empty());
     reporter.removeHandler(failFastHandler);
     var result =
-        evaluator.<SingleExtensionEvalValue>evaluate(
-            ImmutableList.of(SingleExtensionEvalValue.key(extensionId)), evaluationContext);
+        evaluator.<SingleExtensionValue>evaluate(
+            ImmutableList.of(SingleExtensionValue.key(extensionId)), evaluationContext);
 
     assertThat(result.hasError()).isTrue();
     assertContainsEvent(
