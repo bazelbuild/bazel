@@ -839,32 +839,39 @@ public class BuildView {
       EventBus eventBus,
       TargetPatternPhaseValue loadingResult)
       throws InterruptedException {
-    if (memoizedCoverageArtifacts != null) {
-      return memoizedCoverageArtifacts;
+    if (memoizedCoverageArtifacts == null) {
+      memoizedCoverageArtifacts =
+          constructCoverageArtifacts(
+              configuredTargets, allTargetsToTest, eventHandler, eventBus, loadingResult);
     }
-    ImmutableSet.Builder<Artifact> resultBuilder = ImmutableSet.builder();
-    // Coverage
-    NestedSet<Artifact> baselineCoverageArtifacts = getBaselineCoverageArtifacts(configuredTargets);
-    resultBuilder.addAll(baselineCoverageArtifacts.toList());
-
-    if (coverageReportActionFactory != null) {
-      CoverageReportActionsWrapper actionsWrapper =
-          coverageReportActionFactory.createCoverageReportActionsWrapper(
-              eventHandler,
-              eventBus,
-              directories,
-              allTargetsToTest,
-              baselineCoverageArtifacts,
-              getArtifactFactory(),
-              skyframeExecutor.getActionKeyContext(),
-              CoverageReportValue.COVERAGE_REPORT_KEY,
-              loadingResult.getWorkspaceName());
-      if (actionsWrapper != null) {
-        skyframeExecutor.injectCoverageReportData(actionsWrapper.getActions());
-        actionsWrapper.getCoverageOutputs().forEach(resultBuilder::add);
-      }
-    }
-    memoizedCoverageArtifacts = resultBuilder.build();
     return memoizedCoverageArtifacts;
+  }
+
+  private ImmutableSet<Artifact> constructCoverageArtifacts(
+      Set<ConfiguredTarget> configuredTargets,
+      Set<ConfiguredTarget> allTargetsToTest,
+      EventHandler eventHandler,
+      EventBus eventBus,
+      TargetPatternPhaseValue loadingResult)
+      throws InterruptedException {
+    if (coverageReportActionFactory == null) {
+      return ImmutableSet.of();
+    }
+    CoverageReportActionsWrapper actionsWrapper =
+        coverageReportActionFactory.createCoverageReportActionsWrapper(
+            eventHandler,
+            eventBus,
+            directories,
+            allTargetsToTest,
+            getBaselineCoverageArtifacts(configuredTargets),
+            getArtifactFactory(),
+            skyframeExecutor.getActionKeyContext(),
+            CoverageReportValue.COVERAGE_REPORT_KEY,
+            loadingResult.getWorkspaceName());
+    if (actionsWrapper == null) {
+      return ImmutableSet.of();
+    }
+    skyframeExecutor.injectCoverageReportData(actionsWrapper.getActions());
+    return ImmutableSet.copyOf(actionsWrapper.getCoverageOutputs());
   }
 }
