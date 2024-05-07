@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.TopLevelOutputException;
 import com.google.devtools.build.lib.analysis.ConfiguredObjectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
@@ -177,7 +176,7 @@ public final class CompletionFunction<
     InstrumentedFilesInfo instrumentedFilesInfo =
         value.getConfiguredObject().get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
     Iterable<SkyKey> keysToRequest;
-    if (value.getConfiguredObject() instanceof ConfiguredTargetValue && instrumentedFilesInfo != null) {
+    if (value.getConfiguredObject() instanceof ConfiguredTarget && instrumentedFilesInfo != null) {
       keysToRequest =
           Iterables.concat(
               Artifact.keys(allArtifacts),
