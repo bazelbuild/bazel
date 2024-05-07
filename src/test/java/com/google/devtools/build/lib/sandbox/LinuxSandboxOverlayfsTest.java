@@ -17,17 +17,16 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.TruthJUnit.assume;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
 import org.junit.Before;
 import org.junit.Test;
 
@@ -53,6 +52,8 @@ public final class LinuxSandboxOverlayfsTest extends BuildIntegrationTestCase {
     // This path is writable with the sandboxed runner.
     Path writableRoot = testRoot.getRelative("root");
     writableRoot.createDirectoryAndParents();
+    Path debugOutputOuter = writableRoot.getRelative("debug_output_outer");
+    Path debugOutputInner = writableRoot.getRelative("debug_output_inner");
 
     Path hermeticTmpOuter = writableRoot.getRelative("_hermetic_tmp_outer");
     Path upperDirOuter = hermeticTmpOuter.getRelative("_upper");
@@ -77,6 +78,7 @@ public final class LinuxSandboxOverlayfsTest extends BuildIntegrationTestCase {
             .mountOverlayfsOnTmp(upperDirInner.getPathString(), workDirInner.getPathString())
             .setWritableFilesAndDirectories(Set.of(writableRoot))
             .setBindMounts(Map.of(tmpMount, mountDirInner))
+            .setSandboxDebugPath(debugOutputInner.getPathString())
             .buildForCommand(List.of("cat", tmpMount.getChild("file").getPathString()));
 
     var argsOuter =
@@ -84,14 +86,29 @@ public final class LinuxSandboxOverlayfsTest extends BuildIntegrationTestCase {
             .mountOverlayfsOnTmp(upperDirOuter.getPathString(), workDirOuter.getPathString())
             .setWritableFilesAndDirectories(Set.of(writableRoot))
             .setBindMounts(Map.of(tmpMount, mountDirOuter))
+            .setSandboxDebugPath(debugOutputOuter.getPathString())
             .buildForCommand(argsInner);
 
     Process process = new ProcessBuilder().command(argsOuter).start();
-    byte[] stderr = process.getErrorStream().readAllBytes();
-    assertThat(new String(stderr, StandardCharsets.UTF_8)).isEmpty();
-    byte[] stdout = process.getInputStream().readAllBytes();
-    assertThat(new String(stdout, StandardCharsets.UTF_8)).isEqualTo("inner_content");
-    int exitCode = process.waitFor();
-    assertThat(exitCode).isEqualTo(0);
+    try {
+      byte[] stderr = process.getErrorStream().readAllBytes();
+      assertThat(new String(stderr, StandardCharsets.UTF_8)).isEmpty();
+      byte[] stdout = process.getInputStream().readAllBytes();
+      assertThat(new String(stdout, StandardCharsets.UTF_8)).isEqualTo("inner_content");
+      int exitCode = process.waitFor();
+      assertThat(exitCode).isEqualTo(0);
+    } catch (AssertionError e) {
+      if (debugOutputOuter.exists()) {
+        System.err.printf(
+            "\nOuter sandbox debug logs:\n%s\n",
+            FileSystemUtils.readContent(debugOutputOuter, UTF_8));
+      }
+      if (debugOutputInner.exists()) {
+        System.err.printf(
+            "\nInner sandbox debug logs:\n%s\n",
+            FileSystemUtils.readContent(debugOutputInner, UTF_8));
+      }
+      throw e;
+    }
   }
 }
