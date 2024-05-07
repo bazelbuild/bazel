@@ -138,6 +138,7 @@ public final class RemoteModule extends BlazeModule {
   @Nullable private TempPathGenerator tempPathGenerator;
   @Nullable private BlockWaitingModule blockWaitingModule;
   @Nullable private RemoteOutputChecker remoteOutputChecker;
+  @Nullable private String lastBuildId;
 
   private ChannelFactory channelFactory =
       new ChannelFactory() {
@@ -471,7 +472,8 @@ public final class RemoteModule extends BlazeModule {
               remoteOptions.remoteOutputServiceOutputPathPrefix,
               verboseFailures,
               retrier,
-              bazelOutputServiceChannel);
+              bazelOutputServiceChannel,
+              lastBuildId);
     } else {
       outputService = new RemoteOutputService(env);
     }
@@ -917,6 +919,8 @@ public final class RemoteModule extends BlazeModule {
       blockWaitingModule.submit(
           () -> afterCommandTask(actionContextProviderRef, tempPathGeneratorRef, rpcLogFileRef));
     }
+
+    lastBuildId = Preconditions.checkNotNull(env).getCommandId().toString();
 
     buildEventArtifactUploaderFactoryDelegate.reset();
     repositoryRemoteExecutorFactoryDelegate.reset();
