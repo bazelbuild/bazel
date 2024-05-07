@@ -4320,6 +4320,44 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     ev.assertContainsError("target 'my_target' not declared in package 'initializer_testing'");
   }
 
+  @Test
+  @SuppressWarnings("unchecked")
+  public void initializer_nativeModule() throws Exception {
+    scratch.appendFile("MODULE.bazel", "module(name = 'my_mod', version = '1.2.3')");
+    scratch.file("initializer_testing/rules/BUILD");
+    scratch.file(
+        "initializer_testing/rules/b.bzl",
+        "MyInfo = provider()",
+        "def initializer(name, **kwargs):",
+        "  return {'props': {",
+        "    'package_relative_label': str(native.package_relative_label(':target')),",
+        "  }}",
+        "def impl(ctx): ",
+        "  return [MyInfo(props = ctx.attr.props)]",
+        "my_rule = rule(impl,",
+        "  initializer = initializer,",
+        "  attrs = {",
+        "    'props': attr.string_dict(),",
+        "  })");
+    scratch.file(
+        "initializer_testing/targets/BUILD",
+        "load('//initializer_testing/rules:b.bzl','my_rule')",
+        "my_rule(name = 'my_target')");
+
+    invalidatePackages();
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//initializer_testing/targets:my_target");
+    StructImpl info =
+        (StructImpl)
+            myTarget.get(
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//initializer_testing/rules:b.bzl")),
+                    "MyInfo"));
+
+    assertThat((Map<String, String>) info.getValue("props"))
+        .containsExactly("package_relative_label", "@@//initializer_testing/targets:target");
+  }
+
   private void scratchParentRule(String rule, String... ruleArgs) throws IOException {
     scratch.file("extend_rule_testing/parent/BUILD");
     scratch.file(

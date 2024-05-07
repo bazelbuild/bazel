@@ -1272,6 +1272,9 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       BazelStarlarkContext bazelStarlarkContext = BazelStarlarkContext.fromOrFail(thread);
       try {
         thread.setThreadLocal(BazelStarlarkContext.class, null);
+        // Allow access to the LabelConverter to support native.package_relative_label() in an
+        // initializer.
+        thread.setThreadLocal(LabelConverter.class, pkgBuilder.getLabelConverter());
         thread.setUncheckedExceptionContext(() -> "an initializer");
 
         // We call all the initializers of the rule and its ancestor rules, proceeding from child to
@@ -1359,6 +1362,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           }
         }
       } finally {
+        thread.setThreadLocal(LabelConverter.class, null);
         bazelStarlarkContext.storeInThread(thread);
       }
 
