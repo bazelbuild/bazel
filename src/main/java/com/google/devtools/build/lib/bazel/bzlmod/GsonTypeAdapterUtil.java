@@ -482,7 +482,7 @@ public final class GsonTypeAdapterUtil {
         .create();
   }
 
-  public static Gson createModuleExtensionUsagesHashGson() {
+  public static Gson createSingleExtensionUsagesValueHashGson() {
     return newGsonBuilder().create();
   }
 
