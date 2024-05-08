@@ -254,6 +254,42 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testRegisterToolchains_singlePackageRestriction() throws Exception {
+    setBuildLanguageOptions("--experimental_single_package_toolchain_binding");
+
+    String[] lines = {
+      "register_toolchains('//foo:all')",
+      "register_toolchains('//bar:bar')",
+      "register_toolchains('//pkg/to/baz')"
+    };
+    createWorkspaceFile(lines);
+
+    SkyKey key = ExternalPackageFunction.key();
+    EvaluationResult<PackageValue> evaluationResult = eval(key);
+    Package pkg = evaluationResult.get(key).getPackage();
+    assertThat(pkg.containsErrors()).isFalse();
+  }
+
+  @Test
+  public void testRegisterToolchains_singlePackageRestriction_error() throws Exception {
+    // Test intentionally introduces errors.
+    reporter.removeHandler(failFastHandler);
+
+    setBuildLanguageOptions("--experimental_single_package_toolchain_binding");
+
+    String[] lines = {"register_toolchains('//foo/...')"};
+    createWorkspaceFile(lines);
+
+    SkyKey key = ExternalPackageFunction.key();
+    EvaluationResult<PackageValue> evaluationResult = eval(key);
+    Package pkg = evaluationResult.get(key).getPackage();
+    assertThat(pkg.containsErrors()).isTrue();
+    assertContainsEvent(
+        "invalid target pattern \"//foo/...\": register_toolchain target patterns "
+            + "may only refer to targets within a single package");
+  }
+
+  @Test
   public void testNoWorkspaceFile() throws Exception {
     // Create and immediately delete to make sure we got the right file.
     RootedPath workspacePath = createWorkspaceFile();

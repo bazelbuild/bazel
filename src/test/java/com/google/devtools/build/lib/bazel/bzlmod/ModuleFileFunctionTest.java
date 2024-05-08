@@ -1476,4 +1476,55 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             + "and thus unavailable with the current flags. It may be enabled by setting "
             + "--experimental_isolated_extension_usages");
   }
+
+  @Test
+  public void testRegisterToolchains_singlePackageRestriction_error() throws Exception {
+    // Test intentionally introduces errors.
+    reporter.removeHandler(failFastHandler);
+    PrecomputedValue.STARLARK_SEMANTICS.set(
+        differencer,
+        StarlarkSemantics.builder()
+            .setBool(BuildLanguageOptions.EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING, true)
+            .build());
+
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "register_toolchains('//bar/...')");
+
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        "invalid target pattern \"//bar/...\": register_toolchain target patterns "
+            + "may only refer to targets within a single package");
+  }
+
+  @Test
+  public void testRegisterToolchains_singlePackageRestriction() throws Exception {
+    PrecomputedValue.STARLARK_SEMANTICS.set(
+        differencer,
+        StarlarkSemantics.builder()
+            .setBool(BuildLanguageOptions.EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING, true)
+            .build());
+
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "register_toolchains('//:whatever')",
+        "register_toolchains('//bar:all')",
+        "register_toolchains('//qux:baz')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isFalse();
+  }
 }

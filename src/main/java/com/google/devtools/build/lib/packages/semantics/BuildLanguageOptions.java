@@ -158,6 +158,17 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalBzlVisibility;
 
   @Option(
+      name = "experimental_single_package_toolchain_binding",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If enabled, the register_toolchain function may not include target patterns which may "
+              + "refer to more than one package.")
+  public boolean experimentalSinglePackageToolchainBinding;
+
+  @Option(
       name = "check_bzl_visibility",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
@@ -748,6 +759,9 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(CHECK_BZL_VISIBILITY, checkBzlVisibility)
             .setBool(
                 EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
+            .setBool(
+                EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING,
+                experimentalSinglePackageToolchainBinding)
             .setBool(EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS, experimentalEnableFirstClassMacros)
             .setBool(EXPERIMENTAL_ENABLE_SCL_DIALECT, experimentalEnableSclDialect)
             .setBool(ENABLE_BZLMOD, enableBzlmod)
@@ -853,6 +867,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_disable_external_package";
   public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =
       "-experimental_enable_android_migration_apis";
+  public static final String EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING =
+      "-experimental_single_package_toolchain_binding";
   public static final String EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS =
       "-experimental_enable_first_class_macros";
   public static final String EXPERIMENTAL_ENABLE_SCL_DIALECT = "-experimental_enable_scl_dialect";

@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -369,9 +370,21 @@ public class ModuleFileGlobals {
     if (context.shouldIgnoreDevDeps() && devDependency) {
       return;
     }
-    context
-        .getModuleBuilder()
-        .addToolchainsToRegister(checkAllAbsolutePatterns(toolchainLabels, "register_toolchains"));
+    ImmutableList<String> checkedToolchainLabels =
+        checkAllAbsolutePatterns(toolchainLabels, "register_toolchains");
+    if (thread
+        .getSemantics()
+        .getBool(BuildLanguageOptions.EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING)) {
+      for (String label : checkedToolchainLabels) {
+        if (label.contains("...")) {
+          throw Starlark.errorf(
+              "invalid target pattern \"%s\": register_toolchain target patterns may only refer to "
+                  + "targets within a single package",
+              label);
+        }
+      }
+    }
+    context.getModuleBuilder().addToolchainsToRegister(checkedToolchainLabels);
   }
 
   @StarlarkMethod(
