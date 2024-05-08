@@ -17,19 +17,15 @@ landing_page:
     items_across: 2
     items:
     # Item 1
-    - image_path: /community/images/aspect-dev-logo.png
-      heading: Aspect Development
+    - image_path: /community/images/aspect-logo.png
+      heading: Aspect Build
       description: >
-        Aspect Development is a Bazel consulting company. For years our experts have contributed to Bazel at
-        Google and maintained official Bazel rules. We offer clients this firsthand, comprehensive
-        technical experience both with Bazel itself and with the ways it integrates with the
-        surrounding toolchain, developer workflow, and business processes. With decades of combined
-        industry experience, our experts have championed the benefits of Bazel since its initial
-        release in 2015. We're passionate about helping companies optimize the way they build and
-        test software with this innovative build tool.
+        Leveraging the insights we gathered from helping over 50 companies to navigate Bazel, we developed Aspect Workflows, our Developer Platform for Bazel Monorepos.
+        Our platform is designed to enhance the developer experience with Bazel, notably accelerating build times on CI while reducing compute costs. Aspect Workflows seamlessly integrates with your existing CI and cloud infrastructure, while aligning with your current configuration. This approach empowers users to concentrate on innovating and delivering exceptional products, while we manage the underlying infrastructure and ensure CI stays fast.
+        Aspect offers consulting, support, and training to help your team succeed with Bazel and we the authors and maintainers of the canonical open-source rulesets for JavaScript and OCI images.
       buttons:
       - label: Learn more
-        path: https://www.aspect.dev/
+        path: https://www.aspect.build/services
         classname: button
     # Item 2
     - image_path: /community/images/bitrise-logo.png

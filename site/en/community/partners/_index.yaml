@@ -21,10 +21,12 @@ landing_page:
     items_across: 2
     items:
     # Item 1
-    - image_path: /community/images/AspectBuildlogohorizontal-black.png
+    - image_path: /community/images/aspect-logo.png
       heading: Aspect Build
       description: >
-        Introducing Aspect Build - the ultimate build, test, and CI/CD platform designed exclusively for Bazel users. Harness the power of Aspect Workflows, a seamless, turn-key Bazel CI/CD system, fully compatible with your existing CI provider. Elevate your development experience with Aspect CLI, a convenient drop-in replacement for the native Bazel CLI. Unleash the full potential of Bazel for front-end development with Aspect's JavaScript Bazel rules. Enjoy accelerated build times and reduced compute costs with Aspect Workflows, thanks to fast warming, auto-scaling CI workers, horizontally scaling remote cache, and auto-scaling remote build executors - delivering a remarkable 10x performance boost to your Bazel projects. Say goodbye to waiting and hello to rapid iteration!
+        Leveraging the insights we gathered from helping over 50 companies to navigate Bazel, we developed Aspect Workflows, our Developer Platform for Bazel Monorepos.
+        Our platform is designed to enhance the developer experience with Bazel, notably accelerating build times on CI while reducing compute costs. Aspect Workflows seamlessly integrates with your existing CI and cloud infrastructure, while aligning with your current configuration. This approach empowers users to concentrate on innovating and delivering exceptional products, while we manage the underlying infrastructure and ensure CI stays fast.
+        Aspect offers consulting, support, and training to help your team succeed with Bazel and we the authors and maintainers of the canonical open-source rulesets for JavaScript and OCI images.
       buttons:
       - label: Learn more
         path: https://www.aspect.build/
