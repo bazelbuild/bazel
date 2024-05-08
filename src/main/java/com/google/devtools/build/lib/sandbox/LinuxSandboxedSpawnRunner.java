@@ -138,6 +138,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final FileSystem fileSystem;
   private final Path slashTmp;
   private final boolean tmpOnPackagePath;
+  private final Path outputBase;
   private final LoadingCache<Root, ImmutableSet<Path>> symlinkChainCache =
       Caffeine.newBuilder().build(LinuxSandboxedSpawnRunner::readSymlinkChainUncached);
   private String cgroupsDir;
@@ -178,6 +179,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         cmdEnv.getPackageLocator().getPathEntries().stream()
             .map(Root::asPath)
             .anyMatch(slashTmp::equals);
+    this.outputBase = cmdEnv.getOutputBase();
   }
 
   private boolean useHermeticTmp() {
@@ -374,9 +376,11 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // visible at the same path after mounting the hermetic tmp. Since a source root can be a
     // symlink to another directory under /tmp, we need to account for all intermediate symlinks.
     SequencedSet<Path> resolvedRoots = new LinkedHashSet<>();
-    resolvedRoots.add(execRoot);
+    resolvedRoots.add(outputBase);
     for (Root root : inputs.getSourceRoots()) {
-      resolvedRoots.add(root.asPath());
+      if (!root.asPath().startsWith(outputBase)) {
+        resolvedRoots.add(root.asPath());
+      }
       resolvedRoots.addAll(readSymlinkChain(root));
     }
     ImmutableMap<Path, Path> resolvedRootsUnderTmp =

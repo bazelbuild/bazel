@@ -730,8 +730,8 @@ EOF
   touch "a/s" "../package-path/b/s" "../repo/c/s"
 
   cat WORKSPACE
-  # --output_base="${temp_dir}/output-base" \
   bazel \
+    --output_base="${temp_dir}/output-base" \
     build \
     --incompatible_sandbox_hermetic_tmp \
     --package_path="%workspace%:${temp_dir}/package-path" \
