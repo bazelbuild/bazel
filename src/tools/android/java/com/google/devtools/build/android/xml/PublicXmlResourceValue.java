@@ -133,12 +133,6 @@ public class PublicXmlResourceValue implements XmlResourceValue {
     return of(typeToId.build());
   }
 
-  public static XmlResourceValue from(ResourceType resourceType, int id) {
-    ImmutableMap.Builder<ResourceType, Optional<Integer>> typeToId = ImmutableMap.builder();
-    typeToId.put(resourceType, Optional.of(id));
-    return of(typeToId.build());
-  }
-
   @Override
   public int serializeTo(int sourceId, Namespaces namespaces, OutputStream output)
       throws IOException {
