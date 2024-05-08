@@ -1491,7 +1491,7 @@ status as "NO STATUS" (in red, if color output is enabled), and will return
 a non-zero exit code.
 
 This option also implies
-`[--check_up_to_date](#check-up-to-date)` behavior.
+[`--check_up_to_date`](#check-up-to-date) behavior.
 
 This option may be useful for pre-submit checks.
 
