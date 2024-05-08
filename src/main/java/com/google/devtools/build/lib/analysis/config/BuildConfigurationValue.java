@@ -362,7 +362,9 @@ public class BuildConfigurationValue
     return outputDirectories.getOutputDirectory(repositoryName);
   }
 
-  /** @deprecated Use {@link #getBinDirectory} instead. */
+  /**
+   * @deprecated Use {@link #getBinDirectory} instead.
+   */
   @Override
   @Deprecated
   public ArtifactRoot getBinDir() {
@@ -897,7 +899,8 @@ public class BuildConfigurationValue
    */
   public ImmutableMap<String, String> modifiedExecutionInfo(
       ImmutableMap<String, String> executionInfo, String mnemonic) {
-    if (!options.executionInfoModifier.matches(mnemonic)) {
+    if (!ExecutionInfoModifier.matches(
+        options.executionInfoModifier, options.additiveModifyExecutionInfo, mnemonic)) {
       return executionInfo;
     }
     Map<String, String> mutableCopy = new HashMap<>(executionInfo);
@@ -907,7 +910,11 @@ public class BuildConfigurationValue
 
   /** Applies {@code executionInfoModifiers} to the given {@code executionInfo}. */
   public void modifyExecutionInfo(Map<String, String> executionInfo, String mnemonic) {
-    options.executionInfoModifier.apply(mnemonic, executionInfo);
+    ExecutionInfoModifier.apply(
+        options.executionInfoModifier,
+        options.additiveModifyExecutionInfo,
+        mnemonic,
+        executionInfo);
   }
 
   /** Returns the list of default features used for all packages. */
