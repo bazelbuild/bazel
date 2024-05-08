@@ -1861,39 +1861,6 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
   }
 
   @Test
-  public void testOutputDirHash_multipleNativeOptionTransitions_legacyNaming() throws Exception {
-    writeFilesWithMultipleNativeOptionTransitions();
-
-    useConfiguration("--experimental_output_directory_naming_scheme=legacy");
-    ConfiguredTarget test = getConfiguredTarget("//test");
-
-    List<String> affectedOptions = getCoreOptions(test).affectedByStarlarkTransition;
-
-    assertThat(affectedOptions).containsExactly("//command_line_option:foo");
-
-    @SuppressWarnings("unchecked")
-    ConfiguredTarget dep =
-        Iterables.getOnlyElement(
-            (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
-
-    affectedOptions = getCoreOptions(dep).affectedByStarlarkTransition;
-
-    assertThat(affectedOptions)
-        .containsExactly("//command_line_option:foo", "//command_line_option:bar");
-
-    assertThat(getMnemonic(test))
-        .endsWith(
-            OutputPathMnemonicComputer.transitionDirectoryNameFragment(
-                ImmutableList.of("//command_line_option:foo=foosball")));
-
-    assertThat(getMnemonic(dep))
-        .endsWith(
-            OutputPathMnemonicComputer.transitionDirectoryNameFragment(
-                ImmutableList.of(
-                    "//command_line_option:bar=barsball", "//command_line_option:foo=foosball")));
-  }
-
-  @Test
   public void testOutputDirHash_multipleNativeOptionTransitions_diffNaming() throws Exception {
     writeFilesWithMultipleNativeOptionTransitions();
 
@@ -2488,32 +2455,6 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
   }
 
   @Test
-  public void testOutputDirHash_multipleStarlarkTransitions_legacyNaming() throws Exception {
-    writeFilesWithMultipleStarlarkTransitions();
-
-    useConfiguration("--experimental_output_directory_naming_scheme=legacy");
-    ConfiguredTarget test = getConfiguredTarget("//test");
-
-    @SuppressWarnings("unchecked")
-    ConfiguredTarget dep =
-        Iterables.getOnlyElement(
-            (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
-
-    List<String> affectedOptions =
-        getConfiguration(dep).getOptions().get(CoreOptions.class).affectedByStarlarkTransition;
-
-    assertThat(affectedOptions).containsExactly("//test:bar", "//test:foo");
-    assertThat(getMnemonic(test))
-        .endsWith(
-            OutputPathMnemonicComputer.transitionDirectoryNameFragment(
-                ImmutableList.of("//test:foo=foosball")));
-    assertThat(getMnemonic(dep))
-        .endsWith(
-            OutputPathMnemonicComputer.transitionDirectoryNameFragment(
-                ImmutableList.of("//test:bar=barsball", "//test:foo=foosball")));
-  }
-
-  @Test
   public void testOutputDirHash_multipleStarlarkTransitions_diffNaming() throws Exception {
     writeFilesWithMultipleStarlarkTransitions();
 
@@ -2647,74 +2588,6 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
             build_setting_default = "",
         )
         """);
-  }
-
-  // This test is massive but mostly exists to ensure that all the parts are working together
-  // properly amidst multiple complicated transitions.
-  @Test
-  public void testOutputDirHash_multipleMixedTransitions_legacyNaming() throws Exception {
-    writeFilesWithMultipleMixedTransitions();
-
-    // test:top (foo_transition)
-    useConfiguration("--experimental_output_directory_naming_scheme=legacy");
-    ConfiguredTarget top = getConfiguredTarget("//test:top");
-
-    List<String> affectedOptionsTop =
-        getConfiguration(top).getOptions().get(CoreOptions.class).affectedByStarlarkTransition;
-
-    assertThat(affectedOptionsTop).containsExactly("//command_line_option:foo");
-    assertThat(getConfiguration(top).getOptions().getStarlarkOptions()).isEmpty();
-    assertThat(getMnemonic(top))
-        .endsWith(
-            OutputPathMnemonicComputer.transitionDirectoryNameFragment(
-                ImmutableList.of("//command_line_option:foo=foosball")));
-
-    // test:middle (foo_transition, zee_transition, bar_transition)
-    @SuppressWarnings("unchecked")
-    ConfiguredTarget middle =
-        Iterables.getOnlyElement((List<ConfiguredTarget>) getMyInfoFromTarget(top).getValue("dep"));
-
-    List<String> affectedOptionsMiddle =
-        getConfiguration(middle).getOptions().get(CoreOptions.class).affectedByStarlarkTransition;
-
-    assertThat(affectedOptionsMiddle)
-        .containsExactly("//command_line_option:foo", "//command_line_option:bar", "//test:zee");
-
-    assertThat(getConfiguration(middle).getOptions().getStarlarkOptions().entrySet())
-        .containsExactly(
-            Maps.immutableEntry(Label.parseCanonicalUnchecked("//test:zee"), "zeesball"));
-
-    assertThat(getMnemonic(middle))
-        .endsWith(
-            OutputPathMnemonicComputer.transitionDirectoryNameFragment(
-                ImmutableList.of(
-                    "//command_line_option:bar=barsball",
-                    "//command_line_option:foo=foosball",
-                    "//test:zee=zeesball")));
-
-    // test:bottom (foo_transition, zee_transition, bar_transition, xan_transition)
-    @SuppressWarnings("unchecked")
-    ConfiguredTarget bottom =
-        Iterables.getOnlyElement(
-            (List<ConfiguredTarget>) getMyInfoFromTarget(middle).getValue("dep"));
-
-    List<String> affectedOptionsBottom =
-        getConfiguration(bottom).getOptions().get(CoreOptions.class).affectedByStarlarkTransition;
-
-    assertThat(affectedOptionsBottom)
-        .containsExactly(
-            "//command_line_option:foo", "//command_line_option:bar", "//test:xan", "//test:zee");
-
-    assertThat(getConfiguration(bottom).getOptions().getStarlarkOptions().entrySet())
-        .containsExactly(
-            Maps.immutableEntry(Label.parseCanonicalUnchecked("//test:zee"), "zeesball"),
-            Maps.immutableEntry(Label.parseCanonicalUnchecked("//test:xan"), "xansball"));
-    assertThat(getMnemonic(bottom))
-        .endsWith(
-            OutputPathMnemonicComputer.transitionDirectoryNameFragment(
-                ImmutableList.of(
-                    "//command_line_option:bar=barsball", "//command_line_option:foo=foosball",
-                    "//test:xan=xansball", "//test:zee=zeesball")));
   }
 
   @Test

@@ -299,7 +299,6 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     addOptions(
         "--output_directory_name=set_by_flag",
         "--compilation_mode=fastbuild",
-        "--experimental_output_directory_naming_scheme=legacy",
         "--experimental_exec_configuration_distinguisher=legacy");
 
     write(
@@ -343,7 +342,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
             "//path:from_transition",
                 getTargetConfiguration().getCpu() + "-fastbuild-set_by_transition",
             "//path:unrelated_transition",
-                getTargetConfiguration().getCpu() + "-fastbuild-set_by_flag",
+                getTargetConfiguration().getCpu() + "-fastbuild-set_by_flag-ST-040655c91309",
             "//path:outgoing_transition",
                 getTargetConfiguration().getCpu() + "-fastbuild-set_by_flag");
   }
@@ -615,8 +614,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
         "--symlink_prefix=unchanged-",
         "--compilation_mode=fastbuild",
         "--incompatible_merge_genfiles_directory=false",
-        "--incompatible_skip_genfiles_symlink=false",
-        "--experimental_output_directory_naming_scheme=legacy");
+        "--incompatible_skip_genfiles_symlink=false");
 
     write(
         "targets/BUILD",
