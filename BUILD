@@ -1,7 +1,6 @@
 # Bazel - Google's Build System
 
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
-load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
 load("@rules_license//rules:license.bzl", "license")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load("@rules_python//python:defs.bzl", "py_binary")
@@ -35,6 +34,7 @@ filegroup(
             ".*",  # mainly .git* files
         ],
     ) + [
+        "//:MODULE.bazel.lock.dist",
         "//:WORKSPACE.bzlmod.filtered",
         "//examples:srcs",
         "//scripts:srcs",
@@ -94,36 +94,24 @@ genrule(
         "MODULE.bazel",
         "//third_party/googleapis:MODULE.bazel",
         "//third_party/remoteapis:MODULE.bazel",
-        "//third_party/upb:00_remove_toolchain_transition.patch",
     ],
-    outs = ["MODULE.bazel.lock.dist.gen"],
+    outs = ["MODULE.bazel.lock.dist"],
     cmd = " && ".join([
         "ROOT=$$PWD",
         "TMPDIR=$$(mktemp -d)",
         "trap 'rm -rf $$TMPDIR' EXIT",
         "mkdir -p $$TMPDIR/workspace",
         "touch $$TMPDIR/workspace/BUILD.bazel",
-        "for i in $(SRCS); do dir=$$TMPDIR/workspace/$$(dirname $$i); mkdir -p $$dir; touch $$dir/BUILD.bazel; cp $$i $$dir; done",
+        "for i in $(SRCS); do dir=$$TMPDIR/workspace/$$(dirname $$i); mkdir -p $$dir; cp $$i $$dir; done",
         "cd $$TMPDIR/workspace",
-        # Instead of `bazel mod deps`, we run a simpler command like `bazel query` here
-        # so that we only trigger module resolution and the few required extensions.
+        # Instead of `bazel mod deps`, we run a simpler command like `bazel query :all` here
+        # so that we only trigger module resolution, not extension eval.
         # Also use `--batch` so that Bazel doesn't keep a server process alive.
-        "$$ROOT/$(location //src:bazel) --batch --output_user_root=$$TMPDIR/output_user_root query --check_direct_dependencies=error --lockfile_mode=update \
-          ':all + deps(@com_github_grpc_grpc//:google_rpc_status_upb + @rules_kotlin//src/main/starlark/core/options:options, 1)'",
+        "$$ROOT/$(location //src:bazel) --batch --output_user_root=$$TMPDIR/output_user_root query --check_direct_dependencies=error --lockfile_mode=update :all",
         "mv MODULE.bazel.lock $$ROOT/$@",
     ]),
     tags = ["requires-network"],
     tools = ["//src:bazel"],
-)
-
-# TODO: Return to not checking in the file once Bazel is built with 7.2.0.
-diff_test(
-    name = "dist_lockfile_test",
-    failure_message = """Update MODULE.bazel.lock.dist by running:
-    bazel build //:generate_dist_lockfile && cp "$(bazel info workspace)/bazel-bin/MODULE.bazel.lock.dist.gen" "$(bazel info workspace)/MODULE.bazel.lock.dist"
-    """,
-    file1 = "MODULE.bazel.lock.dist",
-    file2 = "MODULE.bazel.lock.dist.gen",
 )
 
 pkg_tar(
