@@ -73,6 +73,7 @@ def _create_cc_toolchain_info(
         is_tool_configuration,
         default_sysroot,
         builtin_include_files,
+        build_variables_dict,
         build_variables,
         cc_info,
         all_files,
@@ -147,6 +148,7 @@ def _create_cc_toolchain_info(
         _static_runtime_lib_depset = static_runtime_lib_depset,
         _dynamic_runtime_lib_depset = dynamic_runtime_lib_depset,
         _compiler_files_without_includes = compiler_files_without_includes,
+        _build_variables_dict = build_variables_dict,
         _build_variables = build_variables,
         _allowlist_for_layering_check = allowlist_for_layering_check,
         _cc_info = cc_info,
@@ -223,6 +225,7 @@ CcToolchainInfo, _ = provider(
         "_abi_glibc_version": "INTERNAL API, DO NOT USE!",
         "_crosstool_top_path": "INTERNAL API, DO NOT USE!",
         "_build_info_files": "INTERNAL API, DO NOT USE!",
+        "_build_variables_dict": "INTERNAL API, DO NOT USE!",
         "_build_variables": "INTERNAL API, DO NOT USE!",
         # Fields still used by native code - will be used by Starlark in the future.
         "_supports_header_parsing": "INTERNAL API, DO NOT USE!",

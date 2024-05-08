@@ -237,8 +237,9 @@ def get_cc_toolchain_provider(ctx, attributes):
     for s in toolchain_config_info.cxx_builtin_include_directories():
         builtin_include_directories.append(_resolve_include_dir(ctx.label, s, sysroot, tools_directory))
 
-    build_vars = cc_internal.cc_toolchain_variables(
-        vars = _get_cc_toolchain_vars(ctx.fragments.cpp, sysroot),
+    build_variables_dict = _get_cc_toolchain_vars(ctx.fragments.cpp, sysroot)
+    build_variables = cc_internal.cc_toolchain_variables(
+        vars = build_variables_dict,
     )
 
     return CcToolchainInfo(
@@ -276,7 +277,8 @@ def get_cc_toolchain_provider(ctx, attributes):
         strip_executable = tool_paths.get("strip", ""),
         ld_executable = tool_paths.get("ld", ""),
         gcov_executable = tool_paths.get("gcov", ""),
-        build_variables = build_vars,
+        build_variables_dict = build_variables_dict,
+        build_variables = build_variables,
         all_files = attributes.all_files,
         all_files_including_libc = attributes.all_files_including_libc,
         compiler_files = attributes.compiler_files,

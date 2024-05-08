@@ -1144,22 +1144,22 @@ public interface CcModuleApi<
             doc = "Depset of directories where linker will look for libraries at link time.",
             positional = false,
             named = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
+            defaultValue = "[]",
+            allowedTypes = {@ParamType(type = Depset.class)}),
         @Param(
             name = "runtime_library_search_directories",
             doc = "Depset of directories where loader will look for libraries at runtime.",
             positional = false,
             named = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
+            defaultValue = "[]",
+            allowedTypes = {@ParamType(type = Depset.class)}),
         @Param(
             name = "user_link_flags",
             doc = "List of additional link flags (linkopts).",
             positional = false,
             named = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
+            defaultValue = "[]",
+            allowedTypes = {@ParamType(type = Sequence.class)}),
         @Param(
             name = "output_file",
             doc = "Optional output file path.",
@@ -1217,7 +1217,7 @@ public interface CcModuleApi<
             defaultValue = "True"),
       },
       useStarlarkThread = true)
-  CcToolchainVariablesT getLinkBuildVariables(
+  default CcToolchainVariablesT getLinkBuildVariables(
       Info ccToolchainProvider,
       FeatureConfigurationT featureConfiguration,
       Object librarySearchDirectories,
@@ -1230,8 +1230,9 @@ public interface CcModuleApi<
       boolean mustKeepDebug,
       boolean useTestOnlyFlags,
       boolean isStaticLinkingMode,
-      StarlarkThread thread)
-      throws EvalException;
+      StarlarkThread thread) {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(name = "empty_variables", documented = false, useStarlarkThread = true)
   CcToolchainVariablesT getVariables(StarlarkThread thread) throws EvalException;

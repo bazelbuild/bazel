@@ -402,6 +402,12 @@ public final class CppConfiguration extends Fragment
     return stripBinaries;
   }
 
+  @Override
+  public boolean shouldStripBinariesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return stripBinaries;
+  }
+
   /**
    * Returns the additional options to pass to strip when generating a {@code <name>.stripped}
    * binary by this build.
@@ -644,6 +650,13 @@ public final class CppConfiguration extends Fragment
 
   public String getCSFdoInstrument() {
     return cppOptions.csFdoInstrumentForBuild;
+  }
+
+  @Nullable
+  @Override
+  public String csFdoInstrumentStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getCSFdoInstrument();
   }
 
   @StarlarkMethod(

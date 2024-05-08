@@ -362,58 +362,6 @@ public abstract class CcModule
   }
 
   @Override
-  public CcToolchainVariables getLinkBuildVariables(
-      Info ccToolchainInfo,
-      FeatureConfigurationForStarlark featureConfiguration,
-      Object librarySearchDirectories,
-      Object runtimeLibrarySearchDirectories,
-      Object userLinkFlags,
-      Object outputFile,
-      Object paramFile,
-      boolean isUsingLinkerNotArchiver,
-      boolean isCreatingSharedLibrary,
-      boolean mustKeepDebug,
-      boolean useTestOnlyFlags,
-      boolean isStaticLinkingMode,
-      StarlarkThread thread)
-      throws EvalException {
-    isCalledFromStarlarkCcCommon(thread);
-    if (featureConfiguration.getFeatureConfiguration().isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
-      throw Starlark.errorf("FDO instrumentation not supported");
-    }
-    CcToolchainProvider ccToolchainProvider =
-        CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(ccToolchainInfo);
-    CcToolchainVariables.Builder linkBuildVariables =
-        LinkBuildVariables.setupCommonVariables(
-            isUsingLinkerNotArchiver,
-            isCreatingSharedLibrary,
-            convertFromNoneable(paramFile, /* defaultValue= */ null),
-            mustKeepDebug,
-            ccToolchainProvider,
-            featureConfiguration.getFeatureConfiguration(),
-            useTestOnlyFlags,
-            userFlagsToIterable(userLinkFlags),
-            /* fdoContext= */ null,
-            Depset.noneableCast(
-                runtimeLibrarySearchDirectories,
-                String.class,
-                "runtime_library_search_directories"),
-            /* librariesToLink= */ null,
-            Depset.noneableCast(
-                librarySearchDirectories, String.class, "library_search_directories"));
-    // output exec path
-    if (outputFile != Starlark.NONE) {
-      if (!(outputFile instanceof String)) {
-        throw Starlark.errorf(
-            "Parameter 'output' expected String, got '%s'", Starlark.type(outputFile));
-      }
-      linkBuildVariables.addStringVariable(
-          LinkBuildVariables.OUTPUT_EXECPATH.getVariableName(), (String) outputFile);
-    }
-    return linkBuildVariables.build();
-  }
-
-  @Override
   public CcToolchainVariables getVariables(StarlarkThread thread) throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
     return CcToolchainVariables.EMPTY;

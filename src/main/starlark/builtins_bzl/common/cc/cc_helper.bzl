@@ -15,6 +15,7 @@
 """Utility functions for C++ rules."""
 
 load(":common/cc/cc_common.bzl", "cc_common")
+load(":common/cc/cc_helper_internal.bzl", "should_create_per_object_debug_info", _artifact_category = "artifact_category")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/objc/objc_common.bzl", "objc_common")
 load(":common/objc/semantics.bzl", objc_semantics = "semantics")
@@ -26,26 +27,7 @@ config_common = _builtins.toplevel.config_common
 coverage_common = _builtins.toplevel.coverage_common
 platform_common = _builtins.toplevel.platform_common
 
-artifact_category = struct(
-    STATIC_LIBRARY = "STATIC_LIBRARY",
-    ALWAYSLINK_STATIC_LIBRARY = "ALWAYSLINK_STATIC_LIBRARY",
-    DYNAMIC_LIBRARY = "DYNAMIC_LIBRARY",
-    EXECUTABLE = "EXECUTABLE",
-    INTERFACE_LIBRARY = "INTERFACE_LIBRARY",
-    PIC_FILE = "PIC_FILE",
-    INCLUDED_FILE_LIST = "INCLUDED_FILE_LIST",
-    SERIALIZED_DIAGNOSTICS_FILE = "SERIALIZED_DIAGNOSTICS_FILE",
-    OBJECT_FILE = "OBJECT_FILE",
-    PIC_OBJECT_FILE = "PIC_OBJECT_FILE",
-    CPP_MODULE = "CPP_MODULE",
-    GENERATED_ASSEMBLY = "GENERATED_ASSEMBLY",
-    PROCESSED_HEADER = "PROCESSED_HEADER",
-    GENERATED_HEADER = "GENERATED_HEADER",
-    PREPROCESSED_C_SOURCE = "PREPROCESSED_C_SOURCE",
-    PREPROCESSED_CPP_SOURCE = "PREPROCESSED_CPP_SOURCE",
-    COVERAGE_DATA_FILE = "COVERAGE_DATA_FILE",
-    CLIF_OUTPUT_PROTO = "CLIF_OUTPUT_PROTO",
-)
+artifact_category = _artifact_category
 
 linker_mode = struct(
     LINKING_DYNAMIC = "dynamic_linking_mode",
@@ -580,13 +562,6 @@ def _get_static_mode_params_for_dynamic_library_libraries(libs):
         else:
             linker_inputs.append(lib.dynamic_library)
     return linker_inputs
-
-def _should_create_per_object_debug_info(feature_configuration, cpp_configuration):
-    return cpp_configuration.fission_active_for_current_compilation_mode() and \
-           cc_common.is_enabled(
-               feature_configuration = feature_configuration,
-               feature_name = "per_object_debug_info",
-           )
 
 def _libraries_from_linking_context(linking_context):
     libraries = []
@@ -1235,7 +1210,7 @@ cc_helper = struct(
     is_compilation_outputs_empty = _is_compilation_outputs_empty,
     matches_extension = _matches_extension,
     get_static_mode_params_for_dynamic_library_libraries = _get_static_mode_params_for_dynamic_library_libraries,
-    should_create_per_object_debug_info = _should_create_per_object_debug_info,
+    should_create_per_object_debug_info = should_create_per_object_debug_info,
     check_file_extensions = _check_file_extensions,
     check_srcs_extensions = _check_srcs_extensions,
     libraries_from_linking_context = _libraries_from_linking_context,

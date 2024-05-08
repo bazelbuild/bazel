@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.StarlarkActionContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -43,10 +45,11 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -64,17 +67,45 @@ public class CcStarlarkInternal implements StarlarkValue {
 
   public static final String NAME = "cc_internal";
 
+  /**
+   * Wraps a dictionary of build variables into CcToolchainVariables.
+   *
+   * <p>TODO(b/338618120): This code helps during the transition of cc_common.link and
+   * cc_common.compile code to Starlark. Once that code is in Starlark, CcToolchainVariables rewrite
+   * may commence, most likely turning them into a regular Starlark dict (or a dict with parent if
+   * that optimisation is still needed).
+   */
   @StarlarkMethod(
       name = "cc_toolchain_variables",
       documented = false,
       parameters = {
         @Param(name = "vars", positional = false, named = true),
       })
-  public CcToolchainVariables getCcToolchainVariables(Object vars) throws EvalException {
+  @SuppressWarnings("unchecked")
+  public CcToolchainVariables getCcToolchainVariables(Dict<?, ?> buildVariables)
+      throws TypeException {
+
     CcToolchainVariables.Builder ccToolchainVariables = CcToolchainVariables.builder();
-    for (Map.Entry<String, String> entry :
-        Dict.noneableCast(vars, String.class, String.class, "vars").entrySet()) {
-      ccToolchainVariables.addStringVariable(entry.getKey(), entry.getValue());
+    for (var entry : buildVariables.entrySet()) {
+      if (entry.getValue() instanceof String) {
+        ccToolchainVariables.addStringVariable((String) entry.getKey(), (String) entry.getValue());
+      } else if (entry.getValue() instanceof Boolean) {
+        ccToolchainVariables.addBooleanValue((String) entry.getKey(), (Boolean) entry.getValue());
+      } else if (entry.getValue() instanceof Iterable<?>) {
+        if (entry.getKey().equals("libraries_to_link")) {
+          SequenceBuilder sb = new SequenceBuilder();
+          for (var value : (Iterable<?>) entry.getValue()) {
+            sb.addValue((VariableValue) value);
+          }
+          ccToolchainVariables.addCustomBuiltVariable((String) entry.getKey(), sb);
+        } else {
+          ccToolchainVariables.addStringSequenceVariable(
+              (String) entry.getKey(), (Iterable<String>) entry.getValue());
+        }
+      } else if (entry.getValue() instanceof Depset) {
+        ccToolchainVariables.addStringSequenceVariable(
+            (String) entry.getKey(), ((Depset) entry.getValue()).getSet(String.class));
+      }
     }
     return ccToolchainVariables.build();
   }
@@ -417,6 +448,21 @@ public class CcStarlarkInternal implements StarlarkValue {
     return ccToolchain
         .getFeatures()
         .getArtifactNameForCategory(ArtifactCategory.valueOf(category), outputName);
+  }
+
+  @StarlarkMethod(
+      name = "get_artifact_name_extension_for_category",
+      documented = false,
+      parameters = {
+        @Param(name = "cc_toolchain", named = true),
+        @Param(name = "category", named = true),
+      })
+  public String getArtifactNameExtensionForCategory(Info ccToolchainInfo, String category)
+      throws RuleErrorException, EvalException {
+    CcToolchainProvider ccToolchain = CcToolchainProvider.PROVIDER.wrap(ccToolchainInfo);
+    return ccToolchain
+        .getFeatures()
+        .getArtifactNameExtensionForCategory(ArtifactCategory.valueOf(category));
   }
 
   @StarlarkMethod(

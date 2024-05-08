@@ -16,6 +16,7 @@
 
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
+load(":common/cc/link/link_build_variables.bzl", "create_link_variables")
 
 cc_common_internal = _builtins.internal.cc_common
 CcNativeLibraryInfo = _builtins.internal.CcNativeLibraryInfo
@@ -257,35 +258,6 @@ def _create_compile_variables(
         variables_extension = variables_extension,
         strip_opts = strip_opts,
         input_file = input_file,
-    )
-
-def _create_link_variables(
-        *,
-        cc_toolchain,
-        feature_configuration,
-        library_search_directories = None,
-        runtime_library_search_directories = None,
-        user_link_flags = None,
-        output_file = None,
-        param_file = None,
-        is_using_linker = True,
-        is_linking_dynamic_library = False,
-        must_keep_debug = True,
-        use_test_only_flags = False,
-        is_static_linking_mode = True):
-    return cc_common_internal.create_link_variables(
-        cc_toolchain = cc_toolchain,
-        feature_configuration = feature_configuration,
-        library_search_directories = library_search_directories,
-        runtime_library_search_directories = runtime_library_search_directories,
-        user_link_flags = user_link_flags,
-        output_file = output_file,
-        param_file = param_file,
-        is_using_linker = is_using_linker,
-        is_linking_dynamic_library = is_linking_dynamic_library,
-        must_keep_debug = must_keep_debug,
-        use_test_only_flags = use_test_only_flags,
-        is_static_linking_mode = is_static_linking_mode,
     )
 
 def _empty_variables():
@@ -886,7 +858,7 @@ cc_common = struct(
     get_memory_inefficient_command_line = _get_memory_inefficient_command_line,
     get_environment_variables = _get_environment_variables,
     create_compile_variables = _create_compile_variables,
-    create_link_variables = _create_link_variables,
+    create_link_variables = create_link_variables,
     empty_variables = _empty_variables,
     create_library_to_link = _create_library_to_link,
     create_linker_input = _create_linker_input,
