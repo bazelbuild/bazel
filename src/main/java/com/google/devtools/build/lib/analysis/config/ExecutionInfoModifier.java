@@ -113,20 +113,24 @@ public abstract class ExecutionInfoModifier {
    */
   public static ExecutionInfoModifier collapse(List<ExecutionInfoModifier> executionInfoList, boolean isAdditive) {
     ImmutableList.Builder<Expression> allExpressionsBuilder = ImmutableList.builder();
+    ImmutableList.Builder<String> allExpressionsInputs = ImmutableList.builder();
 
     if (executionInfoList != null && executionInfoList.size() > 0) {
       if (isAdditive) {
         for (ExecutionInfoModifier eim : executionInfoList) {
           allExpressionsBuilder.addAll(eim.expressions());
+          allExpressionsInputs.add(eim.option());
         }
       } else {
         // When not treating execution info as additive, only the last passed option wins.
-        allExpressionsBuilder.addAll(executionInfoList.get(executionInfoList.size() - 1).expressions());
+        final ExecutionInfoModifier eim = executionInfoList.get(executionInfoList.size() - 1);
+        allExpressionsBuilder.addAll(eim.expressions());
+        allExpressionsInputs.add(eim.option());
       }
 
     }
 
-    return create("", allExpressionsBuilder.build());
+    return create(String.join(",", allExpressionsInputs.build()), allExpressionsBuilder.build());
   }
 
   /** Modifies the given map of {@code executionInfo} to add or remove the keys for this option. */

@@ -82,6 +82,8 @@ public class ExecutionInfoModifierTest {
     assertModifierMatchesAndResults(mergedModifier, "GenericAction", ImmutableSet.of("z"));
     assertModifierMatchesAndResults(mergedModifier, "MergeLayers", ImmutableSet.of("u"));
     assertModifierMatchesAndResults(mergedModifier, "OtherAction", ImmutableSet.of("o"));
+    assertThat(mergedModifier.option()).isEqualTo("Genrule=+x,CppCompile=-y1,GenericAction=+z,MergeLayers=+t,OtherAction=+o" +
+            ",Genrule=-x,CppCompile=+y1,CppCompile=+y2,GenericAction=+z,MergeLayers=+u,.*=-t");
   }
 
   @Test
@@ -97,6 +99,7 @@ public class ExecutionInfoModifierTest {
     assertModifierMatchesAndResults(mergedModifier1, "GenericAction", ImmutableSet.of("z"));
     assertModifierMatchesAndResults(mergedModifier1, "MergeLayers", ImmutableSet.of("u"));
     assertThat(mergedModifier1.matches("OtherAction")).isFalse();
+    assertThat(mergedModifier1.option()).isEqualTo("Genrule=-x,CppCompile=+y1,CppCompile=+y2,GenericAction=+z,MergeLayers=+u");
 
     ExecutionInfoModifier mergedModifier2 = ExecutionInfoModifier.collapse(List.of(modifier1, modifier2, modifier3), false);
 
@@ -105,6 +108,7 @@ public class ExecutionInfoModifierTest {
     assertModifierMatchesAndResults(mergedModifier2, "GenericAction", ImmutableSet.of());
     assertModifierMatchesAndResults(mergedModifier2, "MergeLayers", ImmutableSet.of());
     assertModifierMatchesAndResults(mergedModifier2, "OtherAction", ImmutableSet.of());
+    assertThat(mergedModifier2.option()).isEqualTo(".*=-t");
   }
 
   @Test
