@@ -1977,6 +1977,7 @@ EOF
   cat > def.bzl <<'EOF'
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "read_netrc", "use_netrc")
 def _impl(ctx):
+  print("authrepo is being evaluated")
   rc = read_netrc(ctx, ctx.attr.path)
   auth = use_netrc(rc, ctx.attr.urls, {"oauthlife.com": "Bearer <password>",})
   ctx.file("data.bzl", "auth = %s" % (auth,))
@@ -2058,9 +2059,16 @@ genrule(
   cmd = "echo %s > $@" % (check_equal_expected(),)
 )
 EOF
-  bazel build //:check_expected
+  bazel build //:check_expected &> $TEST_log || fail "Expected success"
   grep 'OK' `bazel info bazel-bin`/check_expected.txt \
        || fail "Authentication merged incorrectly"
+  expect_log "authrepo is being evaluated"
+
+  echo "modified" > .netrc
+  bazel build //:check_expected &> $TEST_log || fail "Expected success"
+  grep 'OK' `bazel info bazel-bin`/check_expected.txt \
+       || fail "Authentication information should not have been reevaluated"
+  expect_not_log "authrepo is being evaluated"
 }
 
 function test_disallow_unverified_http() {
