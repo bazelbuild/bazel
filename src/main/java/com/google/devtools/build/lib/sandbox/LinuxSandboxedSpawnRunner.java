@@ -17,7 +17,11 @@ package com.google.devtools.build.lib.sandbox;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NETNS_WITH_LOOPBACK;
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NO_NETNS;
+import static java.util.stream.Collectors.joining;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -57,13 +61,15 @@ import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.SequencedSet;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /** Spawn runner that uses linux sandboxing APIs to execute a local subprocess. */
@@ -132,6 +138,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final FileSystem fileSystem;
   private final Path slashTmp;
   private final boolean tmpOnPackagePath;
+  private final LoadingCache<Root, ImmutableSet<Path>> symlinkChainCache =
+      Caffeine.newBuilder().build(LinuxSandboxedSpawnRunner::readSymlinkChainUncached);
   private String cgroupsDir;
 
   /**
@@ -363,15 +371,22 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     }
 
     // Roots under /tmp are treated exactly like a user mount under /tmp to ensure that they are
-    // visible at the same path after mounting the hermetic tmp.
-    Map<Path, Path> rootsUnderTmp =
-        Stream.concat(Stream.of(execRoot), inputs.getSourceRoots().stream().map(Root::asPath))
+    // visible at the same path after mounting the hermetic tmp. Since a source root can be a
+    // symlink to another directory under /tmp, we need to account for all intermediate symlinks.
+    SequencedSet<Path> resolvedRoots = new LinkedHashSet<>();
+    resolvedRoots.add(execRoot);
+    for (Root root : inputs.getSourceRoots()) {
+      resolvedRoots.add(root.asPath());
+      resolvedRoots.addAll(readSymlinkChain(root));
+    }
+    ImmutableMap<Path, Path> resolvedRootsUnderTmp =
+        resolvedRoots.stream()
             .filter(p -> p.startsWith(slashTmp))
             .collect(toImmutableMap(p -> p, p -> p));
+    Iterable<Map.Entry<Path, Path>> allMounts =
+        Iterables.concat(userBindMounts.entrySet(), resolvedRootsUnderTmp.entrySet());
 
     SortedMap<Path, Path> bindMounts = new TreeMap<>();
-    Iterable<Map.Entry<Path, Path>> allMounts =
-        Iterables.concat(userBindMounts.entrySet(), rootsUnderTmp.entrySet());
     for (var entry : allMounts) {
       Path mountPoint = entry.getKey();
       Path content = entry.getValue();
@@ -396,6 +411,38 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         .putAll(bindMounts)
         .put(slashTmp, sandboxTmp)
         .buildOrThrow();
+  }
+
+  /** Returns the chain of symlink targets obtained while resolving the path of the given root. */
+  private ImmutableSet<Path> readSymlinkChain(Root root) throws IOException {
+    // We don't expect roots to change where they point to during a single build, so we can cache
+    // the symlink chains. The root path itself is not stored to reduce memory usage by having most
+    // roots share the empty set instance.
+    try {
+      return symlinkChainCache.get(root);
+    } catch (CompletionException e) {
+      Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
+      throw e;
+    }
+  }
+
+  private static ImmutableSet<Path> readSymlinkChainUncached(Root root) throws IOException {
+    Path path = root.asPath();
+    SequencedSet<Path> result = new LinkedHashSet<>();
+    while (true) {
+      try {
+        path = path.getParentDirectory().getRelative(path.readSymbolicLink());
+      } catch (FileSystem.NotASymlinkException e) {
+        break;
+      }
+      if (!result.add(path)) {
+        throw new IOException(
+            String.format(
+                "Cycle in symlink chain for root %s: %s",
+                root, result.stream().map(Path::toString).collect(joining(" -> "))));
+      }
+    }
+    return ImmutableSet.copyOf(result);
   }
 
   @Override
