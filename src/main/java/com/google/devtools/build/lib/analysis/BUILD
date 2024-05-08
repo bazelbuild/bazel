@@ -1643,6 +1643,7 @@ java_library(
         ":config/build_options",
         ":config/compilation_mode",
         ":config/core_options",
+        ":config/execution_info_modifier",
         ":config/feature_set",
         ":config/fragment",
         ":config/fragment_class_set",

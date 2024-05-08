@@ -718,6 +718,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "Specifying -<feature> will disable the feature. "
               + "Negative features always override positive ones.")
   public List<String> hostFeatures;
+
   @Option(
       name = "target_environment",
       converter = LabelListConverter.class,
@@ -807,14 +808,15 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "modify_execution_info",
+      allowMultiple = true,
       converter = ExecutionInfoModifier.Converter.class,
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {
         OptionEffectTag.EXECUTION,
         OptionEffectTag.AFFECTS_OUTPUTS,
         OptionEffectTag.LOADING_AND_ANALYSIS,
       },
-      defaultValue = "",
       help =
           "Add or remove keys from an action's execution info based on action mnemonic.  "
               + "Applies only to actions which support execution info. Many common actions "
@@ -829,7 +831,22 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "all Genrule actions.\n"
               + "  '(?!Genrule).*=-requires-x' removes 'requires-x' from the execution info for "
               + "all non-Genrule actions.\n")
-  public ExecutionInfoModifier executionInfoModifier;
+  public List<ExecutionInfoModifier> executionInfoModifier;
+
+  @Option(
+      name = "incompatible_modify_execution_info_additive",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "When enabled, passing multiple --modify_execution_info flags is additive."
+              + " When disabled, only the last flag is taken into account.")
+  public boolean additiveModifyExecutionInfo;
 
   @Option(
       name = "include_config_fragments_provider",
