@@ -17,6 +17,7 @@ syntax = "proto3";
 package tools.protos;
 
 import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
 
 option java_package = "com.google.devtools.build.lib.exec";
 option java_outer_classname = "Protos";
@@ -335,6 +336,9 @@ message ExecLogEntry {
 
     // See SpawnExec.metrics.
     SpawnMetrics metrics = 18;
+
+    // Time the spawn execution started.
+    google.protobuf.Timestamp start_time = 19;
   }
 
   // The entry ID. Must be nonzero.

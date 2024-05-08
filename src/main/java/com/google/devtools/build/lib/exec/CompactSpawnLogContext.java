@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.protobuf.util.Timestamps;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -238,6 +239,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
         }
       }
 
+      builder.setStartTime(Timestamps.fromMillis(result.getStartTime().toEpochMilli()));
       builder.setExitCode(result.exitCode());
       if (result.status() != SpawnResult.Status.SUCCESS) {
         builder.setStatus(result.status().toString());
