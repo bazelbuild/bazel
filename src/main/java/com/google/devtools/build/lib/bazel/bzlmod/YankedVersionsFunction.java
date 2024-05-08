@@ -37,33 +37,24 @@ public class YankedVersionsFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     var key = (YankedVersionsValue.Key) skyKey.argument();
 
-    BazelLockFileValue lockfile = (BazelLockFileValue) env.getValue(BazelLockFileValue.KEY);
-    if (lockfile == null) {
-      return null;
-    }
     Registry registry = (Registry) env.getValue(RegistryKey.create(key.getRegistryUrl()));
     if (registry == null) {
       return null;
     }
 
-    if (!registry.shouldFetchYankedVersions(key.getModuleKey())) {
-      return YankedVersionsValue.create(Optional.empty());
-    }
-
     try (SilentCloseable c =
         Profiler.instance()
             .profile(
-                ProfilerTask.BZLMOD,
-                () -> "getting yanked versions: " + key.getModuleKey().getName())) {
+                ProfilerTask.BZLMOD, () -> "getting yanked versions: " + key.getModuleName())) {
       return YankedVersionsValue.create(
-          registry.getYankedVersions(key.getModuleKey().getName(), env.getListener()));
+          registry.getYankedVersions(key.getModuleName(), env.getListener()));
     } catch (IOException e) {
       env.getListener()
           .handle(
               Event.warn(
                   String.format(
                       "Could not read metadata file for module %s from registry %s: %s",
-                      key.getModuleKey().getName(), key.getRegistryUrl(), e.getMessage())));
+                      key.getModuleName(), key.getRegistryUrl(), e.getMessage())));
       // This is failing open: If we can't read the metadata file, we allow yanked modules to be
       // fetched.
       return YankedVersionsValue.create(Optional.empty());

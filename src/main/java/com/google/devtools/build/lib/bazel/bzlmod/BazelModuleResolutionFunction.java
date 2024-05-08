@@ -176,7 +176,8 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     var yankedVersionsKeys =
         resolvedDepGraph.values().stream()
             .filter(m -> m.getRegistry() != null)
-            .map(m -> YankedVersionsValue.Key.create(m.getKey(), m.getRegistry().getUrl()))
+            .filter(m -> m.getRegistry().shouldFetchYankedVersions(m.getKey()))
+            .map(m -> YankedVersionsValue.Key.create(m.getName(), m.getRegistry().getUrl()))
             .collect(toImmutableSet());
     SkyframeLookupResult yankedVersionsResult = env.getValuesAndExceptions(yankedVersionsKeys);
     if (env.valuesMissing()) {
@@ -329,9 +330,9 @@ public class BazelModuleResolutionFunction implements SkyFunction {
       ModuleKey key = m.getKey();
       YankedVersionsValue yankedVersionsValue =
           yankedVersionValues.get(
-              YankedVersionsValue.Key.create(m.getKey(), m.getRegistry().getUrl()));
-      if (yankedVersionsValue.yankedVersions().isEmpty()) {
-        // No yanked version information available or no need to check it.
+              YankedVersionsValue.Key.create(m.getName(), m.getRegistry().getUrl()));
+      if (yankedVersionsValue == null || yankedVersionsValue.yankedVersions().isEmpty()) {
+        // No need to check or no yanked version information available.
         continue;
       }
       String yankedInfo = yankedVersionsValue.yankedVersions().get().get(key.getVersion());
