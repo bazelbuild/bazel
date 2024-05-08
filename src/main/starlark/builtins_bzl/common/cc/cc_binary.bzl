@@ -19,7 +19,7 @@ load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_debug_helper.bzl", "create_debug_packager_actions")
 load(":common/cc/cc_helper.bzl", "cc_helper", "linker_mode")
 load(":common/cc/cc_info.bzl", "CcInfo")
-load(":common/cc/cc_shared_library.bzl", "GraphNodeInfo", "add_unused_dynamic_deps", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "cc_shared_library_initializer", "merge_cc_shared_library_infos", "separate_static_and_dynamic_link_libraries", "sort_linker_inputs", "throw_linked_but_not_exported_errors")
+load(":common/cc/cc_shared_library.bzl", "GraphNodeInfo", "add_unused_dynamic_deps", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "dynamic_deps_initializer", "merge_cc_shared_library_infos", "separate_static_and_dynamic_link_libraries", "sort_linker_inputs", "throw_linked_but_not_exported_errors")
 load(":common/cc/semantics.bzl", "semantics")
 
 DebugPackageInfo = _builtins.toplevel.DebugPackageInfo
@@ -791,7 +791,7 @@ def _impl(ctx):
 
 cc_binary = rule(
     implementation = _impl,
-    initializer = cc_shared_library_initializer,
+    initializer = dynamic_deps_initializer,
     doc = """
 <p>It produces an executable binary.</p>
 

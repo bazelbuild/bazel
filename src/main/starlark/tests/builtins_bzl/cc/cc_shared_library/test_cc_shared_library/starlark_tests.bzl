@@ -353,9 +353,9 @@ nocode_cc_lib = rule(
 def _exports_test_impl(env, target):
     actual = list(target[CcSharedLibraryInfo].exports)
 
-    # Remove the @@ prefix on Bazel
+    # Remove the @@ prefix for main repo labels on Bazel
     for i in range(len(actual)):
-        if actual[i].startswith("@@"):
+        if actual[i].startswith("@@//"):
             actual[i] = actual[i][2:]
     expected = env.ctx.attr._targets_that_should_be_claimed_to_be_exported
     env.expect.where(
