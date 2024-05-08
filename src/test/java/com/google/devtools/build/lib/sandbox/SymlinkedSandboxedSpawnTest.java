@@ -89,7 +89,8 @@ public class SymlinkedSandboxedSpawnTest {
     symlinkedExecRoot.createFileSystem();
 
     assertThat(execRoot.getRelative("such/input.txt").isSymbolicLink()).isTrue();
-    assertThat(execRoot.getRelative("such/input.txt").resolveSymbolicLinks()).isEqualTo(helloTxt);
+    assertThat(execRoot.getRelative("such/input.txt").resolveSymbolicLinks())
+        .isEqualTo(helloTxt.asPath());
     assertThat(execRoot.getRelative("very").isDirectory()).isTrue();
     assertThat(execRoot.getRelative("wow/writable").isDirectory()).isTrue();
   }
