@@ -95,6 +95,22 @@ EOF
   expect_log '"net.starlark.java.eval.Module": 1'  # Only a.bzl, not b.bzl
 }
 
+function test_memory_full() {
+  mkdir -p a b
+  cat > a/BUILD <<'EOF'
+filegroup(name="a", srcs=["//b:b"])
+EOF
+
+  cat > b/BUILD <<'EOF'
+filegroup(name="b")
+EOF
+
+  bazel query 'deps(//a:a)' >& $TEST_log || fail "query failed"
+  bazel dump --memory=full,summary >& $TEST_log  || fail "dump failed"
+  expect_log '"PACKAGE:a":'
+  expect_log '"PACKAGE:b":'
+}
+
 function test_memory_needle() {
   mkdir -p a
   cat > a/BUILD <<'EOF'

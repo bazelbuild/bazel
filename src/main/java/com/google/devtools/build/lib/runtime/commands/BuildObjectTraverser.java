@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.BaselineOptionsValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkLateBoundDefault;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Provider;
@@ -46,6 +47,27 @@ final class BuildObjectTraverser implements DomainSpecificTraverser {
     this.reportConfiguration = reportConfiguration;
     this.reportPrecomputed = reportPrecomputed;
     this.reportWorkspaceStatus = reportWorkspaceStatus;
+  }
+
+  @Override
+  public boolean isInterned(Object o) {
+    if (o instanceof String) {
+      return true;
+    }
+
+    if (o instanceof Label) {
+      return true;
+    }
+
+    if (o instanceof PackageIdentifier) {
+      return true;
+    }
+
+    if (o instanceof RepositoryName) {
+      return true;
+    }
+
+    return false;
   }
 
   @Override
@@ -115,16 +137,6 @@ final class BuildObjectTraverser implements DomainSpecificTraverser {
     }
 
     if (o instanceof StarlarkLateBoundDefault) {
-      // These are cached and thus not assignable to individual Skyframe objects
-      return false;
-    }
-
-    if (o instanceof PackageIdentifier) {
-      // These are cached and thus not assignable to individual Skyframe objects
-      return false;
-    }
-
-    if (o instanceof RepositoryName) {
       // These are cached and thus not assignable to individual Skyframe objects
       return false;
     }

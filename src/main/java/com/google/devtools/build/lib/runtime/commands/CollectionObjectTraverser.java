@@ -46,6 +46,11 @@ public class CollectionObjectTraverser
   }
 
   @Override
+  public boolean isInterned(Object o) {
+    return false;
+  }
+
+  @Override
   public long maybeGetShallowSize(Object o) {
     return switch (o) {
       case List<?> l -> getShallowSize(l) + getArraySize(l.size(), Object.class);
