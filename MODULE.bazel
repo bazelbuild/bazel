@@ -81,7 +81,7 @@ maven.install(
     artifacts = [
         # keep sorted
         "com.beust:jcommander:1.82",
-        "com.github.ben-manes.caffeine:caffeine:3.1.8",
+        "com.github.ben-manes.caffeine:caffeine:3.0.5",
         "com.github.kevinstern:software-and-algorithms:1.0",
         "com.github.stephenc.jcip:jcip-annotations:1.0-1",
         "com.google.api-client:google-api-client:1.35.2",

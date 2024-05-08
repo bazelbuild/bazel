@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "bbf22388872e2a83387d074c5c7f8fa2e6b44048a565913d2df6f9dcd3783cde",
+  "moduleFileHash": "ec2861042ece461ae1d704f7f8643f5dbc353e5683f6138cfedf9b63b3d63343",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -55,7 +55,7 @@
               "attributeValues": {
                 "artifacts": [
                   "com.beust:jcommander:1.82",
-                  "com.github.ben-manes.caffeine:caffeine:3.1.8",
+                  "com.github.ben-manes.caffeine:caffeine:3.0.5",
                   "com.github.kevinstern:software-and-algorithms:1.0",
                   "com.github.stephenc.jcip:jcip-annotations:1.0-1",
                   "com.google.api-client:google-api-client:1.35.2",
@@ -2927,7 +2927,7 @@
       "general": {
         "bzlTransitiveDigest": "VBORN+IBXeLBoYFlmaQRhi4EgJwXxJ9i+65BUjwwG18=",
         "recordedFileInputs": {
-          "@@//MODULE.bazel": "bbf22388872e2a83387d074c5c7f8fa2e6b44048a565913d2df6f9dcd3783cde",
+          "@@//MODULE.bazel": "ec2861042ece461ae1d704f7f8643f5dbc353e5683f6138cfedf9b63b3d63343",
           "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "c2da7815256d6bb92f953b05334419abb9fc698d13710d129a3ca9346eb04a4e"
         },
         "recordedDirentsInputs": {},
@@ -5395,7 +5395,7 @@
         "recordedFileInputs": {
           "@@//src/tools/android/maven_android_install.json": "09bff3e33d291336046f7c9201630fb5e014f0e60b78b6f09b84e4f5f73ed04f",
           "@@rules_jvm_external~//rules_jvm_external_deps_install.json": "cafb5d2d8119391eb2b322ce3840d3352ea82d496bdb8cbd4b6779ec4d044dda",
-          "@@//maven_install.json": "7fcbc558d781872c566d6d64192c1651e46b3f9772e532bcd662c5ae830adcea"
+          "@@//maven_install.json": "36ad2194679bab5fd1cd8d09f256650cffeedda18e488ac9f3569aa5b5561277"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -5904,17 +5904,6 @@
               "downloaded_file_path": "v1/com/google/protobuf/protobuf-java/3.10.0/protobuf-java-3.10.0.jar"
             }
           },
-          "com_github_ben_manes_caffeine_caffeine_3_1_8": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "7dd15f9df1be238ffaa367ce6f556737a88031de4294dad18eef57c474ddf1d3",
-              "urls": [
-                "https://repo1.maven.org/maven2/com/github/ben-manes/caffeine/caffeine/3.1.8/caffeine-3.1.8.jar"
-              ],
-              "downloaded_file_path": "v1/com/github/ben-manes/caffeine/caffeine/3.1.8/caffeine-3.1.8.jar"
-            }
-          },
           "io_grpc_grpc_netty_shaded_1_56_1": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -6004,7 +5993,7 @@
                 "{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-proto-extension\", \"version\": \"1.4.0\", \"testonly\": true }",
                 "{ \"group\": \"org.mockito\", \"artifact\": \"mockito-core\", \"version\": \"5.4.0\", \"testonly\": true }",
                 "{ \"group\": \"com.beust\", \"artifact\": \"jcommander\", \"version\": \"1.82\" }",
-                "{ \"group\": \"com.github.ben-manes.caffeine\", \"artifact\": \"caffeine\", \"version\": \"3.1.8\" }",
+                "{ \"group\": \"com.github.ben-manes.caffeine\", \"artifact\": \"caffeine\", \"version\": \"3.0.5\" }",
                 "{ \"group\": \"com.github.kevinstern\", \"artifact\": \"software-and-algorithms\", \"version\": \"1.0\" }",
                 "{ \"group\": \"com.github.stephenc.jcip\", \"artifact\": \"jcip-annotations\", \"version\": \"1.0-1\" }",
                 "{ \"group\": \"com.google.api-client\", \"artifact\": \"google-api-client\", \"version\": \"1.35.2\" }",
@@ -6552,6 +6541,17 @@
                 "https://repo1.maven.org/maven2/io/netty/netty-resolver/4.1.94.Final/netty-resolver-4.1.94.Final.jar"
               ],
               "downloaded_file_path": "v1/io/netty/netty-resolver/4.1.94.Final/netty-resolver-4.1.94.Final.jar"
+            }
+          },
+          "com_github_ben_manes_caffeine_caffeine_3_0_5": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "8a9b54d3506a3b92ee46b217bcee79196b21ca6d52dc2967c686a205fb2f9c15",
+              "urls": [
+                "https://repo1.maven.org/maven2/com/github/ben-manes/caffeine/caffeine/3.0.5/caffeine-3.0.5.jar"
+              ],
+              "downloaded_file_path": "v1/com/github/ben-manes/caffeine/caffeine/3.0.5/caffeine-3.0.5.jar"
             }
           },
           "org_apache_httpcomponents_httpclient_4_5_6": {
@@ -8631,7 +8631,7 @@
                 "{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-proto-extension\", \"version\": \"1.4.0\", \"testonly\": true }",
                 "{ \"group\": \"org.mockito\", \"artifact\": \"mockito-core\", \"version\": \"5.4.0\", \"testonly\": true }",
                 "{ \"group\": \"com.beust\", \"artifact\": \"jcommander\", \"version\": \"1.82\" }",
-                "{ \"group\": \"com.github.ben-manes.caffeine\", \"artifact\": \"caffeine\", \"version\": \"3.1.8\" }",
+                "{ \"group\": \"com.github.ben-manes.caffeine\", \"artifact\": \"caffeine\", \"version\": \"3.0.5\" }",
                 "{ \"group\": \"com.github.kevinstern\", \"artifact\": \"software-and-algorithms\", \"version\": \"1.0\" }",
                 "{ \"group\": \"com.github.stephenc.jcip\", \"artifact\": \"jcip-annotations\", \"version\": \"1.0-1\" }",
                 "{ \"group\": \"com.google.api-client\", \"artifact\": \"google-api-client\", \"version\": \"1.35.2\" }",
