@@ -242,7 +242,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             .setExtraPrecomputeValues(
                 ImmutableList.of(
                     PrecomputedValue.injected(
-                        ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
+                        ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())),
                     PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
                     PrecomputedValue.injected(
                         RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, false),
@@ -299,7 +299,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                 BuildInfoCollectionFunction.BUILD_INFO_FACTORIES,
                 ruleClassProvider.getBuildInfoFactoriesAsMap()),
             PrecomputedValue.injected(
-                ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
+                ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())),
             PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
             PrecomputedValue.injected(RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, false),
             PrecomputedValue.injected(

@@ -43,10 +43,14 @@ public class RegistryFactoryTest extends FoundationTestCase {
             new DownloadManager(new RepositoryCache(), new HttpDownloader()),
             Suppliers.ofInstance(ImmutableMap.of()));
     Throwable exception =
-        assertThrows(URISyntaxException.class, () -> registryFactory.createRegistry("/home/www"));
+        assertThrows(
+            URISyntaxException.class,
+            () -> registryFactory.createRegistry("/home/www", ImmutableMap.of()));
     assertThat(exception).hasMessageThat().contains("Registry URL has no scheme");
     exception =
-        assertThrows(URISyntaxException.class, () -> registryFactory.createRegistry("foo://bar"));
+        assertThrows(
+            URISyntaxException.class,
+            () -> registryFactory.createRegistry("foo://bar", ImmutableMap.of()));
     assertThat(exception).hasMessageThat().contains("Unrecognized registry URL protocol");
   }
 
@@ -61,7 +65,9 @@ public class RegistryFactoryTest extends FoundationTestCase {
     Throwable exception =
         assertThrows(
             URISyntaxException.class,
-            () -> registryFactory.createRegistry("file:c:/path/to/workspace/registry"));
+            () ->
+                registryFactory.createRegistry(
+                    "file:c:/path/to/workspace/registry", ImmutableMap.of()));
     assertThat(exception).hasMessageThat().contains("Registry URL path is not valid");
   }
 }

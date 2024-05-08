@@ -301,7 +301,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
                     ruleClassProvider.getBuildInfoFactoriesAsMap()))
             .add(
                 PrecomputedValue.injected(
-                    ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())))
+                    ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())))
             .addAll(extraPrecomputedValues())
             .build();
     PackageFactory.BuilderForTesting pkgFactoryBuilder =
