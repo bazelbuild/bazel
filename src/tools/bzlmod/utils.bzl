@@ -163,7 +163,7 @@ def parse_registry_files(ctx, lockfile_path, module_files):
             for url, sha256 in registry_file_hashes.items()
         ]
 
-    # TODO: Remove this branch after Bazel is built with 7.2.0.
+    # TODO: Remove the following code after Bazel is built with 7.2.0.
     registry_files = ["https://bcr.bazel.build/bazel_registry.json"]
 
     # 1. Collect all source.json files of selected module versions.

@@ -94,7 +94,9 @@ final class Discovery {
           if (e.getDetailedExitCode().getFailureDetail() == null
               || e.getDetailedExitCode().getFailureDetail().getExternalDeps().getCode()
                   != FailureDetails.ExternalDeps.Code.BAD_MODULE) {
-            // This is not due to a bad module, so don't print a dependency chain.
+            // This is not due to a bad module, so don't print a dependency chain. This covers cases
+            // such as a parse error in the lockfile or an I/O exception during registry access,
+            // which aren't related to any particular module dep.
             throw e;
           }
           // Trace back a dependency chain to the root module. There can be multiple paths to the

@@ -441,13 +441,14 @@ public class IndexRegistry implements Registry {
 
   @Override
   public boolean shouldFetchYankedVersions(ModuleKey selectedModuleKey) {
-    // If the source.json hash is known, this module has been selected before when selection
-    // succeeded, which means that either:
-    // * it wasn't yanked at that point in time and any successful selection since then has not seen
-    //   a higher module version, or
-    // * it was yanked at that point in time, but explicitly allowed via
-    //   BZLMOD_ALLOW_YANKED_VERSIONS or --allow_yanked_versions.
-    // In the first case, we don't fetch yanked versions.
+    // If the source.json hash is known, this module has been selected during the last (successful)
+    // selection recorded in the lockfile (possibly one of two selections in case of a git merge
+    // conflict resolution). We do not fetch yanked versions for this module unless we know that it
+    // was yanked at that point but explicitly allowed via BZLMOD_ALLOW_YANKED_VERSIONS or
+    // --allow_yanked_versions.
+    // As a consequence, since source.json hashes are reused by future module resolutions, yanked
+    // versions are not checked for updates for as long as the same version of the module keeps
+    // being selected.
     return yankedButAllowedModules.contains(selectedModuleKey)
         || !knownFileHashes.containsKey(getSourceJsonUrl(selectedModuleKey));
   }
