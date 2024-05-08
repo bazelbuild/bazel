@@ -87,6 +87,7 @@ java_library(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
+        "@com_google_protobuf//java/util",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
         "@zstd-jni",
     ],
