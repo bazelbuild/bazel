@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidStarlarkCom
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkInt;
 
 /** Common utilities for Starlark rules related to Android. */
 public class AndroidStarlarkCommon
@@ -87,14 +88,16 @@ public class AndroidStarlarkCommon
       Artifact output,
       Artifact input,
       Sequence<?> dexopts, // <String> expected.
-      FilesToRunProvider dexmerger)
+      FilesToRunProvider dexmerger,
+      StarlarkInt minSdkVersion)
       throws EvalException, RuleErrorException {
     AndroidBinary.createTemplatedMergerActions(
         starlarkRuleContext.getRuleContext(),
         (SpecialArtifact) output,
         (SpecialArtifact) input,
         Sequence.cast(dexopts, String.class, "dexopts"),
-        dexmerger);
+        dexmerger,
+        minSdkVersion.toInt("min_sdk_version"));
   }
 
   @StarlarkMethod(name = AndroidIdeInfoProviderApi.NAME, structField = true, documented = false)
