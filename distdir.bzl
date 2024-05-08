@@ -87,7 +87,7 @@ def _repo_cache_tar_impl(ctx):
     """
     lockfile_path = ctx.path(ctx.attr.lockfile)
     http_artifacts = parse_http_artifacts(ctx, lockfile_path, ctx.attr.repos)
-    registry_files = parse_registry_files(ctx, lockfile_path)
+    registry_files = parse_registry_files(ctx, lockfile_path, ctx.attr.module_files)
 
     archive_files = []
     readme_content = "This directory contains repository cache artifacts for the following URLs:\n\n"
@@ -123,6 +123,7 @@ _repo_cache_tar_attrs = {
     "lockfile": attr.label(default = Label("//:MODULE.bazel.lock")),
     "dirname": attr.string(default = "repository_cache"),
     "repos": attr.string_list(),
+    "module_files": attr.label_list(),
 }
 
 repo_cache_tar = repository_rule(

@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "939a48e4dbb71472db80f16a6a639f65cb4ddb07d8e1fd01db14cf1d0323917d",
+  "moduleFileHash": "f5804e3f128841819a45a9db71d969deb5089a4df7c1f4a477095ee7fff8bd89",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -39,7 +39,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 76,
+            "line": 77,
             "column": 22
           },
           "imports": {
@@ -170,7 +170,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 77,
+                "line": 78,
                 "column": 14
               }
             },
@@ -185,7 +185,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 203,
+                "line": 204,
                 "column": 19
               }
             },
@@ -200,7 +200,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 203,
+                "line": 204,
                 "column": 19
               }
             },
@@ -215,7 +215,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 203,
+                "line": 204,
                 "column": 19
               }
             },
@@ -230,7 +230,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 203,
+                "line": 204,
                 "column": 19
               }
             },
@@ -245,7 +245,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 203,
+                "line": 204,
                 "column": 19
               }
             },
@@ -260,7 +260,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 203,
+                "line": 204,
                 "column": 19
               }
             },
@@ -275,7 +275,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 203,
+                "line": 204,
                 "column": 19
               }
             },
@@ -290,7 +290,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 203,
+                "line": 204,
                 "column": 19
               }
             },
@@ -305,7 +305,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 203,
+                "line": 204,
                 "column": 19
               }
             },
@@ -333,7 +333,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 343,
+                "line": 344,
                 "column": 22
               }
             }
@@ -347,7 +347,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 224,
+            "line": 225,
             "column": 32
           },
           "imports": {
@@ -387,7 +387,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 258,
+            "line": 259,
             "column": 23
           },
           "imports": {},
@@ -401,7 +401,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 259,
+                "line": 260,
                 "column": 17
               }
             }
@@ -415,7 +415,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 261,
+            "line": 262,
             "column": 20
           },
           "imports": {
@@ -433,7 +433,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 262,
+                "line": 263,
                 "column": 10
               }
             }
@@ -447,7 +447,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 273,
+            "line": 274,
             "column": 33
           },
           "imports": {
@@ -478,7 +478,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 294,
+            "line": 295,
             "column": 29
           },
           "imports": {
@@ -495,7 +495,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 297,
+            "line": 298,
             "column": 20
           },
           "imports": {
@@ -514,7 +514,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 298,
+                "line": 299,
                 "column": 12
               }
             }
@@ -528,7 +528,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 310,
+            "line": 311,
             "column": 32
           },
           "imports": {
@@ -547,7 +547,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 318,
+            "line": 319,
             "column": 31
           },
           "imports": {
@@ -564,7 +564,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 321,
+            "line": 322,
             "column": 48
           },
           "imports": {
@@ -581,7 +581,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 365,
+            "line": 366,
             "column": 35
           },
           "imports": {
@@ -598,7 +598,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 368,
+            "line": 369,
             "column": 42
           },
           "imports": {
@@ -616,7 +616,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 371,
+            "line": 372,
             "column": 45
           },
           "imports": {
@@ -649,6 +649,7 @@
         "rules_testing": "rules_testing@0.6.0",
         "com_google_googletest": "googletest@1.14.0",
         "with_cfg.bzl": "with_cfg.bzl@0.2.4",
+        "buildozer": "buildozer@7.1.1.1",
         "remoteapis": "remoteapis@_",
         "googleapis": "googleapis@_",
         "apple_support": "apple_support@1.8.1",
@@ -1847,6 +1848,72 @@
         }
       }
     },
+    "buildozer@7.1.1.1": {
+      "name": "buildozer",
+      "version": "7.1.1.1",
+      "key": "buildozer@7.1.1.1",
+      "repoName": "buildozer",
+      "executionPlatformsToRegister": [],
+      "toolchainsToRegister": [],
+      "extensionUsages": [
+        {
+          "extensionBzlFile": "@buildozer//:buildozer_binary.bzl",
+          "extensionName": "buildozer_binary",
+          "usingModule": "buildozer@7.1.1.1",
+          "location": {
+            "file": "https://bcr.bazel.build/modules/buildozer/7.1.1.1/MODULE.bazel",
+            "line": 7,
+            "column": 33
+          },
+          "imports": {
+            "buildozer_binary": "buildozer_binary"
+          },
+          "devImports": [],
+          "tags": [
+            {
+              "tagName": "buildozer",
+              "attributeValues": {
+                "sha256": {
+                  "darwin-amd64": "6286bbbcb5314d675fcb4ede30edf397a68c611005412c937b2cc0c4bf4b714b",
+                  "darwin-arm64": "0a2f70aa7b864de9bf71d1aac39659017b7a84169506e350d9ec77c609265212",
+                  "linux-amd64": "9a7424aca7ca911c85cfedeadf065f0d95c492e80f0e29bd07ea98f6eb087259",
+                  "linux-arm64": "07c8ed5ca3efea7e20756e9060660b7e658c781953c60650a1b99cd8bb857fcf",
+                  "windows-amd64": "edad2e85cc691b064de9675db8e732b2c5a4ada0b32282ecdf4b18692cc8d3fe"
+                },
+                "version": "7.1.1"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "https://bcr.bazel.build/modules/buildozer/7.1.1.1/MODULE.bazel",
+                "line": 8,
+                "column": 27
+              }
+            }
+          ],
+          "hasDevUseExtension": false,
+          "hasNonDevUseExtension": true
+        }
+      ],
+      "deps": {
+        "bazel_tools": "bazel_tools@_",
+        "local_config_platform": "local_config_platform@_"
+      },
+      "repoSpec": {
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+        "ruleClassName": "http_archive",
+        "attributes": {
+          "urls": [
+            "https://github.com/fmeum/buildozer/releases/download/v7.1.1.1/buildozer-v7.1.1.1.tar.gz"
+          ],
+          "integrity": "sha256-wjmMsVBR96yT+WOlwN8g1gZRkc/VSPPnTjckHmIs9m8=",
+          "strip_prefix": "buildozer-7.1.1.1",
+          "remote_patches": {
+            "https://bcr.bazel.build/modules/buildozer/7.1.1.1/patches/module_dot_bazel_version.patch": "sha256-dOIwFLCmsm5pLgHK9aPnVXTjEsvn3xC4aHTXpbyrR2o="
+          },
+          "remote_patch_strip": 1
+        }
+      }
+    },
     "remoteapis@_": {
       "name": "remoteapis",
       "version": "",
@@ -2450,7 +2517,7 @@
         "rules_license": "rules_license@0.0.7",
         "rules_proto": "rules_proto@5.3.0-21.7",
         "rules_python": "rules_python@0.28.0",
-        "buildozer": "buildozer@6.4.0.2",
+        "buildozer": "buildozer@7.1.1.1",
         "platforms": "platforms@0.0.9",
         "com_google_protobuf": "protobuf@21.7",
         "zlib": "zlib@1.3",
@@ -2697,78 +2764,12 @@
           "remote_patch_strip": 0
         }
       }
-    },
-    "buildozer@6.4.0.2": {
-      "name": "buildozer",
-      "version": "6.4.0.2",
-      "key": "buildozer@6.4.0.2",
-      "repoName": "buildozer",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [
-        {
-          "extensionBzlFile": "@buildozer//:buildozer_binary.bzl",
-          "extensionName": "buildozer_binary",
-          "usingModule": "buildozer@6.4.0.2",
-          "location": {
-            "file": "https://bcr.bazel.build/modules/buildozer/6.4.0.2/MODULE.bazel",
-            "line": 7,
-            "column": 33
-          },
-          "imports": {
-            "buildozer_binary": "buildozer_binary"
-          },
-          "devImports": [],
-          "tags": [
-            {
-              "tagName": "buildozer",
-              "attributeValues": {
-                "sha256": {
-                  "darwin-amd64": "d29e347ecd6b5673d72cb1a8de05bf1b06178dd229ff5eb67fad5100c840cc8e",
-                  "darwin-arm64": "9b9e71bdbec5e7223871e913b65d12f6d8fa026684daf991f00e52ed36a6978d",
-                  "linux-amd64": "8dfd6345da4e9042daa738d7fdf34f699c5dfce4632f7207956fceedd8494119",
-                  "linux-arm64": "6559558fded658c8fa7432a9d011f7c4dcbac6b738feae73d2d5c352e5f605fa",
-                  "windows-amd64": "e7f05bf847f7c3689dd28926460ce6e1097ae97380ac8e6ae7147b7b706ba19b"
-                },
-                "version": "6.4.0"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "https://bcr.bazel.build/modules/buildozer/6.4.0.2/MODULE.bazel",
-                "line": 8,
-                "column": 27
-              }
-            }
-          ],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        }
-      ],
-      "deps": {
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/fmeum/buildozer/releases/download/v6.4.0.2/buildozer-v6.4.0.2.tar.gz"
-          ],
-          "integrity": "sha256-k7tFKQMR2AygxpmZfH0yEPnQmF3efFgD9rBPkj+Yz/8=",
-          "strip_prefix": "buildozer-6.4.0.2",
-          "remote_patches": {
-            "https://bcr.bazel.build/modules/buildozer/6.4.0.2/patches/module_dot_bazel_version.patch": "sha256-gKANF2HMilj7bWmuXs4lbBIAAansuWC4IhWGB/CerjU="
-          },
-          "remote_patch_strip": 1
-        }
-      }
     }
   },
   "moduleExtensions": {
     "//:extensions.bzl%bazel_android_deps": {
       "general": {
-        "bzlTransitiveDigest": "B5uVRXNnUrnGOBQizaLP3KiRFVjh+IMpW7klQTyeTmI=",
+        "bzlTransitiveDigest": "6fztoMF9hrklx8mtcr2zR64meKgtJPKSkxBOt09hW/s=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -2808,6 +2809,11 @@
             "",
             "blake3",
             "blake3~"
+          ],
+          [
+            "",
+            "buildozer",
+            "buildozer~"
           ],
           [
             "",
@@ -2908,15 +2914,20 @@
             "bazel_tools",
             "bazel_tools",
             "bazel_tools"
+          ],
+          [
+            "buildozer~",
+            "buildozer_binary",
+            "buildozer~~buildozer_binary~buildozer_binary"
           ]
         ]
       }
     },
     "//:extensions.bzl%bazel_build_deps": {
       "general": {
-        "bzlTransitiveDigest": "B5uVRXNnUrnGOBQizaLP3KiRFVjh+IMpW7klQTyeTmI=",
+        "bzlTransitiveDigest": "6fztoMF9hrklx8mtcr2zR64meKgtJPKSkxBOt09hW/s=",
         "recordedFileInputs": {
-          "@@//MODULE.bazel": "939a48e4dbb71472db80f16a6a639f65cb4ddb07d8e1fd01db14cf1d0323917d",
+          "@@//MODULE.bazel": "f5804e3f128841819a45a9db71d969deb5089a4df7c1f4a477095ee7fff8bd89",
           "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "4b9553a69d926d07f25ca38ea8e04e394301c9e21b33d775049b141d0e7505d3"
         },
         "recordedDirentsInputs": {},
@@ -3030,7 +3041,13 @@
                 "grpc~~grpc_repo_deps_ext~rules_cc",
                 "rules_kotlin~~rules_kotlin_extensions~com_github_jetbrains_kotlin"
               ],
-              "dirname": "derived/repository_cache"
+              "dirname": "derived/repository_cache",
+              "module_files": [
+                "@@//:MODULE.bazel",
+                "@@//third_party/googleapis:MODULE.bazel",
+                "@@//third_party/remoteapis:MODULE.bazel",
+                "@@//src:MODULE.tools"
+              ]
             }
           },
           "debian_bin_deps": {
@@ -3186,6 +3203,11 @@
           ],
           [
             "",
+            "buildozer",
+            "buildozer~"
+          ],
+          [
+            "",
             "c-ares",
             "c-ares~"
           ],
@@ -3283,13 +3305,18 @@
             "bazel_tools",
             "bazel_tools",
             "bazel_tools"
+          ],
+          [
+            "buildozer~",
+            "buildozer_binary",
+            "buildozer~~buildozer_binary~buildozer_binary"
           ]
         ]
       }
     },
     "//:extensions.bzl%bazel_test_deps": {
       "general": {
-        "bzlTransitiveDigest": "B5uVRXNnUrnGOBQizaLP3KiRFVjh+IMpW7klQTyeTmI=",
+        "bzlTransitiveDigest": "6fztoMF9hrklx8mtcr2zR64meKgtJPKSkxBOt09hW/s=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -3342,6 +3369,11 @@
           ],
           [
             "",
+            "buildozer",
+            "buildozer~"
+          ],
+          [
+            "",
             "c-ares",
             "c-ares~"
           ],
@@ -3439,6 +3471,11 @@
             "bazel_tools",
             "bazel_tools",
             "bazel_tools"
+          ],
+          [
+            "buildozer~",
+            "buildozer_binary",
+            "buildozer~~buildozer_binary~buildozer_binary"
           ]
         ]
       }
@@ -3707,13 +3744,13 @@
             "ruleClassName": "_buildozer_binary_repo",
             "attributes": {
               "sha256": {
-                "darwin-amd64": "d29e347ecd6b5673d72cb1a8de05bf1b06178dd229ff5eb67fad5100c840cc8e",
-                "darwin-arm64": "9b9e71bdbec5e7223871e913b65d12f6d8fa026684daf991f00e52ed36a6978d",
-                "linux-amd64": "8dfd6345da4e9042daa738d7fdf34f699c5dfce4632f7207956fceedd8494119",
-                "linux-arm64": "6559558fded658c8fa7432a9d011f7c4dcbac6b738feae73d2d5c352e5f605fa",
-                "windows-amd64": "e7f05bf847f7c3689dd28926460ce6e1097ae97380ac8e6ae7147b7b706ba19b"
+                "darwin-amd64": "6286bbbcb5314d675fcb4ede30edf397a68c611005412c937b2cc0c4bf4b714b",
+                "darwin-arm64": "0a2f70aa7b864de9bf71d1aac39659017b7a84169506e350d9ec77c609265212",
+                "linux-amd64": "9a7424aca7ca911c85cfedeadf065f0d95c492e80f0e29bd07ea98f6eb087259",
+                "linux-arm64": "07c8ed5ca3efea7e20756e9060660b7e658c781953c60650a1b99cd8bb857fcf",
+                "windows-amd64": "edad2e85cc691b064de9675db8e732b2c5a4ada0b32282ecdf4b18692cc8d3fe"
               },
-              "version": "6.4.0"
+              "version": "7.1.1"
             }
           }
         },
