@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -56,7 +57,8 @@ public class WorkerSpawnStrategyTest {
         new SandboxInputs(
             ImmutableMap.of(PathFragment.create("flagfile.txt"), path),
             ImmutableMap.of(),
-            ImmutableMap.of(), ImmutableSet.of());
+            ImmutableMap.of(),
+            ImmutableSet.of());
     WorkerSpawnRunner.expandArgument(inputs, "@flagfile.txt", requestBuilder);
 
     assertThat(requestBuilder.getArgumentsList()).containsExactlyElementsIn(flags);
