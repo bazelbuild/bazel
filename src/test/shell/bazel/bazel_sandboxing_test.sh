@@ -317,6 +317,13 @@ EOF
   bazel build //pkg:a &>$TEST_log || fail "expected build to succeed"
 }
 
+# Sets up targets under //test that, when building //test:all, verify that the
+# sandbox setup ensures that /tmp contents written by one action are not visible
+# to another action.
+#
+# Arguments:
+#   - The path to a unique temporary directory under /tmp that a
+#     file named "bazel_was_here" is written to in actions.
 function setup_tmp_hermeticity_check() {
   local -r tmpdir=$1
 
