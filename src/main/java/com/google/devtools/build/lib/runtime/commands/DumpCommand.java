@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.util.MemoryAccountant;
 import com.google.devtools.build.lib.util.MemoryAccountant.Stats;
 import com.google.devtools.build.lib.util.ObjectGraphTraverser;
 import com.google.devtools.build.lib.util.ObjectGraphTraverser.FieldCache;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.RegexFilter.RegexFilterConverter;
 import com.google.devtools.build.skyframe.InMemoryGraph;
@@ -72,6 +73,7 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.gson.stream.JsonWriter;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.StringWriter;
@@ -162,7 +164,7 @@ public class DumpCommand implements BlazeCommand {
       // split the argument into an unlimited number of elements
       String[] items = input.split(":", 3);
       if (items.length > 3) {
-        throw new OptionsParsingException("Invalid memory");
+        throw new OptionsParsingException("Should contain at most three segments separated by ':'");
       }
 
       MemoryCollectionMode collectionMode = null;
@@ -217,7 +219,7 @@ public class DumpCommand implements BlazeCommand {
       }
 
       if (items.length != 3) {
-        throw new OptionsParsingException("Invalid memory");
+        throw new OptionsParsingException("Should be in the form: <flags>:<node type>:<node>");
       }
 
       MemorySubjectType subjectType;
@@ -372,7 +374,9 @@ public class DumpCommand implements BlazeCommand {
                   runtime.getProductName()));
       return createFailureResult("no output specified", Code.NO_OUTPUT_SPECIFIED);
     }
-    PrintStream out = new PrintStream(env.getReporter().getOutErr().getOutputStream());
+    PrintStream out =
+        new PrintStream(
+            new BufferedOutputStream(env.getReporter().getOutErr().getOutputStream(), 1024 * 1024));
     try {
       env.getReporter().handle(Event.warn(WARNING_MESSAGE));
       Optional<BlazeCommandResult> failure = Optional.empty();
@@ -659,20 +663,18 @@ public class DumpCommand implements BlazeCommand {
     out.printf("\n%s}", prefix);
   }
 
-  private static ConcurrentIdentitySet getBuiltinsSet(
-      CommandEnvironment env, FieldCache fieldCache) {
-    ConcurrentIdentitySet result = new ConcurrentIdentitySet(0);
+  private static void addBuiltins(
+      ConcurrentIdentitySet set, CommandEnvironment env, FieldCache fieldCache) {
     ObjectGraphTraverser traverser =
         new ObjectGraphTraverser(
             fieldCache,
-            false,
-            true,
-            result,
-            false,
+            /* countInternedObjects= */ false,
+            /* reportTransientFields= */ true,
+            set,
+            /* collectContext= */ false,
             ObjectGraphTraverser.NOOP_OBJECT_RECEIVER,
-            null);
+            /* instanceId= */ null);
     traverser.traverse(env.getRuntime().getRuleClassProvider());
-    return result;
   }
 
   private static Stats dumpRamShallow(
@@ -710,7 +712,8 @@ public class DumpCommand implements BlazeCommand {
       ImmutableList<MemoryAccountant.Measurer> measurers,
       ConcurrentIdentitySet seen)
       throws InterruptedException {
-    MemoryAccountant memoryAccountant = new MemoryAccountant(measurers);
+    MemoryAccountant memoryAccountant =
+        new MemoryAccountant(measurers, mode.displayMode != MemoryDisplayMode.SUMMARY);
     ObjectGraphTraverser traverser =
         new ObjectGraphTraverser(
             fieldCache,
@@ -792,7 +795,8 @@ public class DumpCommand implements BlazeCommand {
       ConcurrentIdentitySet seen)
       throws InterruptedException {
 
-    MemoryAccountant memoryAccountant = new MemoryAccountant(measurers);
+    MemoryAccountant memoryAccountant =
+        new MemoryAccountant(measurers, mode.displayMode != MemoryDisplayMode.SUMMARY);
     BiConsumer<SkyKey, SkyValue> processor =
         (unused, skyValue) -> {
           ObjectGraphTraverser traverser =
@@ -819,8 +823,6 @@ public class DumpCommand implements BlazeCommand {
     return memoryAccountant.getStats();
   }
 
-  private record NodeSummaryStats(Stats stats, long objectCount, long memoryUse) {}
-
   private static Optional<BlazeCommandResult> dumpRamFull(
       CommandEnvironment env,
       DumpOptions dumpOptions,
@@ -836,13 +838,19 @@ public class DumpCommand implements BlazeCommand {
             .map(InMemoryNodeEntry::getKey)
             .collect(ImmutableList.toImmutableList());
 
-    ConcurrentIdentitySet seenObjects = getBuiltinsSet(env, fieldCache);
+    // Profiling shows that the average object count for a Skyframe node is around 30-40. Let's
+    // go with 48 to avoid a potentially costly resize.
+    ConcurrentIdentitySet seenObjects =
+        new ConcurrentIdentitySet(graph.getAllNodeEntries().size() * 48);
+    addBuiltins(seenObjects, env, fieldCache);
 
-    ConcurrentHashMap<SkyKey, NodeSummaryStats> nodeStats = new ConcurrentHashMap<>();
+    ConcurrentHashMap<SkyKey, Stats> nodeStats = new ConcurrentHashMap<>();
 
     BiConsumer<SkyKey, SkyValue> processor =
         (skyKey, skyValue) -> {
-          MemoryAccountant memoryAccountant = new MemoryAccountant(measurers);
+          MemoryAccountant memoryAccountant =
+              new MemoryAccountant(
+                  measurers, dumpOptions.memory.displayMode != MemoryDisplayMode.SUMMARY);
           ObjectGraphTraverser traverser =
               new ObjectGraphTraverser(
                   fieldCache,
@@ -855,16 +863,12 @@ public class DumpCommand implements BlazeCommand {
                   dumpOptions.memory.needle);
           traverser.traverse(skyValue);
           Stats stats = memoryAccountant.getStats();
-          nodeStats.put(
-              skyKey,
-              new NodeSummaryStats(
-                  dumpOptions.memory.displayMode == MemoryDisplayMode.SUMMARY ? null : stats,
-                  stats.getObjectCount(),
-                  stats.getMemoryUse()));
+          nodeStats.put(skyKey, stats);
         };
 
     try (ExecutorService executor = createRamDumpExecutor()) {
-      ConcurrentHashMap<SkyKey, ListenableFuture<Void>> futureMap = new ConcurrentHashMap<>();
+      ConcurrentHashMap<SkyKey, ListenableFuture<Void>> futureMap =
+          new ConcurrentHashMap<>(128, 0.75f, Runtime.getRuntime().availableProcessors());
       ImmutableList<ListenableFuture<Void>> rootFutures =
           roots.stream()
               .map(l -> processTransitive(processor, graph, l, executor, futureMap))
@@ -880,21 +884,22 @@ public class DumpCommand implements BlazeCommand {
 
     var sortedStats =
         nodeStats.entrySet().stream()
-            .sorted(Comparator.comparing(e -> e.getKey().getCanonicalName()))
+            .parallel()
+            .map(e -> Pair.of(e.getKey().getCanonicalName(), e.getValue()))
+            .sorted(Comparator.comparing(Pair::getFirst))
             .collect(ImmutableList.toImmutableList());
 
     out.print("{");
     boolean first = true;
-    for (Map.Entry<SkyKey, NodeSummaryStats> e : sortedStats) {
-      out.printf("%s\n  %s: ", first ? "" : ",", jsonQuote(e.getKey().getCanonicalName()));
+    for (Pair<String, Stats> p : sortedStats) {
+      out.printf("%s\n  %s: ", first ? "" : ",", jsonQuote(p.getFirst()));
+      Stats v = p.getSecond();
       first = false;
       switch (dumpOptions.memory.displayMode) {
         case SUMMARY ->
-            out.printf(
-                "{ \"objects\": %d, \"bytes\": %d }",
-                e.getValue().objectCount(), e.getValue().memoryUse());
-        case COUNT -> dumpRamByClass("  ", e.getValue().stats().getObjectCountByClass(), out);
-        case BYTES -> dumpRamByClass("  ", e.getValue().stats.getMemoryByClass(), out);
+            out.printf("{ \"objects\": %d, \"bytes\": %d }", v.getObjectCount(), v.getMemoryUse());
+        case COUNT -> dumpRamByClass("  ", v.getObjectCountByClass(), out);
+        case BYTES -> dumpRamByClass("  ", v.getMemoryByClass(), out);
       }
     }
     out.println("\n}");
@@ -935,7 +940,8 @@ public class DumpCommand implements BlazeCommand {
               "The requested node is not present", Code.SKYFRAME_MEMORY_DUMP_FAILED));
     }
 
-    ConcurrentIdentitySet seen = getBuiltinsSet(env, fieldCache);
+    ConcurrentIdentitySet seen = new ConcurrentIdentitySet(1);
+    addBuiltins(seen, env, fieldCache);
     Stats stats =
         switch (dumpOptions.memory.collectionMode) {
           case DEEP -> dumpRamReachable(nodeEntry, dumpOptions.memory, fieldCache, measurers, seen);

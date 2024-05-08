@@ -40,9 +40,9 @@ public class MemoryAccountant implements ObjectGraphTraverser.ObjectReceiver {
     private long objectCount;
     private long memory;
 
-    private Stats() {
-      objectCountByClass = new HashMap<>();
-      memoryByClass = new HashMap<>();
+    private Stats(boolean collectDetails) {
+      objectCountByClass = collectDetails ? new HashMap<>() : null;
+      memoryByClass = collectDetails ? new HashMap<>() : null;
       objectCount = 0L;
       memory = 0L;
     }
@@ -50,8 +50,13 @@ public class MemoryAccountant implements ObjectGraphTraverser.ObjectReceiver {
     private void addObject(String clazz, long size) {
       objectCount += 1;
       memory += size;
-      objectCountByClass.put(clazz, objectCountByClass.getOrDefault(clazz, 0L) + 1);
-      memoryByClass.put(clazz, memoryByClass.getOrDefault(clazz, 0L) + size);
+      if (objectCountByClass != null) {
+        objectCountByClass.put(clazz, objectCountByClass.getOrDefault(clazz, 0L) + 1);
+      }
+
+      if (memoryByClass != null) {
+        memoryByClass.put(clazz, memoryByClass.getOrDefault(clazz, 0L) + size);
+      }
     }
 
     public long getObjectCount() {
@@ -74,9 +79,9 @@ public class MemoryAccountant implements ObjectGraphTraverser.ObjectReceiver {
   private final ImmutableList<Measurer> measurers;
   private final Stats stats;
 
-  public MemoryAccountant(Iterable<Measurer> measurers) {
+  public MemoryAccountant(Iterable<Measurer> measurers, boolean collectDetails) {
     this.measurers = ImmutableList.copyOf(measurers);
-    stats = new Stats();
+    stats = new Stats(collectDetails);
   }
 
   @Override

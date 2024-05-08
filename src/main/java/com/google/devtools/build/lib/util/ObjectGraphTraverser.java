@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.util;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.collect.ConcurrentIdentitySet;
 import java.lang.reflect.Array;
@@ -28,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /**
@@ -72,7 +72,8 @@ public class ObjectGraphTraverser {
     private final ImmutableList<DomainSpecificTraverser> domainSpecificTraversers;
 
     public FieldCache(ImmutableList<DomainSpecificTraverser> domainSpecificTraversers) {
-      this.fieldCache = Maps.newConcurrentMap();
+      this.fieldCache =
+          new ConcurrentHashMap<>(128, 0.75f, Runtime.getRuntime().availableProcessors());
       this.domainSpecificTraversers = domainSpecificTraversers;
     }
   }
