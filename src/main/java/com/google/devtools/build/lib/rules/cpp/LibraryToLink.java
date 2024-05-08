@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.rules.cpp.LegacyLinkerInputs.LibraryInput;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LibraryToLinkApi;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -153,8 +154,8 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
     return backends != null ? Dict.immutableCopyOf(backends) : null;
   }
 
-  LinkerInputs.LibraryToLink getStaticLibraryToLink() {
-    return LinkerInputs.newInputLibrary(
+  LibraryInput getStaticLibraryInput() {
+    return LegacyLinkerInputs.newInputLibrary(
         Preconditions.checkNotNull(getStaticLibrary(), this),
         getAlwayslink()
             ? ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY
@@ -167,8 +168,8 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
         getDisableWholeArchive());
   }
 
-  LinkerInputs.LibraryToLink getPicStaticLibraryToLink() {
-    return LinkerInputs.newInputLibrary(
+  LibraryInput getPicStaticLibraryInput() {
+    return LegacyLinkerInputs.newInputLibrary(
         Preconditions.checkNotNull(getPicStaticLibrary(), this),
         getAlwayslink()
             ? ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY
@@ -181,36 +182,36 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
         getDisableWholeArchive());
   }
 
-  LinkerInputs.LibraryToLink getDynamicLibraryToLink() {
+  LibraryInput getDynamicLibraryInput() {
     Artifact dynamicLibrary = Preconditions.checkNotNull(getDynamicLibrary(), this);
     if (getResolvedSymlinkDynamicLibrary() != null) {
-      return LinkerInputs.solibLibraryToLink(
+      return LegacyLinkerInputs.solibLibraryInput(
           dynamicLibrary, getResolvedSymlinkDynamicLibrary(), getLibraryIdentifier());
     }
-    return LinkerInputs.newInputLibrary(
+    return LegacyLinkerInputs.newInputLibrary(
         dynamicLibrary,
         ArtifactCategory.DYNAMIC_LIBRARY,
         getLibraryIdentifier(),
-        /*objectFiles=*/ ImmutableSet.of(),
+        /* objectFiles= */ ImmutableSet.of(),
         LtoCompilationContext.EMPTY,
-        /*sharedNonLtoBackends=*/ ImmutableMap.of(),
+        /* sharedNonLtoBackends= */ ImmutableMap.of(),
         getMustKeepDebug(),
         getDisableWholeArchive());
   }
 
-  LinkerInputs.LibraryToLink getInterfaceLibraryToLink() {
+  LibraryInput getInterfaceLibraryInput() {
     Artifact interfaceLibrary = Preconditions.checkNotNull(getInterfaceLibrary(), this);
     if (getResolvedSymlinkInterfaceLibrary() != null) {
-      return LinkerInputs.solibLibraryToLink(
+      return LegacyLinkerInputs.solibLibraryInput(
           interfaceLibrary, getResolvedSymlinkInterfaceLibrary(), getLibraryIdentifier());
     }
-    return LinkerInputs.newInputLibrary(
+    return LegacyLinkerInputs.newInputLibrary(
         interfaceLibrary,
         ArtifactCategory.INTERFACE_LIBRARY,
         getLibraryIdentifier(),
-        /*objectFiles=*/ ImmutableSet.of(),
+        /* objectFiles= */ ImmutableSet.of(),
         LtoCompilationContext.EMPTY,
-        /*sharedNonLtoBackends=*/ ImmutableMap.of(),
+        /* sharedNonLtoBackends= */ ImmutableMap.of(),
         getMustKeepDebug(),
         getDisableWholeArchive());
   }
@@ -331,26 +332,26 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
 
     @Memoized
     @Override
-    LinkerInputs.LibraryToLink getStaticLibraryToLink() {
-      return super.getStaticLibraryToLink();
+    LibraryInput getStaticLibraryInput() {
+      return super.getStaticLibraryInput();
     }
 
     @Memoized
     @Override
-    LinkerInputs.LibraryToLink getPicStaticLibraryToLink() {
-      return super.getPicStaticLibraryToLink();
+    LibraryInput getPicStaticLibraryInput() {
+      return super.getPicStaticLibraryInput();
     }
 
     @Memoized
     @Override
-    LinkerInputs.LibraryToLink getDynamicLibraryToLink() {
-      return super.getDynamicLibraryToLink();
+    LibraryInput getDynamicLibraryInput() {
+      return super.getDynamicLibraryInput();
     }
 
     @Memoized
     @Override
-    LinkerInputs.LibraryToLink getInterfaceLibraryToLink() {
-      return super.getInterfaceLibraryToLink();
+    LibraryInput getInterfaceLibraryInput() {
+      return super.getInterfaceLibraryInput();
     }
 
     @AutoValue.Builder

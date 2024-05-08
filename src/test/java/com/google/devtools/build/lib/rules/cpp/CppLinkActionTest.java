@@ -55,9 +55,9 @@ import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction.LinkResourceSetBuilder;
+import com.google.devtools.build.lib.rules.cpp.LegacyLinkerInputs.LibraryInput;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -757,7 +757,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
       Link.LinkTargetType type,
       String outputPath,
       Iterable<Artifact> nonLibraryInputs,
-      ImmutableList<LibraryToLink> libraryInputs,
+      ImmutableList<LibraryInput> libraryInputs,
       FeatureConfiguration featureConfiguration)
       throws RuleErrorException, EvalException {
     CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
@@ -1120,8 +1120,8 @@ public final class CppLinkActionTest extends BuildViewTestCase {
     RuleContext ruleContext = createDummyRuleContext();
 
     String solibPrefix = "_solib_k8";
-    Iterable<LibraryToLink> linkerInputs =
-        LinkerInputs.opaqueLibrariesToLink(
+    Iterable<LibraryInput> linkerInputs =
+        LegacyLinkerInputs.opaqueLibrariesToLink(
             ArtifactCategory.DYNAMIC_LIBRARY,
             ImmutableList.of(
                 getOutputArtifact(solibPrefix + "/FakeLinkerInput1.so"),

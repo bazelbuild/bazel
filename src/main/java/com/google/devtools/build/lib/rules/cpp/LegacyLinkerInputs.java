@@ -21,14 +21,14 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 
-/** Factory for creating new {@link LinkerInput} objects. */
-public abstract class LinkerInputs {
+/** Factory for creating new {@link LegacyLinkerInput} objects. */
+public abstract class LegacyLinkerInputs {
   /**
    * An opaque linker input that is not a library, for example a linker script or an individual
    * object file.
    */
   @ThreadSafety.Immutable
-  private static class SimpleLinkerInput implements LinkerInput {
+  private static class SimpleLinkerInput implements LegacyLinkerInput {
     private final Artifact artifact;
     private final ArtifactCategory category;
     private final boolean disableWholeArchive;
@@ -151,7 +151,7 @@ public abstract class LinkerInputs {
    * A library the user can link to. This is different from a simple linker input in that it also
    * has a library identifier.
    */
-  public interface LibraryToLink extends LinkerInput {
+  public interface LibraryInput extends LegacyLinkerInput {
     LtoCompilationContext getLtoCompilationContext();
 
     /**
@@ -169,12 +169,12 @@ public abstract class LinkerInputs {
    * library that it links to.
    */
   @ThreadSafety.Immutable
-  private static class SolibLibraryToLink implements LibraryToLink {
+  private static class SolibLibraryInput implements LibraryInput {
     private final Artifact solibSymlinkArtifact;
     private final Artifact libraryArtifact;
     private final String libraryIdentifier;
 
-    SolibLibraryToLink(
+    SolibLibraryInput(
         Artifact solibSymlinkArtifact, Artifact libraryArtifact, String libraryIdentifier) {
       Preconditions.checkArgument(
           Link.SHARED_LIBRARY_FILETYPES.matches(solibSymlinkArtifact.getFilename()));
@@ -185,7 +185,7 @@ public abstract class LinkerInputs {
 
     @Override
     public String toString() {
-      return String.format("SolibLibraryToLink(%s -> %s", solibSymlinkArtifact, libraryArtifact);
+      return String.format("SolibLibraryInput(%s -> %s", solibSymlinkArtifact, libraryArtifact);
     }
 
     @Override
@@ -215,13 +215,14 @@ public abstract class LinkerInputs {
 
     @Override
     public ImmutableCollection<Artifact> getObjectFiles() {
-      throw new IllegalStateException("LinkerInputs: does not support getObjectFiles: " + this);
+      throw new IllegalStateException(
+          "LegacyLinkerInputs: does not support getObjectFiles: " + this);
     }
 
     @Override
     public ImmutableMap<Artifact, LtoBackendArtifacts> getSharedNonLtoBackends() {
       throw new IllegalStateException(
-          "LinkerInputs: does not support getSharedNonLtoBackends: " + this);
+          "LegacyLinkerInputs: does not support getSharedNonLtoBackends: " + this);
     }
 
     @Override
@@ -235,7 +236,7 @@ public abstract class LinkerInputs {
         return true;
       }
 
-      if (!(that instanceof SolibLibraryToLink thatSolib)) {
+      if (!(that instanceof SolibLibraryInput thatSolib)) {
         return false;
       }
 
@@ -261,7 +262,7 @@ public abstract class LinkerInputs {
 
   /** This class represents a library that may contain object files. */
   @ThreadSafety.Immutable
-  private static class CompoundLibraryToLink implements LibraryToLink {
+  private static class CompoundLibraryInput implements LibraryInput {
     private final Artifact libraryArtifact;
     private final ArtifactCategory category;
     private final String libraryIdentifier;
@@ -271,7 +272,7 @@ public abstract class LinkerInputs {
     private final boolean mustKeepDebug;
     private final boolean disableWholeArchive;
 
-    CompoundLibraryToLink(
+    CompoundLibraryInput(
         Artifact libraryArtifact,
         ArtifactCategory category,
         String libraryIdentifier,
@@ -315,7 +316,7 @@ public abstract class LinkerInputs {
 
     @Override
     public String toString() {
-      return String.format("CompoundLibraryToLink(%s)", libraryArtifact.toString());
+      return String.format("CompoundLibraryInput(%s)", libraryArtifact);
     }
 
     @Override
@@ -364,11 +365,11 @@ public abstract class LinkerInputs {
         return true;
       }
 
-      if (!(that instanceof CompoundLibraryToLink)) {
+      if (!(that instanceof CompoundLibraryInput)) {
         return false;
       }
 
-      return libraryArtifact.equals(((CompoundLibraryToLink) that).libraryArtifact);
+      return libraryArtifact.equals(((CompoundLibraryInput) that).libraryArtifact);
     }
 
     @Override
@@ -392,7 +393,7 @@ public abstract class LinkerInputs {
   //////////////////////////////////////////////////////////////////////////////////////
 
   /** Creates linker input objects for non-library files. */
-  public static Iterable<LinkerInput> simpleLinkerInputs(
+  public static Iterable<LegacyLinkerInput> simpleLinkerInputs(
       Iterable<Artifact> input, final ArtifactCategory category, boolean disableWholeArchive) {
     return Iterables.transform(
         input,
@@ -401,14 +402,18 @@ public abstract class LinkerInputs {
                 artifact, category, disableWholeArchive, artifact.getRootRelativePathString()));
   }
 
-  public static Iterable<LinkerInput> linkstampLinkerInputs(Iterable<Artifact> input) {
+  public static Iterable<LegacyLinkerInput> linkstampLinkerInputs(Iterable<Artifact> input) {
     return Iterables.transform(
         input,
         artifact -> new LinkstampLinkerInput(artifact, artifact.getRootRelativePathString()));
   }
 
+  public static LegacyLinkerInput linkstampLinkerInput(Artifact input) {
+    return new LinkstampLinkerInput(input, input.getRootRelativePathString());
+  }
+
   /** Creates a linker input for which we do not know what objects files it consists of. */
-  public static LinkerInput simpleLinkerInput(
+  public static LegacyLinkerInput simpleLinkerInput(
       Artifact artifact,
       ArtifactCategory category,
       boolean disableWholeArchive,
@@ -419,30 +424,27 @@ public abstract class LinkerInputs {
     return new SimpleLinkerInput(artifact, category, disableWholeArchive, libraryIdentifier);
   }
 
-  /**
-   * Creates input libraries for which we do not know what objects files it consists of.
-   */
-  public static Iterable<LibraryToLink> opaqueLibrariesToLink(
+  /** Creates input libraries for which we do not know what objects files it consists of. */
+  public static Iterable<LibraryInput> opaqueLibrariesToLink(
       final ArtifactCategory category, Iterable<Artifact> input) {
-    return Iterables.transform(input, artifact -> precompiledLibraryToLink(artifact, category));
+    return Iterables.transform(input, artifact -> precompiledLibraryInput(artifact, category));
   }
 
   /** Creates a solib library symlink from the given artifact. */
-  public static LibraryToLink solibLibraryToLink(
+  public static LibraryInput solibLibraryInput(
       Artifact solibSymlink, Artifact original, String libraryIdentifier) {
-    return new SolibLibraryToLink(solibSymlink, original, libraryIdentifier);
+    return new SolibLibraryInput(solibSymlink, original, libraryIdentifier);
   }
 
   /** Creates an input library for which we do not know what objects files it consists of. */
-  public static LibraryToLink precompiledLibraryToLink(
-      Artifact artifact, ArtifactCategory category) {
+  public static LibraryInput precompiledLibraryInput(Artifact artifact, ArtifactCategory category) {
     // This precondition check was in place and *most* of the tests passed with them; the only
     // exception is when you mention a generated .a file in the srcs of a cc_* rule.
     // It was very useful for proving that this actually works, though.
     // Preconditions.checkArgument(
     //     !(artifact.getGeneratingAction() instanceof CppLinkAction) ||
     //     !Link.ARCHIVE_LIBRARY_FILETYPES.contains(artifact.getFileType()));
-    return new CompoundLibraryToLink(
+    return new CompoundLibraryInput(
         artifact,
         category,
         CcLinkingOutputs.libraryIdentifierOf(artifact),
@@ -455,7 +457,7 @@ public abstract class LinkerInputs {
   }
 
   /** Creates a library to link with the specified object files. */
-  public static LibraryToLink newInputLibrary(
+  public static LibraryInput newInputLibrary(
       Artifact library,
       ArtifactCategory category,
       String libraryIdentifier,
@@ -475,7 +477,7 @@ public abstract class LinkerInputs {
   }
 
   /** Creates a library to link with the specified object files. */
-  static LibraryToLink newInputLibrary(
+  static LibraryInput newInputLibrary(
       Artifact library,
       ArtifactCategory category,
       String libraryIdentifier,
@@ -484,7 +486,7 @@ public abstract class LinkerInputs {
       ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends,
       boolean mustKeepDebug,
       boolean disableWholeArchive) {
-    return new CompoundLibraryToLink(
+    return new CompoundLibraryInput(
         library,
         category,
         libraryIdentifier,
@@ -496,8 +498,9 @@ public abstract class LinkerInputs {
         disableWholeArchive);
   }
 
-  /** Returns the linker input artifacts from a collection of {@link LinkerInput} objects. */
-  public static Iterable<Artifact> toLibraryArtifacts(Iterable<? extends LinkerInput> artifacts) {
-    return Iterables.transform(artifacts, LinkerInput::getArtifact);
+  /** Returns the linker input artifacts from a collection of {@link LegacyLinkerInput} objects. */
+  public static Iterable<Artifact> toLibraryArtifacts(
+      Iterable<? extends LegacyLinkerInput> artifacts) {
+    return Iterables.transform(artifacts, LegacyLinkerInput::getArtifact);
   }
 }

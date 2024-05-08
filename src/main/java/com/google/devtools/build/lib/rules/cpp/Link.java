@@ -288,7 +288,7 @@ public abstract class Link {
     START_END_LIB   // Put the object files enclosed by --start-lib / --end-lib on the command line
   }
 
-  static boolean useStartEndLib(LinkerInput linkerInput, ArchiveType archiveType) {
+  static boolean useStartEndLib(LegacyLinkerInput linkerInput, ArchiveType archiveType) {
     // TODO(bazel-team): Figure out if PicArchives are actually used. For it to be used, both
     // linkingStatically and linkShared must me true, we must be in opt mode and cpu has to be k8.
     return archiveType == ArchiveType.START_END_LIB

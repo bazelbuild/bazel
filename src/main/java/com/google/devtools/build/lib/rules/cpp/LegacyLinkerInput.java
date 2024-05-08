@@ -22,19 +22,17 @@ import com.google.devtools.build.lib.actions.Artifact;
  * to their constituent object files, we need to keep information whether a certain file contains
  * embedded objects and if so, the list of the object files themselves.
  */
-public interface LinkerInput {
+public interface LegacyLinkerInput {
 
-  /**
-   * Returns the type of the linker input.
-   */
+  /** Returns the type of the linker input. */
   ArtifactCategory getArtifactCategory();
 
   /** Returns the artifact that is the input of the linker. */
   Artifact getArtifact();
 
   /**
-   * Returns the original library to link. If this library is a solib symlink, returns the
-   * artifact the symlink points to, otherwise, the library itself.
+   * Returns the original library to link. If this library is a solib symlink, returns the artifact
+   * the symlink points to, otherwise, the library itself.
    */
   Artifact getOriginalLibraryArtifact();
 
