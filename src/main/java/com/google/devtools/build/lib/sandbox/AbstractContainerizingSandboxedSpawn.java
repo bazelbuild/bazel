@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -162,9 +163,9 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
       }
       Path key = sandboxExecRoot.getRelative(fragment);
       if (inputs.getFiles().containsKey(fragment)) {
-        Path fileDest = inputs.getFiles().get(fragment).asPath();
+        RootedPath fileDest = inputs.getFiles().get(fragment);
         if (fileDest != null) {
-          copyFile(fileDest, key);
+          copyFile(fileDest.asPath(), key);
         } else {
           FileSystemUtils.createEmptyFile(key);
         }

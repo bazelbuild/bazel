@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
-
 import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.List;

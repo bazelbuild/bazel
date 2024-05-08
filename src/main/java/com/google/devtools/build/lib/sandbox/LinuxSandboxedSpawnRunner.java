@@ -126,6 +126,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   }
 
   private final SandboxHelpers helpers;
+  private final FileSystem fileSystem;
   private final Path execRoot;
   private final boolean allowNetwork;
   private final Path linuxSandbox;
@@ -136,7 +137,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final Duration timeoutKillDelay;
   private final TreeDeleter treeDeleter;
   private final Reporter reporter;
-  private final FileSystem fileSystem;
   private final Path slashTmp;
   private final Path outputBase;
   private final LoadingCache<Root, ImmutableSet<Path>> symlinkChainCache =
@@ -163,6 +163,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       TreeDeleter treeDeleter) {
     super(cmdEnv);
     this.helpers = helpers;
+    this.fileSystem = cmdEnv.getRuntime().getFileSystem();
     this.execRoot = cmdEnv.getExecRoot();
     this.allowNetwork = helpers.shouldAllowNetwork(cmdEnv.getOptions());
     this.linuxSandbox = LinuxSandboxUtil.getLinuxSandbox(cmdEnv.getBlazeWorkspace());
@@ -173,7 +174,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.localEnvProvider = new PosixLocalEnvProvider(cmdEnv.getClientEnv());
     this.treeDeleter = treeDeleter;
     this.reporter = cmdEnv.getReporter();
-    this.fileSystem = cmdEnv.getRuntime().getFileSystem();
     this.slashTmp = cmdEnv.getRuntime().getFileSystem().getPath("/tmp");
     this.outputBase = cmdEnv.getOutputBase();
   }
@@ -215,7 +215,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // so we have to prefix our name to turn it into a globally unique value.
     Path sandboxPath =
         sandboxBase.getRelative(getName()).getRelative(Integer.toString(context.getId()));
-    sandboxPath.createDirectoryAndParents();
 
     // b/64689608: The execroot of the sandboxed process must end with the workspace name, just like
     // the normal execroot does.
