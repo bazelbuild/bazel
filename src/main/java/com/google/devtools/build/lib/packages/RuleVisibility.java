@@ -132,14 +132,22 @@ public interface RuleVisibility {
   }
 
   static void validate(List<Label> labels) throws EvalException {
-    if (labels.size() <= 1) {
-      return;
-    }
     for (Label label : labels) {
       if (label.equals(PUBLIC_LABEL) || label.equals(PRIVATE_LABEL)) {
+        if (labels.size() > 1) {
+          throw Starlark.errorf(
+              "//visibility:public and //visibility:private cannot be used in combination with"
+                  + " other labels");
+        }
+      } else if (label.getPackageIdentifier().equals(PUBLIC_LABEL.getPackageIdentifier())
+          && PackageSpecification.fromLabel(label) == null) {
+        // In other words, if the label is in //visibility and is not //visibility:public,
+        // //visibility:private, or (for the unusual case where //visibility
+        // exists as a package) //visibility:__pkg__ or //visibility:__subpackages__
         throw Starlark.errorf(
-            "Public or private visibility labels (e.g. //visibility:public or"
-                + " //visibility:private) cannot be used in combination with other labels");
+            "Invalid visibility label '%s'; did you mean //visibility:public or"
+                + " //visibility:private?",
+            label);
       }
     }
   }
