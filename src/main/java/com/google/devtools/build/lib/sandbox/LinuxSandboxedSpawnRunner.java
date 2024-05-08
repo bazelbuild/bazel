@@ -254,7 +254,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         helpers.processInputFiles(
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
             execRoot);
-
     SandboxOutputs outputs = helpers.getOutputs(spawn);
     ImmutableMap<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");

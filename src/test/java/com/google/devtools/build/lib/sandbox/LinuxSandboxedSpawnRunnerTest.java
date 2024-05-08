@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -181,10 +180,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
     assertThat(sandboxedSpawn).isInstanceOf(SymlinkedSandboxedSpawn.class);
     String args = String.join(" ", sandboxedSpawn.getArguments());
     assertThat(args).contains("-w /tmp");
-    assertThat(args)
-        .matches(
-            ".* -F %1$s/[^ ]+ -f %1$s/[^ ]+ .*"
-                .formatted(Pattern.quote(hermeticTmpPath.getPathString())));
+    assertThat(args).contains("-M " + hermeticTmpPath + " -m /tmp");
   }
 
   @Test
@@ -204,31 +200,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
     String args = String.join(" ", sandboxedSpawn.getArguments());
     assertThat(args).contains("-w /tmp");
     assertThat(args).contains("-e /tmp");
-    assertThat(args).doesNotContain("-F ");
-    assertThat(args).doesNotContain("-f ");
-  }
-
-  @Test
-  public void hermeticTmp_sandboxTmpfsUnderTmp_tmpCreatedAndMounted() throws Exception {
-    runtimeWrapper.addOptions(
-        "--incompatible_sandbox_hermetic_tmp", "--sandbox_tmpfs_path=/tmp/subdir");
-    CommandEnvironment commandEnvironment = createCommandEnvironment();
-    LinuxSandboxedSpawnRunner runner = setupSandboxAndCreateRunner(commandEnvironment);
-    Spawn spawn = new SpawnBuilder().build();
-    SandboxedSpawn sandboxedSpawn = runner.prepareSpawn(spawn, createSpawnExecutionContext(spawn));
-
-    Path sandboxPath =
-        sandboxedSpawn.getSandboxExecRoot().getParentDirectory().getParentDirectory();
-    Path hermeticTmpPath = sandboxPath.getRelative("_hermetic_tmp");
-    assertThat(hermeticTmpPath.isDirectory()).isTrue();
-
-    assertThat(sandboxedSpawn).isInstanceOf(SymlinkedSandboxedSpawn.class);
-    String args = String.join(" ", sandboxedSpawn.getArguments());
-    assertThat(args).contains("-w /tmp");
-    assertThat(args)
-        .matches(
-            ".* -F %1$s/[^ ]+ -f %1$s/[^ ]+ .*"
-                .formatted(Pattern.quote(hermeticTmpPath.getPathString())));
+    assertThat(args).doesNotContain("-m /tmp");
   }
 
   private static LinuxSandboxedSpawnRunner setupSandboxAndCreateRunner(

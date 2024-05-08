@@ -21,10 +21,12 @@ import static com.google.devtools.build.lib.vfs.Dirent.Type.SYMLINK;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -45,6 +47,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils.MoveResult;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
@@ -243,9 +246,9 @@ public final class SandboxHelpers {
    */
   static Optional<PathFragment> getExpectedSymlinkDestination(
       PathFragment fragment, SandboxInputs inputs) {
-    Path file = inputs.getFiles().get(fragment);
+    RootedPath file = inputs.getFiles().get(fragment);
     if (file != null) {
-      return Optional.of(file.asFragment());
+      return Optional.of(file.asPath().asFragment());
     }
     return Optional.ofNullable(inputs.getSymlinks().get(fragment));
   }
@@ -381,7 +384,7 @@ public final class SandboxHelpers {
 
   /** Wrapper class for the inputs of a sandbox. */
   public static final class SandboxInputs {
-    private final Map<PathFragment, Path> files;
+    private final Map<PathFragment, RootedPath> files;
     private final Map<VirtualActionInput, byte[]> virtualInputs;
     private final Map<PathFragment, PathFragment> symlinks;
     private final ImmutableSet<Root> sourceRoots;
@@ -391,21 +394,21 @@ public final class SandboxHelpers {
             ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of());
 
     public SandboxInputs(
-        Map<PathFragment, Path> files,
+        Map<PathFragment, RootedPath> files,
         Map<VirtualActionInput, byte[]> virtualInputs,
         Map<PathFragment, PathFragment> symlinks,
-        ImmutableSet<Root> sourceRoots) {
+        Set<Root> sourceRoots) {
       this.files = files;
       this.virtualInputs = virtualInputs;
       this.symlinks = symlinks;
-      this.sourceRoots = sourceRoots;
+      this.sourceRoots = ImmutableSet.copyOf(sourceRoots);
     }
 
     public static SandboxInputs getEmptyInputs() {
       return EMPTY_INPUTS;
     }
 
-    public Map<PathFragment, Path> getFiles() {
+    public Map<PathFragment, RootedPath> getFiles() {
       return files;
     }
 
@@ -413,12 +416,12 @@ public final class SandboxHelpers {
       return symlinks;
     }
 
-    public ImmutableMap<VirtualActionInput, byte[]> getVirtualInputDigests() {
-      return ImmutableMap.copyOf(virtualInputs);
-    }
-
     public ImmutableSet<Root> getSourceRoots() {
       return sourceRoots;
+    }
+
+    public ImmutableMap<VirtualActionInput, byte[]> getVirtualInputDigests() {
+      return ImmutableMap.copyOf(virtualInputs);
     }
 
     /**
@@ -426,11 +429,14 @@ public final class SandboxHelpers {
      * included.
      */
     public SandboxInputs limitedCopy(Set<PathFragment> allowed) {
+      var limitedFiles = Maps.filterKeys(files, allowed::contains);
+      var limitedFilesRoots =
+          new HashSet<>(Collections2.transform(limitedFiles.values(), RootedPath::getRoot));
       return new SandboxInputs(
-          Maps.filterKeys(files, allowed::contains),
+          limitedFiles,
           ImmutableMap.of(),
           Maps.filterKeys(symlinks, allowed::contains),
-          sourceRoots);
+          Sets.intersection(sourceRoots, limitedFilesRoots));
     }
 
     @Override
@@ -450,7 +456,7 @@ public final class SandboxHelpers {
    */
   public SandboxInputs processInputFiles(Map<PathFragment, ActionInput> inputMap, Path execRoot)
       throws IOException, InterruptedException {
-    Map<PathFragment, Path> inputFiles = new TreeMap<>();
+    Map<PathFragment, RootedPath> inputFiles = new TreeMap<>();
     Map<PathFragment, PathFragment> inputSymlinks = new TreeMap<>();
     Map<VirtualActionInput, byte[]> virtualInputs = new HashMap<>();
     ImmutableSet.Builder<Root> sourceRoots = ImmutableSet.builder();
@@ -471,12 +477,12 @@ public final class SandboxHelpers {
       if (actionInput.isSymlink()) {
         Path inputPath = execRoot.getRelative(actionInput.getExecPath());
         inputSymlinks.put(pathFragment, inputPath.readSymbolicLink());
+      } else if (actionInput instanceof EmptyActionInput) {
+        inputFiles.put(pathFragment, null);
       } else {
-        Path inputPath =
-            actionInput instanceof EmptyActionInput
-                ? null
-                : execRoot.getRelative(actionInput.getExecPath());
-        inputFiles.put(pathFragment, inputPath);
+        inputFiles.put(
+            pathFragment,
+            RootedPath.toRootedPath(Root.fromPath(execRoot), actionInput.getExecPath()));
       }
     }
     return new SandboxInputs(inputFiles, virtualInputs, inputSymlinks, sourceRoots.build());

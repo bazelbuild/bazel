@@ -312,20 +312,21 @@ final class WorkerSpawnRunner implements SpawnRunner {
         throw new InterruptedException();
       }
       String argValue = arg.substring(1);
-      Path path = inputs.getFiles().get(PathFragment.create(argValue));
+      RootedPath path = inputs.getFiles().get(PathFragment.create(argValue));
       if (path == null) {
         throw new IOException(
             String.format(
                 "Failed to read @-argument '%s': file is not a declared input", argValue));
       }
       try {
-        for (String line : FileSystemUtils.readLines(path, UTF_8)) {
+        for (String line : FileSystemUtils.readLines(path.asPath(), UTF_8)) {
           expandArgument(inputs, line, requestBuilder);
         }
       } catch (IOException e) {
         throw new IOException(
             String.format(
-                "Failed to read @-argument '%s' from file '%s'.", argValue, path.getPathString()),
+                "Failed to read @-argument '%s' from file '%s'.",
+                argValue, path.asPath().getPathString()),
             e);
       }
     } else {

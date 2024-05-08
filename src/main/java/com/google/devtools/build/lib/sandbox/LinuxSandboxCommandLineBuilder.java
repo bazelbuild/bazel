@@ -56,8 +56,6 @@ public class LinuxSandboxCommandLineBuilder {
   private String sandboxDebugPath = null;
   private boolean sigintSendsSigterm = false;
   private String cgroupsDir;
-  private String overlayfsUpperdir = null;
-  private String overlayfsWorkdir = null;
 
   private LinuxSandboxCommandLineBuilder(Path linuxSandboxPath) {
     this.linuxSandboxPath = linuxSandboxPath;
@@ -222,13 +220,6 @@ public class LinuxSandboxCommandLineBuilder {
     return this;
   }
 
-  @CanIgnoreReturnValue
-  public LinuxSandboxCommandLineBuilder mountOverlayfsOnTmp(String upperdir, String workdir) {
-    this.overlayfsUpperdir = upperdir;
-    this.overlayfsWorkdir = workdir;
-    return this;
-  }
-
   /** Incorporates settings from a spawn's execution info. */
   @CanIgnoreReturnValue
   public LinuxSandboxCommandLineBuilder addExecutionInfo(Map<String, String> executionInfo) {
@@ -310,9 +301,6 @@ public class LinuxSandboxCommandLineBuilder {
     }
     if (cgroupsDir != null) {
       commandLineBuilder.add("-C", cgroupsDir);
-    }
-    if (overlayfsUpperdir != null && overlayfsWorkdir != null) {
-      commandLineBuilder.add("-F", overlayfsUpperdir, "-f", overlayfsWorkdir);
     }
     commandLineBuilder.add("--");
     commandLineBuilder.addAll(commandArguments);

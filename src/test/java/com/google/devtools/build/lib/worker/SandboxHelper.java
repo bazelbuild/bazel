@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -38,7 +40,7 @@ import java.util.Map;
 class SandboxHelper {
 
   /** Map from workdir-relative input path to optional real file path. */
-  private final Map<PathFragment, Path> inputs = new HashMap<>();
+  private final Map<PathFragment, RootedPath> inputs = new HashMap<>();
 
   private final Map<VirtualActionInput, byte[]> virtualInputs = new HashMap<>();
   private final Map<PathFragment, PathFragment> symlinks = new HashMap<>();
@@ -47,12 +49,15 @@ class SandboxHelper {
   private final List<PathFragment> outputDirs = new ArrayList<>();
 
   /** The global execRoot. */
-  final Path execRoot;
+  final Path execRootPath;
+
+  final Root execRoot;
   /** The worker process's sandbox root. */
   final Path workDir;
 
   public SandboxHelper(Path execRoot, Path workDir) {
-    this.execRoot = execRoot;
+    this.execRootPath = execRoot;
+    this.execRoot = Root.fromPath(execRoot);
     this.workDir = workDir;
   }
 
@@ -64,7 +69,9 @@ class SandboxHelper {
   public SandboxHelper addInputFile(String relativePath, String workspacePath) {
     inputs.put(
         PathFragment.create(relativePath),
-        workspacePath != null ? execRoot.getRelative(workspacePath) : null);
+        workspacePath != null
+            ? RootedPath.toRootedPath(execRoot, PathFragment.create(workspacePath))
+            : null);
     return this;
   }
 
@@ -77,7 +84,7 @@ class SandboxHelper {
   public SandboxHelper addAndCreateInputFile(
       String relativePath, String workspacePath, String contents) throws IOException {
     addInputFile(relativePath, workspacePath);
-    Path absPath = execRoot.getRelative(workspacePath);
+    Path absPath = execRootPath.getRelative(workspacePath);
     absPath.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(absPath, contents);
     return this;
@@ -88,7 +95,7 @@ class SandboxHelper {
   public SandboxHelper addAndCreateVirtualInput(String relativePath, String contents) {
     VirtualActionInput input = ActionsTestUtil.createVirtualActionInput(relativePath, contents);
     byte[] digest =
-        execRoot
+        execRootPath
             .getRelative(relativePath)
             .getFileSystem()
             .getDigestFunction()
@@ -127,7 +134,7 @@ class SandboxHelper {
    */
   @CanIgnoreReturnValue
   public SandboxHelper addWorkerFile(String relativePath) {
-    Path absPath = execRoot.getRelative(relativePath);
+    Path absPath = execRootPath.getRelative(relativePath);
     workerFiles.put(PathFragment.create(relativePath), absPath);
     return this;
   }
@@ -140,7 +147,7 @@ class SandboxHelper {
   public SandboxHelper addAndCreateWorkerFile(String relativePath, String contents)
       throws IOException {
     addWorkerFile(relativePath);
-    Path absPath = execRoot.getRelative(relativePath);
+    Path absPath = execRootPath.getRelative(relativePath);
     absPath.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(absPath, contents);
     return this;
@@ -165,7 +172,7 @@ class SandboxHelper {
   @CanIgnoreReturnValue
   public SandboxHelper createWorkspaceDirFile(String workspaceDirPath, String contents)
       throws IOException {
-    Path absPath = execRoot.getRelative(workspaceDirPath);
+    Path absPath = execRootPath.getRelative(workspaceDirPath);
     absPath.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(absPath, contents);
     return this;

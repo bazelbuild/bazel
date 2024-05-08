@@ -63,6 +63,8 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
@@ -123,7 +125,8 @@ public class WorkerSpawnRunnerTest {
             spawn,
             key,
             context,
-            new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of()),
+            new SandboxInputs(
+                ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of()),
             SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
             ImmutableList.of(),
             inputFileCache,
@@ -215,7 +218,8 @@ public class WorkerSpawnRunnerTest {
                 spawn,
                 key,
                 context,
-                new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of()),
+                new SandboxInputs(
+                    ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of()),
                 SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
                 ImmutableList.of(),
                 inputFileCache,
@@ -258,7 +262,8 @@ public class WorkerSpawnRunnerTest {
                 spawn,
                 key,
                 context,
-                new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of()),
+                new SandboxInputs(
+                    ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of()),
                 SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
                 ImmutableList.of(),
                 inputFileCache,
@@ -300,7 +305,8 @@ public class WorkerSpawnRunnerTest {
                 spawn,
                 key,
                 context,
-                new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of()),
+                new SandboxInputs(
+                    ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of()),
                 SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
                 ImmutableList.of(),
                 inputFileCache,
@@ -333,7 +339,8 @@ public class WorkerSpawnRunnerTest {
             spawn,
             key,
             context,
-            new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of()),
+            new SandboxInputs(
+                ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of()),
             SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
             ImmutableList.of(),
             inputFileCache,
@@ -370,7 +377,8 @@ public class WorkerSpawnRunnerTest {
                     spawn,
                     key,
                     context,
-                    new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of()),
+                    new SandboxInputs(
+                        ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of()),
                     SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
                     ImmutableList.of(),
                     inputFileCache,
@@ -416,11 +424,12 @@ public class WorkerSpawnRunnerTest {
         new SandboxInputs(
             ImmutableMap.of(
                 PathFragment.create("file"),
-                fs.getPath("/file"),
+                asRootedPath("/file"),
                 PathFragment.create("file2"),
-                fs.getPath("/file2")),
+                asRootedPath("/file2")),
             ImmutableMap.of(),
-            ImmutableMap.of(), ImmutableSet.of());
+            ImmutableMap.of(),
+            ImmutableSet.of());
     WorkerSpawnRunner.expandArgument(inputs, "@file", requestBuilder);
     assertThat(requestBuilder.getArgumentsList())
         .containsExactly("arg1", "arg2", "arg3", "multi arg", "");
@@ -433,9 +442,10 @@ public class WorkerSpawnRunnerTest {
     FileSystemUtils.writeIsoLatin1(fs.getPath("/file"), "arg1\n@@nonfile\n@foo//bar\narg2");
     SandboxInputs inputs =
         new SandboxInputs(
-            ImmutableMap.of(PathFragment.create("file"), fs.getPath("/file")),
+            ImmutableMap.of(PathFragment.create("file"), asRootedPath("/file")),
             ImmutableMap.of(),
-            ImmutableMap.of(), ImmutableSet.of());
+            ImmutableMap.of(),
+            ImmutableSet.of());
     WorkerSpawnRunner.expandArgument(inputs, "@file", requestBuilder);
     assertThat(requestBuilder.getArgumentsList())
         .containsExactly("arg1", "@@nonfile", "@foo//bar", "arg2");
@@ -446,9 +456,10 @@ public class WorkerSpawnRunnerTest {
     WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
     SandboxInputs inputs =
         new SandboxInputs(
-            ImmutableMap.of(PathFragment.create("file"), fs.getPath("/dir/file")),
+            ImmutableMap.of(PathFragment.create("file"), asRootedPath("/dir/file")),
             ImmutableMap.of(),
-            ImmutableMap.of(), ImmutableSet.of());
+            ImmutableMap.of(),
+            ImmutableSet.of());
     IOException e =
         assertThrows(
             IOException.class,
@@ -562,13 +573,18 @@ public class WorkerSpawnRunnerTest {
   public void testExpandArgument_failsOnUndeclaredInput() {
     WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
     SandboxInputs inputs =
-        new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of());
+        new SandboxInputs(
+            ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of());
     IOException e =
         assertThrows(
             IOException.class,
             () -> WorkerSpawnRunner.expandArgument(inputs, "@file", requestBuilder));
     assertThat(e).hasMessageThat().contains("file");
     assertThat(e).hasMessageThat().contains("declared input");
+  }
+
+  private RootedPath asRootedPath(String path) {
+    return RootedPath.toRootedPath(Root.absoluteRoot(fs), fs.getPath(path));
   }
 
   private static String logMarker(String text) {

@@ -43,6 +43,8 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
@@ -230,7 +232,9 @@ public class SandboxHelpersTest {
 
   @Test
   public void cleanExisting_updatesDirs() throws IOException, InterruptedException {
-    Path inputTxt = scratch.getFileSystem().getPath(PathFragment.create("/hello.txt"));
+    RootedPath inputTxt =
+        RootedPath.toRootedPath(
+            Root.fromPath(scratch.getFileSystem().getPath("/")), PathFragment.create("hello.txt"));
     Path rootDir = execRoot.getParentDirectory();
     PathFragment input1 = PathFragment.create("existing/directory/with/input1.txt");
     PathFragment input2 = PathFragment.create("partial/directory/input2.txt");

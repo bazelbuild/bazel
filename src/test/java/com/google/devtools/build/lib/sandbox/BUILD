@@ -145,29 +145,3 @@ java_test(
         "//third_party:truth",
     ],
 )
-
-java_test(
-    name = "LinuxSandboxOverlayfsTest",
-    size = "small",
-    srcs = ["LinuxSandboxOverlayfsTest.java"],
-    tags = [
-        # Requires overlayfs support in the kernel
-        "no_macos",
-        "no_windows",
-        # Kernels have a hard limit on the number of overlayfs mounts layers
-        # which can be as low as 2, so running this in a sandbox with
-        # overlayfs may fail.
-        "no-sandbox",
-    ],
-    deps = [
-        ":testutil",
-        "//src/main/java/com/google/devtools/build/lib/sandbox:linux_sandbox_command_line_builder",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
-        "//src/test/java/com/google/devtools/build/lib/vfs/util",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
