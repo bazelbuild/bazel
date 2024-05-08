@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.util.TargetDataSubject.asse
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
@@ -119,6 +120,113 @@ public class RuleTest extends PackageLoadingTestCase {
     Package pkg = getTarget("//x:BUILD").getPackage();
     assertThat(pkg.getRule("pu").getVisibility()).isEqualTo(RuleVisibility.PUBLIC);
     assertThat(pkg.getRule("pr").getVisibility()).isEqualTo(RuleVisibility.PRIVATE);
+  }
+
+  @Test
+  public void testVisibilityTypo_failsCleanly() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        """
+        cc_binary(
+            name = "typo",
+            visibility = ["//visibility:none"],
+        )
+        """);
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getTarget("//x:BUILD").getPackage();
+    assertContainsEvent(
+        "Invalid visibility label '//visibility:none'; did you mean //visibility:public or"
+            + " //visibility:private?");
+    assertThat(pkg.containsErrors()).isTrue();
+  }
+
+  @Test
+  public void testVisibilityTypo_whenVisibilityPackageExists_failsCleanly() throws Exception {
+    scratch.file(
+        "visibility/BUILD",
+        """
+        cc_binary(
+            name = "none",
+        )
+        """);
+    scratch.file(
+        "x/BUILD",
+        """
+        cc_binary(
+            name = "typo",
+            visibility = ["//visibility:none"],
+        )
+        """);
+    assertThat(getTarget("//visibility:BUILD").getPackage().containsErrors()).isFalse();
+    reporter.removeHandler(failFastHandler);
+    Package pkg = getTarget("//x:BUILD").getPackage();
+    assertContainsEvent(
+        "Invalid visibility label '//visibility:none'; did you mean //visibility:public or"
+            + " //visibility:private?");
+    assertThat(pkg.containsErrors()).isTrue();
+  }
+
+  @Test
+  public void testVisibilityPkgSubpackages_whenVisibilityPackageExists_succeeds() throws Exception {
+    scratch.file(
+        "visibility/BUILD",
+        """
+        cc_binary(
+            name = "none",
+        )
+        """);
+    scratch.file(
+        "x/BUILD",
+        """
+        cc_binary(
+            name = "p",
+            visibility = ["//visibility:__pkg__"],
+        )
+
+        cc_binary(
+            name = "s",
+            visibility = ["//visibility:__subpackages__"],
+        )
+        """);
+    assertThat(getTarget("//visibility:BUILD").getPackage().containsErrors()).isFalse();
+    Package pkg = getTarget("//x:BUILD").getPackage();
+    assertThat(pkg.containsErrors()).isFalse();
+    assertThat(pkg.getRule("p").getVisibility().getDeclaredLabels())
+        .containsExactly(Label.parseCanonicalUnchecked("//visibility:__pkg__"));
+    assertThat(pkg.getRule("s").getVisibility().getDeclaredLabels())
+        .containsExactly(Label.parseCanonicalUnchecked("//visibility:__subpackages__"));
+  }
+
+  @Test
+  public void testVisibilityInvalidCombination() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        """
+        cc_binary(
+            name = "is_this_public",
+            visibility = ["//some:__pkg__", "//visibility:public"],
+        )
+        """);
+    scratch.file(
+        "y/BUILD",
+        """
+        cc_binary(
+            name = "is_this_private",
+            visibility = ["//other:__subpackages__", "//visibility:private"],
+        )
+        """);
+    reporter.removeHandler(failFastHandler);
+    Package pkgX = getTarget("//x:BUILD").getPackage();
+    assertContainsEvent(
+        "//visibility:public and //visibility:private cannot be used in combination with other"
+            + " labels");
+    assertThat(pkgX.containsErrors()).isTrue();
+    eventCollector.clear();
+    Package pkgY = getTarget("//y:BUILD").getPackage();
+    assertContainsEvent(
+        "//visibility:public and //visibility:private cannot be used in combination with other"
+            + " labels");
+    assertThat(pkgY.containsErrors()).isTrue();
   }
 
   @Test
