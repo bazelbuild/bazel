@@ -27,8 +27,8 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
- * A simple SkyFunction that computes a {@link RepoSpec} for the given {@link InterimModule} by
- * fetching required information from its {@link Registry}.
+ * A simple SkyFunction that fetches the yanked versions for a given module from its {@link
+ * Registry}.
  */
 public class YankedVersionsFunction implements SkyFunction {
 

@@ -446,7 +446,7 @@ public class IndexRegistry implements Registry {
     // * it wasn't yanked at that point in time and any successful selection since then has not seen
     //   a higher module version, or
     // * it was yanked at that point in time, but explicitly allowed via
-    //   BZLMOD_ALLOW_YANKED_VERSIONS.
+    //   BZLMOD_ALLOW_YANKED_VERSIONS or --allow_yanked_versions.
     // In the first case, we don't fetch yanked versions.
     return yankedButAllowedModules.contains(selectedModuleKey)
         || !knownFileHashes.containsKey(getSourceJsonUrl(selectedModuleKey));
