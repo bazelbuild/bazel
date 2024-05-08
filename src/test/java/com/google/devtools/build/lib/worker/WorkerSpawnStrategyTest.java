@@ -56,7 +56,7 @@ public class WorkerSpawnStrategyTest {
         new SandboxInputs(
             ImmutableMap.of(PathFragment.create("flagfile.txt"), path),
             ImmutableMap.of(),
-            ImmutableMap.of());
+            ImmutableMap.of(), ImmutableSet.of());
     WorkerSpawnRunner.expandArgument(inputs, "@flagfile.txt", requestBuilder);
 
     assertThat(requestBuilder.getArgumentsList()).containsExactlyElementsIn(flags);

@@ -184,7 +184,7 @@ class SandboxHelper {
   }
 
   public SandboxInputs getSandboxInputs() {
-    return new SandboxInputs(inputs, virtualInputs, symlinks);
+    return new SandboxInputs(inputs, virtualInputs, symlinks, ImmutableSet.of());
   }
 
   public SandboxOutputs getSandboxOutputs() {

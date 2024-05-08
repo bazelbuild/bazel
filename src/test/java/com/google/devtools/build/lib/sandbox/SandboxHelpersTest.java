@@ -239,7 +239,7 @@ public class SandboxHelpersTest {
         new SandboxInputs(
             ImmutableMap.of(input1, inputTxt, input2, inputTxt, input3, inputTxt),
             ImmutableMap.of(),
-            ImmutableMap.of());
+            ImmutableMap.of(), ImmutableSet.of());
     Set<PathFragment> inputsToCreate = new LinkedHashSet<>();
     LinkedHashSet<PathFragment> dirsToCreate = new LinkedHashSet<>();
     SandboxHelpers.populateInputsAndDirsToCreate(
@@ -280,7 +280,7 @@ public class SandboxHelpersTest {
         new SandboxInputs(
             ImmutableMap.of(input1, inputTxt, input2, inputTxt, input3, inputTxt, input4, inputTxt),
             ImmutableMap.of(),
-            ImmutableMap.of());
+            ImmutableMap.of(), ImmutableSet.of());
     SandboxHelpers.cleanExisting(rootDir, inputs2, inputsToCreate, dirsToCreate, execRoot);
     assertThat(dirsToCreate).containsExactly(inputDir2, inputDir3, outputDir);
     assertThat(execRoot.getRelative("existing/directory/with").exists()).isTrue();

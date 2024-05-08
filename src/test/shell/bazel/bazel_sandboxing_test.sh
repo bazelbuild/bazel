@@ -352,6 +352,10 @@ EOF
 #include <unistd.h>
 
 int main() {
+  if (mkdir("$tmpdir", 0755) < 0) {
+    perror("mkdir");
+    return 1;
+  }
   int fd = open("$tmpdir/bazel_was_here", O_CREAT | O_EXCL | O_WRONLY, 0600);
   if (fd < 0) {
     perror("open");
@@ -732,6 +736,47 @@ EOF
     --incompatible_sandbox_hermetic_tmp \
     --package_path="%workspace%:${temp_dir}/package-path" \
     //a:t || fail "build failed"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/21215
+function test_copy_input_symlinks() {
+  create_workspace_with_default_repos WORKSPACE
+
+  cat > MODULE.bazel <<'EOF'
+repo = use_repo_rule("//pkg:repo.bzl", "repo")
+repo(name = "some_repo")
+EOF
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+genrule(
+    name = "copy_files",
+    srcs = [
+        "@some_repo//:files",
+    ],
+    outs = [
+        "some_file1.json",
+        "some_file2.json",
+    ],
+    cmd = "cp -r $(locations @some_repo//:files) $(RULEDIR)",
+)
+EOF
+  cat > pkg/repo.bzl <<'EOF'
+def _impl(rctx):
+  rctx.file("some_file1.json", "hello")
+  rctx.file("some_file2.json", "world")
+  rctx.file("BUILD", """filegroup(
+    name = "files",
+    srcs = ["some_file1.json", "some_file2.json"],
+    visibility = ["//visibility:public"],
+)""")
+
+repo = repository_rule(_impl)
+EOF
+
+  bazel build //pkg:copy_files || fail "build failed"
+  assert_equals hello "$(cat bazel-bin/pkg/some_file1.json)"
+  assert_equals world "$(cat bazel-bin/pkg/some_file2.json)"
 }
 
 # The test shouldn't fail if the environment doesn't support running it.

@@ -14,13 +14,14 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NETNS_WITH_LOOPBACK;
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NO_NETNS;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
+import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -50,6 +51,7 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.File;
 import java.io.IOException;
@@ -58,14 +60,14 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /** Spawn runner that uses linux sandboxing APIs to execute a local subprocess. */
 final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
-  private static final PathFragment SLASH_TMP = PathFragment.create("/tmp");
-
   // Since checking if sandbox is supported is expensive, we remember what we've checked.
   private static final Map<Path, Boolean> isSupportedMap = new HashMap<>();
 
@@ -127,6 +129,9 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final Duration timeoutKillDelay;
   private final TreeDeleter treeDeleter;
   private final Reporter reporter;
+  private final FileSystem fileSystem;
+  private final Path slashTmp;
+  private final boolean tmpOnPackagePath;
   private String cgroupsDir;
 
   /**
@@ -159,6 +164,12 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.localEnvProvider = new PosixLocalEnvProvider(cmdEnv.getClientEnv());
     this.treeDeleter = treeDeleter;
     this.reporter = cmdEnv.getReporter();
+    this.fileSystem = cmdEnv.getRuntime().getFileSystem();
+    this.slashTmp = cmdEnv.getRuntime().getFileSystem().getPath("/tmp");
+    this.tmpOnPackagePath =
+        cmdEnv.getPackageLocator().getPathEntries().stream()
+            .map(Root::asPath)
+            .anyMatch(slashTmp::equals);
   }
 
   private boolean useHermeticTmp() {
@@ -181,7 +192,13 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       return false;
     }
 
-    if (getSandboxOptions().sandboxTmpfsPath.contains(SLASH_TMP)) {
+    if (tmpOnPackagePath) {
+      // /tmp as a package path entry seems very unlikely to work, but the bind mounting logic is
+      // not prepared for it and we don't want to crash.
+      return false;
+    }
+
+    if (getSandboxOptions().sandboxTmpfsPath.contains(slashTmp.asFragment())) {
       // A tmpfs path under /tmp is as hermetic as "hermetic /tmp".
       return false;
     }
@@ -206,6 +223,23 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(workspaceName);
     sandboxExecRoot.createDirectoryAndParents();
 
+    Path sandboxTmp = null;
+    if (useHermeticTmp()) {
+      // The base dir for the upperdir and workdir of an overlayfs on /tmp.
+      sandboxTmp = sandboxPath.getRelative("_hermetic_tmp");
+      sandboxTmp.createDirectoryAndParents();
+
+      for (PathFragment pathFragment : getSandboxOptions().sandboxTmpfsPath) {
+        Path path = fileSystem.getPath(pathFragment);
+        if (path.startsWith(slashTmp)) {
+          // tmpfs mount points must exist, which is usually the user's responsibility. But if the
+          // user requests a tmpfs mount under /tmp, we have to create it under the sandbox tmp
+          // directory.
+          sandboxTmp.getRelative(path.relativeTo(slashTmp)).createDirectoryAndParents();
+        }
+      }
+    }
+
     SandboxInputs inputs =
         helpers.processInputFiles(
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
@@ -225,7 +259,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .addExecutionInfo(spawn.getExecutionInfo())
             .setWritableFilesAndDirectories(writableDirs)
             .setTmpfsDirectories(ImmutableSet.copyOf(getSandboxOptions().sandboxTmpfsPath))
-            .setBindMounts(getBindMounts(sandboxExecRoot))
+            .setBindMounts(prepareAndGetBindMounts(inputs, sandboxExecRoot, sandboxTmp))
             .setUseFakeHostname(getSandboxOptions().sandboxFakeHostname)
             .setEnablePseudoterminal(getSandboxOptions().sandboxExplicitPseudoterminal)
             .setCreateNetworkNamespace(createNetworkNamespace ? NETNS_WITH_LOOPBACK : NO_NETNS)
@@ -247,17 +281,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       if (sandboxCgroup.exists()) {
         commandLineBuilder.setCgroupsDir(sandboxCgroup.getCgroupDir().toString());
       }
-    }
-
-    if (useHermeticTmp()) {
-      // The base dir for the upperdir and workdir of an overlayfs on /tmp.
-      Path sandboxTmp = sandboxPath.getRelative("_hermetic_tmp");
-      Path sandboxTmpUpperdir = sandboxTmp.getRelative("upperdir");
-      sandboxTmpUpperdir.createDirectoryAndParents();
-      Path sandboxTmpWorkdir  = sandboxTmp.getRelative("workdir");
-      sandboxTmpWorkdir.createDirectoryAndParents();
-      commandLineBuilder.mountOverlayfsOnTmp(sandboxTmpUpperdir.getPathString(),
-          sandboxTmpWorkdir.getPathString());
     }
 
     if (!timeout.isZero()) {
@@ -318,21 +341,61 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     return ImmutableSet.copyOf(writableDirs);
   }
 
-  private SortedMap<Path, Path> getBindMounts(Path sandboxExecRoot) throws UserExecException {
-    final SortedMap<Path, Path> bindMounts = Maps.newTreeMap();
+  private ImmutableMap<Path, Path> prepareAndGetBindMounts(
+      SandboxInputs inputs, Path sandboxExecRoot, @Nullable Path sandboxTmp)
+      throws UserExecException, IOException {
+    final SortedMap<Path, Path> userBindMounts = new TreeMap<>();
     SandboxHelpers.mountAdditionalPaths(
-        getSandboxOptions().sandboxAdditionalMounts, sandboxExecRoot, bindMounts);
+        getSandboxOptions().sandboxAdditionalMounts, sandboxExecRoot, userBindMounts);
 
     for (Path inaccessiblePath : getInaccessiblePaths()) {
       if (inaccessiblePath.isDirectory(Symlinks.NOFOLLOW)) {
-        bindMounts.put(inaccessiblePath, inaccessibleHelperDir);
+        userBindMounts.put(inaccessiblePath, inaccessibleHelperDir);
       } else {
-        bindMounts.put(inaccessiblePath, inaccessibleHelperFile);
+        userBindMounts.put(inaccessiblePath, inaccessibleHelperFile);
       }
     }
 
-    LinuxSandboxUtil.validateBindMounts(bindMounts);
-    return bindMounts;
+    LinuxSandboxUtil.validateBindMounts(userBindMounts);
+
+    if (sandboxTmp == null) {
+      return ImmutableMap.copyOf(userBindMounts);
+    }
+
+    // Roots under /tmp are treated exactly like a user mount under /tmp to ensure that they are
+    // visible at the same path after mounting the hermetic tmp.
+    Map<Path, Path> rootsUnderTmp =
+        Stream.concat(Stream.of(execRoot), inputs.getSourceRoots().stream().map(Root::asPath))
+            .filter(p -> p.startsWith(slashTmp))
+            .collect(toImmutableMap(p -> p, p -> p));
+
+    SortedMap<Path, Path> bindMounts = new TreeMap<>();
+    Iterable<Map.Entry<Path, Path>> allMounts =
+        Iterables.concat(userBindMounts.entrySet(), rootsUnderTmp.entrySet());
+    for (var entry : allMounts) {
+      Path mountPoint = entry.getKey();
+      Path content = entry.getValue();
+      if (mountPoint.startsWith(slashTmp)) {
+        // sandboxTmp should be null if /tmp is an explicit mount point since useHermeticTmp()
+        // returns false in that case.
+        if (mountPoint.equals(slashTmp)) {
+          throw new IOException(
+              "Cannot mount /tmp explicitly with hermetic /tmp. Please file a bug at"
+                  + " https://github.com/bazelbuild/bazel/issues/new/choose.");
+        }
+        // We need to rewrite the mount point to be under the sandbox tmp directory, which will be
+        // mounted onto /tmp as the final mount.
+        mountPoint = sandboxTmp.getRelative(mountPoint.relativeTo(slashTmp));
+        mountPoint.createDirectoryAndParents();
+      }
+      bindMounts.put(mountPoint, content);
+    }
+
+    // Mount $SANDBOX/_hermetic_tmp at /tmp as the final mount.
+    return ImmutableMap.<Path, Path>builder()
+        .putAll(bindMounts)
+        .put(slashTmp, sandboxTmp)
+        .buildOrThrow();
   }
 
   @Override
