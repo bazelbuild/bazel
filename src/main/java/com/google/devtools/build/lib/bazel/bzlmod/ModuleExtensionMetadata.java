@@ -41,7 +41,6 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
-import net.starlark.java.syntax.Location;
 
 /** The Starlark object passed to the implementation function of module extension metadata. */
 @StarlarkBuiltin(
@@ -219,15 +218,19 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
       Set<String> expectedImports,
       Set<String> expectedDevImports,
       EventHandler eventHandler) {
-    var actualDevImports = ImmutableSet.copyOf(rootUsage.getDevImports());
+    var actualDevImports =
+        rootUsage.getProxies().stream()
+            .filter(p -> p.isDevDependency())
+            .flatMap(p -> p.getImports().values().stream())
+            .collect(toImmutableSet());
     var actualImports =
-        rootUsage.getImports().values().stream()
-            .filter(repo -> !actualDevImports.contains(repo))
+        rootUsage.getProxies().stream()
+            .filter(p -> !p.isDevDependency())
+            .flatMap(p -> p.getImports().values().stream())
             .collect(toImmutableSet());
 
     String extensionBzlFile = rootUsage.getExtensionBzlFile();
     String extensionName = rootUsage.getExtensionName();
-    Location location = rootUsage.getLocation();
 
     var importsToAdd = ImmutableSortedSet.copyOf(Sets.difference(expectedImports, actualImports));
     var importsToRemove =
@@ -341,7 +344,7 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
             .flatMap(Optional::stream)
             .collect(toImmutableList());
 
-    eventHandler.handle(Event.warn(location, message));
+    eventHandler.handle(Event.warn(rootUsage.getProxies().getFirst().getLocation(), message));
     return Optional.of(new RootModuleFileFixup(buildozerCommands, rootUsage));
   }
 

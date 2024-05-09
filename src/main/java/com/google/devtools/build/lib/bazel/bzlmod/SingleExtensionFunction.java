@@ -50,21 +50,23 @@ public class SingleExtensionFunction implements SkyFunction {
 
     // Check that all imported repos have actually been generated.
     for (ModuleExtensionUsage usage : usagesValue.getExtensionUsages().values()) {
-      for (Entry<String, String> repoImport : usage.getImports().entrySet()) {
-        if (!evalOnlyValue.getGeneratedRepoSpecs().containsKey(repoImport.getValue())) {
-          throw new SingleExtensionFunctionException(
-              ExternalDepsException.withMessage(
-                  Code.INVALID_EXTENSION_IMPORT,
-                  "module extension \"%s\" from \"%s\" does not generate repository \"%s\", yet it"
-                      + " is imported as \"%s\" in the usage at %s%s",
-                  extensionId.getExtensionName(),
-                  extensionId.getBzlFileLabel(),
-                  repoImport.getValue(),
-                  repoImport.getKey(),
-                  usage.getLocation(),
-                  SpellChecker.didYouMean(
-                      repoImport.getValue(), evalOnlyValue.getGeneratedRepoSpecs().keySet())),
-              Transience.PERSISTENT);
+      for (ModuleExtensionUsage.Proxy proxy : usage.getProxies()) {
+        for (Entry<String, String> repoImport : proxy.getImports().entrySet()) {
+          if (!evalOnlyValue.getGeneratedRepoSpecs().containsKey(repoImport.getValue())) {
+            throw new SingleExtensionFunctionException(
+                ExternalDepsException.withMessage(
+                    Code.INVALID_EXTENSION_IMPORT,
+                    "module extension \"%s\" from \"%s\" does not generate repository \"%s\", yet"
+                        + " it is imported as \"%s\" in the usage at %s%s",
+                    extensionId.getExtensionName(),
+                    extensionId.getBzlFileLabel(),
+                    repoImport.getValue(),
+                    repoImport.getKey(),
+                    proxy.getLocation(),
+                    SpellChecker.didYouMean(
+                        repoImport.getValue(), evalOnlyValue.getGeneratedRepoSpecs().keySet())),
+                Transience.PERSISTENT);
+          }
         }
       }
     }
