@@ -65,7 +65,6 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -763,7 +762,7 @@ public class BzlLoadFunction implements SkyFunction {
     if (repoMapping == null) {
       return null;
     }
-    Optional<RepositoryMapping> mainRepoMapping =
+    RepositoryMapping mainRepoMapping =
         getMainRepositoryMapping(key, builtins.starlarkSemantics, env);
     if (mainRepoMapping == null) {
       return null;
@@ -846,7 +845,7 @@ public class BzlLoadFunction implements SkyFunction {
         BazelModuleContext.create(
             label,
             repoMapping,
-            mainRepoMapping.orElse(null),
+            mainRepoMapping,
             prog.getFilename(),
             ImmutableList.copyOf(loadMap.values()),
             transitiveDigest);
@@ -980,30 +979,29 @@ public class BzlLoadFunction implements SkyFunction {
   }
 
   @Nullable
-  private static Optional<RepositoryMapping> getMainRepositoryMapping(
+  private static RepositoryMapping getMainRepositoryMapping(
       BzlLoadValue.Key key, StarlarkSemantics starlarkSemantics, Environment env)
       throws InterruptedException {
-    if (!starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
-      return Optional.empty();
-    }
+    boolean bzlmod = starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD);
     RepositoryMappingValue.Key repoMappingKey;
     if (key instanceof BzlLoadValue.KeyForBuild) {
       repoMappingKey = RepositoryMappingValue.key(RepositoryName.MAIN);
     } else if ((key instanceof BzlLoadValue.KeyForBzlmod
             && !(key instanceof BzlLoadValue.KeyForBzlmodBootstrap))
-        || key instanceof BzlLoadValue.KeyForWorkspace) {
+        || (bzlmod && key instanceof BzlLoadValue.KeyForWorkspace)) {
       // Since the main repo mapping requires evaluating WORKSPACE, but WORKSPACE can load from
       // extension repos, requesting the full main repo mapping would cause a cycle.
       repoMappingKey = RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS;
     } else {
-      // Builtins and Bzlmod bootstrap repo rules don't need the main repo mapping.
-      return Optional.empty();
+      // For builtins, @bazel_tools, and legacy WORKSPACE, the key's local repo mapping can be used
+      // as the main repo mapping.
+      return getRepositoryMapping(key, starlarkSemantics, env);
     }
     var mainRepositoryMappingValue = (RepositoryMappingValue) env.getValue(repoMappingKey);
     if (mainRepositoryMappingValue == null) {
       return null;
     }
-    return Optional.of(mainRepositoryMappingValue.getRepositoryMapping());
+    return mainRepositoryMappingValue.getRepositoryMapping();
   }
 
   /**
