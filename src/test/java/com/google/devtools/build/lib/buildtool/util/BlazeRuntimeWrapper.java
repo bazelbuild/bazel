@@ -99,7 +99,6 @@ public class BlazeRuntimeWrapper {
 
   private BuildRequest lastRequest;
   private BuildResult lastResult;
-  private BlazeCommandResult lastCommandResult;
   private BuildConfigurationValue configuration;
 
   private OptionsParser optionsParser;
@@ -184,6 +183,9 @@ public class BlazeRuntimeWrapper {
         BlazeCommandUtils.getOptions(
             command, runtime.getBlazeModules(), runtime.getRuleClassProvider()));
     initializeOptionsParser(commandAnnotation);
+    if (env != null) {
+      runtime.afterCommand(env, BlazeCommandResult.success());
+    }
 
     checkNotNull(
         optionsParser,
@@ -315,35 +317,28 @@ public class BlazeRuntimeWrapper {
         "%s is a build command, did you mean to call executeBuild()?",
         env.getCommandName());
 
-    BlazeCommandResult result = BlazeCommandResult.success();
-
     try {
       beforeCommand();
-
       lastRequest = null;
       lastResult = null;
 
+      BlazeCommandResult result;
+      Crash crash = null;
       try {
-        Crash crash = null;
-        try {
-          result = command.exec(env, optionsParser);
-        } catch (RuntimeException | Error e) {
-          crash = Crash.from(e);
-          result = BlazeCommandResult.detailedExitCode(crash.getDetailedExitCode());
-          throw e;
-        } finally {
-          commandComplete(crash);
-        }
-        checkState(
-            result.getDetailedExitCode().equals(DetailedExitCode.success()),
-            "%s command resulted in %s",
-            env.getCommandName(),
-            result);
+        result = command.exec(env, optionsParser);
+      } catch (RuntimeException | Error e) {
+        crash = Crash.from(e);
+        throw e;
       } finally {
-        afterCommand(result);
+        commandComplete(crash);
       }
+      checkState(
+          result.getDetailedExitCode().equals(DetailedExitCode.success()),
+          "%s command resulted in %s",
+          env.getCommandName(),
+          result);
     } finally {
-      Profiler.instance().stop();
+      afterCommand();
     }
   }
 
@@ -358,37 +353,32 @@ public class BlazeRuntimeWrapper {
 
     try {
       beforeCommand();
+      lastRequest = createRequest(env.getCommandName(), targets);
+      lastResult = new BuildResult(lastRequest.getStartTime());
 
+      Crash crash = null;
+      DetailedExitCode detailedExitCode = DetailedExitCode.of(createGenericDetailedFailure());
+      BuildTool buildTool = new BuildTool(env);
       try {
-        lastRequest = createRequest(env.getCommandName(), targets);
-        lastResult = new BuildResult(lastRequest.getStartTime());
-
-        Crash crash = null;
-        DetailedExitCode detailedExitCode = DetailedExitCode.of(createGenericDetailedFailure());
-        BuildTool buildTool = new BuildTool(env);
-        try {
-          try (SilentCloseable c = Profiler.instance().profile("syncPackageLoading")) {
-            env.syncPackageLoading(lastRequest);
-          }
-          buildTool.buildTargets(lastRequest, lastResult, null);
-          detailedExitCode = DetailedExitCode.success();
-        } catch (RuntimeException | Error e) {
-          crash = Crash.from(e);
-          detailedExitCode = crash.getDetailedExitCode();
-          throw e;
-        } finally {
-          env.getTimestampGranularityMonitor().waitForTimestampGranularity(lastRequest.getOutErr());
-          configuration = lastResult.getBuildConfiguration();
-          finalizeBuildResult(lastResult);
-          buildTool.stopRequest(
-              lastResult, crash != null ? crash.getThrowable() : null, detailedExitCode);
-          commandComplete(crash);
+        try (SilentCloseable c = Profiler.instance().profile("syncPackageLoading")) {
+          env.syncPackageLoading(lastRequest);
         }
+        buildTool.buildTargets(lastRequest, lastResult, null);
+        detailedExitCode = DetailedExitCode.success();
+      } catch (RuntimeException | Error e) {
+        crash = Crash.from(e);
+        detailedExitCode = crash.getDetailedExitCode();
+        throw e;
       } finally {
-        afterCommand(BlazeCommandResult.detailedExitCode(lastResult.getDetailedExitCode()));
+        env.getTimestampGranularityMonitor().waitForTimestampGranularity(lastRequest.getOutErr());
+        configuration = lastResult.getBuildConfiguration();
+        finalizeBuildResult(lastResult);
+        buildTool.stopRequest(
+            lastResult, crash != null ? crash.getThrowable() : null, detailedExitCode);
+        commandComplete(crash);
       }
     } finally {
-      Profiler.instance().stop();
+      afterCommand();
     }
   }
 
@@ -455,9 +445,9 @@ public class BlazeRuntimeWrapper {
     }
   }
 
-  private void afterCommand(BlazeCommandResult result) {
+  private void afterCommand() throws Exception {
     command = null;
-    lastCommandResult = runtime.afterCommand(/* forceKeepStateForTesting= */ true, env, result);
+    Profiler.instance().stop();
   }
 
   private static FailureDetail createGenericDetailedFailure() {
@@ -490,11 +480,6 @@ public class BlazeRuntimeWrapper {
   @Nullable // Null if no build has been run.
   public BuildResult getLastResult() {
     return lastResult;
-  }
-
-  @Nullable // Null if no build has been run.
-  public BlazeCommandResult getLastCommandResult() {
-    return lastCommandResult;
   }
 
   @Nullable // Null if no build has been run.

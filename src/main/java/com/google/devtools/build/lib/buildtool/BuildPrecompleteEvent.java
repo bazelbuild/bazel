@@ -14,10 +14,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 /**
- * This event is fired before at the end of every command before {@link
- * com.google.devtools.build.lib.runtime.BlazeModule#afterCommand()} is called.
- *
- * <p>Its purpose is to give a chance for event bus listeners to do things that need to happen at
- * the end of every command but before {@code afterCommand()}.
+ * This event is fired from BuildTool#stopRequest() just before {@link
+ * com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent}.
  */
-public final class CommandPrecompleteEvent {}
+public final class BuildPrecompleteEvent {}

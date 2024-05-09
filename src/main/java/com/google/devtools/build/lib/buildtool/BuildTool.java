@@ -706,6 +706,12 @@ public class BuildTool {
     }
 
     InterruptedException ie = null;
+    try {
+      env.getSkyframeExecutor().notifyCommandComplete(env.getReporter());
+    } catch (InterruptedException e) {
+      env.getReporter().handle(Event.error("Build interrupted during command completion"));
+      ie = e;
+    }
 
     // The stop time has to be captured before we send the BuildCompleteEvent.
     result.setStopTime(runtime.getClock().currentTimeMillis());
@@ -719,7 +725,9 @@ public class BuildTool {
         env.getReporter().handle(Event.error("Build interrupted during command completion"));
         ie = e;
       }
-
+      // Ensure deterministic ordering of doing the metrics upload before everything else that
+      // happens when BuildCompleteEvent is posted.
+      env.getEventBus().post(new BuildPrecompleteEvent());
       env.getEventBus()
           .post(
               new BuildCompleteEvent(
