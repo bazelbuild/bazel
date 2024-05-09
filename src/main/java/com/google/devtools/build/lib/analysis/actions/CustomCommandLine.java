@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.CommandLineItem.ExceptionlessMapFn;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -1359,6 +1360,7 @@ public class CustomCommandLine extends AbstractCommandLine {
   public void addToFingerprint(
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
+      CoreOptions.OutputPathsMode outputPathsMode,
       Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException {
     List<Object> arguments = rawArgsAsList();
