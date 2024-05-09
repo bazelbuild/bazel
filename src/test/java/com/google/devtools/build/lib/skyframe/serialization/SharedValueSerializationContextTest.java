@@ -308,7 +308,7 @@ public final class SharedValueSerializationContextTest {
   }
 
   private Object[] createRandomLeafArray() {
-    return NotNestedSet.createRandomLeafArray(rng);
+    return NotNestedSet.createRandomLeafArray(rng, Random::nextInt);
   }
 
   private static final long POLL_MS = 100;

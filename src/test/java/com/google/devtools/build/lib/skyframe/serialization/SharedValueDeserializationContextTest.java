@@ -60,7 +60,7 @@ public final class SharedValueDeserializationContextTest {
   @TestParameters("{size: 64, useDeferredCodec: false}")
   @TestParameters("{size: 128, useDeferredCodec: false}")
   public void codec_roundTrips(int size, boolean useDeferredCodec) throws Exception {
-    new SerializationTester(NotNestedSet.createRandom(rng, size, size))
+    new SerializationTester(NotNestedSet.createRandom(rng, size, size, Random::nextInt))
         .addCodec(
             useDeferredCodec
                 ? new NotNestedSetDeferredCodec(new NestedArrayCodec())
@@ -125,7 +125,9 @@ public final class SharedValueDeserializationContextTest {
     NotNestedSet subject =
         new NotNestedSet(
             new Object[] {
-              createRandomLeafArray(rng), createRandomLeafArray(rng), createRandomLeafArray(rng)
+              createRandomLeafArray(rng, Random::nextInt),
+              createRandomLeafArray(rng, Random::nextInt),
+              createRandomLeafArray(rng, Random::nextInt)
             });
 
     SerializationResult<ByteString> serialized =
@@ -284,9 +286,10 @@ public final class SharedValueDeserializationContextTest {
     if (doesSecondAliasFirst) {
       subject =
           new NotNestedSetContainer(
-              NotNestedSet.createRandom(rng, 4, 4), NotNestedSet.createRandom(rng, 4, 4));
+              NotNestedSet.createRandom(rng, 4, 4, Random::nextInt),
+              NotNestedSet.createRandom(rng, 4, 4, Random::nextInt));
     } else {
-      NotNestedSet contained = NotNestedSet.createRandom(rng, 5, 5);
+      NotNestedSet contained = NotNestedSet.createRandom(rng, 5, 5, Random::nextInt);
       subject = new NotNestedSetContainer(contained, contained);
     }
     new SerializationTester(subject)
