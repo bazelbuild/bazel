@@ -1382,6 +1382,85 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(NoTransition.isInstance(attr.getTransitionFactory())).isTrue();
   }
 
+  private void writeRuleCfgTestRule(String cfg) throws Exception {
+    scratch.file(
+        "rule_testing/rule.bzl",
+        """
+        def _impl(ctx):
+            pass
+
+        demo_rule = rule(
+            implementation = _impl,
+            cfg = %s,
+        )
+        """
+            .formatted(cfg));
+    scratch.file(
+        "rule_testing/BUILD",
+        """
+        load(":rule.bzl", "demo_rule")
+
+        demo_rule(name = "my_target")
+        """);
+  }
+
+  @Test
+  public void testRuleCfg_exec_string_fails() throws Exception {
+    writeRuleCfgTestRule("'exec'");
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//rule_testing:my_target");
+
+    ev.assertContainsError("`cfg` must be set to a transition object");
+  }
+
+  @Test
+  public void testRuleCfg_exec_obj_fails() throws Exception {
+    writeRuleCfgTestRule("config.exec()");
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//rule_testing:my_target");
+
+    ev.assertContainsError("`cfg` must be set to a transition object");
+  }
+
+  @Test
+  public void testRuleCfg_starlark() throws Exception {
+    scratchStarlarkTransition();
+    scratch.file(
+        "rule_testing/rule.bzl",
+        """
+        load("//test:transitions.bzl", "parent_transition")
+
+        def _impl(ctx):
+            pass
+
+        demo_rule = rule(
+            implementation = _impl,
+            cfg = parent_transition,
+        )
+        """);
+    scratch.file(
+        "rule_testing/BUILD",
+        """
+        load(":rule.bzl", "demo_rule")
+
+        demo_rule(name = "my_target")
+        """);
+
+    BuildConfigurationValue configuration =
+        getConfiguration(getConfiguredTarget("//rule_testing:my_target"));
+
+    var options = configuration.getOptions().getStarlarkOptions();
+    assertThat(options.get(Label.parseCanonicalUnchecked("//test:parent-flag")))
+        .isEqualTo("parent-changed");
+    assertThat(options.get(Label.parseCanonicalUnchecked("//test:parent-child-flag")))
+        .isEqualTo("parent-child-changed-in-parent");
+    assertThat(options.get(Label.parseCanonicalUnchecked("//test:child-flag"))).isNull();
+  }
+
   @Test
   public void incompatibleDataTransition() {
     EvalException expected =
@@ -5712,12 +5791,15 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
       scratch.overwriteFile(
           TestConstants.TOOLS_REPOSITORY_SCRATCH
               + "tools/allowlists/function_transition_allowlist/BUILD",
-          "package_group(",
-          "    name = 'function_transition_allowlist',",
-          "    packages = [",
-          "        '//extend_rule_testing/...',",
-          "    ],",
-          ")");
+          """
+          package_group(
+              name = "function_transition_allowlist",
+              packages = [
+                  # Allow all packages for testing.
+                  "//...",
+              ],
+          )
+          """);
     }
     scratch.file(
         "test/build_settings.bzl",
