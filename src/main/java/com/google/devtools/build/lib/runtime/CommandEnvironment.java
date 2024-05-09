@@ -775,7 +775,8 @@ public class CommandEnvironment {
                 repoEnvFromOptions,
                 timestampGranularityMonitor,
                 quiescingExecutors,
-                options);
+                options,
+                getCommandName());
   }
 
   /** Returns true if {@link #syncPackageLoading} has already been called. */

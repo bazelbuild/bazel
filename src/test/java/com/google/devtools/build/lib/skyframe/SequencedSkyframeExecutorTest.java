@@ -2713,6 +2713,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             /* repoEnvOption= */ ImmutableMap.of(),
             tsgm,
             QuiescingExecutorsImpl.forTesting(),
-            options);
+            options,
+            /* commandName= */ "build");
   }
 }

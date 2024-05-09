@@ -354,7 +354,8 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
           ImmutableMap.of(),
           new TimestampGranularityMonitor(BlazeClock.instance()),
           QuiescingExecutorsImpl.forTesting(),
-          FakeOptions.builder().put(packageOptions).put(buildLanguageOptions).build());
+          FakeOptions.builder().put(packageOptions).put(buildLanguageOptions).build(),
+          /* commandName= */ "query");
     } catch (InterruptedException | AbruptExitException e) {
       throw new IllegalStateException(e);
     }

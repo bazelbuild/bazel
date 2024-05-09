@@ -256,7 +256,8 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       Map<String, String> repoEnvOption,
       TimestampGranularityMonitor tsgm,
       QuiescingExecutors executors,
-      OptionsProvider options)
+      OptionsProvider options,
+      String commandName)
       throws InterruptedException, AbruptExitException {
     inconsistencyReceiver.setDelegate(getGraphInconsistencyReceiverForCommand(options));
     if (evaluatorNeedsReset) {
@@ -287,7 +288,8 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         repoEnvOption,
         tsgm,
         executors,
-        options);
+        options,
+        commandName);
     long startTime = System.nanoTime();
     WorkspaceInfoFromDiff workspaceInfo = handleDiffs(eventHandler, options);
     long stopTime = System.nanoTime();

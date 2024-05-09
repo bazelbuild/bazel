@@ -322,7 +322,8 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
         /* repoEnvOption= */ ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()),
         QuiescingExecutorsImpl.forTesting(),
-        FakeOptions.builder().put(packageOptions).putDefaults(BuildLanguageOptions.class).build());
+        FakeOptions.builder().put(packageOptions).putDefaults(BuildLanguageOptions.class).build(),
+        /* commandName= */ "build");
     evaluator = skyframeExecutor.getEvaluator();
   }
 
