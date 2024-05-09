@@ -76,4 +76,14 @@ public interface TransitionFactory<T extends TransitionFactory.Data> {
   default boolean isSplit() {
     return false;
   }
+
+  /** Visit this trnsition factory with the given visitor. */
+  default void visit(Visitor<T> visitor) {
+    visitor.visit(this);
+  }
+
+  /** Interface used to progressively visit transitions. */
+  interface Visitor<T extends TransitionFactory.Data> {
+    void visit(TransitionFactory<T> factory);
+  }
 }

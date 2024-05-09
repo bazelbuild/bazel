@@ -100,4 +100,10 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactory.Dat
   public boolean isSplit() {
     return transitionFactory1().isSplit() || transitionFactory2().isSplit();
   }
+
+  @Override
+  public void visit(Visitor<T> visitor) {
+    this.transitionFactory1().visit(visitor);
+    this.transitionFactory2().visit(visitor);
+  }
 }
