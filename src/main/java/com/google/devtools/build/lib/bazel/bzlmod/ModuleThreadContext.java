@@ -20,6 +20,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import java.util.ArrayList;
@@ -185,16 +186,16 @@ public class ModuleThreadContext {
               .setProxies(proxies)
               .setTags(tags.build());
       if (isolate) {
-        ModuleExtensionUsage.Proxy firstProxy = proxies.getFirst();
-        if (firstProxy.getProxyName().isEmpty()) {
+        ModuleExtensionUsage.Proxy onlyProxy = Iterables.getOnlyElement(proxies);
+        if (onlyProxy.getProxyName().isEmpty()) {
           throw Starlark.errorf(
               "Isolated extension usage at %s must be assigned to a top-level variable",
-              firstProxy.getLocation());
+              onlyProxy.getLocation());
         }
         builder.setIsolationKey(
             Optional.of(
                 ModuleExtensionId.IsolationKey.create(
-                    context.getModuleBuilder().getKey(), firstProxy.getProxyName())));
+                    context.getModuleBuilder().getKey(), onlyProxy.getProxyName())));
       } else {
         builder.setIsolationKey(Optional.empty());
       }
