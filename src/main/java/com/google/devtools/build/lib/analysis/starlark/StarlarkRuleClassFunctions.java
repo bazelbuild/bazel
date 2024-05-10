@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransi
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.Visitor;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
@@ -711,33 +712,24 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       builder.setBuildSetting((BuildSetting) buildSetting);
     }
 
-    TransitionFactory<RuleTransitionData> transitionFactory = null;
-    if (!cfg.equals(Starlark.NONE)) {
-      if (cfg instanceof StarlarkDefinedConfigTransition starlarkDefinedConfigTransition) {
-        // defined in Starlark via, cfg = transition
-        transitionFactory = new StarlarkRuleTransitionProvider(starlarkDefinedConfigTransition);
-        hasStarlarkDefinedTransition = true;
-      } else if (cfg instanceof StarlarkExposedRuleTransitionFactory transition) {
-        // only used for native Android transitions (platforms and feature flags)
-        transition.addToStarlarkRule(ruleDefinitionEnvironment, builder);
-        transitionFactory = transition;
-      } else {
-        throw Starlark.errorf(
-            "`cfg` must be set to a transition object initialized by the transition() function.");
-      }
-    }
+    TransitionFactory<RuleTransitionData> transitionFactory = convertConfig(cfg);
+    // Check if the rule definition needs to be updated.
+    transitionFactory.visit(
+        factory -> {
+          if (factory instanceof StarlarkExposedRuleTransitionFactory exposed) {
+            // only used for native Android transitions (platforms and feature flags)
+            exposed.addToStarlarkRule(ruleDefinitionEnvironment, builder);
+          }
+        });
     if (parent != null && parent.getTransitionFactory() != null) {
-      if (transitionFactory == null) {
-        transitionFactory = parent.getTransitionFactory();
-      } else {
-        transitionFactory =
-            ComposingTransitionFactory.of(transitionFactory, parent.getTransitionFactory());
-      }
-      hasStarlarkDefinedTransition = true;
+      transitionFactory =
+          ComposingTransitionFactory.of(transitionFactory, parent.getTransitionFactory());
     }
-    if (transitionFactory != null) {
-      builder.cfg(transitionFactory);
-    }
+    // Check if the transition has any Starlark code.
+    StarlarkTransitionCheckingVisitor visitor = new StarlarkTransitionCheckingVisitor();
+    transitionFactory.visit(visitor);
+    hasStarlarkDefinedTransition |= visitor.hasStarlarkDefinedTransition;
+    builder.cfg(transitionFactory);
 
     boolean hasFunctionTransitionAllowlist = false;
     // Check for existence of the function transition allowlist attribute.
@@ -806,6 +798,22 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         builder,
         loc,
         Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString));
+  }
+
+  private static TransitionFactory<RuleTransitionData> convertConfig(@Nullable Object cfg)
+      throws EvalException {
+    if (cfg.equals(Starlark.NONE)) {
+      return NoTransition.createFactory();
+    }
+    if (cfg instanceof StarlarkDefinedConfigTransition starlarkDefinedConfigTransition) {
+      // defined in Starlark via, cfg = transition
+      return new StarlarkRuleTransitionProvider(starlarkDefinedConfigTransition);
+    }
+    if (cfg instanceof StarlarkExposedRuleTransitionFactory transition) {
+      return transition;
+    }
+    throw Starlark.errorf(
+        "`cfg` must be set to a transition object initialized by the transition() function.");
   }
 
   private static void checkAttributeName(String name) throws EvalException {
@@ -1643,5 +1651,16 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     throw Starlark.errorf(
         "'toolchains' takes a toolchain_type, Label, or String, but instead got a %s",
         rawToolchain.getClass().getSimpleName());
+  }
+
+  /** Visitor to check whether a transition has any Starlark components. */
+  private static class StarlarkTransitionCheckingVisitor implements Visitor<RuleTransitionData> {
+
+    private boolean hasStarlarkDefinedTransition = false;
+
+    @Override
+    public void visit(TransitionFactory<RuleTransitionData> factory) {
+      this.hasStarlarkDefinedTransition |= factory instanceof StarlarkRuleTransitionProvider;
+    }
   }
 }
