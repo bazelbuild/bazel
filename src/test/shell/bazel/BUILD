@@ -804,6 +804,17 @@ sh_test(
 )
 
 sh_test(
+    name = "external_remote_file_test",
+    size = "small",
+    srcs = ["external_remote_file_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 3,
+)
+
+sh_test(
     name = "external_path_test",
     size = "medium",
     srcs = ["external_path_test.sh"],
