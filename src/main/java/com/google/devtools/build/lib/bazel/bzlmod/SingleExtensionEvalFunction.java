@@ -769,8 +769,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       StarlarkSemantics starlarkSemantics,
       Environment env)
       throws InterruptedException, SingleExtensionEvalFunctionException {
-    Location sampleUsageLocation =
-        usagesValue.getExtensionUsages().values().iterator().next().getLocation();
+    ModuleExtensionUsage sampleUsage = usagesValue.getExtensionUsages().values().iterator().next();
+    Location sampleUsageLocation = sampleUsage.getProxies().getFirst().getLocation();
     BzlLoadValue bzlLoadValue =
         loadBzlFile(extensionId.getBzlFileLabel(), sampleUsageLocation, starlarkSemantics, env);
     if (bzlLoadValue == null) {

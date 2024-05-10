@@ -444,7 +444,9 @@ public class ModExecutor {
         if (!presentModules.contains(usage.getKey())) {
           continue;
         }
-        modulesToImportsBuilder.putAll(usage.getKey(), usage.getValue().getImports().values());
+        for (ModuleExtensionUsage.Proxy proxy : usage.getValue().getProxies()) {
+          modulesToImportsBuilder.putAll(usage.getKey(), proxy.getImports().values());
+        }
       }
       resultBuilder.put(extension, modulesToImportsBuilder.build().inverse());
     }
@@ -491,9 +493,13 @@ public class ModExecutor {
         continue;
       }
       ModuleExtensionUsage usage = extensionUsages.get(extension, module);
+      // TODO: maybe consider printing each proxy separately? Might be relevant for included
+      //  segments.
       printer.printf(
           "## Usage in %s from %s:%s\n",
-          module, usage.getLocation().file(), usage.getLocation().line());
+          module,
+          usage.getProxies().getFirst().getLocation().file(),
+          usage.getProxies().getFirst().getLocation().line());
       for (Tag tag : usage.getTags()) {
         printer.printf(
             "%s.%s(%s)\n",
@@ -505,12 +511,14 @@ public class ModExecutor {
       }
       printer.printf("use_repo(\n");
       printer.printf("  %s,\n", extension.getExtensionName());
-      for (Entry<String, String> repo : usage.getImports().entrySet()) {
-        printer.printf(
-            "  %s,\n",
-            repo.getKey().equals(repo.getValue())
-                ? String.format("\"%s\"", repo.getKey())
-                : String.format("%s=\"%s\"", repo.getKey(), repo.getValue()));
+      for (ModuleExtensionUsage.Proxy proxy : usage.getProxies()) {
+        for (Entry<String, String> repo : proxy.getImports().entrySet()) {
+          printer.printf(
+              "  %s,\n",
+              repo.getKey().equals(repo.getValue())
+                  ? String.format("\"%s\"", repo.getKey())
+                  : String.format("%s=\"%s\"", repo.getKey(), repo.getValue()));
+        }
       }
       printer.printf(")\n\n");
     }

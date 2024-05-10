@@ -237,13 +237,13 @@ public class BazelDepGraphFunction implements SkyFunction {
               Code.BAD_MODULE,
               e,
               "invalid label for module extension found at %s",
-              usage.getLocation());
+              usage.getProxies().getFirst().getLocation());
         }
         if (!moduleExtensionId.getBzlFileLabel().getRepository().isVisible()) {
           throw ExternalDepsException.withMessage(
               Code.BAD_MODULE,
               "invalid label for module extension found at %s: no repo visible as '@%s' here",
-              usage.getLocation(),
+              usage.getProxies().getFirst().getLocation(),
               moduleExtensionId.getBzlFileLabel().getRepository().getName());
         }
         extensionUsagesTableBuilder.put(moduleExtensionId, module.getKey(), usage);

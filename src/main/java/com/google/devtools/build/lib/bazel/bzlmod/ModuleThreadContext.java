@@ -15,11 +15,12 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.collect.HashBiMap;
-import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import java.util.ArrayList;
@@ -121,28 +122,21 @@ public class ModuleThreadContext {
     private final String extensionBzlFile;
     private final String extensionName;
     private final boolean isolate;
-    private final Location location;
+    private final ArrayList<ModuleExtensionUsage.Proxy.Builder> proxyBuilders;
     private final HashBiMap<String, String> imports;
-    private final ImmutableSet.Builder<String> devImports;
     private final ImmutableList.Builder<Tag> tags;
-
-    private boolean hasNonDevUseExtension;
-    private boolean hasDevUseExtension;
-    private String exportedName;
 
     ModuleExtensionUsageBuilder(
         ModuleThreadContext context,
         String extensionBzlFile,
         String extensionName,
-        boolean isolate,
-        Location location) {
+        boolean isolate) {
       this.context = context;
       this.extensionBzlFile = extensionBzlFile;
       this.extensionName = extensionName;
       this.isolate = isolate;
-      this.location = location;
+      this.proxyBuilders = new ArrayList<>();
       this.imports = HashBiMap.create();
-      this.devImports = ImmutableSet.builder();
       this.tags = ImmutableList.builder();
     }
 
@@ -150,20 +144,8 @@ public class ModuleThreadContext {
       return context;
     }
 
-    void setHasNonDevUseExtension() {
-      hasNonDevUseExtension = true;
-    }
-
-    void setHasDevUseExtension() {
-      hasDevUseExtension = true;
-    }
-
-    void setExportedName(String exportedName) {
-      this.exportedName = exportedName;
-    }
-
-    boolean isExported() {
-      return exportedName != null;
+    void addProxyBuilder(ModuleExtensionUsage.Proxy.Builder builder) {
+      proxyBuilders.add(builder);
     }
 
     boolean isForExtension(String extensionBzlFile, String extensionName) {
@@ -175,7 +157,6 @@ public class ModuleThreadContext {
     void addImport(
         String localRepoName,
         String exportedName,
-        boolean devDependency,
         String byWhat,
         Location location)
         throws EvalException {
@@ -189,9 +170,6 @@ public class ModuleThreadContext {
             exportedName, extensionName, context.repoNameUsages.get(collisionRepoName).where());
       }
       imports.put(localRepoName, exportedName);
-      if (devDependency) {
-        devImports.add(exportedName);
-      }
     }
 
     void addTag(Tag tag) {
@@ -199,26 +177,25 @@ public class ModuleThreadContext {
     }
 
     ModuleExtensionUsage buildUsage() throws EvalException {
+      var proxies = proxyBuilders.stream().map(p -> p.build()).collect(toImmutableList());
       var builder =
           ModuleExtensionUsage.builder()
               .setExtensionBzlFile(extensionBzlFile)
               .setExtensionName(extensionName)
               .setUsingModule(context.getModuleBuilder().getKey())
-              .setLocation(location)
-              .setImports(ImmutableBiMap.copyOf(imports))
-              .setDevImports(devImports.build())
-              .setHasDevUseExtension(hasDevUseExtension)
-              .setHasNonDevUseExtension(hasNonDevUseExtension)
+              .setProxies(proxies)
               .setTags(tags.build());
       if (isolate) {
-        if (exportedName == null) {
+        ModuleExtensionUsage.Proxy onlyProxy = Iterables.getOnlyElement(proxies);
+        if (onlyProxy.getProxyName().isEmpty()) {
           throw Starlark.errorf(
-              "Isolated extension usage at %s must be assigned to a top-level variable", location);
+              "Isolated extension usage at %s must be assigned to a top-level variable",
+              onlyProxy.getLocation());
         }
         builder.setIsolationKey(
             Optional.of(
                 ModuleExtensionId.IsolationKey.create(
-                    context.getModuleBuilder().getKey(), exportedName)));
+                    context.getModuleBuilder().getKey(), onlyProxy.getProxyName())));
       } else {
         builder.setIsolationKey(Optional.empty());
       }
