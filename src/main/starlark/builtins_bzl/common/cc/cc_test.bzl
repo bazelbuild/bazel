@@ -16,8 +16,8 @@
 
 load(":common/cc/cc_binary.bzl", "cc_binary_impl")
 load(":common/cc/cc_binary_attrs.bzl", "cc_binary_attrs")
-load(":common/cc/cc_shared_library.bzl", "cc_shared_library_initializer")
 load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/cc_shared_library.bzl", "dynamic_deps_initializer")
 load(":common/cc/semantics.bzl", "semantics")
 load(":common/paths.bzl", "paths")
 
@@ -100,7 +100,7 @@ _cc_test_attrs.update(semantics.get_test_malloc_attr())
 _cc_test_attrs.update(semantics.get_coverage_attrs())
 
 cc_test = rule(
-    initializer = cc_shared_library_initializer,
+    initializer = dynamic_deps_initializer,
     implementation = _impl,
     attrs = _cc_test_attrs,
     outputs = {
