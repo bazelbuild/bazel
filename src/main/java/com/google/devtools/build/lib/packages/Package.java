@@ -132,8 +132,6 @@ public class Package {
    *
    * <p>Note that a target and a macro may share the same name.
    */
-  // TODO(#19922): Enforce that symbolic macros may only instantiate targets whose names are
-  // suffixes of the macro's name.
   // TODO(#19922): Enforce that macro namespaces are "exclusive", meaning that target names may only
   // suffix a macro name when the target is created (transitively) within the macro.
   private ImmutableSortedMap<String, MacroInstance> macros;
@@ -1561,7 +1559,7 @@ public class Package {
               "FileTarget in package " + pkg.getName() + " has illegal name: " + targetName, e);
       }
 
-      checkForExistingTargetName(inputFile);
+      checkTargetName(inputFile);
       addInputFile(inputFile);
       return inputFile;
     }
@@ -1623,7 +1621,7 @@ public class Package {
               repoRootMeansCurrentRepo,
               eventHandler,
               location);
-      checkForExistingTargetName(group);
+      checkTargetName(group);
       targets.put(group.getName(), group);
 
       if (group.containsErrors()) {
@@ -1656,7 +1654,7 @@ public class Package {
       return !dupes.isEmpty();
     }
 
-    /** Adds an environment group to the package. */
+    /** Adds an environment group to the package. Not valid within symbolic macros. */
     void addEnvironmentGroup(
         String name,
         List<Label> environments,
@@ -1664,6 +1662,7 @@ public class Package {
         EventHandler eventHandler,
         Location location)
         throws NameConflictException, LabelSyntaxException {
+      Preconditions.checkState(macroStack.isEmpty());
 
       if (hasDuplicateLabels(environments, name, "environments", location, eventHandler)
           || hasDuplicateLabels(defaults, name, "defaults", location, eventHandler)) {
@@ -1673,7 +1672,7 @@ public class Package {
 
       EnvironmentGroup group =
           new EnvironmentGroup(createLabel(name), pkg, environments, defaults, location);
-      checkForExistingTargetName(group);
+      checkTargetName(group);
       targets.put(group.getName(), group);
 
       // Invariant: once group is inserted into targets, it must also:
@@ -1773,7 +1772,7 @@ public class Package {
 
     /** Adds a symbolic macro instance to the package. */
     public void addMacro(MacroInstance macro) throws NameConflictException {
-      checkForExistingMacroName(macro);
+      checkMacroName(macro);
       macros.put(macro.getName(), macro);
     }
 
@@ -1972,7 +1971,7 @@ public class Package {
 
       // Check the name of the new rule itself.
       String ruleName = rule.getName();
-      checkForExistingTargetName(rule);
+      checkTargetName(rule);
 
       ImmutableList<OutputFile> outputFiles = rule.getOutputFiles();
       Map<String, OutputFile> outputFilesByName =
@@ -1981,8 +1980,8 @@ public class Package {
       // Check the new rule's output files, both for direct conflicts and prefix conflicts.
       for (OutputFile outputFile : outputFiles) {
         String outputFileName = outputFile.getName();
-        // Check for duplicate within a single rule. (Can't use checkForExistingTargetName since
-        // this rule's outputs aren't in the target map yet.)
+        // Check for duplicate within a single rule. (Can't use checkTargetName since this rule's
+        // outputs aren't in the target map yet.)
         if (outputFilesByName.put(outputFileName, outputFile) != null) {
           throw new NameConflictException(
               String.format(
@@ -1990,7 +1989,7 @@ public class Package {
                   ruleName, outputFileName));
         }
         // Check for conflict with any other already added target.
-        checkForExistingTargetName(outputFile);
+        checkTargetName(outputFile);
         // TODO(bazel-team): We also need to check for a conflict between an output file and its own
         // rule, which is not yet in the targets map.
 
@@ -2030,6 +2029,49 @@ public class Package {
     }
 
     /**
+     * Throws {@link NameConflictException} if the given name of a declared object inside a symbolic
+     * macro (i.e., a target or a submacro) does not follow the required prefix-based naming
+     * convention.
+     *
+     * <p>A macro "foo" may define targets and submacros that have the name "foo" (the macro's "main
+     * target") or "foo_BAR" where BAR is a non-empty string. The macro may not define the name
+     * "foo_", or names that do not have "foo" as a prefix.
+     */
+    private void checkDeclaredNameValidForMacro(
+        String what, String declaredName, String enclosingMacroName) throws NameConflictException {
+      if (declaredName.equals(enclosingMacroName)) {
+        return;
+      } else if (declaredName.startsWith(enclosingMacroName)) {
+        String suffix = declaredName.substring(enclosingMacroName.length());
+        // 0-length suffix handled above.
+        if (suffix.length() > 2 && suffix.startsWith("_")) {
+          return;
+        }
+      }
+
+      throw new NameConflictException(
+          String.format(
+              """
+              macro '%s' cannot declare %s named '%s'. Name must be the same as the \
+              macro's name or a suffix of the macro's name plus '_'.""",
+              enclosingMacroName, what, declaredName));
+    }
+
+    /**
+     * Throws {@link NameConflictException} if the given target's name can't be added, either
+     * because of a conflict or because of a violation of symbolic macro naming rules (if
+     * applicable).
+     */
+    private void checkTargetName(Target added) throws NameConflictException {
+      checkForExistingTargetName(added);
+
+      if (!macroStack.isEmpty()) {
+        String enclosingMacroName = Iterables.getLast(macroStack).getName();
+        checkDeclaredNameValidForMacro("target", added.getName(), enclosingMacroName);
+      }
+    }
+
+    /**
      * Throws {@link NameConflictException} if the given target's name matches that of an existing
      * target in the package.
      */
@@ -2053,6 +2095,19 @@ public class Package {
 
       throw new NameConflictException(
           String.format("%s conflicts with existing %s", subject, object));
+    }
+
+    /**
+     * Throws {@link NameConflictException} if the given macro's name can't be added, either because
+     * of a conflict or because of a violation of symbolic macro naming rules (if applicable).
+     */
+    private void checkMacroName(MacroInstance added) throws NameConflictException {
+      checkForExistingMacroName(added);
+
+      if (!macroStack.isEmpty()) {
+        String enclosingMacroName = Iterables.getLast(macroStack).getName();
+        checkDeclaredNameValidForMacro("submacro", added.getName(), enclosingMacroName);
+      }
     }
 
     /**

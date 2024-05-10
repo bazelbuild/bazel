@@ -407,7 +407,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertContainsEvent("unexpected positional arguments");
   }
 
-  // TODO(#19922): Migrate away from using "$" as separator in these test cases.
   @Test
   public void testSymbolicMacroCanAcceptAttributes() throws Exception {
     setBuildLanguageOptions("--experimental_enable_first_class_macros");
@@ -416,7 +415,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "pkg/foo.bzl",
         """
         def _impl(name, target_suffix):
-            native.cc_library(name = name + "$" + target_suffix)
+            native.cc_library(name = name + "_" + target_suffix)
         my_macro = macro(
             implementation=_impl,
             attrs = {
@@ -436,7 +435,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets()).containsKey("abc$xyz");
+    assertThat(pkg.getTargets()).containsKey("abc_xyz");
   }
 
   @Test

@@ -109,13 +109,145 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     assertGetPackageFailsWithEvent("pkg", "_impl() got unexpected keyword argument: name");
   }
 
+  /**
+   * Writes source files for package {@code //pkg} such that there is a macro by the given name
+   * declaring a target by the given name.
+   */
+  private void setupForMacroWithSingleTarget(String macroName, String targetName) throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        String.format(
+            """
+            def _impl(name):
+                native.cc_library(name="%s")
+            my_macro = macro(implementation=_impl)
+            """,
+            targetName));
+    scratch.file(
+        "pkg/BUILD",
+        String.format(
+            """
+            load(":foo.bzl", "my_macro")
+            my_macro(name="%s")
+            """,
+            macroName));
+  }
+
   @Test
-  public void macroCanDeclareTargets() throws Exception {
+  public void macroTargetName_canBeNamePlusUnderscorePlusSomething() throws Exception {
+    setupForMacroWithSingleTarget("abc", "abc_lib");
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    assertThat(pkg.getTargets()).containsKey("abc_lib");
+  }
+
+  @Test
+  public void macroTargetName_canBeJustNameForMainTarget() throws Exception {
+    setupForMacroWithSingleTarget("abc", "abc");
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    assertThat(pkg.getTargets()).containsKey("abc");
+    assertThat(pkg.getMacros()).containsKey("abc");
+  }
+
+  @Test
+  public void macroTargetName_cannotBeNonSuffixOfName() throws Exception {
+    setupForMacroWithSingleTarget("abc", "xyz");
+
+    assertGetPackageFailsWithEvent("pkg", "macro 'abc' cannot declare target named 'xyz'");
+  }
+
+  @Test
+  public void macroTargetName_cannotBeNamePlusUnderscorePlusNothing() throws Exception {
+    setupForMacroWithSingleTarget("abc", "abc_");
+
+    assertGetPackageFailsWithEvent("pkg", "macro 'abc' cannot declare target named 'abc_'");
+  }
+
+  // TODO(#19922): abc.txt is not allowed. This might be a blocker since rules may have implicit
+  // outputs of this form on the macro's main target.
+  @Test
+  public void exportsFilesInMacroIsSubjectToNamingRestriction() throws Exception {
     scratch.file(
         "pkg/foo.bzl",
         """
         def _impl(name):
-            native.cc_library(name = name + "$lib")
+            native.exports_files(srcs=["abc_txt"])  # ok
+            native.exports_files(srcs=["xyz.txt"])  # bad
+        my_macro = macro(implementation=_impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(name="abc")
+        """);
+
+    assertGetPackageFailsWithEvent(
+        "pkg", "Error in exports_files: macro 'abc' cannot declare target named 'xyz.txt'.");
+  }
+
+  @Test
+  public void targetOutsideMacroMayInvadeMacroNamespace() throws Exception {
+    // Targets outside a macro may have names that would be valid for targets inside the macro.
+    // This is not an error so long as no actual target inside the macro clashes on that name.
+
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name):
+            native.cc_library(name = name + "_inside_macro")
+        my_macro = macro(implementation=_impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(name="abc")
+        cc_library(name = "abc_outside_macro")
+        cc_library(name = "abc")
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    assertThat(pkg.getTargets().keySet())
+        .containsAtLeast("abc", "abc_inside_macro", "abc_outside_macro");
+    assertThat(pkg.getMacros()).containsKey("abc");
+  }
+
+  @Test
+  public void targetOutsideMacroMayNotClashWithTargetInsideMacro() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name):
+            native.cc_library(name = name + "_target")
+        my_macro = macro(implementation=_impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(name="abc")
+        cc_library(name = "abc_target")
+        """);
+
+    assertGetPackageFailsWithEvent(
+        "pkg", "cc_library rule 'abc_target' conflicts with existing cc_library rule");
+  }
+
+  @Test
+  public void macroCanDeclareSubmacros() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _inner_impl(name):
+            native.cc_library(name = name + "_lib")
+        inner_macro = macro(implementation=_inner_impl)
+        def _impl(name):
+            inner_macro(name = name + "_inner")
         my_macro = macro(implementation=_impl)
         """);
     scratch.file(
@@ -127,17 +259,16 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    // TODO(#19922): change naming convention to not use "$""
-    assertThat(pkg.getTargets()).containsKey("abc$lib");
+    assertThat(pkg.getTargets()).containsKey("abc_inner_lib");
   }
 
   @Test
-  public void macroCanDeclareSubmacros() throws Exception {
+  public void submacroNameMustFollowPrefixNamingConvention() throws Exception {
     scratch.file(
         "pkg/foo.bzl",
         """
         def _inner_impl(name):
-            native.cc_library(name = name + "$lib")
+            pass
         inner_macro = macro(implementation=_inner_impl)
         def _impl(name):
             inner_macro(name = name + "$inner")
@@ -150,9 +281,35 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         my_macro(name="abc")
         """);
 
-    Package pkg = getPackage("pkg");
-    assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets()).containsKey("abc$inner$lib");
+    assertGetPackageFailsWithEvent("pkg", "macro 'abc' cannot declare submacro named 'abc$inner'");
+  }
+
+  // TODO(#19922): Macro "foo" can declare a main target "foo", but not a submacro "foo". This is a
+  // misfeature and prevents refactoring the main target's rule into a submacro. We should probably
+  // instead allow this as a special case of distinct macros with the same name in the same package.
+  // That may complicate tooling that assumes macro names are unique within a package though. Invert
+  // this test if and when we change that.
+  @Test
+  public void submacroCannotShareSameNameAsParentMacro() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _inner_impl(name):
+            pass
+        inner_macro = macro(implementation=_inner_impl)
+        def _impl(name):
+            inner_macro(name = name)
+        my_macro = macro(implementation=_impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(name="abc")
+        """);
+
+    assertGetPackageFailsWithEvent(
+        "pkg", "Error in inner_macro: macro 'abc' conflicts with existing macro");
   }
 
   /**
@@ -228,7 +385,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg/foo.bzl",
         """
         def _impl(name):
-            native.cc_binary(name = name + "$lib")
+            native.cc_binary(name = name + "_lib")
         my_macro = macro(implementation=_impl)
         def query():
             print("existing_rules() keys: %s" % native.existing_rules().keys())
@@ -244,7 +401,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertContainsEvent("existing_rules() keys: [\"outer_target\", \"abc$lib\"]");
+    assertContainsEvent("existing_rules() keys: [\"outer_target\", \"abc_lib\"]");
   }
 
   @Test
@@ -475,32 +632,6 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         """);
 
     assertGetPackageFailsWithEvent("pkg", "Error in append: trying to mutate a frozen list value");
-  }
-
-  @Test
-  public void macroCanDefineMainTargetOfSameName() throws Exception {
-    scratch.file(
-        "pkg/foo.bzl",
-        """
-        def _impl(name):
-            native.cc_library(
-                name = name,
-            )
-        my_macro = macro(implementation=_impl)
-        """);
-    scratch.file(
-        "pkg/BUILD",
-        """
-        load(":foo.bzl", "my_macro")
-        my_macro(
-            name = "abc",
-        )
-        """);
-
-    Package pkg = getPackage("pkg");
-    assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets()).containsKey("abc");
-    assertThat(pkg.getMacros()).containsKey("abc");
   }
 
   // TODO: #19922 - Add more test cases for implicit/explicit input files
