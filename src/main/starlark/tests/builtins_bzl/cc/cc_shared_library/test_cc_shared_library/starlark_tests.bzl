@@ -182,55 +182,27 @@ def _runfiles_test_impl(env, target):
     if not env.ctx.target_platform_has_constraint(env.ctx.attr._is_linux[platform_common.ConstraintValueInfo]):
         return
 
-    expected_basenames = [
-        "libfoo_so.so",
-        "libbar_so.so",
-        "libdiff_pkg_so.so",
-        "libdirect_so_file.so",
-        "libprivate_lib_so.so",
-        "renamed_so_file_copy.so",
-        "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary_Slibfoo_Uso.so",
-        "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary_Slibbar_Uso.so",
-        "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary3_Slibdiff_Upkg_Uso.so",
+    # Ignore Python runfiles
+    runfiles = [
+        file.path
+        for file in target[DefaultInfo].default_runfiles.files.to_list()
+        if "python" not in file.path
     ]
-    runfiles = [file.path for file in target[DefaultInfo].default_runfiles.files.to_list()]
-    for runfile in runfiles:
-        # Ignore Python runfiles
-        if "python" in runfile:
-            continue
-
-        found_basename = False
-        for expected_basename in expected_basenames:
-            if runfile.endswith(expected_basename):
-                found_basename = True
-                break
-
-        env.expect.where(
-            detail = runfile + " not found in expected basenames:\n" + "\n".join(expected_basenames),
-        ).that_bool(found_basename).equals(True)
 
     # Match e.g. bazel-out/k8-fastbuild/bin/src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/libdirect_so_file.so
     path_suffix = "/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library"
-    expected_files = [
-        "libbar_so.so",
-        "libdirect_so_file.so",
-        "libfoo_so.so",
-        "libprivate_lib_so.so",
-        "python_test",
-        "renamed_so_file_copy.so",
-    ]
-    for file in expected_files:
-        path = path_suffix + "/" + file
-
-        found = False
-        for runfile in runfiles:
-            if runfile.endswith(path):
-                found = True
-                break
-
-        env.expect.where(
-            detail = file + " not found in runfiles:\n" + "\n".join(runfiles),
-        ).that_bool(found).equals(True)
+    env.expect.that_collection(runfiles).contains_exactly_predicates([
+        matching.str_endswith(path_suffix + "/libfoo_so.so"),
+        matching.str_endswith(path_suffix + "/libbar_so.so"),
+        matching.str_endswith(path_suffix + "/libdirect_so_file.so"),
+        matching.str_endswith(path_suffix + "/libprivate_lib_so.so"),
+        matching.str_endswith(path_suffix + "/renamed_so_file_copy.so"),
+        matching.str_endswith(path_suffix + "3/libdiff_pkg_so.so"),
+        matching.str_endswith("Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/libbar_so.so"),
+        matching.str_endswith("Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/libfoo_so.so"),
+        matching.str_endswith("Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/libprivate_lib_so.so"),
+        matching.str_endswith("Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary3/libdiff_pkg_so.so"),
+    ])
 
 def _runfiles_test_macro(name, target):
     analysis_test(
@@ -401,3 +373,34 @@ def _exports_test_macro(name, target, targets_that_should_be_claimed_to_be_expor
     )
 
 exports_test = _exports_test_macro
+
+def _pdb_test_impl(env, target):
+    if not env.ctx.target_platform_has_constraint(env.ctx.attr._is_windows[platform_common.ConstraintValueInfo]):
+        return
+
+    target_action = None
+    for action in target.actions:
+        if action.mnemonic == "CppLink":
+            target_action = action
+            break
+
+    outputs = [f.basename for f in target_action.outputs.to_list()]
+
+    env.expect.that_collection(outputs).contains_at_least_predicates([
+        matching.contains("foo_so.pdb"),
+    ])
+
+    pdb_short_path = [f.short_path for f in target_action.outputs.to_list() if "foo_so.pdb" in f.basename]
+    env.expect.that_target(target).output_group("pdb_file").contains_exactly(pdb_short_path)
+
+def _pdb_test_macro(name, target):
+    analysis_test(
+        name = name,
+        impl = _pdb_test_impl,
+        target = target,
+        attrs = {
+            "_is_windows": attr.label(default = "@platforms//os:windows"),
+        },
+    )
+
+pdb_test = _pdb_test_macro

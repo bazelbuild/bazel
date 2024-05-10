@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "a456aed4701b3b5246c04e0ed200775ee337ca70f3a583baddd65bb0434fa2ba",
+  "moduleFileHash": "dea29024bdcd8f84856d5187b9d45ade34a8a0349387397a95abec1c998a3e30",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -629,7 +629,7 @@
         "rules_proto": "rules_proto@5.3.0-21.7",
         "rules_jvm_external": "rules_jvm_external@6.0",
         "rules_python": "rules_python@0.26.0",
-        "rules_testing": "rules_testing@0.0.4",
+        "rules_testing": "rules_testing@0.6.0",
         "com_google_googletest": "googletest@1.14.0",
         "with_cfg.bzl": "with_cfg.bzl@0.2.4",
         "remoteapis": "remoteapis@_",
@@ -1739,16 +1739,18 @@
         }
       }
     },
-    "rules_testing@0.0.4": {
+    "rules_testing@0.6.0": {
       "name": "rules_testing",
-      "version": "0.0.4",
-      "key": "rules_testing@0.0.4",
+      "version": "0.6.0",
+      "key": "rules_testing@0.6.0",
       "repoName": "rules_testing",
       "executionPlatformsToRegister": [],
       "toolchainsToRegister": [],
       "extensionUsages": [],
       "deps": {
+        "platforms": "platforms@0.0.9",
         "bazel_skylib": "bazel_skylib@1.5.0",
+        "rules_license": "rules_license@0.0.7",
         "bazel_tools": "bazel_tools@_",
         "local_config_platform": "local_config_platform@_"
       },
@@ -1757,14 +1759,14 @@
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
-            "https://github.com/bazelbuild/rules_testing/releases/download/v0.0.4/rules_testing-v0.0.4.tar.gz"
+            "https://github.com/bazelbuild/rules_testing/releases/download/v0.6.0/rules_testing-v0.6.0.tar.gz"
           ],
-          "integrity": "sha256-TiH5qnmWlEzpFDHye8o3S/9W5oCs/klydgdNVrxdmvI=",
-          "strip_prefix": "rules_testing-0.0.4",
+          "integrity": "sha256-AsYldGMYdqTjsCoYIMtRFnu5zc3qI4Gy+p2bixHEB8Q=",
+          "strip_prefix": "rules_testing-0.6.0",
           "remote_patches": {
-            "https://bcr.bazel.build/modules/rules_testing/0.0.4/patches/module_dot_bazel_version.patch": "sha256-0bNxHP/dstK5Ftz0e6FMQ2tyV4BZwp6Bh2et7ZuD1kk="
+            "https://bcr.bazel.build/modules/rules_testing/0.6.0/patches/module_dot_bazel_version.patch": "sha256-zHdszG0CcODGvv3mz84d9MlwLrZEOr1r+dpVDpsvs8U="
           },
-          "remote_patch_strip": 0
+          "remote_patch_strip": 1
         }
       }
     },
@@ -2742,7 +2744,7 @@
   "moduleExtensions": {
     "//:extensions.bzl%bazel_android_deps": {
       "general": {
-        "bzlTransitiveDigest": "6vqJ6yadlUU86rSzRzNsiG2x5RGOCIg0gyw3j7iFVK4=",
+        "bzlTransitiveDigest": "EBPshmASCYr3Po+LywYJajCUdE2qG2E1+ffXTN7dDnk=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -2888,9 +2890,9 @@
     },
     "//:extensions.bzl%bazel_build_deps": {
       "general": {
-        "bzlTransitiveDigest": "6vqJ6yadlUU86rSzRzNsiG2x5RGOCIg0gyw3j7iFVK4=",
+        "bzlTransitiveDigest": "EBPshmASCYr3Po+LywYJajCUdE2qG2E1+ffXTN7dDnk=",
         "recordedFileInputs": {
-          "@@//MODULE.bazel": "a456aed4701b3b5246c04e0ed200775ee337ca70f3a583baddd65bb0434fa2ba",
+          "@@//MODULE.bazel": "dea29024bdcd8f84856d5187b9d45ade34a8a0349387397a95abec1c998a3e30",
           "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "6eb7a8bfc1274585712c029c8fd1e2a9a3fa089b30cf6f91cff6823580cf2f5c"
         },
         "recordedDirentsInputs": {},
@@ -3058,7 +3060,7 @@
                 "rules_license-0.0.7.tar.gz",
                 "rules_python-0.24.0.tar.gz",
                 "rules_pkg-0.9.1.tar.gz",
-                "rules_testing-v0.0.4.tar.gz",
+                "rules_testing-v0.6.0.tar.gz",
                 "coverage_output_generator-v2.6.zip"
               ],
               "sha256": {
@@ -3069,7 +3071,7 @@
                 "rules_license-0.0.7.tar.gz": "4531deccb913639c30e5c7512a054d5d875698daeb75d8cf90f284375fe7c360",
                 "rules_python-0.24.0.tar.gz": "0a8003b044294d7840ac7d9d73eef05d6ceb682d7516781a4ec62eeb34702578",
                 "rules_pkg-0.9.1.tar.gz": "8f9ee2dc10c1ae514ee599a8b42ed99fa262b757058f65ad3c384289ff70c4b8",
-                "rules_testing-v0.0.4.tar.gz": "4e21f9aa7996944ce91431f27bca374bff56e680acfe497276074d56bc5d9af2",
+                "rules_testing-v0.6.0.tar.gz": "02c62574631876a4e3b02a1820cb51167bb9cdcdea2381b2fa9d9b8b11c407c4",
                 "coverage_output_generator-v2.6.zip": "7006375f6756819b7013ca875eab70a541cf7d89142d9c511ed78ea4fefa38af"
               },
               "urls": {
@@ -3094,8 +3096,8 @@
                 "rules_pkg-0.9.1.tar.gz": [
                   "https://github.com/bazelbuild/rules_pkg/releases/download/0.9.1/rules_pkg-0.9.1.tar.gz"
                 ],
-                "rules_testing-v0.0.4.tar.gz": [
-                  "https://github.com/bazelbuild/rules_testing/releases/download/v0.0.4/rules_testing-v0.0.4.tar.gz"
+                "rules_testing-v0.6.0.tar.gz": [
+                  "https://github.com/bazelbuild/rules_testing/releases/download/v0.6.0/rules_testing-v0.6.0.tar.gz"
                 ],
                 "coverage_output_generator-v2.6.zip": [
                   "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.6.zip"
@@ -3263,7 +3265,7 @@
     },
     "//:extensions.bzl%bazel_test_deps": {
       "general": {
-        "bzlTransitiveDigest": "6vqJ6yadlUU86rSzRzNsiG2x5RGOCIg0gyw3j7iFVK4=",
+        "bzlTransitiveDigest": "EBPshmASCYr3Po+LywYJajCUdE2qG2E1+ffXTN7dDnk=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
