@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetComple
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -47,16 +46,14 @@ final class TargetCompletor
       SkyframeActionExecutor skyframeActionExecutor,
       MetadataConsumerForMetrics.FilesMetricConsumer topLevelArtifactsMetric,
       ActionRewindStrategy actionRewindStrategy,
-      BugReporter bugReporter,
-      Supplier<Boolean> isSkymeld) {
+      BugReporter bugReporter) {
     return new CompletionFunction<>(
         pathResolverFactory,
         new TargetCompletor(skyframeActionExecutor),
         skyframeActionExecutor,
         topLevelArtifactsMetric,
         actionRewindStrategy,
-        bugReporter,
-        isSkymeld);
+        bugReporter);
   }
 
   private TargetCompletor(SkyframeActionExecutor announceTargetSummaries) {

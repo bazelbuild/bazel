@@ -330,16 +330,6 @@ public final class SkyframeActionExecutor {
     this.clientEnv = ImmutableMap.copyOf(clientEnv);
   }
 
-  @Nullable
-  public OutputService getOutputService() {
-    return outputService;
-  }
-
-  @Nullable
-  public ActionInputPrefetcher getActionInputPrefetcher() {
-    return actionInputPrefetcher;
-  }
-
   ActionFileSystemType actionFileSystemType() {
     return outputService != null
         ? outputService.actionFileSystemType()
