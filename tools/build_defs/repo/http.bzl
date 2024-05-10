@@ -45,6 +45,7 @@ load(
 )
 load(
     ":utils.bzl",
+    "download_remote_files",
     "get_auth",
     "patch",
     "update_attrs",
@@ -133,6 +134,8 @@ def _http_archive_impl(ctx):
     auth = get_auth(ctx, all_urls)
 
     download_info = ctx.download_and_extract(
+        # TODO(fzakaria): all_urls here has the remote_patch URL which is incorrect
+        # I believe this to be a file
         all_urls,
         ctx.attr.add_prefix,
         ctx.attr.sha256,
@@ -143,6 +146,8 @@ def _http_archive_impl(ctx):
         integrity = ctx.attr.integrity,
     )
     workspace_and_buildfile(ctx)
+
+    download_remote_files(ctx, auth = auth)
     patch(ctx, auth = auth)
 
     return _update_integrity_attr(ctx, _http_archive_attrs, download_info)
@@ -297,6 +302,21 @@ following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
             "which doesn't support fuzz match and binary patch, but Bazel will fall back to use " +
             "patch command line tool if `patch_tool` attribute is specified or there are " +
             "arguments other than `-p` in `patch_args` attribute.",
+    ),
+    "remote_file_urls": attr.string_list_dict(
+        default = {},
+        doc =
+            "A map of relative paths (key) to a list of URLs (value) that are to be downloaded " +
+            "and made available as overlaid files on the repo. This is useful when you want " +
+            "to add WORKSPACE or BUILD.bazel files atop an existing repository. The files " +
+            "are downloaded before applying the patches in the `patches` attribute and the list of URLs " +
+            "should all be possible mirrors of the same file. The URLs are tried in order until one succeeds. ",
+    ),
+    "remote_file_integrity": attr.string_dict(
+        default = {},
+        doc =
+            "A map of file relative paths (key) to its integrity value (value). These relative paths should map " +
+            "to the files (key) in the `remote_file_urls` attribute.",
     ),
     "remote_patches": attr.string_dict(
         default = {},
