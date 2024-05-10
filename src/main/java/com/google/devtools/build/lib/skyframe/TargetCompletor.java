@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.skyframe.CompletionFunction.Completor;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -49,13 +50,15 @@ class TargetCompletor
       PathResolverFactory pathResolverFactory,
       SkyframeActionExecutor skyframeActionExecutor,
       MetadataConsumerForMetrics.FilesMetricConsumer topLevelArtifactsMetric,
-      BugReporter bugReporter) {
+      BugReporter bugReporter,
+      Supplier<Boolean> isSkymeld) {
     return new CompletionFunction<>(
         pathResolverFactory,
         new TargetCompletor(skyframeActionExecutor),
         skyframeActionExecutor,
         topLevelArtifactsMetric,
-        bugReporter);
+        bugReporter,
+        isSkymeld);
   }
 
   private TargetCompletor(SkyframeActionExecutor announceTargetSummaries) {
