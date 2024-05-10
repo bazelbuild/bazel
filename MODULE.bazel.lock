@@ -2893,7 +2893,7 @@
         "bzlTransitiveDigest": "EBPshmASCYr3Po+LywYJajCUdE2qG2E1+ffXTN7dDnk=",
         "recordedFileInputs": {
           "@@//MODULE.bazel": "dea29024bdcd8f84856d5187b9d45ade34a8a0349387397a95abec1c998a3e30",
-          "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "6eb7a8bfc1274585712c029c8fd1e2a9a3fa089b30cf6f91cff6823580cf2f5c"
+          "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "a446c0b53dbfed425087419514deab53a550538ea5bbcd3ebbdd5aa912700609"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
