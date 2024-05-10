@@ -24,10 +24,12 @@ load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
 #
 ##################################################################################
 DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
+    # keep sorted
     "abseil-cpp",
     "apple_support",
     "bazel_skylib",
     "blake3",
+    "buildozer",
     "c-ares",
     "com_github_grpc_grpc",
     "com_google_protobuf",
@@ -35,10 +37,10 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "platforms",
     "rules_cc",
     "rules_go",
+    "rules_graalvm",
     "rules_java",
     "rules_jvm_external",
     "rules_kotlin",
-    "rules_graalvm",
     "rules_license",
     "rules_pkg",
     "rules_proto",

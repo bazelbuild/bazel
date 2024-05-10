@@ -2769,7 +2769,7 @@
   "moduleExtensions": {
     "//:extensions.bzl%bazel_android_deps": {
       "general": {
-        "bzlTransitiveDigest": "XfBsajuuFziGjS2vfgWoneoACwJieBg7VV41JRE3wfo=",
+        "bzlTransitiveDigest": "7pZyLshEgIXlars4A3DejUPLyS6eoBzNDHobG0K39uM=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -2925,7 +2925,7 @@
     },
     "//:extensions.bzl%bazel_build_deps": {
       "general": {
-        "bzlTransitiveDigest": "XfBsajuuFziGjS2vfgWoneoACwJieBg7VV41JRE3wfo=",
+        "bzlTransitiveDigest": "7pZyLshEgIXlars4A3DejUPLyS6eoBzNDHobG0K39uM=",
         "recordedFileInputs": {
           "@@//MODULE.bazel": "ec2861042ece461ae1d704f7f8643f5dbc353e5683f6138cfedf9b63b3d63343",
           "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "4b9553a69d926d07f25ca38ea8e04e394301c9e21b33d775049b141d0e7505d3"
@@ -3013,6 +3013,7 @@
                 "apple_support~",
                 "bazel_skylib~",
                 "blake3~",
+                "buildozer~",
                 "c-ares~",
                 "grpc~",
                 "protobuf~",
@@ -3020,10 +3021,10 @@
                 "platforms",
                 "rules_cc~",
                 "rules_go~",
+                "rules_graalvm~",
                 "rules_java~",
                 "rules_jvm_external~",
                 "rules_kotlin~",
-                "rules_graalvm~",
                 "rules_license~",
                 "rules_pkg~",
                 "rules_proto~",
@@ -3316,7 +3317,7 @@
     },
     "//:extensions.bzl%bazel_test_deps": {
       "general": {
-        "bzlTransitiveDigest": "XfBsajuuFziGjS2vfgWoneoACwJieBg7VV41JRE3wfo=",
+        "bzlTransitiveDigest": "7pZyLshEgIXlars4A3DejUPLyS6eoBzNDHobG0K39uM=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
