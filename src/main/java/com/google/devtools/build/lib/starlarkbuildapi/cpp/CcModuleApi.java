@@ -1856,6 +1856,8 @@ public interface CcModuleApi<
         @Param(
             name = "target_system_name",
             positional = false,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             named = true,
             doc =
                 "Deprecated. The GNU System Name. The string is exposed to"
@@ -1863,11 +1865,15 @@ public interface CcModuleApi<
         @Param(
             name = "target_cpu",
             positional = false,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             named = true,
             doc = "Deprecated: Use cpu based constraints instead."),
         @Param(
             name = "target_libc",
             positional = false,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             named = true,
             doc =
                 "Deprecated: Use OS based constraints instead. The libc version string (e.g."
@@ -1937,9 +1943,9 @@ public interface CcModuleApi<
       Sequence<?> cxxBuiltInIncludeDirectories, // <String> expected
       String toolchainIdentifier,
       Object hostSystemName,
-      String targetSystemName,
-      String targetCpu,
-      String targetLibc,
+      Object targetSystemName,
+      Object targetCpu,
+      Object targetLibc,
       String compiler,
       Object abiVersion,
       Object abiLibcVersion,
