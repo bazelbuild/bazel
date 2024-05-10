@@ -36,7 +36,7 @@ public class PlatformMappingFunctionParserTest {
   private static final Label PLATFORM1 = Label.parseCanonicalUnchecked("//platforms:one");
   private static final Label PLATFORM2 = Label.parseCanonicalUnchecked("//platforms:two");
   private static final Label EXTERNAL_PLATFORM =
-      Label.parseCanonicalUnchecked("@dep~1.0//platforms:two");
+      Label.parseCanonicalUnchecked("@dep~v1.0//platforms:two");
 
   @Test
   public void testParse() throws Exception {
@@ -69,7 +69,7 @@ public class PlatformMappingFunctionParserTest {
         parse(
             RepositoryMapping.create(
                 ImmutableMap.of(
-                    "foo", RepositoryName.MAIN, "dep", RepositoryName.create("dep~1.0")),
+                    "foo", RepositoryName.MAIN, "dep", RepositoryName.create("dep~v1.0")),
                 RepositoryName.MAIN),
             "platforms:",
             "  @foo//platforms:one",
