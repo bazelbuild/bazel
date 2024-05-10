@@ -410,6 +410,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:dumper",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:build_java_proto",
         "//third_party:auto_value",
         "//third_party:guava",

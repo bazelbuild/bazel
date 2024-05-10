@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.errorprone.annotations.ForOverride;
 import com.google.protobuf.CodedInputStream;
 import java.io.IOException;
@@ -84,6 +85,12 @@ public abstract class DeserializationContext implements AsyncDeserializationCont
       FieldSetter<? super T> setter)
       throws IOException, SerializationException {
     throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public <T> void getSkyValue(SkyKey key, T parent, FieldSetter<? super T> setter)
+      throws SerializationException {
+    throw new UnsupportedOperationException("Only supported by SharedValueDeserializationContext");
   }
 
   @Override

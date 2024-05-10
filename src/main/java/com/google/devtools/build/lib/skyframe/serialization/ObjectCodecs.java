@@ -220,6 +220,20 @@ public class ObjectCodecs {
         data);
   }
 
+  /**
+   * Deserializes {@code data}, possibly with Skyframe lookups.
+   *
+   * <p>See comments at {@link SharedValueDeserializationContext#deserializeWithSkyframe} for
+   * possible return values.
+   */
+  @Nullable
+  public Object deserializeWithSkyframe(
+      FingerprintValueService fingerprintValueService, ByteString data)
+      throws SerializationException {
+    return SharedValueDeserializationContext.deserializeWithSkyframe(
+        getCodecRegistry(), getDependencies(), fingerprintValueService, data);
+  }
+
   static Object deserializeStreamFully(CodedInputStream codedIn, DeserializationContext context)
       throws SerializationException {
     // Allows access to buffer without copying (although this means buffer may be pinned in memory).
