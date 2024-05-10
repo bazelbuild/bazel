@@ -123,6 +123,11 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
       return new PathTransition(
           NonconfigurableAttributeMapper.of(ruleData.rule()).get("path", STRING));
     }
+
+    @Override
+    public TransitionType transitionType() {
+      return TransitionType.RULE;
+    }
   }
 
   private static final class UselessOptionTransition implements PatchTransition {
@@ -151,6 +156,11 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     public PatchTransition create(RuleTransitionData ruleData) {
       return new UselessOptionTransition(
           NonconfigurableAttributeMapper.of(ruleData.rule()).get("value", STRING));
+    }
+
+    @Override
+    public TransitionType transitionType() {
+      return TransitionType.RULE;
     }
   }
 

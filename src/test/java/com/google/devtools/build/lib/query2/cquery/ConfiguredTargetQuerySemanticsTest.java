@@ -287,7 +287,9 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
             MockRule.define(
                 "rule_class_transition",
                 (builder, env) ->
-                    builder.cfg(unused -> new FooPatchTransition("SET BY PATCH")).build());
+                    builder
+                        .cfg(TransitionFactories.of(new FooPatchTransition("SET BY PATCH")))
+                        .build());
 
     helper.useRuleClassProvider(setRuleClassProviders(ruleClassTransition).build());
     helper.setUniverseScope("//test:rule_class");

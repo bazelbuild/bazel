@@ -43,6 +43,11 @@ public final class AndroidPlatformsTransition implements PatchTransition {
     public PatchTransition create(RuleTransitionData unused) {
       return INSTANCE;
     }
+
+    @Override
+    public TransitionType transitionType() {
+      return TransitionType.RULE;
+    }
   }
 
   public static TransitionFactory<RuleTransitionData> create() {

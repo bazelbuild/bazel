@@ -28,13 +28,14 @@ import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
-import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.Data;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
@@ -701,7 +702,19 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
 
   @Test
   public void testSubruleAttrs_cannotHaveNativeTransitions() throws Exception {
-    ev.update("native_transition", (TransitionFactory<Data>) data -> null);
+    ev.update(
+        "native_transition",
+        new TransitionFactory<AttributeTransitionData>() {
+          @Override
+          public ConfigurationTransition create(AttributeTransitionData data) {
+            return null;
+          }
+
+          @Override
+          public TransitionType transitionType() {
+            return TransitionType.ATTRIBUTE;
+          }
+        });
     ev.checkEvalErrorContains(
         "bad cfg for attribute '_foo': subrules may only have target/exec attributes.",
         "_my_subrule = subrule(",

@@ -57,9 +57,11 @@ public interface TransitionFactory<T extends TransitionFactory.Data> {
   /** Returns a new {@link ConfigurationTransition}, based on the given data. */
   ConfigurationTransition create(T data);
 
-  default TransitionType transitionType() {
-    return TransitionType.ANY;
-  }
+  /**
+   * Returns a {@link TransitionType} to clarify what data (if any) the factory requires to create a
+   * transation.
+   */
+  TransitionType transitionType();
 
   // TODO(https://github.com/bazelbuild/bazel/issues/7814): Once everything uses TransitionFactory,
   // remove these methods.

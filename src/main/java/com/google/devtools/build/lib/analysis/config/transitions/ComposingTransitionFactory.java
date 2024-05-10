@@ -87,6 +87,12 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactory.Dat
     return new ComposingTransition(transition1, transition2);
   }
 
+  @Override
+  public TransitionType transitionType() {
+    // Both types must match so this is correct.
+    return transitionFactory1().transitionType();
+  }
+
   abstract TransitionFactory<T> transitionFactory1();
 
   abstract TransitionFactory<T> transitionFactory2();

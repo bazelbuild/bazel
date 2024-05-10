@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
+import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment.DummyTestOptions;
 import com.google.devtools.build.lib.analysis.util.MockRule;
@@ -618,7 +619,9 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
             MockRule.define(
                 "transitioned_rule",
                 (builder, env) ->
-                    builder.cfg(unused -> new FooPatchTransition("SET BY PATCH")).build());
+                    builder
+                        .cfg(TransitionFactories.of(new FooPatchTransition("SET BY PATCH")))
+                        .build());
 
     MockRule untransitionedRule = () -> MockRule.define("untransitioned_rule");
 
@@ -653,7 +656,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
                 "rule_with_transition_and_dep",
                 (builder, env) ->
                     builder
-                        .cfg(unused -> new FooPatchTransition("SET BY PATCH"))
+                        .cfg(TransitionFactories.of(new FooPatchTransition("SET BY PATCH")))
                         .addAttribute(
                             attr("dep", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE).build())
                         .build());

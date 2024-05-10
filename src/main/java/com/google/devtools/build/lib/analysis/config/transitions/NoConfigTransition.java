@@ -70,6 +70,11 @@ public class NoConfigTransition implements PatchTransition {
     }
 
     @Override
+    public TransitionType transitionType() {
+      return TransitionType.ANY;
+    }
+
+    @Override
     public boolean isTool() {
       return true;
     }

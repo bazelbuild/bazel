@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.MockRule;
@@ -219,12 +220,20 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
 
   private void setUpRules() throws Exception {
     TransitionFactory<RuleTransitionData> infixTrimmingTransitionFactory =
-        (ruleData) -> {
-          if (!ruleData.rule().getName().contains("trimmed")) {
-            return NoTransition.INSTANCE;
+        new TransitionFactory<>() {
+          @Override
+          public ConfigurationTransition create(RuleTransitionData ruleData) {
+            if (!ruleData.rule().getName().contains("trimmed")) {
+              return NoTransition.INSTANCE;
+            }
+            // rename the transition so it's distinguishable from the others in tests
+            return new FooPatchTransition("SET BY TRIM", "FooPatchTransition(trim)");
           }
-          // rename the transition so it's distinguishable from the others in tests
-          return new FooPatchTransition("SET BY TRIM", "FooPatchTransition(trim)");
+
+          @Override
+          public TransitionType transitionType() {
+            return TransitionType.RULE;
+          }
         };
     FooPatchTransition ruleClassTransition = new FooPatchTransition("SET BY RULE CLASS PATCH");
     FooPatchTransition attributePatchTransition = new FooPatchTransition("SET BY PATCH");
@@ -237,7 +246,7 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
                 "my_rule",
                 (builder, env) ->
                     builder
-                        .cfg(unused -> ruleClassTransition)
+                        .cfg(TransitionFactories.of(ruleClassTransition))
                         .add(
                             attr("patched", LABEL_LIST)
                                 .allowedFileTypes(FileTypeSet.ANY_FILE)
