@@ -1540,7 +1540,9 @@ class BazelLockfileTest(test_base.TestBase):
         lockfile = json.load(json_file)
       ss_dep = lockfile['moduleDepGraph']['ss@1.3-1']
       remote_patches = ss_dep['repoSpec']['attributes']['remote_patches']
-      ext_usage_location = ss_dep['extensionUsages'][0]['location']['file']
+      ext_usage_location = ss_dep['extensionUsages'][0]['proxies'][0][
+          'location'
+      ]['file']
 
       self.assertNotIn(self.my_registry.getURL(), ext_usage_location)
       self.assertIn('%workspace%', ext_usage_location)

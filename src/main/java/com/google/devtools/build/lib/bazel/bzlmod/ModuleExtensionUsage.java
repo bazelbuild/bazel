@@ -17,17 +17,17 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import java.util.Optional;
 import net.starlark.java.syntax.Location;
 
 /**
- * Represents one usage of a module extension in one MODULE.bazel file. This class records all the
- * information pertinent to the proxy object returned from the {@code use_extension} call.
+ * Represents the usage of a module extension in one module. This class records all the information
+ * pertinent to all the proxy objects returned from any {@code use_extension} calls in this module
+ * that refer to the same extension (or isolate, when applicable).
  *
  * <p>When adding new fields, make sure to update {@link #trimForEvaluation()} as well.
  */
@@ -49,40 +49,80 @@ public abstract class ModuleExtensionUsage {
   /** The module that contains this particular extension usage. */
   public abstract ModuleKey getUsingModule();
 
-  /**
-   * The location where this proxy object was created (by the {@code use_extension} call). Note that
-   * if there were multiple {@code use_extension} calls on same extension, then this only stores the
-   * location of the first one.
-   */
-  public abstract Location getLocation();
+  /** Represents one "proxy object" returned from one {@code use_extension} call. */
+  @AutoValue
+  @GenerateTypeAdapter
+  public abstract static class Proxy {
+    /** The location of the {@code use_extension} call. */
+    public abstract Location getLocation();
 
-  /**
-   * All the repos imported from this module extension into the scope of the current module. The key
-   * is the local repo name (in the scope of the current module), and the value is the name exported
-   * by the module extension.
-   */
-  public abstract ImmutableBiMap<String, String> getImports();
+    /**
+     * The name of the proxy object; as in, the name that the return value of {@code use_extension}
+     * is bound to. Is the empty string if the return value is not bound to any name (e.g. {@code
+     * use_repo(use_extension(...))}).
+     */
+    public abstract String getProxyName();
 
-  /**
-   * The repo names as exported by the module extension that were imported using a proxy marked as a
-   * dev dependency.
-   */
-  public abstract ImmutableSet<String> getDevImports();
+    /** Whether {@code dev_dependency} is set to true. */
+    public abstract boolean isDevDependency();
+
+    /**
+     * All the repos imported, through this proxy, from this module extension into the scope of the
+     * current module. The key is the local repo name (in the scope of the current module), and the
+     * value is the name exported by the module extension.
+     */
+    public abstract ImmutableMap<String, String> getImports();
+
+    public static Builder builder() {
+      return new AutoValue_ModuleExtensionUsage_Proxy.Builder().setProxyName("");
+    }
+
+    /** Builder for {@link ModuleExtensionUsage.Proxy}. */
+    @AutoValue.Builder
+    public abstract static class Builder {
+      public abstract Builder setLocation(Location value);
+
+      public abstract String getProxyName();
+
+      public abstract Builder setProxyName(String value);
+
+      public abstract boolean isDevDependency();
+
+      public abstract Builder setDevDependency(boolean value);
+
+      abstract ImmutableMap.Builder<String, String> importsBuilder();
+
+      @CanIgnoreReturnValue
+      public final Builder addImport(String key, String value) {
+        importsBuilder().put(key, value);
+        return this;
+      }
+
+      public abstract Builder setImports(ImmutableMap<String, String> value);
+
+      public abstract Proxy build();
+    }
+  }
+
+  /** The list of proxy objects that constitute */
+  public abstract ImmutableList<Proxy> getProxies();
 
   /** All the tags specified by this module for this extension. */
   public abstract ImmutableList<Tag> getTags();
 
   /**
-   * Whether any <code>use_extension</code> calls for this usage had <code>dev_dependency = True
-   * </code> set.*
+   * Whether any {@code use_extension} calls for this usage had {@code dev_dependency = True} set.
    */
-  public abstract boolean getHasDevUseExtension();
+  public final boolean getHasDevUseExtension() {
+    return getProxies().stream().anyMatch(p -> p.isDevDependency());
+  }
 
   /**
-   * Whether any <code>use_extension</code> calls for this usage had <code>dev_dependency = False
-   * </code> set.*
+   * Whether any {@code use_extension} calls for this usage had {@code dev_dependency = False} set.
    */
-  public abstract boolean getHasNonDevUseExtension();
+  public final boolean getHasNonDevUseExtension() {
+    return getProxies().stream().anyMatch(p -> !p.isDevDependency());
+  }
 
   public abstract Builder toBuilder();
 
@@ -100,13 +140,12 @@ public abstract class ModuleExtensionUsage {
     // preserves correctness in case new fields are added without updating this code.
     return toBuilder()
         .setTags(getTags().stream().map(Tag::trimForEvaluation).collect(toImmutableList()))
+        // Clear out all proxies as information contained therein isn't useful for evaluation.
         // Locations are only used for error reporting and thus don't influence whether the
         // evaluation of the extension is successful and what its result is in case of success.
-        .setLocation(Location.BUILTIN)
         // Extension implementation functions do not see the imports, they are only validated
         // against the set of generated repos in a validation step that comes afterward.
-        .setImports(ImmutableBiMap.of())
-        .setDevImports(ImmutableSet.of())
+        .setProxies(ImmutableList.of())
         .build();
   }
 
@@ -122,25 +161,25 @@ public abstract class ModuleExtensionUsage {
 
     public abstract Builder setUsingModule(ModuleKey value);
 
-    public abstract Builder setLocation(Location value);
+    public abstract Builder setProxies(ImmutableList<Proxy> value);
 
-    public abstract Builder setImports(ImmutableBiMap<String, String> value);
+    abstract ImmutableList.Builder<Proxy> proxiesBuilder();
 
-    public abstract Builder setDevImports(ImmutableSet<String> value);
+    @CanIgnoreReturnValue
+    public Builder addProxy(Proxy value) {
+      proxiesBuilder().add(value);
+      return this;
+    }
 
     public abstract Builder setTags(ImmutableList<Tag> value);
 
     abstract ImmutableList.Builder<Tag> tagsBuilder();
 
     @CanIgnoreReturnValue
-    public ModuleExtensionUsage.Builder addTag(Tag value) {
+    public Builder addTag(Tag value) {
       tagsBuilder().add(value);
       return this;
     }
-
-    public abstract Builder setHasDevUseExtension(boolean hasDevUseExtension);
-
-    public abstract Builder setHasNonDevUseExtension(boolean hasNonDevUseExtension);
 
     public abstract ModuleExtensionUsage build();
   }

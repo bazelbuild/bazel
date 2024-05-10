@@ -217,12 +217,13 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
         .setExtensionBzlFile(bzlFile)
         .setExtensionName(name)
         .setIsolationKey(Optional.empty())
-        .setImports(importsBuilder.buildOrThrow())
-        .setDevImports(ImmutableSet.of())
+        .addProxy(
+            ModuleExtensionUsage.Proxy.builder()
+                .setDevDependency(false)
+                .setLocation(Location.BUILTIN)
+                .setImports(importsBuilder.buildOrThrow())
+                .build())
         .setUsingModule(ModuleKey.ROOT)
-        .setLocation(Location.BUILTIN)
-        .setHasDevUseExtension(false)
-        .setHasNonDevUseExtension(true)
         .build();
   }
 
