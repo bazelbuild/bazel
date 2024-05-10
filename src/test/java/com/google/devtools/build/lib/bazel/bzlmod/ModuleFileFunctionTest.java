@@ -1535,7 +1535,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   }
 
   @Test
-  public void testRegisterToolchains_singlePackageRestriction_error() throws Exception {
+  public void testRegisterToolchains_singlePackageRestriction_underDir() throws Exception {
     // Test intentionally introduces errors.
     reporter.removeHandler(failFastHandler);
     PrecomputedValue.STARLARK_SEMANTICS.set(
@@ -1560,6 +1560,29 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     assertContainsEvent(
         "invalid target pattern \"//bar/...\": register_toolchain target patterns "
             + "may only refer to targets within a single package");
+  }
+
+  @Test
+  public void testRegisterToolchains_pathSyntax() throws Exception {
+    // Test intentionally introduces errors.
+    reporter.removeHandler(failFastHandler);
+
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "register_toolchains('bar/baz')");
+
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        "Expected absolute target patterns (must begin with '//' or '@') for 'register_toolchains'"
+            + " argument, but got 'bar/baz' as an argument");
   }
 
   @Test

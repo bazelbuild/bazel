@@ -131,6 +131,12 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
               "invalid target pattern \"%s\": register_toolchain target patterns may only refer to "
                   + "targets within a single package",
               tp.getOriginalPattern());
+        } else if (tp.getType() == TargetPattern.Type.PATH_AS_TARGET) {
+          throw Starlark.errorf(
+              "invalid target pattern \"%s\": register_toolchain target patterns may only refer to "
+                  + "targets with a declared package (relative path syntax omitting ':' is "
+                  + "ambiguous)",
+              tp.getOriginalPattern());
         }
       }
     }

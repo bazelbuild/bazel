@@ -271,7 +271,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testRegisterToolchains_singlePackageRestriction_error() throws Exception {
+  public void testRegisterToolchains_singlePackageRestriction_underDir() throws Exception {
     // Test intentionally introduces errors.
     reporter.removeHandler(failFastHandler);
 
@@ -287,6 +287,26 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     assertContainsEvent(
         "invalid target pattern \"//foo/...\": register_toolchain target patterns "
             + "may only refer to targets within a single package");
+  }
+
+  @Test
+  public void testRegisterToolchains_singlePackageRestriction_pathSyntax() throws Exception {
+    // Test intentionally introduces errors.
+    reporter.removeHandler(failFastHandler);
+
+    setBuildLanguageOptions("--experimental_single_package_toolchain_binding");
+
+    String[] lines = {"register_toolchains('foo/bar')"};
+    createWorkspaceFile(lines);
+
+    SkyKey key = ExternalPackageFunction.key();
+    EvaluationResult<PackageValue> evaluationResult = eval(key);
+    Package pkg = evaluationResult.get(key).getPackage();
+    assertThat(pkg.containsErrors()).isTrue();
+    assertContainsEvent(
+        "invalid target pattern \"foo/bar\": register_toolchain target patterns may only refer "
+            + "to targets with a declared package (relative path syntax omitting ':' is "
+            + "ambiguous)");
   }
 
   @Test
