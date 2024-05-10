@@ -52,7 +52,7 @@ public class RegistryFunction implements SkyFunction {
           key.getUrl().replace("%workspace%", workspaceRoot.getPathString()),
           lockfileMode,
           lockfile.getRegistryFileHashes(),
-          lockfile.getYankedButAllowedModules());
+          lockfile.getSelectedYankedVersions());
     } catch (URISyntaxException e) {
       throw new RegistryException(
           ExternalDepsException.withCauseAndMessage(

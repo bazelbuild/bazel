@@ -50,8 +50,8 @@ public interface Registry extends SkyValue {
       throws IOException, InterruptedException;
 
   /**
-   * Returns whether the (mutable) yanked versions should be fetched from the registry for the given
-   * module contained in the post-selection dependency graph.
+   * Returns the yanked versions information, limited to the given selected module version, purely
+   * based on the lockfile (if possible).
    */
-  boolean shouldFetchYankedVersions(ModuleKey selectedModuleKey);
+  Optional<YankedVersionsValue> tryGetYankedVersionsFromLockfile(ModuleKey selectedModuleKey);
 }

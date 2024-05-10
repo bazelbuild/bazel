@@ -203,6 +203,42 @@ class BazelYankedVersionsTest(test_base.TestBase):
         ''.join(stderr),
     )
 
+  def testAllowedYankedDepsByEnvVarErrorMode(self):
+    self.writeBazelrcFile(allow_yanked_versions=False)
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'bazel_dep(name = "ddd", version = "1.0")',
+      ],
+    )
+    self.ScratchFile(
+      'BUILD',
+      [
+        'cc_binary(',
+        '  name = "main",',
+        '  srcs = ["main.cc"],',
+        '  deps = ["@ddd//:lib_ddd"],',
+        ')',
+      ],
+    )
+    self.RunBazel(
+      ['build', '--nobuild', '//:main'],
+      env_add={'BZLMOD_ALLOW_YANKED_VERSIONS': 'yanked1@1.0,yanked2@1.0'},
+    )
+
+    # Test changing the env var, the build should fail again.
+    exit_code, _, stderr = self.RunBazel(
+      ['build', '--nobuild', '--lockfile_mode=error', '//:main'],
+      env_add={'BZLMOD_ALLOW_YANKED_VERSIONS': 'yanked2@1.0'},
+      allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+      'Yanked version detected in your resolved dependency graph: '
+      + 'yanked1@1.0, for the reason: dodgy.',
+      ''.join(stderr),
+      )
+
   def testAllowedYankedDepsSuccessMix(self):
     self.writeBazelrcFile(allow_yanked_versions=False)
     self.ScratchFile(

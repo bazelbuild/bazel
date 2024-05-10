@@ -21,7 +21,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum.MissingChecksumException;
@@ -69,7 +68,7 @@ public class IndexRegistry implements Registry {
   private final Map<String, String> clientEnv;
   private final Gson gson;
   private final ImmutableMap<String, Optional<Checksum>> knownFileHashes;
-  private final ImmutableSet<ModuleKey> yankedButAllowedModules;
+  private final ImmutableMap<ModuleKey, String> previouslySelectedYankedVersions;
   private final KnownFileHashesMode knownFileHashesMode;
   private volatile Optional<BazelRegistryJson> bazelRegistryJson;
   private volatile StoredEventHandler bazelRegistryJsonEvents;
@@ -82,7 +81,7 @@ public class IndexRegistry implements Registry {
       Map<String, String> clientEnv,
       ImmutableMap<String, Optional<Checksum>> knownFileHashes,
       KnownFileHashesMode knownFileHashesMode,
-      ImmutableSet<ModuleKey> yankedButAllowedModules) {
+      ImmutableMap<ModuleKey, String> previouslySelectedYankedVersions) {
     this.uri = uri;
     this.downloadManager = downloadManager;
     this.clientEnv = clientEnv;
@@ -92,7 +91,7 @@ public class IndexRegistry implements Registry {
             .create();
     this.knownFileHashes = knownFileHashes;
     this.knownFileHashesMode = knownFileHashesMode;
-    this.yankedButAllowedModules = yankedButAllowedModules;
+    this.previouslySelectedYankedVersions = previouslySelectedYankedVersions;
   }
 
   @Override
@@ -440,17 +439,37 @@ public class IndexRegistry implements Registry {
   }
 
   @Override
-  public boolean shouldFetchYankedVersions(ModuleKey selectedModuleKey) {
-    // If the source.json hash is known, this module has been selected during the last (successful)
-    // selection recorded in the lockfile (possibly one of two selections in case of a git merge
-    // conflict resolution). We do not fetch yanked versions for this module unless we know that it
-    // was yanked at that point but explicitly allowed via BZLMOD_ALLOW_YANKED_VERSIONS or
-    // --allow_yanked_versions.
-    // As a consequence, since source.json hashes are reused by future module resolutions, yanked
-    // versions are not checked for updates for as long as the same version of the module keeps
-    // being selected.
-    return yankedButAllowedModules.contains(selectedModuleKey)
-        || !knownFileHashes.containsKey(getSourceJsonUrl(selectedModuleKey));
+  public Optional<YankedVersionsValue> tryGetYankedVersionsFromLockfile(
+      ModuleKey selectedModuleKey) {
+    String yankedInfo = previouslySelectedYankedVersions.get(selectedModuleKey);
+    if (yankedInfo != null) {
+      // The module version was selected when the lockfile was created, but known to be yanked
+      // (hence, it was explicitly allowed by the user). We reuse the yanked info from the lockfile.
+      // Rationale: A module that was yanked in the past should remain yanked in the future. The
+      // yanked info may have been updated since then, but by not fetching it, we avoid network
+      // access if the set of yanked versions has not changed, but the set allowed versions has.
+      return Optional.of(
+          YankedVersionsValue.create(
+              Optional.of(ImmutableMap.of(selectedModuleKey.getVersion(), yankedInfo))));
+    }
+    if (knownFileHashes.containsKey(getSourceJsonUrl(selectedModuleKey))) {
+      // If the source.json hash is recorded in the lockfile, we know that the module was selected
+      // when the lockfile was created. Since it does not appear in the list of selected yanked
+      // versions recorded in the lockfile, it must not have been yanked at that time. We do not
+      // refresh yanked versions information.
+      // Rationale: This ensures that builds with --lockfile_mode=update or error are reproducible
+      // and do not fail due to changes in the set of yanked versions. Furthermore, it avoids
+      // refetching yanked versions for all modules every time the user modifies or adds a
+      // dependency. If the selected version for a module changes, yanked version information is
+      // always refreshed.
+      return Optional.of(YankedVersionsValue.NONE_YANKED);
+    }
+    // The lockfile does not contain sufficient information to determine the "yanked" status of the
+    // module - network access to the registry is required.
+    // Note that this point can't (and must not) be reached with --lockfile_mode=error: The lockfile
+    // records the source.json hashes of all selected modules and the result of selection is fully
+    // determined by the lockfile.
+    return Optional.empty();
   }
 
   /** Represents fields available in {@code metadata.json} for each module. */

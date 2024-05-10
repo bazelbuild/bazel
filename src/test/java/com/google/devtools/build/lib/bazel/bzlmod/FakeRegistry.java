@@ -20,7 +20,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -101,8 +100,9 @@ public class FakeRegistry implements Registry {
   }
 
   @Override
-  public boolean shouldFetchYankedVersions(ModuleKey selectedModuleKey) {
-    return true;
+  public Optional<YankedVersionsValue> tryGetYankedVersionsFromLockfile(
+      ModuleKey selectedModuleKey) {
+    return Optional.empty();
   }
 
   @Override
@@ -136,7 +136,7 @@ public class FakeRegistry implements Registry {
         String url,
         LockfileMode lockfileMode,
         ImmutableMap<String, Optional<Checksum>> fileHashes,
-        ImmutableSet<ModuleKey> yankedButAllowedModules) {
+        ImmutableMap<ModuleKey, String> previouslySelectedYankedVersions) {
       return Preconditions.checkNotNull(registries.get(url), "unknown registry url: %s", url);
     }
   }

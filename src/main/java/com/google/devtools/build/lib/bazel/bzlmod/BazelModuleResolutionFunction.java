@@ -15,7 +15,6 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil.BZLMOD_ALLOWED_YANKED_VERSIONS_ENV;
 
@@ -47,6 +46,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -69,7 +69,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
   private record Result(
       Selection.Result selectionResult,
       ImmutableMap<String, Optional<Checksum>> registryFileHashes,
-      ImmutableSet<ModuleKey> yankedButAllowedModules) {}
+      ImmutableMap<ModuleKey, String> selectedYankedVersions) {}
 
   private static class ModuleResolutionComputeState implements Environment.SkyKeyComputeState {
     Result discoverAndSelectResult;
@@ -144,7 +144,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
         finalDepGraph,
         state.discoverAndSelectResult.selectionResult.getUnprunedDepGraph(),
         ImmutableMap.copyOf(registryFileHashes),
-        state.discoverAndSelectResult.yankedButAllowedModules);
+        state.discoverAndSelectResult.selectedYankedVersions);
   }
 
   @Nullable
@@ -173,22 +173,12 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     }
     ImmutableMap<ModuleKey, InterimModule> resolvedDepGraph = selectionResult.getResolvedDepGraph();
 
-    var yankedVersionsKeys =
-        resolvedDepGraph.values().stream()
-            .filter(m -> m.getRegistry() != null)
-            .filter(m -> m.getRegistry().shouldFetchYankedVersions(m.getKey()))
-            .map(m -> YankedVersionsValue.Key.create(m.getName(), m.getRegistry().getUrl()))
-            .collect(toImmutableSet());
-    SkyframeLookupResult yankedVersionsResult = env.getValuesAndExceptions(yankedVersionsKeys);
-    if (env.valuesMissing()) {
-      return null;
+    ImmutableMap<ModuleKey, YankedVersionsValue> yankedVersionsValues;
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.BZLMOD, "collect yanked versions")) {
+      yankedVersionsValues = collectYankedVersionsValues(env, resolvedDepGraph.values());
     }
-    var yankedVersionValues =
-        yankedVersionsKeys.stream()
-            .collect(
-                toImmutableMap(
-                    key -> key, key -> (YankedVersionsValue) yankedVersionsResult.get(key)));
-    if (yankedVersionValues.values().stream().anyMatch(Objects::isNull)) {
+    if (yankedVersionsValues == null) {
       return null;
     }
 
@@ -209,15 +199,45 @@ public class BazelModuleResolutionFunction implements SkyFunction {
           env.getListener());
     }
 
-    ImmutableSet<ModuleKey> yankedButAllowedModules;
-    try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.BZLMOD, "check no yanked versions")) {
-      yankedButAllowedModules =
-          checkNoYankedVersions(resolvedDepGraph, yankedVersionValues, allowedYankedVersions);
-    }
-
+    var selectedYankedVersions = checkNoYankedVersions(yankedVersionsValues, allowedYankedVersions);
     return new Result(
-        selectionResult, discoveryResult.registryFileHashes(), yankedButAllowedModules);
+        selectionResult, discoveryResult.registryFileHashes(), selectedYankedVersions);
+  }
+
+  private static ImmutableMap<ModuleKey, YankedVersionsValue> collectYankedVersionsValues(
+      Environment env, ImmutableCollection<InterimModule> modules) throws InterruptedException {
+    ImmutableMap.Builder<ModuleKey, YankedVersionsValue> yankedVersionsValues =
+        ImmutableMap.builder();
+    Map<ModuleKey, YankedVersionsValue.Key> yankedVersionsKeys = new HashMap<>();
+    for (InterimModule m : modules) {
+      if (m.getRegistry() == null) {
+        // Modules with a non-registry override are never yanked.
+        yankedVersionsValues.put(m.getKey(), YankedVersionsValue.NONE_YANKED);
+        continue;
+      }
+      var lockfileYankedVersionsValue =
+          m.getRegistry().tryGetYankedVersionsFromLockfile(m.getKey());
+      if (lockfileYankedVersionsValue.isPresent()) {
+        yankedVersionsValues.put(m.getKey(), lockfileYankedVersionsValue.get());
+      } else {
+        // We need to download the list of yanked versions from the registry.
+        yankedVersionsKeys.put(
+            m.getKey(), YankedVersionsValue.Key.create(m.getName(), m.getRegistry().getUrl()));
+      }
+    }
+    SkyframeLookupResult yankedVersionsResult =
+        env.getValuesAndExceptions(yankedVersionsKeys.values());
+    if (env.valuesMissing()) {
+      return null;
+    }
+    for (var entry : yankedVersionsKeys.entrySet()) {
+      var yankedVersionsValue = (YankedVersionsValue) yankedVersionsResult.get(entry.getValue());
+      if (yankedVersionsValue == null) {
+        return null;
+      }
+      yankedVersionsValues.put(entry.getKey(), yankedVersionsValue);
+    }
+    return yankedVersionsValues.buildOrThrow();
   }
 
   private static void verifyAllOverridesAreOnExistentModules(
@@ -314,35 +334,28 @@ public class BazelModuleResolutionFunction implements SkyFunction {
   /**
    * Fail if any selected module is yanked and not explicitly allowed.
    *
-   * @return the set of yanked but explicitly allowed modules
+   * @return the yanked info for each yanked but explicitly allowed module
    */
-  private static ImmutableSet<ModuleKey> checkNoYankedVersions(
-      ImmutableMap<ModuleKey, InterimModule> depGraph,
-      ImmutableMap<YankedVersionsValue.Key, YankedVersionsValue> yankedVersionValues,
+  private static ImmutableMap<ModuleKey, String> checkNoYankedVersions(
+      ImmutableMap<ModuleKey, YankedVersionsValue> yankedVersionValues,
       Optional<ImmutableSet<ModuleKey>> allowedYankedVersions)
       throws BazelModuleResolutionFunctionException {
-    ImmutableSet.Builder<ModuleKey> yankedButAllowedModules = ImmutableSet.builder();
-    for (InterimModule m : depGraph.values()) {
-      if (m.getRegistry() == null) {
-        // Non-registry modules do not have yanked versions.
-        continue;
-      }
-      ModuleKey key = m.getKey();
-      YankedVersionsValue yankedVersionsValue =
-          yankedVersionValues.get(
-              YankedVersionsValue.Key.create(m.getName(), m.getRegistry().getUrl()));
-      if (yankedVersionsValue == null || yankedVersionsValue.yankedVersions().isEmpty()) {
-        // No need to check or no yanked version information available.
+    ImmutableMap.Builder<ModuleKey, String> selectedYankedVersions = ImmutableMap.builder();
+    for (var entry : yankedVersionValues.entrySet()) {
+      ModuleKey key = entry.getKey();
+      YankedVersionsValue yankedVersionsValue = entry.getValue();
+      if (yankedVersionsValue.yankedVersions().isEmpty()) {
+        // No yanked version information available for this module.
         continue;
       }
       String yankedInfo = yankedVersionsValue.yankedVersions().get().get(key.getVersion());
       if (yankedInfo == null) {
-        // The version is not yanked.
+        // The selected version is not yanked.
         continue;
       }
       if (allowedYankedVersions.isEmpty() || allowedYankedVersions.get().contains(key)) {
-        // The version is yanked but explicitly allowed.
-        yankedButAllowedModules.add(key);
+        // The selected version is yanked but explicitly allowed.
+        selectedYankedVersions.put(key, yankedInfo);
         continue;
       }
       throw new BazelModuleResolutionFunctionException(
@@ -353,11 +366,11 @@ public class BazelModuleResolutionFunction implements SkyFunction {
                   + "used. To fix this, use a bazel_dep on a newer version of this module. To "
                   + "continue using this version, allow it using the --allow_yanked_versions "
                   + "flag or the BZLMOD_ALLOW_YANKED_VERSIONS env variable.",
-              m.getKey(),
+              key,
               yankedInfo),
           Transience.PERSISTENT);
     }
-    return yankedButAllowedModules.build();
+    return selectedYankedVersions.buildOrThrow();
   }
 
   private static ImmutableMap<ModuleKey, Module> computeFinalDepGraph(

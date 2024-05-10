@@ -24,7 +24,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.hash.Hashing;
@@ -98,7 +97,7 @@ public class IndexRegistryTest extends FoundationTestCase {
 
     Registry registry =
         registryFactory.createRegistry(
-            server.getUrl() + "/myreg", LockfileMode.UPDATE, ImmutableMap.of(), ImmutableSet.of());
+            server.getUrl() + "/myreg", LockfileMode.UPDATE, ImmutableMap.of(), ImmutableMap.of());
     assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter))
         .hasValue(
             ModuleFile.create(
@@ -116,7 +115,7 @@ public class IndexRegistryTest extends FoundationTestCase {
                 "machine [::1] login rinne password rinnepass\n".getBytes(UTF_8)));
     Registry registry =
         registryFactory.createRegistry(
-            server.getUrl() + "/myreg", LockfileMode.UPDATE, ImmutableMap.of(), ImmutableSet.of());
+            server.getUrl() + "/myreg", LockfileMode.UPDATE, ImmutableMap.of(), ImmutableMap.of());
 
     var e =
         assertThrows(
@@ -149,7 +148,7 @@ public class IndexRegistryTest extends FoundationTestCase {
             new File(tempFolder.getRoot(), "fakereg").toURI().toString(),
             LockfileMode.UPDATE,
             ImmutableMap.of(),
-            ImmutableSet.of());
+            ImmutableMap.of());
     assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter))
         .hasValue(ModuleFile.create("lol".getBytes(UTF_8), file.toURI().toString()));
     assertThat(registry.getModuleFile(createModuleKey("bar", "1.0"), reporter)).isEmpty();
@@ -187,7 +186,7 @@ public class IndexRegistryTest extends FoundationTestCase {
 
     Registry registry =
         registryFactory.createRegistry(
-            server.getUrl(), LockfileMode.UPDATE, ImmutableMap.of(), ImmutableSet.of());
+            server.getUrl(), LockfileMode.UPDATE, ImmutableMap.of(), ImmutableMap.of());
     assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter))
         .isEqualTo(
             new ArchiveRepoSpecBuilder()
@@ -233,7 +232,7 @@ public class IndexRegistryTest extends FoundationTestCase {
 
     Registry registry =
         registryFactory.createRegistry(
-            server.getUrl(), LockfileMode.UPDATE, ImmutableMap.of(), ImmutableSet.of());
+            server.getUrl(), LockfileMode.UPDATE, ImmutableMap.of(), ImmutableMap.of());
     assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter))
         .isEqualTo(
             RepoSpec.builder()
@@ -257,7 +256,7 @@ public class IndexRegistryTest extends FoundationTestCase {
 
     Registry registry =
         registryFactory.createRegistry(
-            server.getUrl(), LockfileMode.UPDATE, ImmutableMap.of(), ImmutableSet.of());
+            server.getUrl(), LockfileMode.UPDATE, ImmutableMap.of(), ImmutableMap.of());
     assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter))
         .isEqualTo(
             new ArchiveRepoSpecBuilder()
@@ -290,7 +289,7 @@ public class IndexRegistryTest extends FoundationTestCase {
 
     Registry registry =
         registryFactory.createRegistry(
-            server.getUrl(), LockfileMode.UPDATE, ImmutableMap.of(), ImmutableSet.of());
+            server.getUrl(), LockfileMode.UPDATE, ImmutableMap.of(), ImmutableMap.of());
     assertThrows(
         IOException.class, () -> registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter));
   }
@@ -319,7 +318,7 @@ public class IndexRegistryTest extends FoundationTestCase {
     server.start();
     Registry registry =
         registryFactory.createRegistry(
-            server.getUrl(), LockfileMode.UPDATE, ImmutableMap.of(), ImmutableSet.of());
+            server.getUrl(), LockfileMode.UPDATE, ImmutableMap.of(), ImmutableMap.of());
     Optional<ImmutableMap<Version, String>> yankedVersion =
         registry.getYankedVersions("red-pill", reporter);
     assertThat(yankedVersion)
@@ -342,7 +341,7 @@ public class IndexRegistryTest extends FoundationTestCase {
 
     Registry registry =
         registryFactory.createRegistry(
-            server.getUrl(), LockfileMode.UPDATE, ImmutableMap.of(), ImmutableSet.of());
+            server.getUrl(), LockfileMode.UPDATE, ImmutableMap.of(), ImmutableMap.of());
     assertThat(registry.getRepoSpec(createModuleKey("archive_type", "1.0"), reporter))
         .isEqualTo(
             new ArchiveRepoSpecBuilder()
@@ -371,7 +370,7 @@ public class IndexRegistryTest extends FoundationTestCase {
             Optional.of(sha256("unused")));
     Registry registry =
         registryFactory.createRegistry(
-            server.getUrl() + "/myreg", LockfileMode.UPDATE, knownFiles, ImmutableSet.of());
+            server.getUrl() + "/myreg", LockfileMode.UPDATE, knownFiles, ImmutableMap.of());
     assertThat(registry.getModuleFile(createModuleKey("foo", "1.0"), reporter))
         .hasValue(
             ModuleFile.create(
@@ -397,7 +396,7 @@ public class IndexRegistryTest extends FoundationTestCase {
 
     registry =
         registryFactory.createRegistry(
-            server.getUrl() + "/myreg", LockfileMode.UPDATE, recordedChecksums, ImmutableSet.of());
+            server.getUrl() + "/myreg", LockfileMode.UPDATE, recordedChecksums, ImmutableMap.of());
     // Test that the recorded hashes are used for repo cache hits even when the server content
     // changes.
     server.unserve("/myreg/modules/foo/1.0/MODULE.bazel");
@@ -427,7 +426,7 @@ public class IndexRegistryTest extends FoundationTestCase {
             Optional.of(sha256("original")));
     Registry registry =
         registryFactory.createRegistry(
-            server.getUrl() + "/myreg", LockfileMode.UPDATE, knownFiles, ImmutableSet.of());
+            server.getUrl() + "/myreg", LockfileMode.UPDATE, knownFiles, ImmutableMap.of());
     var e =
         assertThrows(
             IOException.class,
@@ -468,7 +467,7 @@ public class IndexRegistryTest extends FoundationTestCase {
             server.getUrl() + "/modules/foo/2.0/source.json", Optional.of(sha256("unused")));
     Registry registry =
         registryFactory.createRegistry(
-            server.getUrl(), LockfileMode.UPDATE, knownFiles, ImmutableSet.of());
+            server.getUrl(), LockfileMode.UPDATE, knownFiles, ImmutableMap.of());
     assertThat(registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter))
         .isEqualTo(
             RepoSpec.builder()
@@ -488,7 +487,7 @@ public class IndexRegistryTest extends FoundationTestCase {
 
     registry =
         registryFactory.createRegistry(
-            server.getUrl(), LockfileMode.UPDATE, recordedChecksums, ImmutableSet.of());
+            server.getUrl(), LockfileMode.UPDATE, recordedChecksums, ImmutableMap.of());
     // Test that the recorded hashes are used for repo cache hits even when the server content
     // changes.
     server.unserve("/bazel_registry.json");
@@ -532,7 +531,7 @@ public class IndexRegistryTest extends FoundationTestCase {
             Optional.of(sha256(sourceJson)));
     Registry registry =
         registryFactory.createRegistry(
-            server.getUrl(), LockfileMode.UPDATE, knownFiles, ImmutableSet.of());
+            server.getUrl(), LockfileMode.UPDATE, knownFiles, ImmutableMap.of());
     var e =
         assertThrows(
             IOException.class, () -> registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter));
@@ -576,7 +575,7 @@ public class IndexRegistryTest extends FoundationTestCase {
             Optional.of(sha256(sourceJson)));
     Registry registry =
         registryFactory.createRegistry(
-            server.getUrl(), LockfileMode.UPDATE, knownFiles, ImmutableSet.of());
+            server.getUrl(), LockfileMode.UPDATE, knownFiles, ImmutableMap.of());
     var e =
         assertThrows(
             IOException.class, () -> registry.getRepoSpec(createModuleKey("foo", "1.0"), reporter));

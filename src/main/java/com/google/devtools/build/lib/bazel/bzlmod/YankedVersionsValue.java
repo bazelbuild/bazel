@@ -27,6 +27,9 @@ import java.util.Optional;
 @AutoValue
 public abstract class YankedVersionsValue implements SkyValue {
 
+  /** A value representing a module without yanked versions. */
+  public static final YankedVersionsValue NONE_YANKED = create(Optional.of(ImmutableMap.of()));
+
   public abstract Optional<ImmutableMap<Version, String>> yankedVersions();
 
   public static YankedVersionsValue create(Optional<ImmutableMap<Version, String>> yankedVersions) {

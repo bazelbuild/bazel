@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -36,7 +35,7 @@ import java.util.Optional;
 @GenerateTypeAdapter
 public abstract class BazelLockFileValue implements SkyValue, Postable {
 
-  public static final int LOCK_FILE_VERSION = 9;
+  public static final int LOCK_FILE_VERSION = 10;
 
   @SerializationConstant public static final SkyKey KEY = () -> SkyFunctions.BAZEL_LOCK_FILE;
 
@@ -44,7 +43,7 @@ public abstract class BazelLockFileValue implements SkyValue, Postable {
     return new AutoValue_BazelLockFileValue.Builder()
         .setLockFileVersion(LOCK_FILE_VERSION)
         .setRegistryFileHashes(ImmutableMap.of())
-        .setYankedButAllowedModules(ImmutableSet.of())
+        .setSelectedYankedVersions(ImmutableMap.of())
         .setModuleExtensions(ImmutableMap.of());
   }
 
@@ -54,8 +53,11 @@ public abstract class BazelLockFileValue implements SkyValue, Postable {
   /** Hashes of files retrieved from registries. */
   public abstract ImmutableMap<String, Optional<Checksum>> getRegistryFileHashes();
 
-  /** Module versions that are known to be yanked but were explicitly allowed by the user. */
-  public abstract ImmutableSet<ModuleKey> getYankedButAllowedModules();
+  /**
+   * Selected module versions that are known to be yanked (and hence must have been explicitly
+   * allowed by the user).
+   */
+  public abstract ImmutableMap<ModuleKey, String> getSelectedYankedVersions();
 
   /** Mapping the extension id to the module extension data */
   public abstract ImmutableMap<
@@ -71,7 +73,7 @@ public abstract class BazelLockFileValue implements SkyValue, Postable {
 
     public abstract Builder setRegistryFileHashes(ImmutableMap<String, Optional<Checksum>> value);
 
-    public abstract Builder setYankedButAllowedModules(ImmutableSet<ModuleKey> value);
+    public abstract Builder setSelectedYankedVersions(ImmutableMap<ModuleKey, String> value);
 
     public abstract Builder setModuleExtensions(
         ImmutableMap<

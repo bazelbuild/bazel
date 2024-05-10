@@ -79,6 +79,7 @@ java_library(
     ],
     deps = [
         ":common",
+        ":yanked_versions_value",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
@@ -156,6 +157,7 @@ java_library(
         ":registry",
         ":repo_rule_creator",
         ":root_module_file_fixup",
+        ":yanked_versions_value",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
@@ -400,5 +402,23 @@ java_library(
     deps = [
         ":module_extension",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "yanked_versions_value",
+    srcs = [
+        "YankedVersionsValue.java",
+    ],
+    deps = [
+        ":common",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )

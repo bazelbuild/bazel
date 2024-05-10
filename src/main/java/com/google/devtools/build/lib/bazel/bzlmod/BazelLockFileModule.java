@@ -119,7 +119,7 @@ public class BazelLockFileModule extends BlazeModule {
         BazelLockFileValue.builder()
             .setRegistryFileHashes(
                 ImmutableSortedMap.copyOf(moduleResolutionValue.getRegistryFileHashes()))
-            .setYankedButAllowedModules(moduleResolutionValue.getYankedButAllowedModules())
+            .setSelectedYankedVersions(moduleResolutionValue.getSelectedYankedVersions())
             .setModuleExtensions(combinedExtensionInfos)
             .build();
 

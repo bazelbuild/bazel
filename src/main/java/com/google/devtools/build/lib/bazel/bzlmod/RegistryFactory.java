@@ -16,7 +16,6 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import java.net.URISyntaxException;
@@ -34,6 +33,6 @@ public interface RegistryFactory {
       String url,
       RepositoryOptions.LockfileMode lockfileMode,
       ImmutableMap<String, Optional<Checksum>> fileHashes,
-      ImmutableSet<ModuleKey> yankedButAllowedModules)
+      ImmutableMap<ModuleKey, String> previouslySelectedYankedVersions)
       throws URISyntaxException;
 }
