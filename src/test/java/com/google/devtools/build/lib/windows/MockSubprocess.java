@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.windows;
 
+import com.google.common.base.Strings;
 import java.io.PrintStream;
 import java.nio.charset.Charset;
 import java.nio.file.Paths;
@@ -62,7 +63,7 @@ public class MockSubprocess {
 
       case '$':
         // Environment variable
-        buf = System.getenv(arg.substring(2)).getBytes(UTF8);
+        buf = Strings.nullToEmpty(System.getenv(arg.substring(2))).getBytes(UTF8);
         break;
 
       case '.':

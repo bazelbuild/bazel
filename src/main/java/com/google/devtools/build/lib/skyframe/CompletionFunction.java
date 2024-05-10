@@ -13,19 +13,28 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.InputFileErrorException;
 import com.google.devtools.build.lib.analysis.ConfiguredObjectValue;
@@ -44,6 +53,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingArtifactValue;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
@@ -54,10 +64,13 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -116,18 +129,21 @@ public final class CompletionFunction<
   private final SkyframeActionExecutor skyframeActionExecutor;
   private final FilesMetricConsumer topLevelArtifactsMetric;
   private final BugReporter bugReporter;
+  private final Supplier<Boolean> isSkymeld;
 
   CompletionFunction(
       PathResolverFactory pathResolverFactory,
       Completor<ValueT, ResultT, KeyT, FailureT> completor,
       SkyframeActionExecutor skyframeActionExecutor,
       FilesMetricConsumer topLevelArtifactsMetric,
-      BugReporter bugReporter) {
+      BugReporter bugReporter,
+      Supplier<Boolean> isSkymeld) {
     this.pathResolverFactory = pathResolverFactory;
     this.completor = completor;
     this.skyframeActionExecutor = skyframeActionExecutor;
     this.topLevelArtifactsMetric = topLevelArtifactsMetric;
     this.bugReporter = bugReporter;
+    this.isSkymeld = isSkymeld;
   }
 
   @SuppressWarnings("unchecked") // Cast to KeyT
@@ -308,6 +324,8 @@ public final class CompletionFunction<
       return null;
     }
 
+    ensureToplevelArtifacts(env, allArtifacts, inputMap);
+
     ExtendedEventHandler.Postable postable =
         completor.createSucceeded(key, value, ctx, artifactsToBuild, env);
     if (postable == null) {
@@ -317,6 +335,101 @@ public final class CompletionFunction<
     topLevelArtifactsMetric.mergeIn(currentConsumer);
 
     return completor.getResult();
+  }
+
+  private void ensureToplevelArtifacts(
+      Environment env, ImmutableCollection<Artifact> artifacts, ActionInputMap inputMap)
+      throws CompletionFunctionException, InterruptedException {
+    // For skymeld, a non-toplevel target might become a toplevel after it has been executed. This
+    // is the last chance to download the missing toplevel outputs in this case before sending out
+    // TargetCompleteEvent. See https://github.com/bazelbuild/bazel/issues/20737.
+    if (!isSkymeld.get()) {
+      return;
+    }
+
+    var outputService = skyframeActionExecutor.getOutputService();
+    var actionInputPrefetcher = skyframeActionExecutor.getActionInputPrefetcher();
+    if (outputService == null || actionInputPrefetcher == null) {
+      return;
+    }
+
+    var remoteArtifactChecker = outputService.getRemoteArtifactChecker();
+    var futures = new ArrayList<ListenableFuture<Void>>();
+    for (var artifact : artifacts) {
+      if (!(artifact instanceof DerivedArtifact derivedArtifact)) {
+        continue;
+      }
+
+      if (artifact.isTreeArtifact()) {
+        var treeMetadata = checkNotNull(inputMap.getTreeMetadata(artifact.getExecPath()));
+        var filesToDownload = new ArrayList<ActionInput>(treeMetadata.getChildValues().size());
+        for (var child : treeMetadata.getChildValues().entrySet()) {
+          var treeFile = child.getKey();
+          var metadata = child.getValue();
+          if (metadata.isRemote()
+              && !treeFile.getPath().exists()
+              && !remoteArtifactChecker.shouldTrustRemoteArtifact(
+                  treeFile, (RemoteFileArtifactValue) metadata)) {
+            filesToDownload.add(treeFile);
+          }
+        }
+        if (!filesToDownload.isEmpty()) {
+          var action =
+              ActionUtils.getActionForLookupData(env, derivedArtifact.getGeneratingActionKey());
+          var future =
+              actionInputPrefetcher.prefetchFiles(
+                  action, filesToDownload, inputMap::getInputMetadata, Priority.LOW);
+          futures.add(
+              Futures.catchingAsync(
+                  future,
+                  Throwable.class,
+                  e ->
+                      Futures.immediateFailedFuture(
+                          new ActionExecutionException(
+                              e,
+                              action,
+                              true,
+                              DetailedExitCode.of(
+                                  FailureDetail.newBuilder().setMessage(e.getMessage()).build()))),
+                  directExecutor()));
+        }
+      } else {
+        var metadata = checkNotNull(inputMap.getInputMetadata(artifact));
+        if (metadata.isRemote()
+            && !artifact.getPath().exists()
+            && !remoteArtifactChecker.shouldTrustRemoteArtifact(
+                artifact, (RemoteFileArtifactValue) metadata)) {
+          var action =
+              ActionUtils.getActionForLookupData(env, derivedArtifact.getGeneratingActionKey());
+          var future =
+              actionInputPrefetcher.prefetchFiles(
+                  action, ImmutableList.of(artifact), inputMap::getInputMetadata, Priority.LOW);
+          futures.add(
+              Futures.catchingAsync(
+                  future,
+                  Throwable.class,
+                  e ->
+                      Futures.immediateFailedFuture(
+                          new ActionExecutionException(
+                              e,
+                              action,
+                              true,
+                              DetailedExitCode.of(
+                                  FailureDetail.newBuilder().setMessage(e.getMessage()).build()))),
+                  directExecutor()));
+        }
+      }
+    }
+
+    try {
+      var unused = Futures.whenAllSucceed(futures).call(() -> null, directExecutor()).get();
+    } catch (ExecutionException e) {
+      var cause = e.getCause();
+      if (cause instanceof ActionExecutionException aee) {
+        throw new CompletionFunctionException(aee);
+      }
+      throw new RuntimeException(cause);
+    }
   }
 
   private void handleSourceFileError(

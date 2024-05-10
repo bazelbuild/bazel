@@ -125,7 +125,7 @@ public class SubprocessBuilder {
 
   /**
    * Sets the environment passed to the child process. If null, inherit the environment of the
-   * server.
+   * parent. The default is to inherit.
    */
   @CanIgnoreReturnValue
   public SubprocessBuilder setEnv(@Nullable Map<String, String> env) {

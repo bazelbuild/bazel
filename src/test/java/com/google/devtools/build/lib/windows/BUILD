@@ -55,6 +55,7 @@ java_binary(
     name = "MockSubprocess",
     testonly = 1,
     srcs = ["MockSubprocess.java"],
+    deps = ["//third_party:guava"],
 )
 
 cc_binary(
