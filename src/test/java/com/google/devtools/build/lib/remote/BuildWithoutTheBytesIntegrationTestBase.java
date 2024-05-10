@@ -29,9 +29,11 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -1647,6 +1649,114 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     buildTarget("//:foobar");
 
     assertValidOutputFile("foobar.txt", "foo\nbar\n");
+  }
+
+  @Test
+  public void skymeldPromoIntermediateTargetToToplevel_outputFile_downloadFile() throws Exception {
+    // Regression test for https://github.com/bazelbuild/bazel/issues/20737.
+
+    // Disable on Windows since mkfifo doesn't work there.
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+    write(
+        "BUILD",
+        """
+        filegroup(name = "top", srcs = [":actual", "//slow"])
+        genrule(name = "proxy", srcs = [":actual"], outs = ["proxy_file"], cmd = "cp $< $@")
+        genrule(name = "actual", srcs = [], outs = ["actual_file"], cmd = "echo ACTUAL > $@")
+        """);
+
+    getWorkspace().getRelative("slow").createDirectoryAndParents();
+    // Only write the content of slow/BUILD after //:proxy is built, so we can artificially delay
+    // the analysis of //:top
+    var unused =
+        new CommandBuilder()
+            .addArgs("mkfifo", "slow/BUILD")
+            .setWorkingDir(getWorkspace())
+            .build()
+            .execute();
+
+    buildTarget("//:proxy");
+    restartServer();
+
+    getRuntimeWrapper()
+        .registerSubscriber(
+            new Object() {
+              @Subscribe
+              public void onTargetCompleted(TargetCompleteEvent event) {
+                if (event.getLabel().toString().equals("//:proxy")) {
+                  try {
+                    write(
+                        "slow/BUILD",
+                        "filegroup(name = 'slow', visibility = ['//visibility:public'])");
+                  } catch (IOException e) {
+                    throw new IllegalStateException(e);
+                  }
+                }
+              }
+            });
+    setDownloadToplevel();
+    buildTarget("//:top", "//:proxy");
+    waitDownloads();
+
+    assertValidOutputFile("actual_file", "ACTUAL\n");
+  }
+
+  @Test
+  public void skymeldPromoIntermediateTargetToToplevel_outputDirectory_downloadDirectory()
+      throws Exception {
+    // Regression test for https://github.com/bazelbuild/bazel/issues/20737.
+
+    // Disable on Windows since mkfifo doesn't work there.
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+    writeOutputDirRule();
+    write(
+        "BUILD",
+        """
+        load(':output_dir.bzl', 'output_dir')
+        filegroup(name = "top", srcs = [":actual", "//slow"])
+        genrule(name = "proxy", srcs = [":actual"], outs = ["proxy_file"], cmd = "cp $</file-1 $@")
+        output_dir(
+          name = "actual",
+          content_map = {'file-1': '1', 'file-2': '2', 'file-3': '3'}
+        )
+        """);
+
+    getWorkspace().getRelative("slow").createDirectoryAndParents();
+    // Only write the content of slow/BUILD after //:proxy is built, so we can artificially delay
+    // the analysis of //:top
+    var unused =
+        new CommandBuilder()
+            .addArgs("mkfifo", "slow/BUILD")
+            .setWorkingDir(getWorkspace())
+            .build()
+            .execute();
+
+    buildTarget("//:proxy");
+    restartServer();
+
+    getRuntimeWrapper()
+        .registerSubscriber(
+            new Object() {
+              @Subscribe
+              public void onTargetCompleted(TargetCompleteEvent event) {
+                if (event.getLabel().toString().equals("//:proxy")) {
+                  try {
+                    write(
+                        "slow/BUILD",
+                        "filegroup(name = 'slow', visibility = ['//visibility:public'])");
+                  } catch (IOException e) {
+                    throw new IllegalStateException(e);
+                  }
+                }
+              }
+            });
+    setDownloadToplevel();
+    buildTarget("//:top", "//:proxy");
+    waitDownloads();
+
+    assertValidOutputFile("actual/file-1", "1");
+    assertValidOutputFile("actual/file-2", "2");
+    assertValidOutputFile("actual/file-3", "3");
   }
 
   protected void assertOutputsDoNotExist(String target) throws Exception {

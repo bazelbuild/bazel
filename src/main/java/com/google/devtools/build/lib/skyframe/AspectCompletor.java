@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.CompletionFunction.Completor;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** Manages completing builds for aspects. */
@@ -46,13 +47,15 @@ class AspectCompletor
       PathResolverFactory pathResolverFactory,
       SkyframeActionExecutor skyframeActionExecutor,
       MetadataConsumerForMetrics.FilesMetricConsumer topLevelArtifactsMetric,
-      BugReporter bugReporter) {
+      BugReporter bugReporter,
+      Supplier<Boolean> isSkymeld) {
     return new CompletionFunction<>(
         pathResolverFactory,
         new AspectCompletor(),
         skyframeActionExecutor,
         topLevelArtifactsMetric,
-        bugReporter);
+        bugReporter,
+        isSkymeld);
   }
 
   @Override
