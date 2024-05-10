@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -70,12 +71,12 @@ public class WindowsSubprocessTest {
     SubprocessBuilder subprocessBuilder = new SubprocessBuilder(WindowsSubprocessFactory.INSTANCE);
     subprocessBuilder.setWorkingDirectory(new File("."));
     subprocessBuilder.setArgv(ImmutableList.of(mockBinary, "-jar", mockSubprocess, "O$SYSTEMROOT"));
+    subprocessBuilder.setEnv(ImmutableMap.of());
     process = subprocessBuilder.start();
     process.waitFor();
     assertThat(process.exitValue()).isEqualTo(0);
 
-    byte[] buf = new byte[11];
-    process.getInputStream().read(buf);
+    byte[] buf = process.getInputStream().readAllBytes();
     assertThat(new String(buf, UTF_8).trim()).isEqualTo(System.getenv("SYSTEMROOT").trim());
   }
 
@@ -85,12 +86,12 @@ public class WindowsSubprocessTest {
     subprocessBuilder.setWorkingDirectory(new File("."));
     subprocessBuilder.setArgv(
         ImmutableList.of(mockBinary, "-jar", mockSubprocess, "O$SYSTEMDRIVE"));
+    subprocessBuilder.setEnv(ImmutableMap.of());
     process = subprocessBuilder.start();
     process.waitFor();
     assertThat(process.exitValue()).isEqualTo(0);
 
-    byte[] buf = new byte[3];
-    process.getInputStream().read(buf);
+    byte[] buf = process.getInputStream().readAllBytes();
     assertThat(new String(buf, UTF_8).trim()).isEqualTo(System.getenv("SYSTEMDRIVE").trim());
   }
 
@@ -105,8 +106,7 @@ public class WindowsSubprocessTest {
     process.waitFor();
     assertThat(process.exitValue()).isEqualTo(0);
 
-    byte[] buf = new byte[16];
-    process.getInputStream().read(buf);
+    byte[] buf = process.getInputStream().readAllBytes();
     assertThat(new String(buf, UTF_8).trim()).isEqualTo("C:\\MySystemRoot");
   }
 
@@ -122,9 +122,56 @@ public class WindowsSubprocessTest {
     process.waitFor();
     assertThat(process.exitValue()).isEqualTo(0);
 
-    byte[] buf = new byte[3];
-    process.getInputStream().read(buf);
+    byte[] buf = process.getInputStream().readAllBytes();
     assertThat(new String(buf, UTF_8).trim()).isEqualTo("X:");
+  }
+
+  @Test
+  public void testEmptyEnvironment() throws Exception {
+    // Check only that TZ was not inherited instead of verifying the entire environment.
+    assertThat(Strings.nullToEmpty(System.getenv("TZ"))).isNotEmpty();
+    SubprocessBuilder subprocessBuilder = new SubprocessBuilder(WindowsSubprocessFactory.INSTANCE);
+    subprocessBuilder.setWorkingDirectory(new File("."));
+    subprocessBuilder.setArgv(ImmutableList.of(mockBinary, "-jar", mockSubprocess, "O$TZ"));
+    subprocessBuilder.setEnv(ImmutableMap.of());
+    process = subprocessBuilder.start();
+    process.waitFor();
+    assertThat(process.exitValue()).isEqualTo(0);
+
+    byte[] buf = process.getInputStream().readAllBytes();
+    assertThat(new String(buf, UTF_8).trim()).isEmpty();
+  }
+
+  @Test
+  public void testNonEmptyEnvironment() throws Exception {
+    // Check only that TZ was not inherited instead of verifying the entire environment.
+    assertThat(Strings.nullToEmpty(System.getenv("TZ"))).isNotEmpty();
+    SubprocessBuilder subprocessBuilder = new SubprocessBuilder(WindowsSubprocessFactory.INSTANCE);
+    subprocessBuilder.setWorkingDirectory(new File("."));
+    subprocessBuilder.setArgv(
+        ImmutableList.of(mockBinary, "-jar", mockSubprocess, "O$FOO", "O$BAR", "O$TZ"));
+    subprocessBuilder.setEnv(ImmutableMap.of("FOO", "abc", "BAR", "def"));
+    process = subprocessBuilder.start();
+    process.waitFor();
+    assertThat(process.exitValue()).isEqualTo(0);
+
+    byte[] buf = process.getInputStream().readAllBytes();
+    assertThat(new String(buf, UTF_8).trim()).isEqualTo("abcdef");
+  }
+
+  @Test
+  public void testInheritedEnvironment() throws Exception {
+    // Check only that TZ was inherited instead of verifying the entire environment.
+    assertThat(Strings.nullToEmpty(System.getenv("TZ"))).isNotEmpty();
+    SubprocessBuilder subprocessBuilder = new SubprocessBuilder(WindowsSubprocessFactory.INSTANCE);
+    subprocessBuilder.setWorkingDirectory(new File("."));
+    subprocessBuilder.setArgv(ImmutableList.of(mockBinary, "-jar", mockSubprocess, "O$TZ"));
+    process = subprocessBuilder.start();
+    process.waitFor();
+    assertThat(process.exitValue()).isEqualTo(0);
+
+    byte[] buf = process.getInputStream().readAllBytes();
+    assertThat(new String(buf, UTF_8).trim()).isEqualTo(System.getenv("TZ"));
   }
 
   @Test
@@ -183,8 +230,7 @@ public class WindowsSubprocessTest {
 
       // The subprocess printed its argv[1] in parentheses, e.g. (foo).
       // Assert that it printed exactly the *original* argument in parentheses.
-      byte[] buf = new byte[1000];
-      process.getInputStream().read(buf);
+      byte[] buf = process.getInputStream().readAllBytes();
       String actual = new String(buf, UTF_8).trim();
       assertThat(actual).isEqualTo("(" + arg.original + ")");
     }
