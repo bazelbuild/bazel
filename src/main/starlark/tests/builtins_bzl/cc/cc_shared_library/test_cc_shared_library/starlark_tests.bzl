@@ -351,24 +351,35 @@ nocode_cc_lib = rule(
 )
 
 def _exports_test_impl(env, target):
+    if not env.ctx.attr.is_bazel and env.ctx.attr._bazel_only:
+        return
+
     actual = list(target[CcSharedLibraryInfo].exports)
 
-    # Remove the @@ prefix on Bazel
+    # Remove the @@ prefix for main repo labels on Bazel
     for i in range(len(actual)):
-        if actual[i].startswith("@@"):
+        if actual[i].startswith("@@//"):
             actual[i] = actual[i][2:]
     expected = env.ctx.attr._targets_that_should_be_claimed_to_be_exported
     env.expect.where(
         detail = "Exports lists do not match.",
     ).that_collection(actual).contains_exactly(expected).in_order()
 
-def _exports_test_macro(name, target, targets_that_should_be_claimed_to_be_exported):
+def _exports_test_macro(name, target, targets_that_should_be_claimed_to_be_exported, bazel_only = False):
     analysis_test(
         name = name,
         impl = _exports_test_impl,
         target = target,
         attrs = {
+            "is_bazel": attr.bool(),
+            "_bazel_only": attr.bool(default = bazel_only),
             "_targets_that_should_be_claimed_to_be_exported": attr.string_list(default = targets_that_should_be_claimed_to_be_exported),
+        },
+        attr_values = {
+            "is_bazel": select({
+                ":is_bazel": True,
+                "//conditions:default": False,
+            }),
         },
     )
 
