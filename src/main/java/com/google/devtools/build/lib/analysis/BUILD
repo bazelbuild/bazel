@@ -2657,16 +2657,6 @@ java_library(
 )
 
 java_library(
-    name = "test/coverage_report",
-    srcs = ["test/CoverageReport.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
     name = "test/coverage_configuration",
     srcs = ["test/CoverageConfiguration.java"],
     deps = [
