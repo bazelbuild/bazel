@@ -26,6 +26,9 @@ sh_test(
         "@rules_testing//lib:truth_bzl",
         "@rules_testing//lib:util_bzl",
     ],
+    tags = [
+        "requires-network",  # for Bzlmod
+    ],
 )
 
 sh_library(
