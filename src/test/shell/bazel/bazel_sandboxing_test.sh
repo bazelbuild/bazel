@@ -490,13 +490,48 @@ function test_symlink_with_output_base_under_tmp() {
 
   create_workspace_with_default_repos WORKSPACE
 
+  local repo=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
+  trap "rm -fr $repo" EXIT
+
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "repo",
+    path = "$repo",
+)
+EOF
+
+  mkdir -p $repo/pkg
+  touch $repo/WORKSPACE
+  cat > $repo/pkg/es1 <<'EOF'
+EXTERNAL_SOURCE_CONTENT
+EOF
+  cat > $repo/pkg/BUILD <<'EOF'
+exports_files(["es1"])
+genrule(
+    name="er1",
+    srcs=[],
+    outs=[":er1"],
+    cmd="echo EXTERNAL_GEN_CONTENT > $@",
+    visibility=["//visibility:public"],
+)
+EOF
+
   mkdir -p pkg
+  cat > pkg/s1 <<'EOF'
+SOURCE_CONTENT
+EOF
   cat > pkg/BUILD <<'EOF'
 load(":r.bzl", "symlink_rule")
 
-genrule(name="r1", srcs=[], outs=[":r1"], cmd="echo CONTENT > $@")
+genrule(name="r1", srcs=[], outs=[":r1"], cmd="echo GEN_CONTENT > $@")
 symlink_rule(name="r2", input=":r1")
 genrule(name="r3", srcs=[":r2"], outs=[":r3"], cmd="cp $< $@")
+symlink_rule(name="s2", input=":s1")
+genrule(name="s3", srcs=[":s2"], outs=[":s3"], cmd="cp $< $@")
+symlink_rule(name="er2", input="@repo//pkg:er1")
+genrule(name="er3", srcs=[":er2"], outs=[":er3"], cmd="cp $< $@")
+symlink_rule(name="es2", input="@repo//pkg:es1")
+genrule(name="es3", srcs=[":es2"], outs=[":es3"], cmd="cp $< $@")
 EOF
 
   cat > pkg/r.bzl <<'EOF'
@@ -513,8 +548,11 @@ EOF
   local tmp_output_base=$(mktemp -d "/tmp/bazel_output_base.XXXXXXXX")
   trap "chmod -R u+w $tmp_output_base && rm -fr $tmp_output_base" EXIT
 
-  bazel --output_base="$tmp_output_base" build //pkg:r3
-  assert_contains CONTENT bazel-bin/pkg/r3
+  bazel --output_base="$tmp_output_base" build //pkg:{er,es,r,s}3
+  assert_contains EXTERNAL_GEN_CONTENT bazel-bin/pkg/er3
+  assert_contains EXTERNAL_SOURCE_CONTENT bazel-bin/pkg/es3
+  assert_contains GEN_CONTENT bazel-bin/pkg/r3
+  assert_contains SOURCE_CONTENT bazel-bin/pkg/s3
   bazel --output_base="$tmp_output_base" shutdown
 }
 
