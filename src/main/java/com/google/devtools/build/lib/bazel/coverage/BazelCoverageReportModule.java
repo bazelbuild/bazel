@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.coverage;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
+import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -24,6 +25,8 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
+import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
+import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -97,18 +100,21 @@ public class BazelCoverageReportModule extends BlazeModule {
         }
         Preconditions.checkArgument(options.combinedReport == ReportType.LCOV);
         CoverageReportActionBuilder builder = new CoverageReportActionBuilder();
-        return builder.createCoverageActionsWrapper(
-            eventHandler,
-            directories,
-            targetsToTest,
-            baselineCoverageArtifacts,
-            artifactFactory,
-            actionKeyContext,
-            actionLookupKey,
-            workspaceName,
-            this::getArgs,
-            this::getLocationMessage,
-            /*htmlReport=*/ false);
+        CoverageReportActionsWrapper wrapper =
+            builder.createCoverageActionsWrapper(
+                eventHandler,
+                directories,
+                targetsToTest,
+                baselineCoverageArtifacts,
+                artifactFactory,
+                actionKeyContext,
+                actionLookupKey,
+                workspaceName,
+                this::getArgs,
+                this::getLocationMessage,
+                /* htmlReport= */ false);
+        eventBus.register(new CoverageReportCollector(wrapper));
+        return wrapper;
       }
 
       private ImmutableList<String> getArgs(CoverageArgs args) {
@@ -129,5 +135,15 @@ public class BazelCoverageReportModule extends BlazeModule {
             + args.lcovOutput().getExecPathString();
       }
     };
+  }
+
+  private record CoverageReportCollector(CoverageReportActionsWrapper wrapper) {
+    @Subscribe
+    public void buildComplete(BuildCompleteEvent event) {
+      event
+          .getResult()
+          .getBuildToolLogCollection()
+          .addLocalFile("coverage_report.lcov", wrapper.getCoverageReportArtifact().getPath());
+    }
   }
 }
