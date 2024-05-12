@@ -321,9 +321,10 @@ public class RepositoryOptions extends OptionsBase {
       help =
           "Specifies how and whether or not to use the lockfile. Valid values are `update` to"
               + " use the lockfile and update it if there are changes, `refresh` to additionally"
-              + " download mutable information (yanked versions and previously missing modules)"
-              + " from remote registries again, `error` to use the lockfile but throw an error"
-              + " if it's not up-to-date, or `off` to neither read from or write to the lockfile.")
+              + " refresh mutable information (yanked versions and previously missing modules)"
+              + " from remote registries from time to time, `error` to use the lockfile but throw"
+              + " an error if it's not up-to-date, or `off` to neither read from or write to the"
+              + " lockfile.")
   public LockfileMode lockfileMode;
 
   @Option(
