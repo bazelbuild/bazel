@@ -24,6 +24,7 @@ def _remote_coverage_tools_extension_impl(ctx):
             "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.6.zip",
         ],
     )
+    return ctx.extension_metadata(reproducible = True)
 
 remote_coverage_tools_extension = module_extension(
     implementation = _remote_coverage_tools_extension_impl,

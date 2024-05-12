@@ -16,7 +16,7 @@
 
 load("//tools/build_defs/repo:http.bzl", "http_archive", "http_jar")
 
-def _remote_android_tools_extensions_impl(_ctx):
+def _remote_android_tools_extensions_impl(module_ctx):
     http_archive(
         name = "android_tools",
         sha256 = "d7cdfc03f3ad6571b7719f4355379177a4bde68d17dca2bdbf6c274d72e4d6cf",  # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
@@ -27,6 +27,7 @@ def _remote_android_tools_extensions_impl(_ctx):
         sha256 = "59753e70a74f918389cc87f1b7d66b5c0862932559167425708ded159e3de439",
         url = "https://maven.google.com/com/android/tools/r8/8.3.37/r8-8.3.37.jar",
     )
+    return module_ctx.extension_metadata(reproducible = True)
 
 remote_android_tools_extensions = module_extension(
     implementation = _remote_android_tools_extensions_impl,
@@ -106,6 +107,7 @@ def _android_sdk_proxy_extensions_impl(module_ctx):
         name = "android_external",
         **kwargs
     )
+    return module_ctx.extension_metadata(reproducible = True)
 
 android_sdk_proxy_extensions = module_extension(
     implementation = _android_sdk_proxy_extensions_impl,
