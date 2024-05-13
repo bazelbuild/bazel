@@ -39,9 +39,7 @@ java_library(
     deps = [
         ":starlark_toolchain_type_requirement",
         "//src/main/java/com/google/devtools/build/docgen/annot",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/starlark_exposed_rule_transition_factory",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",

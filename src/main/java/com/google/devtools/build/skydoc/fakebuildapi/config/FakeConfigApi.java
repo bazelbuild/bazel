@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.skydoc.fakebuildapi;
+package com.google.devtools.build.skydoc.fakebuildapi.config;
 
-import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi;
-import com.google.devtools.build.skydoc.fakebuildapi.ConfigApiFakes.FakeBuildSettingDescriptor;
-import com.google.devtools.build.skydoc.fakebuildapi.ConfigApiFakes.FakeExecTransitionFactory;
+import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkConfigApi;
+import com.google.devtools.build.skydoc.fakebuildapi.config.ConfigApiFakes.FakeBuildSettingDescriptor;
+import com.google.devtools.build.skydoc.fakebuildapi.config.ConfigApiFakes.FakeExecTransitionFactory;
 import net.starlark.java.eval.Printer;
 
 /** Fake implementation of {@link StarlarkConfigApi}. */

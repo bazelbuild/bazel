@@ -21,7 +21,7 @@ import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.packages.BuildSetting;
-import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkConfigApi;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;

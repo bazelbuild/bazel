@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.rules.config.FeatureFlagValue;
-import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi.ExecTransitionFactoryApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkConfigApi.ExecTransitionFactoryApi;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.Map;
 import javax.annotation.Nullable;

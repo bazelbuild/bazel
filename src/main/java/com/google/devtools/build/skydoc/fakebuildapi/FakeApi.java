@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigBootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi.FakeStructProviderApi;
+import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigApi;
 import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigGlobalLibrary;
 import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigStarlarkCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.repository.FakeRepositoryModule;

@@ -1866,10 +1866,8 @@ java_library(
     srcs = ["config/ExecutionTransitionFactory.java"],
     deps = [
         ":config/build_options",
-        ":config/build_options_cache",
         ":config/core_options",
         ":config/fragment_options",
-        ":config/transitions/comparing_transition",
         ":config/transitions/configuration_transition",
         ":config/transitions/patch_transition",
         ":config/transitions/transition_factory",
@@ -1880,7 +1878,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:exec_group",
         "//src/main/java/com/google/devtools/build/lib/rules/config:feature_flag_value",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config",
         "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//third_party:caffeine",
         "//third_party:guava",
@@ -2250,10 +2248,7 @@ java_library(
     deps = [
         ":config/transitions/transition_factory",
         ":rule_definition_environment",
-        "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/net/starlark/java/annot",
-        "//src/main/java/net/starlark/java/eval",
     ],
 )
 
@@ -2605,7 +2600,7 @@ java_library(
     deps = [
         ":config/execution_transition_factory",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config",
         "//src/main/java/net/starlark/java/eval",
     ],
 )
