@@ -75,6 +75,7 @@ import javax.annotation.Nullable;
 public final class SandboxHelpers {
 
   public static final String INACCESSIBLE_HELPER_DIR = "inaccessibleHelperDir";
+  public static final String INACCESSIBLE_HELPER_FILE = "inaccessibleHelperFile";
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
