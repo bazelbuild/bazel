@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.protobuf.util.Durations;
+import com.google.protobuf.util.Timestamps;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
@@ -234,6 +235,9 @@ public abstract class SpawnLogContext implements ActionContext {
     builder.setMemoryBytesLimit(metrics.memoryLimit());
     if (metrics.timeLimitInMs() != 0L) {
       builder.setTimeLimit(millisToProto(metrics.timeLimitInMs()));
+    }
+    if (result.getStartTime() != null) {
+      builder.setStartTime(Timestamps.fromMillis(result.getStartTime().toEpochMilli()));
     }
     return builder.build();
   }
