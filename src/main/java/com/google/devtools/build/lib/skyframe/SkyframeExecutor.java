@@ -769,7 +769,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             skyframeActionExecutor,
             topLevelArtifactsMetric,
             actionRewindStrategy,
-            bugReporter));
+            bugReporter,
+            this::isMergedSkyframeAnalysisExecution));
     map.put(
         SkyFunctions.ASPECT_COMPLETION,
         AspectCompletor.aspectCompletionFunction(
@@ -777,7 +778,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             skyframeActionExecutor,
             topLevelArtifactsMetric,
             actionRewindStrategy,
-            bugReporter));
+            bugReporter,
+            this::isMergedSkyframeAnalysisExecution));
     map.put(SkyFunctions.TEST_COMPLETION, new TestCompletionFunction());
     map.put(
         Artifact.ARTIFACT,
