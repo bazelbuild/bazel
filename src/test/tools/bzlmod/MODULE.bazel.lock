@@ -61,7 +61,7 @@
   "moduleExtensions": {
     "@@apple_support~//crosstool:setup.bzl%apple_cc_configure_extension": {
       "general": {
-        "bzlTransitiveDigest": "q07sZYYHQRmej7IYlxIigQ/7iEy9zMnOrSIagEwIG6Q=",
+        "bzlTransitiveDigest": "AAfU9BtDiq1mZcnu0VfKlzUtuPgONZ1st9DHgA8N/6Y=",
         "usagesDigest": "aLmqbvowmHkkBPve05yyDNGN7oh7QE9kBADr3QIZTZs=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -85,138 +85,6 @@
             "bazel_tools"
           ]
         ]
-      }
-    },
-    "@@bazel_tools//tools/android:android_extensions.bzl%android_sdk_proxy_extensions": {
-      "general": {
-        "bzlTransitiveDigest": "XLVk7GLje5iUTApmiCu5fapV2+/7HqWPF7cQEu7SPOE=",
-        "usagesDigest": "MxHwjf0M2Z/ciNsN0U0t4T1LF5A1ZXwM1kigPKI+3SA=",
-        "recordedFileInputs": {},
-        "recordedDirentsInputs": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "android_external": {
-            "bzlFile": "@@bazel_tools//tools/android:android_extensions.bzl",
-            "ruleClassName": "android_external_repository",
-            "attributes": {}
-          }
-        },
-        "recordedRepoMappingEntries": []
-      }
-    },
-    "@@bazel_tools//tools/android:android_extensions.bzl%remote_android_tools_extensions": {
-      "general": {
-        "bzlTransitiveDigest": "XLVk7GLje5iUTApmiCu5fapV2+/7HqWPF7cQEu7SPOE=",
-        "usagesDigest": "pfoI3DAAesYHdp38xIvu9Ry0AM3EIPGwvav/Cyv23Kw=",
-        "recordedFileInputs": {},
-        "recordedDirentsInputs": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "android_tools": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_archive",
-            "attributes": {
-              "sha256": "d7cdfc03f3ad6571b7719f4355379177a4bde68d17dca2bdbf6c274d72e4d6cf",
-              "url": "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.31.0.tar"
-            }
-          },
-          "android_gmaven_r8": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_jar",
-            "attributes": {
-              "sha256": "59753e70a74f918389cc87f1b7d66b5c0862932559167425708ded159e3de439",
-              "url": "https://maven.google.com/com/android/tools/r8/8.3.37/r8-8.3.37.jar"
-            }
-          }
-        },
-        "recordedRepoMappingEntries": []
-      }
-    },
-    "@@bazel_tools//tools/cpp:cc_configure.bzl%cc_configure_extension": {
-      "general": {
-        "bzlTransitiveDigest": "kOmQSSXx3QJNSJrErTFZzy7Jpc0NDAA1fiURpFLFH5A=",
-        "usagesDigest": "6zVI5vmN6Evleo1nJgTcfkJmgPFqhlf1Wl94WarCpa0=",
-        "recordedFileInputs": {},
-        "recordedDirentsInputs": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "local_config_cc": {
-            "bzlFile": "@@bazel_tools//tools/cpp:cc_configure.bzl",
-            "ruleClassName": "cc_autoconf",
-            "attributes": {}
-          },
-          "local_config_cc_toolchains": {
-            "bzlFile": "@@bazel_tools//tools/cpp:cc_configure.bzl",
-            "ruleClassName": "cc_autoconf_toolchains",
-            "attributes": {}
-          }
-        },
-        "recordedRepoMappingEntries": [
-          [
-            "bazel_tools",
-            "bazel_tools",
-            "bazel_tools"
-          ]
-        ]
-      }
-    },
-    "@@bazel_tools//tools/osx:xcode_configure.bzl%xcode_configure_extension": {
-      "general": {
-        "bzlTransitiveDigest": "zLDpG5CJtAVf5IHbbOETi2fbeQLGZuW+yueVxW8o7sE=",
-        "usagesDigest": "hl3K6oDsXyui9k2oT4OTT6CdW6L/lSrBDSOWIZiUT1Q=",
-        "recordedFileInputs": {},
-        "recordedDirentsInputs": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "local_config_xcode": {
-            "bzlFile": "@@bazel_tools//tools/osx:xcode_configure.bzl",
-            "ruleClassName": "xcode_autoconf",
-            "attributes": {
-              "xcode_locator": "@bazel_tools//tools/osx:xcode_locator.m",
-              "remote_xcode": ""
-            }
-          }
-        },
-        "recordedRepoMappingEntries": []
-      }
-    },
-    "@@bazel_tools//tools/sh:sh_configure.bzl%sh_configure_extension": {
-      "general": {
-        "bzlTransitiveDigest": "hp4NgmNjEg5+xgvzfh6L83bt9/aiiWETuNpwNuF1MSU=",
-        "usagesDigest": "gYz9qiTxGtMhXZhrQTBErBunPVrPWNhiFJAP9Nf18GM=",
-        "recordedFileInputs": {},
-        "recordedDirentsInputs": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "local_config_sh": {
-            "bzlFile": "@@bazel_tools//tools/sh:sh_configure.bzl",
-            "ruleClassName": "sh_config",
-            "attributes": {}
-          }
-        },
-        "recordedRepoMappingEntries": []
-      }
-    },
-    "@@bazel_tools//tools/test:extensions.bzl%remote_coverage_tools_extension": {
-      "general": {
-        "bzlTransitiveDigest": "ia4DMKKuTJ4QAHKSrRs4v/QBfK48p52gn2SwHL6BXd8=",
-        "usagesDigest": "5AzD10fWCl4vQ0i0Zl96Ial7tU8raC84LTK6DeHefuk=",
-        "recordedFileInputs": {},
-        "recordedDirentsInputs": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "remote_coverage_tools": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_archive",
-            "attributes": {
-              "sha256": "7006375f6756819b7013ca875eab70a541cf7d89142d9c511ed78ea4fefa38af",
-              "urls": [
-                "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.6.zip"
-              ]
-            }
-          }
-        },
-        "recordedRepoMappingEntries": []
       }
     },
     "@@buildozer~//:buildozer_binary.bzl%buildozer_binary": {
