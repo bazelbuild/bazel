@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableCollection;
@@ -126,23 +127,23 @@ public class TestAspects {
   private static final Label FAKE_LABEL = Label.parseCanonicalUnchecked("//fake/label.bzl");
 
   public static final StarlarkProvider.Key REQUIRED_PROVIDER_KEY =
-      new StarlarkProvider.Key(FAKE_LABEL, "RequiredProvider");
+      new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "RequiredProvider");
   public static final StarlarkProvider.Key REQUIRED_PROVIDER2_KEY =
-      new StarlarkProvider.Key(FAKE_LABEL, "RequiredProvider2");
+      new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "RequiredProvider2");
 
   /**
    * A very simple provider used in tests that check whether the logic that attaches aspects
    * depending on whether a configured target has a provider works or not.
    */
   private static final StarlarkProvider REQUIRED_PROVIDER =
-      StarlarkProvider.builder(Location.BUILTIN).setExported(REQUIRED_PROVIDER_KEY).build();
+      StarlarkProvider.builder(Location.BUILTIN).buildExported(REQUIRED_PROVIDER_KEY);
 
   /**
    * Another very simple provider used in tests that check whether the logic that attaches aspects
    * depending on whether a configured target has a provider works or not.
    */
   private static final StarlarkProvider REQUIRED_PROVIDER2 =
-      StarlarkProvider.builder(Location.BUILTIN).setExported(REQUIRED_PROVIDER2_KEY).build();
+      StarlarkProvider.builder(Location.BUILTIN).buildExported(REQUIRED_PROVIDER2_KEY);
 
   private static NestedSet<String> collectAspectData(String me, RuleContext ruleContext) {
     NestedSetBuilder<String> result = new NestedSetBuilder<>(Order.STABLE_ORDER);
@@ -376,8 +377,7 @@ public class TestAspects {
     /** Test provider which includes the {@code dep} label. */
     public static final StarlarkProvider PROVIDER =
         StarlarkProvider.builder(Location.BUILTIN)
-            .setExported(new StarlarkProvider.Key(FAKE_LABEL, "Provider"))
-            .build();
+            .buildExported(new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "Provider"));
 
     private final Label depLabel;
     private final boolean applyToFiles;

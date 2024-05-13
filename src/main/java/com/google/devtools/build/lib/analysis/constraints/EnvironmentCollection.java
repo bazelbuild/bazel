@@ -108,12 +108,11 @@ public final class EnvironmentCollection {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof EnvironmentCollection)) {
+    if (!(o instanceof EnvironmentCollection that)) {
       return false;
     }
     // ImmutableListMultimap equality considers the order of each value list but not the order of
     // keys. Additionally check equality of the keys as a list to reflect ordering.
-    EnvironmentCollection that = (EnvironmentCollection) o;
     return map.equals(that.map) && map.keySet().asList().equals(that.map.keySet().asList());
   }
 

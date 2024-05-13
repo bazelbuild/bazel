@@ -172,10 +172,9 @@ public abstract class LocalRepositoryLookupValue implements SkyValue {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof SuccessfulLocalRepositoryLookupValue)) {
+      if (!(obj instanceof SuccessfulLocalRepositoryLookupValue other)) {
         return false;
       }
-      SuccessfulLocalRepositoryLookupValue other = (SuccessfulLocalRepositoryLookupValue) obj;
       return repositoryName.equals(other.repositoryName);
     }
 

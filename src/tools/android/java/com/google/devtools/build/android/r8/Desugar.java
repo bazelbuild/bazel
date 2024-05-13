@@ -407,9 +407,9 @@ public class Desugar {
         throw new IllegalStateException("Can't emit desugaring metadata as requested", e);
       }
     } else if (options.tolerateMissingDependencies) {
-      return DependencyCollector.NoWriteCollectors.NOOP;
+      return NoWriteCollectors.NOOP;
     } else {
-      return DependencyCollector.NoWriteCollectors.FAIL_ON_MISSING;
+      return NoWriteCollectors.FAIL_ON_MISSING;
     }
   }
 

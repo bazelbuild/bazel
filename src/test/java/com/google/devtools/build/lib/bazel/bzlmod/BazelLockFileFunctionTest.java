@@ -22,6 +22,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -87,13 +88,11 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
   private MemoizingEvaluator evaluator;
   private RecordingDifferencer differencer;
   private EvaluationContext evaluationContext;
-  private FakeRegistry.Factory registryFactory;
   private static SkyFunctionName updateLockfileFunction;
 
   @Before
   public void setup() throws Exception {
     differencer = new SequencedRecordingDifferencer();
-    registryFactory = new FakeRegistry.Factory();
     evaluationContext =
         EvaluationContext.newBuilder().setParallelism(8).setEventHandler(reporter).build();
 
@@ -155,11 +154,12 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
                     SkyFunctions.MODULE_FILE,
                     new ModuleFileFunction(
                         ruleClassProvider.getBazelStarlarkEnvironment(),
-                        registryFactory,
                         rootDirectory,
                         ImmutableMap.of()))
                 .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(rootDirectory))
-                .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory))
+                .put(SkyFunctions.REGISTRY, new RegistryFunction(new FakeRegistry.Factory()))
+                .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
+                .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
                 .put(
                     SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
                     new ModuleExtensionRepoMappingEntriesFunction())
@@ -193,6 +193,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
                                 .setFlags(flags)
                                 .setLocalOverrideHashes(localOverrideHashes)
                                 .setModuleDepGraph(key.depGraph())
+                                .setRegistryFileHashes(ImmutableMap.of())
                                 .build());
 
                         return new SkyValue() {};
@@ -204,7 +205,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     PrecomputedValue.STARLARK_SEMANTICS.set(
         differencer,
         StarlarkSemantics.builder().setBool(BuildLanguageOptions.ENABLE_BZLMOD, true).build());
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of());
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
     YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
@@ -276,7 +277,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
 
     ImmutableList<String> yankedVersions = ImmutableList.of("2.4", "2.3");
     LocalPathOverride override = LocalPathOverride.create("override_path");
-    ImmutableList<String> registries = ImmutableList.of("registry1", "registry2");
+    ImmutableSet<String> registries = ImmutableSet.of("registry1", "registry2");
     ImmutableMap<String, String> moduleOverride = ImmutableMap.of("my_dep_1", override.getPath());
 
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);

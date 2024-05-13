@@ -57,5 +57,10 @@ public class NullTransition implements PatchTransition {
     public ConfigurationTransition create(T unused) {
       return INSTANCE;
     }
+
+    @Override
+    public TransitionType transitionType() {
+      return TransitionType.ANY;
+    }
   }
 }

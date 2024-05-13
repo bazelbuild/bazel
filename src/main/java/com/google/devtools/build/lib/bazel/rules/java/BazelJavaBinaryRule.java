@@ -129,10 +129,10 @@ ${IMPLICIT_OUTPUTS}
 java_binary(
     name = "DontDoThis",
     srcs = [
-        <var>...</var>,
-        <code class="deprecated">"GeneratedJavaFile.java"</code>,  # a generated .java file
+        ...,
+        "GeneratedJavaFile.java",  # a generated .java file
     ],
-    deps = [<code class="deprecated">":generating_rule",</code>],  # rule that generates that file
+    deps = [":generating_rule"],  # rule that generates that file
 )
 </pre>
 
@@ -142,7 +142,7 @@ java_binary(
 java_binary(
     name = "DoThisInstead",
     srcs = [
-        <var>...</var>,
+        ...,
         ":generating_rule",
     ],
 )

@@ -19,7 +19,6 @@ the supplied value of the `create_executable` attribute.
 """
 
 load(":bazel/java/bazel_java_binary.bzl", java_bin_exec = "java_binary")
-load(":bazel/java/bazel_java_binary_deploy_jar.bzl", "deploy_jars", "deploy_jars_nonexec")
 load(":bazel/java/bazel_java_binary_nonexec.bzl", java_bin_nonexec = "java_binary")
 load(":common/java/java_binary_wrapper.bzl", "register_java_binary_rules", "register_legacy_java_binary_rules")
 
@@ -27,14 +26,11 @@ def java_binary(**kwargs):
     if _builtins.internal.java_common_internal_do_not_use.incompatible_disable_non_executable_java_binary():
         register_java_binary_rules(
             java_bin_exec,
-            rule_deploy_jars = deploy_jars,
             **kwargs
         )
     else:
         register_legacy_java_binary_rules(
             java_bin_exec,
             java_bin_nonexec,
-            rule_deploy_jars = deploy_jars,
-            rule_deploy_jars_nonexec = deploy_jars_nonexec,
             **kwargs
         )

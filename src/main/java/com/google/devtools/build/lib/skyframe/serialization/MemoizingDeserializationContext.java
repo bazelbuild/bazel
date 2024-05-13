@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec.DeferredValue;
@@ -35,6 +34,12 @@ import java.util.Deque;
  * MemoizingSerializationContext} for the protocol description.
  */
 abstract class MemoizingDeserializationContext extends DeserializationContext {
+  /**
+   * A placeholder that keeps the size of {@link #memoTable} consistent with the numbering of its
+   * contents.
+   */
+  private static final PlaceholderValue INITIAL_VALUE_PLACEHOLDER = new PlaceholderValue();
+
   private final Int2ObjectOpenHashMap<Object> memoTable = new Int2ObjectOpenHashMap<>();
   private int tagForMemoizedBefore = -1;
   private final Deque<Object> memoizedBeforeStackForSanityChecking = new ArrayDeque<>();
@@ -71,24 +76,50 @@ abstract class MemoizingDeserializationContext extends DeserializationContext {
   }
 
   @Override
+  public final <T> T deserializeLeaf(CodedInputStream codedIn, LeafObjectCodec<T> codec)
+      throws IOException, SerializationException {
+    int tag = codedIn.readSInt32();
+    if (tag == 0) {
+      return null;
+    }
+    Object maybeConstant = maybeGetConstantByTag(tag);
+    if (maybeConstant != null) {
+      return codec.safeCast(maybeConstant);
+    }
+    if (tag < -1) {
+      // Subtracts 2 to undo the corresponding operation in SerializationContext.serializeLeaf.
+      return codec.safeCast(getMemoizedBackReference(-tag - 2));
+    }
+    checkState(tag == -1, "Unexpected tag for immediate value; %s", tag);
+    T value = codec.deserialize((LeafDeserializationContext) this, codedIn);
+    memoize(memoTable.size(), value);
+    return value;
+  }
+
+  @Override
   public final void registerInitialValue(Object initialValue) {
-    Preconditions.checkState(
-        tagForMemoizedBefore != -1, "Not called with memoize before: %s", initialValue);
+    checkState(tagForMemoizedBefore != -1, "Not called with memoize before: %s", initialValue);
     int tag = tagForMemoizedBefore;
     tagForMemoizedBefore = -1;
-    memoize(tag, initialValue);
+    // Replaces the INITIAL_VALUE_PLACEHOLDER with the actual initial value.
+    checkState(memoTable.put(tag, initialValue) == INITIAL_VALUE_PLACEHOLDER);
     memoizedBeforeStackForSanityChecking.addLast(initialValue);
   }
 
   @Override
   final Object getMemoizedBackReference(int memoIndex) {
-    return checkNotNull(memoTable.get(memoIndex), memoIndex);
+    Object value = checkNotNull(memoTable.get(memoIndex), memoIndex);
+    checkState(
+        value != INITIAL_VALUE_PLACEHOLDER,
+        "Backreference prior to registerInitialValue: %s",
+        memoIndex);
+    return value;
   }
 
   @Override
   final Object deserializeAndMaybeMemoize(ObjectCodec<?> codec, CodedInputStream codedIn)
       throws SerializationException, IOException {
-    Preconditions.checkState(
+    checkState(
         tagForMemoizedBefore == -1,
         "non-null memoized-before tag %s (%s)",
         tagForMemoizedBefore,
@@ -123,7 +154,13 @@ abstract class MemoizingDeserializationContext extends DeserializationContext {
    */
   private final Object deserializeMemoBeforeContent(ObjectCodec<?> codec, CodedInputStream codedIn)
       throws SerializationException, IOException {
-    int tag = codedIn.readInt32();
+    int tag = memoTable.size();
+    // During serialization, the top-level object is the first object to be memoized regardless of
+    // the codec implementation. During deserialization, the top-level object only becomes
+    // available after `registerInitialValue` is called and some codecs may perform deserialization
+    // operations prior to `registerInitialValue`. To keep the tags in sync with the size of
+    // the `memoTable`, adds a placeholder for the top-level object.
+    memoTable.put(tag, INITIAL_VALUE_PLACEHOLDER);
     this.tagForMemoizedBefore = tag;
     // `codec` is never a `DeferredObjectCodec` because those are `MEMOIZE_AFTER` so this is always
     // the deserialized value instance and never a `DeferredValue`.
@@ -230,5 +267,9 @@ abstract class MemoizingDeserializationContext extends DeserializationContext {
     Object combineValueWithReadFutures(Object value) {
       return value;
     }
+  }
+
+  private static final class PlaceholderValue {
+    private PlaceholderValue() {}
   }
 }

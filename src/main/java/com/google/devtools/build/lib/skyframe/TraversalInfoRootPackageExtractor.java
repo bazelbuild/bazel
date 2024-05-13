@@ -243,8 +243,7 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
       if (this == obj) {
         return true;
       }
-      if (obj instanceof TraversalInfo) {
-        TraversalInfo otherTraversal = (TraversalInfo) obj;
+      if (obj instanceof TraversalInfo otherTraversal) {
         return Objects.equal(rootedDir, otherTraversal.rootedDir)
             && Objects.equal(forbiddenSubdirectories, otherTraversal.forbiddenSubdirectories)
             && Objects.equal(excludedSubdirectories, otherTraversal.excludedSubdirectories);

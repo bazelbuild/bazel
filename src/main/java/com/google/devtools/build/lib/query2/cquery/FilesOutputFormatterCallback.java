@@ -54,13 +54,12 @@ public class FilesOutputFormatterCallback extends CqueryThreadsafeCallback {
   public void processOutput(Iterable<CqueryNode> partialResult)
       throws IOException, InterruptedException {
     for (CqueryNode target : partialResult) {
-      if (!(target instanceof ConfiguredTarget)
+      if (!(target instanceof ConfiguredTarget cf)
           || (!TopLevelArtifactHelper.shouldConsiderForDisplay(target)
               && !(target instanceof InputFileConfiguredTarget))) {
         continue;
       }
 
-      var cf = (ConfiguredTarget) target;
       TopLevelArtifactHelper.getAllArtifactsToBuild(cf, topLevelArtifactContext)
           .getImportantArtifacts()
           .toList()

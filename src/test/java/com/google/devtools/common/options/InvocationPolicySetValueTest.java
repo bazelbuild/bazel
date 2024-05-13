@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.TruthJUnit.assume;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.SetValue;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.SetValue.Behavior;
@@ -52,7 +53,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     TestOptions testOptions = getTestOptions();
     assertThat(testOptions.testString).isEqualTo(TEST_STRING_USER_VALUE);
 
-    enforcer.enforce(parser, BUILD_COMMAND);
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // Get the options again after policy enforcement.
     testOptions = getTestOptions();
@@ -86,7 +87,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     TestOptions testOptions = getTestOptions();
     assertThat(testOptions.testString).isEqualTo(TestOptions.TEST_STRING_DEFAULT);
 
-    enforcer.enforce(parser, BUILD_COMMAND);
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // Get the options again after policy enforcement.
     testOptions = getTestOptions();
@@ -117,7 +118,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
         .containsExactly(TEST_STRING_USER_VALUE, TEST_STRING_USER_VALUE_2)
         .inOrder();
 
-    enforcer.enforce(parser, BUILD_COMMAND);
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // Get the options again after policy enforcement.
     testOptions = getTestOptions();
@@ -149,7 +150,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     TestOptions testOptions = getTestOptions();
     assertThat(testOptions.testMultipleString).isEmpty();
 
-    enforcer.enforce(parser, BUILD_COMMAND);
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // Options should now be the values from the policy.
     testOptions = getTestOptions();
@@ -173,7 +174,9 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
 
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
 
-    assertThrows(OptionsParsingException.class, () -> enforcer.enforce(parser, BUILD_COMMAND));
+    assertThrows(
+        OptionsParsingException.class,
+        () -> enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder()));
   }
 
   @Test
@@ -198,7 +201,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
         .containsExactly(TEST_STRING_USER_VALUE, TEST_STRING_USER_VALUE_2)
         .inOrder();
 
-    enforcer.enforce(parser, BUILD_COMMAND);
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // Get the options again after policy enforcement.
     testOptions = getTestOptions();
@@ -237,7 +240,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_DEFAULT);
     assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
 
-    enforcer.enforce(parser, BUILD_COMMAND);
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // After policy enforcement, the flags should be the values from --test_expansion
     testOptions = getTestOptions();
@@ -268,7 +271,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_DEFAULT);
     assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
 
-    enforcer.enforce(parser, BUILD_COMMAND);
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // After policy enforcement, the flags should be the values from the expansion flag
     testOptions = getTestOptions();
@@ -300,7 +303,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     assertThat(testOptions.expandedC).isEqualTo(23);
     assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
 
-    enforcer.enforce(parser, "build");
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // After policy enforcement, the flags should be the values from --test_expansion,
     // except for the user-set value, since the expansion flag was set to overridable.
@@ -330,7 +333,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     TestOptions testOptions = getTestOptions();
     assertThat(testOptions.testMultipleString).containsExactly("foo");
 
-    enforcer.enforce(parser, "build");
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // After policy enforcement, the flags should be the values from --test_expansion,
     // except for the user-set value, since the expansion flag was set to overridable.
@@ -362,7 +365,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     assertThat(testOptions.expandedC).isEqualTo(23);
     assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
 
-    enforcer.enforce(parser, "build");
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // After policy enforcement, the flags should be the values from --test_expansion,
     // including the value that the user tried to set, since the expansion flag was set
@@ -393,7 +396,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     // except for the explicitly marked flag.
     assertThat(getTestOptions().testMultipleString).contains("foo");
 
-    enforcer.enforce(parser, "build");
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // After policy enforcement, the flag should no longer have the user's value.
     assertThat(getTestOptions().testMultipleString)
@@ -420,7 +423,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_TEST_EXPANSION);
     assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
 
-    enforcer.enforce(parser, BUILD_COMMAND);
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // After policy enforcement, expanded_c should be set to 64 from the policy, but the
     // flags should remain the same from the expansion of --test_expansion.
@@ -451,7 +454,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     assertThat(testOptions.implicitRequirementA)
         .isEqualTo(TestOptions.IMPLICIT_REQUIREMENT_A_REQUIRED);
 
-    enforcer.enforce(parser, BUILD_COMMAND);
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     testOptions = getTestOptions();
     assertThat(testOptions.testImplicitRequirement).isEqualTo(TEST_STRING_USER_VALUE);
@@ -472,7 +475,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     TestOptions testOptions = getTestOptions();
     assertThat(testOptions.implicitRequirementA).isEqualTo(TEST_STRING_USER_VALUE);
 
-    enforcer.enforce(parser, BUILD_COMMAND);
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     testOptions = getTestOptions();
     assertThat(testOptions.testImplicitRequirement).isEqualTo(TEST_STRING_POLICY_VALUE);
@@ -496,7 +499,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     TestOptions testOptions = getTestOptions();
     assertThat(testOptions.testString).isEqualTo(TEST_STRING_USER_VALUE);
 
-    enforcer.enforce(parser, BUILD_COMMAND);
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     // Even though the policy sets the value for test_string, the policy is overridable and the
     // user set the value, so it should be the user's value.
@@ -520,7 +523,9 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     TestOptions testOptions = getTestOptions();
     assertThat(testOptions.testString).isEqualTo(TEST_STRING_USER_VALUE);
 
-    assertThrows(OptionsParsingException.class, () -> enforcer.enforce(parser, BUILD_COMMAND));
+    assertThrows(
+        OptionsParsingException.class,
+        () -> enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder()));
   }
 
   @Test
@@ -542,7 +547,9 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
 
     OptionsParsingException e =
-        assertThrows(OptionsParsingException.class, () -> enforcer.enforce(parser, BUILD_COMMAND));
+        assertThrows(
+            OptionsParsingException.class,
+            () -> enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder()));
     assertThat(e)
         .hasMessageThat()
         .startsWith(
@@ -567,7 +574,9 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
     parser.parse();
     OptionsParsingException expected =
-        assertThrows(OptionsParsingException.class, () -> enforcer.enforce(parser, BUILD_COMMAND));
+        assertThrows(
+            OptionsParsingException.class,
+            () -> enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder()));
     assertThat(expected)
         .hasMessageThat()
         .startsWith(
@@ -595,7 +604,7 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicy);
     parser.parse();
 
-    enforcer.enforce(parser, "build");
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     assertThat(getTestOptions()).isEqualTo(Options.getDefaults(TestOptions.class));
   }

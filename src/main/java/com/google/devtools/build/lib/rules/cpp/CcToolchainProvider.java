@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -32,6 +34,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -54,7 +57,8 @@ public final class CcToolchainProvider {
       implements Provider {
     public CcToolchainInfoProvider() {
       super(
-          Label.parseCanonicalUnchecked("@_builtins//:common/cc/cc_toolchain_info.bzl"),
+          keyForBuiltins(
+              Label.parseCanonicalUnchecked("@_builtins//:common/cc/cc_toolchain_info.bzl")),
           STARLARK_NAME);
     }
 
@@ -111,14 +115,6 @@ public final class CcToolchainProvider {
       return null;
     }
     return PathFragment.create(value.getValue(key, String.class));
-  }
-
-  private static final <T> T nullIfNone(StarlarkInfo value, String key, Class<T> type)
-      throws EvalException {
-    if (value.getValue(key) == null || value.getValue(key) == Starlark.NONE) {
-      return null;
-    }
-    return value.getValue(key, type);
   }
 
   private static final ImmutableList<PathFragment> convertStarlarkListToPathFragments(
@@ -434,7 +430,7 @@ public final class CcToolchainProvider {
   /** Returns the grep-includes tool which is needing during linking because of linkstamping. */
   @Nullable
   public Artifact getGrepIncludes() throws EvalException {
-    return nullIfNone(value, "_grep_includes", Artifact.class);
+    return value.getNoneableValue("_grep_includes", Artifact.class);
   }
 
   /** Returns the tool that builds interface libraries from dynamic libraries. */
@@ -481,7 +477,7 @@ public final class CcToolchainProvider {
   }
 
   public FdoContext getFdoContext() throws EvalException {
-    return value.getValue("_fdo_context", FdoContext.class);
+    return new FdoContext(value.getValue("_fdo_context", StructImpl.class));
   }
 
   // Not all of CcToolchainProvider is exposed to Starlark, which makes implementing deep equality

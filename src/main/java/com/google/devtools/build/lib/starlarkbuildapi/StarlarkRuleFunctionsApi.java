@@ -60,7 +60,8 @@ public interface StarlarkRuleFunctionsApi {
   @StarlarkMethod(
       name = "provider",
       doc =
-          "Defines a provider symbol. The provider may be instantiated by calling it, or used"
+          "Defines a provider symbol. The result of this function must be stored in a global value."
+              + " The provider may be instantiated by calling it, or used"
               + " directly as a key for retrieving an instance of that provider from a target."
               + " Example:<br><pre class=\"language-python\">" //
               + "MyInfo = provider()\n"
@@ -202,6 +203,45 @@ public interface StarlarkRuleFunctionsApi {
             documented = false // TODO(#19922): Document
             ),
         @Param(
+            name = "attrs",
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+            },
+            named = true,
+            positional = false,
+            defaultValue = "{}",
+            doc =
+                """
+A dictionary of the attributes this macro supports, analogous to <a href="#rule.attrs">rule.attrs
+</a>. Keys are attribute names, and values are attribute objects like <code>attr.label_list(...)
+</code> (see the <a href=\"../toplevel/attr.html\">attr</a> module).
+
+<p>The special <code>name</code> attribute is predeclared and must not be included in the
+dictionary. There are also reserved attribute names that must not be included:
+<code>visibility</code>, <code>deprecation</code>, <code>tags</code>, <code>testonly</code>, and
+<code>features</code>.
+
+<p>Attributes whose names start with <code>_</code> are private -- they cannot be passed at the call
+site of the rule. Such attributes can be assigned a default value (as in
+<code>attr.label(default="//pkg:foo")</code>) to create an implicit dependency on a label.
+
+<p>Certain APIs are not available within symbolic macros. These include:
+<ul>
+  <li>package(), licenses()
+  <li>environment_group()
+  <li>glob(), subpackages()
+  <li>existing_rules(), existing_rule(),
+  <li>(for WORKSPACE threads) workspace(), register_toolchains(),
+      register_execution_platforms(), bind(), repository rule instantiation
+</ul>
+
+<p>To limit memory usage, there is a cap on the number of attributes that may be declared.
+"""),
+        // TODO: #19922 - Make a concepts page for symbolic macros, migrate some details like the
+        // list of disallowed APIs to there.
+        // TODO: #19922 - Make good on the above threat of enforcing a cap on the number of
+        // attributes.
+        @Param(
             name = "doc",
             positional = false,
             named = true,
@@ -212,11 +252,11 @@ public interface StarlarkRuleFunctionsApi {
             defaultValue = "None",
             doc =
                 "A description of the macro that can be extracted by documentation generating "
-                    + "tools."),
-        // TODO(#19922): Take attrs dict
+                    + "tools.")
       },
       useStarlarkThread = true)
-  StarlarkCallable macro(StarlarkFunction implementation, Object doc, StarlarkThread thread)
+  StarlarkCallable macro(
+      StarlarkFunction implementation, Dict<?, ?> attrs, Object doc, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -271,7 +311,8 @@ public interface StarlarkRuleFunctionsApi {
                     + " <code>visibility</code>, <code>deprecation</code>, <code>tags</code>,"
                     + " <code>testonly</code>, and <code>features</code> are implicitly added and"
                     + " cannot be overridden. Most rules need only a handful of attributes. To"
-                    + " limit memory usage, the rule function imposes a cap on the size of attrs."),
+                    + " limit memory usage, there is a cap on the number of attributes that may be"
+                    + " declared."),
         // TODO(bazel-team): need to give the types of these builtin attributes
         @Param(
             name = "outputs",

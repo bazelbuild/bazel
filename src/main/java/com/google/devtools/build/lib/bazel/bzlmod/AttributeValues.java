@@ -42,8 +42,7 @@ public abstract class AttributeValues {
   // TODO(salmasamy) this is a copy of Attribute::valueToStarlark, Maybe think of a better place?
   private static Object valueToStarlark(Object x) {
     // Is x a non-empty string_list_dict?
-    if (x instanceof Map) {
-      Map<?, ?> map = (Map<?, ?>) x;
+    if (x instanceof Map<?, ?> map) {
       if (!map.isEmpty() && map.values().iterator().next() instanceof List) {
         Dict.Builder<Object, Object> dict = Dict.builder();
         for (Map.Entry<?, ?> e : map.entrySet()) {

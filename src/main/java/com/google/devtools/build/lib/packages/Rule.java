@@ -423,17 +423,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    */
 
   /**
-   * Returns the default value for the attribute {@code attrName}, which may be of any type, but
-   * must exist (an exception is thrown otherwise).
-   */
-  public Object getAttrDefaultValue(String attrName) {
-    Object defaultValue = ruleClass.getAttributeByName(attrName).getDefaultValue(this);
-    // Computed defaults not expected here.
-    Preconditions.checkState(!(defaultValue instanceof Attribute.ComputedDefault));
-    return defaultValue;
-  }
-
-  /**
    * Returns true iff the rule class has an attribute with the given name and type.
    *
    * <p>Note: RuleContext also has isAttrDefined(), which takes Aspects into account. Whenever
@@ -904,16 +893,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   /**
-   * Check if this rule is valid according to the validityPredicate of its RuleClass.
-   */
-  void checkValidityPredicate(EventHandler eventHandler) {
-    PredicateWithMessage<Rule> predicate = ruleClass.getValidityPredicate();
-    if (!predicate.apply(this)) {
-      reportError(predicate.getErrorReason(this), eventHandler);
-    }
-  }
-
-  /**
    * Collects the output files (both implicit and explicit). Must be called before the output
    * accessors methods can be used, and must be called only once.
    */
@@ -1169,7 +1148,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
         && isAttributeValueExplicitlySpecified("distribs")) {
       return NonconfigurableAttributeMapper.of(this).get("distribs", BuildType.DISTRIBUTIONS);
     } else {
-      return pkg.getPackageArgs().distribs();
+      return License.DEFAULT_DISTRIB;
     }
   }
 

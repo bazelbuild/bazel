@@ -83,8 +83,8 @@ public class RxUtils {
         .toSingleDefault(TransferResult.ok())
         .onErrorResumeNext(
             error -> {
-              if (error instanceof IOException) {
-                return Single.just(TransferResult.error((IOException) error));
+              if (error instanceof IOException ioException) {
+                return Single.just(TransferResult.error(ioException));
               } else if (error instanceof InterruptedException) {
                 return Single.just(TransferResult.interrupted());
               } else {

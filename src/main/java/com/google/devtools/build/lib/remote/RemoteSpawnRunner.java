@@ -23,6 +23,7 @@ import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_QUEUE;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_SETUP;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.UPLOAD_TIME;
 import static com.google.devtools.build.lib.remote.util.Utils.createSpawnResult;
+import static java.lang.Math.max;
 
 import build.bazel.remote.execution.v2.ExecuteOperationMetadata;
 import build.bazel.remote.execution.v2.ExecuteResponse;
@@ -287,8 +288,10 @@ public class RemoteSpawnRunner implements SpawnRunner {
             context.report(SPAWN_SCHEDULING_EVENT);
 
             ExecutingStatusReporter reporter = new ExecutingStatusReporter(context);
+            long clampTimeNanos; // See comment in logProfileTask.
             RemoteActionResult result;
             try (SilentCloseable c = prof.profile(REMOTE_EXECUTION, "execute remotely")) {
+              clampTimeNanos = Profiler.nanoTimeMaybe();
               result =
                   remoteExecutionService.executeRemotely(action, useCachedResult.get(), reporter);
             }
@@ -299,7 +302,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
             maybePrintExecutionMessages(context, result.getMessage(), result.success());
 
-            profileAccounting(result.getExecutionMetadata());
+            profileAccounting(clampTimeNanos, result.getExecutionMetadata());
             spawnMetricsAccounting(spawnMetrics, result.getExecutionMetadata());
 
             try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "download server logs")) {
@@ -330,7 +333,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
     }
   }
 
-  private static void profileAccounting(ExecutedActionMetadata executedActionMetadata) {
+  private static void profileAccounting(
+      long clampTimeNanos, ExecutedActionMetadata executedActionMetadata) {
     MillisSinceEpochToNanosConverter converter =
         BlazeClock.createMillisSinceEpochToNanosConverter();
 
@@ -338,42 +342,49 @@ public class RemoteSpawnRunner implements SpawnRunner {
         converter,
         executedActionMetadata.getQueuedTimestamp(),
         executedActionMetadata.getWorkerStartTimestamp(),
+        clampTimeNanos,
         REMOTE_QUEUE,
         "queue");
     logProfileTask(
         converter,
         executedActionMetadata.getWorkerStartTimestamp(),
         executedActionMetadata.getInputFetchStartTimestamp(),
+        clampTimeNanos,
         REMOTE_SETUP,
         "pre-fetch");
     logProfileTask(
         converter,
         executedActionMetadata.getInputFetchStartTimestamp(),
         executedActionMetadata.getInputFetchCompletedTimestamp(),
+        clampTimeNanos,
         FETCH,
         "fetch");
     logProfileTask(
         converter,
         executedActionMetadata.getInputFetchCompletedTimestamp(),
         executedActionMetadata.getExecutionStartTimestamp(),
+        clampTimeNanos,
         REMOTE_SETUP,
         "pre-execute");
     logProfileTask(
         converter,
         executedActionMetadata.getExecutionStartTimestamp(),
         executedActionMetadata.getExecutionCompletedTimestamp(),
+        clampTimeNanos,
         REMOTE_PROCESS_TIME,
         "execute");
     logProfileTask(
         converter,
         executedActionMetadata.getExecutionCompletedTimestamp(),
         executedActionMetadata.getOutputUploadStartTimestamp(),
+        clampTimeNanos,
         REMOTE_SETUP,
         "pre-upload");
     logProfileTask(
         converter,
         executedActionMetadata.getOutputUploadStartTimestamp(),
         executedActionMetadata.getOutputUploadCompletedTimestamp(),
+        clampTimeNanos,
         UPLOAD_TIME,
         "upload");
   }
@@ -382,14 +393,20 @@ public class RemoteSpawnRunner implements SpawnRunner {
       MillisSinceEpochToNanosConverter converter,
       Timestamp start,
       Timestamp end,
+      long clampTimeNanos,
       ProfilerTask type,
       String description) {
-    Profiler.instance()
-        .logSimpleTask(
-            converter.toNanos(Timestamps.toMillis(start)),
-            converter.toNanos(Timestamps.toMillis(end)),
-            type,
-            description);
+    // If the remote execution request is deduped against an earlier request for the same action,
+    // the start and end times may predate the start of the execution on our side. To avoid
+    // confusion, clamp them so that they nest inside the parent profile span.
+    long startTimeNanos = converter.toNanos(Timestamps.toMillis(start));
+    long endTimeNanos = converter.toNanos(Timestamps.toMillis(end));
+    if (endTimeNanos <= clampTimeNanos) {
+      // Span lies entirely outside the parent.
+      return;
+    }
+    startTimeNanos = max(startTimeNanos, clampTimeNanos);
+    Profiler.instance().logSimpleTask(startTimeNanos, endTimeNanos, type, description);
   }
 
   /** conversion utility for protobuf Timestamp difference to java.time.Duration */
@@ -503,9 +520,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
       return;
     }
     for (ActionInput actionInput : spawn.getInputFiles().toList()) {
-      if (actionInput instanceof ParamFileActionInput) {
-        ParamFileActionInput paramFileActionInput = (ParamFileActionInput) actionInput;
-        paramFileActionInput.atomicallyWriteRelativeTo(execRoot, ".remote");
+      if (actionInput instanceof ParamFileActionInput paramFileActionInput) {
+        paramFileActionInput.atomicallyWriteRelativeTo(execRoot);
       }
     }
   }
@@ -560,8 +576,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       RemoteAction action, IOException exception, SpawnExecutionContext context)
       throws ExecException, InterruptedException, IOException {
     boolean remoteCacheFailed = BulkTransferException.allCausedByCacheNotFoundException(exception);
-    if (exception.getCause() instanceof ExecutionStatusException) {
-      ExecutionStatusException e = (ExecutionStatusException) exception.getCause();
+    if (exception.getCause() instanceof ExecutionStatusException e) {
       RemoteActionResult result = null;
       if (e.getResponse() != null) {
         ExecuteResponse resp = e.getResponse();
@@ -630,8 +645,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
 
     String errorMessage = Utils.grpcAwareErrorMessage(exception, verboseFailures);
 
-    if (exception.getCause() instanceof ExecutionStatusException) {
-      ExecutionStatusException e = (ExecutionStatusException) exception.getCause();
+    if (exception.getCause() instanceof ExecutionStatusException e) {
       if (e.getResponse() != null) {
         if (!e.getResponse().getMessage().isEmpty()) {
           errorMessage += "\n" + e.getResponse().getMessage();

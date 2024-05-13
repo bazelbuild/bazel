@@ -408,8 +408,8 @@ public class MobileInstallCommand implements BlazeCommand {
     // Dereference any aliases that might be present.
     target = target.getActual();
 
-    if (target instanceof AbstractConfiguredTarget) {
-      String ruleType = ((AbstractConfiguredTarget) target).getRuleClassString();
+    if (target instanceof AbstractConfiguredTarget abstractConfiguredTarget) {
+      String ruleType = abstractConfiguredTarget.getRuleClassString();
       if (!mobileInstallSupportedRules.contains(ruleType)) {
         return String.format(
             "mobile-install can only be run on %s targets. Got: %s",

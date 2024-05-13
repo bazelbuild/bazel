@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.metrics;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.testutil.TestConstants.PLATFORM_LABEL;
@@ -27,6 +28,9 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ActionSummary.ActionData;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ArtifactMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.AspectCount;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.RuleClassCount;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.SkyFunctionCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerPoolMetrics.WorkerPoolStats;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
@@ -35,6 +39,7 @@ import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
@@ -72,7 +77,6 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
   @Override
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
     return super.getRuntimeBuilder()
-        .addBlazeModule(new MetricsModule())
         .addBlazeModule(buildMetricsEventListener);
   }
 
@@ -95,9 +99,8 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
   }
 
   @After
-  public void resetProfilers() throws Exception {
+  public void resetProfilers() {
     MemoryProfiler.instance().stop();
-    PostGCMemoryUseRecorder.get().reset();
   }
 
   @Test
@@ -231,7 +234,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     assertThat(newGraphSize).isGreaterThan(graphSize);
 
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getArtifactMetrics())
-        .ignoringFieldAbsence()
+        .comparingExpectedFieldsOnly()
         .isEqualTo(
             ArtifactMetrics.newBuilder()
                 // 2 distinct artifacts of 6 and 3 bytes, with a symlink to the 3-byte one.
@@ -254,6 +257,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     // For null build, we don't do any conflict checking. As the metrics are collected during the
     // traversal that's part of conflict checking, these analysis-related numbers are 0.
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
+        .comparingExpectedFieldsOnly()
         .isEqualTo(
             BuildGraphMetrics.newBuilder()
                 .setActionLookupValueCount(0)
@@ -276,6 +280,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     buildTarget("//a");
 
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
+        .comparingExpectedFieldsOnly()
         .isEqualTo(
             BuildGraphMetrics.newBuilder()
                 .setActionLookupValueCount(5 + actionLookupValueCount)
@@ -307,6 +312,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     addOptions("--nobuild");
     buildTarget("//a");
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
+        .comparingExpectedFieldsOnly()
         .isEqualTo(
             BuildGraphMetrics.newBuilder()
                 .setActionLookupValueCount(5 + actionLookupValueCount)
@@ -329,13 +335,15 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
       // deleted.
       newGraphSize -= 1;
     }
-    assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
-        .ignoringFieldAbsence()
-        .isEqualTo(
-            BuildGraphMetrics.newBuilder()
-                // Stale action execution nodes have been GC'ed.
-                .setPostInvocationSkyframeNodeCount(newGraphSize - 1)
-                .build());
+
+    // Stale action execution nodes have been GC'ed.
+    assertThat(
+            buildMetricsEventListener
+                .event
+                .getBuildMetrics()
+                .getBuildGraphMetrics()
+                .getPostInvocationSkyframeNodeCount())
+        .isEqualTo(newGraphSize - 1);
 
     // Do a null full build. Back to baseline.
     addOptions("--build");
@@ -344,16 +352,19 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
       // Extra BuildDriverKey
       newGraphSize += 1;
     }
-    assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
-        .ignoringFieldAbsence()
-        .isEqualTo(
-            BuildGraphMetrics.newBuilder()
-                // We now have three copies of the ArtifactNestedSetKey, since the re-analysis
-                // didn't re-use the old nested set.
-                .setPostInvocationSkyframeNodeCount(newGraphSize + 2)
-                .build());
+
+    // We now have three copies of the ArtifactNestedSetKey, since the re-analysis didn't re-use the
+    // old nested set.
+    assertThat(
+            buildMetricsEventListener
+                .event
+                .getBuildMetrics()
+                .getBuildGraphMetrics()
+                .getPostInvocationSkyframeNodeCount())
+        .isEqualTo(newGraphSize + 2);
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getArtifactMetrics())
         .ignoringFieldAbsence()
+        .comparingExpectedFieldsOnly()
         .isEqualTo(
             ArtifactMetrics.newBuilder()
                 .setOutputArtifactsSeen(singleFileMetric)
@@ -365,7 +376,8 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     write("b/c.in", "1234");
     buildTarget("//a");
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
-        .ignoringFieldAbsence()
+        .comparingExpectedFieldsOnly()
+        .comparingExpectedFieldsOnly()
         .isEqualTo(
             BuildGraphMetrics.newBuilder()
                 // Analysis not re-triggered, even of the input file that was changed.
@@ -374,6 +386,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
                 .build());
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getArtifactMetrics())
         .ignoringFieldAbsence()
+        .comparingExpectedFieldsOnly()
         .isEqualTo(
             ArtifactMetrics.newBuilder()
                 .setSourceArtifactsRead(
@@ -391,6 +404,27 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
                         .setCount(1)
                         .build())
                 .build());
+
+    // Validate RuleClass Aspect and SkyFunction data is reported.
+    BuildGraphMetrics bgm =
+        buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics();
+    List<RuleClassCount> ruleClasses = bgm.getRuleClassList();
+    List<AspectCount> aspectCount = bgm.getAspectList();
+    List<SkyFunctionCount> skyFunction = bgm.getSkyFunctionList();
+
+    assertThat(ruleClasses.stream().map(RuleClassCount::getKey))
+        .containsExactly("genrule", "constraint_setting", "constraint_value", "platform");
+    assertThat(aspectCount).isEmpty();
+    // Verify some well known skyfunctions that are not going anywhere:
+    assertThat(
+            skyFunction.stream()
+                .map(SkyFunctionCount::getSkyFunctionName)
+                .collect(toImmutableList()))
+        .containsAtLeast(
+            SkyFunctions.PRECOMPUTED.toString(),
+            SkyFunctions.PACKAGE.toString(),
+            SkyFunctions.CONFIGURED_TARGET.toString(),
+            SkyFunctions.BZL_LOAD.toString());
   }
 
   @Test

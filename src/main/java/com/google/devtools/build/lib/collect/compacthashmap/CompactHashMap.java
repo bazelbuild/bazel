@@ -658,8 +658,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> {
 
     @Override
     public boolean contains(@Nullable Object o) {
-      if (o instanceof Entry) {
-        Entry<?, ?> entry = (Entry<?, ?>) o;
+      if (o instanceof Entry<?, ?> entry) {
         int index = indexOf(entry.getKey());
         return index != -1 && Objects.equal(values[index], entry.getValue());
       }
@@ -668,8 +667,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> {
 
     @Override
     public boolean remove(@Nullable Object o) {
-      if (o instanceof Entry) {
-        Entry<?, ?> entry = (Entry<?, ?>) o;
+      if (o instanceof Entry<?, ?> entry) {
         int index = indexOf(entry.getKey());
         if (index != -1 && Objects.equal(values[index], entry.getValue())) {
           removeEntry(index);
@@ -736,8 +734,7 @@ public class CompactHashMap<K, V> extends AbstractMap<K, V> {
 
     @Override
     public boolean equals(@Nullable Object object) {
-      if (object instanceof Entry) {
-        Entry<?, ?> that = (Entry<?, ?>) object;
+      if (object instanceof Entry<?, ?> that) {
         return Objects.equal(this.key, that.getKey())
             && Objects.equal(this.getValue(), that.getValue());
       }

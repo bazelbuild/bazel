@@ -291,8 +291,8 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
   private boolean isRemote(PathFragment path) throws IOException {
     // Files in the local filesystem are non-remote by definition, so stat only in-memory sources.
     var status = statInternal(path, FollowMode.FOLLOW_ALL, StatSources.IN_MEMORY_ONLY);
-    return (status instanceof FileStatusWithMetadata)
-        && ((FileStatusWithMetadata) status).getMetadata().isRemote();
+    return status instanceof FileStatusWithMetadata fileStatusWithMetadata
+        && fileStatusWithMetadata.getMetadata().isRemote();
   }
 
   public void updateContext(ActionExecutionMetadata action) {
@@ -427,8 +427,8 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
     // The parent path has already been canonicalized by resolveSymbolicLinks, so FOLLOW_NONE is
     // effectively the same as FOLLOW_PARENT, but more efficient.
     var status = statInternal(path, FollowMode.FOLLOW_NONE, StatSources.IN_MEMORY_ONLY);
-    if (status instanceof FileStatusWithDigest) {
-      return ((FileStatusWithDigest) status).getDigest();
+    if (status instanceof FileStatusWithDigest fileStatusWithDigest) {
+      return fileStatusWithDigest.getDigest();
     }
     return localFs.getPath(path).getFastDigest();
   }
@@ -440,8 +440,8 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
     // The parent path has already been canonicalized by resolveSymbolicLinks, so FOLLOW_NONE is
     // effectively the same as FOLLOW_PARENT, but more efficient.
     var status = statInternal(path, FollowMode.FOLLOW_NONE, StatSources.IN_MEMORY_ONLY);
-    if (status instanceof FileStatusWithDigest) {
-      return ((FileStatusWithDigest) status).getDigest();
+    if (status instanceof FileStatusWithDigest fileStatusWithDigest) {
+      return fileStatusWithDigest.getDigest();
     }
     return localFs.getPath(path).getDigest();
   }
@@ -526,8 +526,8 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
     if (path.startsWith(execRoot)) {
       var execPath = path.relativeTo(execRoot);
       var metadata = inputArtifactData.getMetadata(execPath);
-      if (metadata instanceof UnresolvedSymlinkArtifactValue) {
-        return PathFragment.create(((UnresolvedSymlinkArtifactValue) metadata).getSymlinkTarget());
+      if (metadata instanceof UnresolvedSymlinkArtifactValue unresolvedSymlinkArtifactValue) {
+        return PathFragment.create(unresolvedSymlinkArtifactValue.getSymlinkTarget());
       }
       if (metadata != null) {
         // Other input artifacts are never symlinks.
@@ -931,11 +931,10 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
       InMemoryContentInfo node = getOrCreateWritableInode(path);
       // If a node was already existed and is not a remote file node (i.e. directory or symlink node
       // ), throw an error.
-      if (!(node instanceof RemoteInMemoryFileInfo)) {
+      if (!(node instanceof RemoteInMemoryFileInfo remoteInMemoryFileInfo)) {
         throw new IOException("Could not inject into " + node);
       }
 
-      RemoteInMemoryFileInfo remoteInMemoryFileInfo = (RemoteInMemoryFileInfo) node;
       remoteInMemoryFileInfo.set(metadata);
     }
 

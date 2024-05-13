@@ -36,17 +36,15 @@ load("@_builtins//:common/python/providers.bzl", "PyCcLinkParamsProvider", "PyIn
 load("@_builtins//:common/python/py_runtime_macro.bzl", "py_runtime")
 load("@_builtins//:common/xcode/available_xcodes.bzl", "available_xcodes")
 load("@_builtins//:common/xcode/xcode_config.bzl", "xcode_config")
+load("@_builtins//:common/xcode/xcode_config_alias.bzl", "xcode_config_alias")
 load("@_builtins//:common/xcode/xcode_version.bzl", "xcode_version")
-load(":common/cc/fdo_prefetch_hints.bzl", "fdo_prefetch_hints")
-load(":common/cc/fdo_profile.bzl", "fdo_profile")
-load(":common/cc/memprof_profile.bzl", "memprof_profile")
-load(":common/cc/propeller_optimize.bzl", "propeller_optimize")
+load(":common/cc/fdo/fdo_prefetch_hints.bzl", "fdo_prefetch_hints")
+load(":common/cc/fdo/fdo_profile.bzl", "fdo_profile")
+load(":common/cc/fdo/memprof_profile.bzl", "memprof_profile")
+load(":common/cc/fdo/propeller_optimize.bzl", "propeller_optimize")
 load(":common/java/java_binary_deploy_jar.bzl", get_java_build_info = "get_build_info")
 load(":common/java/java_common.bzl", "java_common")
 load(":common/java/java_info.bzl", "JavaInfo", "JavaPluginInfo")
-load(":common/java/java_package_configuration.bzl", "java_package_configuration")
-load(":common/java/java_runtime.bzl", "java_runtime")
-load(":common/java/java_toolchain.bzl", "java_toolchain")
 load(":common/objc/apple_common.bzl", "apple_common")
 load(":common/objc/objc_common.bzl", "objc_common")
 
@@ -89,9 +87,6 @@ exported_rules = {
     "py_runtime": py_runtime,
     "cc_toolchain_alias": cc_toolchain_alias,
     "cc_toolchain": cc_toolchain,
-    "java_package_configuration": java_package_configuration,
-    "java_toolchain": java_toolchain,
-    "java_runtime": java_runtime,
     "fdo_prefetch_hints": fdo_prefetch_hints,
     "fdo_profile": fdo_profile,
     "memprof_profile": memprof_profile,
@@ -99,6 +94,7 @@ exported_rules = {
     "xcode_version": xcode_version,
     "available_xcodes": available_xcodes,
     "xcode_config": xcode_config,
+    "xcode_config_alias": xcode_config_alias,
 }
 
 # A list of Starlark functions callable from native rules implementation.

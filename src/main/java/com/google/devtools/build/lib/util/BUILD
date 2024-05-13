@@ -178,6 +178,7 @@ java_library(
     deps = [
         ":object_graph_traverser",
         ":shallow_object_size_computer",
+        "//third_party:guava",
     ],
 )
 
@@ -205,10 +206,8 @@ java_11_library(
 java_library(
     name = "util",
     srcs = [
-        "AbstractIndexer.java",
         "AnsiStrippingOutputStream.java",
         "CPU.java",
-        "CanonicalStringIndexer.java",
         "ClassName.java",
         "DependencySet.java",
         "Either.java",
@@ -242,7 +241,6 @@ java_library(
     deps = [
         ":os",
         ":shell_escaper",
-        ":string",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -314,14 +312,10 @@ java_library(
 java_library(
     name = "string",
     srcs = [
-        "StringCanonicalizer.java",
         "StringUtil.java",
         "StringUtilities.java",
     ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//third_party:guava",
-    ],
+    deps = ["//third_party:guava"],
 )
 
 java_library(
@@ -418,6 +412,20 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//third_party:error_prone_annotations",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "blocker",
+    srcs = ["Blocker.java"],
+    add_exports = ["java.base/jdk.internal.misc"],
+)
+
+java_library(
+    name = "value_or_exception",
+    srcs = ["ValueOrException.java"],
+    deps = [
         "//third_party:guava",
     ],
 )

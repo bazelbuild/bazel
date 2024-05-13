@@ -66,16 +66,40 @@ EOF
 
   # Create shared report rule for printing flag and platform info.
   mkdir -p report
-  touch report/BUILD
+  cat > report/flag.bzl <<EOF
+BuildSettingInfo = provider(fields = ["value"])
+
+def _string_flag_impl(ctx):
+    return [BuildSettingInfo(value = ctx.build_setting_value)]
+
+string_flag = rule(
+    implementation = _string_flag_impl,
+    build_setting = config.string(flag = True)
+)
+EOF
+
+  cat > report/BUILD <<EOF
+load(":flag.bzl", "string_flag")
+
+string_flag(
+    name = "mapping_flag",
+    build_setting_default = "from_default",
+)
+EOF
   cat > report/report.bzl <<EOF
+load(":flag.bzl", "BuildSettingInfo")
+
 def _report_impl(ctx):
-  print('copts: %s' % ctx.fragments.cpp.copts)
+  mapping_flag = ctx.attr._mapping_flag[BuildSettingInfo].value
+  print('mapping_flag: %s' % mapping_flag)
   print('platform: %s' % ctx.fragments.platform.platform)
 
 report_flags = rule(
     implementation = _report_impl,
-    attrs = {},
-    fragments = ["cpp", "platform"]
+    attrs = {
+        "_mapping_flag": attr.label(default = "//report:mapping_flag"),
+    },
+    fragments = ["platform"]
 )
 EOF
 }
@@ -85,7 +109,7 @@ EOF
 function test_top_level_flags_to_platform_mapping() {
   cat > platform_mappings <<EOF
 flags:
-  --cpu=arm64
+  --//report:mapping_flag=foo
     //plat:platform1
 EOF
 
@@ -96,8 +120,8 @@ EOF
 
   bazel build \
     --platform_mappings=platform_mappings \
-    --cpu=arm64 \
-    package:report &> $TEST_log \
+    --//report:mapping_flag=foo \
+    //package:report &> $TEST_log \
       || fail "Build failed unexpectedly"
   expect_log "platform: .*//plat:platform1"
 }
@@ -106,7 +130,7 @@ function test_top_level_platform_to_flags_mapping() {
    cat > platform_mappings <<EOF
 platforms:
   //plat:platform1
-    --copt=foo
+    --//report:mapping_flag=from_mapping
 EOF
 
   cat > package/BUILD <<EOF
@@ -119,14 +143,14 @@ EOF
     --platforms=//plat:platform1 \
     package:report &> $TEST_log \
       || fail "Build failed unexpectedly"
-  expect_log "copts: \[\"foo\"\]"
+  expect_log "mapping_flag: from_mapping"
 }
 
 function test_custom_platform_mapping_location() {
   mkdir custom
   cat > custom/platform_mappings <<EOF
 flags:
-  --cpu=arm64
+  --//report:mapping_flag=foo
     //plat:platform1
 EOF
 
@@ -136,7 +160,7 @@ report_flags(name = "report")
 EOF
 
   bazel build \
-    --cpu=arm64 \
+    --//report:mapping_flag=foo \
     --platform_mappings=custom/platform_mappings \
     package:report &> $TEST_log || fail "Build failed unexpectedly"
   expect_log "platform: .*//plat:platform1"
@@ -147,7 +171,7 @@ function test_custom_platform_mapping_location_after_exec_transition() {
   cat > custom/platform_mappings <<EOF
 platforms:
   //plat:platform1
-    --copt=foo
+    --//report:mapping_flag=from_mapping
 EOF
 
   cat > package/BUILD <<EOF
@@ -168,39 +192,35 @@ EOF
       --extra_execution_platforms=//plat:platform1 \
       package:genrule &> $TEST_log || fail "Build failed unexpectedly"
   expect_log "platform: .*//plat:platform1"
-  expect_log "copts: \[\"foo\"\]"
+  expect_log "mapping_flag: from_mapping"
 }
 
 function test_transition_platform_mapping() {
   cat > platform_mappings <<EOF
 flags:
-  --cpu=k8
+  --//report:mapping_flag=foo
     //plat:platform1
-  --cpu=arm64
+  --//report:mapping_flag=bar
     //plat:platform2
 EOF
 
   cat > package/rule.bzl <<EOF
 def _my_transition_impl(settings, attrs):
   return {
-    "//command_line_option:cpu": "arm64",
-    "//command_line_option:copt": ["foo"],
+    "//report:mapping_flag": "bar",
     # Platforms *must* be wiped for transitions to correctly participate in
     # platform mapping.
     "//command_line_option:platforms": [],
   }
 
-
 my_transition = transition(
   implementation = _my_transition_impl,
   inputs = [],
   outputs = [
-      "//command_line_option:cpu",
-      "//command_line_option:copt",
+      "//report:mapping_flag",
       "//command_line_option:platforms",
   ],
 )
-
 
 def _my_rule_impl(ctx):
   return []
@@ -228,12 +248,96 @@ EOF
 
   bazel build \
     --platform_mappings=platform_mappings \
-    --cpu=k8 \
+    --//report:mapping_flag=foo \
     package:custom &> $TEST_log \
       || fail "Build failed unexpectedly"
   expect_not_log "platform: .*//plat:platform1"
   expect_log "platform: .*//plat:platform2"
 }
 
-run_suite "platform mapping test"
+function test_mapping_overrides_command_line() {
+   cat > platform_mappings <<EOF
+platforms:
+  //plat:platform1
+    --//report:mapping_flag=from_mapping
+EOF
 
+  cat > package/BUILD <<EOF
+load("//report:report.bzl", "report_flags")
+report_flags(name = "report")
+EOF
+
+  bazel build \
+    --platform_mappings=platform_mappings \
+    --platforms=//plat:platform1 \
+    --//report:mapping_flag=from_cli \
+    package:report &> $TEST_log \
+      || fail "Build failed unexpectedly"
+  expect_log "mapping_flag: from_mapping"
+}
+
+function test_repeatable_flag_doesnt_accumulate() {
+  # Use a different flag for testing and reporting.
+  mkdir -p repeatable
+  cat > repeatable/flag.bzl <<EOF
+FlagValue = provider(fields = ["value"])
+def _impl(ctx):
+    values = ctx.build_setting_value
+    return [
+        FlagValue(value = values),
+    ]
+
+repeatable_flag = rule(
+    implementation = _impl,
+    build_setting = config.string_list(flag = True, repeatable = True),
+)
+EOF
+  cat > repeatable/BUILD <<EOF
+load(":flag.bzl", "repeatable_flag")
+
+package(default_visibility = ["//visibility:public"])
+
+repeatable_flag(
+    name = "repeatable_flag",
+    build_setting_default = ['default'],
+)
+EOF
+  cat > report/report.bzl <<EOF
+load("//repeatable:flag.bzl", "FlagValue")
+
+def _report_impl(ctx):
+  flag_values = ctx.attr._flag[FlagValue].value
+  print('repeatable_flag: %s' % flag_values)
+  print('platform: %s' % ctx.fragments.platform.platform)
+
+report_flags = rule(
+    implementation = _report_impl,
+    attrs = {
+        "_flag": attr.label(default = "//repeatable:repeatable_flag"),
+    },
+    fragments = ["platform"]
+)
+EOF
+
+   # Set up a platform mapping.
+   cat > platform_mappings <<EOF
+platforms:
+  //plat:platform1
+    --//repeatable:repeatable_flag=from_mapping
+EOF
+
+  cat > package/BUILD <<EOF
+load("//report:report.bzl", "report_flags")
+report_flags(name = "report")
+EOF
+
+  bazel build \
+    --platform_mappings=platform_mappings \
+    --platforms=//plat:platform1 \
+    --//repeatable:repeatable_flag=from_cli \
+    package:report &> $TEST_log \
+      || fail "Build failed unexpectedly"
+  expect_log 'repeatable_flag: \["from_mapping"\]'
+}
+
+run_suite "platform mapping test"

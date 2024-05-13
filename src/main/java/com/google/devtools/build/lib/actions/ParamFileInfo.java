@@ -86,10 +86,9 @@ public final class ParamFileInfo {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof ParamFileInfo)) {
+    if (!(obj instanceof ParamFileInfo other)) {
       return false;
     }
-    ParamFileInfo other = (ParamFileInfo) obj;
     return fileType.equals(other.fileType)
         && charset.equals(other.charset)
         && flagFormatString.equals(other.flagFormatString)

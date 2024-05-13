@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ObjectArrays;
 import com.google.devtools.build.lib.actions.Action;
@@ -55,7 +56,8 @@ public class AspectAutoExecGroupsTest extends BuildViewTestCase {
                 "_tool": attr.label(
                     default = "//toolchain:b_tool",
                     executable = True,
-                    cfg = "exec"),
+                    cfg = "exec",
+                ),
             },
         )
         """);
@@ -328,7 +330,8 @@ public class AspectAutoExecGroupsTest extends BuildViewTestCase {
   private StarlarkExecGroupCollection getExecGroupsFromAspectProvider(
       ConfiguredAspect configuredAspect) throws Exception {
     StarlarkProvider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "OutputFile");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "OutputFile");
     StarlarkInfo keyInfo = (StarlarkInfo) configuredAspect.get(key);
     return (StarlarkExecGroupCollection) keyInfo.getValue("exec_groups");
   }

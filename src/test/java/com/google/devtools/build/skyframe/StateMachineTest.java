@@ -100,7 +100,10 @@ public final class StateMachineTest {
   private static final SkyKey KEY_B3 = GraphTester.skyKey("B3");
   private static final SkyValue VALUE_B3 = new StringValue("B3");
 
-  private static final SkyKey ROOT_KEY = GraphTester.skyKey("root");
+  @TestParameter private boolean rootKeySkipsBatchPrefetch;
+
+  private SkyKey rootKey;
+
   private static final SkyValue DONE_VALUE = new StringValue("DONE");
   private static final StringValue SUCCESS_VALUE = new StringValue("SUCCESS");
 
@@ -112,6 +115,10 @@ public final class StateMachineTest {
     tester.getOrCreate(KEY_B1).setConstantValue(VALUE_B1);
     tester.getOrCreate(KEY_B2).setConstantValue(VALUE_B2);
     tester.getOrCreate(KEY_B3).setConstantValue(VALUE_B3);
+    rootKey =
+        rootKeySkipsBatchPrefetch
+            ? GraphTester.skipBatchPrefetchKey("root")
+            : GraphTester.skyKey("root");
   }
 
   private static class StateMachineWrapper implements SkyKeyComputeState {
@@ -129,7 +136,7 @@ public final class StateMachineTest {
   /**
    * Defines a {@link SkyFunction} that executes the gives state machine.
    *
-   * <p>The function always has key {@link ROOT_KEY} and value {@link DONE_VALUE}. State machine
+   * <p>The function always has key {@link rootKey} and value {@link DONE_VALUE}. State machine
    * internals can be observed with consumers.
    *
    * @return a counter that stores the restart count.
@@ -137,7 +144,7 @@ public final class StateMachineTest {
   private AtomicInteger defineRootMachine(Supplier<StateMachine> rootMachineSupplier) {
     var restartCount = new AtomicInteger();
     tester
-        .getOrCreate(ROOT_KEY)
+        .getOrCreate(rootKey)
         .setBuilder(
             (k, env) -> {
               if (!env.getState(() -> new StateMachineWrapper(rootMachineSupplier.get()))
@@ -152,7 +159,7 @@ public final class StateMachineTest {
 
   private int evalMachine(Supplier<StateMachine> rootMachineSupplier) throws InterruptedException {
     var restartCount = defineRootMachine(rootMachineSupplier);
-    assertThat(eval(ROOT_KEY, /* keepGoing= */ false).get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+    assertThat(eval(rootKey, /* keepGoing= */ false).get(rootKey)).isEqualTo(DONE_VALUE);
     return restartCount.get();
   }
 
@@ -342,7 +349,7 @@ public final class StateMachineTest {
               instantiationCount.getAndIncrement();
               return new ExampleWithSubmachines(a1Sink, a2Sink, a3Sink, b1Sink, b2Sink, b3Sink);
             });
-    assertThat(eval(ROOT_KEY, keepGoing).getError(ROOT_KEY)).isNotNull();
+    assertThat(eval(rootKey, keepGoing).getError(rootKey)).isNotNull();
 
     assertThat(restartCount.get()).isEqualTo(2);
     assertThat(a1Sink.get()).isNull();
@@ -389,15 +396,15 @@ public final class StateMachineTest {
                       });
                   return StateMachine.DONE;
                 });
-    var result = eval(ROOT_KEY, keepGoing);
+    var result = eval(rootKey, keepGoing);
     if (keepGoing) {
       // In keepGoing mode, the swallowed error vanishes.
-      assertThat(result.get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+      assertThat(result.get(rootKey)).isEqualTo(DONE_VALUE);
       assertThat(result.hasError()).isFalse();
     } else {
       // In nokeepGoing mode, the error is processed in error bubbling, but the function does not
       // complete and the error is still propagated to the top level.
-      assertThat(result.get(ROOT_KEY)).isNull();
+      assertThat(result.get(rootKey)).isNull();
       assertThatEvaluationResult(result).hasSingletonErrorThat(KEY_A1);
     }
     assertThat(restartCount.get()).isEqualTo(1);
@@ -435,7 +442,7 @@ public final class StateMachineTest {
   @Test
   public void valueOrExceptionProducer_propagatesValues() throws InterruptedException {
     tester
-        .getOrCreate(ROOT_KEY)
+        .getOrCreate(rootKey)
         .setBuilder(
             (k, env) -> {
               var producer = env.getState(StringOrExceptionProducer::new);
@@ -450,7 +457,7 @@ public final class StateMachineTest {
               }
               return DONE_VALUE;
             });
-    assertThat(eval(ROOT_KEY, /* keepGoing= */ false).get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+    assertThat(eval(rootKey, /* keepGoing= */ false).get(rootKey)).isEqualTo(DONE_VALUE);
     assertThat(StringOrExceptionProducer.isProcessValueOrExceptionCalled).isTrue();
   }
 
@@ -460,7 +467,7 @@ public final class StateMachineTest {
     var hasRestarted = new AtomicBoolean(false);
     tester.getOrCreate(KEY_A1).unsetConstantValue().setHasError(true);
     tester
-        .getOrCreate(ROOT_KEY)
+        .getOrCreate(rootKey)
         .setBuilder(
             (k, env) -> {
               var producer = env.getState(StringOrExceptionProducer::new);
@@ -477,12 +484,12 @@ public final class StateMachineTest {
               assertThrows(SomeErrorException.class, () -> producer.tryProduceValue(env));
               return DONE_VALUE;
             });
-    var result = eval(ROOT_KEY, keepGoing);
+    var result = eval(rootKey, keepGoing);
     if (keepGoing) {
-      assertThat(result.get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+      assertThat(result.get(rootKey)).isEqualTo(DONE_VALUE);
       assertThat(result.hasError()).isFalse();
     } else {
-      assertThat(result.get(ROOT_KEY)).isNull();
+      assertThat(result.get(rootKey)).isNull();
       assertThatEvaluationResult(result).hasSingletonErrorThat(KEY_A1);
     }
     assertThat(StringOrExceptionProducer.isProcessValueOrExceptionCalled).isTrue();
@@ -523,7 +530,7 @@ public final class StateMachineTest {
     var gotError = new AtomicBoolean(false);
     tester.getOrCreate(KEY_A2).unsetConstantValue().setHasError(true);
     tester
-        .getOrCreate(ROOT_KEY)
+        .getOrCreate(rootKey)
         .setBuilder(
             (unusedKey, env) -> {
               // Primes KEY_A2, making the error available.
@@ -541,9 +548,9 @@ public final class StateMachineTest {
             });
     // keepGoing must be false below, otherwise the state machine will be run a second time when
     // KEY_A1 becomes available.
-    var result = eval(ROOT_KEY, /* keepGoing= */ false);
+    var result = eval(rootKey, /* keepGoing= */ false);
     assertThat(gotError.get()).isTrue();
-    assertThat(result.get(ROOT_KEY)).isNull();
+    assertThat(result.get(rootKey)).isNull();
     assertThatEvaluationResult(result).hasSingletonErrorThat(KEY_A2);
   }
 
@@ -598,7 +605,7 @@ public final class StateMachineTest {
   @Test
   public void valueOrException2Producer_propagatesValues() throws InterruptedException {
     tester
-        .getOrCreate(ROOT_KEY)
+        .getOrCreate(rootKey)
         .setBuilder(
             (k, env) -> {
               var producer = env.getState(StringOrException2Producer::new);
@@ -613,7 +620,7 @@ public final class StateMachineTest {
               }
               return DONE_VALUE;
             });
-    assertThat(eval(ROOT_KEY, /* keepGoing= */ false).get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+    assertThat(eval(rootKey, /* keepGoing= */ false).get(rootKey)).isEqualTo(DONE_VALUE);
   }
 
   @Test
@@ -624,7 +631,7 @@ public final class StateMachineTest {
     SkyKey errorKey = trueForException1 ? KEY_A1 : KEY_B1;
     tester.getOrCreate(errorKey).unsetConstantValue().setHasError(true);
     tester
-        .getOrCreate(ROOT_KEY)
+        .getOrCreate(rootKey)
         .setBuilder(
             (k, env) -> {
               var producer = env.getState(StringOrException2Producer::new);
@@ -643,12 +650,12 @@ public final class StateMachineTest {
               }
               return DONE_VALUE;
             });
-    var result = eval(ROOT_KEY, keepGoing);
+    var result = eval(rootKey, keepGoing);
     if (keepGoing) {
-      assertThat(result.get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+      assertThat(result.get(rootKey)).isEqualTo(DONE_VALUE);
       assertThat(result.hasError()).isFalse();
     } else {
-      assertThat(result.get(ROOT_KEY)).isNull();
+      assertThat(result.get(rootKey)).isNull();
       assertThatEvaluationResult(result).hasSingletonErrorThat(errorKey);
     }
   }
@@ -706,7 +713,7 @@ public final class StateMachineTest {
   public void valueOrException2Producer_singleLookup_propagatesValuesAndInvokesRunAfter()
       throws InterruptedException {
     tester
-        .getOrCreate(ROOT_KEY)
+        .getOrCreate(rootKey)
         .setBuilder(
             (k, env) -> {
               var producer = env.getState(StringOrException2ProducerWithSingleLookup::new);
@@ -721,7 +728,7 @@ public final class StateMachineTest {
               }
               return DONE_VALUE;
             });
-    assertThat(eval(ROOT_KEY, /* keepGoing= */ false).get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+    assertThat(eval(rootKey, /* keepGoing= */ false).get(rootKey)).isEqualTo(DONE_VALUE);
     assertThat(StringOrException2ProducerWithSingleLookup.isProcessValueOrExceptionCalled).isTrue();
   }
 
@@ -741,7 +748,7 @@ public final class StateMachineTest {
             });
 
     tester
-        .getOrCreate(ROOT_KEY)
+        .getOrCreate(rootKey)
         .setBuilder(
             (k, env) -> {
               var producer = env.getState(StringOrException2ProducerWithSingleLookup::new);
@@ -761,9 +768,9 @@ public final class StateMachineTest {
               return DONE_VALUE;
             });
 
-    var result = eval(ROOT_KEY, /* keepGoing= */ false);
+    var result = eval(rootKey, /* keepGoing= */ false);
 
-    assertThat(result.get(ROOT_KEY)).isNull();
+    assertThat(result.get(rootKey)).isNull();
     assertThatEvaluationResult(result).hasSingletonErrorThat(KEY_A1);
     assertThat(StringOrException2ProducerWithSingleLookup.isProcessValueOrExceptionCalled).isTrue();
   }
@@ -810,7 +817,7 @@ public final class StateMachineTest {
   @Test
   public void valueOrException3Producer_propagatesValues() throws InterruptedException {
     tester
-        .getOrCreate(ROOT_KEY)
+        .getOrCreate(rootKey)
         .setBuilder(
             (k, env) -> {
               var producer = env.getState(StringOrException3Producer::new);
@@ -825,7 +832,7 @@ public final class StateMachineTest {
               }
               return DONE_VALUE;
             });
-    assertThat(eval(ROOT_KEY, /* keepGoing= */ false).get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+    assertThat(eval(rootKey, /* keepGoing= */ false).get(rootKey)).isEqualTo(DONE_VALUE);
   }
 
   enum ValueOrException3ExceptionCase {
@@ -859,7 +866,7 @@ public final class StateMachineTest {
     SkyKey errorKey = exceptionCase.errorKey();
     tester.getOrCreate(errorKey).unsetConstantValue().setHasError(true);
     tester
-        .getOrCreate(ROOT_KEY)
+        .getOrCreate(rootKey)
         .setBuilder(
             (k, env) -> {
               var producer = env.getState(StringOrException3Producer::new);
@@ -884,12 +891,12 @@ public final class StateMachineTest {
               }
               return DONE_VALUE;
             });
-    var result = eval(ROOT_KEY, keepGoing);
+    var result = eval(rootKey, keepGoing);
     if (keepGoing) {
-      assertThat(result.get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+      assertThat(result.get(rootKey)).isEqualTo(DONE_VALUE);
       assertThat(result.hasError()).isFalse();
     } else {
-      assertThat(result.get(ROOT_KEY)).isNull();
+      assertThat(result.get(rootKey)).isNull();
       assertThatEvaluationResult(result).hasSingletonErrorThat(errorKey);
     }
   }
@@ -936,7 +943,7 @@ public final class StateMachineTest {
   public void valueOrException3Producer_singleLookup_propagatesValues()
       throws InterruptedException {
     tester
-        .getOrCreate(ROOT_KEY)
+        .getOrCreate(rootKey)
         .setBuilder(
             (k, env) -> {
               var producer = env.getState(StringOrException3ProducerWithSingleLookup::new);
@@ -951,7 +958,7 @@ public final class StateMachineTest {
               }
               return DONE_VALUE;
             });
-    assertThat(eval(ROOT_KEY, /* keepGoing= */ false).get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+    assertThat(eval(rootKey, /* keepGoing= */ false).get(rootKey)).isEqualTo(DONE_VALUE);
     assertThat(StringOrException3ProducerWithSingleLookup.isProcessValueOrExceptionCalled).isTrue();
   }
 
@@ -980,7 +987,7 @@ public final class StateMachineTest {
             });
 
     tester
-        .getOrCreate(ROOT_KEY)
+        .getOrCreate(rootKey)
         .setBuilder(
             (k, env) -> {
               var producer = env.getState(StringOrException3ProducerWithSingleLookup::new);
@@ -1006,9 +1013,9 @@ public final class StateMachineTest {
               return DONE_VALUE;
             });
 
-    var result = eval(ROOT_KEY, /* keepGoing= */ false);
+    var result = eval(rootKey, /* keepGoing= */ false);
 
-    assertThat(result.get(ROOT_KEY)).isNull();
+    assertThat(result.get(rootKey)).isNull();
     assertThatEvaluationResult(result).hasSingletonErrorThat(KEY_A1);
     assertThat(StringOrException3ProducerWithSingleLookup.isProcessValueOrExceptionCalled).isTrue();
   }
@@ -1033,7 +1040,7 @@ public final class StateMachineTest {
     } else {
       var unused = defineRootMachine(rootSupplier);
       // There are no errors in this test so the keepGoing value is arbitrary.
-      assertThat(eval(ROOT_KEY, /* keepGoing= */ true).get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+      assertThat(eval(rootKey, /* keepGoing= */ true).get(rootKey)).isEqualTo(DONE_VALUE);
     }
     assertThat(sink.value).isEqualTo(VALUE_A1);
     assertThat(sink.exception).isNull();
@@ -1090,23 +1097,23 @@ public final class StateMachineTest {
     }
 
     var unused = defineRootMachine(rootSupplier);
-    var result = eval(ROOT_KEY, keepGoing);
+    var result = eval(rootKey, keepGoing);
     assertThat(sink.value).isNull();
     if (exceptionCase.exceptionOrdinal() > lookupType.exceptionCount()) {
       // The exception was not handled.
       assertThat(sink.exception).isNull();
-      assertThat(result.get(ROOT_KEY)).isNull();
+      assertThat(result.get(rootKey)).isNull();
       assertThatEvaluationResult(result).hasSingletonErrorThat(KEY_A1);
       return;
     }
     assertThat(sink.exception).isEqualTo(exception);
     if (keepGoing) {
       // The error is completely handled.
-      assertThat(result.get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+      assertThat(result.get(rootKey)).isEqualTo(DONE_VALUE);
       return;
     }
     assertThatEvaluationResult(result).hasSingletonErrorThat(KEY_A1);
-    assertThat(result.get(ROOT_KEY)).isNull();
+    assertThat(result.get(rootKey)).isNull();
   }
 
   /**
@@ -1448,7 +1455,7 @@ public final class StateMachineTest {
       Supplier<List<StateMachine>> rootMachineSupplier) {
     AtomicInteger restartCount = new AtomicInteger();
     tester
-        .getOrCreate(ROOT_KEY)
+        .getOrCreate(rootKey)
         .setBuilder(
             (k, env) -> {
               if (!env.getState(
@@ -1467,14 +1474,14 @@ public final class StateMachineTest {
   private int evalMachineWithMultipleDrivers(Supplier<List<StateMachine>> rootMachineSupplier)
       throws InterruptedException {
     AtomicInteger restartCount = defineRootMachineWithMultipleDriver(rootMachineSupplier);
-    assertThat(eval(ROOT_KEY, /* keepGoing= */ false).get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+    assertThat(eval(rootKey, /* keepGoing= */ false).get(rootKey)).isEqualTo(DONE_VALUE);
     return restartCount.get();
   }
 
   @Test
   public void test_multipleStateMachinesInParallelDriver() throws InterruptedException {
     for (int i = 0; i < 100; ++i) {
-      graph.remove(ROOT_KEY);
+      graph.remove(rootKey);
       graph.remove(KEY_A1);
       graph.remove(KEY_A2);
       var v1Sink = new SkyValueSink();

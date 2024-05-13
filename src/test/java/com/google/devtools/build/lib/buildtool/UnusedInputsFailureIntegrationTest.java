@@ -77,10 +77,23 @@ public final class UnusedInputsFailureIntegrationTest extends BuildIntegrationTe
     write("foo/filler");
     write(
         "foo/BUILD",
-        "load('//foo:pruning.bzl', 'build_rule')",
-        "build_rule(name = 'foo', filler = ':filler', inputs = ':in', executable = ':unused.sh')",
-        "genrule(name = 'gen', outs = ['in'], tools = [':gen_run.sh'], cmd = '$(location"
-            + " :gen_run.sh) && touch $@')");
+        """
+        load("//foo:pruning.bzl", "build_rule")
+
+        build_rule(
+            name = "foo",
+            executable = ":unused.sh",
+            filler = ":filler",
+            inputs = ":in",
+        )
+
+        genrule(
+            name = "gen",
+            outs = ["in"],
+            cmd = "$(location :gen_run.sh) && touch $@",
+            tools = [":gen_run.sh"],
+        )
+        """);
     buildTarget("//foo:foo");
     bugReporter.assertNoExceptions();
 

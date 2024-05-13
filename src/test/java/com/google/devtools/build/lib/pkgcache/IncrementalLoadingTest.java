@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
@@ -452,7 +454,16 @@ public class IncrementalLoadingTest {
               loadingMock.getProductName());
       ConfiguredRuleClassProvider ruleClassProvider = loadingMock.createRuleClassProvider();
       PackageFactory pkgFactory =
-          loadingMock.getPackageFactoryBuilderForTesting(directories).build(ruleClassProvider, fs);
+          loadingMock
+              .getPackageFactoryBuilderForTesting(directories)
+              .setExtraSkyFunctions(
+                  ImmutableMap.of(
+                      SkyFunctions.MODULE_FILE,
+                      new ModuleFileFunction(
+                          ruleClassProvider.getBazelStarlarkEnvironment(),
+                          directories.getWorkspace(),
+                          ImmutableMap.of())))
+              .build(ruleClassProvider, fs);
       skyframeExecutor =
           BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
               .setPkgFactory(pkgFactory)

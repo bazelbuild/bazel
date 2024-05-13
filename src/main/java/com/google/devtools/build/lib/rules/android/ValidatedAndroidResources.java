@@ -219,11 +219,10 @@ public class ValidatedAndroidResources extends MergedAndroidResources
 
   @Override
   public boolean equals(Object object) {
-    if (!super.equals(object) || !(object instanceof ValidatedAndroidResources)) {
+    if (!super.equals(object) || !(object instanceof ValidatedAndroidResources other)) {
       return false;
     }
 
-    ValidatedAndroidResources other = (ValidatedAndroidResources) object;
     return rTxt.equals(other.rTxt)
         && sourceJar.equals(other.sourceJar)
         && apk.equals(other.apk)

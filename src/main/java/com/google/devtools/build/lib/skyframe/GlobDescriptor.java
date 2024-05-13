@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Globber;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -79,7 +78,7 @@ public final class GlobDescriptor implements SkyKey {
     this.packageId = Preconditions.checkNotNull(packageId);
     this.packageRoot = Preconditions.checkNotNull(packageRoot);
     this.subdir = Preconditions.checkNotNull(subdir);
-    this.pattern = Preconditions.checkNotNull(StringCanonicalizer.intern(pattern));
+    this.pattern = Preconditions.checkNotNull(pattern.intern());
     this.globberOperation = globberOperation;
   }
 
@@ -131,10 +130,9 @@ public final class GlobDescriptor implements SkyKey {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof GlobDescriptor)) {
+    if (!(obj instanceof GlobDescriptor other)) {
       return false;
     }
-    GlobDescriptor other = (GlobDescriptor) obj;
     return packageId.equals(other.packageId)
         && packageRoot.equals(other.packageRoot)
         && subdir.equals(other.subdir)

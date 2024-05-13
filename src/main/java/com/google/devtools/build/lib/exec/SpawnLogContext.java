@@ -121,6 +121,10 @@ public abstract class SpawnLogContext implements ActionContext {
     if (input.isSymlink()) {
       return false;
     }
+    // Virtual action inputs are always files.
+    if (input instanceof VirtualActionInput) {
+      return false;
+    }
     // There are two cases in which an input's declared type may disagree with the filesystem:
     //   (1) a source artifact pointing to a directory;
     //   (2) an output artifact declared as a file but materialized as a directory, when allowed by
@@ -155,8 +159,8 @@ public abstract class SpawnLogContext implements ActionContext {
     }
 
     if (input != null) {
-      if (input instanceof VirtualActionInput) {
-        byte[] blob = ((VirtualActionInput) input).getBytes().toByteArray();
+      if (input instanceof VirtualActionInput virtualActionInput) {
+        byte[] blob = virtualActionInput.getBytes().toByteArray();
         return builder
             .setHash(digestHashFunction.getHashFunction().hashBytes(blob).toString())
             .setSizeBytes(blob.length)

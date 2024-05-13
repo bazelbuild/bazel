@@ -102,8 +102,8 @@ public final class ComposingTransition implements ConfigurationTransition {
 
   @Override
   public boolean equals(Object other) {
-    return other instanceof ComposingTransition
-        && ((ComposingTransition) other).transition1.equals(this.transition1)
+    return other instanceof ComposingTransition composingTransition
+        && composingTransition.transition1.equals(this.transition1)
         && ((ComposingTransition) other).transition2.equals(this.transition2);
   }
 

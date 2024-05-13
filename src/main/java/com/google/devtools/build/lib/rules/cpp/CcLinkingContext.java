@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcLinkingContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkerInputApi;
@@ -44,6 +43,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator.Symbol;
 
 /** Structure of CcLinkingContext. */
 public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
@@ -75,9 +75,8 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       return linkOptions;
     }
 
-    public static LinkOptions of(
-        ImmutableList<String> linkOptions, SymbolGenerator<?> symbolGenerator) {
-      return new LinkOptions(linkOptions, symbolGenerator.generate());
+    public static LinkOptions of(ImmutableList<String> linkOptions, Symbol<?> symbol) {
+      return new LinkOptions(linkOptions, symbol);
     }
 
     @Override
@@ -91,10 +90,9 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof LinkOptions)) {
+      if (!(obj instanceof LinkOptions that)) {
         return false;
       }
-      LinkOptions that = (LinkOptions) obj;
       if (!this.symbolForEquality.equals(that.symbolForEquality)) {
         return false;
       }
@@ -182,10 +180,9 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof Linkstamp)) {
+      if (!(obj instanceof Linkstamp other)) {
         return false;
       }
-      Linkstamp other = (Linkstamp) obj;
       return artifact.equals(other.artifact) && nestedDigest == other.nestedDigest;
     }
   }
@@ -356,10 +353,9 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
     @Override
     public boolean equals(Object otherObject) {
-      if (!(otherObject instanceof LinkerInput)) {
+      if (!(otherObject instanceof LinkerInput other)) {
         return false;
       }
-      LinkerInput other = (LinkerInput) otherObject;
       if (this == other) {
         return true;
       }
@@ -616,10 +612,9 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
 
   @Override
   public boolean equals(Object otherObject) {
-    if (!(otherObject instanceof CcLinkingContext)) {
+    if (!(otherObject instanceof CcLinkingContext other)) {
       return false;
     }
-    CcLinkingContext other = (CcLinkingContext) otherObject;
     if (this == other) {
       return true;
     }

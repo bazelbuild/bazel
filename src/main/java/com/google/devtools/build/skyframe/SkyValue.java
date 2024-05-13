@@ -18,6 +18,11 @@ import java.io.PrintStream;
 /** A return value of a {@code SkyFunction}. */
 public interface SkyValue {
 
+  /** Return whether this value was cleared to reduce memory use. */
+  default boolean isCleared() {
+    return false;
+  }
+
   /** Print a representation of this value for debugging purposes. */
   default void debugPrint(PrintStream out) {
     // Just use toString.

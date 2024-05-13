@@ -271,13 +271,6 @@ public class DataResourceXml implements DataResource {
     }
   }
 
-  public static DataResourceXml fromPublic(DataSource source, ResourceType resourceType, int id) {
-    DataResourceXml dataResourceXml =
-        createWithNamespaces(
-            source, PublicXmlResourceValue.from(resourceType, id), Namespaces.empty());
-    return dataResourceXml;
-  }
-
   private static XmlResourceValue parseXmlElements(
       ResourceType resourceType,
       XMLEventReader eventReader,

@@ -37,6 +37,7 @@ public interface InMemoryNodeEntry extends NodeEntry {
   Object getCompressedDirectDepsForDoneEntry();
 
   @Override // Remove InterruptedException.
+  @Nullable
   SkyValue getValue();
 
   @Override // Remove InterruptedException.

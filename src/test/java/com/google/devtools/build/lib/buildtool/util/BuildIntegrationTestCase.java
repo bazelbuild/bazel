@@ -38,7 +38,10 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.InlineFileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -76,6 +79,9 @@ import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.integration.util.IntegrationMock;
+import com.google.devtools.build.lib.metrics.MetricsModule;
+import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.GcAfterBuildModule;
+import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.PostGCMemoryUseRecorderModule;
 import com.google.devtools.build.lib.network.ConnectivityStatusProvider;
 import com.google.devtools.build.lib.network.NoOpConnectivityModule;
 import com.google.devtools.build.lib.outputfilter.OutputFilteringModule;
@@ -105,6 +111,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -134,6 +141,8 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.lib.worker.WorkerModule;
 import com.google.devtools.build.skyframe.NotifyingHelper;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -250,7 +259,14 @@ public abstract class BuildIntegrationTestCase {
         nativeFileSystem.getPath(testRoot.getRelative(getDesiredWorkspaceRelative()).asFragment());
     beforeCreatingWorkspace(workspace);
     workspace.createDirectoryAndParents();
-    serverDirectories = createServerDirectories();
+    serverDirectories =
+        new ServerDirectories(
+            /* installBase= */ outputBase,
+            /* outputBase= */ outputBase,
+            /* outputUserRoot= */ outputBase,
+            /* execRootBase= */ getExecRootBase(),
+            // Arbitrary install base hash.
+            /* installMD5= */ "83bc4458738962b9b77480bac76164a9");
     directories =
         new BlazeDirectories(
             serverDirectories,
@@ -319,14 +335,8 @@ public abstract class BuildIntegrationTestCase {
         BugReport.handleCrash(Crash.from(exception), CrashContext.keepAlive());
   }
 
-  protected ServerDirectories createServerDirectories() {
-    return new ServerDirectories(
-        /*installBase=*/ outputBase,
-        /*outputBase=*/ outputBase,
-        /*outputUserRoot=*/ outputBase,
-        /*execRootBase=*/ outputBase.getRelative("execroot"),
-        // Arbitrary install base hash.
-        /*installMD5=*/ "83bc4458738962b9b77480bac76164a9");
+  protected Path getExecRootBase() {
+    return outputBase.getRelative("execroot");
   }
 
   protected void createRuntimeWrapper() throws Exception {
@@ -633,6 +643,16 @@ public abstract class BuildIntegrationTestCase {
     } else {
       builder.addBlazeModule(getMockBazelRepositoryModule());
     }
+
+    // Modules that are involved in the collection of heap-related metrics of a
+    // build. They need to be last in the modules order, so when the GCs happen
+    // at the end of the build, we mitigate the risk that objects are still held
+    // onto by the other modules.
+    // TODO(b/253394502): remove this when we have a better solution.
+    builder.addBlazeModule(new PostGCMemoryUseRecorderModule());
+    builder.addBlazeModule(new GcAfterBuildModule());
+    builder.addBlazeModule(new MetricsModule());
+
     return builder;
   }
 
@@ -973,12 +993,40 @@ public abstract class BuildIntegrationTestCase {
     }
   }
 
+  protected void assertContents(String expectedContents, String target) throws Exception {
+    assertContents(expectedContents, Iterables.getOnlyElement(getArtifacts(target)).getPath());
+  }
+
+  protected void assertContents(String expectedContents, Path path) throws Exception {
+    String actualContents = new String(FileSystemUtils.readContentAsLatin1(path));
+    // .indent(0) doesn't change the indentation, but normalizes all OS-specific endings.
+    assertThat(actualContents.indent(0).trim()).isEqualTo(expectedContents);
+  }
+
   protected String readContentAsLatin1String(Artifact artifact) throws IOException {
     return new String(FileSystemUtils.readContentAsLatin1(artifact.getPath()));
   }
 
   protected ByteString readContentAsByteArray(Artifact artifact) throws IOException {
     return ByteString.copyFrom(FileSystemUtils.readContent(artifact.getPath()));
+  }
+
+  protected String readInlineOutput(Artifact output) throws IOException, InterruptedException {
+    assertThat(output).isInstanceOf(DerivedArtifact.class);
+
+    SkyValue actionExecutionValue =
+        getSkyframeExecutor()
+            .getEvaluator()
+            .getExistingValue(((DerivedArtifact) output).getGeneratingActionKey());
+    assertThat(actionExecutionValue).isInstanceOf(ActionExecutionValue.class);
+
+    FileArtifactValue fileArtifactValue =
+        ((ActionExecutionValue) actionExecutionValue).getExistingFileArtifactValue(output);
+    assertThat(fileArtifactValue).isInstanceOf(InlineFileArtifactValue.class);
+
+    return new String(
+        FileSystemUtils.readContentAsLatin1(
+            ((InlineFileArtifactValue) fileArtifactValue).getInputStream()));
   }
 
   /**
@@ -1221,5 +1269,9 @@ public abstract class BuildIntegrationTestCase {
 
   protected Formatter getFormatterForLogging() {
     return new SimpleFormatter();
+  }
+
+  protected Set<SkyKey> getAllKeysInGraph() {
+    return getSkyframeExecutor().getEvaluator().getValues().keySet();
   }
 }

@@ -226,10 +226,9 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
       if (object == this) {
         return true;
       }
-      if (!(object instanceof FunctionPatchTransition)) {
+      if (!(object instanceof FunctionPatchTransition other)) {
         return false;
       }
-      FunctionPatchTransition other = (FunctionPatchTransition) object;
       return Objects.equals(attrObject, other.attrObject) && super.equals(other);
     }
 

@@ -54,6 +54,9 @@ public class BzlmodRepoCycleReporter implements CyclesReporter.SingleCycleReport
   private static final Predicate<SkyKey> IS_EXTENSION_IMPL =
       SkyFunctions.isSkyFunction(SkyFunctions.SINGLE_EXTENSION_EVAL);
 
+  private static final Predicate<SkyKey> IS_EXTENSION_VALIDATION =
+      SkyFunctions.isSkyFunction(SkyFunctions.SINGLE_EXTENSION);
+
   private static final Predicate<SkyKey> IS_REPO_MAPPING =
       SkyFunctions.isSkyFunction(SkyFunctions.REPOSITORY_MAPPING);
 
@@ -107,6 +110,7 @@ public class BzlmodRepoCycleReporter implements CyclesReporter.SingleCycleReport
                 IS_PACKAGE_LOOKUP,
                 IS_REPO_RULE,
                 IS_EXTENSION_IMPL,
+                IS_EXTENSION_VALIDATION,
                 IS_BZL_LOAD,
                 IS_CONTAINING_PACKAGE,
                 IS_REPO_MAPPING,
@@ -133,13 +137,11 @@ public class BzlmodRepoCycleReporter implements CyclesReporter.SingleCycleReport
             SkyKey input = (SkyKey) rawInput;
             if (input instanceof RepositoryDirectoryValue.Key) {
               return ((RepositoryDirectoryValue.Key) input).argument().toString();
-            } else if (input.argument() instanceof ModuleExtensionId) {
-              ModuleExtensionId id = (ModuleExtensionId) input.argument();
+            } else if (input.argument() instanceof ModuleExtensionId id) {
               return String.format(
                   "extension '%s' defined in %s",
                   id.getExtensionName(), id.getBzlFileLabel().getCanonicalForm());
-            } else if (input.argument() instanceof RepositoryMappingValue.Key) {
-              var key = (RepositoryMappingValue.Key) input.argument();
+            } else if (input.argument() instanceof RepositoryMappingValue.Key key) {
               if (key == RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS) {
                 return "repository mapping of @@ without WORKSPACE repos";
               }

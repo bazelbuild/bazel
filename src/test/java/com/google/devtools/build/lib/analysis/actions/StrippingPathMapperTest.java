@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static java.lang.String.format;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -92,22 +93,22 @@ public class StrippingPathMapperTest extends BuildViewTestCase {
                 .collect(toImmutableList()))
         .containsExactly(
             "java/com/google/test/A.java",
-            outDir + "/cfg/bin/java/com/google/test/B.java",
-            outDir + "/cfg/bin/java/com/google/test/C.java",
-            outDir + "/cfg/bin/java/com/google/test/liba-hjar.jar",
-            outDir + "/cfg/bin/java/com/google/test/liba-hjar.jdeps",
-            "-XepOpt:foo:bar=" + outDir + "/cfg/bin/java/com/google/test/B.java",
-            "-XepOpt:baz="
-                + outDir
-                + "/cfg/bin/java/com/google/test/C.java,"
-                + outDir
-                + "/cfg/bin/java/com/google/test/B.java");
+            format("%s/cfg/bin/java/com/google/test/B.java", outDir),
+            format("%s/cfg/bin/java/com/google/test/C.java", outDir),
+            format("%s/cfg/bin/java/com/google/test/liba-hjar.jar", outDir),
+            format("%s/cfg/bin/java/com/google/test/liba-hjar.jdeps", outDir),
+            format("-XepOpt:foo:bar=%s/cfg/bin/java/com/google/test/B.java", outDir),
+            format(
+                "-XepOpt:baz=%s/cfg/bin/java/com/google/test/C.java,%s/cfg/bin/java/com/google/test/B.java",
+                outDir, outDir));
   }
 
   private void addStarlarkRule(Dict<String, String> executionRequirements) throws IOException {
     scratch.file("defs/BUILD");
     scratch.file(
         "defs/defs.bzl",
+        "def _map_each(file):",
+        "    return '{}:{}:{}:{}'.format(file.short_path, file.path, file.root.path, file.dirname)",
         "def _my_rule_impl(ctx):",
         "    args = ctx.actions.args()",
         "    args.add(ctx.outputs.out)",
@@ -115,6 +116,7 @@ public class StrippingPathMapperTest extends BuildViewTestCase {
         "        depset(ctx.files.srcs),",
         "        before_each = '-source',",
         "        format_each = '<%s>',",
+        "        map_each = _map_each,",
         "    )",
         "    ctx.actions.run(",
         "        outputs = [ctx.outputs.out],",
@@ -122,7 +124,7 @@ public class StrippingPathMapperTest extends BuildViewTestCase {
         "        executable = ctx.executable._tool,",
         "        arguments = [args],",
         "        mnemonic = 'MyRuleAction',",
-        String.format("        execution_requirements = %s,", Starlark.repr(executionRequirements)),
+        format("        execution_requirements = %s,", Starlark.repr(executionRequirements)),
         "    )",
         "    return [DefaultInfo(files = depset([ctx.outputs.out]))]",
         "my_rule = rule(",
@@ -185,12 +187,14 @@ public class StrippingPathMapperTest extends BuildViewTestCase {
     String outDir = analysisMock.getProductName() + "-out";
     assertThat(spawn.getArguments().stream().collect(toImmutableList()))
         .containsExactly(
-            outDir + "/cfg/bin/tool/tool",
-            outDir + "/cfg/bin/pkg/out.bin",
+            format("%s/cfg/bin/tool/tool", outDir),
+            format("%s/cfg/bin/pkg/out.bin", outDir),
             "-source",
-            "<" + outDir + "/cfg/bin/pkg/gen_src.txt>",
+            format(
+                "<pkg/gen_src.txt:%1$s/cfg/bin/pkg/gen_src.txt:%1$s/cfg/bin:%1$s/cfg/bin/pkg>",
+                outDir),
             "-source",
-            "<pkg/source.txt>")
+            "<pkg/source.txt:pkg/source.txt::pkg>")
         .inOrder();
   }
 
@@ -215,12 +219,14 @@ public class StrippingPathMapperTest extends BuildViewTestCase {
     String outDir = analysisMock.getProductName() + "-out";
     assertThat(spawn.getArguments().stream().collect(toImmutableList()))
         .containsExactly(
-            outDir + "/cfg/bin/tool/tool",
-            outDir + "/cfg/bin/pkg/out.bin",
+            format("%s/cfg/bin/tool/tool", outDir),
+            format("%s/cfg/bin/pkg/out.bin", outDir),
             "-source",
-            "<" + outDir + "/cfg/bin/pkg/gen_src.txt>",
+            format(
+                "<pkg/gen_src.txt:%1$s/cfg/bin/pkg/gen_src.txt:%1$s/cfg/bin:%1$s/cfg/bin/pkg>",
+                outDir),
             "-source",
-            "<pkg/source.txt>")
+            "<pkg/source.txt:pkg/source.txt::pkg>")
         .inOrder();
   }
 }

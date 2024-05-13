@@ -14,25 +14,29 @@
 
 """Legacy apple_common module"""
 
-load(":common/objc/linking_support.bzl", "AppleDebugOutputsInfo", "linking_support")
+load(":common/objc/apple_env.bzl", "apple_host_system_env", "target_apple_env")
+load(":common/objc/apple_toolchain.bzl", "apple_toolchain")
+load(":common/objc/linking_support.bzl", "AppleDebugOutputsInfo", "AppleDynamicFrameworkInfo", "AppleExecutableBinaryInfo", "linking_support")
+load(":common/objc/objc_info.bzl", "ObjcInfo")
+load(":common/xcode/providers.bzl", "XcodeVersionInfo", "XcodeVersionPropertiesInfo")
 
 native_apple_common = _builtins.internal.apple_common
 
 apple_common = struct(
-    apple_toolchain = lambda: native_apple_common.apple_toolchain(),
+    apple_toolchain = lambda: apple_toolchain,
     platform_type = native_apple_common.platform_type,
     platform = native_apple_common.platform,
-    XcodeProperties = native_apple_common.XcodeProperties,
-    XcodeVersionConfig = native_apple_common.XcodeVersionConfig,
-    Objc = native_apple_common.Objc,
-    AppleDynamicFramework = native_apple_common.AppleDynamicFramework,
-    AppleExecutableBinary = native_apple_common.AppleExecutableBinary,
+    XcodeProperties = XcodeVersionPropertiesInfo,
+    XcodeVersionConfig = XcodeVersionInfo,
+    Objc = ObjcInfo,
+    AppleDynamicFramework = AppleDynamicFrameworkInfo,
+    AppleExecutableBinary = AppleExecutableBinaryInfo,
     AppleDebugOutputs = AppleDebugOutputsInfo,
-    apple_host_system_env = lambda xcode_config: native_apple_common.apple_host_system_env(xcode_config),
-    target_apple_env = lambda *args: native_apple_common.target_apple_env(*args),
-    new_objc_provider = lambda **kwargs: native_apple_common.new_objc_provider(**kwargs),
-    new_dynamic_framework_provider = lambda **kwargs: native_apple_common.new_dynamic_framework_provider(**kwargs),
-    new_executable_binary_provider = lambda **kwargs: native_apple_common.new_executable_binary_provider(**kwargs),
+    apple_host_system_env = apple_host_system_env,
+    target_apple_env = target_apple_env,
+    new_objc_provider = ObjcInfo,
+    new_dynamic_framework_provider = lambda **kwargs: AppleDynamicFrameworkInfo(**kwargs),
+    new_executable_binary_provider = lambda **kwargs: AppleExecutableBinaryInfo(**kwargs),
     link_multi_arch_binary = linking_support.link_multi_arch_binary,
     link_multi_arch_static_library = linking_support.link_multi_arch_static_library,
     dotted_version = lambda version: native_apple_common.dotted_version(version),

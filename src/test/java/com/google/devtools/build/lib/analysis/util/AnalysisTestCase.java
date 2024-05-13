@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.util;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -58,6 +60,8 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
@@ -235,8 +239,10 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             .setExtraPrecomputeValues(
                 ImmutableList.of(
                     PrecomputedValue.injected(
-                        ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
+                        ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())),
                     PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
+                    PrecomputedValue.injected(
+                        RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, false),
                     PrecomputedValue.injected(
                         ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
                     PrecomputedValue.injected(
@@ -287,8 +293,9 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
             PrecomputedValue.injected(
-                ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
+                ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())),
             PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
+            PrecomputedValue.injected(RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, false),
             PrecomputedValue.injected(
                 BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
                 CheckDirectDepsMode.WARNING),
@@ -724,5 +731,30 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
     useRuleClassProvider(builder.build());
     update();
+  }
+
+  /**
+   * Retrieves Starlark provider from a configured target.
+   *
+   * <p>Assuming that the provider is defined in the same bzl file as the rule.
+   */
+  protected StarlarkInfo getStarlarkProvider(ConfiguredTarget target, String providerSymbol)
+      throws Exception {
+    return getStarlarkProvider(
+        target,
+        getTarget(target.getLabel().toString())
+            .getAssociatedRule()
+            .getRuleClassObject()
+            .getRuleDefinitionEnvironmentLabel()
+            .toString(),
+        providerSymbol);
+  }
+
+  /** Retrieves Starlark provider from a configured target or aspect. */
+  protected StarlarkInfo getStarlarkProvider(
+      ProviderCollection target, String label, String providerSymbol) throws Exception {
+    StarlarkProvider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical(label)), providerSymbol);
+    return (StarlarkInfo) target.get(key);
   }
 }

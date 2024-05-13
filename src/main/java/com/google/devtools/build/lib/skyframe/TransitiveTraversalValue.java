@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
@@ -67,8 +66,7 @@ public abstract class TransitiveTraversalValue implements SkyValue {
 
   static TransitiveTraversalValue forTarget(Target target, @Nullable String errorMessage) {
     if (errorMessage == null) {
-      if (target instanceof Rule && ((Rule) target).getRuleClassObject().isStarlark()) {
-        Rule rule = (Rule) target;
+      if (target instanceof Rule rule && ((Rule) target).getRuleClassObject().isStarlark()) {
         // Do not intern values for Starlark rules.
         return TransitiveTraversalValue.create(
             rule.getRuleClassObject().getAdvertisedProviders(), rule.getTargetKind(), errorMessage);
@@ -79,8 +77,8 @@ public abstract class TransitiveTraversalValue implements SkyValue {
         }
 
         AdvertisedProviderSet providers =
-            target instanceof Rule
-                ? ((Rule) target).getRuleClassObject().getAdvertisedProviders()
+            target instanceof Rule rule
+                ? rule.getRuleClassObject().getAdvertisedProviders()
                 : AdvertisedProviderSet.EMPTY;
 
         value = new TransitiveTraversalValueWithoutError(providers, target.getTargetKind());
@@ -131,10 +129,9 @@ public abstract class TransitiveTraversalValue implements SkyValue {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof TransitiveTraversalValue)) {
+    if (!(o instanceof TransitiveTraversalValue that)) {
       return false;
     }
-    TransitiveTraversalValue that = (TransitiveTraversalValue) o;
     return Objects.equals(this.getErrorMessage(), that.getErrorMessage())
         && Objects.equals(this.getKind(), that.getKind())
         && this.getProviders().equals(that.getProviders());
@@ -186,7 +183,7 @@ public abstract class TransitiveTraversalValue implements SkyValue {
 
     private TransitiveTraversalValueWithError(String errorMessage, String kind) {
       super(kind);
-      this.errorMessage = StringCanonicalizer.intern(Preconditions.checkNotNull(errorMessage));
+      this.errorMessage = Preconditions.checkNotNull(errorMessage).intern();
     }
 
     @Override

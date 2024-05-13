@@ -57,7 +57,18 @@ import java.util.concurrent.CountDownLatch;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
-/** A {@link SkyFunction.Environment} implementation for {@link ParallelEvaluator}. */
+/**
+ * A {@link SkyFunction.Environment} implementation for {@link ParallelEvaluator}.
+ *
+ * <p>The base {@link SkyFunctionEnvironment} class batch prefetches previously requested deps
+ * during environment creation.
+ *
+ * <p>The {@link SkipsBatchPrefetch} subclass skips batch prefetching, so that it is more efficient
+ * to create the environment when the number of previously requested deps is extremely large.
+ */
+// TODO: b/324948927 - Instead of having individual `SkyKey`s overriding the `skipsBatchPrefetch`
+// method, some method similar to QueryableGraph#getLookupHint() when creating the environment to
+// know whether batch prefetch should happen.
 public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     implements SkyframeLookupResult, ExtendedEventHandler {
 
@@ -109,7 +120,7 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
    * from done nodes. In some cases, values may be {@link #NULL_MARKER} (see {@link #batchPrefetch}
    * for more details).
    *
-   * <p>In {@link PartialReevaluation}, this map is not exhaustive. It populates as the {@link
+   * <p>In {@link SkipsBatchPrefetch}, this map is not exhaustive. It populates as the {@link
    * SkyFunction} re-requests dep values, and will contain {@link #PENDING_MARKER}s when a key is
    * about to be requested from the graph.
    */
@@ -165,9 +176,8 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
         skyKey.functionName().getHermeticity() != FunctionHermeticity.NONHERMETIC
             ? firstNonNull(maxTransitiveSourceVersionSoFar, evaluatorContext.getMinimalVersion())
             : null;
-
-    return skyKey.supportsPartialReevaluation()
-        ? new SkyFunctionEnvironment.PartialReevaluation(
+    return skyKey.skipsBatchPrefetch()
+        ? new SkyFunctionEnvironment.SkipsBatchPrefetch(
             skyKey, previouslyRequestedDeps, oldDeps, evaluatorContext, maxTransitiveSourceVersion)
         : new SkyFunctionEnvironment(
             skyKey,
@@ -457,12 +467,26 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
         return bubbleErrorInfoValue;
       }
     }
-    SkyValue directDepsValue = previouslyRequestedDepsValues.get(key);
+    SkyValue directDepsValue = getPreviouslyRequestedDepValue(key);
     if (directDepsValue != null) {
       return directDepsValue;
     }
     directDepsValue = newlyRequestedDepsValues.get(key);
     return directDepsValue == MANUALLY_REGISTERED_MARKER ? null : directDepsValue;
+  }
+
+  /**
+   * Gets the value of previously requested dep from either the env-scoped map or the {@link
+   * #evaluatorContext}'s graph.
+   *
+   * <p>In {@link SkipsBatchPrefetch}, since previously requested deps values are not available
+   * after environment creation, so it needs to query the {@link #evaluatorContext}'s graph on
+   * demand.
+   */
+  @Nullable
+  @ForOverride
+  SkyValue getPreviouslyRequestedDepValue(SkyKey key) {
+    return previouslyRequestedDepsValues.get(key);
   }
 
   @ForOverride
@@ -664,11 +688,10 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       valuesMissing = true;
       return false;
     }
-    if (!(maybeWrappedValue instanceof ValueWithMetadata)) {
+    if (!(maybeWrappedValue instanceof ValueWithMetadata wrappedValue)) {
       resultCallback.acceptValue(depKey, maybeWrappedValue);
       return true;
     }
-    ValueWithMetadata wrappedValue = (ValueWithMetadata) maybeWrappedValue;
     if (!wrappedValue.hasError()) {
       resultCallback.acceptValue(depKey, wrappedValue.getValue());
       return true;
@@ -676,12 +699,12 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
 
     // Otherwise, there's an error.
     @Nullable Object result = handleError(depKey, wrappedValue);
-    if (result instanceof SkyValue) {
-      resultCallback.acceptValue(depKey, (SkyValue) result);
+    if (result instanceof SkyValue skyValue) {
+      resultCallback.acceptValue(depKey, skyValue);
       return true;
     }
-    if (result instanceof Exception
-        && resultCallback.tryHandleException(depKey, (Exception) result)) {
+    if (result instanceof Exception exception
+        && resultCallback.tryHandleException(depKey, exception)) {
       return true;
     }
     valuesMissing = true;
@@ -708,18 +731,17 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       valuesMissing = true;
       return null;
     }
-    if (!(maybeWrappedValue instanceof ValueWithMetadata)) {
+    if (!(maybeWrappedValue instanceof ValueWithMetadata wrappedValue)) {
       return maybeWrappedValue;
     }
-    ValueWithMetadata wrappedValue = (ValueWithMetadata) maybeWrappedValue;
     if (!wrappedValue.hasError()) {
       return wrappedValue.getValue();
     }
 
     // Otherwise, there's an error.
     @Nullable Object result = handleError(depKey, wrappedValue);
-    if (result instanceof SkyValue) {
-      return (SkyValue) result;
+    if (result instanceof SkyValue skyValue) {
+      return skyValue;
     }
     if (result instanceof Exception) {
       SkyFunctionException.throwIfInstanceOf(
@@ -1101,11 +1123,12 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   }
 
   /**
-   * The environment for a partial reevaluation differs from a regular environment in the following
-   * ways:
+   * The environment that skips eagerly batch prefetching previously requested deps during creation.
+   * Instead, their values are read from the graph on demand, in the same way as newly requested
+   * deps.
    *
-   * <p>Previously requested deps are not eagerly prefetched, for performance reasons. Instead,
-   * their values are read from the graph on demand, in the same way as newly requested deps.
+   * <p>This subclass is created if the {@link SkyKey} supports partial reevaluation or opts to skip
+   * batch prefetching previously requested deps values.
    *
    * <p>The {@link #ensurePreviouslyRequestedDepsFetched} method, which gets called prior to node
    * completion, isn't a no-op, because they weren't prefetched. They're needed for version, error,
@@ -1115,9 +1138,9 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
    * when the evaluator checks for a newly requested done dep to which the current node is being
    * added as an rdep, to ensure that dep's key gets delivered to this node's mailbox.
    */
-  private static final class PartialReevaluation extends SkyFunctionEnvironment {
+  private static final class SkipsBatchPrefetch extends SkyFunctionEnvironment {
 
-    private PartialReevaluation(
+    private SkipsBatchPrefetch(
         SkyKey skyKey,
         GroupedDeps previouslyRequestedDeps,
         Set<SkyKey> oldDeps,
@@ -1139,6 +1162,29 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       // Partial reevaluations don't prefetch all previously requested deps, because doing so is too
       // expensive, with how many more times those nodes get reevaluated.
       return new HashMap<>();
+    }
+
+    @Nullable
+    @Override
+    SkyValue getPreviouslyRequestedDepValue(SkyKey key) {
+      SkyFunctionEnvironment env = this;
+      if (!env.previouslyRequestedDeps.contains(key)) {
+        return null;
+      }
+      SkyValue possibleValueInMap = env.previouslyRequestedDepsValues.get(key);
+      if (possibleValueInMap != null) {
+        return possibleValueInMap;
+      }
+      try {
+        // TODO: b/324948927#comment14 - Figure out the approach to properly handle possible missing
+        // or undone deps before expanding the usage of `SkipsBatchPrefetch` or making
+        // `SkipsBatchPrefetch` as the default environment to create.
+        NodeEntry depEntry =
+            env.evaluatorContext.getGraph().get(env.skyKey, Reason.DEP_REQUESTED, key);
+        return processDepEntry(key, depEntry);
+      } catch (InterruptedException e) {
+        throw new IllegalStateException("No interruption when getting depEntry from depGraph", e);
+      }
     }
 
     @Nullable

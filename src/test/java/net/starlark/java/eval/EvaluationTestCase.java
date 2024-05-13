@@ -90,7 +90,11 @@ class EvaluationTestCase {
   StarlarkThread getStarlarkThread() {
     if (this.thread == null) {
       Mutability mu = Mutability.create("test");
-      this.thread = new StarlarkThread(mu, semantics);
+      this.thread =
+          StarlarkThread.create(
+              mu, semantics, /* contextDescription= */ "", SymbolGenerator.create("test"));
+      // Sets a post-assign hook to enable global export of StarlarkFunction Symbols.
+      this.thread.setPostAssignHook((unusedName, unusedValue) -> {});
     }
     return this.thread;
   }

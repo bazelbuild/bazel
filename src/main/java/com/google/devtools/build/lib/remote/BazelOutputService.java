@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.hash.Hashing.md5;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.BatchStatRequest;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.BatchStatResponse;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.CleanRequest;
@@ -41,7 +43,6 @@ import com.google.devtools.build.lib.remote.BazelOutputServiceProto.StartBuildRe
 import com.google.devtools.build.lib.remote.BazelOutputServiceREv2Proto.FileArtifactLocator;
 import com.google.devtools.build.lib.remote.BazelOutputServiceREv2Proto.StartBuildArgs;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.FileMetadata;
-import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
@@ -50,6 +51,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.BatchStat;
+import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
@@ -62,6 +64,8 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -75,10 +79,13 @@ public class BazelOutputService implements OutputService {
   private final Supplier<Path> execRootSupplier;
   private final Supplier<Path> outputPathSupplier;
   private final DigestFunction.Value digestFunction;
-  private final RemoteOptions remoteOptions;
+  private final String remoteCache;
+  private final String remoteInstanceName;
+  private final String remoteOutputServiceOutputPathPrefix;
   private final boolean verboseFailures;
   private final RemoteRetrier retrier;
   private final ReferenceCountedChannel channel;
+  @Nullable private final String lastBuildId;
 
   @Nullable private String buildId;
   @Nullable private PathFragment outputPathTarget;
@@ -88,18 +95,24 @@ public class BazelOutputService implements OutputService {
       Supplier<Path> execRootSupplier,
       Supplier<Path> outputPathSupplier,
       DigestFunction.Value digestFunction,
-      RemoteOptions remoteOptions,
+      String remoteCache,
+      String remoteInstanceName,
+      String remoteOutputServiceOutputPathPrefix,
       boolean verboseFailures,
       RemoteRetrier retrier,
-      ReferenceCountedChannel channel) {
+      ReferenceCountedChannel channel,
+      @Nullable String lastBuildId) {
     this.outputBaseId = DigestUtil.hashCodeToString(md5().hashString(outputBase.toString(), UTF_8));
     this.execRootSupplier = execRootSupplier;
     this.outputPathSupplier = outputPathSupplier;
     this.digestFunction = digestFunction;
-    this.remoteOptions = remoteOptions;
+    this.remoteCache = remoteCache;
+    this.remoteInstanceName = remoteInstanceName;
+    this.remoteOutputServiceOutputPathPrefix = remoteOutputServiceOutputPathPrefix;
     this.verboseFailures = verboseFailures;
     this.retrier = retrier;
     this.channel = channel;
+    this.lastBuildId = lastBuildId;
   }
 
   public void shutdown() {
@@ -182,7 +195,7 @@ public class BazelOutputService implements OutputService {
       throws AbruptExitException, InterruptedException {
     checkState(this.buildId == null, "this.buildId must be null");
     this.buildId = buildId.toString();
-    var outputPathPrefix = PathFragment.create(remoteOptions.remoteOutputServiceOutputPathPrefix);
+    var outputPathPrefix = PathFragment.create(remoteOutputServiceOutputPathPrefix);
     if (!outputPathPrefix.isEmpty() && !outputPathPrefix.isAbsolute()) {
       throw new AbruptExitException(
           DetailedExitCode.of(
@@ -207,8 +220,8 @@ public class BazelOutputService implements OutputService {
             .setArgs(
                 Any.pack(
                     StartBuildArgs.newBuilder()
-                        .setRemoteCache(remoteOptions.remoteCache)
-                        .setInstanceName(remoteOptions.remoteInstanceName)
+                        .setRemoteCache(remoteCache)
+                        .setInstanceName(remoteInstanceName)
                         .setDigestFunction(digestFunction)
                         .build()))
             .setOutputPathPrefix(outputPathPrefix.toString())
@@ -233,7 +246,12 @@ public class BazelOutputService implements OutputService {
     outputPathTarget = constructOutputPathTarget(outputPathPrefix, response);
     prepareOutputPath(outputPath, outputPathTarget);
 
-    if (finalizeActions) {
+    if (finalizeActions && response.hasInitialOutputPathContents()) {
+      var initialOutputPathContents = response.getInitialOutputPathContents();
+      if (!initialOutputPathContents.getBuildId().equals(lastBuildId)) {
+        return ModifiedFileSet.EVERYTHING_DELETED;
+      }
+
       // TODO(chiwang): Handle StartBuildResponse.initial_output_path_contents
     }
 
@@ -246,7 +264,7 @@ public class BazelOutputService implements OutputService {
         () ->
             channel.withChannelBlocking(
                 channel -> {
-                  try {
+                  try (var sc = Profiler.instance().profile("BazelOutputService.StartBuild")) {
                     return BazelOutputServiceGrpc.newBlockingStub(channel).startBuild(request);
                   } catch (StatusRuntimeException e) {
                     throw new IOException(e);
@@ -291,7 +309,7 @@ public class BazelOutputService implements OutputService {
         () ->
             channel.withChannelBlocking(
                 channel -> {
-                  try {
+                  try (var sc = Profiler.instance().profile("BazelOutputService.StageArtifacts")) {
                     return BazelOutputServiceGrpc.newBlockingStub(channel).stageArtifacts(request);
                   } catch (StatusRuntimeException e) {
                     throw new IOException(e);
@@ -331,7 +349,7 @@ public class BazelOutputService implements OutputService {
         () ->
             channel.withChannelBlocking(
                 channel -> {
-                  try {
+                  try (var sc = Profiler.instance().profile("BazelOutputService.FinalizeBuild")) {
                     return BazelOutputServiceGrpc.newBlockingStub(channel).finalizeBuild(request);
                   } catch (StatusRuntimeException e) {
                     throw new IOException(e);
@@ -372,7 +390,8 @@ public class BazelOutputService implements OutputService {
         () ->
             channel.withChannelBlocking(
                 channel -> {
-                  try {
+                  try (var sc =
+                      Profiler.instance().profile("BazelOutputService.FinalizeArtifacts")) {
                     return BazelOutputServiceGrpc.newBlockingStub(channel)
                         .finalizeArtifacts(request);
                   } catch (StatusRuntimeException e) {
@@ -401,10 +420,216 @@ public class BazelOutputService implements OutputService {
     }
   }
 
+  private record BazelOutputServiceFile(Digest digest) implements FileStatusWithDigest {
+    @Override
+    public boolean isFile() {
+      return true;
+    }
+
+    @Override
+    public boolean isDirectory() {
+      return false;
+    }
+
+    @Override
+    public boolean isSymbolicLink() {
+      return false;
+    }
+
+    @Override
+    public boolean isSpecialFile() {
+      return false;
+    }
+
+    @Override
+    public long getSize() {
+      return digest.getSizeBytes();
+    }
+
+    @Override
+    public long getLastModifiedTime() {
+      throw new UnsupportedOperationException("Cannot get last modified time");
+    }
+
+    @Override
+    public long getLastChangeTime() {
+      throw new UnsupportedOperationException("Cannot get last change time");
+    }
+
+    @Override
+    public long getNodeId() {
+      throw new UnsupportedOperationException("Cannot get node id");
+    }
+
+    @Nullable
+    @Override
+    public byte[] getDigest() {
+      return DigestUtil.toBinaryDigest(digest);
+    }
+  }
+
+  private record BazelOutputServiceSymlink(String target) implements FileStatusWithDigest {
+    @Override
+    public boolean isFile() {
+      return false;
+    }
+
+    @Override
+    public boolean isDirectory() {
+      return false;
+    }
+
+    @Override
+    public boolean isSymbolicLink() {
+      return true;
+    }
+
+    @Override
+    public boolean isSpecialFile() {
+      return false;
+    }
+
+    @Override
+    public long getSize() {
+      throw new UnsupportedOperationException("Cannot get size");
+    }
+
+    @Override
+    public long getLastModifiedTime() {
+      throw new UnsupportedOperationException("Cannot get last modified time");
+    }
+
+    @Override
+    public long getLastChangeTime() {
+      throw new UnsupportedOperationException("Cannot get last change time");
+    }
+
+    @Override
+    public long getNodeId() {
+      throw new UnsupportedOperationException("Cannot get node id");
+    }
+
+    @Nullable
+    @Override
+    public byte[] getDigest() {
+      throw new UnsupportedOperationException("Cannot get digest");
+    }
+  }
+
+  private record BazelOutputServiceDirectory() implements FileStatusWithDigest {
+    @Override
+    public boolean isFile() {
+      return false;
+    }
+
+    @Override
+    public boolean isDirectory() {
+      return true;
+    }
+
+    @Override
+    public boolean isSymbolicLink() {
+      return false;
+    }
+
+    @Override
+    public boolean isSpecialFile() {
+      return false;
+    }
+
+    @Override
+    public long getSize() {
+      throw new UnsupportedOperationException("Cannot get size");
+    }
+
+    @Override
+    public long getLastModifiedTime() {
+      return 0;
+    }
+
+    @Override
+    public long getLastChangeTime() {
+      throw new UnsupportedOperationException("Cannot get last change time");
+    }
+
+    @Override
+    public long getNodeId() {
+      throw new UnsupportedOperationException("Cannot get node id");
+    }
+
+    @Nullable
+    @Override
+    public byte[] getDigest() {
+      throw new UnsupportedOperationException("Cannot get digest");
+    }
+  }
+
   @Override
   public BatchStat getBatchStatter() {
-    // TODO(chiwang): implement this
-    return null;
+    return paths -> {
+      var outputPath = outputPathSupplier.get().asFragment();
+      var execRoot = execRootSupplier.get();
+
+      var request = BatchStatRequest.newBuilder();
+      request.setBuildId(checkNotNull(buildId));
+
+      var unsupportedPathIndexSet = new HashSet<Integer>();
+      int index = 0;
+      for (var execPath : paths) {
+        String pathString = null;
+        var path = execRoot.getRelative(execPath).asFragment();
+        if (path.startsWith(outputPath)) {
+          pathString = path.relativeTo(outputPath).toString();
+        } else if (path.startsWith(checkNotNull(outputPathTarget))) {
+          pathString = path.relativeTo(outputPathTarget).toString();
+        }
+
+        if (pathString == null) {
+          unsupportedPathIndexSet.add(index);
+        } else {
+          request.addPaths(pathString);
+        }
+        ++index;
+      }
+
+      var response = BazelOutputService.this.batchStat(request.build());
+      if (response.getResponsesCount() != request.getPathsCount()) {
+        throw new IOException(
+            String.format(
+                "BatchStat failed: expect %s responses, got %s",
+                request.getPathsCount(), response.getResponsesCount()));
+      }
+
+      var result = new ArrayList<FileStatusWithDigest>(index);
+      for (int i = 0; i < index; ++i) {
+        if (unsupportedPathIndexSet.contains(i)) {
+          result.add(null);
+          continue;
+        }
+
+        var statResponse = response.getResponses(i);
+        if (!statResponse.hasStat()) {
+          result.add(null);
+          continue;
+        }
+
+        var stat = statResponse.getStat();
+        if (stat.hasFile() && stat.getFile().hasLocator()) {
+          var locator = stat.getFile().getLocator();
+          result.add(
+              new BazelOutputServiceFile(locator.unpack(FileArtifactLocator.class).getDigest()));
+        } else if (stat.hasSymlink()) {
+          // TODO(chiwang): The target is currently unused by the call site, instead it resolves the
+          //  symlink manually. Optimize it.
+          result.add(new BazelOutputServiceSymlink(stat.getSymlink().getTarget()));
+        } else if (stat.hasDirectory()) {
+          result.add(new BazelOutputServiceDirectory());
+        } else {
+          result.add(null);
+        }
+      }
+      return result;
+    };
   }
 
   @Override
@@ -433,7 +658,7 @@ public class BazelOutputService implements OutputService {
         () ->
             channel.withChannelBlocking(
                 channel -> {
-                  try {
+                  try (var sc = Profiler.instance().profile("BazelOutputService.Clean")) {
                     return BazelOutputServiceGrpc.newBlockingStub(channel).clean(request);
                   } catch (StatusRuntimeException e) {
                     throw new IOException(e);
@@ -447,7 +672,7 @@ public class BazelOutputService implements OutputService {
         () ->
             channel.withChannelBlocking(
                 channel -> {
-                  try {
+                  try (var sc = Profiler.instance().profile("BazelOutputService.BatchStat")) {
                     return BazelOutputServiceGrpc.newBlockingStub(channel).batchStat(request);
                   } catch (StatusRuntimeException e) {
                     throw new IOException(e);

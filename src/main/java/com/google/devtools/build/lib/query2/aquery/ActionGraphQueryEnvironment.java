@@ -263,8 +263,8 @@ public class ActionGraphQueryEnvironment
   protected RuleConfiguredTarget getRuleConfiguredTarget(
       ConfiguredTargetValue configuredTargetValue) {
     ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
-    if (configuredTarget instanceof RuleConfiguredTarget) {
-      return (RuleConfiguredTarget) configuredTarget;
+    if (configuredTarget instanceof RuleConfiguredTarget ruleConfiguredTarget) {
+      return ruleConfiguredTarget;
     }
     return null;
   }
@@ -312,7 +312,7 @@ public class ActionGraphQueryEnvironment
         Futures.catchingAsync(
             patternToEval.evalAdaptedForAsync(
                 resolver,
-                getIgnoredPackagePrefixesPathFragments(),
+                getIgnoredPackagePrefixesPathFragments(patternToEval.getRepository()),
                 /* excludedSubdirectories= */ ImmutableSet.of(),
                 (Callback<Target>)
                     partialResult -> {

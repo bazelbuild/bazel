@@ -17,8 +17,8 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
-import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Before;
 import org.junit.Test;
@@ -107,8 +107,8 @@ public class AndroidPlatformsTest extends AndroidBuildViewTestCase {
 
     useConfiguration(EXTRA_SDK_TOOLCHAINS_FLAG, "--platforms=//android_platforms:x86_platform");
     ConfiguredTarget x86Binary = getConfiguredTarget("//java/a:a");
-    CppLinkAction x86Link =
-        (CppLinkAction) getGeneratingAction(getPrerequisiteArtifacts(x86Binary, "deps").get(0));
+    SpawnAction x86Link =
+        (SpawnAction) getGeneratingAction(getPrerequisiteArtifacts(x86Binary, "deps").get(0));
     // TODO(blaze-team): replace with the commented line below when platform-based resolution works.
     assertThat(x86Link.getArguments().get(0)).isEqualTo("/usr/bin/mock-ar");
     // assertThat(cppLinkAction.getLinkCommandLine().getLinkerPathString())
@@ -116,8 +116,8 @@ public class AndroidPlatformsTest extends AndroidBuildViewTestCase {
 
     useConfiguration(EXTRA_SDK_TOOLCHAINS_FLAG, "--platforms=//android_platforms:arm_platform");
     ConfiguredTarget armBinary = getConfiguredTarget("//java/a:a");
-    CppLinkAction armLink =
-        (CppLinkAction) getGeneratingAction(getPrerequisiteArtifacts(armBinary, "deps").get(0));
+    SpawnAction armLink =
+        (SpawnAction) getGeneratingAction(getPrerequisiteArtifacts(armBinary, "deps").get(0));
     // TODO(blaze-team): replace with the commented line below when platform-based resolution works.
     assertThat(armLink.getArguments().get(0)).isEqualTo("/usr/bin/mock-ar");
     // assertThat(cppLinkAction.getLinkCommandLine().getLinkerPathString())

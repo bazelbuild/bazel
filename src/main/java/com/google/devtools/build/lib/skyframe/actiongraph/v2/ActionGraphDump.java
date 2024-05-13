@@ -142,8 +142,8 @@ public class ActionGraphDump {
           TemplateExpansionException {
 
     // Store the content of param files.
-    if (includeParamFiles && (action instanceof ParameterFileWriteAction)) {
-      ParameterFileWriteAction parameterFileWriteAction = (ParameterFileWriteAction) action;
+    if (includeParamFiles
+        && (action instanceof ParameterFileWriteAction parameterFileWriteAction)) {
 
       Iterable<String> fileContent = parameterFileWriteAction.getArguments();
       String paramFileExecPath = action.getPrimaryOutput().getExecPathString();
@@ -167,8 +167,7 @@ public class ActionGraphDump {
             .setMnemonic(action.getMnemonic())
             .setTargetId(knownTargets.dataToIdAndStreamOutputProto(targetIdentifier));
 
-    if (action instanceof ActionExecutionMetadata) {
-      ActionExecutionMetadata actionExecutionMetadata = (ActionExecutionMetadata) action;
+    if (action instanceof ActionExecutionMetadata actionExecutionMetadata) {
       actionBuilder
           .setActionKey(
               actionExecutionMetadata.getKey(getActionKeyContext(), /*artifactExpander=*/ null))
@@ -176,8 +175,7 @@ public class ActionGraphDump {
     }
 
     // store environment
-    if (action instanceof AbstractAction && action instanceof CommandAction) {
-      AbstractAction spawnAction = (AbstractAction) action;
+    if (action instanceof AbstractAction spawnAction && action instanceof CommandAction) {
       // Some actions (e.g. CppCompileAction) don't override getEnvironment, but only
       // getEffectiveEnvironment. Since calling the latter with an empty client env returns the
       // fixed part of the full ActionEnvironment with the default implementations provided by
@@ -195,8 +193,7 @@ public class ActionGraphDump {
       }
     }
 
-    if (includeActionCmdLine && action instanceof CommandAction) {
-      CommandAction commandAction = (CommandAction) action;
+    if (includeActionCmdLine && action instanceof CommandAction commandAction) {
       actionBuilder.addAllArguments(commandAction.getArguments());
     }
 
@@ -281,8 +278,7 @@ public class ActionGraphDump {
           knownArtifacts.dataToIdAndStreamOutputProto(action.getPrimaryOutput()));
     }
 
-    if (action instanceof TemplateExpansionAction) {
-      TemplateExpansionAction templateExpansionAction = (TemplateExpansionAction) action;
+    if (action instanceof TemplateExpansionAction templateExpansionAction) {
       actionBuilder.setTemplateContent(AqueryUtils.getTemplateContent(templateExpansionAction));
 
       for (Substitution substitution : templateExpansionAction.getSubstitutions()) {

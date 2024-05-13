@@ -57,9 +57,11 @@ public interface TransitionFactory<T extends TransitionFactory.Data> {
   /** Returns a new {@link ConfigurationTransition}, based on the given data. */
   ConfigurationTransition create(T data);
 
-  default TransitionType transitionType() {
-    return TransitionType.ANY;
-  }
+  /**
+   * Returns a {@link TransitionType} to clarify what data (if any) the factory requires to create a
+   * transation.
+   */
+  TransitionType transitionType();
 
   // TODO(https://github.com/bazelbuild/bazel/issues/7814): Once everything uses TransitionFactory,
   // remove these methods.
@@ -75,5 +77,15 @@ public interface TransitionFactory<T extends TransitionFactory.Data> {
   /** Returns {@code true} if the result of this {@link TransitionFactory} is a split transition. */
   default boolean isSplit() {
     return false;
+  }
+
+  /** Visit this trnsition factory with the given visitor. */
+  default void visit(Visitor<T> visitor) {
+    visitor.visit(this);
+  }
+
+  /** Interface used to progressively visit transitions. */
+  interface Visitor<T extends TransitionFactory.Data> {
+    void visit(TransitionFactory<T> factory);
   }
 }

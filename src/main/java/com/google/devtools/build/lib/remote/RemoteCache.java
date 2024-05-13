@@ -273,8 +273,8 @@ public class RemoteCache extends AbstractReferenceCounted {
 
           @Override
           public void onFailure(Throwable t) {
-            if (t instanceof CacheNotFoundException) {
-              ((CacheNotFoundException) t).setFilename(blobName);
+            if (t instanceof CacheNotFoundException cacheNotFoundException) {
+              cacheNotFoundException.setFilename(blobName);
             }
             future.setException(t);
           }
@@ -370,11 +370,9 @@ public class RemoteCache extends AbstractReferenceCounted {
 
           @Override
           public void onFailure(Throwable throwable) {
-            if (throwable instanceof CacheNotFoundException) {
-              var cacheNotFoundException = (CacheNotFoundException) throwable;
+            if (throwable instanceof CacheNotFoundException cacheNotFoundException) {
               cacheNotFoundException.setFilename(outputPath);
-            } else if (throwable instanceof OutputDigestMismatchException) {
-              OutputDigestMismatchException e = ((OutputDigestMismatchException) throwable);
+            } else if (throwable instanceof OutputDigestMismatchException e) {
               e.setOutputPath(outputPath);
               e.setLocalPath(localPath);
             }

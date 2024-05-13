@@ -165,12 +165,11 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
    */
   private Iterable<SkyKey> getStrictLabelAspectKeys(
       Target target, SkyframeLookupResult depMap, Environment env) throws InterruptedException {
-    if (!(target instanceof Rule)) {
+    if (!(target instanceof Rule rule)) {
       // Aspects can be declared only for Rules.
       return ImmutableList.of();
     }
 
-    Rule rule = (Rule) target;
     if (!rule.hasAspects()) {
       return ImmutableList.of();
     }

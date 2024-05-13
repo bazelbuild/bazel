@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.ZipFilterBuilder.CheckHashMismatchMode;
@@ -73,6 +72,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.SymbolGenerator;
 
 /**
  * A helper class for android rules.
@@ -859,7 +859,8 @@ public class AndroidCommon {
     CcLinkingContext ccLinkingContext =
         CcLinkingContext.builder()
             .setOwner(label)
-            .addUserLinkFlags(ImmutableList.of(LinkOptions.of(linkOpts, symbolGenerator)))
+            .addUserLinkFlags(
+                ImmutableList.of(LinkOptions.of(linkOpts, symbolGenerator.generate())))
             .build();
 
     CcInfo linkoptsCcInfo = CcInfo.builder().setCcLinkingContext(ccLinkingContext).build();

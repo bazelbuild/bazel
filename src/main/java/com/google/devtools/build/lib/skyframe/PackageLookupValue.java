@@ -245,10 +245,9 @@ public abstract class PackageLookupValue implements SkyValue {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof SuccessfulPackageLookupValue)) {
+      if (!(obj instanceof SuccessfulPackageLookupValue other)) {
         return false;
       }
-      SuccessfulPackageLookupValue other = (SuccessfulPackageLookupValue) obj;
       return root.equals(other.root)
           && buildFileName == other.buildFileName
           && hasProjectFile == other.hasProjectFile;
@@ -291,13 +290,12 @@ public abstract class PackageLookupValue implements SkyValue {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof SuccessfulExternalPackageLookupValue)) {
+      if (!(obj instanceof SuccessfulExternalPackageLookupValue other)) {
         return false;
       }
       if (!super.equals(obj)) {
         return false;
       }
-      SuccessfulExternalPackageLookupValue other = (SuccessfulExternalPackageLookupValue) obj;
       return repository.equals(other.repository);
     }
 
@@ -382,10 +380,9 @@ public abstract class PackageLookupValue implements SkyValue {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof InvalidNamePackageLookupValue)) {
+      if (!(obj instanceof InvalidNamePackageLookupValue other)) {
         return false;
       }
-      InvalidNamePackageLookupValue other = (InvalidNamePackageLookupValue) obj;
       return errorMsg.equals(other.errorMsg);
     }
 
@@ -438,11 +435,9 @@ public abstract class PackageLookupValue implements SkyValue {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof IncorrectRepositoryReferencePackageLookupValue)) {
+      if (!(obj instanceof IncorrectRepositoryReferencePackageLookupValue other)) {
         return false;
       }
-      IncorrectRepositoryReferencePackageLookupValue other =
-          (IncorrectRepositoryReferencePackageLookupValue) obj;
       return Objects.equal(invalidPackageIdentifier, other.invalidPackageIdentifier)
           && Objects.equal(correctedPackageIdentifier, other.correctedPackageIdentifier);
     }

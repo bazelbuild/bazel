@@ -14,10 +14,20 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -25,6 +35,8 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
+import net.starlark.java.spelling.SpellChecker;
 
 /**
  * Represents a symbolic macro, defined in a .bzl file, that may be instantiated during Package
@@ -35,12 +47,25 @@ import net.starlark.java.eval.StarlarkThread;
  */
 public final class MacroClass {
 
+  /**
+   * Names that users may not pass as keys of the {@code attrs} dict when calling {@code macro()}.
+   *
+   * <p>Of these, {@code name} is special cased as an actual attribute, and the rest do not exist.
+   */
+  // Keep in sync with `macro()`'s `attrs` user documentation in StarlarkRuleFunctionsApi.
+  public static final ImmutableSet<String> RESERVED_MACRO_ATTR_NAMES =
+      ImmutableSet.of("name", "visibility", "deprecation", "tags", "testonly", "features");
+
   private final String name;
   private final StarlarkFunction implementation;
+  // Implicit attributes are stored under their given name ("_foo"), not a mangled name ("$foo").
+  private final ImmutableMap<String, Attribute> attributes;
 
-  public MacroClass(String name, StarlarkFunction implementation) {
+  public MacroClass(
+      String name, StarlarkFunction implementation, ImmutableMap<String, Attribute> attributes) {
     this.name = name;
     this.implementation = implementation;
+    this.attributes = attributes;
   }
 
   /** Returns the macro's exported name. */
@@ -52,10 +77,15 @@ public final class MacroClass {
     return implementation;
   }
 
+  public ImmutableMap<String, Attribute> getAttributes() {
+    return attributes;
+  }
+
   /** Builder for {@link MacroClass}. */
   public static final class Builder {
-    private final StarlarkFunction implementation;
     @Nullable private String name = null;
+    private final StarlarkFunction implementation;
+    private final ImmutableMap.Builder<String, Attribute> attributes = ImmutableMap.builder();
 
     public Builder(StarlarkFunction implementation) {
       this.implementation = implementation;
@@ -67,10 +97,126 @@ public final class MacroClass {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder addAttribute(Attribute attribute) {
+      attributes.put(attribute.getName(), attribute);
+      return this;
+    }
+
     public MacroClass build() {
       Preconditions.checkNotNull(name);
-      return new MacroClass(name, implementation);
+      return new MacroClass(name, implementation, attributes.buildOrThrow());
     }
+  }
+
+  /**
+   * Constructs and returns a new {@link MacroInstance} associated with this {@code MacroClass}.
+   *
+   * <p>See {@link #instantiateAndAddMacro}.
+   */
+  // TODO(#19922): Consider reporting multiple events instead of failing on the first one. See
+  // analogous implementation in RuleClass#populateDefinedRuleAttributeValues.
+  private MacroInstance instantiateMacro(Package.Builder pkgBuilder, Map<String, Object> kwargs)
+      throws EvalException {
+    // A word on edge cases:
+    //   - If an attr is implicit but does not have a default specified, its value is just the
+    //     default value for its attr type (e.g. `[]` for `attr.label_list()`).
+    //   - If an attr is implicit but also mandatory, it's impossible to instantiate it without
+    //     error.
+    //   - If an attr is mandatory but also has a default, the default is meaningless.
+    // These behaviors align with rule attributes.
+
+    LinkedHashMap<String, Object> attrValues = new LinkedHashMap<>();
+
+    // For each given attr value, validate that the attr exists and can be set.
+    for (Map.Entry<String, Object> entry : kwargs.entrySet()) {
+      String attrName = entry.getKey();
+      Object value = entry.getValue();
+      Attribute attr = attributes.get(attrName);
+
+      // Check for unknown attr.
+      if (attr == null) {
+        throw Starlark.errorf(
+            "no such attribute '%s' in '%s' macro%s",
+            attrName,
+            name,
+            SpellChecker.didYouMean(
+                attrName,
+                attributes.values().stream()
+                    .filter(Attribute::isDocumented)
+                    .map(Attribute::getName)
+                    .collect(toImmutableList())));
+      }
+
+      // Setting an attr to None is the same as omitting it (except that it's still an error to set
+      // an unknown attr to None).
+      if (value == Starlark.NONE) {
+        continue;
+      }
+
+      // Can't set implicit default.
+      // (We don't check Attribute#isImplicit() because that assumes "_" -> "$" prefix mangling.)
+      if (attr.getName().startsWith("_")) {
+        throw Starlark.errorf("cannot set value of implicit attribute '%s'", attr.getName());
+      }
+
+      attrValues.put(attrName, value);
+    }
+
+    // Populate defaults for the rest, and validate that no mandatory attr was missed.
+    for (Attribute attr : attributes.values()) {
+      if (attrValues.containsKey(attr.getName())) {
+        continue;
+      }
+      if (attr.isMandatory()) {
+        throw Starlark.errorf(
+            "missing value for mandatory attribute '%s' in '%s' macro", attr.getName(), name);
+      } else {
+        // Already validated at schema creation time that the default is not a computed default or
+        // late-bound default
+        attrValues.put(attr.getName(), attr.getDefaultValueUnchecked());
+      }
+    }
+
+    // Normalize and validate all attr values. (E.g., convert strings to labels, fail if bool was
+    // passed instead of label, ensure values are immutable.)
+    for (Map.Entry<String, Object> entry : ImmutableMap.copyOf(attrValues).entrySet()) {
+      String attrName = entry.getKey();
+      Attribute attribute = attributes.get(attrName);
+      Object normalizedValue =
+          // copyAndLiftStarlarkValue ensures immutability.
+          BuildType.copyAndLiftStarlarkValue(
+              name, attribute, entry.getValue(), pkgBuilder.getLabelConverter());
+      // TODO(#19922): Validate that LABEL_LIST type attributes don't contain duplicates, to match
+      // the behavior of rules. This probably requires factoring out logic from
+      // AggregatingAttributeMapper.
+      if (attribute.isConfigurable() && !(normalizedValue instanceof SelectorList)) {
+        normalizedValue = SelectorList.wrapSingleValue(normalizedValue);
+      }
+      attrValues.put(attrName, normalizedValue);
+    }
+
+    return new MacroInstance(this, attrValues);
+  }
+
+  /**
+   * Constructs a new {@link MacroInstance} associated with this {@code MacroClass}, adds it to the
+   * package, and returns it.
+   *
+   * @param pkgBuilder The builder corresponding to the package in which this instance will live.
+   * @param kwargs A map from attribute name to its given Starlark value, such as passed in a BUILD
+   *     file (i.e., prior to attribute type conversion, {@code select()} promotion, default value
+   *     substitution, or even validation that the attribute exists).
+   */
+  public MacroInstance instantiateAndAddMacro(
+      Package.Builder pkgBuilder, Map<String, Object> kwargs) throws EvalException {
+    MacroInstance macroInstance = instantiateMacro(pkgBuilder, kwargs);
+    try {
+      pkgBuilder.addMacro(macroInstance);
+    } catch (NameConflictException e) {
+      throw new EvalException(e);
+    }
+    return macroInstance;
   }
 
   /**
@@ -85,7 +231,13 @@ public final class MacroClass {
       throws InterruptedException {
     try (Mutability mu =
         Mutability.create("macro", builder.getPackageIdentifier(), macro.getName())) {
-      StarlarkThread thread = new StarlarkThread(mu, semantics);
+      StarlarkThread thread =
+          StarlarkThread.create(
+              mu,
+              semantics,
+              /* contextDescription= */ "",
+              SymbolGenerator.create(
+                  MacroId.create(builder.getPackageIdentifier(), macro.getName())));
       thread.setPrintHandler(Event.makeDebugPrintHandler(builder.getLocalEventHandler()));
 
       // TODO: #19922 - Technically the embedded SymbolGenerator field should use a different key
@@ -99,11 +251,12 @@ public final class MacroClass {
       // ConfiguredRuleClassProvider. For instance, we could put it in the builder.
 
       try {
-        Starlark.fastcall(
+        builder.pushMacro(macro);
+        Starlark.call(
             thread,
             macro.getMacroClass().getImplementation(),
-            /* positional= */ new Object[] {},
-            /* named= */ new Object[] {"name", macro.getName()});
+            /* args= */ ImmutableList.of(),
+            /* kwargs= */ macro.getAttrValues());
       } catch (EvalException ex) {
         builder
             .getLocalEventHandler()
@@ -111,7 +264,21 @@ public final class MacroClass {
                 Package.error(
                     /* location= */ null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
         builder.setContainsErrors();
+      } finally {
+        MacroInstance top = builder.popMacro();
+        Preconditions.checkState(top == macro, "inconsistent macro stack state");
       }
     }
+  }
+
+  @AutoValue
+  abstract static class MacroId {
+    static MacroId create(PackageIdentifier id, String name) {
+      return new AutoValue_MacroClass_MacroId(id, name);
+    }
+
+    abstract PackageIdentifier packageId();
+
+    abstract String name();
   }
 }

@@ -15,13 +15,15 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.bzlmod.IndexRegistry.KnownFileHashesMode;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.vfs.Path;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 /** Prod implementation of {@link RegistryFactory}. */
@@ -29,7 +31,6 @@ public class RegistryFactoryImpl implements RegistryFactory {
   private final Path workspacePath;
   private final DownloadManager downloadManager;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
-  private final Cache<String, Registry> registries = Caffeine.newBuilder().build();
 
   public RegistryFactoryImpl(
       Path workspacePath,
@@ -41,7 +42,9 @@ public class RegistryFactoryImpl implements RegistryFactory {
   }
 
   @Override
-  public Registry getRegistryWithUrl(String unresolvedUrl) throws URISyntaxException {
+  public Registry createRegistry(
+      String unresolvedUrl, ImmutableMap<String, Optional<Checksum>> knownFileHashes)
+      throws URISyntaxException {
     URI uri = new URI(unresolvedUrl.replace("%workspace%", workspacePath.getPathString()));
     if (uri.getScheme() == null) {
       throw new URISyntaxException(
@@ -55,17 +58,19 @@ public class RegistryFactoryImpl implements RegistryFactory {
           "Registry URL path is not valid -- did you mean to use file:///foo/bar "
               + "or file:///c:/foo/bar for Windows?");
     }
-    switch (uri.getScheme()) {
-      case "http":
-      case "https":
-      case "file":
-        return registries.get(
-            unresolvedUrl,
-            unused ->
-                new IndexRegistry(
-                    uri, unresolvedUrl, downloadManager, clientEnvironmentSupplier.get()));
-      default:
-        throw new URISyntaxException(uri.toString(), "Unrecognized registry URL protocol");
-    }
+    var knownFileHashesMode =
+        switch (uri.getScheme()) {
+          case "http", "https" -> KnownFileHashesMode.USE_AND_UPDATE;
+          case "file" -> KnownFileHashesMode.IGNORE;
+          default ->
+              throw new URISyntaxException(uri.toString(), "Unrecognized registry URL protocol");
+        };
+    return new IndexRegistry(
+        uri,
+        unresolvedUrl,
+        downloadManager,
+        clientEnvironmentSupplier.get(),
+        knownFileHashes,
+        knownFileHashesMode);
   }
 }

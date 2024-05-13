@@ -17,13 +17,10 @@ package com.google.devtools.build.lib.analysis.config;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Command-line build options for a Blaze module. */
@@ -145,29 +142,5 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
     public String getErrorMessage() {
       return errorMessage;
     }
-  }
-
-  /**
-   * Returns a map from options defined by this fragment to restrictions on whether the option may
-   * appear in a {@code config_setting}. If an option defined by this fragment is not a key of this
-   * map, then it has no restriction.
-   *
-   * <p>In addition to making options unconditionally non-selectable, this can also be used to gate
-   * selectability based on the value of other flags in the same fragment -- for instance,
-   * experimental or incompatible change flags.
-   *
-   * <p>The intended usage pattern is to define, for each flag {@code foo} to have a restriction, a
-   * field
-   *
-   * <pre>{@code
-   * private static final OptionDefinition FOO_DEFINITION =
-   *     OptionsParser.getOptionDefinitionByName(ThisClass.class, "foo");
-   * }</pre>
-   *
-   * This way, if the option is ever renamed (especially common for an experimental flag), if the
-   * definition is not updated at the same time it will fail-fast during static initialization.
-   */
-  public Map<OptionDefinition, SelectRestriction> getSelectRestrictions() {
-    return ImmutableMap.of();
   }
 }

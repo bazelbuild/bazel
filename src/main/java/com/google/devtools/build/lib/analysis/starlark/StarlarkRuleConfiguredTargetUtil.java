@@ -299,9 +299,8 @@ public final class StarlarkRuleConfiguredTargetUtil {
         StarlarkInfo.create(StructProvider.STRUCT, ImmutableMap.of(), implLoc);
     Map<Provider.Key, Info> declaredProviders = new LinkedHashMap<>();
 
-    if (rawProviders instanceof Info) {
+    if (rawProviders instanceof Info info) {
       // Either an old-style struct or a single declared provider (not in a list)
-      Info info = (Info) rawProviders;
       if (getProviderKey(info).equals(StructProvider.STRUCT.getKey())) {
         if (context
             .getAnalysisEnvironment()
@@ -329,8 +328,8 @@ public final class StarlarkRuleConfiguredTargetUtil {
           }
         }
       } else {
-        if (info instanceof StarlarkInfo) {
-          info = ((StarlarkInfo) info).unsafeOptimizeMemoryLayout();
+        if (info instanceof StarlarkInfo starlarkInfo) {
+          info = starlarkInfo.unsafeOptimizeMemoryLayout();
         }
         Provider.Key providerKey = getProviderKey(info);
         // Single declared provider
@@ -420,8 +419,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
       throws EvalException {
     builder.addStarlarkTransitiveInfo(fieldName, value);
 
-    if (value instanceof Info) {
-      Info info = (Info) value;
+    if (value instanceof Info info) {
 
       // To facilitate migration off legacy provider syntax, implicitly set the modern provider key
       // and the canonical legacy provider key if applicable.
@@ -429,9 +427,8 @@ public final class StarlarkRuleConfiguredTargetUtil {
         builder.addNativeDeclaredProvider(info);
       }
 
-      if (info.getProvider() instanceof BuiltinProvider.WithLegacyStarlarkName) {
-        BuiltinProvider.WithLegacyStarlarkName providerWithLegacyName =
-            (BuiltinProvider.WithLegacyStarlarkName) info.getProvider();
+      if (info.getProvider()
+          instanceof BuiltinProvider.WithLegacyStarlarkName providerWithLegacyName) {
         if (shouldAddWithLegacyKey(oldStyleProviders, providerWithLegacyName)) {
           builder.addStarlarkTransitiveInfo(providerWithLegacyName.getStarlarkName(), info);
         }

@@ -101,10 +101,9 @@ public class FakeLoadTarget implements Target {
 
   @Override
   public boolean equals(Object obj) {
-    if (!(obj instanceof FakeLoadTarget)) {
+    if (!(obj instanceof FakeLoadTarget other)) {
       return false;
     }
-    FakeLoadTarget other = (FakeLoadTarget) obj;
     return label.equals(other.label) && pkg.equals(other.pkg);
   }
 

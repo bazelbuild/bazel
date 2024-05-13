@@ -134,8 +134,7 @@ public class ConfigCommand implements BlazeCommand {
 
     @Override
     public boolean equals(Object o) {
-      if (o instanceof ConfigurationDiffForOutput) {
-        ConfigurationDiffForOutput other = (ConfigurationDiffForOutput) o;
+      if (o instanceof ConfigurationDiffForOutput other) {
         return other.configHash1.equals(configHash1)
             && other.configHash2.equals(configHash2)
             && other.fragmentsDiff.equals(fragmentsDiff);
@@ -166,8 +165,7 @@ public class ConfigCommand implements BlazeCommand {
 
     @Override
     public boolean equals(Object o) {
-      if (o instanceof FragmentDiffForOutput) {
-        FragmentDiffForOutput other = (FragmentDiffForOutput) o;
+      if (o instanceof FragmentDiffForOutput other) {
         return other.name.equals(name) && other.optionsDiff.equals(optionsDiff);
       }
       return false;

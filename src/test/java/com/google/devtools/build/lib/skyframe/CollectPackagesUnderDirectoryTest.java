@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -37,7 +38,12 @@ public final class CollectPackagesUnderDirectoryTest
 
   @Override
   protected ImmutableMap<SkyFunctionName, SkyFunction> getExtraSkyFunctions() {
-    return ImmutableMap.of();
+    return ImmutableMap.of(
+        SkyFunctions.MODULE_FILE,
+        new ModuleFileFunction(
+            ruleClassProvider.getBazelStarlarkEnvironment(),
+            directories.getWorkspace(),
+            ImmutableMap.of()));
   }
 
   @Override

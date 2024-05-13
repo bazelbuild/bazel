@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -24,7 +23,6 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
@@ -39,10 +37,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import javax.annotation.Nullable;
 
+/** An artifact conflict finder used in noskymeld mode. */
 class ArtifactConflictFinder {
-  static final Precomputed<ImmutableMap<ActionAnalysisMetadata, ConflictException>>
+  static final Precomputed<ImmutableMap<ActionAnalysisMetadata, ActionConflictException>>
       ACTION_CONFLICTS = new Precomputed<>("action_conflicts");
   // Action graph construction is CPU-bound.
   static final int NUM_JOBS = Runtime.getRuntime().availableProcessors();
@@ -54,7 +52,7 @@ class ArtifactConflictFinder {
    * (unshareable) actions generate the same output artifact, this will result in an {@link
    * ActionConflictException}. Second, if one action generates an artifact whose path is a prefix of
    * another artifact's path, those two artifacts cannot exist simultaneously in the output tree.
-   * This causes an {@link ArtifactPrefixConflictException}.
+   * This causes an {@link ActionConflictException}.
    *
    * <p>This method must be called if a new action was added to the graph this build, so whenever a
    * new configured target was analyzed this build. It is somewhat expensive (~1s range for a medium
@@ -65,7 +63,7 @@ class ArtifactConflictFinder {
       int actionCount,
       ActionKeyContext actionKeyContext)
       throws InterruptedException {
-    ConcurrentMap<ActionAnalysisMetadata, ConflictException> temporaryBadActionMap =
+    ConcurrentMap<ActionAnalysisMetadata, ActionConflictException> temporaryBadActionMap =
         new ConcurrentHashMap<>();
 
     // Use the action count to presize - all actions have at least one output artifact.
@@ -78,12 +76,11 @@ class ArtifactConflictFinder {
         actionLookupValues,
         temporaryBadActionMap);
 
-    Map<ActionAnalysisMetadata, ArtifactPrefixConflictException> actionsWithArtifactPrefixConflict =
+    Map<ActionAnalysisMetadata, ActionConflictException> actionsWithArtifactPrefixConflict =
         Actions.findArtifactPrefixConflicts(actionGraph, artifacts);
-    for (Map.Entry<ActionAnalysisMetadata, ArtifactPrefixConflictException> actionExceptionPair :
+    for (Map.Entry<ActionAnalysisMetadata, ActionConflictException> actionExceptionPair :
         actionsWithArtifactPrefixConflict.entrySet()) {
-      temporaryBadActionMap.put(
-          actionExceptionPair.getKey(), new ConflictException(actionExceptionPair.getValue()));
+      temporaryBadActionMap.put(actionExceptionPair.getKey(), actionExceptionPair.getValue());
     }
     return ActionConflictsAndStats.create(
         ImmutableMap.copyOf(temporaryBadActionMap),
@@ -99,7 +96,7 @@ class ArtifactConflictFinder {
       MutableActionGraph actionGraph,
       List<Artifact> artifacts,
       Sharder<ActionLookupValue> actionShards,
-      ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap)
+      ConcurrentMap<ActionAnalysisMetadata, ActionConflictException> badActionMap)
       throws InterruptedException {
     ExecutorService executor =
         Executors.newFixedThreadPool(
@@ -117,7 +114,7 @@ class ArtifactConflictFinder {
       List<ActionLookupValue> values,
       MutableActionGraph actionGraph,
       List<Artifact> allArtifacts,
-      ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap) {
+      ConcurrentMap<ActionAnalysisMetadata, ActionConflictException> badActionMap) {
     // Accumulated and added to the shared list at the end to reduce contention.
     List<Artifact> myArtifacts = new ArrayList<>(values.size());
 
@@ -129,7 +126,7 @@ class ArtifactConflictFinder {
           // It may be possible that we detect a conflict for the same action more than once, if
           // that action belongs to multiple aspect values. In this case we will harmlessly
           // overwrite the badActionMap entry.
-          badActionMap.put(action, new ConflictException(e));
+          badActionMap.put(action, e);
           // We skip the rest of the loop, and do not add the path->artifact mapping for this
           // artifact below -- we don't need to check it since this action is already in
           // error.
@@ -146,47 +143,15 @@ class ArtifactConflictFinder {
     allArtifacts.addAll(myArtifacts);
   }
 
-  /**
-   * A typed union of {@link ActionConflictException}, which indicates two actions that generate the
-   * same {@link Artifact}, and {@link ArtifactPrefixConflictException}, which indicates that the
-   * path of one {@link Artifact} is a prefix of another.
-   */
-  static class ConflictException extends Exception {
-    @Nullable private final ActionConflictException ace;
-    @Nullable private final ArtifactPrefixConflictException apce;
-
-    ConflictException(ActionConflictException e) {
-      super(e);
-      this.ace = e;
-      this.apce = null;
-    }
-
-    ConflictException(ArtifactPrefixConflictException e) {
-      super(e);
-      this.ace = null;
-      this.apce = e;
-    }
-
-    IllegalStateException rethrowTyped()
-        throws ActionConflictException, ArtifactPrefixConflictException {
-      if (ace == null) {
-        throw Preconditions.checkNotNull(apce);
-      }
-      if (apce == null) {
-        throw Preconditions.checkNotNull(ace);
-      }
-      throw new IllegalStateException("malformed ConflictException has no well-typed cause");
-    }
-  }
-
   @AutoValue
   abstract static class ActionConflictsAndStats {
-    abstract ImmutableMap<ActionAnalysisMetadata, ConflictException> getConflicts();
+    abstract ImmutableMap<ActionAnalysisMetadata, ActionConflictException> getConflicts();
 
     abstract int getOutputArtifactCount();
 
     static ActionConflictsAndStats create(
-        ImmutableMap<ActionAnalysisMetadata, ConflictException> conflicts, int artifactCount) {
+        ImmutableMap<ActionAnalysisMetadata, ActionConflictException> conflicts,
+        int artifactCount) {
       return new AutoValue_ArtifactConflictFinder_ActionConflictsAndStats(conflicts, artifactCount);
     }
   }

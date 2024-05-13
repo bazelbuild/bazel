@@ -273,10 +273,9 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
       if (obj == this) {
         return true;
       }
-      if (!(obj instanceof RegularFileStateValueWithDigest)) {
+      if (!(obj instanceof RegularFileStateValueWithDigest other)) {
         return false;
       }
-      RegularFileStateValueWithDigest other = (RegularFileStateValueWithDigest) obj;
       return size == other.size && Arrays.equals(digest, other.digest);
     }
 
@@ -346,10 +345,9 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
       if (obj == this) {
         return true;
       }
-      if (!(obj instanceof RegularFileStateValueWithContentsProxy)) {
+      if (!(obj instanceof RegularFileStateValueWithContentsProxy other)) {
         return false;
       }
-      RegularFileStateValueWithContentsProxy other = (RegularFileStateValueWithContentsProxy) obj;
       return size == other.size && Objects.equals(contentsProxy, other.contentsProxy);
     }
 
@@ -426,10 +424,9 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
       if (obj == this) {
         return true;
       }
-      if (!(obj instanceof SpecialFileStateValue)) {
+      if (!(obj instanceof SpecialFileStateValue other)) {
         return false;
       }
-      SpecialFileStateValue other = (SpecialFileStateValue) obj;
       return contentsProxy.equals(other.contentsProxy);
     }
 
@@ -512,10 +509,9 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof SymlinkFileStateValue)) {
+      if (!(obj instanceof SymlinkFileStateValue other)) {
         return false;
       }
-      SymlinkFileStateValue other = (SymlinkFileStateValue) obj;
       return symlinkTarget.equals(other.symlinkTarget);
     }
 

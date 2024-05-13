@@ -246,8 +246,8 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
         // This is necessary to keep the action inputs encapsulated by a NestedSet. Otherwise,
         // those inputs will be missing. ActionExecutionFunction#lookupInput allows getting a
         // transitive dep without adding a SkyframeDependency on it.
-        if (dep instanceof ArtifactNestedSetKey) {
-          for (Artifact a : ((ArtifactNestedSetKey) dep).expandToArtifacts()) {
+        if (dep instanceof ArtifactNestedSetKey artifactNestedSetKey) {
+          for (Artifact a : artifactNestedSetKey.expandToArtifacts()) {
             SkyKey aKey = Artifact.key(a);
             if (keptDeps.add(aKey)) {
               maybeCollectVerificationSet(aKey);
@@ -461,5 +461,4 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
         ImmutableSet.copyOf(keptDeps),
         ImmutableSet.copyOf(verificationSet));
   }
-
 }

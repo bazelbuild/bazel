@@ -36,7 +36,9 @@ import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionRepoMappingEntriesFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.RegistryFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpecFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
@@ -136,8 +138,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         new RepositoryDelegatorFunction(
             repositoryHandlers,
             new StarlarkRepositoryFunction(downloader),
-            /*isFetch=*/ new AtomicBoolean(true),
-            /*clientEnvironmentSupplier=*/ ImmutableMap::of,
+            /* isFetch= */ new AtomicBoolean(true),
+            /* clientEnvironmentSupplier= */ ImmutableMap::of,
             directories,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
     AtomicReference<PathPackageLocator> pkgLocator =
@@ -156,6 +158,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     builder
+        .clearWorkspaceFilePrefixForTesting()
         .clearWorkspaceFileSuffixForTesting()
         .addStarlarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
     ConfiguredRuleClassProvider ruleClassProvider = builder.build();
@@ -172,7 +175,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             .addModule(
                 createModuleKey("bazel_tools", "1.0"),
                 "module(name='bazel_tools', version='1.0');");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     HashFunction hashFunction = fileSystem.getDigestFunction().getHashFunction();
     evaluator =
@@ -237,7 +240,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                     SkyFunctions.MODULE_FILE,
                     new ModuleFileFunction(
                         ruleClassProvider.getBazelStarlarkEnvironment(),
-                        registryFactory,
                         rootPath,
                         ImmutableMap.of()))
                 .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
@@ -246,7 +248,9 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
                     new BzlmodRepoRuleFunction(ruleClassProvider, directories))
-                .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory))
+                .put(SkyFunctions.REGISTRY, new RegistryFunction(registryFactory))
+                .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
+                .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
                 .put(
                     SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
                     new ModuleExtensionRepoMappingEntriesFunction())

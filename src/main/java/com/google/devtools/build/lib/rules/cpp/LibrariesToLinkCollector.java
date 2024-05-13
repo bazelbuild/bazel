@@ -50,7 +50,7 @@ public class LibrariesToLinkCollector {
   private final CcToolchainProvider ccToolchainProvider;
   private final Map<Artifact, Artifact> ltoMapping;
   private final PathFragment solibDir;
-  private final Iterable<? extends LinkerInput> linkerInputs;
+  private final Iterable<? extends LegacyLinkerInput> linkerInputs;
   private final boolean allowLtoIndexing;
   private final FeatureConfiguration featureConfiguration;
   private final boolean needWholeArchive;
@@ -70,7 +70,7 @@ public class LibrariesToLinkCollector {
       Map<Artifact, Artifact> ltoMapping,
       FeatureConfiguration featureConfiguration,
       boolean allowLtoIndexing,
-      Iterable<LinkerInput> linkerInputs,
+      Iterable<LegacyLinkerInput> linkerInputs,
       boolean needWholeArchive,
       String workspaceName,
       Artifact dynamicLibrarySolibSymlinkOutput) {
@@ -99,13 +99,13 @@ public class LibrariesToLinkCollector {
    */
   public static class CollectedLibrariesToLink {
     private final SequenceBuilder librariesToLink;
-    private final NestedSet<LinkerInput> expandedLinkerInputs;
+    private final NestedSet<LegacyLinkerInput> expandedLinkerInputs;
     private final NestedSet<String> librarySearchDirectories;
     private final NestedSet<String> runtimeLibrarySearchDirectories;
 
     private CollectedLibrariesToLink(
         SequenceBuilder librariesToLink,
-        NestedSet<LinkerInput> expandedLinkerInputs,
+        NestedSet<LegacyLinkerInput> expandedLinkerInputs,
         NestedSet<String> librarySearchDirectories,
         NestedSet<String> runtimeLibrarySearchDirectories) {
       this.librariesToLink = librariesToLink;
@@ -119,7 +119,7 @@ public class LibrariesToLinkCollector {
     }
 
     // TODO(b/78347840): Figure out how to make these Artifacts.
-    public NestedSet<LinkerInput> getExpandedLinkerInputs() {
+    public NestedSet<LegacyLinkerInput> getExpandedLinkerInputs() {
       return expandedLinkerInputs;
     }
 
@@ -397,7 +397,7 @@ public class LibrariesToLinkCollector {
   public CollectedLibrariesToLink collectLibrariesToLink() throws EvalException {
     NestedSetBuilder<String> librarySearchDirectories = NestedSetBuilder.linkOrder();
     ImmutableSet.Builder<String> rpathRootsForExplicitSoDeps = ImmutableSet.builder();
-    NestedSetBuilder<LinkerInput> expandedLinkerInputsBuilder = NestedSetBuilder.linkOrder();
+    NestedSetBuilder<LegacyLinkerInput> expandedLinkerInputsBuilder = NestedSetBuilder.linkOrder();
     // List of command line parameters that need to be placed *outside* of
     // --whole-archive ... --no-whole-archive.
     SequenceBuilder librariesToLink = new SequenceBuilder();
@@ -468,13 +468,13 @@ public class LibrariesToLinkCollector {
       NestedSetBuilder<String> librarySearchDirectories,
       ImmutableSet.Builder<String> rpathEntries,
       SequenceBuilder librariesToLink,
-      NestedSetBuilder<LinkerInput> expandedLinkerInputsBuilder)
+      NestedSetBuilder<LegacyLinkerInput> expandedLinkerInputsBuilder)
       throws EvalException {
     boolean includeSolibDir = false;
     boolean includeToolchainLibrariesSolibDir = false;
     Map<String, PathFragment> linkedLibrariesPaths = new HashMap<>();
 
-    for (LinkerInput input : linkerInputs) {
+    for (LegacyLinkerInput input : linkerInputs) {
       if (input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY
           || input.getArtifactCategory() == ArtifactCategory.INTERFACE_LIBRARY) {
         PathFragment originalLibDir =
@@ -528,9 +528,9 @@ public class LibrariesToLinkCollector {
    * @param librariesToLink - a collection that will be exposed as a build variable.
    */
   private void addDynamicInputLinkOptions(
-      LinkerInput input,
+      LegacyLinkerInput input,
       SequenceBuilder librariesToLink,
-      NestedSetBuilder<LinkerInput> expandedLinkerInputsBuilder,
+      NestedSetBuilder<LegacyLinkerInput> expandedLinkerInputsBuilder,
       NestedSetBuilder<String> librarySearchDirectories,
       ImmutableList<String> rpathRoots,
       ImmutableSet.Builder<String> rpathRootsForExplicitSoDeps)
@@ -622,10 +622,10 @@ public class LibrariesToLinkCollector {
    * @param librariesToLink - a collection that will be exposed as a build variable.
    */
   private void addStaticInputLinkOptions(
-      LinkerInput input,
+      LegacyLinkerInput input,
       Map<Artifact, Artifact> ltoMap,
       SequenceBuilder librariesToLink,
-      NestedSetBuilder<LinkerInput> expandedLinkerInputsBuilder)
+      NestedSetBuilder<LegacyLinkerInput> expandedLinkerInputsBuilder)
       throws EvalException {
     ArtifactCategory artifactCategory = input.getArtifactCategory();
     Preconditions.checkArgument(
@@ -672,7 +672,7 @@ public class LibrariesToLinkCollector {
               // Even if this object file is being skipped for exposure as a Build variable, it's
               // still an input to this action.
               expandedLinkerInputsBuilder.add(
-                  LinkerInputs.simpleLinkerInput(
+                  LegacyLinkerInputs.simpleLinkerInput(
                       a,
                       ArtifactCategory.OBJECT_FILE,
                       /* disableWholeArchive= */ false,
@@ -685,7 +685,7 @@ public class LibrariesToLinkCollector {
           }
           nonLtoArchiveMembersBuilder.add(member);
           expandedLinkerInputsBuilder.add(
-              LinkerInputs.simpleLinkerInput(
+              LegacyLinkerInputs.simpleLinkerInput(
                   member,
                   ArtifactCategory.OBJECT_FILE,
                   /* disableWholeArchive= */ false,
@@ -729,7 +729,7 @@ public class LibrariesToLinkCollector {
           // Even if this object file is being skipped for exposure as a build variable, it's
           // still an input to this action.
           expandedLinkerInputsBuilder.add(
-              LinkerInputs.simpleLinkerInput(
+              LegacyLinkerInputs.simpleLinkerInput(
                   a,
                   ArtifactCategory.OBJECT_FILE,
                   /* disableWholeArchive= */ false,

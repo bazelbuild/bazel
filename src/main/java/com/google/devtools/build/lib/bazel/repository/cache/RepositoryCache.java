@@ -25,6 +25,7 @@ import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.bazel.Blake3HashFunction;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.UUID;
@@ -43,7 +44,8 @@ public class RepositoryCache {
     SHA1("SHA-1", "\\p{XDigit}{40}", "sha1", Hashing.sha1()),
     SHA256("SHA-256", "\\p{XDigit}{64}", "sha256", Hashing.sha256()),
     SHA384("SHA-384", "\\p{XDigit}{96}", "sha384", Hashing.sha384()),
-    SHA512("SHA-512", "\\p{XDigit}{128}", "sha512", Hashing.sha512());
+    SHA512("SHA-512", "\\p{XDigit}{128}", "sha512", Hashing.sha512()),
+    BLAKE3("BLAKE3", "\\p{XDigit}{64}", "blake3", Blake3HashFunction.INSTANCE);
 
     private final String stringRepr;
     private final String regexp;
@@ -68,6 +70,10 @@ public class RepositoryCache {
 
     public Hasher newHasher() {
       return hashFunction.newHasher();
+    }
+
+    public HashFunction getHashFunction() {
+      return hashFunction;
     }
 
     public String getHashName() {
@@ -104,9 +110,7 @@ public class RepositoryCache {
     this.useHardlinks = useHardlinks;
   }
 
-  /**
-   * @return true iff the cache path is set.
-   */
+  /** Returns true iff the cache path is set. */
   public boolean isEnabled() {
     return repositoryCachePath != null;
   }
@@ -151,10 +155,45 @@ public class RepositoryCache {
    *     entry with the given cacheKey was added with this String given.
    * @return The Path value where the cache value has been copied to. If cache value does not exist,
    *     return null.
-   * @throws IOException
    */
   @Nullable
   public Path get(String cacheKey, Path targetPath, KeyType keyType, String canonicalId)
+      throws IOException, InterruptedException {
+    Path cacheValue = findCacheValue(cacheKey, keyType, canonicalId);
+    if (cacheValue == null) {
+      return null;
+    }
+
+    targetPath.getParentDirectory().createDirectoryAndParents();
+    if (useHardlinks) {
+      FileSystemUtils.createHardLink(targetPath, cacheValue);
+    } else {
+      FileSystemUtils.copyFile(cacheValue, targetPath);
+    }
+
+    return targetPath;
+  }
+
+  /**
+   * Get the content of a cached value, if it exists.
+   *
+   * @param cacheKey The string key to cache the value by.
+   * @param keyType The type of key used. See: KeyType
+   * @return The bytes of the cache value. If cache value does not exist, returns null.
+   */
+  @Nullable
+  public byte[] getBytes(String cacheKey, KeyType keyType)
+      throws IOException, InterruptedException {
+    Path cacheValue = findCacheValue(cacheKey, keyType, /* canonicalId= */ null);
+    if (cacheValue == null) {
+      return null;
+    }
+
+    return FileSystemUtils.readContent(cacheValue);
+  }
+
+  @Nullable
+  private Path findCacheValue(String cacheKey, KeyType keyType, String canonicalId)
       throws IOException, InterruptedException {
     Preconditions.checkState(isEnabled());
 
@@ -180,33 +219,30 @@ public class RepositoryCache {
       }
     }
 
-    targetPath.getParentDirectory().createDirectoryAndParents();
-    if (useHardlinks) {
-      FileSystemUtils.createHardLink(targetPath, cacheValue);
-    } else {
-      FileSystemUtils.copyFile(cacheValue, targetPath);
-    }
-
     try {
       FileSystemUtils.touchFile(cacheValue);
     } catch (IOException e) {
       // Ignore, because the cache might be on a read-only volume.
     }
 
-    return targetPath;
+    return cacheValue;
+  }
+
+  interface FileWriter {
+    void writeTo(Path name) throws IOException;
   }
 
   /**
    * Copies a value from a specified path into the cache.
    *
    * @param cacheKey The string key to cache the value by.
-   * @param sourcePath The path of the value to be cached.
+   * @param fileWriter A function that writes the value to a given file.
    * @param keyType The type of key used. See: KeyType
    * @param canonicalId If set to a non-empty String associate the file with this name, allowing
    *     restricted cache lookups later.
-   * @throws IOException
    */
-  public void put(String cacheKey, Path sourcePath, KeyType keyType, String canonicalId)
+  private void storeCacheValue(
+      String cacheKey, FileWriter fileWriter, KeyType keyType, String canonicalId)
       throws IOException {
     Preconditions.checkState(isEnabled());
 
@@ -217,7 +253,7 @@ public class RepositoryCache {
     Path cacheValue = cacheEntry.getRelative(DEFAULT_CACHE_FILENAME);
     Path tmpName = cacheEntry.getRelative(TMP_PREFIX + UUID.randomUUID());
     cacheEntry.createDirectoryAndParents();
-    FileSystemUtils.copyFile(sourcePath, tmpName);
+    fileWriter.writeTo(tmpName);
     try {
       tmpName.renameTo(cacheValue);
     } catch (FileAccessException e) {
@@ -239,13 +275,52 @@ public class RepositoryCache {
   }
 
   /**
+   * Copies a value from a specified path into the cache.
+   *
+   * @param cacheKey The string key to cache the value by.
+   * @param sourcePath The path of the value to be cached.
+   * @param keyType The type of key used. See: KeyType
+   * @param canonicalId If set to a non-empty String associate the file with this name, allowing
+   *     restricted cache lookups later.
+   */
+  public void put(String cacheKey, Path sourcePath, KeyType keyType, String canonicalId)
+      throws IOException {
+    storeCacheValue(
+        cacheKey, tmpName -> FileSystemUtils.copyFile(sourcePath, tmpName), keyType, canonicalId);
+  }
+
+  /**
+   * Adds an in-memory value to the cache.
+   *
+   * @param content The byte content of the value to be cached.
+   * @param keyType The type of key used. See: KeyType
+   */
+  public void put(String cacheKey, byte[] content, KeyType keyType) throws IOException {
+    storeCacheValue(
+        cacheKey,
+        tmpName -> FileSystemUtils.writeContent(tmpName, content),
+        keyType,
+        /* canonicalId= */ null);
+  }
+
+  /**
+   * Adds an in-memory value to the cache.
+   *
+   * @param content The byte content of the value to be cached.
+   * @param keyType The type of key used. See: KeyType
+   */
+  public void put(byte[] content, KeyType keyType) throws IOException {
+    String cacheKey = keyType.newHasher().putBytes(content).hash().toString();
+    put(cacheKey, content, keyType);
+  }
+
+  /**
    * Copies a value from a specified path into the cache, computing the cache key itself.
    *
    * @param sourcePath The path of the value to be cached.
    * @param keyType The type of key to be used.
    * @param canonicalId If set to a non-empty String associate the file with this name, allowing
    *     restricted cache lookups later.
-   * @throws IOException
    * @return The key for the cached entry.
    */
   public String put(Path sourcePath, KeyType keyType, String canonicalId)
@@ -295,7 +370,6 @@ public class RepositoryCache {
    *
    * @param keyType The type of hash function. e.g. SHA-1, SHA-256.
    * @param path The path to the file.
-   * @throws IOException
    */
   public static String getChecksum(KeyType keyType, Path path)
       throws IOException, InterruptedException {

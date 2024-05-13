@@ -120,8 +120,8 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
         }
         acceptValue(key, value);
       } catch (Exception e) {
-        if (e instanceof InterruptedException) {
-          throw (InterruptedException) e;
+        if (e instanceof InterruptedException interruptedException) {
+          throw interruptedException;
         }
         if (!tryHandleException(key, e)) {
           throw new IllegalArgumentException("Unexpected exception for " + key(), e);
@@ -172,8 +172,8 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
         }
         acceptValue(key, value);
       } catch (Exception e) {
-        if (e instanceof InterruptedException) {
-          throw (InterruptedException) e;
+        if (e instanceof InterruptedException interruptedException) {
+          throw interruptedException;
         }
         if (!tryHandleException(key, e)) {
           throw new IllegalArgumentException("Unexpected exception for " + key(), e);
@@ -235,8 +235,8 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
         }
         acceptValue(key, value);
       } catch (Exception e) {
-        if (e instanceof InterruptedException) {
-          throw (InterruptedException) e;
+        if (e instanceof InterruptedException interruptedException) {
+          throw interruptedException;
         }
         if (!tryHandleException(key, e)) {
           throw new IllegalArgumentException("Unexpected exception for " + key(), e);

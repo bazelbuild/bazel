@@ -37,6 +37,7 @@ class ExternalRepoCompletionTest(test_base.TestBase):
     self.main_registry = BazelRegistry(
         os.path.join(self.registries_work_dir, 'main')
     )
+    self.main_registry.start()
     self.main_registry.setModuleBasePath('projects')
     self.projects_dir = self.main_registry.projects
     self.maxDiff = None  # there are some long diffs in this test
@@ -157,6 +158,10 @@ class ExternalRepoCompletionTest(test_base.TestBase):
     )
     scratchFile(self.projects_dir.joinpath('ext2', 'ext.bzl'), ext_src)
 
+  def tearDown(self):
+    self.main_registry.stop()
+    test_base.TestBase.tearDown(self)
+
   def complete(self, bazel_args):
     """Get the bash completions for the given "bazel" command line."""
 
@@ -230,7 +235,7 @@ echo ${{COMPREPLY[*]}}
 
     # Canonical repo names are not completed.
     self.assertCountEqual([], self.complete('build @@'))
-    self.assertCountEqual([], self.complete('build @@foo~2.'))
+    self.assertCountEqual([], self.complete('build @@foo~v2.'))
 
     # Packages are completed in external repos with apparent repo names.
     self.assertCountEqual(
@@ -274,7 +279,7 @@ echo ${{COMPREPLY[*]}}
     )
 
     # Targets are completed in external repos with canonical repo names.
-    self.assertCountEqual(['lib_foo'], self.complete('build @@foo~2.0//:'))
+    self.assertCountEqual(['lib_foo'], self.complete('build @@foo~v2.0//:'))
     self.assertCountEqual(
         ['zipper'], self.complete('build @@ext~//tools/zip:zipp')
     )

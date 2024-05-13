@@ -44,6 +44,7 @@ EXCLUDED_EXTENSIONS = (
     '.gwt.xml',  # Google Web Toolkit modules
     '~',  # backup files
     '/',  # empty directory entries
+    '.autodepsmetadata.pb',  # auto deps metadata
 )
 
 EXCLUDED_FILENAMES = (

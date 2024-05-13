@@ -16,8 +16,9 @@ package com.google.devtools.build.lib.packages;
 import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.errorprone.annotations.Keep;
 import com.google.protobuf.CodedInputStream;
@@ -47,24 +48,22 @@ public abstract class NativeAspectClass implements AspectClass {
 
     @Override
     public void serialize(
-        SerializationDependencyProvider dependencies,
-        NativeAspectClass obj,
-        CodedOutputStream codedOut)
+        LeafSerializationContext context, NativeAspectClass obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      RuleClassProvider ruleClassProvider = dependencies.getDependency(RuleClassProvider.class);
+      RuleClassProvider ruleClassProvider = context.getDependency(RuleClassProvider.class);
       NativeAspectClass storedAspect = ruleClassProvider.getNativeAspectClass(obj.getKey());
       Preconditions.checkState(
           obj == storedAspect, "Not stored right: %s %s %s", obj, storedAspect, ruleClassProvider);
-      stringCodec().serialize(dependencies, obj.getKey(), codedOut);
+      context.serializeLeaf(obj.getKey(), stringCodec(), codedOut);
     }
 
     @Override
     public NativeAspectClass deserialize(
-        SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+        LeafDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      String aspectKey = stringCodec().deserialize(dependencies, codedIn);
+      String aspectKey = context.deserializeLeaf(codedIn, stringCodec());
       return Preconditions.checkNotNull(
-          dependencies.getDependency(RuleClassProvider.class).getNativeAspectClass(aspectKey),
+          context.getDependency(RuleClassProvider.class).getNativeAspectClass(aspectKey),
           aspectKey);
     }
   }

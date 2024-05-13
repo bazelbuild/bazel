@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.actions.FilesetManifest.RelativeSyml
 import static com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehavior.RESOLVE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -27,6 +26,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -58,8 +58,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.Map;
 import javax.annotation.Nullable;
 import org.junit.After;
@@ -72,7 +70,9 @@ import org.junit.runners.JUnit4;
 public final class SpawnInputExpanderTest {
 
   private static final ArtifactExpander NO_ARTIFACT_EXPANDER =
-      (a, b) -> fail("expected no interactions");
+      artifact -> {
+        throw new AssertionError(artifact);
+      };
 
   private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
   private final Path execRoot = fs.getPath("/root");
@@ -118,12 +118,12 @@ public final class SpawnInputExpanderTest {
     ArtifactExpander filesetExpander =
         new ArtifactExpander() {
           @Override
-          public void expand(Artifact artifact, Collection<? super Artifact> output) {
+          public ImmutableSortedSet<TreeFileArtifact> expandTreeArtifact(Artifact treeArtifact) {
             throw new IllegalStateException("Unexpected tree expansion");
           }
 
           @Override
-          public ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact) {
+          public ImmutableList<FilesetOutputSymlink> expandFileset(Artifact artifact) {
             return ImmutableList.of(
                 FilesetOutputSymlink.createForTesting(
                     PathFragment.create("zizz"),
@@ -293,11 +293,10 @@ public final class SpawnInputExpanderTest {
 
     Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(treeArtifact).build();
     ArtifactExpander artifactExpander =
-        (Artifact artifact, Collection<? super Artifact> output) -> {
-          if (artifact.equals(treeArtifact)) {
-            output.addAll(Arrays.asList(file1, file2));
-          }
-        };
+        artifact ->
+            artifact.equals(treeArtifact)
+                ? ImmutableSortedSet.of(file1, file2)
+                : ImmutableSortedSet.of();
     RunfilesTree runfilesTree =
         AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
@@ -322,11 +321,10 @@ public final class SpawnInputExpanderTest {
 
     Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(treeArtifact).build();
     ArtifactExpander artifactExpander =
-        (Artifact artifact, Collection<? super Artifact> output) -> {
-          if (artifact.equals(treeArtifact)) {
-            output.addAll(Arrays.asList(file1, file2));
-          }
-        };
+        artifact ->
+            artifact.equals(treeArtifact)
+                ? ImmutableSortedSet.of(file1, file2)
+                : ImmutableSortedSet.of();
     RunfilesTree runfilesTree =
         AnalysisTestUtil.createRunfilesTree(
             PathFragment.create("bazel-out/k8-opt/bin/foo.runfiles"), runfiles);
@@ -372,13 +370,13 @@ public final class SpawnInputExpanderTest {
     ArtifactExpander artifactExpander =
         new ArtifactExpander() {
           @Override
-          public void expand(Artifact artifact, Collection<? super Artifact> output) {
+          public ImmutableSortedSet<TreeFileArtifact> expandTreeArtifact(Artifact treeArtifact) {
             throw new IllegalStateException("Should not do expansion for archived tree");
           }
 
           @Nullable
           @Override
-          public ArchivedTreeArtifact getArchivedTreeArtifact(SpecialArtifact treeArtifact) {
+          public ArchivedTreeArtifact getArchivedTreeArtifact(Artifact treeArtifact) {
             return archivedTreeArtifact;
           }
         };
@@ -409,11 +407,10 @@ public final class SpawnInputExpanderTest {
             .build();
 
     ArtifactExpander artifactExpander =
-        (Artifact artifact, Collection<? super Artifact> output) -> {
-          if (artifact.equals(treeArtifact)) {
-            output.addAll(Arrays.asList(file1, file2));
-          }
-        };
+        artifact ->
+            artifact.equals(treeArtifact)
+                ? ImmutableSortedSet.of(file1, file2)
+                : ImmutableSortedSet.of();
     RunfilesTree runfilesTree =
         AnalysisTestUtil.createRunfilesTree(PathFragment.create("runfiles"), runfiles);
 
@@ -438,11 +435,10 @@ public final class SpawnInputExpanderTest {
     FileSystemUtils.writeContentAsLatin1(file2.getPath(), "bar");
 
     ArtifactExpander artifactExpander =
-        (Artifact artifact, Collection<? super Artifact> output) -> {
-          if (artifact.equals(treeArtifact)) {
-            output.addAll(Arrays.asList(file1, file2));
-          }
-        };
+        artifact ->
+            artifact.equals(treeArtifact)
+                ? ImmutableSortedSet.of(file1, file2)
+                : ImmutableSortedSet.of();
 
     Spawn spawn = new SpawnBuilder("/bin/echo", "Hello World").withInput(treeArtifact).build();
     Map<PathFragment, ActionInput> inputMappings =

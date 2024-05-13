@@ -136,6 +136,9 @@ public final class Attribute implements Comparable<Attribute> {
      */
     NONCONFIGURABLE,
 
+    /** True if the "configurable" attribute was user-set. */
+    CONFIGURABLE_ATTR_WAS_USER_SET,
+
     /**
      * Whether we should skip dependency validation checks done by {@link
      * com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator} (for visibility,
@@ -184,21 +187,6 @@ public final class Attribute implements Comparable<Attribute> {
     /** Whether to run the transitive validation actions from this attribute. */
     SKIP_VALIDATIONS,
   }
-
-  // TODO(bazel-team): modify this interface to extend Predicate and have an extra error
-  // message function like AllowedValues does
-  /** A predicate-like class that determines whether an edge between two rules is valid or not. */
-  public interface ValidityPredicate {
-    /**
-     * This method should return null if the edge is valid, or a suitable error message if it is
-     * not. Note that warnings are not supported.
-     */
-    @Nullable
-    String checkValid(Rule from, String toRuleClass);
-  }
-
-  @SerializationConstant
-  public static final ValidityPredicate ANY_EDGE = (from, toRuleClass) -> null;
 
   /** A predicate class to check if the value of the attribute comes from a predefined set. */
   public static class AllowedValueSet implements PredicateWithMessage<Object> {
@@ -256,7 +244,6 @@ public final class Attribute implements Comparable<Attribute> {
     private final RuleClassNamePredicate allowedRuleClassesForLabels;
     private final RuleClassNamePredicate allowedRuleClassesForLabelsWarning;
     private final FileTypeSet allowedFileTypesForLabels;
-    private final ValidityPredicate validityPredicate;
     private final Object value;
     private final AttributeValueSource valueSource;
     private final boolean valueSet;
@@ -275,7 +262,6 @@ public final class Attribute implements Comparable<Attribute> {
         RuleClassNamePredicate allowedRuleClassesForLabels,
         RuleClassNamePredicate allowedRuleClassesForLabelsWarning,
         FileTypeSet allowedFileTypesForLabels,
-        ValidityPredicate validityPredicate,
         AttributeValueSource valueSource,
         boolean valueSet,
         PredicateWithMessage<Object> allowedValues,
@@ -287,7 +273,6 @@ public final class Attribute implements Comparable<Attribute> {
       this.allowedRuleClassesForLabels = allowedRuleClassesForLabels;
       this.allowedRuleClassesForLabelsWarning = allowedRuleClassesForLabelsWarning;
       this.allowedFileTypesForLabels = allowedFileTypesForLabels;
-      this.validityPredicate = validityPredicate;
       this.value = value;
       this.valueSource = valueSource;
       this.valueSet = valueSet;
@@ -303,7 +288,6 @@ public final class Attribute implements Comparable<Attribute> {
               allowedRuleClassesForLabels,
               allowedRuleClassesForLabelsWarning,
               allowedFileTypesForLabels,
-              validityPredicate,
               value,
               valueSource,
               valueSet,
@@ -359,7 +343,6 @@ public final class Attribute implements Comparable<Attribute> {
           allowedRuleClassesForLabels,
           allowedRuleClassesForLabelsWarning,
           allowedFileTypesForLabels,
-          validityPredicate,
           allowedValues,
           requiredProviders,
           aspects);
@@ -383,7 +366,6 @@ public final class Attribute implements Comparable<Attribute> {
           && Objects.equals(
               allowedRuleClassesForLabelsWarning, that.allowedRuleClassesForLabelsWarning)
           && Objects.equals(allowedFileTypesForLabels, that.allowedFileTypesForLabels)
-          && Objects.equals(validityPredicate, that.validityPredicate)
           && Objects.equals(value, that.value)
           && Objects.equals(valueSource, that.valueSource)
           && valueSet == that.valueSet
@@ -417,7 +399,6 @@ public final class Attribute implements Comparable<Attribute> {
     private RuleClassNamePredicate allowedRuleClassesForLabels = ANY_RULE;
     private RuleClassNamePredicate allowedRuleClassesForLabelsWarning = NO_RULE;
     private FileTypeSet allowedFileTypesForLabels;
-    private ValidityPredicate validityPredicate = ANY_EDGE;
     private Object value;
     private String doc;
     private AttributeValueSource valueSource = AttributeValueSource.DIRECT;
@@ -1015,14 +996,6 @@ public final class Attribute implements Comparable<Attribute> {
       return this;
     }
 
-    /** Sets the predicate-like edge validity checker. */
-    @CanIgnoreReturnValue
-    public Builder<TYPE> validityPredicate(ValidityPredicate validityPredicate) {
-      propertyFlags.add(PropertyFlag.STRICT_LABEL_CHECKING);
-      this.validityPredicate = validityPredicate;
-      return this;
-    }
-
     /** The value of the attribute must be one of allowedValues. */
     @CanIgnoreReturnValue
     public Builder<TYPE> allowedValues(PredicateWithMessage<Object> allowedValues) {
@@ -1047,6 +1020,12 @@ public final class Attribute implements Comparable<Attribute> {
     public Builder<TYPE> nonconfigurable(String reason) {
       Preconditions.checkState(!reason.isEmpty());
       return setPropertyFlag(PropertyFlag.NONCONFIGURABLE, "nonconfigurable");
+    }
+
+    @CanIgnoreReturnValue
+    public Builder<TYPE> configurableAttrWasUserSet() {
+      return setPropertyFlag(
+          PropertyFlag.CONFIGURABLE_ATTR_WAS_USER_SET, "configurable_attr_was_user_set");
     }
 
     public Builder<TYPE> tool(String reason) {
@@ -1080,7 +1059,6 @@ public final class Attribute implements Comparable<Attribute> {
           allowedRuleClassesForLabels,
           allowedRuleClassesForLabelsWarning,
           allowedFileTypesForLabels,
-          validityPredicate,
           valueSource,
           valueSet,
           allowedValues,
@@ -1818,12 +1796,6 @@ public final class Attribute implements Comparable<Attribute> {
    */
   private final FileTypeSet allowedFileTypesForLabels;
 
-  /**
-   * This predicate-like object checks if the edge between two rules using this attribute is valid
-   * in the dependency graph. Returns null if valid, otherwise an error message.
-   */
-  private final ValidityPredicate validityPredicate;
-
   private final PredicateWithMessage<Object> allowedValues;
 
   private final RequiredProviders requiredProviders;
@@ -1854,7 +1826,6 @@ public final class Attribute implements Comparable<Attribute> {
       RuleClassNamePredicate allowedRuleClassesForLabels,
       RuleClassNamePredicate allowedRuleClassesForLabelsWarning,
       FileTypeSet allowedFileTypesForLabels,
-      ValidityPredicate validityPredicate,
       PredicateWithMessage<Object> allowedValues,
       RequiredProviders requiredProviders,
       AspectsList aspects) {
@@ -1876,7 +1847,6 @@ public final class Attribute implements Comparable<Attribute> {
     this.allowedRuleClassesForLabels = allowedRuleClassesForLabels;
     this.allowedRuleClassesForLabelsWarning = allowedRuleClassesForLabelsWarning;
     this.allowedFileTypesForLabels = allowedFileTypesForLabels;
-    this.validityPredicate = validityPredicate;
     this.allowedValues = allowedValues;
     this.requiredProviders = requiredProviders;
     this.aspects = aspects;
@@ -1891,7 +1861,6 @@ public final class Attribute implements Comparable<Attribute> {
             allowedRuleClassesForLabels,
             allowedRuleClassesForLabelsWarning,
             allowedFileTypesForLabels,
-            validityPredicate,
             allowedValues,
             requiredProviders,
             aspects);
@@ -2047,6 +2016,11 @@ public final class Attribute implements Comparable<Attribute> {
         && !getPropertyFlag(PropertyFlag.NONCONFIGURABLE);
   }
 
+  /** Returns true if the "configurable" attribute parameter was user-set */
+  public boolean configurableAttrWasUserSet() {
+    return getPropertyFlag(PropertyFlag.CONFIGURABLE_ATTR_WAS_USER_SET);
+  }
+
   /**
    * Returns true if this attribute is used as a tool dependency, either because the attribute
    * declares it directly (with {@link Attribute.Builder#tool}), or because the value's {@link
@@ -2112,10 +2086,6 @@ public final class Attribute implements Comparable<Attribute> {
 
   public FileTypeSet getAllowedFileTypesPredicate() {
     return allowedFileTypesForLabels;
-  }
-
-  public ValidityPredicate getValidityPredicate() {
-    return validityPredicate;
   }
 
   public PredicateWithMessage<Object> getAllowedValues() {
@@ -2274,10 +2244,6 @@ public final class Attribute implements Comparable<Attribute> {
         "attribute `%s`: can't override allowed files",
         name);
     failIf(
-        validityPredicate != Attribute.ANY_EDGE,
-        "attribute `%s`: can't override allowed files",
-        name);
-    failIf(
         !requiredProviders.acceptsAny(), "attribute `%s`: can't override required providers", name);
     failIf(
         !propertyFlags.equals(
@@ -2316,7 +2282,6 @@ public final class Attribute implements Comparable<Attribute> {
         && Objects.equals(
             allowedRuleClassesForLabelsWarning, attribute.allowedRuleClassesForLabelsWarning)
         && Objects.equals(allowedFileTypesForLabels, attribute.allowedFileTypesForLabels)
-        && Objects.equals(validityPredicate, attribute.validityPredicate)
         && Objects.equals(allowedValues, attribute.allowedValues)
         && Objects.equals(requiredProviders, attribute.requiredProviders)
         && Objects.equals(aspects, attribute.aspects);
@@ -2336,7 +2301,6 @@ public final class Attribute implements Comparable<Attribute> {
     builder.allowedRuleClassesForLabels = allowedRuleClassesForLabels;
     builder.allowedRuleClassesForLabelsWarning = allowedRuleClassesForLabelsWarning;
     builder.requiredProvidersBuilder = requiredProviders.copyAsBuilder();
-    builder.validityPredicate = validityPredicate;
     builder.transitionFactory = transitionFactory;
     builder.propertyFlags = newEnumSet(propertyFlags, PropertyFlag.class);
     builder.value = defaultValue;

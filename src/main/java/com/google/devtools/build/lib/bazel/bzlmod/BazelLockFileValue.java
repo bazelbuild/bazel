@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.bazel.bzlmod.InterimModule.toModule;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -27,6 +28,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * The result of reading the lockfile. Contains the lockfile version, module hash, definitions of
@@ -37,14 +39,15 @@ import java.util.Map;
 @GenerateTypeAdapter
 public abstract class BazelLockFileValue implements SkyValue, Postable {
 
-  public static final int LOCK_FILE_VERSION = 7;
+  public static final int LOCK_FILE_VERSION = 9;
 
   @SerializationConstant public static final SkyKey KEY = () -> SkyFunctions.BAZEL_LOCK_FILE;
 
   static Builder builder() {
     return new AutoValue_BazelLockFileValue.Builder()
         .setLockFileVersion(LOCK_FILE_VERSION)
-        .setModuleExtensions(ImmutableMap.of());
+        .setModuleExtensions(ImmutableMap.of())
+        .setRegistryFileHashes(ImmutableMap.of());
   }
 
   /** Current version of the lock file */
@@ -61,6 +64,9 @@ public abstract class BazelLockFileValue implements SkyValue, Postable {
 
   /** The post-selection dep graph retrieved from the lock file. */
   public abstract ImmutableMap<ModuleKey, Module> getModuleDepGraph();
+
+  /** Hashes of files retrieved from registries. */
+  public abstract ImmutableMap<String, Optional<Checksum>> getRegistryFileHashes();
 
   /** Mapping the extension id to the module extension data */
   public abstract ImmutableMap<
@@ -81,6 +87,8 @@ public abstract class BazelLockFileValue implements SkyValue, Postable {
     public abstract Builder setLocalOverrideHashes(ImmutableMap<String, String> value);
 
     public abstract Builder setModuleDepGraph(ImmutableMap<ModuleKey, Module> value);
+
+    public abstract Builder setRegistryFileHashes(ImmutableMap<String, Optional<Checksum>> value);
 
     public abstract Builder setModuleExtensions(
         ImmutableMap<

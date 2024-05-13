@@ -85,7 +85,9 @@ class JsonTraceFileWriter implements Runnable {
   }
 
   public void enqueue(TraceData data) {
-    if (!metadataPosted.get()) {
+    // We assign a virtual lane for virtual thread and the metadata for the virtual lane is posted
+    // at creation time.
+    if (!Thread.currentThread().isVirtual() && !metadataPosted.get()) {
       metadataPosted.set(Boolean.TRUE);
       queue.add(new ThreadMetadata());
     }
@@ -199,9 +201,8 @@ class JsonTraceFileWriter implements Runnable {
 
           if (slimProfile
               && eventCount > SLIM_PROFILE_EVENT_THRESHOLD
-              && data instanceof TaskData
+              && data instanceof TaskData taskData
               && isCandidateForMerging((TaskData) data)) {
-            TaskData taskData = (TaskData) data;
             eventsPerThread.putIfAbsent(taskData.threadId, new MergedEvent());
             TaskData mergedTaskData = eventsPerThread.get(taskData.threadId).maybeMerge(taskData);
             if (mergedTaskData != null) {

@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRul
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAarImportRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidBinaryRule;
-import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidDevice;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidDeviceScriptFixture;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidHostServiceFixture;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLibraryRule;
@@ -65,8 +64,6 @@ import com.google.devtools.build.lib.rules.android.AndroidBinaryDataInfo;
 import com.google.devtools.build.lib.rules.android.AndroidBinaryNativeLibsInfo;
 import com.google.devtools.build.lib.rules.android.AndroidCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
-import com.google.devtools.build.lib.rules.android.AndroidDeviceBrokerInfo;
-import com.google.devtools.build.lib.rules.android.AndroidDeviceRule;
 import com.google.devtools.build.lib.rules.android.AndroidDeviceScriptFixtureRule;
 import com.google.devtools.build.lib.rules.android.AndroidDexInfo;
 import com.google.devtools.build.lib.rules.android.AndroidFeatureFlagSetProvider;
@@ -153,7 +150,7 @@ public class BazelRuleClassProvider {
 
   public static final ImmutableMap<OS, PathFragment> SHELL_EXECUTABLE =
       ImmutableMap.<OS, PathFragment>builder()
-          .put(OS.WINDOWS, PathFragment.create("c:/tools/msys64/usr/bin/bash.exe"))
+          .put(OS.WINDOWS, PathFragment.create("c:/msys64/usr/bin/bash.exe"))
           .put(OS.FREEBSD, PathFragment.create("/usr/local/bin/bash"))
           .put(OS.OPENBSD, PathFragment.create("/usr/local/bin/bash"))
           .put(OS.UNKNOWN, FALLBACK_SHELL)
@@ -365,7 +362,6 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new BazelAndroidBinaryRule());
           builder.addRuleDefinition(new AarImportBaseRule());
           builder.addRuleDefinition(new BazelAarImportRule());
-          builder.addRuleDefinition(new AndroidDeviceRule(BazelAndroidDevice.class));
           builder.addRuleDefinition(new AndroidLocalTestBaseRule());
           builder.addRuleDefinition(new BazelAndroidLocalTestRule());
           builder.addRuleDefinition(
@@ -378,7 +374,6 @@ public class BazelRuleClassProvider {
                   new AndroidStarlarkCommon(),
                   ApkInfo.PROVIDER,
                   AndroidInstrumentationInfo.PROVIDER,
-                  AndroidDeviceBrokerInfo.PROVIDER,
                   AndroidResourcesInfo.PROVIDER,
                   AndroidNativeLibsInfo.PROVIDER,
                   AndroidApplicationResourceInfo.PROVIDER,

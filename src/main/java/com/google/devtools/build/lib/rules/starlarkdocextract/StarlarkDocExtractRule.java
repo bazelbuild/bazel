@@ -136,7 +136,7 @@ public final class StarlarkDocExtractRule implements RuleDefinition {
 macros), aspects, and providers defined or re-exported in a given <code>.bzl</code> or
 <code>.scl</code> file. The output of this rule is a <code>ModuleInfo</code> binary proto as defined
 in
-<a href="https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/skydoc/rendering/proto/stardoc_output.proto">stardoc_output.proto</a>
+<a href="https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/stardoc_output.proto">stardoc_output.proto</a>
 in the Bazel source tree.
 
 ${IMPLICIT_OUTPUTS}

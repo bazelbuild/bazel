@@ -16,20 +16,16 @@ package com.google.devtools.build.lib.rules.python;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
-import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
-import java.util.Map;
 
 /**
  * Python-related command-line options.
@@ -171,9 +167,6 @@ public class PythonOptions extends FragmentOptions {
               + "version) so there is usually not much reason to supply this flag.")
   public PythonVersion pythonVersion;
 
-  private static final OptionDefinition PYTHON_VERSION_DEFINITION =
-      OptionsParser.getOptionDefinitionByName(PythonOptions.class, "python_version");
-
   /**
    * Deprecated machinery for setting the Python version; will be removed soon.
    *
@@ -187,9 +180,6 @@ public class PythonOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
       help = "No-op, will be removed soon.")
   public PythonVersion forcePython;
-
-  private static final OptionDefinition FORCE_PYTHON_DEFINITION =
-      OptionsParser.getOptionDefinitionByName(PythonOptions.class, "force_python");
 
   /**
    * This field should be either null (unset), {@code PY2}, or {@code PY3}. Other {@code
@@ -208,9 +198,6 @@ public class PythonOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Overrides the Python version for the exec configuration. Can be \"PY2\" or \"PY3\".")
   public PythonVersion hostForcePython;
-
-  private static final OptionDefinition HOST_FORCE_PYTHON_DEFINITION =
-      OptionsParser.getOptionDefinitionByName(PythonOptions.class, "host_force_python");
 
   // TODO(b/230490091): Delete this flag (see also bazelbuild issue #7741)
   @Option(
@@ -274,29 +261,6 @@ public class PythonOptions extends FragmentOptions {
 
   // Helper field to store hostForcePython in exec configuration
   private PythonVersion defaultPythonVersion = null;
-
-  @Override
-  public Map<OptionDefinition, SelectRestriction> getSelectRestrictions() {
-    // TODO(brandjon): Instead of referencing the python_version target, whose path depends on the
-    // tools repo name, reference a standalone documentation page instead.
-    ImmutableMap.Builder<OptionDefinition, SelectRestriction> restrictions = ImmutableMap.builder();
-    restrictions.put(
-        PYTHON_VERSION_DEFINITION,
-        new SelectRestriction(
-            /* visibleWithinToolsPackage= */ true,
-            "Use @bazel_tools//python/tools:python_version instead."));
-    restrictions.put(
-        FORCE_PYTHON_DEFINITION,
-        new SelectRestriction(
-            /* visibleWithinToolsPackage= */ true,
-            "Use @bazel_tools//python/tools:python_version instead."));
-    restrictions.put(
-        HOST_FORCE_PYTHON_DEFINITION,
-        new SelectRestriction(
-            /* visibleWithinToolsPackage= */ false,
-            "Use @bazel_tools//python/tools:python_version instead."));
-    return restrictions.buildOrThrow();
-  }
 
   /**
    * Returns the Python major version ({@code PY2} or {@code PY3}) that targets that do not specify

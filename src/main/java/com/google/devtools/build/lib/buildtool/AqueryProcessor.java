@@ -198,15 +198,13 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<Configured
     while (functionExpressionOptional.isPresent()) {
       FunctionExpression functionExpression = functionExpressionOptional.get();
 
-      if (functionExpression.getFunction() instanceof ActionFilterFunction) {
+      if (functionExpression.getFunction() instanceof ActionFilterFunction actionFilterFunction) {
         if (nonAqueryFilterFunctionExpression != null) {
           throw new AqueryActionFilterException(
               "aquery filter functions (inputs, outputs, mnemonic) produce actions, and therefore "
                   + "can't be the input of other function types: "
                   + nonAqueryFilterFunctionExpression.getFunction().getName());
         }
-        ActionFilterFunction actionFilterFunction =
-            (ActionFilterFunction) functionExpression.getFunction();
 
         String patternString = functionExpression.getArgs().get(0).getWord();
         try {

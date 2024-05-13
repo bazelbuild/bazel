@@ -71,7 +71,7 @@ function test_cycle_under_command_line_aspect() {
   mkdir -p test
   cat > test/aspect.bzl << 'EOF' || fail "Couldn't write aspect.bzl"
 def _simple_aspect_impl(target, ctx):
-    return struct()
+    return []
 
 simple_aspect = aspect(implementation=_simple_aspect_impl)
 EOF
@@ -97,7 +97,7 @@ function test_aspect_on_target_with_analysis_failure() {
   mkdir -p test
   cat > test/aspect.bzl << 'EOF' || fail "Couldn't write aspect.bzl"
 def _simple_aspect_impl(target, ctx):
-    return struct()
+    return []
 
 simple_aspect = aspect(implementation=_simple_aspect_impl)
 EOF

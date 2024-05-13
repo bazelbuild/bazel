@@ -130,8 +130,7 @@ public final class ActionInputHelper {
     Set<Artifact> emptyTreeArtifacts = new TreeSet<>();
     Set<Artifact> treeFileArtifactParents = new HashSet<>();
     for (ActionInput input : inputs.toList()) {
-      if (input instanceof Artifact) {
-        Artifact inputArtifact = (Artifact) input;
+      if (input instanceof Artifact inputArtifact) {
         Artifact.addExpandedArtifact(
             inputArtifact, result, artifactExpander, emptyTreeArtifacts, keepMiddlemanArtifacts);
         if (inputArtifact.isChildOfDeclaredDirectory()) {
@@ -158,8 +157,8 @@ public final class ActionInputHelper {
     Preconditions.checkNotNull(input, "input");
     Preconditions.checkNotNull(execRoot, "execRoot");
 
-    return (input instanceof Artifact)
-        ? ((Artifact) input).getPath()
+    return input instanceof Artifact artifact
+        ? artifact.getPath()
         : execRoot.getRelative(input.getExecPath());
   }
 }

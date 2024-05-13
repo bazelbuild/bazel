@@ -28,6 +28,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AspectConfiguredEvent;
@@ -52,7 +53,6 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType;
@@ -85,7 +85,6 @@ import javax.annotation.Nullable;
  * Drives the analysis & execution of an ActionLookupKey, which is wrapped inside a BuildDriverKey.
  */
 public class BuildDriverFunction implements SkyFunction {
-  private final TransitiveActionLookupValuesHelper transitiveActionLookupValuesHelper;
   private final Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder;
   private final Supplier<RuleContextConstraintSemantics> ruleContextConstraintSemantics;
   private final Supplier<RegexFilter> extraActionFilterSupplier;
@@ -93,7 +92,7 @@ public class BuildDriverFunction implements SkyFunction {
   final AdditionalPostAnalysisDepsRequestedAndAvailable
       additionalPostAnalysisDepsRequestedAndAvailable;
 
-  @Nullable private Supplier<Boolean> shouldCheckForConflict;
+  @Nullable private Supplier<Boolean> shouldCheckForConflictWithTraversal;
 
   // A set of BuildDriverKeys that have been checked for conflicts.
   // This gets cleared after each build.
@@ -119,14 +118,12 @@ public class BuildDriverFunction implements SkyFunction {
       Maps.newConcurrentMap();
 
   public BuildDriverFunction(
-      TransitiveActionLookupValuesHelper transitiveActionLookupValuesHelper,
       Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder,
       Supplier<RuleContextConstraintSemantics> ruleContextConstraintSemantics,
       Supplier<RegexFilter> extraActionFilterSupplier,
       Supplier<TestTypeResolver> testTypeResolver,
       AdditionalPostAnalysisDepsRequestedAndAvailable
           additionalPostAnalysisDepsRequestedAndAvailable) {
-    this.transitiveActionLookupValuesHelper = transitiveActionLookupValuesHelper;
     this.incrementalArtifactConflictFinder = incrementalArtifactConflictFinder;
     this.ruleContextConstraintSemantics = ruleContextConstraintSemantics;
     this.extraActionFilterSupplier = extraActionFilterSupplier;
@@ -143,8 +140,9 @@ public class BuildDriverFunction implements SkyFunction {
     private TestType testType;
   }
 
-  public void setShouldCheckForConflict(Supplier<Boolean> shouldCheckForConflict) {
-    this.shouldCheckForConflict = shouldCheckForConflict;
+  public void setShouldCheckForConflictWithTraversal(
+      Supplier<Boolean> shouldCheckForConflictWithTraversal) {
+    this.shouldCheckForConflictWithTraversal = shouldCheckForConflictWithTraversal;
   }
 
   /**
@@ -198,11 +196,11 @@ public class BuildDriverFunction implements SkyFunction {
     }
 
     // We only check for action conflict once per BuildDriverKey.
-    if (Preconditions.checkNotNull(shouldCheckForConflict).get()
+    if (Preconditions.checkNotNull(shouldCheckForConflictWithTraversal).get()
         && checkedForConflicts.add(buildDriverKey)) {
       try (SilentCloseable c =
           Profiler.instance().profile("BuildDriverFunction.checkActionConflicts")) {
-        ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts =
+        ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts =
             checkActionConflicts(actionLookupKey);
         if (!actionConflicts.isEmpty()) {
           // The analysis technically succeeded, even though the target/aspect can't be executed.
@@ -232,8 +230,7 @@ public class BuildDriverFunction implements SkyFunction {
       }
     }
 
-    if (topLevelSkyValue instanceof ConfiguredTargetValue) {
-      ConfiguredTargetValue configuredTargetValue = (ConfiguredTargetValue) topLevelSkyValue;
+    if (topLevelSkyValue instanceof ConfiguredTargetValue configuredTargetValue) {
       ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
       // It's possible that this code path is triggered AFTER the analysis cache clean up and the
       // transitive packages for package root resolution is already cleared. In such a case, the
@@ -639,21 +636,14 @@ public class BuildDriverFunction implements SkyFunction {
   }
 
   @VisibleForTesting
-  ImmutableMap<ActionAnalysisMetadata, ConflictException> checkActionConflicts(
+  ImmutableMap<ActionAnalysisMetadata, ActionConflictException> checkActionConflicts(
       ActionLookupKey actionLookupKey) throws InterruptedException {
     IncrementalArtifactConflictFinder localRef = incrementalArtifactConflictFinder.get();
     // a null value means that the conflict checker is shut down.
     if (localRef == null) {
       return ImmutableMap.of();
     }
-    if (transitiveActionLookupValuesHelper.trackingStateForIncrementality()) {
-      return localRef.findArtifactConflicts(actionLookupKey).getConflicts();
-    }
-    ActionLookupValuesCollectionResult transitiveValueCollectionResult =
-        transitiveActionLookupValuesHelper.collect();
-    return localRef
-        .findArtifactConflictsNoIncrementality(transitiveValueCollectionResult.collectedValues())
-        .getConflicts();
+    return localRef.findArtifactConflicts(actionLookupKey).getConflicts();
   }
 
   private void addExtraActionsIfRequested(
@@ -701,19 +691,6 @@ public class BuildDriverFunction implements SkyFunction {
         AbstractSaneAnalysisException cause) {
       return new BuildDriverFunctionException(cause, Transience.PERSISTENT);
     }
-  }
-
-  /** Handles the collection of the evaluated ActionLookupValues for conflict checking. */
-  public interface TransitiveActionLookupValuesHelper {
-
-    /**
-     * Collect the evaluated ActionLookupValues accumulated since the last time this method was
-     * called. Only used when we're not tracking for incrementality.
-     */
-    ActionLookupValuesCollectionResult collect() throws InterruptedException;
-
-    /** Whether we're tracking state for incrementality in the current invocation. */
-    boolean trackingStateForIncrementality();
   }
 
   /** Helper to resolve the test type. */

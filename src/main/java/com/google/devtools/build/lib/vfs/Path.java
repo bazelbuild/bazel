@@ -193,10 +193,9 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof Path)) {
+    if (!(o instanceof Path other)) {
       return false;
     }
-    Path other = (Path) o;
     return fileSystem == other.fileSystem && pathFragment.equals(other.pathFragment);
   }
 

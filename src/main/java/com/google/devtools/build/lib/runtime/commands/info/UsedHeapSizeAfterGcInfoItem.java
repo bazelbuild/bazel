@@ -33,12 +33,12 @@ public final class UsedHeapSizeAfterGcInfoItem extends InfoItem {
   @Override
   public byte[] get(
       Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env) {
-    return print(StringUtilities.prettyPrintBytes(getHeapUsageAfterGc()));
-  }
-
-  public static long getHeapUsageAfterGc() {
     System.gc();
     // TODO: b/311665999 - Remove the subtraction of FillerArray once we figure out an alternative.
-    return InfoItemUtils.getMemoryUsage().getUsed() - HeapOffsetHelper.getSizeOfFillerArrayOnHeap();
+    return print(
+        StringUtilities.prettyPrintBytes(
+            InfoItemUtils.getMemoryUsage().getUsed()
+                - HeapOffsetHelper.getSizeOfFillerArrayOnHeap()));
   }
+
 }

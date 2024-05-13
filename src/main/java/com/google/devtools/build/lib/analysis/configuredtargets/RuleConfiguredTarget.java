@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.RuleClassId;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.starlarkbuildapi.ActionApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -79,7 +80,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
   private final TransitiveInfoProviderMap providers;
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
-  private final String ruleClassString;
+  private final RuleClassId ruleClassId;
 
   /**
    * Operations accessing actions, for example, executing them should be performed in the same Bazel
@@ -95,7 +96,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
       TransitiveInfoProviderMap providers,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       ImmutableSet<ConfiguredTargetKey> implicitDeps,
-      String ruleClassString,
+      RuleClassId ruleClassId,
       ImmutableList<ActionAnalysisMetadata> actions) {
     super(actionLookupKey, visibility);
 
@@ -110,15 +111,15 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     // Initialize every StarlarkApiProvider
     for (int i = 0; i < providers.getProviderCount(); i++) {
       Object obj = providers.getProviderInstanceAt(i);
-      if (obj instanceof StarlarkApiProvider) {
-        ((StarlarkApiProvider) obj).init(this);
+      if (obj instanceof StarlarkApiProvider starlarkApiProvider) {
+        starlarkApiProvider.init(this);
       }
     }
 
     this.providers = providerBuilder.build();
     this.configConditions = configConditions;
     this.implicitDeps = IMPLICIT_DEPS_INTERNER.intern(implicitDeps);
-    this.ruleClassString = ruleClassString;
+    this.ruleClassId = ruleClassId;
     this.actions = actions;
   }
 
@@ -132,7 +133,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
         providers,
         ruleContext.getConfigConditions(),
         Util.findImplicitDeps(ruleContext),
-        ruleContext.getRule().getRuleClass(),
+        ruleContext.getRule().getRuleClassObject().getRuleClassId(),
         actions);
 
     // If this rule is the run_under target, then check that we have an executable; note that
@@ -160,14 +161,14 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
       NestedSet<PackageGroupContents> visibility,
       TransitiveInfoProviderMap providers,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      String ruleClassString) {
+      RuleClassId ruleClassId) {
     this(
         actionLookupKey,
         visibility,
         providers,
         configConditions,
         ImmutableSet.of(),
-        ruleClassString,
+        ruleClassId,
         ImmutableList.of());
     checkState(providers.get(IncompatiblePlatformProvider.PROVIDER) != null, actionLookupKey);
   }
@@ -189,7 +190,11 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
   @Override
   public String getRuleClassString() {
-    return ruleClassString;
+    return ruleClassId.name();
+  }
+
+  public RuleClassId getRuleClassId() {
+    return ruleClassId;
   }
 
   @Nullable
@@ -211,15 +216,15 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   @Override
   public String getErrorMessageForUnknownField(String name) {
     return String.format(
-        "%s (rule '%s') doesn't have provider '%s'", Starlark.repr(this), ruleClassString, name);
+        "%s (rule '%s') doesn't have provider '%s'", Starlark.repr(this), ruleClassId.name(), name);
   }
 
   @Override
   protected void addExtraStarlarkKeys(Consumer<String> result) {
     for (int i = 0; i < providers.getProviderCount(); i++) {
       Object classAt = providers.getProviderKeyAt(i);
-      if (classAt instanceof String) {
-        result.accept((String) classAt);
+      if (classAt instanceof String string) {
+        result.accept(string);
       }
     }
     result.accept(ACTIONS_FIELD_NAME);

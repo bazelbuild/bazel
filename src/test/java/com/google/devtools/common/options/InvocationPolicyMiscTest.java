@@ -15,6 +15,7 @@ package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.SetValue.Behavior;
 import org.junit.Test;
@@ -43,7 +44,7 @@ public class InvocationPolicyMiscTest extends InvocationPolicyEnforcerTestBase {
         .getUseDefaultBuilder();
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
 
-    enforcer.enforce(parser, BUILD_COMMAND);
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     assertThat(parser.getWarnings())
         .containsExactly(
@@ -66,7 +67,7 @@ public class InvocationPolicyMiscTest extends InvocationPolicyEnforcerTestBase {
         .addFlagValue(TEST_DEPRECATED_POLICY_VALUE);
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
 
-    enforcer.enforce(parser, BUILD_COMMAND);
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     assertThat(parser.getWarnings())
         .containsExactly(
@@ -86,7 +87,7 @@ public class InvocationPolicyMiscTest extends InvocationPolicyEnforcerTestBase {
         .getUseDefaultBuilder();
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
 
-    enforcer.enforce(parser, BUILD_COMMAND);
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     assertThat(parser.getWarnings()).isEmpty();
   }
@@ -104,7 +105,7 @@ public class InvocationPolicyMiscTest extends InvocationPolicyEnforcerTestBase {
         .addFlagValue(TEST_DEPRECATED_POLICY_VALUE);
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
 
-    enforcer.enforce(parser, BUILD_COMMAND);
+    enforcer.enforce(parser, BUILD_COMMAND, ImmutableList.builder());
 
     assertThat(parser.getWarnings()).isEmpty();
   }

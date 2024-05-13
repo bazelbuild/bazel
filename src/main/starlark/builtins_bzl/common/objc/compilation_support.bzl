@@ -17,11 +17,12 @@
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/objc/apple_env.bzl", "apple_host_system_env", "target_apple_env")
 load(":common/objc/objc_common.bzl", "objc_common")
 load(":common/objc/providers.bzl", "J2ObjcEntryClassInfo", "J2ObjcMappingFileInfo")
+load(":common/xcode/providers.bzl", "XcodeVersionInfo")
 
 objc_internal = _builtins.internal.objc_internal
-XCodeVersionInfo = _builtins.internal.apple_common.XcodeVersionConfig
 
 def _build_variable_extensions(ctx, arc_enabled):
     extensions = {}
@@ -694,7 +695,7 @@ def _register_binary_strip_action(
         args.add("-x")
     args.add("-o", stripped_binary)
     args.add(binary)
-    xcode_config = ctx.attr._xcode_config[XCodeVersionInfo]
+    xcode_config = ctx.attr._xcode_config[XcodeVersionInfo]
     platform = _builtins.internal.objc_internal.get_target_platform(build_config = build_config)
     ctx.actions.run(
         mnemonic = "ObjcBinarySymbolStrip",
@@ -702,9 +703,9 @@ def _register_binary_strip_action(
         arguments = [args],
         inputs = [binary],
         outputs = [stripped_binary],
-        execution_requirements = ctx.attr._xcode_config[XCodeVersionInfo].execution_info(),
-        env = _builtins.internal.apple_common.apple_host_system_env(xcode_config) |
-              _builtins.internal.apple_common.target_apple_env(xcode_config, platform),
+        execution_requirements = ctx.attr._xcode_config[XcodeVersionInfo].execution_info(),
+        env = apple_host_system_env(xcode_config) |
+              target_apple_env(xcode_config, platform),
     )
     return stripped_binary
 

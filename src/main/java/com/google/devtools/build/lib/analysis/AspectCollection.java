@@ -177,10 +177,9 @@ public final class AspectCollection {
 
   @Override
   public boolean equals(Object obj) {
-    if (!(obj instanceof AspectCollection)) {
+    if (!(obj instanceof AspectCollection that)) {
       return false;
     }
-    AspectCollection that = (AspectCollection) obj;
     return this.usedAspects.equals(that.usedAspects);
   }
 

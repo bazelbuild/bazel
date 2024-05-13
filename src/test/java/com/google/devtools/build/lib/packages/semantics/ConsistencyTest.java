@@ -123,6 +123,7 @@ public class ConsistencyTest {
         "--experimental_builtins_dummy=" + rand.nextBoolean(),
         "--experimental_bzl_visibility=" + rand.nextBoolean(),
         "--experimental_enable_android_migration_apis=" + rand.nextBoolean(),
+        "--experimental_single_package_toolchain_binding=" + rand.nextBoolean(),
         "--enable_bzlmod=" + rand.nextBoolean(),
         "--enable_workspace=" + rand.nextBoolean(),
         "--experimental_isolated_extension_usages=" + rand.nextBoolean(),
@@ -146,7 +147,6 @@ public class ConsistencyTest {
         "--incompatible_no_package_distribs=" + rand.nextBoolean(),
         "--incompatible_no_rule_outputs_param=" + rand.nextBoolean(),
         "--incompatible_run_shell_command_string=" + rand.nextBoolean(),
-        "--incompatible_struct_has_no_methods=" + rand.nextBoolean(),
         "--incompatible_require_linker_input_cc_api=" + rand.nextBoolean(),
         "--incompatible_use_cc_configure_from_rules_cc=" + rand.nextBoolean(),
         "--incompatible_unambiguous_label_stringification=" + rand.nextBoolean(),
@@ -168,6 +168,8 @@ public class ConsistencyTest {
         .setBool(BuildLanguageOptions.EXPERIMENTAL_BZL_VISIBILITY, rand.nextBoolean())
         .setBool(
             BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, rand.nextBoolean())
+        .setBool(
+            BuildLanguageOptions.EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING, rand.nextBoolean())
         .setBool(BuildLanguageOptions.ENABLE_BZLMOD, rand.nextBoolean())
         .setBool(BuildLanguageOptions.ENABLE_WORKSPACE, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, rand.nextBoolean())
@@ -196,7 +198,6 @@ public class ConsistencyTest {
         .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_PACKAGE_DISTRIBS, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_RUN_SHELL_COMMAND_STRING, rand.nextBoolean())
-        .setBool(BuildLanguageOptions.INCOMPATIBLE_STRUCT_HAS_NO_METHODS, rand.nextBoolean())
         .setBool(BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API, rand.nextBoolean())
         .setBool(
             BuildLanguageOptions.INCOMPATIBLE_USE_CC_CONFIGURE_FROM_RULES_CC, rand.nextBoolean())

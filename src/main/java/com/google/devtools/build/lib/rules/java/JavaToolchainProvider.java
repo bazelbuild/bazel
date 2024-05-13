@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -354,8 +356,7 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
     static JspecifyInfo fromStarlark(@Nullable StarlarkValue value) throws RuleErrorException {
       if (value == null || value == Starlark.NONE) {
         return null;
-      } else if (value instanceof StructImpl) {
-        StructImpl struct = (StructImpl) value;
+      } else if (value instanceof StructImpl struct) {
         try {
           return new AutoValue_JavaToolchainProvider_JspecifyInfo(
               JavaPluginData.wrap(struct.getValue("processor")),
@@ -379,7 +380,8 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
 
     private Provider() {
       super(
-          Label.parseCanonicalUnchecked("@_builtins//:common/java/java_toolchain.bzl"),
+          keyForBuiltins(
+              Label.parseCanonicalUnchecked("@_builtins//:common/java/java_toolchain.bzl")),
           "JavaToolchainInfo");
     }
 

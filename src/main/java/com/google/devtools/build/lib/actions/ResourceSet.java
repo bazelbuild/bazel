@@ -140,11 +140,10 @@ public class ResourceSet implements ResourceSetOrBuilder {
       return false;
     }
 
-    if (!(that instanceof ResourceSet)) {
+    if (!(that instanceof ResourceSet thatResourceSet)) {
       return false;
     }
 
-    ResourceSet thatResourceSet = (ResourceSet) that;
     return thatResourceSet.getMemoryMb() == getMemoryMb()
         && thatResourceSet.getCpuUsage() == getCpuUsage()
         && thatResourceSet.localTestCount == getLocalTestCount();

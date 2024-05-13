@@ -440,8 +440,8 @@ public final class ActionRewindStrategy {
         }
       }
 
-      if (lostInput instanceof Artifact
-          && failedActionDeps.contains(Artifact.key((Artifact) lostInput))) {
+      if (lostInput instanceof Artifact artifact
+          && failedActionDeps.contains(Artifact.key(artifact))) {
         checkDerived((Artifact) lostInput);
 
         lostInputOwningDirectDeps.add((DerivedArtifact) lostInput);
@@ -548,10 +548,10 @@ public final class ActionRewindStrategy {
     for (EndpointPair<SkyKey> edge : edges) {
       SkyKey target = edge.target();
       if (target instanceof Artifact && rewindGraph.addNode(target)) {
-        newlyVisitedArtifacts.add(((DerivedArtifact) target));
+        newlyVisitedArtifacts.add((DerivedArtifact) target);
       }
       if (target instanceof ActionLookupData && rewindGraph.addNode(target)) {
-        newlyVisitedActions.add(((ActionLookupData) target));
+        newlyVisitedActions.add((ActionLookupData) target);
       }
       rewindGraph.putEdge(edge.source(), edge.target());
     }
@@ -584,8 +584,8 @@ public final class ActionRewindStrategy {
       if (newlyVisited) {
         if (artifactKey instanceof Artifact) {
           newlyVisitedArtifacts.add((DerivedArtifact) artifactKey);
-        } else if (artifactKey instanceof ActionLookupData) {
-          newlyVisitedActions.add((ActionLookupData) artifactKey);
+        } else if (artifactKey instanceof ActionLookupData actionLookupData) {
+          newlyVisitedActions.add(actionLookupData);
         }
       }
       rewindGraph.putEdge(actionKey, artifactKey);

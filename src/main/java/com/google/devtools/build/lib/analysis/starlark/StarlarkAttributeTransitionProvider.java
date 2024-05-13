@@ -158,10 +158,9 @@ public class StarlarkAttributeTransitionProvider
       if (object == this) {
         return true;
       }
-      if (!(object instanceof FunctionSplitTransition)) {
+      if (!(object instanceof FunctionSplitTransition other)) {
         return false;
       }
-      FunctionSplitTransition other = (FunctionSplitTransition) object;
       return Objects.equals(attrObject, other.attrObject) && super.equals(other);
     }
 

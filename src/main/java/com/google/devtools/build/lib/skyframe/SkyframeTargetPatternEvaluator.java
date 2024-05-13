@@ -128,8 +128,8 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
           // exception if there is a bug in error handling.
           Exception exception = error.getException();
           errorMessage = exception.getMessage();
-          if (exception instanceof TargetParsingException) {
-            targetParsingException = (TargetParsingException) exception;
+          if (exception instanceof TargetParsingException tpe) {
+            targetParsingException = tpe;
           } else {
             targetParsingException = wrapException(exception, key, key);
           }

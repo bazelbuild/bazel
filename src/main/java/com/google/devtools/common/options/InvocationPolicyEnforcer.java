@@ -91,9 +91,15 @@ public final class InvocationPolicyEnforcer {
    * @param command The blaze command to enforce the policy for. Flag policies that apply to
    *     specific commands will be enforced only if they contain this command or a command it
    *     inherits from.
+   * @param invocationPolicyFlagListBuilder A builder that will be populated with the list of
+   *     unparsed flags that invocation policy applies to the command.
    * @throws OptionsParsingException if any flag policy is invalid.
    */
-  public void enforce(OptionsParser parser, String command) throws OptionsParsingException {
+  public void enforce(
+      OptionsParser parser,
+      String command,
+      ImmutableList.Builder<OptionAndRawValue> invocationPolicyFlagListBuilder)
+      throws OptionsParsingException {
     Preconditions.checkNotNull(command, "command is required");
     if (invocationPolicy.getFlagPoliciesCount() == 0) {
       return;
@@ -126,7 +132,13 @@ public final class InvocationPolicyEnforcer {
 
       switch (flagPolicy.policy.getOperationCase()) {
         case SET_VALUE:
-          applySetValueOperation(parser, flagPolicy, valueDescription, loglevel, conversionContext);
+          applySetValueOperation(
+              parser,
+              flagPolicy,
+              valueDescription,
+              loglevel,
+              conversionContext,
+              invocationPolicyFlagListBuilder);
           break;
 
         case USE_DEFAULT:
@@ -135,7 +147,8 @@ public final class InvocationPolicyEnforcer {
               "UseDefault",
               flagPolicy.description.getOptionDefinition(),
               loglevel,
-              conversionContext);
+              conversionContext,
+              invocationPolicyFlagListBuilder);
           break;
 
         case ALLOW_VALUES:
@@ -149,7 +162,8 @@ public final class InvocationPolicyEnforcer {
               allowValues.hasNewValue() ? allowValues.getNewValue() : null,
               allowValues.hasUseDefault(),
               valueDescription,
-              flagPolicy.description);
+              flagPolicy.description,
+              invocationPolicyFlagListBuilder);
           break;
 
         case DISALLOW_VALUES:
@@ -163,7 +177,8 @@ public final class InvocationPolicyEnforcer {
               disallowValues.hasNewValue() ? disallowValues.getNewValue() : null,
               disallowValues.hasUseDefault(),
               valueDescription,
-              flagPolicy.description);
+              flagPolicy.description,
+              invocationPolicyFlagListBuilder);
           break;
 
         case OPERATION_NOT_SET:
@@ -522,7 +537,8 @@ public final class InvocationPolicyEnforcer {
       FlagPolicyWithContext flagPolicy,
       OptionValueDescription valueDescription,
       Level loglevel,
-      Object conversionContext)
+      Object conversionContext,
+      ImmutableList.Builder<OptionAndRawValue> invocationPolicyFlagListBuilder)
       throws OptionsParsingException {
     SetValue setValue = flagPolicy.policy.getSetValue();
     OptionDefinition optionDefinition = flagPolicy.description.getOptionDefinition();
@@ -551,8 +567,7 @@ public final class InvocationPolicyEnforcer {
       case ALLOW_OVERRIDES:
         if (valueDescription != null) {
           // The user set the value for the flag but the flag policy is overridable, so keep the
-          // user's
-          // value.
+          // user's value.
           logger.at(loglevel).log(
               "Keeping value '%s' from source '%s' for %s because the invocation policy specifying "
                   + "the value(s) '%s' is overridable",
@@ -588,6 +603,9 @@ public final class InvocationPolicyEnforcer {
             valueDescription.getSourceString());
       }
 
+      invocationPolicyFlagListBuilder.add(
+          OptionAndRawValue.create(optionDefinition.getOptionName(), flagValue));
+
       parser.setOptionValueAtSpecificPriorityWithoutExpansion(
           flagPolicy.origin, optionDefinition, flagValue);
     }
@@ -598,7 +616,8 @@ public final class InvocationPolicyEnforcer {
       String policyType,
       OptionDefinition option,
       Level loglevel,
-      Object conversionContext)
+      Object conversionContext,
+      ImmutableList.Builder<OptionAndRawValue> invocationPolicyFlagListBuilder)
       throws OptionsParsingException {
     OptionValueDescription clearedValueDescription = parser.clearValue(option);
     if (clearedValueDescription != null) {
@@ -614,6 +633,10 @@ public final class InvocationPolicyEnforcer {
           policyType,
           clearedValueDescription.getValue(),
           clearedValueDescription.getSourceString());
+      invocationPolicyFlagListBuilder.add(
+          OptionAndRawValue.create(
+              clearedFlagName,
+              clearedFlagDefaultValue != null ? clearedFlagDefaultValue.toString() : ""));
     }
   }
 
@@ -671,7 +694,8 @@ public final class InvocationPolicyEnforcer {
         String newValue,
         boolean useDefault,
         OptionValueDescription valueDescription,
-        OptionDescription optionDescription)
+        OptionDescription optionDescription,
+        ImmutableList.Builder<OptionAndRawValue> invocationPolicyFlagListBuilder)
         throws OptionsParsingException {
       OptionDefinition optionDefinition = optionDescription.getOptionDefinition();
       // Convert all the allowed values from strings to real objects using the options'
@@ -725,7 +749,13 @@ public final class InvocationPolicyEnforcer {
         // default values, and their value is always the empty list if they haven't been specified,
         // which is why new_default_value is not a repeated field.
         checkDefaultValue(
-            parser, origin, optionDescription, policyValues, newValue, convertedPolicyValues);
+            parser,
+            origin,
+            optionDescription,
+            policyValues,
+            newValue,
+            convertedPolicyValues,
+            invocationPolicyFlagListBuilder);
       } else {
         checkUserValue(
             parser,
@@ -735,7 +765,8 @@ public final class InvocationPolicyEnforcer {
             policyValues,
             newValue,
             useDefault,
-            convertedPolicyValues);
+            convertedPolicyValues,
+            invocationPolicyFlagListBuilder);
       }
     }
 
@@ -745,7 +776,8 @@ public final class InvocationPolicyEnforcer {
         OptionDescription optionDescription,
         List<String> policyValues,
         String newValue,
-        Set<Object> convertedPolicyValues)
+        Set<Object> convertedPolicyValues,
+        ImmutableList.Builder<OptionAndRawValue> invocationPolicyFlagListBuilder)
         throws OptionsParsingException {
 
       OptionDefinition optionDefinition = optionDescription.getOptionDefinition();
@@ -769,6 +801,8 @@ public final class InvocationPolicyEnforcer {
           parser.clearValue(optionDefinition);
           parser.setOptionValueAtSpecificPriorityWithoutExpansion(
               origin, optionDefinition, newValue);
+          invocationPolicyFlagListBuilder.add(
+              OptionAndRawValue.create(optionDefinition.getOptionName(), newValue));
         } else {
           // The operation disallows the default value, but doesn't supply a new value.
           throw new OptionsParsingException(
@@ -791,7 +825,8 @@ public final class InvocationPolicyEnforcer {
         List<String> policyValues,
         String newValue,
         boolean useDefault,
-        Set<Object> convertedPolicyValues)
+        Set<Object> convertedPolicyValues,
+        ImmutableList.Builder<OptionAndRawValue> invocationPolicyFlagListBuilder)
         throws OptionsParsingException {
       OptionDefinition option = optionDescription.getOptionDefinition();
       if (optionDescription.getOptionDefinition().allowsMultiple()) {
@@ -802,7 +837,12 @@ public final class InvocationPolicyEnforcer {
           if (!isFlagValueAllowed(convertedPolicyValues, value)) {
             if (useDefault) {
               applyUseDefaultOperation(
-                  parser, policyType + "Values", option, loglevel, conversionContext);
+                  parser,
+                  policyType + "Values",
+                  option,
+                  loglevel,
+                  conversionContext,
+                  invocationPolicyFlagListBuilder);
             } else {
               throw new OptionsParsingException(
                   String.format(
@@ -823,9 +863,16 @@ public final class InvocationPolicyEnforcer {
                 valueDescription.getValue(), option, newValue, policyType, policyValues);
             parser.clearValue(option);
             parser.setOptionValueAtSpecificPriorityWithoutExpansion(origin, option, newValue);
+            invocationPolicyFlagListBuilder.add(
+                OptionAndRawValue.create(option.getOptionName(), newValue));
           } else if (useDefault) {
             applyUseDefaultOperation(
-                parser, policyType + "Values", option, loglevel, conversionContext);
+                parser,
+                policyType + "Values",
+                option,
+                loglevel,
+                conversionContext,
+                invocationPolicyFlagListBuilder);
           } else {
             throw new OptionsParsingException(
                 String.format(

@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.errorprone.annotations.ForOverride;
 import com.google.protobuf.CodedInputStream;
 import java.io.IOException;
@@ -87,13 +88,19 @@ public abstract class DeserializationContext implements AsyncDeserializationCont
   }
 
   @Override
+  public <T> void getSkyValue(SkyKey key, T parent, FieldSetter<? super T> setter)
+      throws SerializationException {
+    throw new UnsupportedOperationException("Only supported by SharedValueDeserializationContext");
+  }
+
+  @Override
   public final <T> T getDependency(Class<T> type) {
     return checkNotNull(dependencies.getInstance(type), "Missing dependency of type %s", type);
   }
 
   /** Returns a copy of the context with reset state. */
-  // TODO: b/297857068 - Only the NestedSetCodecWithStore and HeaderInfoCodec call this method.
-  // Delete it when it is no longer needed.
+  // TODO: b/297857068 - Only the NestedSetCodecWithStore requires this method. Delete it when it is
+  // no longer needed.
   public abstract DeserializationContext getFreshContext();
 
   final ObjectCodecRegistry getRegistry() {
@@ -146,7 +153,11 @@ public abstract class DeserializationContext implements AsyncDeserializationCont
     return deserializeAndMaybeMemoize(registry.getCodecDescriptorByTag(tag).getCodec(), codedIn);
   }
 
-  @ForOverride
+  @Nullable
+  final Object maybeGetConstantByTag(int tag) {
+    return registry.maybeGetConstantByTag(tag);
+  }
+
   abstract Object getMemoizedBackReference(int memoIndex);
 
   /**

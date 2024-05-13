@@ -22,7 +22,6 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.testutil.EventIterableSubjectFactory.assertThatEvents;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static com.google.devtools.build.skyframe.GraphTester.CONCATENATE;
-import static com.google.devtools.build.skyframe.GraphTester.skyKey;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.eq;
@@ -64,6 +63,7 @@ import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporaryStateDropper;
 import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporaryStateDropperReceiver;
+import com.google.devtools.build.skyframe.GraphTester.SkipBatchPrefetchKey;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.NotifyingHelper.EventType;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
@@ -104,6 +104,22 @@ public class ParallelEvaluatorTest {
   private static final SkyFunctionName PARENT_TYPE = SkyFunctionName.createHermetic("parent");
 
   @TestParameter private boolean useQueryDep;
+
+  /**
+   * If true, {@link #skyKey} creates the {@link SkipBatchPrefetchKey} so that {@link
+   * SkyFunctionEnvironment} is created and previously requested deps values are not batch
+   * prefetched.
+   */
+  // TODO: b/324948927 - Remove this test parameter along with `SkyKey#skipBatchPrefetch()` method.
+  // Design another approach to cover scenarios when batch prefetch does and does not happen in
+  // `ParallelEvaluatorTest`.
+  @TestParameter private boolean useSkipBatchPrefetchKey;
+
+  private SkyKey skyKey(String key) {
+    return useSkipBatchPrefetchKey
+        ? GraphTester.skipBatchPrefetchKey(key)
+        : GraphTester.skyKey(key);
+  }
 
   protected ProcessableGraph graph;
   protected IntVersion graphVersion = IntVersion.of(0);
@@ -185,7 +201,7 @@ public class ParallelEvaluatorTest {
   }
 
   protected GraphTester.TestFunction set(String name, String value) {
-    return tester.set(name, new StringValue(value));
+    return tester.set(skyKey(name), new StringValue(value));
   }
 
   @Test
@@ -193,8 +209,14 @@ public class ParallelEvaluatorTest {
     graph = new InMemoryGraphImpl();
     set("a", "a");
     set("b", "b");
-    tester.getOrCreate("ab").addDependency("a").addDependency("b").setComputedValue(CONCATENATE);
-    StringValue value = (StringValue) eval(false, skyKey("ab"));
+
+    SkyKey abKey = skyKey("ab");
+    tester
+        .getOrCreate(abKey)
+        .addDependency(skyKey("a"))
+        .addDependency(skyKey("b"))
+        .setComputedValue(CONCATENATE);
+    StringValue value = (StringValue) eval(false, abKey);
     assertThat(value.getValue()).isEqualTo("ab");
     assertThat(reportedEvents.getEvents()).isEmpty();
     assertThat(reportedEvents.getPosts()).isEmpty();
@@ -930,7 +952,7 @@ public class ParallelEvaluatorTest {
     SkyKey errorKey = skyKey("error");
     tester
         .getOrCreate(parentErrorKey)
-        .addDependency("a")
+        .addDependency(skyKey("a"))
         .addDependency(errorKey)
         .setComputedValue(CONCATENATE);
     tester.getOrCreate(errorKey).setHasError(true);
@@ -948,13 +970,13 @@ public class ParallelEvaluatorTest {
     tester
         .getOrCreate(parentErrorKey)
         .addDependency(errorKey)
-        .addDependency("a")
+        .addDependency(skyKey("a"))
         .setComputedValue(CONCATENATE);
     tester.getOrCreate(errorKey).setHasError(true);
     tester
         .getOrCreate(errorFreeKey)
-        .addDependency("a")
-        .addDependency("b")
+        .addDependency(skyKey("a"))
+        .addDependency(skyKey("b"))
         .setComputedValue(CONCATENATE);
     EvaluationResult<StringValue> result = eval(true, parentErrorKey, errorFreeKey);
     assertThatEvaluationResult(result).hasErrorEntryForKeyThat(parentErrorKey);
@@ -1170,7 +1192,7 @@ public class ParallelEvaluatorTest {
     tester.getOrCreate(errorKey).setHasError(true);
     evalValueInError(errorKey);
     SkyKey parentKey = skyKey("parent");
-    tester.getOrCreate(parentKey).addDependency("error").setComputedValue(CONCATENATE);
+    tester.getOrCreate(parentKey).addDependency(errorKey).setComputedValue(CONCATENATE);
     evalValueInError(parentKey);
   }
 
@@ -1839,11 +1861,20 @@ public class ParallelEvaluatorTest {
     assertThat(numComputes.get()).isEqualTo(2);
   }
 
+  private SkyKey createCycleKey(String keyName, boolean isCycleNodePartialReevaluation) {
+    if (isCycleNodePartialReevaluation) {
+      tester.putDelegateFunction(PartialReevaluationKey.FUNCTION_NAME);
+      return new PartialReevaluationKey(keyName);
+    }
+    return skyKey(keyName);
+  }
+
   /** Make sure that multiple unfinished children can be cleared from a cycle value. */
   @Test
-  public void cycleWithMultipleUnfinishedChildren() throws Exception {
+  public void cycleWithMultipleUnfinishedChildren(
+      @TestParameter boolean isCycleNodePartialReevaluation) throws Exception {
     graph = new DeterministicHelper.DeterministicProcessableGraph(new InMemoryGraphImpl());
-    SkyKey cycleKey = skyKey("zcycle");
+    SkyKey cycleKey = createCycleKey("cycle", isCycleNodePartialReevaluation);
     SkyKey midKey = skyKey("mid");
     SkyKey topKey = skyKey("top");
     SkyKey selfEdge1 = skyKey("selfEdge1");
@@ -1873,11 +1904,13 @@ public class ParallelEvaluatorTest {
    * and cycle. Error bubbles up from mid to cycle, and we should detect cycle.
    */
   @Test
-  public void cycleAndErrorInBubbleUp(@TestParameter boolean keepGoing) throws Exception {
+  public void cycleAndErrorInBubbleUp(
+      @TestParameter boolean keepGoing, @TestParameter boolean isCycleNodePartialReevaluation)
+      throws Exception {
     graph = new DeterministicHelper.DeterministicProcessableGraph(new InMemoryGraphImpl());
     tester = new GraphTester();
     SkyKey errorKey = skyKey("error");
-    SkyKey cycleKey = skyKey("cycle");
+    SkyKey cycleKey = createCycleKey("cycle", isCycleNodePartialReevaluation);
     SkyKey midKey = skyKey("mid");
     SkyKey topKey = skyKey("top");
     tester.getOrCreate(topKey).addDependency(midKey).setComputedValue(CONCATENATE);
@@ -1982,11 +2015,13 @@ public class ParallelEvaluatorTest {
    * error, just to mix it up.
    */
   @Test
-  public void cycleAndErrorAndError(@TestParameter boolean keepGoing) throws Exception {
+  public void cycleAndErrorAndError(
+      @TestParameter boolean keepGoing, @TestParameter boolean isCycleNodePartialReevaluation)
+      throws Exception {
     graph = new DeterministicHelper.DeterministicProcessableGraph(new InMemoryGraphImpl());
     tester = new GraphTester();
     SkyKey errorKey = skyKey("error");
-    SkyKey cycleKey = skyKey("cycle");
+    SkyKey cycleKey = createCycleKey("cycle", isCycleNodePartialReevaluation);
     SkyKey midKey = skyKey("mid");
     SkyKey topKey = skyKey("top");
     tester.getOrCreate(topKey).addDependency(midKey).setComputedValue(CONCATENATE);
@@ -2580,18 +2615,18 @@ public class ParallelEvaluatorTest {
             progressReceiver);
 
     tester
-        .getOrCreate("top1")
+        .getOrCreate(skyKey("top1"))
         .setComputedValue(CONCATENATE)
-        .addDependency("d1")
-        .addDependency("d2");
-    tester.getOrCreate("top2").setComputedValue(CONCATENATE).addDependency("d3");
-    tester.getOrCreate("top3");
+        .addDependency(skyKey("d1"))
+        .addDependency(skyKey("d2"));
+    tester.getOrCreate(skyKey("top2")).setComputedValue(CONCATENATE).addDependency(skyKey("d3"));
+    tester.getOrCreate(skyKey("top3"));
     assertThat(enqueuedValues).isEmpty();
     assertThat(evaluatedValues).isEmpty();
 
-    tester.set("d1", new StringValue("1"));
-    tester.set("d2", new StringValue("2"));
-    tester.set("d3", new StringValue("3"));
+    tester.set(skyKey("d1"), new StringValue("1"));
+    tester.set(skyKey("d2"), new StringValue("2"));
+    tester.set(skyKey("d3"), new StringValue("3"));
 
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
@@ -2600,21 +2635,27 @@ public class ParallelEvaluatorTest {
             .setEventHandler(reporter)
             .build();
     evaluator.evaluate(ImmutableList.of(skyKey("top1")), evaluationContext);
-    assertThat(enqueuedValues).containsExactlyElementsIn(GraphTester.toSkyKeys("top1", "d1", "d2"));
+    assertThat(enqueuedValues)
+        .containsExactlyElementsIn(
+            GraphTester.toSkyKeys(useSkipBatchPrefetchKey, "top1", "d1", "d2"));
     assertThat(evaluatedValues)
-        .containsExactlyElementsIn(GraphTester.toSkyKeys("top1", "d1", "d2"));
+        .containsExactlyElementsIn(
+            GraphTester.toSkyKeys(useSkipBatchPrefetchKey, "top1", "d1", "d2"));
     enqueuedValues.clear();
     evaluatedValues.clear();
 
     evaluator.evaluate(ImmutableList.of(skyKey("top2")), evaluationContext);
-    assertThat(enqueuedValues).containsExactlyElementsIn(GraphTester.toSkyKeys("top2", "d3"));
-    assertThat(evaluatedValues).containsExactlyElementsIn(GraphTester.toSkyKeys("top2", "d3"));
+    assertThat(enqueuedValues)
+        .containsExactlyElementsIn(GraphTester.toSkyKeys(useSkipBatchPrefetchKey, "top2", "d3"));
+    assertThat(evaluatedValues)
+        .containsExactlyElementsIn(GraphTester.toSkyKeys(useSkipBatchPrefetchKey, "top2", "d3"));
     enqueuedValues.clear();
     evaluatedValues.clear();
 
     evaluator.evaluate(ImmutableList.of(skyKey("top1")), evaluationContext);
     assertThat(enqueuedValues).isEmpty();
-    assertThat(evaluatedValues).containsExactlyElementsIn(GraphTester.toSkyKeys("top1"));
+    assertThat(evaluatedValues)
+        .containsExactlyElementsIn(GraphTester.toSkyKeys(useSkipBatchPrefetchKey, "top1"));
   }
 
   @Test

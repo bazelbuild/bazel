@@ -18,6 +18,7 @@ java_library(
     srcs = ["RepositoryCache.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs/bazel",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

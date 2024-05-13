@@ -64,7 +64,7 @@ import net.starlark.java.eval.Sequence;
  */
 @Immutable
 @ThreadSafe
-public abstract class AbstractAction extends ActionKeyCacher implements Action, ActionApi {
+public abstract class AbstractAction extends ActionKeyComputer implements Action, ActionApi {
 
   /**
    * An arbitrary default resource set. We assume that a typical subprocess is single-threaded
@@ -253,8 +253,8 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   @Override
   public Collection<Artifact> getOutputs() {
-    return outputs instanceof Artifact
-        ? ImmutableSet.of((Artifact) outputs)
+    return outputs instanceof Artifact artifact
+        ? ImmutableSet.of(artifact)
         : new OutputSet((Artifact[]) outputs);
   }
 

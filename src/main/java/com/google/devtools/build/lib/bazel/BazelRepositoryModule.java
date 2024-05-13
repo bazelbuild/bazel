@@ -15,14 +15,17 @@
 
 package com.google.devtools.build.lib.bazel;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -45,11 +48,13 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionRepoMappingEntr
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
-import com.google.devtools.build.lib.bazel.bzlmod.RegistryFactory;
 import com.google.devtools.build.lib.bazel.bzlmod.RegistryFactoryImpl;
+import com.google.devtools.build.lib.bazel.bzlmod.RegistryFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpecFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionUsagesFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.commands.FetchCommand;
 import com.google.devtools.build.lib.bazel.commands.ModCommand;
@@ -62,6 +67,7 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCom
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverride;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.WorkerForRepoFetching;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.DelegatingDownloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
@@ -119,8 +125,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -131,8 +135,8 @@ public class BazelRepositoryModule extends BlazeModule {
   public static final String DEFAULT_CACHE_LOCATION = "cache/repos/v1";
 
   // Default list of registries.
-  public static final ImmutableList<String> DEFAULT_REGISTRIES =
-      ImmutableList.of("https://bcr.bazel.build/");
+  public static final ImmutableSet<String> DEFAULT_REGISTRIES =
+      ImmutableSet.of("https://bcr.bazel.build/");
 
   // A map of repository handlers that can be looked up by rule class name.
   private final ImmutableMap<String, RepositoryFunction> repositoryHandlers;
@@ -150,7 +154,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private ImmutableMap<String, ModuleOverride> moduleOverrides = ImmutableMap.of();
   private Optional<RootedPath> resolvedFileReplacingWorkspace = Optional.empty();
   private FileSystem filesystem;
-  private List<String> registries;
+  private ImmutableSet<String> registries;
   private final AtomicBoolean ignoreDevDeps = new AtomicBoolean(false);
   private CheckDirectDepsMode checkDirectDepsMode = CheckDirectDepsMode.WARNING;
   private BazelCompatibilityMode bazelCompatibilityMode = BazelCompatibilityMode.ERROR;
@@ -158,10 +162,8 @@ public class BazelRepositoryModule extends BlazeModule {
 
   private Optional<Path> vendorDirectory;
   private List<String> allowedYankedVersions = ImmutableList.of();
+  private boolean disableNativeRepoRules;
   private SingleExtensionEvalFunction singleExtensionEvalFunction;
-  private final ExecutorService repoFetchingWorkerThreadPool =
-      Executors.newFixedThreadPool(
-          100, new ThreadFactoryBuilder().setNameFormat("repo-fetching-worker-%d").build());
 
   @Nullable private CredentialModule credentialModule;
 
@@ -240,9 +242,6 @@ public class BazelRepositoryModule extends BlazeModule {
             clientEnvironmentSupplier,
             directories,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
-    RegistryFactory registryFactory =
-        new RegistryFactoryImpl(
-            directories.getWorkspace(), downloadManager, clientEnvironmentSupplier);
     singleExtensionEvalFunction =
         new SingleExtensionEvalFunction(directories, clientEnvironmentSupplier, downloadManager);
 
@@ -256,7 +255,6 @@ public class BazelRepositoryModule extends BlazeModule {
             SkyFunctions.MODULE_FILE,
             new ModuleFileFunction(
                 runtime.getRuleClassProvider().getBazelStarlarkEnvironment(),
-                registryFactory,
                 directories.getWorkspace(),
                 builtinModules))
         .addSkyFunction(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
@@ -266,9 +264,16 @@ public class BazelRepositoryModule extends BlazeModule {
         .addSkyFunction(SkyFunctions.BAZEL_MOD_TIDY, new BazelModTidyFunction())
         .addSkyFunction(SkyFunctions.BAZEL_MODULE_INSPECTION, new BazelModuleInspectorFunction())
         .addSkyFunction(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
+        .addSkyFunction(SkyFunctions.SINGLE_EXTENSION, new SingleExtensionFunction())
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_EVAL, singleExtensionEvalFunction)
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
-        .addSkyFunction(SkyFunctions.REPO_SPEC, new RepoSpecFunction(registryFactory))
+        .addSkyFunction(
+            SkyFunctions.REGISTRY,
+            new RegistryFunction(
+                new RegistryFactoryImpl(
+                    directories.getWorkspace(), downloadManager, clientEnvironmentSupplier)))
+        .addSkyFunction(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
+        .addSkyFunction(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
         .addSkyFunction(
             SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
             new ModuleExtensionRepoMappingEntriesFunction());
@@ -309,40 +314,13 @@ public class BazelRepositoryModule extends BlazeModule {
 
     RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);
     if (repoOptions != null) {
-      switch (repoOptions.workerForRepoFetching) {
-        case OFF:
-          starlarkRepositoryFunction.setWorkerExecutorService(null);
-          break;
-        case PLATFORM:
-          starlarkRepositoryFunction.setWorkerExecutorService(repoFetchingWorkerThreadPool);
-          break;
-        case VIRTUAL:
-        case AUTO:
-          try {
-            // Since Google hasn't migrated to JDK 21 yet, we can't directly call
-            // Executors.newVirtualThreadPerTaskExecutor here. But a bit of reflection never hurt
-            // anyone... right? (OSS Bazel already ships with a bundled JDK 21)
-            starlarkRepositoryFunction.setWorkerExecutorService(
-                (ExecutorService)
-                    Executors.class
-                        .getDeclaredMethod("newVirtualThreadPerTaskExecutor")
-                        .invoke(null));
-          } catch (ReflectiveOperationException e) {
-            if (repoOptions.workerForRepoFetching == RepositoryOptions.WorkerForRepoFetching.AUTO) {
-              starlarkRepositoryFunction.setWorkerExecutorService(null);
-            } else {
-              throw new AbruptExitException(
-                  detailedExitCode(
-                      "couldn't create virtual worker thread executor for repo fetching",
-                      Code.BAD_DOWNLOADER_CONFIG),
-                  e);
-            }
-          }
-      }
+      starlarkRepositoryFunction.setUseWorkers(
+          repoOptions.workerForRepoFetching != WorkerForRepoFetching.OFF);
       downloadManager.setDisableDownload(repoOptions.disableDownload);
       if (repoOptions.repositoryDownloaderRetries >= 0) {
         downloadManager.setRetries(repoOptions.repositoryDownloaderRetries);
       }
+      disableNativeRepoRules = repoOptions.disableNativeRepoRules;
 
       repositoryCache.setHardlink(repoOptions.useHardlinks);
       if (repoOptions.experimentalScaleTimeouts > 0.0) {
@@ -521,7 +499,7 @@ public class BazelRepositoryModule extends BlazeModule {
       }
 
       if (repoOptions.registries != null && !repoOptions.registries.isEmpty()) {
-        registries = repoOptions.registries;
+        registries = normalizeRegistries(repoOptions.registries);
       } else {
         registries = DEFAULT_REGISTRIES;
       }
@@ -549,6 +527,14 @@ public class BazelRepositoryModule extends BlazeModule {
       singleExtensionEvalFunction.setRepositoryRemoteExecutor(remoteExecutor);
       delegatingDownloader.setDelegate(env.getRuntime().getDownloaderSupplier().get());
     }
+  }
+
+  private static ImmutableSet<String> normalizeRegistries(List<String> registries) {
+    // Ensure that registries aren't duplicated even after `/modules/...` paths are appended to
+    // them.
+    return registries.stream()
+        .map(url -> CharMatcher.is('/').trimTrailingFrom(url))
+        .collect(toImmutableSet());
   }
 
   /**
@@ -594,7 +580,9 @@ public class BazelRepositoryModule extends BlazeModule {
         PrecomputedValue.injected(RepositoryDelegatorFunction.IS_VENDOR_COMMAND, false),
         PrecomputedValue.injected(RepositoryDelegatorFunction.VENDOR_DIRECTORY, vendorDirectory),
         PrecomputedValue.injected(
-            YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, allowedYankedVersions));
+            YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, allowedYankedVersions),
+        PrecomputedValue.injected(
+            RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, disableNativeRepoRules));
   }
 
   @Override

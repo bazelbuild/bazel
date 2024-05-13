@@ -14,17 +14,16 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import javax.annotation.Nullable;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkThread;
-
 /**
  * A context object, usually stored in a {@link StarlarkThread}, upon which rules and symbolic
  * macros can be instantiated.
  */
-// TODO(#19922): Elevate some Package.Builder methods to this class.
+// TODO(#19922): This class isn't really needed until we implement lazy macro evaluation. At that
+// point, we'll need to split the concept of a Package.Builder into a separate PackagePiece.Builder
+// that represents the object produced by evaluating a macro implementation. Then we can factor the
+// accessors and mutations that are common to BUILD files / lazy macros and to symbolic macros into
+// this common parent class, while Package.Builder retains the stuff that's prohibited inside
+// symbolic macros.
 public abstract class TargetDefinitionContext extends BazelStarlarkContext {
 
   /**
@@ -41,28 +40,7 @@ public abstract class TargetDefinitionContext extends BazelStarlarkContext {
     }
   }
 
-  protected TargetDefinitionContext(Phase phase, SymbolGenerator<?> symbolGenerator) {
-    super(phase, symbolGenerator);
-  }
-
-  /** Retrieves this object from a Starlark thread. Returns null if not present. */
-  @Nullable
-  public static TargetDefinitionContext fromOrNull(StarlarkThread thread) {
-    BazelStarlarkContext ctx = thread.getThreadLocal(BazelStarlarkContext.class);
-    return (ctx instanceof TargetDefinitionContext) ? (TargetDefinitionContext) ctx : null;
-  }
-
-  /**
-   * Retrieves this object from a Starlark thread. If not present, throws {@code EvalException} with
-   * an error message indicating that {@code what} can't be used in this Starlark environment.
-   */
-  @CanIgnoreReturnValue
-  public static TargetDefinitionContext fromOrFail(StarlarkThread thread, String what)
-      throws EvalException {
-    @Nullable BazelStarlarkContext ctx = thread.getThreadLocal(BazelStarlarkContext.class);
-    if (!(ctx instanceof TargetDefinitionContext)) {
-      throw Starlark.errorf("%s can only be used while evaluating a BUILD file or macro", what);
-    }
-    return (TargetDefinitionContext) ctx;
+  protected TargetDefinitionContext(Phase phase) {
+    super(phase);
   }
 }

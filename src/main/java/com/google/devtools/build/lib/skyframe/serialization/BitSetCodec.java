@@ -28,16 +28,15 @@ class BitSetCodec extends LeafObjectCodec<BitSet> {
   }
 
   @Override
-  public void serialize(
-      SerializationDependencyProvider dependencies, BitSet obj, CodedOutputStream codedOut)
-      throws IOException {
+  public void serialize(LeafSerializationContext context, BitSet obj, CodedOutputStream codedOut)
+      throws IOException, SerializationException {
     long[] data = obj.toLongArray();
-    DELEGATE.serialize(dependencies, data, codedOut);
+    context.serializeLeaf(data, DELEGATE, codedOut);
   }
 
   @Override
-  public BitSet deserialize(SerializationDependencyProvider dependencies, CodedInputStream codedIn)
-      throws IOException {
-    return BitSet.valueOf(DELEGATE.deserialize(dependencies, codedIn));
+  public BitSet deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
+      throws IOException, SerializationException {
+    return BitSet.valueOf(context.deserializeLeaf(codedIn, DELEGATE));
   }
 }

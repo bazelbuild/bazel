@@ -35,6 +35,7 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.eval.Tuple;
 
 /**
@@ -119,14 +120,17 @@ public final class ExtraLinkTimeLibraries implements StarlarkValue {
     }
   }
 
-  public BuildLibraryOutput buildLibraries(
-      RuleContext ruleContext, boolean staticMode, boolean forDynamicLibrary)
+  private BuildLibraryOutput buildLibraries(
+      RuleContext ruleContext,
+      boolean staticMode,
+      boolean forDynamicLibrary,
+      SymbolGenerator<?> symbolGenerator)
       throws InterruptedException, RuleErrorException {
     NestedSetBuilder<CcLinkingContext.LinkerInput> linkerInputs = NestedSetBuilder.linkOrder();
     NestedSetBuilder<Artifact> runtimeLibraries = NestedSetBuilder.linkOrder();
     for (ExtraLinkTimeLibrary extraLibrary : getExtraLibraries()) {
       BuildLibraryOutput buildLibraryOutput =
-          extraLibrary.buildLibraries(ruleContext, staticMode, forDynamicLibrary);
+          extraLibrary.buildLibraries(ruleContext, staticMode, forDynamicLibrary, symbolGenerator);
       linkerInputs.addTransitive(buildLibraryOutput.getLinkerInputs());
       runtimeLibraries.addTransitive(buildLibraryOutput.getRuntimeLibraries());
     }
@@ -151,7 +155,11 @@ public final class ExtraLinkTimeLibraries implements StarlarkValue {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     try {
       BuildLibraryOutput buildLibraryOutput =
-          buildLibraries(starlarkRuleContext.getRuleContext(), staticMode, forDynamicLibrary);
+          buildLibraries(
+              starlarkRuleContext.getRuleContext(),
+              staticMode,
+              forDynamicLibrary,
+              thread.getSymbolGenerator());
       Depset linkerInputs =
           Depset.of(CcLinkingContext.LinkerInput.class, buildLibraryOutput.getLinkerInputs());
       Depset runtimeLibraries = Depset.of(Artifact.class, buildLibraryOutput.getRuntimeLibraries());

@@ -477,8 +477,8 @@ public final class FunctionTransitionUtil {
         // Convert NoneType to null.
         if (optionValue instanceof NoneType) {
           optionValue = null;
-        } else if (optionValue instanceof StarlarkInt) {
-          optionValue = ((StarlarkInt) optionValue).toIntUnchecked();
+        } else if (optionValue instanceof StarlarkInt starlarkInt) {
+          optionValue = starlarkInt.toIntUnchecked();
         } else if (optionValue instanceof List<?>) {
           // Converting back to the Java-native type makes it easier to check if a Starlark
           // transition set the same value a native transition would. This is important for
@@ -497,7 +497,7 @@ public final class FunctionTransitionUtil {
           Field field = def.getField();
           // TODO(b/153867317): check for crashing options types in this logic.
           Object convertedValue;
-          if (def.getType() == List.class && optionValue instanceof List) {
+          if (def.getType() == List.class && optionValue instanceof List<?> optionValueAsList) {
             // This is possible with Starlark code like "{ //command_line_option:foo: ["a", "b"] }".
             // In that case def.getType() == List.class while optionValue.type == StarlarkList.
             // Unfortunately we can't check the *element* types because OptionDefinition won't tell
@@ -507,7 +507,6 @@ public final class FunctionTransitionUtil {
             // generically safe way to do this. We convert its elements with .toString() with a ","
             // separator, which happens to work for most implementations. But that's not universally
             // guaranteed.
-            List<?> optionValueAsList = (List<?>) optionValue;
             if (optionValueAsList.isEmpty()) {
               convertedValue = ImmutableList.of();
             } else if (!def.allowsMultiple()) {
@@ -517,8 +516,8 @@ public final class FunctionTransitionUtil {
                           optionValueAsList.stream()
                               .map(
                                   element ->
-                                      element instanceof Label
-                                          ? ((Label) element).getUnambiguousCanonicalForm()
+                                      element instanceof Label label
+                                          ? label.getUnambiguousCanonicalForm()
                                           : element.toString())
                               .collect(joining(",")),
                           starlarkTransition.getPackageContext());
@@ -530,8 +529,8 @@ public final class FunctionTransitionUtil {
                 Object converted =
                     def.getConverter()
                         .convert(e.toString(), starlarkTransition.getPackageContext());
-                if (converted instanceof List) {
-                  valueBuilder.addAll((List<?>) converted);
+                if (converted instanceof List<?> list) {
+                  valueBuilder.addAll(list);
                 } else {
                   valueBuilder.add(converted);
                 }

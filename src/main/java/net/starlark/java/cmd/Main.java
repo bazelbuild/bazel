@@ -57,7 +57,7 @@ class Main {
 
   static {
     Mutability mu = Mutability.create("interpreter");
-    thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+    thread = StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
     thread.setPrintHandler((th, msg) -> System.out.println(msg));
   }
 

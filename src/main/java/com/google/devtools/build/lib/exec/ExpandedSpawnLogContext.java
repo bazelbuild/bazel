@@ -169,8 +169,8 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
 
           boolean isTool =
               toolFiles.contains(input)
-                  || (input instanceof TreeFileArtifact
-                      && toolFiles.contains(((TreeFileArtifact) input).getParent()));
+                  || input instanceof TreeFileArtifact treeFileArtifact
+                      && toolFiles.contains(treeFileArtifact.getParent());
 
           Path contentPath = fileSystem.getPath(execRoot.getRelative(input.getExecPathString()));
 

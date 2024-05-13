@@ -471,7 +471,8 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
       LtoBackendAction.Builder builder,
       FdoContext fdoContext,
       FeatureConfiguration featureConfiguration,
-      CcToolchainVariables.Builder buildVariables) {
+      CcToolchainVariables.Builder buildVariables)
+      throws EvalException {
     Artifact prefetch = fdoContext.getPrefetchHintsArtifact();
     if (prefetch != null) {
       buildVariables.addStringVariable("fdo_prefetch_hints_path", prefetch.getExecPathString());
@@ -509,10 +510,9 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
     if (this == o) {
       return true;
     }
-    if (!(o instanceof LtoBackendArtifacts)) {
+    if (!(o instanceof LtoBackendArtifacts that)) {
       return false;
     }
-    LtoBackendArtifacts that = (LtoBackendArtifacts) o;
     return Objects.equals(index, that.index)
         && bitcodeFile.equals(that.bitcodeFile)
         && Objects.equals(imports, that.imports)

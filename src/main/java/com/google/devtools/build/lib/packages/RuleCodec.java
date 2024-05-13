@@ -15,8 +15,9 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -42,14 +43,13 @@ public class RuleCodec extends LeafObjectCodec<Rule> {
   }
 
   @Override
-  public void serialize(
-      SerializationDependencyProvider dependencies, Rule obj, CodedOutputStream codedOut)
+  public void serialize(LeafSerializationContext context, Rule obj, CodedOutputStream codedOut)
       throws SerializationException {
     throw new SerializationException(String.format(SERIALIZATION_ERROR_TEMPLATE, obj));
   }
 
   @Override
-  public Rule deserialize(SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+  public Rule deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException {
     throw new SerializationException(DESERIALIZATION_ERROR_TEMPLATE);
   }

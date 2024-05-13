@@ -46,6 +46,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
@@ -90,7 +91,7 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
 
   private Set<SkyKey> latestTopLevelEvaluations = new HashSet<>();
 
-  private boolean skyfocusEnabled;
+  private boolean rememberTopLevelEvaluations;
 
   protected AbstractInMemoryMemoizingEvaluator(
       ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
@@ -120,7 +121,7 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
     setAndCheckEvaluateState(true, roots);
 
     // Only remember roots for Skyfocus if we're tracking incremental states by keeping edges.
-    if (keepEdges && skyfocusEnabled) {
+    if (keepEdges && rememberTopLevelEvaluations) {
       // Remember the top level evaluation of the build invocation for post-build consumption.
       Iterables.addAll(latestTopLevelEvaluations, roots);
     }
@@ -195,14 +196,14 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   }
 
   @Override
-  public final void delete(Predicate<SkyKey> deletePredicate) {
+  public final void delete(BiPredicate<SkyKey, SkyValue> deletePredicate) {
     try (AutoProfiler ignored =
         GoogleAutoProfilerUtils.logged("deletion marking", MIN_TIME_TO_LOG_DELETION)) {
       Set<SkyKey> toDelete = Sets.newConcurrentHashSet();
       getInMemoryGraph()
           .parallelForEach(
               e -> {
-                if (e.isDirty() || deletePredicate.test(e.getKey())) {
+                if (e.isDirty() || deletePredicate.test(e.getKey(), e.getValue())) {
                   toDelete.add(e.getKey());
                 }
               });
@@ -216,13 +217,8 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   }
 
   @Override
-  public boolean getSkyfocusEnabled() {
-    return skyfocusEnabled;
-  }
-
-  @Override
-  public void setSkyfocusEnabled(boolean enabled) {
-    this.skyfocusEnabled = enabled;
+  public void rememberTopLevelEvaluations(boolean remember) {
+    this.rememberTopLevelEvaluations = remember;
   }
 
   @Override

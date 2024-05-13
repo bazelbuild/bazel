@@ -264,8 +264,7 @@ public final class ResourceApk {
   }
 
   AndroidAssetsInfo toAssetsInfo(Label label) {
-    if (primaryAssets instanceof MergedAndroidAssets) {
-      MergedAndroidAssets merged = (MergedAndroidAssets) primaryAssets;
+    if (primaryAssets instanceof MergedAndroidAssets merged) {
       return merged.toProvider();
     }
     return assetDeps.toInfo(label);
@@ -274,8 +273,8 @@ public final class ResourceApk {
   // TODO(b/77574966): Remove this cast once we get rid of ResourceContainer and can guarantee
   // that only properly merged resources are passed into this object.
   Optional<AndroidManifestInfo> toManifestInfo() {
-    if (validatedResources instanceof ValidatedAndroidResources) {
-      ValidatedAndroidResources validated = (ValidatedAndroidResources) validatedResources;
+    if (validatedResources instanceof ValidatedAndroidResources validatedAndroidResources) {
+      ValidatedAndroidResources validated = validatedAndroidResources;
 
       return Optional.of(validated.getStampedManifest().toProvider());
     }

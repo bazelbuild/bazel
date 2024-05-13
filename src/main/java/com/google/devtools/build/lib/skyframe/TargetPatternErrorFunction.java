@@ -72,10 +72,9 @@ public class TargetPatternErrorFunction implements SkyFunction {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof Key)) {
+      if (!(obj instanceof Key that)) {
         return false;
       }
-      Key that = (Key) obj;
       return this.message.equals(that.message)
           && this.detailedExitCode.equals(that.detailedExitCode);
     }

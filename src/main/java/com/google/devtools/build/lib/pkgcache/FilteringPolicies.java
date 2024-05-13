@@ -161,10 +161,9 @@ public final class FilteringPolicies {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof AndFilteringPolicy)) {
+      if (!(obj instanceof AndFilteringPolicy other)) {
         return false;
       }
-      AndFilteringPolicy other = (AndFilteringPolicy) obj;
       return other.firstPolicy.equals(firstPolicy) && other.secondPolicy.equals(secondPolicy);
     }
 

@@ -88,10 +88,9 @@ public class Chunker {
       if (o == this) {
         return true;
       }
-      if (!(o instanceof Chunk)) {
+      if (!(o instanceof Chunk other)) {
         return false;
       }
-      Chunk other = (Chunk) o;
       return other.offset == offset && other.data.equals(data);
     }
 
@@ -326,8 +325,8 @@ public class Chunker {
     public Builder setInput(long size, ActionInput actionInput, Path execRoot) {
       checkState(inputStream == null);
       this.size = size;
-      if (actionInput instanceof VirtualActionInput) {
-        inputStream = () -> ((VirtualActionInput) actionInput).getBytes().newInput();
+      if (actionInput instanceof VirtualActionInput virtualActionInput) {
+        inputStream = () -> virtualActionInput.getBytes().newInput();
       } else {
         inputStream = () -> ActionInputHelper.toInputPath(actionInput, execRoot).getInputStream();
       }

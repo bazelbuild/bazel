@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.BzlVisibility;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
-import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.StarlarkLoading.Code;
@@ -75,6 +74,7 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.LoadStatement;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.Program;
@@ -858,15 +858,14 @@ public class BzlLoadFunction implements SkyFunction {
             transitiveDigest,
             ruleClassProvider.getToolsRepository(),
             ruleClassProvider.getNetworkAllowlistForTests(),
-            ruleClassProvider.getConfigurationFragmentMap(),
-            new SymbolGenerator<>(label));
+            ruleClassProvider.getConfigurationFragmentMap());
 
     // executeBzlFile may post events to the Environment's handler, but events do not matter when
     // caching BzlLoadValues. Note that executing the code mutates the Module and
     // BzlInitThreadContext.
     executeBzlFile(
         prog,
-        label,
+        key,
         module,
         loadMap,
         context,
@@ -904,9 +903,8 @@ public class BzlLoadFunction implements SkyFunction {
     Label enclosingFileLabel = key.getLabel();
     RepositoryName repoName = enclosingFileLabel.getRepository();
 
-    if (key instanceof BzlLoadValue.KeyForWorkspace) {
+    if (key instanceof BzlLoadValue.KeyForWorkspace keyForWorkspace) {
       // Still during workspace file evaluation
-      BzlLoadValue.KeyForWorkspace keyForWorkspace = (BzlLoadValue.KeyForWorkspace) key;
       RepositoryMapping pureWorkspaceMapping;
       if (keyForWorkspace.getWorkspaceChunk() == 0) {
         // There is no previous workspace chunk
@@ -1138,8 +1136,8 @@ public class BzlLoadFunction implements SkyFunction {
     ImmutableList.Builder<Pair<String, Location>> loads = ImmutableList.builder();
     for (StarlarkFile file : files) {
       for (Statement stmt : file.getStatements()) {
-        if (stmt instanceof LoadStatement) {
-          StringLiteral module = ((LoadStatement) stmt).getImport();
+        if (stmt instanceof LoadStatement loadStatement) {
+          StringLiteral module = loadStatement.getImport();
           loads.add(Pair.of(module.getValue(), module.getStartLocation()));
         }
       }
@@ -1346,7 +1344,7 @@ public class BzlLoadFunction implements SkyFunction {
   /** Executes the compiled .bzl file defining the module to be loaded. */
   private static void executeBzlFile(
       Program prog,
-      Label label,
+      BzlLoadValue.Key key,
       Module module,
       Map<String, Module> loadedModules,
       BzlInitThreadContext context,
@@ -1354,8 +1352,11 @@ public class BzlLoadFunction implements SkyFunction {
       ExtendedEventHandler skyframeEventHandler,
       Label.RepoMappingRecorder repoMappingRecorder)
       throws BzlLoadFailedException, InterruptedException {
+    Label label = key.getLabel();
     try (Mutability mu = Mutability.create("loading", label)) {
-      StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
+      StarlarkThread thread =
+          StarlarkThread.create(
+              mu, starlarkSemantics, /* contextDescription= */ "", SymbolGenerator.create(key));
       thread.setLoader(loadedModules::get);
       // This is needed so that any calls to `Label()` will have its used repo mapping entries
       // recorded. See #20721 for more details.
@@ -1391,8 +1392,7 @@ public class BzlLoadFunction implements SkyFunction {
     // TODO(adonovan): change the semantics; see b/65374671.
     thread.setPostAssignHook(
         (name, value) -> {
-          if (value instanceof StarlarkExportable) {
-            StarlarkExportable exp = (StarlarkExportable) value;
+          if (value instanceof StarlarkExportable exp) {
             if (!exp.isExported()) {
               exp.export(handler, label, name);
             }
@@ -1536,8 +1536,8 @@ public class BzlLoadFunction implements SkyFunction {
           String.format(
               "Encountered error while reading extension file '%s': %s", file, cause.getMessage());
     DetailedExitCode detailedExitCode =
-        cause instanceof DetailedException
-            ? ((DetailedException) cause).getDetailedExitCode()
+        cause instanceof DetailedException detailedException
+            ? detailedException.getDetailedExitCode()
             : BzlLoadFailedException.createDetailedExitCode(
                 errorMessage, Code.CONTAINING_PACKAGE_NOT_FOUND);
       return new BzlLoadFailedException(

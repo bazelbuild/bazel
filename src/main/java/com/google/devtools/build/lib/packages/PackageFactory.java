@@ -208,24 +208,6 @@ public final class PackageFactory {
     return ruleClassProvider;
   }
 
-  /**
-   * Retrieves the {@link Package.Builder} from the given {@link StarlarkThread}, or throws {@link
-   * EvalException} if unavailable.
-   */
-  // TODO(#19922): The name is a holdover from when we had PackageContext. Migrate this to a static
-  // fromOrFail method on Package.Builder or a new parent interface of it.
-  public static Package.Builder getContext(StarlarkThread thread) throws EvalException {
-    Package.Builder value = Package.Builder.fromOrNull(thread);
-    if (value == null) {
-      // if PackageBuilder is missing, we're not called from a BUILD file. This happens if someone
-      // uses native.some_func() in the wrong place.
-      throw Starlark.errorf(
-          "The native module can be accessed only from a BUILD thread. "
-              + "Wrap the function in a macro and call it from a BUILD file");
-    }
-    return value;
-  }
-
   public Package.Builder newExternalPackageBuilder(
       WorkspaceFileKey workspaceFileKey,
       String workspaceName,
@@ -409,7 +391,9 @@ public final class PackageFactory {
 
     try (Mutability mu = Mutability.create("package", pkgBuilder.getFilename())) {
       Module module = Module.withPredeclared(semantics, predeclared);
-      StarlarkThread thread = new StarlarkThread(mu, semantics);
+      StarlarkThread thread =
+          StarlarkThread.create(
+              mu, semantics, /* contextDescription= */ "", pkgBuilder.getSymbolGenerator());
       thread.setLoader(loadedModules::get);
       thread.setPrintHandler(Event.makeDebugPrintHandler(pkgBuilder.getLocalEventHandler()));
       pkgBuilder.storeInThread(thread);

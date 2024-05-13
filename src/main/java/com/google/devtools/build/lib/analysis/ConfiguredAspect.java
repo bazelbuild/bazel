@@ -198,8 +198,8 @@ public interface ConfiguredAspect extends ProviderCollection {
       // Initialize every StarlarkApiProvider
       for (int i = 0; i < providerMap.getProviderCount(); i++) {
         Object obj = providerMap.getProviderInstanceAt(i);
-        if (obj instanceof StarlarkApiProvider) {
-          ((StarlarkApiProvider) obj).init(providerMap);
+        if (obj instanceof StarlarkApiProvider starlarkApiProvider) {
+          starlarkApiProvider.init(providerMap);
         }
       }
 

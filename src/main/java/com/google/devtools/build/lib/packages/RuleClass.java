@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.common.collect.Streams.stream;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
@@ -37,6 +36,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionType;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -123,8 +123,8 @@ import net.starlark.java.spelling.SpellChecker;
 @Immutable
 public class RuleClass implements RuleClassData {
 
-  /** The name attribute, present for all rules at index 0. */
-  static final Attribute NAME_ATTRIBUTE =
+  /** The name attribute, present for all rules at index 0. Also defined for all symbolic macros. */
+  public static final Attribute NAME_ATTRIBUTE =
       attr("name", STRING_NO_INTERN)
           .nonconfigurable("All rules have a non-customizable \"name\" attribute")
           .mandatory()
@@ -164,66 +164,6 @@ public class RuleClass implements RuleClassData {
   public static final String APPLICABLE_METADATA_ATTR = "package_metadata";
 
   public static final String APPLICABLE_METADATA_ATTR_ALT = "applicable_licenses";
-
-  /** A constraint for the package name of the Rule instances. */
-  public static class PackageNameConstraint implements PredicateWithMessage<Rule> {
-
-    public static final int ANY_SEGMENT = 0;
-
-    private final int pathSegment;
-
-    private final Set<String> values;
-
-    /**
-     * The pathSegment-th segment of the package must be one of the specified values. The path
-     * segment indexing starts from 1.
-     */
-    public PackageNameConstraint(int pathSegment, String... values) {
-      this.values = ImmutableSet.copyOf(values);
-      this.pathSegment = pathSegment;
-    }
-
-    @Override
-    public boolean apply(Rule input) {
-      PathFragment path = input.getLabel().getPackageFragment();
-      if (pathSegment == ANY_SEGMENT) {
-        return stream(path.segments()).anyMatch(values::contains);
-      } else {
-        return path.segmentCount() >= pathSegment
-            && values.contains(path.getSegment(pathSegment - 1));
-      }
-    }
-
-    @Override
-    public String getErrorReason(Rule param) {
-      if (pathSegment == ANY_SEGMENT) {
-        return param.getRuleClass()
-            + " rules have to be under a "
-            + StringUtil.joinEnglishList(values, "or", "'")
-            + " directory";
-      } else if (pathSegment == 1) {
-        return param.getRuleClass()
-            + " rules are only allowed in "
-            + StringUtil.joinEnglishList(Iterables.transform(values, s -> "//" + s), "or");
-      } else {
-        return param.getRuleClass()
-            + " rules are only allowed in packages which "
-            + StringUtil.ordinal(pathSegment)
-            + " is "
-            + StringUtil.joinEnglishList(values, "or");
-      }
-    }
-
-    @VisibleForTesting
-    public int getPathSegment() {
-      return pathSegment;
-    }
-
-    @VisibleForTesting
-    public Collection<String> getValues() {
-      return values;
-    }
-  }
 
   /** Possible values for setting whether a rule uses toolchain resolution. */
   public enum ToolchainResolutionMode {
@@ -783,7 +723,6 @@ public class RuleClass implements RuleClassData {
     private ImplicitOutputsFunction implicitOutputsFunction = SafeImplicitOutputsFunction.NONE;
     @Nullable private TransitionFactory<RuleTransitionData> transitionFactory;
     private ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory = null;
-    private PredicateWithMessage<Rule> validityPredicate = PredicatesWithMessage.alwaysTrue();
     private final AdvertisedProviderSet.Builder advertisedProviders =
         AdvertisedProviderSet.builder();
     private StarlarkCallable configuredTargetFunction = null;
@@ -850,9 +789,6 @@ public class RuleClass implements RuleClassData {
         Preconditions.checkArgument(starlarkParent.isExtendable());
       }
       for (RuleClass parent : parents) {
-        if (parent.getValidityPredicate() != PredicatesWithMessage.<Rule>alwaysTrue()) {
-          setValidityPredicate(parent.getValidityPredicate());
-        }
         configurationFragmentPolicy.includeConfigurationFragmentsFrom(
             parent.getConfigurationFragmentPolicy());
         supportsConstraintChecking = parent.supportsConstraintChecking;
@@ -884,6 +820,13 @@ public class RuleClass implements RuleClassData {
         allowlistCheckers.addAll(parent.getAllowlistCheckers());
 
         advertisedProviders.addParent(parent.getAdvertisedProviders());
+
+        if (parent.getDefaultImplicitOutputsFunction() != SafeImplicitOutputsFunction.NONE) {
+          if (implicitOutputsFunction != SafeImplicitOutputsFunction.NONE) {
+            throw new IllegalArgumentException("Only a single parent may set implicit outputs");
+          }
+          implicitOutputsFunction = parent.getDefaultImplicitOutputsFunction();
+        }
       }
       // TODO(bazel-team): move this testonly attribute setting to somewhere else
       // preferably to some base RuleClass implementation.
@@ -957,7 +900,6 @@ public class RuleClass implements RuleClassData {
 
       if (starlark
           && (type == RuleClassType.NORMAL || type == RuleClassType.TEST)
-          && implicitOutputsFunction == SafeImplicitOutputsFunction.NONE
           && outputsToBindir
           && !starlarkTestable
           && !isAnalysisTest
@@ -997,7 +939,6 @@ public class RuleClass implements RuleClassData {
           implicitOutputsFunction,
           transitionFactory,
           configuredTargetFactory,
-          validityPredicate,
           advertisedProviders.build(),
           configuredTargetFunction,
           externalBindingsFunction,
@@ -1202,6 +1143,8 @@ public class RuleClass implements RuleClassData {
           name);
       Preconditions.checkState(this.transitionFactory == null, "Property cfg has already been set");
       Preconditions.checkNotNull(transitionFactory);
+      Preconditions.checkArgument(
+          transitionFactory.transitionType().isCompatibleWith(TransitionType.RULE));
       Preconditions.checkArgument(!transitionFactory.isSplit());
       this.transitionFactory = transitionFactory;
       return this;
@@ -1210,12 +1153,6 @@ public class RuleClass implements RuleClassData {
     @CanIgnoreReturnValue
     public Builder factory(ConfiguredTargetFactory<?, ?, ?> factory) {
       this.configuredTargetFactory = factory;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setValidityPredicate(PredicateWithMessage<Rule> predicate) {
-      this.validityPredicate = predicate;
       return this;
     }
 
@@ -1691,10 +1628,11 @@ public class RuleClass implements RuleClassData {
     }
   }
 
-  private final String name; // e.g. "cc_library"
+  // record containing both the common rule_class 'name' (e.g. "cc_library") as
+  // well as the unique 'key' for the rule class. Key has the same value as
+  // 'name' for native rules and a combination of label + name for Starlark.
+  private final RuleClassId ruleClassId;
   private final ImmutableList<StarlarkThread.CallStackEntry> callstack; // of call to 'rule'
-
-  private final String key; // Just the name for native, label + name for Starlark
 
   /**
    * The kind of target represented by this RuleClass (e.g. "cc_library rule"). Note: Even though
@@ -1746,9 +1684,6 @@ public class RuleClass implements RuleClassData {
 
   /** The factory that creates configured targets from this rule. */
   private final ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory;
-
-  /** The constraint the package name of the rule instance must fulfill */
-  private final PredicateWithMessage<Rule> validityPredicate;
 
   /** The list of transitive info providers this class advertises to aspects. */
   private final AdvertisedProviderSet advertisedProviders;
@@ -1855,7 +1790,6 @@ public class RuleClass implements RuleClassData {
       ImplicitOutputsFunction implicitOutputsFunction,
       @Nullable TransitionFactory<RuleTransitionData> transitionFactory,
       ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory,
-      PredicateWithMessage<Rule> validityPredicate,
       AdvertisedProviderSet advertisedProviders,
       @Nullable StarlarkCallable configuredTargetFunction,
       Function<? super Rule, Map<String, Label>> externalBindingsFunction,
@@ -1876,9 +1810,8 @@ public class RuleClass implements RuleClassData {
       ImmutableList<Attribute> attributes,
       @Nullable BuildSetting buildSetting,
       ImmutableList<? extends StarlarkSubruleApi> subrules) {
-    this.name = name;
+    this.ruleClassId = RuleClassId.create(name, key);
     this.callstack = callstack;
-    this.key = key;
     this.type = type;
     this.starlarkParent = starlarkParent;
     this.initializer = initializer;
@@ -1893,7 +1826,6 @@ public class RuleClass implements RuleClassData {
     this.implicitOutputsFunction = implicitOutputsFunction;
     this.transitionFactory = transitionFactory;
     this.configuredTargetFactory = configuredTargetFactory;
-    this.validityPredicate = validityPredicate;
     this.advertisedProviders = advertisedProviders;
     this.configuredTargetFunction = configuredTargetFunction;
     this.externalBindingsFunction = externalBindingsFunction;
@@ -1978,7 +1910,7 @@ public class RuleClass implements RuleClassData {
   /** Returns the class of rule that this RuleClass represents (e.g. "cc_library"). */
   @Override
   public String getName() {
-    return name;
+    return ruleClassId.name();
   }
 
   public RuleClass getStarlarkParent() {
@@ -2011,7 +1943,12 @@ public class RuleClass implements RuleClassData {
 
   /** Returns a unique key. Used for profiling purposes. */
   public String getKey() {
-    return key;
+    return ruleClassId.key();
+  }
+
+  /** Returns the record containing both the name and key. */
+  public RuleClassId getRuleClassId() {
+    return this.ruleClassId;
   }
 
   /** Returns the target kind of this class of rule (e.g. "cc_library rule"). */
@@ -2084,10 +2021,6 @@ public class RuleClass implements RuleClassData {
     return nonConfigurableAttributes;
   }
 
-  public PredicateWithMessage<Rule> getValidityPredicate() {
-    return validityPredicate;
-  }
-
   /**
    * Returns the set of advertised transitive info providers.
    *
@@ -2152,7 +2085,6 @@ public class RuleClass implements RuleClassData {
     checkForDuplicateLabels(rule, eventHandler);
 
     checkForValidSizeAndTimeoutValues(rule, eventHandler);
-    rule.checkValidityPredicate(eventHandler);
     return rule;
   }
 
@@ -2242,7 +2174,7 @@ public class RuleClass implements RuleClassData {
                 "%s: no such attribute '%s' in '%s' rule%s",
                 rule.getLabel(),
                 attributeName,
-                name,
+                ruleClassId.name(),
                 SpellChecker.didYouMean(
                     attributeName,
                     rule.getAttributes().stream()
@@ -2322,7 +2254,7 @@ public class RuleClass implements RuleClassData {
         rule.reportError(
             String.format(
                 "%s: missing value for mandatory attribute '%s' in '%s' rule",
-                rule.getLabel(), attr.getName(), name),
+                rule.getLabel(), attr.getName(), ruleClassId.name()),
             pkgBuilder.getLocalEventHandler());
       }
 
@@ -2374,8 +2306,7 @@ public class RuleClass implements RuleClassData {
             /* explicit= */ false);
 
       } else if (attr.getName().equals("distribs") && attr.getType() == BuildType.DISTRIBUTIONS) {
-        rule.setAttributeValue(
-            attr, pkgBuilder.getPartialPackageArgs().distribs(), /* explicit= */ false);
+        rule.setAttributeValue(attr, License.DEFAULT_DISTRIB, /* explicit= */ false);
       }
       // Don't store default values, querying materializes them at read time.
     }
@@ -2384,7 +2315,7 @@ public class RuleClass implements RuleClassData {
     // attribute gets an '$implicit_tests' attribute, whose value is a shared per-package list of
     // all test labels, populated later.
     // TODO(blaze-rules-team): This should be in test_suite's implementation, not here.
-    if (this.name.equals("test_suite") && !this.isStarlark) {
+    if (this.ruleClassId.name().equals("test_suite") && !this.isStarlark) {
       Attribute implicitTests = this.getAttributeByName("$implicit_tests");
       NonconfigurableAttributeMapper attributeMapper = NonconfigurableAttributeMapper.of(rule);
       if (implicitTests != null && attributeMapper.get("tests", BuildType.LABEL_LIST).isEmpty()) {
@@ -2576,7 +2507,7 @@ public class RuleClass implements RuleClassData {
 
   @Override
   public String toString() {
-    return name;
+    return ruleClassId.name();
   }
 
   public boolean isDocumented() {

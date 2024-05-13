@@ -168,7 +168,7 @@ public class AndroidResourcesTest extends ResourceTestBase {
     if (maybeFiltered.isPresent()) {
       AndroidResources filtered = maybeFiltered.get();
       assertThat(filtered instanceof ValidatedAndroidResources).isTrue();
-      ValidatedAndroidResources validated = (ValidatedAndroidResources) filtered;
+      ValidatedAndroidResources validated = ((ValidatedAndroidResources) filtered);
 
       // Validate fields related to validation are unchanged
       assertThat(validated.getRTxt()).isEqualTo(unfiltered.getRTxt());

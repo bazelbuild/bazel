@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.packages.BazelStarlarkContext.Phase;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -330,8 +329,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       if (object == this) {
         return true;
       }
-      if (object instanceof AnalysisTestTransition) {
-        AnalysisTestTransition otherTransition = (AnalysisTestTransition) object;
+      if (object instanceof AnalysisTestTransition otherTransition) {
         return Objects.equals(otherTransition.getInputs(), this.getInputs())
             && Objects.equals(otherTransition.getOutputs(), this.getOutputs())
             && Objects.equals(otherTransition.changedSettings, this.changedSettings);
@@ -540,23 +538,21 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       // Call the Starlark function.
       Object result;
       try (Mutability mu = Mutability.create("eval_transition_function")) {
-        StarlarkThread thread = new StarlarkThread(mu, semantics);
-        thread.setPrintHandler(Event.makeDebugPrintHandler(handler));
         // TODO(brandjon): If the resulting values of Starlark transitions ever evolve to be
         //  complex Starlark objects like structs as opposed to the ints, strings,
         //  etc they are today then we need a real symbol generator which is used
         //  to calculate equality between instances of Starlark objects. A candidate
         //  for transition instance uniqueness is the Rule and configuration that
         //  are used as inputs to the configuration.
-        SymbolGenerator<Object> dummySymbolGenerator = new SymbolGenerator<>(new Object());
-
+        StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
+        thread.setPrintHandler(Event.makeDebugPrintHandler(handler));
         Dict<String, Object> previousSettingsDict =
             createBuildSettingsDict(previousSettings, optionInfoMap, mu);
 
         // Create a new {@link BazelStarlarkContext} for the new thread. We need to
         // create a new context every time because {@link BazelStarlarkContext}s
         // should be confined to a single thread.
-        new BazelStarlarkContext(Phase.ANALYSIS, dummySymbolGenerator).storeInThread(thread);
+        new BazelStarlarkContext(Phase.ANALYSIS).storeInThread(thread);
 
         result =
             Starlark.fastcall(
@@ -577,8 +573,8 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
 
       if (result instanceof NoneType) {
         return ImmutableMap.of();
-      } else if (result instanceof Dict) {
-        if (((Dict<?, ?>) result).isEmpty()) {
+      } else if (result instanceof Dict<?, ?> dict) {
+        if (dict.isEmpty()) {
           return ImmutableMap.of();
         }
         try {
@@ -613,8 +609,8 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
           return null;
         }
 
-      } else if (result instanceof Sequence) {
-        if (((Sequence<?>) result).isEmpty()) {
+      } else if (result instanceof Sequence<?> sequence) {
+        if (sequence.isEmpty()) {
           return ImmutableMap.of();
         }
         ImmutableMap.Builder<String, Map<String, Object>> builder = ImmutableMap.builder();
@@ -734,8 +730,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       if (object == this) {
         return true;
       }
-      if (object instanceof RegularTransition) {
-        RegularTransition otherTransition = (RegularTransition) object;
+      if (object instanceof RegularTransition otherTransition) {
         return Objects.equals(otherTransition.getInputs(), this.getInputs())
             && Objects.equals(otherTransition.getOutputs(), this.getOutputs())
             && Objects.equals(otherTransition.impl, this.impl);

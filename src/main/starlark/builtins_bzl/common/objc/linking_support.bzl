@@ -17,12 +17,45 @@
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/objc/compilation_support.bzl", "compilation_support")
+load(":common/objc/objc_info.bzl", "ObjcInfo")
 
 objc_internal = _builtins.internal.objc_internal
-ObjcInfo = _builtins.internal.apple_common.Objc
 
-AppleDynamicFrameworkInfo = _builtins.internal.apple_common.AppleDynamicFramework
-AppleExecutableBinaryInfo = _builtins.internal.apple_common.AppleExecutableBinary
+AppleDynamicFrameworkInfo = provider(
+    doc = "Contains information about an Apple dynamic framework.",
+    fields = {
+        "framework_dirs": """\
+The framework path names used as link inputs in order to link against the
+dynamic framework.
+""",
+        "framework_files": """\
+The full set of artifacts that should be included as inputs to link against the
+dynamic framework.
+""",
+        "binary": "The dylib binary artifact of the dynamic framework.",
+        "cc_info": """\
+A `CcInfo` which contains information about the transitive dependencies linked
+into the binary.
+""",
+    },
+)
+
+AppleExecutableBinaryInfo = provider(
+    doc = """
+Contains the executable binary output that was built using
+`link_multi_arch_binary` with the `executable` binary type.
+""",
+    fields = {
+        "binary": """\
+The executable binary artifact output by `link_multi_arch_binary`.
+""",
+        "cc_info": """\
+A `CcInfo` which contains information about the transitive dependencies linked
+into the binary.
+""",
+    },
+)
+
 AppleDebugOutputsInfo = provider(
     """
 Holds debug outputs of an Apple binary rule.

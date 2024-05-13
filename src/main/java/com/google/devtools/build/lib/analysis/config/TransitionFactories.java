@@ -35,8 +35,8 @@ public final class TransitionFactories {
       return NoTransition.createFactory();
     } else if (transition instanceof NullTransition) {
       return NullTransition.createFactory();
-    } else if (transition instanceof SplitTransition) {
-      return split((SplitTransition) transition);
+    } else if (transition instanceof SplitTransition splitTransition) {
+      return split(splitTransition);
     }
     return new AutoValue_TransitionFactories_IdentityFactory<T>(transition);
   }
@@ -58,6 +58,11 @@ public final class TransitionFactories {
     public ConfigurationTransition create(T data) {
       return transition();
     }
+
+    @Override
+    public TransitionType transitionType() {
+      return TransitionType.ANY;
+    }
   }
 
   /** A {@link TransitionFactory} implementation that wraps a split transition. */
@@ -65,6 +70,12 @@ public final class TransitionFactories {
   abstract static class SplitTransitionFactory<T extends TransitionFactory.Data>
       implements TransitionFactory<T> {
     abstract SplitTransition splitTransition();
+
+    @Override
+    public TransitionType transitionType() {
+      // Splits can only be used on attributes.
+      return TransitionType.ATTRIBUTE;
+    }
 
     @Override
     public SplitTransition create(T data) {

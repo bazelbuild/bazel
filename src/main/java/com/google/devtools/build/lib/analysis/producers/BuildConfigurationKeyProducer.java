@@ -91,8 +91,8 @@ public class BuildConfigurationKeyProducer
       sink.acceptPlatformMappingError(exception);
       return;
     }
-    if (value instanceof PlatformMappingValue) {
-      this.platformMappingValue = (PlatformMappingValue) value;
+    if (value instanceof PlatformMappingValue platformMappingValue) {
+      this.platformMappingValue = platformMappingValue;
       return;
     }
 

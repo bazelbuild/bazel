@@ -86,7 +86,8 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
           "--notrack_incremental_state",
           "--discard_analysis_cache",
           "--nokeep_state_after_build",
-          "--heuristically_drop_nodes");
+          "--heuristically_drop_nodes",
+          "--nouse_action_cache");
     }
   }
 
@@ -218,22 +219,20 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     events.assertContainsError("/bin/x/y/whatever' (belonging to //x/y:y)");
     events.assertContainsError("/bin/x/y' (belonging to //x:y)");
     events.assertContainsError("is a prefix of the other");
+    assertThat(events.errors()).hasSize(1);
+    assertThat(eventListener.failedTargetNames).containsAnyOf("//x:y", "//x/y:y");
 
+    // We can't be sure if aspect(//x:y) or //x/y:y would trigger the conflict.
+    skipTheRestIfSkymeldAndMinimizeMemory();
     // As we have --output_groups=file, the CTs won't actually be built. Only the
     // AnalysisFailureEvent from Aspect(//x:y) is expected even though there are 2 conflicting
     // actions.
-    assertThat(events.errors()).hasSize(1);
-    assertThat(eventListener.failedTargetNames).containsExactly("//x:y");
     assertThat(eventListener.eventIds.get(0).getAspect()).isEqualTo("//x:aspect.bzl%my_aspect");
   }
 
   @Test
   public void testAspectArtifactPrefix(
       @TestParameter boolean keepGoing, @TestParameter boolean modifyBuildFile) throws Exception {
-    // TODO(b/245923465) Limitation with Skymeld.
-    if (skymeld) {
-      assume().that(minimizeMemory).isFalse();
-    }
     if (modifyBuildFile) {
       write(
           "x/BUILD",
@@ -496,7 +495,6 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
   @Test
   public void testConflictErrorAndUnfinishedAspectAnalysis_mergedAnalysisExecution(
       @TestParameter boolean keepGoing) throws Exception {
-    assume().that(skymeld).isTrue();
     addOptions("--keep_going=" + keepGoing);
     write(
         "x/aspect.bzl",
@@ -551,11 +549,12 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
       events.assertContainsError("is a prefix of the other");
       events.assertContainsError("Analysis of target '//x:fail_analysis' failed");
 
-      assertThat(eventListener.failedTargetNames).containsExactly("//x:y", "//x:fail_analysis");
+      assertThat(eventListener.failedTargetNames).containsAtLeast("//x:y", "//x:fail_analysis");
     } else {
       assertThat(errorCode)
           .isAnyOf(Code.ARTIFACT_PREFIX_CONFLICT, Code.CONFIGURED_VALUE_CREATION_FAILED);
-      assertThat(eventListener.failedTargetNames).containsAnyOf("//x:y", "//x:fail_analysis");
+      assertThat(eventListener.failedTargetNames)
+          .containsAnyOf("//x:y", "//x/y:y", "//x:fail_analysis");
     }
   }
 
@@ -642,10 +641,6 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
 
   @Test
   public void testMultipleConflictErrors() throws Exception {
-    // TODO(b/245923465) Limitation with Skymeld.
-    if (skymeld) {
-      assume().that(minimizeMemory).isFalse();
-    }
     writeConflictBzl();
     write(
         "foo/BUILD",
@@ -691,14 +686,14 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     ViewCreationFailedException e =
         assertThrows(
             ViewCreationFailedException.class, () -> buildTarget("//foo:first", "//foo:second"));
-    assertThat(e).hasCauseThat().hasCauseThat().isInstanceOf(ActionConflictException.class);
+    assertThat(e).hasCauseThat().isInstanceOf(ActionConflictException.class);
     assertThat(eventListener.failedTargetNames).containsAnyOf("//foo:first", "//foo:second");
     eventListener.failedTargetNames.clear();
 
     e =
         assertThrows(
             ViewCreationFailedException.class, () -> buildTarget("//foo:first", "//foo:second"));
-    assertThat(e).hasCauseThat().hasCauseThat().isInstanceOf(ActionConflictException.class);
+    assertThat(e).hasCauseThat().isInstanceOf(ActionConflictException.class);
     assertThat(eventListener.failedTargetNames).containsAnyOf("//foo:first", "//foo:second");
   }
 
@@ -748,7 +743,9 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     events.assertContainsError("/bin/x/y' (belonging to //x:y)");
     events.assertContainsError("is a prefix of the other");
     assertThat(events.errors()).hasSize(1);
-    assertThat(eventListener.failedTargetNames).containsExactly("//x:y");
+    assertThat(eventListener.failedTargetNames).containsAnyOf("//x:y", "//x/y:y");
+    // We don't know if the conflict is triggered by the aspect(//x:y) or //x/y:y
+    skipTheRestIfSkymeldAndMinimizeMemory();
     assertThat(eventListener.eventIds.get(0).getAspect()).isEqualTo("//x:aspect.bzl%my_aspect");
   }
 
@@ -788,8 +785,6 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
 
   @Test
   public void dependencyHasConflict_keepGoing_bothTopLevelTargetsFail() throws Exception {
-    // TODO(b/326363176) Known bug.
-    assume().that(minimizeMemory).isFalse();
     addOptions("--keep_going");
     writeConflictBzl();
     write(
@@ -932,5 +927,9 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
     assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:bar"));
     events.assertContainsError("One of the output paths");
     events.assertContainsError("is a prefix of the other");
+  }
+
+  private void skipTheRestIfSkymeldAndMinimizeMemory() {
+    assume().that(skymeld && minimizeMemory).isFalse();
   }
 }

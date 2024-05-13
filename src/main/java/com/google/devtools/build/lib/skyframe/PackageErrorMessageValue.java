@@ -152,10 +152,9 @@ public abstract class PackageErrorMessageValue implements SkyValue {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof NoSuchPackageExceptionValue)) {
+      if (!(obj instanceof NoSuchPackageExceptionValue other)) {
         return false;
       }
-      NoSuchPackageExceptionValue other = (NoSuchPackageExceptionValue) obj;
       return errorMessage.equals(other.errorMessage);
     }
 

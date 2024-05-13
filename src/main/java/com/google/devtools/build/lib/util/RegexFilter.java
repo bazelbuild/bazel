@@ -178,11 +178,10 @@ public final class RegexFilter implements Predicate<String> {
     if (this == other) {
       return true;
     }
-    if (!(other instanceof RegexFilter)) {
+    if (!(other instanceof RegexFilter otherFilter)) {
       return false;
     }
 
-    RegexFilter otherFilter = (RegexFilter) other;
     if (this.exclusionPattern == null ^ otherFilter.exclusionPattern == null) {
       return false;
     }

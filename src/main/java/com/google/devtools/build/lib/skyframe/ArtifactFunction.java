@@ -659,11 +659,10 @@ public final class ArtifactFunction implements SkyFunction {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof DirectoryArtifactTraversalRequest)) {
+      if (!(o instanceof DirectoryArtifactTraversalRequest other)) {
         return false;
       }
       // Artifact is only for error info and not considered in hash code or equality.
-      DirectoryArtifactTraversalRequest other = (DirectoryArtifactTraversalRequest) o;
       return root.equals(other.root) && skipTestingForSubpackage == other.skipTestingForSubpackage;
     }
   }

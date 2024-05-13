@@ -49,12 +49,6 @@ public interface AndroidStarlarkCommonApi<
     extends StarlarkValue {
 
   @StarlarkMethod(
-      name = "create_device_broker_info",
-      documented = false,
-      parameters = {@Param(name = "type")})
-  AndroidDeviceBrokerInfoApi createDeviceBrokerInfo(String deviceBrokerType);
-
-  @StarlarkMethod(
       name = "resource_source_directory",
       allowReturnNones = true,
       doc =

@@ -282,10 +282,9 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
       if (this == o) {
         return true;
       }
-      if (!(o instanceof File)) {
+      if (!(o instanceof File that)) {
         return false;
       }
-      File that = (File) o;
       return Objects.equals(path, that.path);
     }
 
@@ -368,10 +367,9 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
       if (this == o) {
         return true;
       }
-      if (!(o instanceof Dirents)) {
+      if (!(o instanceof Dirents that)) {
         return false;
       }
-      Dirents that = (Dirents) o;
       return Objects.equals(path, that.path);
     }
 
@@ -452,10 +450,9 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
       if (this == o) {
         return true;
       }
-      if (!(o instanceof DirTree)) {
+      if (!(o instanceof DirTree that)) {
         return false;
       }
-      DirTree that = (DirTree) o;
       return Objects.equals(path, that.path);
     }
 
@@ -518,10 +515,9 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
       if (this == o) {
         return true;
       }
-      if (!(o instanceof EnvVar)) {
+      if (!(o instanceof EnvVar envVar)) {
         return false;
       }
-      EnvVar envVar = (EnvVar) o;
       return Objects.equals(name, envVar.name);
     }
 
@@ -588,10 +584,9 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
       if (this == o) {
         return true;
       }
-      if (!(o instanceof RecordedRepoMapping)) {
+      if (!(o instanceof RecordedRepoMapping that)) {
         return false;
       }
-      RecordedRepoMapping that = (RecordedRepoMapping) o;
       return Objects.equals(sourceRepo, that.sourceRepo)
           && Objects.equals(apparentName, that.apparentName);
     }

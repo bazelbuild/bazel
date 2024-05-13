@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.starlark.StarlarkSubrule.getRuleAttrName;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -27,12 +28,14 @@ import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
@@ -699,7 +702,19 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
 
   @Test
   public void testSubruleAttrs_cannotHaveNativeTransitions() throws Exception {
-    ev.update("native_transition", (StarlarkExposedRuleTransitionFactory) data -> null);
+    ev.update(
+        "native_transition",
+        new TransitionFactory<AttributeTransitionData>() {
+          @Override
+          public ConfigurationTransition create(AttributeTransitionData data) {
+            return null;
+          }
+
+          @Override
+          public TransitionType transitionType() {
+            return TransitionType.ATTRIBUTE;
+          }
+        });
     ev.checkEvalErrorContains(
         "bad cfg for attribute '_foo': subrules may only have target/exec attributes.",
         "_my_subrule = subrule(",
@@ -1229,15 +1244,8 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
         .isEqualTo(JavaToolchainProvider.PROVIDER.getKey());
   }
 
-  /**
-   * This test case exists purely as a companion to the test case {@link
-   * #testSubruleToolchains_requestedToolchainIsSuppliedToAction} below. To ensure the latter does
-   * not spuriously pass, we test the inverse case here. If this test begins to fail due to changes
-   * to the AEG checking code, it very likely means the other test below needs to be updated
-   * appropriately.
-   */
   @Test
-  public void testSubruleToolchains_aegValidationFailsWithoutToolchain() throws Exception {
+  public void testSubruleToolchains_noToolchainIsSuppliedToAction() throws Exception {
     useConfiguration("--incompatible_auto_exec_groups");
     scratch.file(
         "subrule_testing/myrule.bzl",
@@ -1267,11 +1275,11 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
         my_rule(name = "foo")
         """);
 
-    assertThrows(
-        "Couldn't identify if tools are from implicit dependencies or a toolchain. Please set the"
-            + " toolchain parameter.",
-        AssertionError.class,
-        () -> getConfiguredTarget("//subrule_testing:foo"));
+    ConfiguredTarget target = getConfiguredTarget("//subrule_testing:foo");
+    Action action = getGeneratingAction(target, "subrule_testing/foo.out");
+
+    assertThat(action).isNotNull();
+    assertThat(action.getOwner()).isEqualTo(getRuleContext(target).getActionOwner());
   }
 
   @Test
@@ -1785,7 +1793,8 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   private StructImpl getProvider(String targetLabel, String providerLabel, String providerName)
       throws LabelSyntaxException {
     ConfiguredTarget target = getConfiguredTarget(targetLabel);
-    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical(providerLabel), providerName);
+    Provider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical(providerLabel)), providerName);
     return (StructImpl) target.get(key);
   }
 }

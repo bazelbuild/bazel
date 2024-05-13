@@ -32,59 +32,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class PythonVersionSelectTest extends BuildViewTestCase {
 
-  private static String join(String... args) {
-    return String.join("\n", args);
-  }
-
-  /**
-   * Returns the lines of a BUILD file that defines a target {@code foo} that {@code select()}s on
-   * the given native flag.
-   */
-  private static String makeFooThatSelectsOnFlag(String flagName, String flagValue) {
-    return join(
-        "config_setting(",
-        "    name = 'cfgsetting',",
-        "    values = {'" + flagName + "': '" + flagValue + "'},",
-        ")",
-        "sh_binary(",
-        "    name = 'foo',",
-        "    srcs = select({",
-        "        ':cfgsetting': ['main.sh'],",
-        "        '//conditions:default': ['main.sh'],",
-        "    }),",
-        ")");
-  }
-
-  @Test
-  public void cannotSelectOnNativePythonVersionFlag() throws Exception {
-    checkError(
-        "pkg",
-        "foo",
-        // error:
-        "option 'python_version' cannot be used in a config_setting",
-        // build file:
-        makeFooThatSelectsOnFlag("python_version", "PY2"));
-  }
-
-  // TODO(brandjon): Delete this test case when we delete these flags.
-  @Test
-  public void cannotSelectOnForcePythonFlags() throws Exception {
-    checkError(
-        "fp",
-        "foo",
-        // error:
-        "option 'force_python' cannot be used in a config_setting",
-        // build file:
-        makeFooThatSelectsOnFlag("force_python", "PY2"));
-    checkError(
-        "hfp",
-        "foo",
-        // error:
-        "option 'host_force_python' cannot be used in a config_setting",
-        // build file:
-        makeFooThatSelectsOnFlag("host_force_python", "PY2"));
-  }
-
   /**
    * Tests the python_version selectable target, which is the canonical way of determining the
    * Python version from within a select().

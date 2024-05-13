@@ -23,6 +23,7 @@ import java.util.HashSet;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.function.Function;
 
 /** A nested-set like class for codec testing. */
 final class NotNestedSet {
@@ -43,11 +44,11 @@ final class NotNestedSet {
   private static final int MAX_RANDOM_ELEMENTS = 5;
 
   /** Helper for constructing contents or nested contents. */
-  static Object[] createRandomLeafArray(Random rng) {
+  static Object[] createRandomLeafArray(Random rng, Function<Random, Object> elementFactory) {
     int count = rng.nextInt(MAX_RANDOM_ELEMENTS - 1) + 1;
     Object[] array = new Object[count];
     for (int i = 0; i < count; i++) {
-      array[i] = rng.nextInt();
+      array[i] = elementFactory.apply(rng);
     }
     return array;
   }
@@ -61,7 +62,8 @@ final class NotNestedSet {
    */
   private static final double EXTRA_PARENT_PROBABILITY = 0.01;
 
-  static NotNestedSet createRandom(Random rng, int maxLayers, int maxNodesPerLayer) {
+  static NotNestedSet createRandom(
+      Random rng, int maxLayers, int maxNodesPerLayer, Function<Random, Object> elementFactory) {
     // Creates a random DAG layer by layer.
     int layerCount = rng.nextInt(maxLayers - 1) + 1;
 
@@ -103,17 +105,17 @@ final class NotNestedSet {
       ArrayList<NodeBuilder> layer = layers.get(i);
       for (NodeBuilder builder : layer) {
         if (i == layerCount - 1) {
-          builder.value = createRandomLeafArray(rng);
+          builder.value = createRandomLeafArray(rng, elementFactory);
           continue;
         }
-        // Inserts additional random integer elements into each non-leaf node.
+        // Inserts additional random elements into each non-leaf node.
         int randomElementCount = rng.nextInt(MAX_RANDOM_ELEMENTS);
         ArrayList<Object> values = new ArrayList<>(builder.children.size() + randomElementCount);
         for (Coordinate child : builder.children) {
           values.add(layers.get(child.layer()).get(child.index()).value);
         }
         for (int j = 0; j < randomElementCount; j++) {
-          values.add(rng.nextInt());
+          values.add(elementFactory.apply(rng));
         }
         Collections.shuffle(values, rng);
         builder.value = values.toArray(new Object[0]);

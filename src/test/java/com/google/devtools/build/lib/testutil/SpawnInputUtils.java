@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.vfs.Path;
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
@@ -74,7 +73,7 @@ public final class SpawnInputUtils {
 
     ImmutableList<FilesetOutputSymlink> filesetLinks;
     try {
-      filesetLinks = context.getArtifactExpander().getFileset(filesetArtifact);
+      filesetLinks = context.getArtifactExpander().expandFileset(filesetArtifact);
     } catch (MissingExpansionException e) {
       throw new IllegalStateException(e);
     }
@@ -100,9 +99,7 @@ public final class SpawnInputUtils {
 
   public static Artifact getExpandedToArtifact(
       String name, Artifact expandableArtifact, Spawn spawn, ActionExecutionContext context) {
-    ArrayList<Artifact> expansion = new ArrayList<>();
-    context.getArtifactExpander().expand(expandableArtifact, expansion);
-    return expansion.stream()
+    return context.getArtifactExpander().expandTreeArtifact(expandableArtifact).stream()
         .filter(artifact -> artifact.getExecPathString().contains(name))
         .findFirst()
         .orElseThrow(

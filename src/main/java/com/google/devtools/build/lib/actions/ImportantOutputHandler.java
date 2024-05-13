@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import java.util.Collection;
 
 /** Context to be informed of top-level outputs and their runfiles. */
 public interface ImportantOutputHandler extends ActionContext {
@@ -32,7 +32,7 @@ public interface ImportantOutputHandler extends ActionContext {
    *     outputs which are reported in the returned map
    */
   ImmutableMap<String, ActionInput> processAndGetLostArtifacts(
-      Collection<? extends ActionInput> outputs, InputMetadataProvider metadataProvider)
+      ImmutableCollection<ActionInput> outputs, InputMetadataProvider metadataProvider)
       throws ImportantOutputException, InterruptedException;
 
   ImportantOutputHandler NO_OP = (outputs, metadataProvider) -> ImmutableMap.of();

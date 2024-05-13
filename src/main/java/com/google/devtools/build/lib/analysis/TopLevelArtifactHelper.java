@@ -250,8 +250,7 @@ public final class TopLevelArtifactHelper {
       // Suppress display of source files (because we do no work to build them).
       return false;
     }
-    if (configuredTarget instanceof RuleConfiguredTarget) {
-      RuleConfiguredTarget ruleCt = (RuleConfiguredTarget) configuredTarget;
+    if (configuredTarget instanceof RuleConfiguredTarget ruleCt) {
       if (ruleCt.getRuleClassString().contains("$")) {
         // Suppress display of hidden rules
         return false;

@@ -28,9 +28,11 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.MacroClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
+import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
@@ -62,7 +64,7 @@ import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.Structure;
 
 /** API documentation extractor for a compiled, loaded Starlark module. */
-final class ModuleInfoExtractor {
+public final class ModuleInfoExtractor {
   private final Predicate<String> isWantedQualifiedName;
   private final LabelRenderer labelRenderer;
 
@@ -73,6 +75,18 @@ final class ModuleInfoExtractor {
           .setType(AttributeType.NAME)
           .setMandatory(true)
           .setDocString("A unique name for this target.")
+          .build();
+
+  @VisibleForTesting
+  static final AttributeInfo IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO =
+      AttributeInfo.newBuilder()
+          .setName("name")
+          .setType(AttributeType.NAME)
+          .setMandatory(true)
+          .setDocString(
+              "A unique name for this macro instance. Normally, this is also the name for the"
+                  + " macro's main or only target. The names of any other targets that this macro"
+                  + " might create will be this name with a string suffix.")
           .build();
 
   @VisibleForTesting
@@ -191,20 +205,25 @@ final class ModuleInfoExtractor {
         String qualifiedName, Object value, boolean shouldVisitVerifiedForAncestor)
         throws ExtractionException {
       if (shouldVisitVerifiedForAncestor || shouldVisit(qualifiedName)) {
-        if (value instanceof StarlarkRuleFunction) {
-          visitRule(qualifiedName, (StarlarkRuleFunction) value);
-        } else if (value instanceof MacroFunction) {
-          visitMacroFunction(qualifiedName, (MacroFunction) value);
-        } else if (value instanceof StarlarkProvider) {
-          visitProvider(qualifiedName, (StarlarkProvider) value);
-        } else if (value instanceof StarlarkFunction) {
-          visitFunction(qualifiedName, (StarlarkFunction) value);
-        } else if (value instanceof StarlarkDefinedAspect) {
-          visitAspect(qualifiedName, (StarlarkDefinedAspect) value);
-        } else if (value instanceof RepositoryRuleFunction) {
-          visitRepositoryRule(qualifiedName, (RepositoryRuleFunction) value);
-        } else if (value instanceof ModuleExtension) {
-          visitModuleExtension(qualifiedName, (ModuleExtension) value);
+        if (value instanceof StarlarkExportable && !((StarlarkExportable) value).isExported()) {
+          // Unexported StarlarkExportables are not usable and therefore do not need to have docs
+          // generated.
+          return;
+        }
+        if (value instanceof StarlarkRuleFunction starlarkRuleFunction) {
+          visitRule(qualifiedName, starlarkRuleFunction);
+        } else if (value instanceof MacroFunction macroFunction) {
+          visitMacroFunction(qualifiedName, macroFunction);
+        } else if (value instanceof StarlarkProvider starlarkProvider) {
+          visitProvider(qualifiedName, starlarkProvider);
+        } else if (value instanceof StarlarkFunction starlarkFunction) {
+          visitFunction(qualifiedName, starlarkFunction);
+        } else if (value instanceof StarlarkDefinedAspect starlarkDefinedAspect) {
+          visitAspect(qualifiedName, starlarkDefinedAspect);
+        } else if (value instanceof RepositoryRuleFunction repositoryRuleFunction) {
+          visitRepositoryRule(qualifiedName, repositoryRuleFunction);
+        } else if (value instanceof ModuleExtension moduleExtension) {
+          visitModuleExtension(qualifiedName, moduleExtension);
         } else if (value instanceof Structure) {
           recurseIntoStructure(
               qualifiedName, (Structure) value, /* shouldVisitVerifiedForAncestor= */ true);
@@ -220,25 +239,39 @@ final class ModuleInfoExtractor {
       // of traversed entities.
     }
 
-    protected void visitRule(String qualifiedName, StarlarkRuleFunction value)
+    protected void visitRule(
+        @SuppressWarnings("unused") String qualifiedName,
+        @SuppressWarnings("unused") StarlarkRuleFunction value)
         throws ExtractionException {}
 
-    protected void visitMacroFunction(String qualifiedName, MacroFunction value) {}
-
-    protected void visitProvider(String qualifiedName, StarlarkProvider value)
+    protected void visitMacroFunction(
+        @SuppressWarnings("unused") String qualifiedName,
+        @SuppressWarnings("unused") MacroFunction value)
         throws ExtractionException {}
 
-    protected void visitFunction(String qualifiedName, StarlarkFunction value)
+    protected void visitProvider(
+        @SuppressWarnings("unused") String qualifiedName,
+        @SuppressWarnings("unused") StarlarkProvider value)
         throws ExtractionException {}
 
-    protected void visitAspect(String qualifiedName, StarlarkDefinedAspect aspect)
+    protected void visitFunction(
+        @SuppressWarnings("unused") String qualifiedName,
+        @SuppressWarnings("unused") StarlarkFunction value)
         throws ExtractionException {}
 
-    protected void visitModuleExtension(String qualifiedName, ModuleExtension moduleExtension)
+    protected void visitAspect(
+        @SuppressWarnings("unused") String qualifiedName,
+        @SuppressWarnings("unused") StarlarkDefinedAspect aspect)
+        throws ExtractionException {}
+
+    protected void visitModuleExtension(
+        @SuppressWarnings("unused") String qualifiedName,
+        @SuppressWarnings("unused") ModuleExtension moduleExtension)
         throws ExtractionException {}
 
     protected void visitRepositoryRule(
-        String qualifiedName, RepositoryRuleFunction repositoryRuleFunction)
+        @SuppressWarnings("unused") String qualifiedName,
+        @SuppressWarnings("unused") RepositoryRuleFunction repositoryRuleFunction)
         throws ExtractionException {}
 
     private void recurseIntoStructure(
@@ -384,7 +417,8 @@ final class ModuleInfoExtractor {
     }
 
     @Override
-    protected void visitMacroFunction(String qualifiedName, MacroFunction macroFunction) {
+    protected void visitMacroFunction(String qualifiedName, MacroFunction macroFunction)
+        throws ExtractionException {
       MacroInfo.Builder macroInfoBuilder = MacroInfo.newBuilder();
       // Record the name under which this symbol is made accessible, which may differ from the
       // symbol's exported name
@@ -395,7 +429,15 @@ final class ModuleInfoExtractor {
               .setName(macroFunction.getName())
               .setFile(labelRenderer.render(macroFunction.getExtensionLabel())));
       macroFunction.getDocumentation().ifPresent(macroInfoBuilder::setDocString);
-      // TODO(#19922): add and document macro attributes
+
+      MacroClass macroClass = macroFunction.getMacroClass();
+      // inject the name attribute; addDocumentableAttributes skips non-Starlark-defined attributes.
+      macroInfoBuilder.addAttribute(IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO);
+      addDocumentableAttributes(
+          macroClass.getAttributes().values(),
+          macroInfoBuilder::addAttribute,
+          "macro " + qualifiedName);
+
       moduleInfoBuilder.addMacroInfo(macroInfoBuilder);
     }
 

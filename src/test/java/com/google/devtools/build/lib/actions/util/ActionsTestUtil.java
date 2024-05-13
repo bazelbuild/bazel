@@ -26,6 +26,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
@@ -165,7 +166,7 @@ public final class ActionsTestUtil {
         eventHandler,
         ImmutableMap.copyOf(clientEnv),
         /* topLevelFilesets= */ ImmutableMap.of(),
-        (artifact, output) -> {},
+        treeArtifact -> ImmutableSortedSet.of(),
         /* actionFileSystem= */ null,
         /* skyframeDepsResult= */ null,
         DiscoveredModulesPruner.DEFAULT,
@@ -191,7 +192,7 @@ public final class ActionsTestUtil {
         eventHandler,
         /* clientEnv= */ ImmutableMap.of(),
         /* topLevelFilesets= */ ImmutableMap.of(),
-        (artifact, output) -> {},
+        treeArtifact -> ImmutableSortedSet.of(),
         /* actionFileSystem= */ null,
         /* skyframeDepsResult= */ null,
         DiscoveredModulesPruner.DEFAULT,

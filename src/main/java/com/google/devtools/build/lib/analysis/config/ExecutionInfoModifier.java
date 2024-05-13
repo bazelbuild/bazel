@@ -21,6 +21,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.common.options.Converters.RegexPatternConverter;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -38,6 +39,7 @@ public abstract class ExecutionInfoModifier {
   private static final ExecutionInfoModifier EMPTY = create("", ImmutableList.of());
 
   abstract String option();
+
   abstract ImmutableList<Expression> expressions();
 
   @AutoValue
@@ -77,7 +79,7 @@ public abstract class ExecutionInfoModifier {
                 // Convert to get a useful exception if it's not a valid pattern, but use the regex
                 // (see comment in Expression)
                 new RegexPatternConverter()
-                    .convert(specMatcher.group("pattern"), /*conversionContext=*/ null)
+                    .convert(specMatcher.group("pattern"), /* conversionContext= */ null)
                     .regexPattern()
                     .pattern(),
                 specMatcher.group("sign").equals("-"),
@@ -99,8 +101,39 @@ public abstract class ExecutionInfoModifier {
   /**
    * Determines whether the given {@code mnemonic} (e.g. "CppCompile") matches any of the patterns.
    */
-  public boolean matches(String mnemonic) {
+  boolean matches(String mnemonic) {
     return expressions().stream().anyMatch(expr -> expr.pattern().matcher(mnemonic).matches());
+  }
+
+  /** Checks whether the {@code executionInfoList} matches the {@code mnemonic}. */
+  public static boolean matches(
+      List<ExecutionInfoModifier> executionInfoList, boolean isAdditive, String mnemonic) {
+    if (executionInfoList.isEmpty()) {
+      return false;
+    }
+
+    if (isAdditive) {
+      return executionInfoList.stream().anyMatch(eim -> eim.matches(mnemonic));
+    } else {
+      return executionInfoList.getLast().matches(mnemonic);
+    }
+  }
+
+  /** Applies {@code executionInfoList} to the given {@code executionInfo}. */
+  public static void apply(
+      List<ExecutionInfoModifier> executionInfoList,
+      boolean isAdditive,
+      String mnemonic,
+      Map<String, String> executionInfo) {
+    if (executionInfoList.isEmpty()) {
+      return;
+    }
+
+    if (isAdditive) {
+      executionInfoList.forEach(eim -> eim.apply(mnemonic, executionInfo));
+    } else {
+      executionInfoList.getLast().apply(mnemonic, executionInfo);
+    }
   }
 
   /** Modifies the given map of {@code executionInfo} to add or remove the keys for this option. */

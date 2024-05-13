@@ -1373,8 +1373,8 @@ public class RewindingTestsHelper {
           }
 
           if (type.equals(EventType.IS_READY)
-              && key instanceof ActionLookupData
-              && actionHasLabelAndIndex((ActionLookupData) key, "shared_2", 0)) {
+              && key instanceof ActionLookupData actionLookupData
+              && actionHasLabelAndIndex(actionLookupData, "shared_2", 0)) {
             int shared2AReadiedCount = shared2AReady.incrementAndGet();
             if (shared2AReadiedCount == 1) {
               awaitUninterruptibly(shared1BEmittedRewoundEvent);
@@ -1382,8 +1382,8 @@ public class RewindingTestsHelper {
           }
 
           if (type.equals(EventType.IS_READY)
-              && key instanceof ActionLookupData
-              && actionHasLabelAndIndex((ActionLookupData) key, "shared_2", 1)) {
+              && key instanceof ActionLookupData actionLookupData
+              && actionHasLabelAndIndex(actionLookupData, "shared_2", 1)) {
             int shared2BReadiedCount = shared2BReady.incrementAndGet();
             if (shared2BReadiedCount == 5) {
               // Wait to attempt final evaluation of shared_2B until after shared_1B is done.
@@ -1395,24 +1395,24 @@ public class RewindingTestsHelper {
           // When shared_2B declares a future dep, allow shared_1B's Skyframe execution attempt to
           // clear its ActionExecutionState and reset its node.
           if (type.equals(EventType.ADD_EXTERNAL_DEP)
-              && key instanceof ActionLookupData
-              && actionHasLabelAndIndex((ActionLookupData) key, "shared_2", 1)) {
+              && key instanceof ActionLookupData actionLookupData
+              && actionHasLabelAndIndex(actionLookupData, "shared_2", 1)) {
             shared2BDeclaresFutureDep.countDown();
           }
 
           // Wait to attempt the rewound evaluation of shared_1A until after shared_2A finishes its
           // rewound evaluation and shared_2B is ready again.
           if (type.equals(EventType.IS_READY)
-              && key instanceof ActionLookupData
-              && actionHasLabelAndIndex((ActionLookupData) key, "shared_1", 0)) {
+              && key instanceof ActionLookupData actionLookupData
+              && actionHasLabelAndIndex(actionLookupData, "shared_1", 0)) {
             if (shared1ARewound.get() == 1) {
               awaitUninterruptibly(shared2BReadyForFifthTime);
             }
           }
 
           if (type.equals(EventType.SET_VALUE)
-              && key instanceof ActionLookupData
-              && actionHasLabelAndIndex((ActionLookupData) key, "shared_1", 1)) {
+              && key instanceof ActionLookupData actionLookupData
+              && actionHasLabelAndIndex(actionLookupData, "shared_1", 1)) {
             shared1BDone.countDown();
           }
         });

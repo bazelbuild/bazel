@@ -37,6 +37,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -160,6 +161,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   protected final PathPackageLocator pkgPath;
   protected final int queryEvaluationParallelismLevel;
   private final boolean visibilityDepsAreAllowed;
+  private final boolean toolchainTypeDepsAreAllowed;
 
   // The following fields are set in the #beforeEvaluateQuery method.
   protected MultisetSemaphore<PackageIdentifier> packageSemaphore;
@@ -237,6 +239,9 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     // Since this attribute is of the NODEP type, that means we need a special implementation of
     // NO_NODEP_DEPS.
     this.visibilityDepsAreAllowed = !settings.contains(Setting.NO_NODEP_DEPS);
+    // The "toolchains" parameter of rule definition should be treated as an implicit dep despite
+    // not being represented by an attribute.
+    this.toolchainTypeDepsAreAllowed = !settings.contains(Setting.NO_IMPLICIT_DEPS);
   }
 
   @Override
@@ -523,6 +528,12 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       // know about deps from the labels of the rule's package's default_visibility. Therefore, we
       // need to explicitly handle that here.
       Iterables.addAll(allowedLabels, rule.getVisibilityDependencyLabels());
+    }
+    if (toolchainTypeDepsAreAllowed) {
+      for (ToolchainTypeRequirement toolchainTypeRequirement :
+          rule.getRuleClassObject().getToolchainTypes()) {
+        allowedLabels.add(toolchainTypeRequirement.toolchainType());
+      }
     }
     // We should add deps from aspects, otherwise they are going to be filtered out.
     allowedLabels.addAll(rule.getAspectLabelsSuperset(dependencyFilter));
@@ -1138,8 +1149,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   protected static FailureDetail createUnsuccessfulKeyFailure(Exception exception) {
-    return exception instanceof DetailedException
-        ? ((DetailedException) exception).getDetailedExitCode().getFailureDetail()
+    return exception instanceof DetailedException detailedException
+        ? detailedException.getDetailedExitCode().getFailureDetail()
         : FailureDetail.newBuilder()
             .setMessage(exception.getMessage())
             .setQuery(Query.newBuilder().setCode(Code.SKYQUERY_TARGET_EXCEPTION))

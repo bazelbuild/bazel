@@ -57,10 +57,9 @@ public class WorkspaceNameValue implements SkyValue {
 
   @Override
   public boolean equals(Object obj) {
-    if (!(obj instanceof WorkspaceNameValue)) {
+    if (!(obj instanceof WorkspaceNameValue other)) {
       return false;
     }
-    WorkspaceNameValue other = (WorkspaceNameValue) obj;
     return Objects.equals(workspaceName, other.workspaceName);
   }
 

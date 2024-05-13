@@ -132,8 +132,8 @@ public interface ConstraintSemantics<T> {
    *     matching group is found
    */
   static EnvironmentGroup getEnvironmentGroup(Target envTarget) throws EnvironmentLookupException {
-    if (!(envTarget instanceof Rule)
-        || !((Rule) envTarget).getRuleClass().equals(ConstraintConstants.ENVIRONMENT_RULE)) {
+    if (!(envTarget instanceof Rule rule)
+        || !rule.getRuleClass().equals(ConstraintConstants.ENVIRONMENT_RULE)) {
       throw createEnvironmentLookupException(
           envTarget.getLabel() + " is not a valid environment definition",
           Code.INVALID_ENVIRONMENT);

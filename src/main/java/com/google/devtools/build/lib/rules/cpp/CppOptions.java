@@ -460,19 +460,28 @@ public class CppOptions extends FragmentOptions {
   public Label csFdoProfileLabel;
 
   @Option(
-      name = "enable_fdo_profile_absolute_path",
+      name = "enable_remaining_fdo_absolute_paths",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "If set, use of fdo_absolute_profile_path will raise an error.")
+      help = "If set, any use of absolute paths for FDO will raise an error.")
   public boolean enableFdoProfileAbsolutePath;
+
+  @Option(
+      name = "enable_propeller_optimize_absolute_paths",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "If set, any use of absolute paths for propeller optimize will raise an error.")
+  public boolean enablePropellerOptimizeAbsolutePath;
 
   @Option(
       name = "propeller_optimize_absolute_cc_profile",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Absolute path name of cc_profile file for Propeller Optimized builds.")
+      help = "Absolute path name of cc_profile file for Propeller Optimized builds.",
+      deprecationWarning = "Deprecated. Use --propeller_optimize instead.")
   public String propellerOptimizeAbsoluteCCProfile;
 
   @Option(
@@ -480,7 +489,8 @@ public class CppOptions extends FragmentOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Absolute path name of ld_profile file for Propeller Optimized builds.")
+      help = "Absolute path name of ld_profile file for Propeller Optimized builds.",
+      deprecationWarning = "Deprecated. Use --propeller_optimize instead.")
   public String propellerOptimizeAbsoluteLdProfile;
 
   @Option(
@@ -524,6 +534,25 @@ public class CppOptions extends FragmentOptions {
   public Label getMemProfProfileLabel() {
     return memprofProfileLabel;
   }
+
+  @Option(
+      name = "proto_profile",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      defaultValue = "true",
+      help = "Whether to pass profile_path to the proto compiler.")
+  public boolean protoProfile;
+
+  @Option(
+      name = "proto_profile_path",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      defaultValue = "null",
+      converter = LabelConverter.class,
+      help =
+          "The profile to pass to the proto compiler as profile_path. If unset, but "
+              + " --proto_profile is true (the default), infers the path from --fdo_optimize.")
+  public Label protoProfilePath;
 
   @Option(
       name = "save_temps",
@@ -1065,18 +1094,5 @@ public class CppOptions extends FragmentOptions {
       return newOptions;
     }
     return this;
-  }
-
-  /** Returns true if targets under this configuration should apply FDO. */
-  public boolean isFdo() {
-    return getFdoOptimize() != null || fdoInstrumentForBuild != null || fdoProfileLabel != null;
-  }
-
-  /** Returns true if targets under this configuration should apply CSFdo. */
-  public boolean isCSFdo() {
-    return (getFdoOptimize() != null || fdoProfileLabel != null)
-        && (csFdoInstrumentForBuild != null
-            || csFdoProfileLabel != null
-            || csFdoAbsolutePathForBuild != null);
   }
 }

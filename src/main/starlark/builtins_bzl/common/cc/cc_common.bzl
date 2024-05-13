@@ -16,6 +16,7 @@
 
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
+load(":common/cc/link/link_build_variables.bzl", "create_link_variables")
 
 cc_common_internal = _builtins.internal.cc_common
 CcNativeLibraryInfo = _builtins.internal.CcNativeLibraryInfo
@@ -161,6 +162,10 @@ def _link(
         build_config = build_config,
     )
 
+def _create_lto_compilation_context(*, objects = {}):
+    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    return cc_common_internal.create_lto_compilation_context(objects = objects)
+
 def _create_compilation_outputs(*, objects = None, pic_objects = None, lto_compilation_context = _UNBOUND, dwo_objects = _UNBOUND, pic_dwo_objects = _UNBOUND):
     if lto_compilation_context != _UNBOUND or dwo_objects != _UNBOUND or pic_dwo_objects != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
@@ -255,35 +260,6 @@ def _create_compile_variables(
         input_file = input_file,
     )
 
-def _create_link_variables(
-        *,
-        cc_toolchain,
-        feature_configuration,
-        library_search_directories = None,
-        runtime_library_search_directories = None,
-        user_link_flags = None,
-        output_file = None,
-        param_file = None,
-        is_using_linker = True,
-        is_linking_dynamic_library = False,
-        must_keep_debug = True,
-        use_test_only_flags = False,
-        is_static_linking_mode = True):
-    return cc_common_internal.create_link_variables(
-        cc_toolchain = cc_toolchain,
-        feature_configuration = feature_configuration,
-        library_search_directories = library_search_directories,
-        runtime_library_search_directories = runtime_library_search_directories,
-        user_link_flags = user_link_flags,
-        output_file = output_file,
-        param_file = param_file,
-        is_using_linker = is_using_linker,
-        is_linking_dynamic_library = is_linking_dynamic_library,
-        must_keep_debug = must_keep_debug,
-        use_test_only_flags = use_test_only_flags,
-        is_static_linking_mode = is_static_linking_mode,
-    )
-
 def _empty_variables():
     return cc_common_internal.empty_variables()
 
@@ -298,14 +274,23 @@ def _create_library_to_link(
         interface_library = None,
         pic_objects = _UNBOUND,
         objects = _UNBOUND,
+        lto_compilation_context = _UNBOUND,
         alwayslink = False,
         dynamic_library_symlink_path = "",
         interface_library_symlink_path = "",
         must_keep_debug = _UNBOUND):
+    if lto_compilation_context != _UNBOUND:
+        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    else:  # lto_compilation_context == _UNBOUND
+        lto_compilation_context = None
     if must_keep_debug != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     if must_keep_debug == _UNBOUND:
         must_keep_debug = False
+    if objects != _UNBOUND:
+        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+    if pic_objects != _UNBOUND:
+        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
     # We cannot check if experimental_starlark_cc_import is set or not here,
     # since there is not ctx. So for a native code to perform the check
@@ -322,6 +307,7 @@ def _create_library_to_link(
         "dynamic_library_symlink_path": dynamic_library_symlink_path,
         "interface_library_symlink_path": interface_library_symlink_path,
         "must_keep_debug": must_keep_debug,
+        "lto_compilation_context": lto_compilation_context,
     }
     if pic_objects != _UNBOUND:
         kwargs["pic_objects"] = pic_objects
@@ -519,15 +505,15 @@ def _create_cc_toolchain_config_info(
         *,
         ctx,
         toolchain_identifier,
-        target_system_name,
-        target_cpu,
-        target_libc,
         compiler,
         features = [],
         action_configs = [],
         artifact_name_patterns = [],
         cxx_builtin_include_directories = [],
         host_system_name = None,
+        target_system_name = None,
+        target_cpu = None,
+        target_libc = None,
         abi_version = None,
         abi_libc_version = None,
         tool_paths = [],
@@ -857,6 +843,7 @@ def _implementation_deps_allowed_by_allowlist(*, ctx):
 
 cc_common = struct(
     link = _link,
+    create_lto_compilation_context = _create_lto_compilation_context,
     create_compilation_outputs = _create_compilation_outputs,
     merge_compilation_outputs = _merge_compilation_outputs,
     # Ideally we would like to get rid of this Java symbol and replace it with Starlark one.
@@ -871,7 +858,7 @@ cc_common = struct(
     get_memory_inefficient_command_line = _get_memory_inefficient_command_line,
     get_environment_variables = _get_environment_variables,
     create_compile_variables = _create_compile_variables,
-    create_link_variables = _create_link_variables,
+    create_link_variables = create_link_variables,
     empty_variables = _empty_variables,
     create_library_to_link = _create_library_to_link,
     create_linker_input = _create_linker_input,

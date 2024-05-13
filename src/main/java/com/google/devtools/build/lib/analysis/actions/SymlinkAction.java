@@ -171,9 +171,12 @@ public final class SymlinkAction extends AbstractAction {
    * @param absolutePath where the symlink will point to
    * @param output the Artifact that will be created by executing this Action.
    * @param progressMessage the progress message.
+   * @deprecated This action is not hermetic. To remove it, also the feature using it needs to be
+   *     deprecated.
    */
-  public static SymlinkAction toAbsolutePath(ActionOwner owner, PathFragment absolutePath,
-      Artifact output, String progressMessage) {
+  @Deprecated
+  public static SymlinkAction toAbsolutePath(
+      ActionOwner owner, PathFragment absolutePath, Artifact output, String progressMessage) {
     Preconditions.checkState(absolutePath.isAbsolute());
     return new SymlinkAction(owner, absolutePath, null, output, progressMessage, TargetType.OTHER);
   }

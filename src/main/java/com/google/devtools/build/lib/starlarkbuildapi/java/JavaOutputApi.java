@@ -19,8 +19,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /** A tuple of a java classes jar and its associated source and interface archives. */
@@ -118,14 +116,4 @@ public interface JavaOutputApi<FileT extends FileApi> extends StructApi {
       structField = true)
   @Nullable
   Depset getSrcJarsStarlark(StarlarkSemantics semantics);
-
-  @Override
-  default String toProto() throws EvalException {
-    throw Starlark.errorf("unsupported method");
-  }
-
-  @Override
-  default String toJson() throws EvalException {
-    throw Starlark.errorf("unsupported method");
-  }
 }

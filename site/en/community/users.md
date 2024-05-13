@@ -39,11 +39,18 @@ In their own words:
 > Bazel has increased reliability, stability, and speed for all of builds/tests
 at Asana. We no longer need to clean because of incorrect caches.
 
-
 ### [Ascend.io](https://ascend.io)
 
 Ascend is a Palo Alto startup that offers solutions for large data sets
 analysis. Their motto is _Big data is hard. We make it easy_.
+
+### [ASML](https://asml.com){: .external}
+
+<img src="https://upload.wikimedia.org/wikipedia/en/6/6c/ASML_Holding_N.V._logo.svg" width="150" align=right>
+
+ASML is an innovation leader in the semiconductor industry. We provide chipmakers
+with everything they need – hardware, software and services – to mass produce
+patterns on silicon through lithography.
 
 ### [Beeswax](https://www.beeswax.com/){: .external}
 

@@ -166,6 +166,10 @@ public class SimpleCycleDetector implements CycleDetector {
                   Sets.difference(entry.getAllRemainingDirtyDirectDeps(), removedDeps),
                   entry.getMaxTransitiveSourceVersion(),
                   evaluatorContext);
+          // When the environment sets a cycle node to be in error and commits afterwards, it
+          // requires all of its deps to be fetched. See `SkyFunctionEnvironment#setError()`'s
+          // JavaDoc for more details.
+          env.ensurePreviouslyRequestedDepsFetched();
         } catch (UndonePreviouslyRequestedDeps undoneDeps) {
           // All children were finished according to the CHILDREN_FINISHED sentinel, and cycle
           // detection does not do normal SkyFunction evaluation, so no restarting nor child

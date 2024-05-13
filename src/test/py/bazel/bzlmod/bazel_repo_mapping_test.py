@@ -30,6 +30,7 @@ class BazelRepoMappingTest(test_base.TestBase):
     self.main_registry = BazelRegistry(
         os.path.join(self.registries_work_dir, 'main')
     )
+    self.main_registry.start()
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'aaa', '1.1'
     ).createCcModule('bbb', '1.0', {'aaa': '1.0'}).createCcModule(
@@ -58,6 +59,10 @@ class BazelRepoMappingTest(test_base.TestBase):
             ),
         ],
     )
+
+  def tearDown(self):
+    self.main_registry.stop()
+    test_base.TestBase.tearDown(self)
 
   def testRunfilesRepoMappingManifest(self):
     self.main_registry.setModuleBasePath('projects')
@@ -165,8 +170,8 @@ class BazelRepoMappingTest(test_base.TestBase):
 ,me,_main
 ,me_ws,_main
 foo~,foo,foo~
-foo~,quux,quux~1.0
-quux~1.0,quux,quux~1.0""",
+foo~,quux,quux~v1.0
+quux~v1.0,quux,quux~v1.0""",
         )
     with open(self.Path('bazel-bin/me.runfiles_manifest')) as f:
       self.assertIn('_repo_mapping ', f.read())
@@ -186,8 +191,8 @@ quux~1.0,quux,quux~1.0""",
         self.assertEqual(
             f.read().strip(),
             """bar~,bar,bar~
-bar~,quux,quux~2.0
-quux~2.0,quux,quux~2.0""",
+bar~,quux,quux~v2.0
+quux~v2.0,quux,quux~v2.0""",
         )
     with open(self.Path('bazel-bin/external/bar~/bar.runfiles_manifest')) as f:
       self.assertIn('_repo_mapping ', f.read())

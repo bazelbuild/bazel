@@ -132,11 +132,9 @@ public class ErrorInfo {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof ErrorInfo)) {
+    if (!(obj instanceof ErrorInfo other)) {
       return false;
     }
-
-    ErrorInfo other = (ErrorInfo) obj;
 
     if (!Objects.equals(cycles, other.cycles)) {
       return false;

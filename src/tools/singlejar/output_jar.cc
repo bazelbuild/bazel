@@ -878,15 +878,8 @@ bool OutputJar::Close() {
       ecd->signature();
       ecd->this_disk_entries16(0xFFFF);
       ecd->total_entries16(0xFFFF);
-      // Java Compiler (javac) uses its own "optimized" Zip handler (see
-      // https://bugs.openjdk.java.net/browse/JDK-7018859) which may fail
-      // to handle 0xFFFFFFFF in the CEN size and CEN offset fields. Try
-      // to use 32-bit values here, too. Hopefully by the time we need to
-      // handle really large archives, this is fixes upstream. Note that this
-      // affects javac and javah only, 'jar' experiences no problems.
-      ecd->cen_size32(std::min(cen_size, static_cast<size_t>(0xFFFFFFFFUL)));
-      ecd->cen_offset32(
-          std::min(output_position, static_cast<off64_t>(0x0FFFFFFFFL)));
+      ecd->cen_size32(0xFFFFFFFF);
+      ecd->cen_offset32(0xFFFFFFFF);
     }
   } else {
     ECD *ecd = reinterpret_cast<ECD *>(ReserveCdh(sizeof(ECD)));

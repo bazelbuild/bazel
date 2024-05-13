@@ -128,10 +128,9 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
 
   @Override
   public boolean equals(Object otherObject) {
-    if (!(otherObject instanceof CcInfo)) {
+    if (!(otherObject instanceof CcInfo other)) {
       return false;
     }
-    CcInfo other = (CcInfo) otherObject;
     if (this == other) {
       return true;
     }

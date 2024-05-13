@@ -64,6 +64,19 @@ public interface SkyKey extends Serializable {
   }
 
   /**
+   * Returns {@code true} if previously requested deps values are not eagerly batch prefetched when
+   * the {@link SkyFunctionEnvironment} to evaluate this {@link SkyKey} is created.
+   *
+   * <p>Please note that {@link SkyKey}s which supports partial reevaluation should always skip
+   * batch prefetch.
+   */
+  // TODO: b/324948927#comment8 - Remove this method in the future when skipping batch prefetching
+  // is determined during environment creation.
+  default boolean skipsBatchPrefetch() {
+    return supportsPartialReevaluation();
+  }
+
+  /**
    * Returns {@code true} if this key's {@link SkyFunction} would like Skyframe to schedule its
    * reevaluation when any of its previously requested unfinished deps completes. Otherwise,
    * Skyframe will schedule reevaluation only when all previously requested unfinished deps

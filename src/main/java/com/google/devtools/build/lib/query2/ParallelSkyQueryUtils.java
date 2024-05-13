@@ -182,10 +182,9 @@ public class ParallelSkyQueryUtils {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof DepAndRdep)) {
+      if (!(obj instanceof DepAndRdep other)) {
         return false;
       }
-      DepAndRdep other = (DepAndRdep) obj;
       return Objects.equals(dep, other.dep) && rdep.equals(other.rdep);
     }
 

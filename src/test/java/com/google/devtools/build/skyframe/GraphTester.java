@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerializat
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.SkyKey.SkyKeyInterner;
 import com.google.devtools.build.skyframe.SkyframeLookupResult.QueryDepCallback;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
@@ -224,8 +223,8 @@ public class GraphTester {
                 @Override
                 public boolean tryHandleException(SkyKey key, Exception e) {
                   assertThat(key).isEqualTo(dep.first);
-                  if (e instanceof SomeErrorException) {
-                    exceptionRef.set((SomeErrorException) e);
+                  if (e instanceof SomeErrorException someErrorException) {
+                    exceptionRef.set(someErrorException);
                     return true;
                   }
                   return false;
@@ -249,6 +248,10 @@ public class GraphTester {
 
   public static NonHermeticKey nonHermeticKey(String key) {
     return NonHermeticKey.create(key);
+  }
+
+  public static SkipBatchPrefetchKey skipBatchPrefetchKey(String key) {
+    return SkipBatchPrefetchKey.create(key);
   }
 
   /** A value in the testing graph that is constructed in the tester. */
@@ -394,9 +397,14 @@ public class GraphTester {
   }
 
   public static ImmutableList<SkyKey> toSkyKeys(String... names) {
+    return toSkyKeys(/* useSkipBatchPrefetchKey= */ false, names);
+  }
+
+  public static ImmutableList<SkyKey> toSkyKeys(boolean useSkipBatchPrefetchKey, String... names) {
     ImmutableList.Builder<SkyKey> result = ImmutableList.builder();
     for (String element : names) {
-      result.add(Key.create(element));
+      result.add(
+          useSkipBatchPrefetchKey ? SkipBatchPrefetchKey.create(element) : Key.create(element));
     }
     return result.build();
   }
@@ -417,6 +425,10 @@ public class GraphTester {
 
   public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctionMap() {
     return ImmutableMap.copyOf(functionMap);
+  }
+
+  public void putDelegateFunction(SkyFunctionName functionName) {
+    putSkyFunction(functionName, new DelegatingFunction());
   }
 
   public void putSkyFunction(SkyFunctionName functionName, SkyFunction function) {
@@ -571,4 +583,40 @@ public class GraphTester {
 
   private static final SkyFunctionName FOR_TESTING_NONHERMETIC =
       SkyFunctionName.createNonHermetic("FOR_TESTING_NONHERMETIC");
+
+  // TODO: b/324948927 - Remove this class along with `SkyKey#skipBatchPrefetch()` method.
+  @VisibleForSerialization
+  @AutoCodec
+  static final class SkipBatchPrefetchKey extends AbstractSkyKey<String> implements SkyKey {
+    private static final SkyKeyInterner<SkipBatchPrefetchKey> interner = SkyKey.newInterner();
+
+    SkipBatchPrefetchKey(String arg) {
+      super(arg);
+    }
+
+    private static SkipBatchPrefetchKey create(String arg) {
+      return interner.intern(new SkipBatchPrefetchKey(arg));
+    }
+
+    @VisibleForSerialization
+    @AutoCodec.Interner
+    static SkipBatchPrefetchKey intern(SkipBatchPrefetchKey key) {
+      return interner.intern(key);
+    }
+
+    @Override
+    public boolean skipsBatchPrefetch() {
+      return true;
+    }
+
+    @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctionName.FOR_TESTING;
+    }
+
+    @Override
+    public SkyKeyInterner<SkipBatchPrefetchKey> getSkyKeyInterner() {
+      return interner;
+    }
+  }
 }

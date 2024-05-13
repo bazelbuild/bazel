@@ -57,16 +57,16 @@ public class BazelFetchAllFunction implements SkyFunction {
     // 2. Run every extension found in the modules & collect its generated repos
     ImmutableSet<ModuleExtensionId> extensionIds =
         depGraphValue.getExtensionUsagesTable().rowKeySet();
-    ImmutableSet<SkyKey> singleEvalKeys =
-        extensionIds.stream().map(SingleExtensionEvalValue::key).collect(toImmutableSet());
-    SkyframeLookupResult singleEvalValues = env.getValuesAndExceptions(singleEvalKeys);
-    for (SkyKey singleEvalKey : singleEvalKeys) {
-      SingleExtensionEvalValue singleEvalValue =
-          (SingleExtensionEvalValue) singleEvalValues.get(singleEvalKey);
-      if (singleEvalValue == null) {
+    ImmutableSet<SkyKey> singleExtensionKeys =
+        extensionIds.stream().map(SingleExtensionValue::key).collect(toImmutableSet());
+    SkyframeLookupResult singleExtensionValues = env.getValuesAndExceptions(singleExtensionKeys);
+    for (SkyKey singleExtensionKey : singleExtensionKeys) {
+      SingleExtensionValue singleExtensionValue =
+          (SingleExtensionValue) singleExtensionValues.get(singleExtensionKey);
+      if (singleExtensionValue == null) {
         return null;
       }
-      reposToFetch.addAll(singleEvalValue.getCanonicalRepoNameToInternalNames().keySet());
+      reposToFetch.addAll(singleExtensionValue.getCanonicalRepoNameToInternalNames().keySet());
     }
 
     // 3. If this is fetch configure, get repo rules and only collect repos marked as configure

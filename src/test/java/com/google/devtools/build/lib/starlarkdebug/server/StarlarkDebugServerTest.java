@@ -911,7 +911,8 @@ public class StarlarkDebugServerTest {
         new Thread(
             () -> {
               try (Mutability mu = Mutability.create("test")) {
-                StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+                StarlarkThread thread =
+                    StarlarkThread.createTransient(mu, StarlarkSemantics.DEFAULT);
                 Starlark.execFile(
                     input, FileOptions.DEFAULT, module != null ? module : Module.create(), thread);
               } catch (SyntaxError.Exception | EvalException | InterruptedException ex) {

@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -76,6 +77,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
     tools.getRelative("tools/cpp").createDirectoryAndParents();
     tools.getRelative("tools/osx").createDirectoryAndParents();
     FileSystemUtils.writeIsoLatin1(tools.getRelative("WORKSPACE"), "");
+    FileSystemUtils.writeIsoLatin1(tools.getRelative("MODULE.bazel"), "module(name='bazel_tools')");
     FileSystemUtils.writeIsoLatin1(tools.getRelative("tools/cpp/BUILD"), "");
     FileSystemUtils.writeIsoLatin1(
         tools.getRelative("tools/cpp/cc_configure.bzl"),
@@ -101,6 +103,13 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
         "  pass",
         "",
         "def http_jar(**kwargs):",
+        "  pass");
+    FileSystemUtils.writeIsoLatin1(
+        tools.getRelative("tools/build_defs/repo/local.bzl"),
+        "def local_repository(**kwargs):",
+        "  pass",
+        "",
+        "def new_local_repository(**kwargs):",
         "  pass");
     FileSystemUtils.writeIsoLatin1(
         tools.getRelative("tools/build_defs/repo/utils.bzl"),
@@ -154,12 +163,15 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
     PackageIdentifier pkgId = PackageIdentifier.create(rRepoName, PathFragment.create("good"));
     Package goodPkg;
+    RepositoryMapping repoMapping;
     try (PackageLoader pkgLoader = newPackageLoader()) {
       goodPkg = pkgLoader.loadPackage(pkgId);
+      repoMapping = pkgLoader.makeLoadingContext().getRepositoryMapping();
     }
     assertThat(goodPkg.containsErrors()).isFalse();
     assertThat(goodPkg.getTarget("good").getAssociatedRule().getRuleClass())
         .isEqualTo("sh_library");
+    assertThat(repoMapping.entries().get("r")).isEqualTo(rRepoName);
     assertNoEvents(handler.getEvents());
   }
 
@@ -175,12 +187,15 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
     PackageIdentifier pkgId =
         PackageIdentifier.create(rRepoName, PathFragment.create(""));
     Package goodPkg;
+    RepositoryMapping repoMapping;
     try (PackageLoader pkgLoader = newPackageLoader()) {
       goodPkg = pkgLoader.loadPackage(pkgId);
+      repoMapping = pkgLoader.makeLoadingContext().getRepositoryMapping();
     }
     assertThat(goodPkg.containsErrors()).isFalse();
     assertThat(goodPkg.getTarget("good").getAssociatedRule().getRuleClass())
         .isEqualTo("sh_library");
+    assertThat(repoMapping.entries().get("r")).isEqualTo(rRepoName);
     assertNoEvents(handler.getEvents());
   }
 

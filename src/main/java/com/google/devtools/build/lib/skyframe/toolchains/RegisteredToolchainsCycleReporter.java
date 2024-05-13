@@ -79,8 +79,8 @@ public class RegisteredToolchainsCycleReporter implements CyclesReporter.SingleC
 
     Function<Object, String> printer =
         input -> {
-          if (input instanceof ConfiguredTargetKey) {
-            Label label = ((ConfiguredTargetKey) input).getLabel();
+          if (input instanceof ConfiguredTargetKey ctk) {
+            Label label = ctk.getLabel();
             return label.toString();
           }
           if (input instanceof RegisteredToolchainsValue.Key) {
@@ -91,8 +91,7 @@ public class RegisteredToolchainsCycleReporter implements CyclesReporter.SingleC
                 ((SingleToolchainResolutionKey) input).toolchainType().toolchainType();
             return String.format("toolchain type %s", toolchainType);
           }
-          if (input instanceof ToolchainContextKey) {
-            ToolchainContextKey toolchainContextKey = (ToolchainContextKey) input;
+          if (input instanceof ToolchainContextKey toolchainContextKey) {
             String toolchainTypes =
                 toolchainContextKey.toolchainTypes().stream()
                     .map(ToolchainTypeRequirement::toolchainType)

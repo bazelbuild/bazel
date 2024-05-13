@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.HashCodes;
-import com.google.devtools.build.lib.util.StringCanonicalizer;
 import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -65,8 +64,7 @@ final class CallStack {
         String name, String file, int line, int col, @Nullable Node next) {
       // Use common canonicalizer based on assertion that most strings (function names, locations)
       // were already shared across packages to some degree.
-      return new Node(
-          StringCanonicalizer.intern(name), StringCanonicalizer.intern(file), line, col, next);
+      return new Node(name.intern(), file.intern(), line, col, next);
     }
 
     private Node(String name, Location location, @Nullable Node next) {

@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
@@ -81,6 +82,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -121,18 +123,17 @@ public class Package {
   /**
    * The collection of all targets defined in this package, indexed by name.
    *
-   * <p>Invariant: This is disjoint with the set of keys in {@link #macros}.
+   * <p>Note that a target and a macro may share the same name.
    */
   private ImmutableSortedMap<String, Target> targets;
 
   /**
    * The collection of all symbolic macro instances defined in this package, indexed by name.
    *
-   * <p>Invariant: This is disjoint with the set of keys in {@link #targets}.
+   * <p>Note that a target and a macro may share the same name.
    */
-  // TODO(#19922): We'll have to strengthen this invariant. It's not just that nothing should share
-  // the same name as a macro, but also that nothing should be inside a macro's namespace (meaning,
-  // in the current design, having the macro as a prefix) unless it was defined by that macro.
+  // TODO(#19922): Enforce that macro namespaces are "exclusive", meaning that target names may only
+  // suffix a macro name when the target is created (transitively) within the macro.
   private ImmutableSortedMap<String, MacroInstance> macros;
 
   public PackageArgs getPackageArgs() {
@@ -763,7 +764,7 @@ public class Package {
       @Nullable Globber globber) {
     return new Builder(
         BazelStarlarkContext.Phase.LOADING,
-        new SymbolGenerator<>(id),
+        SymbolGenerator.create(id),
         packageSettings,
         id,
         filename,
@@ -790,7 +791,7 @@ public class Package {
         BazelStarlarkContext.Phase.WORKSPACE,
         // The SymbolGenerator is based on workspaceFileKey rather than a package id or path,
         // in order to distinguish different chunks of the same WORKSPACE file.
-        new SymbolGenerator<>(workspaceFileKey),
+        SymbolGenerator.create(workspaceFileKey),
         packageSettings,
         LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
         /* filename= */ workspaceFileKey.getPath(),
@@ -813,7 +814,7 @@ public class Package {
       RepositoryMapping repoMapping) {
     return new Builder(
             BazelStarlarkContext.Phase.LOADING,
-            new SymbolGenerator<>(basePackageId),
+            SymbolGenerator.create(basePackageId),
             PackageSettings.DEFAULTS,
             basePackageId,
             /* filename= */ moduleFilePath,
@@ -886,6 +887,8 @@ public class Package {
       PackageSettings DEFAULTS = new PackageSettings() {};
     }
 
+    private final SymbolGenerator<?> symbolGenerator;
+
     /**
      * The output instance for this builder. Needs to be instantiated and available with name info
      * throughout initialization. All other settings are applied during {@link #build}. See {@link
@@ -953,6 +956,14 @@ public class Package {
 
     // All instances of symbolic macros created during package construction.
     private final Map<String, MacroInstance> macros = new LinkedHashMap<>();
+
+    /**
+     * A stack of currently executing symbolic macros, outermost first.
+     *
+     * <p>Certain APIs are only available when this stack is empty (i.e. not in any symbolic macro).
+     * See user documentation on {@code macro()} ({@link StarlarkRuleFunctionsApi#macro}).
+     */
+    private final List<MacroInstance> macroStack = new ArrayList<>();
 
     private enum NameConflictCheckingPolicy {
       UNKNOWN,
@@ -1066,7 +1077,8 @@ public class Package {
         // Maybe convert null -> LEGACY_OFF, assuming that's the correct default.
         @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
         @Nullable Globber globber) {
-      super(phase, symbolGenerator);
+      super(phase);
+      this.symbolGenerator = symbolGenerator;
 
       Metadata metadata = new Metadata();
       metadata.packageIdentifier = Preconditions.checkNotNull(id);
@@ -1107,6 +1119,10 @@ public class Package {
               pkg, metadata.buildFileLabel, Location.fromFile(filename.asPath().toString())));
     }
 
+    SymbolGenerator<?> getSymbolGenerator() {
+      return symbolGenerator;
+    }
+
     /** Retrieves this object from a Starlark thread. Returns null if not present. */
     @Nullable
     public static Builder fromOrNull(StarlarkThread thread) {
@@ -1123,11 +1139,49 @@ public class Package {
     public static Builder fromOrFail(StarlarkThread thread, String what) throws EvalException {
       @Nullable BazelStarlarkContext ctx = thread.getThreadLocal(BazelStarlarkContext.class);
       if (!(ctx instanceof Builder)) {
-        // TODO: #19922 - Clarify in the message that we can't be in a symbolic ("first-class")
-        // macro.
-        throw Starlark.errorf("%s can only be used while evaluating a BUILD file", what);
+        // This error message might be a little misleading for APIs that can be called from either
+        // BUILD or WORKSPACE threads. In that case, we expect the calling API will do a separate
+        // check that we're in a WORKSPACE thread and emit an appropriate message before calling
+        // fromOrFail().
+        throw Starlark.errorf(
+            "%s can only be used while evaluating a BUILD file and its macros", what);
       }
       return (Builder) ctx;
+    }
+
+    /**
+     * Same as {@link #fromOrFail}, but also throws {@link EvalException} if we're currently
+     * executing a symbolic macro implementation.
+     *
+     * <p>Use this method when implementing APIs that should not be accessible from symbolic macros,
+     * such as {@code glob()} or {@code package()}.
+     *
+     * <p>This method succeeds when called from a legacy macro (that is not itself called from any
+     * symbolic macro).
+     */
+    @CanIgnoreReturnValue
+    public static Builder fromOrFailDisallowingSymbolicMacros(StarlarkThread thread, String what)
+        throws EvalException {
+      @Nullable BazelStarlarkContext ctx = thread.getThreadLocal(BazelStarlarkContext.class);
+      if (ctx instanceof Builder builder) {
+        if (builder.macroStack.isEmpty()) {
+          return builder;
+        }
+      }
+
+      boolean macrosEnabled =
+          thread
+              .getSemantics()
+              .getBool(BuildLanguageOptions.EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS);
+      // As in fromOrFail() above, some APIs can be used from either BUILD or WORKSPACE threads,
+      // so this error message might be misleading (e.g. if a symbolic macro attempts to call a
+      // feature available in WORKSPACE). But that type of misuse seems unlikely, and WORKSPACE is
+      // going away soon anyway, so we won't tweak the message for it.
+      throw Starlark.errorf(
+          macrosEnabled
+              ? "%s can only be used while evaluating a BUILD file or legacy macro"
+              : "%s can only be used while evaluating a BUILD file and its macros",
+          what);
     }
 
     PackageIdentifier getPackageIdentifier() {
@@ -1486,8 +1540,8 @@ public class Package {
      * @param targetName name of the input file. This must be a valid target name as defined by
      *     {@link com.google.devtools.build.lib.cmdline.LabelValidator#validateTargetName}.
      * @return the newly-created {@code InputFile}, or the old one if it already existed.
-     * @throws NameConflictException if the name was already taken by another target/macro that is
-     *     not an input file
+     * @throws NameConflictException if the name was already taken by another target that is not an
+     *     input file
      * @throws IllegalArgumentException if the name is not a valid label
      */
     InputFile createInputFile(String targetName, Location location) throws NameConflictException {
@@ -1505,7 +1559,7 @@ public class Package {
               "FileTarget in package " + pkg.getName() + " has illegal name: " + targetName, e);
       }
 
-      checkForExistingName(inputFile);
+      checkTargetName(inputFile);
       addInputFile(inputFile);
       return inputFile;
     }
@@ -1567,7 +1621,7 @@ public class Package {
               repoRootMeansCurrentRepo,
               eventHandler,
               location);
-      checkForExistingName(group);
+      checkTargetName(group);
       targets.put(group.getName(), group);
 
       if (group.containsErrors()) {
@@ -1600,7 +1654,7 @@ public class Package {
       return !dupes.isEmpty();
     }
 
-    /** Adds an environment group to the package. */
+    /** Adds an environment group to the package. Not valid within symbolic macros. */
     void addEnvironmentGroup(
         String name,
         List<Label> environments,
@@ -1608,6 +1662,7 @@ public class Package {
         EventHandler eventHandler,
         Location location)
         throws NameConflictException, LabelSyntaxException {
+      Preconditions.checkState(macroStack.isEmpty());
 
       if (hasDuplicateLabels(environments, name, "environments", location, eventHandler)
           || hasDuplicateLabels(defaults, name, "defaults", location, eventHandler)) {
@@ -1617,7 +1672,7 @@ public class Package {
 
       EnvironmentGroup group =
           new EnvironmentGroup(createLabel(name), pkg, environments, defaults, location);
-      checkForExistingName(group);
+      checkTargetName(group);
       targets.put(group.getName(), group);
 
       // Invariant: once group is inserted into targets, it must also:
@@ -1717,8 +1772,18 @@ public class Package {
 
     /** Adds a symbolic macro instance to the package. */
     public void addMacro(MacroInstance macro) throws NameConflictException {
-      checkForExistingName(macro);
+      checkMacroName(macro);
       macros.put(macro.getName(), macro);
+    }
+
+    /** Pushes a macro instance onto the stack of currently executing symbolic macros. */
+    public void pushMacro(MacroInstance macro) {
+      macroStack.add(macro);
+    }
+
+    /** Pops the stack of currently executing symbolic macros. */
+    public MacroInstance popMacro() {
+      return macroStack.remove(macroStack.size() - 1);
     }
 
     void addRegisteredExecutionPlatforms(List<TargetPattern> platforms) {
@@ -1782,6 +1847,13 @@ public class Package {
           for (Label label : labels) {
             if (label.getPackageIdentifier().equals(pkg.getPackageIdentifier())
                 && !targets.containsKey(label.getName())
+                // The existence of a macro by the same name blocks implicit creation of an input
+                // file. This is because we plan on allowing macros to be passed as inputs to other
+                // macros, and don't want this usage to be implicitly conflated with an unrelated
+                // input file by the same name (e.g., if the macro's label makes its way into a
+                // target definition by mistake, we want that to be treated as an unknown target
+                // rather than a missing input file).
+                // TODO(#19922): Update this comment when said behavior is implemented.
                 && !macros.containsKey(label.getName())
                 && !newInputFiles.containsKey(label.getName())) {
               Location loc = rule.getLocation();
@@ -1882,7 +1954,7 @@ public class Package {
      *
      * <ul>
      *   <li>The added rule's name, and the names of its output files, are not the same as the name
-     *       of any target/macro already declared in the package.
+     *       of any target already declared in the package.
      *   <li>The added rule's output files list does not contain the same name twice.
      *   <li>The added rule does not have an input file and an output file that share the same name.
      *   <li>For each of the added rule's output files, no directory prefix of that file matches the
@@ -1899,7 +1971,7 @@ public class Package {
 
       // Check the name of the new rule itself.
       String ruleName = rule.getName();
-      checkForExistingName(rule);
+      checkTargetName(rule);
 
       ImmutableList<OutputFile> outputFiles = rule.getOutputFiles();
       Map<String, OutputFile> outputFilesByName =
@@ -1908,16 +1980,16 @@ public class Package {
       // Check the new rule's output files, both for direct conflicts and prefix conflicts.
       for (OutputFile outputFile : outputFiles) {
         String outputFileName = outputFile.getName();
-        // Check for duplicate within a single rule. (Can't use checkForExistingName since this
-        // rule's outputs aren't in the target map yet.)
+        // Check for duplicate within a single rule. (Can't use checkTargetName since this rule's
+        // outputs aren't in the target map yet.)
         if (outputFilesByName.put(outputFileName, outputFile) != null) {
           throw new NameConflictException(
               String.format(
                   "rule '%s' has more than one generated file named '%s'",
                   ruleName, outputFileName));
         }
-        // Check for conflict with any other already added target/macro.
-        checkForExistingName(outputFile);
+        // Check for conflict with any other already added target.
+        checkTargetName(outputFile);
         // TODO(bazel-team): We also need to check for a conflict between an output file and its own
         // rule, which is not yet in the targets map.
 
@@ -1957,64 +2029,101 @@ public class Package {
     }
 
     /**
-     * Throws {@link NameConflictException} if the given target's name matches an existing target or
-     * macro in the package.
+     * Throws {@link NameConflictException} if the given name of a declared object inside a symbolic
+     * macro (i.e., a target or a submacro) does not follow the required prefix-based naming
+     * convention.
+     *
+     * <p>A macro "foo" may define targets and submacros that have the name "foo" (the macro's "main
+     * target") or "foo_BAR" where BAR is a non-empty string. The macro may not define the name
+     * "foo_", or names that do not have "foo" as a prefix.
      */
-    private void checkForExistingName(Target added) throws NameConflictException {
-      checkForExistingName(added.getName(), added);
+    private void checkDeclaredNameValidForMacro(
+        String what, String declaredName, String enclosingMacroName) throws NameConflictException {
+      if (declaredName.equals(enclosingMacroName)) {
+        return;
+      } else if (declaredName.startsWith(enclosingMacroName)) {
+        String suffix = declaredName.substring(enclosingMacroName.length());
+        // 0-length suffix handled above.
+        if (suffix.length() > 2 && suffix.startsWith("_")) {
+          return;
+        }
+      }
+
+      throw new NameConflictException(
+          String.format(
+              """
+              macro '%s' cannot declare %s named '%s'. Name must be the same as the \
+              macro's name or a suffix of the macro's name plus '_'.""",
+              enclosingMacroName, what, declaredName));
     }
 
     /**
-     * Throws {@link NameConflictException} if the given macro's name matches an existing target or
-     * macro in the package.
+     * Throws {@link NameConflictException} if the given target's name can't be added, either
+     * because of a conflict or because of a violation of symbolic macro naming rules (if
+     * applicable).
      */
-    private void checkForExistingName(MacroInstance added) throws NameConflictException {
-      checkForExistingName(added.getName(), added);
+    private void checkTargetName(Target added) throws NameConflictException {
+      checkForExistingTargetName(added);
+
+      if (!macroStack.isEmpty()) {
+        String enclosingMacroName = Iterables.getLast(macroStack).getName();
+        checkDeclaredNameValidForMacro("target", added.getName(), enclosingMacroName);
+      }
     }
 
-    private void checkForExistingName(String name, Object added) throws NameConflictException {
-      Object existing = targets.get(name);
-      if (existing == null) {
-        existing = macros.get(name);
-      }
+    /**
+     * Throws {@link NameConflictException} if the given target's name matches that of an existing
+     * target in the package.
+     */
+    private void checkForExistingTargetName(Target added) throws NameConflictException {
+      Target existing = targets.get(added.getName());
       if (existing == null) {
         return;
       }
 
-      // Format error message subject and object, which are either Targets or MacroInstances.
-
-      String subject;
-      if (added instanceof Target) {
-        subject =
-            String.format("%s '%s'", ((Target) added).getTargetKind(), ((Target) added).getName());
-        if (added instanceof OutputFile) {
-          subject += " in rule '" + ((OutputFile) added).getGeneratingRule().getName() + "'";
-        }
-      } else if (added instanceof MacroInstance) {
-        subject = String.format("macro '%s'", ((MacroInstance) added).getName());
-      } else {
-        throw new IllegalArgumentException("Unexpected object type: " + added.getClass());
+      String subject = String.format("%s '%s'", added.getTargetKind(), added.getName());
+      if (added instanceof OutputFile addedOutput) {
+        subject += String.format(" in rule '%s'", addedOutput.getGeneratingRule().getName());
       }
 
-      String object;
-      if (existing instanceof Target) {
-        object =
-            existing instanceof OutputFile
-                ? String.format(
-                    "generated file from rule '%s'",
-                    ((OutputFile) existing).getGeneratingRule().getName())
-                : ((Target) existing).getTargetKind();
-        object += ", defined at " + ((Target) existing).getLocation();
-      } else if (existing instanceof MacroInstance) {
-        // TODO(#19922): Add definition location info for the existing object, like we have in the
-        // case for rules.
-        object = "macro";
-      } else {
-        throw new AssertionError();
-      }
+      String object =
+          existing instanceof OutputFile existingOutput
+              ? String.format(
+                  "generated file from rule '%s'", existingOutput.getGeneratingRule().getName())
+              : existing.getTargetKind();
+      object += ", defined at " + existing.getLocation();
 
       throw new NameConflictException(
           String.format("%s conflicts with existing %s", subject, object));
+    }
+
+    /**
+     * Throws {@link NameConflictException} if the given macro's name can't be added, either because
+     * of a conflict or because of a violation of symbolic macro naming rules (if applicable).
+     */
+    private void checkMacroName(MacroInstance added) throws NameConflictException {
+      checkForExistingMacroName(added);
+
+      if (!macroStack.isEmpty()) {
+        String enclosingMacroName = Iterables.getLast(macroStack).getName();
+        checkDeclaredNameValidForMacro("submacro", added.getName(), enclosingMacroName);
+      }
+    }
+
+    /**
+     * Throws {@link NameConflictException} if the given macro's name matches that of an existing
+     * macro in the package.
+     */
+    private void checkForExistingMacroName(MacroInstance added) throws NameConflictException {
+      MacroInstance existing = macros.get(added.getName());
+      if (existing == null) {
+        return;
+      }
+
+      // TODO(#19922): Add definition location info for the existing object, like we have in the
+      // case for rules.
+      throw new NameConflictException(
+          String.format("macro '%s' conflicts with existing macro", added.getName()));
     }
 
     /**

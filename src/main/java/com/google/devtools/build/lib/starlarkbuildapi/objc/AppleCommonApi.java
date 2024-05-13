@@ -20,10 +20,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
-import com.google.devtools.build.lib.starlarkbuildapi.apple.ApplePlatformApi;
-import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleToolchainApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.DottedVersionApi;
-import com.google.devtools.build.lib.starlarkbuildapi.apple.XcodeConfigInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
@@ -48,15 +45,13 @@ import net.starlark.java.eval.StarlarkValue;
 public interface AppleCommonApi<
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
-        CcInfoApiT extends CcInfoApi<?>,
-        XcodeConfigInfoApiT extends XcodeConfigInfoApi<?, ?>,
-        ApplePlatformApiT extends ApplePlatformApi>
+        CcInfoApiT extends CcInfoApi<?>>
     extends StarlarkValue {
 
   @StarlarkMethod(
       name = "apple_toolchain",
       doc = "Utilities for resolving items from the apple toolchain.")
-  AppleToolchainApi<?> getAppleToolchain();
+  Object getAppleToolchain();
 
   @StarlarkMethod(
       name = "platform_type",
@@ -119,21 +114,6 @@ public interface AppleCommonApi<
   ProviderApi getXcodeVersionConfigConstructor();
 
   @StarlarkMethod(
-      // TODO(b/63899207): This currently does not match ObjcProvider.STARLARK_NAME as it requires
-      // a migration of existing Starlark rules.
-      name = "Objc",
-      doc =
-          "The constructor/key for the <code>Objc</code> provider.<p>"
-              + "If a target propagates the <code>Objc</code> provider, use this as the "
-              + "key with which to retrieve it. Example:<br>"
-              + "<pre class='language-python'>\n"
-              + "dep = ctx.attr.deps[0]\n"
-              + "p = dep[apple_common.Objc]\n"
-              + "</pre>",
-      structField = true)
-  ProviderApi getObjcProviderConstructor();
-
-  @StarlarkMethod(
       name = "AppleDynamicFramework",
       doc =
           "The constructor/key for the <code>AppleDynamicFramework</code> provider.<p>"
@@ -172,7 +152,6 @@ public interface AppleCommonApi<
   default void getAppleDebugOutputsConstructor() {
     throw new UnsupportedOperationException();
   }
-  ;
 
   @StarlarkMethod(
       name = "apple_host_system_env",
@@ -186,9 +165,9 @@ public interface AppleCommonApi<
             name = "xcode_config",
             positional = true,
             named = false,
-            doc = "A provider containing information about the xcode configuration."),
+            doc = "A provider containing information about the Xcode configuration."),
       })
-  ImmutableMap<String, String> getAppleHostSystemEnv(XcodeConfigInfoApiT xcodeConfig);
+  ImmutableMap<String, String> getAppleHostSystemEnv(Object xcodeConfig);
 
   @StarlarkMethod(
       name = "target_apple_env",
@@ -202,26 +181,10 @@ public interface AppleCommonApi<
             name = "xcode_config",
             positional = true,
             named = false,
-            doc = "A provider containing information about the xcode configuration."),
-        @Param(
-            name = "platform",
-            positional = true,
-            named = false,
-            doc = "The apple platform."),
+            doc = "A provider containing information about the Xcode configuration."),
+        @Param(name = "platform", positional = true, named = false, doc = "The apple platform."),
       })
-  ImmutableMap<String, String> getTargetAppleEnvironment(
-      XcodeConfigInfoApiT xcodeConfig, ApplePlatformApiT platform);
-
-  @StarlarkMethod(
-      name = "new_objc_provider",
-      doc = "Creates a new ObjcProvider instance.",
-      parameters = {},
-      extraKeywords =
-          @Param(name = "kwargs", defaultValue = "{}", doc = "Dictionary of arguments."),
-      useStarlarkThread = true)
-  // This method is registered statically for Starlark, and never called directly.
-  ObjcProviderApi<?> newObjcProvider(Dict<String, Object> kwargs, StarlarkThread thread)
-      throws EvalException;
+  ImmutableMap<String, String> getTargetAppleEnvironment(Object xcodeConfig, Object platform);
 
   @StarlarkMethod(
       name = "new_dynamic_framework_provider",
@@ -270,7 +233,7 @@ public interface AppleCommonApi<
                     + "dynamic framework")
       },
       useStarlarkThread = true)
-  AppleDynamicFrameworkInfoApi<?> newDynamicFrameworkProvider(
+  Object newDynamicFrameworkProvider(
       Object dylibBinary,
       CcInfoApiT depsCcInfo,
       Object dynamicFrameworkDirs,
@@ -301,7 +264,7 @@ public interface AppleCommonApi<
                     + "linked into the binary."),
       },
       useStarlarkThread = true)
-  AppleExecutableBinaryApi newExecutableBinaryProvider(
+  Object newExecutableBinaryProvider(
       Object executableBinary, CcInfoApiT depsCcInfo, StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(

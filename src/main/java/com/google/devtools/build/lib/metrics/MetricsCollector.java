@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Multiset;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
@@ -36,6 +37,9 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ActionSummary.RunnerCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ArtifactMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.AspectCount;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.RuleClassCount;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.SkyFunctionCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.DynamicExecutionMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics;
@@ -64,12 +68,16 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.SpawnStats;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
+import com.google.devtools.build.lib.skyframe.SkyKeyStats;
+import com.google.devtools.build.lib.skyframe.SkyframeStats;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
 import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.build.lib.worker.WorkerProcessStatus;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent;
+import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent.EvaluationStats;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.util.Durations;
 import java.time.Duration;
@@ -264,9 +272,26 @@ class MetricsCollector {
         event.getWinnerBranchType());
   }
 
+  private ImmutableList<BuildMetrics.EvaluationStat> toEvaluationStats(
+      ImmutableMap<SkyFunctionName, Integer> map) {
+    return map.entrySet().stream()
+        .map(
+            e ->
+                BuildMetrics.EvaluationStat.newBuilder()
+                    .setSkyfunctionName(e.getKey().getName())
+                    .setCount(e.getValue())
+                    .build())
+        .collect(toImmutableList());
+  }
+
   @SuppressWarnings("unused")
   @Subscribe
   public void onSkyframeGraphStats(SkyframeGraphStatsEvent event) {
+    EvaluationStats evaluationStats = event.getEvaluationStats();
+    buildGraphMetrics.addAllDirtiedValues(toEvaluationStats(evaluationStats.dirtied()));
+    buildGraphMetrics.addAllChangedValues(toEvaluationStats(evaluationStats.changed()));
+    buildGraphMetrics.addAllBuiltValues(toEvaluationStats(evaluationStats.built()));
+    buildGraphMetrics.addAllCleanedValues(toEvaluationStats(evaluationStats.cleaned()));
     buildGraphMetrics.setPostInvocationSkyframeNodeCount(event.getGraphSize());
   }
 
@@ -303,6 +328,8 @@ class MetricsCollector {
                 .map(WorkerProcessMetrics::toProto)
                 .collect(toImmutableList()),
             WorkerProcessMetricsCollector.MAX_PUBLISHED_WORKER_METRICS);
+
+    addSkyframeStats(buildGraphMetrics);
 
     BuildMetrics.Builder buildMetrics =
         BuildMetrics.newBuilder()
@@ -353,12 +380,14 @@ class MetricsCollector {
 
   private ActionSummary finishActionSummary() {
     Stream<ActionStats> actionStatsStream = actionStatsMap.values().stream();
+
     if (!recordMetricsForAllMnemonics) {
       actionStatsStream =
           actionStatsStream
               .sorted(Comparator.comparingLong(a -> -a.numActions.get()))
               .limit(MAX_ACTION_DATA);
     }
+
     actionStatsStream.forEach(action -> actionSummary.addActionData(buildActionData(action)));
 
     ImmutableMap<String, Integer> spawnSummary = spawnStats.getSummary();
@@ -376,6 +405,59 @@ class MetricsCollector {
               actionSummary.addRunnerCount(builder.build());
             });
     return actionSummary.build();
+  }
+
+  private void addSkyframeStats(BuildGraphMetrics.Builder builder) {
+    // NOTE: This can potentially unintentionally consume a pending Exception by
+    // calling getSkyframeStats, with our Reporter which ends up consuming the
+    // analysis failure unintentionally.  So if our CommandEnvironment has a
+    // pending exception, don't touch the Skyframe executor.
+    if (env.getPendingException() != null) {
+      return;
+    }
+
+    // getSkyframeStats return Nullable for unsupported implementations, so
+    // ensure we get stats before proceeding.
+    SkyframeStats skyframeStats = env.getSkyframeExecutor().getSkyframeStats(env.getReporter());
+    if (skyframeStats == null) {
+      return;
+    }
+
+    Stream<SkyKeyStats> ruleActionStats = skyframeStats.ruleStats().stream();
+    Stream<SkyKeyStats> aspectActionStats = skyframeStats.aspectStats().stream();
+
+    if (!recordMetricsForAllMnemonics) {
+      ruleActionStats = ruleActionStats.limit(MAX_ACTION_DATA);
+      aspectActionStats = aspectActionStats.limit(MAX_ACTION_DATA);
+    }
+
+    ruleActionStats.forEach(
+        a ->
+            builder.addRuleClass(
+                RuleClassCount.newBuilder()
+                    .setKey(a.getKey())
+                    .setRuleClass(a.getName())
+                    .setCount(a.getCount())
+                    .setActionCount(a.getActionCount())
+                    .build()));
+    aspectActionStats.forEach(
+        a ->
+            builder.addAspect(
+                AspectCount.newBuilder()
+                    .setKey(a.getKey())
+                    .setAspectName(a.getName())
+                    .setCount(a.getCount())
+                    .setActionCount(a.getActionCount())
+                    .build()));
+
+    skyframeStats.functionNameStats().entrySet().stream()
+        .sorted(Comparator.comparingLong(Multiset.Entry<SkyFunctionName>::getCount).reversed())
+        .forEach(
+            e ->
+                builder.addSkyFunction(
+                    SkyFunctionCount.newBuilder()
+                        .setSkyFunctionName(e.getElement().toString())
+                        .setCount(e.getCount())));
   }
 
   private MemoryMetrics createMemoryMetrics() {

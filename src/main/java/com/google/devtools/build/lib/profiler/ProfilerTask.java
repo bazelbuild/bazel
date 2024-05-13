@@ -23,9 +23,9 @@ import java.time.Duration;
 public enum ProfilerTask {
   PHASE("build phase marker"),
   ACTION("action processing"),
+  DISCOVER_INPUTS("discover inputs"),
   ACTION_CHECK("action dependency checking", Threshold.TEN_MILLIS),
   ACTION_LOCK("action resource lock", Threshold.TEN_MILLIS),
-  ACTION_RELEASE("action resource release", Threshold.TEN_MILLIS),
   ACTION_UPDATE("update action information", Threshold.TEN_MILLIS),
   ACTION_COMPLETE("complete action execution"),
   BZLMOD("bazel module processing"),
@@ -68,6 +68,7 @@ public enum ProfilerTask {
   HANDLE_GC_NOTIFICATION("gc notification"),
   ACTION_COUNTS("action count"),
   ACTION_CACHE_COUNTS("action cache count"),
+  LOCAL_ACTION_COUNTS("action count (local)"),
   LOCAL_CPU_USAGE("CPU usage (Bazel)"),
   SYSTEM_CPU_USAGE("CPU usage (total)"),
   CPU_USAGE_ESTIMATION("CPU usage estimation"),

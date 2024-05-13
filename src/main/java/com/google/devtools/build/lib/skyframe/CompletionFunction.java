@@ -21,13 +21,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputDepOwners;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
@@ -35,6 +34,7 @@ import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.ImportantOutputException;
 import com.google.devtools.build.lib.actions.InputFileErrorException;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.TopLevelOutputException;
 import com.google.devtools.build.lib.analysis.ConfiguredObjectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.SuccessfulArtifactFilter;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LabelCause;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingArtifactValue;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
@@ -63,6 +65,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -125,6 +128,8 @@ public final class CompletionFunction<
         throws InterruptedException;
   }
 
+  private static final Duration IMPORTANT_OUTPUT_HANDLER_LOGGING_THRESHOLD = Duration.ofMillis(100);
+
   private final PathResolverFactory pathResolverFactory;
   private final Completor<ValueT, ResultT, KeyT> completor;
   private final SkyframeActionExecutor skyframeActionExecutor;
@@ -166,8 +171,20 @@ public final class CompletionFunction<
     ValueT value = valueAndArtifactsToBuild.first;
     ArtifactsToBuild artifactsToBuild = valueAndArtifactsToBuild.second;
 
+    // Ensure that coverage artifacts are built before a target is considered completed.
     ImmutableList<Artifact> allArtifacts = artifactsToBuild.getAllArtifacts().toList();
-    SkyframeLookupResult inputDeps = env.getValuesAndExceptions(Artifact.keys(allArtifacts));
+    InstrumentedFilesInfo instrumentedFilesInfo =
+        value.getConfiguredObject().get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
+    Iterable<SkyKey> keysToRequest;
+    if (value.getConfiguredObject() instanceof ConfiguredTarget && instrumentedFilesInfo != null) {
+      keysToRequest =
+          Iterables.concat(
+              Artifact.keys(allArtifacts),
+              Artifact.keys(instrumentedFilesInfo.getBaselineCoverageArtifacts().toList()));
+    } else {
+      keysToRequest = Artifact.keys(allArtifacts);
+    }
+    SkyframeLookupResult inputDeps = env.getValuesAndExceptions(keysToRequest);
 
     boolean allArtifactsAreImportant = artifactsToBuild.areAllOutputGroupsImportant();
 
@@ -187,9 +204,10 @@ public final class CompletionFunction<
       importantInputMap = new ActionInputMap(bugReporter, importantArtifacts.size());
     }
 
-    Map<Artifact, ImmutableCollection<? extends Artifact>> expandedArtifacts = new HashMap<>();
+    // TODO: b/239184359 - Can we just get the tree artifacts from the ActionInputMap?
+    Map<Artifact, TreeArtifactValue> treeArtifacts = new HashMap<>();
+
     Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets = new HashMap<>();
-    Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts = new HashMap<>();
     Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets = new HashMap<>();
 
     ActionExecutionException firstActionExecutionException = null;
@@ -215,8 +233,7 @@ public final class CompletionFunction<
             builtArtifacts.add(input);
             ActionInputMapHelper.addToMap(
                 inputMap,
-                expandedArtifacts,
-                archivedTreeArtifacts,
+                treeArtifacts::put,
                 expandedFilesets,
                 topLevelFilesets,
                 input,
@@ -230,8 +247,7 @@ public final class CompletionFunction<
               // double-counting.
               ActionInputMapHelper.addToMap(
                   importantInputMap,
-                  expandedArtifacts,
-                  archivedTreeArtifacts,
+                  treeArtifacts::put,
                   expandedFilesets,
                   topLevelFilesets,
                   input,
@@ -259,7 +275,7 @@ public final class CompletionFunction<
 
     CompletionContext ctx =
         CompletionContext.create(
-            expandedArtifacts,
+            Maps.transformValues(treeArtifacts, TreeArtifactValue::getChildren),
             expandedFilesets,
             key.topLevelArtifactContext().expandFilesets(),
             key.topLevelArtifactContext().fullyResolveFilesetSymlinks(),
@@ -402,20 +418,28 @@ public final class CompletionFunction<
       ArtifactsToBuild artifactsToBuild,
       Set<Artifact> builtArtifacts)
       throws CompletionFunctionException, InterruptedException {
-    ImportantOutputHandler importantOutputHandler =
+    var importantOutputHandler =
         skyframeActionExecutor.getActionContextRegistry().getContext(ImportantOutputHandler.class);
     if (importantOutputHandler == ImportantOutputHandler.NO_OP) {
       return null; // Avoid expanding artifacts if the default no-op handler is installed.
     }
 
+    Label label = key.actionLookupKey().getLabel();
+    ImmutableList<ActionInput> expandedArtifacts = ctx.expand(importantArtifacts);
+    InputMetadataProvider metadataProvider =
+        new ActionInputMetadataProvider(
+            skyframeActionExecutor.getExecRoot().asFragment(),
+            ctx.getImportantInputMap(),
+            ctx.getExpandedFilesets());
     try {
-      ImmutableMap<String, ActionInput> lostOutputs =
-          importantOutputHandler.processAndGetLostArtifacts(
-              ctx.expand(importantArtifacts),
-              new ActionInputMetadataProvider(
-                  skyframeActionExecutor.getExecRoot().asFragment(),
-                  ctx.getImportantInputMap(),
-                  ctx.getExpandedFilesets()));
+      ImmutableMap<String, ActionInput> lostOutputs;
+      try (var ignored =
+          GoogleAutoProfilerUtils.logged(
+              "Informing important output handler of top-level outputs for " + label,
+              IMPORTANT_OUTPUT_HANDLER_LOGGING_THRESHOLD)) {
+        lostOutputs =
+            importantOutputHandler.processAndGetLostArtifacts(expandedArtifacts, metadataProvider);
+      }
       if (lostOutputs.isEmpty()) {
         return null;
       }
@@ -432,7 +456,7 @@ public final class CompletionFunction<
       return actionRewindStrategy.prepareRewindPlanForLostTopLevelOutputs(
           key, ImmutableSet.copyOf(Artifact.keys(importantArtifacts)), lostOutputs, owners, env);
     } catch (ActionRewindException | ImportantOutputException e) {
-      LabelCause cause = new LabelCause(key.actionLookupKey().getLabel(), e.getDetailedExitCode());
+      LabelCause cause = new LabelCause(label, e.getDetailedExitCode());
       rootCauses = NestedSetBuilder.fromNestedSet(rootCauses).add(cause).build();
       env.getListener().handle(completor.getRootCauseError(key, value, cause, env));
       skyframeActionExecutor.recordExecutionError();

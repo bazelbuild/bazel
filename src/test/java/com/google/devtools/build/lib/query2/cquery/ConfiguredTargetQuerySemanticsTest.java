@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.query2.testutil.PostAnalysisQueryHelper;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
@@ -285,7 +287,9 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
             MockRule.define(
                 "rule_class_transition",
                 (builder, env) ->
-                    builder.cfg(unused -> new FooPatchTransition("SET BY PATCH")).build());
+                    builder
+                        .cfg(TransitionFactories.of(new FooPatchTransition("SET BY PATCH")))
+                        .build());
 
     helper.useRuleClassProvider(setRuleClassProviders(ruleClassTransition).build());
     helper.setUniverseScope("//test:rule_class");
@@ -448,7 +452,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     // setting --universe_scope we ensure only the transitioned version exists.
     helper.setUniverseScope("//test:buildme");
     helper.setQuerySettings(Setting.ONLY_TARGET_DEPS, Setting.NO_IMPLICIT_DEPS);
-    Set<CqueryNode> result = eval("deps(//test:buildme, 1)");
+    Set<CqueryNode> result = eval("deps(//test:buildme, 1)" + getDependencyCorrection());
     assertThat(result).hasSize(2);
 
     ImmutableList<CqueryNode> stableOrderList = ImmutableList.copyOf(result);
@@ -531,7 +535,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   public void testExecTransitionNotFilteredByNoToolDeps() throws Exception {
     createConfigRulesAndBuild();
     helper.setQuerySettings(Setting.ONLY_TARGET_DEPS, Setting.NO_IMPLICIT_DEPS);
-    assertThat(evalToListOfStrings("deps(//test:my_rule)"))
+    assertThat(evalToListOfStrings("deps(//test:my_rule)" + getDependencyCorrection()))
         .containsExactly("//test:my_rule", "//test:target_dep", "//test:dep");
   }
 
@@ -1015,5 +1019,51 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
             "//donut:test_filegroup",
             "//donut:test_rule",
             "//donut:test.bzl%_test_aspect of //donut:test_rule_dep");
+  }
+
+  @Test
+  public void testAttrRespectsConfiguration() throws Exception {
+    MockRule ruleWithList =
+        () -> MockRule.define("rule_with_list", attr("string_values", STRING_LIST));
+
+    helper.useRuleClassProvider(setRuleClassProviders(ruleWithList).build());
+
+    writeFile(
+        "test/BUILD",
+        """
+        load(":flag.bzl", "bool_flag")
+        bool_flag(
+            name = "enable",
+            build_setting_default = False,
+        )
+        """);
+    writeFile(
+        "configurable/BUILD",
+        """
+        config_setting(
+            name = "enabled",
+            define_values = {"test_enable": "true"})
+        rule_with_list(
+            name = 'target',
+            string_values = select({
+                ':enabled': ['foo', 'bar'],
+                '//conditions:default': ['quux'],
+            }),
+        )
+        """);
+
+    // Using default configuration, 'quux' is the only value in the attribute.
+    assertThat(evalToString("attr(string_values, 'foo', '//configurable:target')")).isEmpty();
+    assertThat(evalToString("attr(string_values, 'bar', '//configurable:target')")).isEmpty();
+    assertThat(evalToString("attr(string_values, 'quux', '//configurable:target')"))
+        .isEqualTo("//configurable:target");
+
+    // When the flag is enabled, 'foo' and 'bar' are present, but not 'quux'
+    ((PostAnalysisQueryHelper<CqueryNode>) helper).useConfiguration("--define=test_enable=true");
+    assertThat(evalToString("attr(string_values, 'foo', '//configurable:target')"))
+        .isEqualTo("//configurable:target");
+    assertThat(evalToString("attr(string_values, 'bar', '//configurable:target')"))
+        .isEqualTo("//configurable:target");
+    assertThat(evalToString("attr(string_values, 'quux', '//configurable:target')")).isEmpty();
   }
 }

@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.starlark;
 
+import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
@@ -28,10 +30,11 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -61,11 +64,14 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -130,7 +136,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   @Before
-  public final void createBuildFile() throws Exception {
+  public void createBuildFile() throws Exception {
     scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
 
     scratch.file("myinfo/BUILD");
@@ -187,7 +193,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
   private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
     Provider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonical("//myinfo:myinfo.bzl"), "MyInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//myinfo:myinfo.bzl")), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
   }
 
@@ -704,8 +711,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         (String) ev.eval(String.format("ruleContext.expand_location('$(%s)')", command)));
   }
 
-  private void assertMatches(String description, String expectedPattern, String computedValue)
-      throws Exception {
+  private static void assertMatches(
+      String description, String expectedPattern, String computedValue) {
     assertWithMessage(
             String.format(
                 "%s '%s' did not match pattern '%s'", description, computedValue, expectedPattern))
@@ -1468,7 +1475,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     assertThat(provider).isInstanceOf(StructImpl.class);
     assertThat(((StructImpl) provider).getProvider().getKey())
         .isEqualTo(
-            new StarlarkProvider.Key(Label.parseCanonical("//test:foo.bzl"), "foo_provider"));
+            new StarlarkProvider.Key(
+                keyForBuild(Label.parseCanonical("//test:foo.bzl")), "foo_provider"));
   }
 
   @Test
@@ -1515,7 +1523,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     Object provider = getMyInfoFromTarget(configuredTarget).getValue("proxy");
     assertThat(provider).isInstanceOf(StructImpl.class);
     assertThat(((StructImpl) provider).getProvider().getKey())
-        .isEqualTo(new StarlarkProvider.Key(Label.parseCanonical("//test:foo.bzl"), "FooInfo"));
+        .isEqualTo(
+            new StarlarkProvider.Key(
+                keyForBuild(Label.parseCanonical("//test:foo.bzl")), "FooInfo"));
   }
 
   @Test
@@ -1654,7 +1664,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     assertThat(provider).isInstanceOf(StructImpl.class);
     assertThat(((StructImpl) provider).getProvider().getKey())
         .isEqualTo(
-            new StarlarkProvider.Key(Label.parseCanonical("//test:foo.bzl"), "foo_provider"));
+            new StarlarkProvider.Key(
+                keyForBuild(Label.parseCanonical("//test:foo.bzl")), "foo_provider"));
     assertThat(((StructImpl) provider).getValue("a")).isEqualTo(StarlarkInt.of(123));
   }
 
@@ -1707,7 +1718,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     assertThat(provider).isInstanceOf(StructImpl.class);
     assertThat(((StructImpl) provider).getProvider().getKey())
         .isEqualTo(
-            new StarlarkProvider.Key(Label.parseCanonical("//test:foo.bzl"), "foo_provider"));
+            new StarlarkProvider.Key(
+                keyForBuild(Label.parseCanonical("//test:foo.bzl")), "foo_provider"));
   }
 
   @Test
@@ -2081,7 +2093,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         """);
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_glob");
-    assertContainsEvent("The native module can be accessed only from a BUILD thread.");
+    assertContainsEvent("glob() can only be used while evaluating a BUILD file and its macros");
   }
 
   @Test
@@ -3480,26 +3492,189 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     assertThat(getDigest(commandLine1)).isEqualTo(getDigest(commandLine2));
   }
 
-  private static ArtifactExpander createArtifactExpander(String dirRelativePath, String... files) {
-    return (artifact, output) -> {
-      Preconditions.checkArgument(
-          artifact.getRootRelativePath().equals(PathFragment.create(dirRelativePath)));
-      for (String file : files) {
-        output.add(
-            DerivedArtifact.create(
-                artifact.getRoot(),
-                artifact.getExecPath().getRelative(file),
-                (ActionLookupKey) artifact.getArtifactOwner()));
-      }
-    };
+  @Test
+  public void starlarkCustomCommandLineKeyComputation_labelVsString() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    RepositoryMapping mainRepoMapping =
+        RepositoryMapping.create(
+            ImmutableMap.of("apparent", RepositoryName.createUnvalidated("canonical~")),
+            RepositoryName.MAIN);
+    CommandLine commandLine1 =
+        getCommandLine(
+            mainRepoMapping,
+            """
+            args = ruleContext.actions.args()
+            args.add(Label("@@canonical~//foo:bar"))
+            args.add(str(Label("@@canonical~//foo:bar")))
+            """);
+    CommandLine commandLine2 =
+        getCommandLine(
+            mainRepoMapping,
+            """
+            args = ruleContext.actions.args()
+            args.add(Label("@@canonical~//foo:bar"))
+            args.add(Label("@@canonical~//foo:bar"))
+            """);
+
+    assertThat(getArguments(commandLine1, PathMapper.NOOP))
+        .isNotEqualTo(getArguments(commandLine2, PathMapper.NOOP));
+    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
   }
 
-  private static ArtifactExpander createArtifactExpander(
-      Artifact directory, ImmutableList<Artifact> files) {
-    return (artifact, output) -> {
-      if (artifact.equals(directory)) {
-        output.addAll(files);
+  @Test
+  public void starlarkCustomCommandLineKeyComputation_labelDepsetVsMixedList() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    // Verify that a depset with elements of type Label and a list that starts with a Label and has
+    // elements with identical string representation to those of the depset have different keys.
+    RepositoryMapping mainRepoMapping =
+        RepositoryMapping.create(
+            ImmutableMap.of(
+                "apparent1",
+                RepositoryName.createUnvalidated("canonical1~"),
+                "apparent2",
+                RepositoryName.createUnvalidated("canonical2~")),
+            RepositoryName.MAIN);
+    CommandLine commandLine1 =
+        getCommandLine(
+            mainRepoMapping,
+            """
+args = ruleContext.actions.args()
+args.add_all(depset([Label("@@canonical1~//foo:bar"), Label("@@canonical2~//foo:bar")]))
+""");
+    CommandLine commandLine2 =
+        getCommandLine(
+            mainRepoMapping,
+            """
+            args = ruleContext.actions.args()
+            args.add_all([Label("@@canonical1~//foo:bar"), str(Label("@@canonical2~//foo:bar"))])
+            """);
+
+    assertThat(getArguments(commandLine1, PathMapper.NOOP))
+        .isNotEqualTo(getArguments(commandLine2, PathMapper.NOOP));
+    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+  }
+
+  @Test
+  public void starlarkCustomCommandLineKeyComputation_artifactVsPathStringInAdd() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    CommandLine commandLine1 =
+        getCommandLine(
+            """
+            file = ruleContext.actions.declare_file('file')
+            args = ruleContext.actions.args()
+            args.add(file)
+            """);
+    CommandLine commandLine2 =
+        getCommandLine(
+            """
+            file = ruleContext.actions.declare_file('file')
+            args = ruleContext.actions.args()
+            args.add(file.path)
+            """);
+
+    assertThat(getArguments(commandLine1, PathMapper.NOOP))
+        .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
+    assertThat(getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER))
+        .isNotEqualTo(getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER));
+    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+  }
+
+  @Test
+  public void starlarkCustomCommandLineKeyComputation_artifactVsPathStringInAddFormatted()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    CommandLine commandLine1 =
+        getCommandLine(
+            """
+            file = ruleContext.actions.declare_file('file')
+            args = ruleContext.actions.args()
+            args.add(file, format = '--%s')
+            """);
+    CommandLine commandLine2 =
+        getCommandLine(
+            """
+            file = ruleContext.actions.declare_file('file')
+            args = ruleContext.actions.args()
+            args.add(file.path, format = '--%s')
+            """);
+
+    assertThat(getArguments(commandLine1, PathMapper.NOOP))
+        .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
+    assertThat(getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER))
+        .isNotEqualTo(getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER));
+    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+  }
+
+  @Test
+  public void starlarkCustomCommandLineKeyComputation_artifactVsPathStringInAddAllList()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    CommandLine commandLine1 =
+        getCommandLine(
+            """
+            file = ruleContext.actions.declare_file('file')
+            args = ruleContext.actions.args()
+            args.add_all([file])
+            """);
+    CommandLine commandLine2 =
+        getCommandLine(
+            """
+            file = ruleContext.actions.declare_file('file')
+            args = ruleContext.actions.args()
+            args.add_all([file.path])
+            """);
+
+    assertThat(getArguments(commandLine1, PathMapper.NOOP))
+        .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
+    assertThat(getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER))
+        .isNotEqualTo(getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER));
+    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+  }
+
+  @Test
+  public void starlarkCustomCommandLineKeyComputation_artifactVsPathStringInAddAllDepset()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    CommandLine commandLine1 =
+        getCommandLine(
+            """
+            file = ruleContext.actions.declare_file('file')
+            args = ruleContext.actions.args()
+            args.add_all(depset([file]))
+            """);
+    CommandLine commandLine2 =
+        getCommandLine(
+            """
+            file = ruleContext.actions.declare_file('file')
+            args = ruleContext.actions.args()
+            args.add_all(depset([file.path]))
+            """);
+
+    assertThat(getArguments(commandLine1, PathMapper.NOOP))
+        .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
+    assertThat(getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER))
+        .isNotEqualTo(getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER));
+    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+  }
+
+  private static ArtifactExpander createArtifactExpander(String dirRelativePath, String... files) {
+    return treeArtifact -> {
+      Preconditions.checkArgument(
+          treeArtifact.getRootRelativePathString().equals(dirRelativePath), treeArtifact);
+      SpecialArtifact parent = (SpecialArtifact) treeArtifact;
+      if (!parent.hasGeneratingActionKey()) {
+        // Set a dummy generating action key so that we can create child TreeFileArtifacts.
+        parent.setGeneratingActionKey(ActionLookupData.create(parent.getArtifactOwner(), 0));
       }
+      return Arrays.stream(files)
+          .map(f -> TreeFileArtifact.createTreeOutput(parent, f))
+          .collect(toImmutableSortedSet(Comparator.naturalOrder()));
     };
   }
 
@@ -3516,8 +3691,26 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   private CommandLine getCommandLine(String... lines) throws Exception {
+    return getCommandLine(RepositoryMapping.ALWAYS_FALLBACK, lines);
+  }
+
+  private CommandLine getCommandLine(RepositoryMapping mainRepoMapping, String... lines)
+      throws Exception {
     ev.exec(lines);
-    return ((Args) ev.eval("args")).build(() -> RepositoryMapping.ALWAYS_FALLBACK);
+    return ((Args) ev.eval("args")).build(() -> mainRepoMapping);
+  }
+
+  private static final PathMapper NON_TRIVIAL_PATH_MAPPER =
+      new PathMapper() {
+        @Override
+        public PathFragment map(PathFragment path) {
+          return path.subFragment(0, 1).getChild("cfg").getRelative(path.subFragment(2));
+        }
+      };
+
+  private List<String> getArguments(CommandLine commandLine, PathMapper pathMapper)
+      throws CommandLineExpansionException, InterruptedException {
+    return ImmutableList.copyOf(commandLine.arguments(/* artifactExpander= */ null, pathMapper));
   }
 
   @Test
@@ -3546,10 +3739,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     assertThat(commandLine.arguments()).containsExactly("foo/dir");
 
     // Now ask for one with an expanded directory
-    Artifact file1 = getBinArtifactWithNoOwner("foo/dir/file1");
-    Artifact file2 = getBinArtifactWithNoOwner("foo/dir/file2");
     ArtifactExpander artifactExpander =
-        createArtifactExpander(directory, ImmutableList.of(file1, file2));
+        createArtifactExpander(directory.getRootRelativePathString(), "file1", "file2");
     assertThat(commandLine.arguments(artifactExpander, PathMapper.NOOP))
         .containsExactly("foo/dir/file1", "foo/dir/file2");
   }
@@ -3568,10 +3759,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     Artifact directory = (Artifact) result.get(1);
     CommandLine commandLine = args.build(() -> RepositoryMapping.ALWAYS_FALLBACK);
 
-    Artifact file1 = getBinArtifactWithNoOwner("foo/dir/file1");
-    Artifact file2 = getBinArtifactWithNoOwner("foo/dir/file2");
     ArtifactExpander artifactExpander =
-        createArtifactExpander(directory, ImmutableList.of(file1, file2));
+        createArtifactExpander(directory.getRootRelativePathString(), "file1", "file2");
     // First expanded, then not expanded (two separate calls)
     assertThat(commandLine.arguments(artifactExpander, PathMapper.NOOP))
         .containsExactly("foo/dir/file1", "foo/dir/file2", "foo/dir");
@@ -3619,10 +3808,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     Artifact directory = (Artifact) ev.eval("directory");
     CommandLine commandLine = args.build(() -> RepositoryMapping.ALWAYS_FALLBACK);
 
-    Artifact file1 = getBinArtifactWithNoOwner("foo/dir/file1");
-    Artifact file2 = getBinArtifactWithNoOwner("foo/dir/file2");
     ArtifactExpander artifactExpander =
-        createArtifactExpander(directory, ImmutableList.of(file1, file2));
+        createArtifactExpander(directory.getRootRelativePathString(), "file1", "file2");
     assertThat(commandLine.arguments(artifactExpander, PathMapper.NOOP))
         .containsExactly("foo/dir/file1", "foo/dir/file2", "foo/file3");
   }
@@ -3723,6 +3910,13 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         r(name = 'exec_configured_child')
         """);
 
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
+
     ConfiguredTarget target = getConfiguredTarget("//test:foo");
 
     assertThat(target).isNotNull();
@@ -3741,6 +3935,6 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
             .orElse(null);
     assertThat(a2).isNotNull();
     assertThat(a2.getRoot().getExecPathString())
-        .matches(getRelativeOutputPath() + "/[\\w\\-]+\\-exec\\-[\\w\\-]+/bin");
+        .matches(getRelativeOutputPath() + "/[\\w\\-]+\\-exec/bin");
   }
 }

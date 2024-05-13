@@ -75,10 +75,9 @@ public class DigestUtils {
     public boolean equals(Object object) {
       if (object == this) {
         return true;
-      } else if (!(object instanceof CacheKey)) {
+      } else if (!(object instanceof CacheKey key)) {
         return false;
       } else {
-        CacheKey key = (CacheKey) object;
         return path.equals(key.path)
             && nodeId == key.nodeId
             && changeTime == key.changeTime

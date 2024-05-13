@@ -36,11 +36,12 @@ import javax.annotation.Nullable;
 /**
  * This exception is thrown when a conflict between actions is detected. It contains information
  * about the artifact for which the conflict is found, and data about the two conflicting actions
- * and their owners.
+ * and their owners. Non-final only for {@link WithAspectKeyInfo}.
  */
-public final class ActionConflictException extends AbstractSaneAnalysisException {
-
+public sealed class ActionConflictException extends AbstractSaneAnalysisException {
   private final Artifact artifact;
+  private final ActionAnalysisMetadata attemptedAction;
+  private final boolean isPrefixConflict;
 
   private static final int MAX_DIFF_ARTIFACTS_TO_REPORT = 5;
 
@@ -51,16 +52,54 @@ public final class ActionConflictException extends AbstractSaneAnalysisException
       ActionAnalysisMetadata attemptedAction) {
     return new ActionConflictException(
         artifact,
-        createDetailedMessage(artifact, actionKeyContext, attemptedAction, previousAction));
+        attemptedAction,
+        createDetailedMessage(artifact, actionKeyContext, attemptedAction, previousAction),
+        /* isPrefixConflict= */ false);
   }
 
-  private ActionConflictException(Artifact artifact, String message) {
+  /**
+   * Exception to indicate that one {@link Action} has an output artifact whose path is a prefix of
+   * an output of another action. Since the first path cannot be both a directory and a file, this
+   * would lead to an error if both actions were executed in the same build.
+   */
+  public static ActionConflictException createPrefix(
+      Artifact firstArtifact,
+      Artifact secondArtifact,
+      ActionAnalysisMetadata firstAction,
+      ActionAnalysisMetadata secondAction) {
+    return new ActionConflictException(
+        firstArtifact,
+        firstAction,
+        createPrefixDetailedMessage(
+            firstArtifact,
+            secondArtifact,
+            firstAction.getOwner().getLabel(),
+            secondAction.getOwner().getLabel()),
+        /* isPrefixConflict= */ true);
+  }
+
+  public static ActionConflictException withAspectKeyInfo(
+      ActionConflictException e, ActionLookupKey aspectKey) {
+    return new WithAspectKeyInfo(e, aspectKey);
+  }
+
+  private ActionConflictException(
+      Artifact artifact,
+      ActionAnalysisMetadata attemptedAction,
+      String message,
+      boolean isPrefixConflict) {
     super(message);
     this.artifact = artifact;
+    this.attemptedAction = attemptedAction;
+    this.isPrefixConflict = isPrefixConflict;
   }
 
   public Artifact getArtifact() {
     return artifact;
+  }
+
+  public ActionAnalysisMetadata getAttemptedAction() {
+    return attemptedAction;
   }
 
   private static String createDetailedMessage(
@@ -74,6 +113,15 @@ public final class ActionConflictException extends AbstractSaneAnalysisException
         + debugSuffix(actionKeyContext, a, b);
   }
 
+  private static String createPrefixDetailedMessage(
+      Artifact firstArtifact, Artifact secondArtifact, Label firstOwner, Label secondOwner) {
+    return String.format(
+        "One of the output paths '%s' (belonging to %s) and '%s' (belonging to %s) is a"
+            + " prefix of the other. These actions cannot be simultaneously present; please"
+            + " rename one of the output files or build just one of them",
+        firstArtifact.getExecPath(), firstOwner, secondArtifact.getExecPath(), secondOwner);
+  }
+
   public void reportTo(EventHandler eventListener) {
     eventListener.handle(Event.error(this.getMessage()));
   }
@@ -83,7 +131,10 @@ public final class ActionConflictException extends AbstractSaneAnalysisException
     return DetailedExitCode.of(
         FailureDetail.newBuilder()
             .setMessage(getMessage())
-            .setAnalysis(Analysis.newBuilder().setCode(Code.ACTION_CONFLICT))
+            .setAnalysis(
+                Analysis.newBuilder()
+                    .setCode(
+                        isPrefixConflict ? Code.ARTIFACT_PREFIX_CONFLICT : Code.ACTION_CONFLICT))
             .build());
   }
 
@@ -263,5 +314,29 @@ public final class ActionConflictException extends AbstractSaneAnalysisException
         : owner.getAspectDescriptors().stream()
             .map(AspectDescriptor::getDescription)
             .collect(Collectors.joining(",", "[", "]"));
+  }
+
+  @Nullable
+  public ActionLookupKey getAspectKey() {
+    return null;
+  }
+
+  /**
+   * For skymeld.
+   *
+   * <p>We need to forward the AspectKey along so that it's available for the final conflict report.
+   */
+  private static final class WithAspectKeyInfo extends ActionConflictException {
+    private final ActionLookupKey aspectKey;
+
+    private WithAspectKeyInfo(ActionConflictException e, ActionLookupKey aspectKey) {
+      super(e.artifact, e.attemptedAction, e.getMessage(), e.isPrefixConflict);
+      this.aspectKey = aspectKey;
+    }
+
+    @Override
+    public ActionLookupKey getAspectKey() {
+      return aspectKey;
+    }
   }
 }

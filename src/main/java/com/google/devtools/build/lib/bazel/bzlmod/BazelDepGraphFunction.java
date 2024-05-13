@@ -19,9 +19,9 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.stream.Collectors.counting;
 import static java.util.stream.Collectors.groupingBy;
-import static java.util.stream.Collectors.toSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -30,6 +30,7 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
@@ -49,7 +50,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -186,7 +186,6 @@ public class BazelDepGraphFunction implements SkyFunction {
       return null;
     }
 
-    ImmutableList<String> registries = ImmutableList.copyOf(ModuleFileFunction.REGISTRIES.get(env));
     ImmutableMap<String, String> moduleOverrides =
         ModuleFileFunction.MODULE_OVERRIDES.get(env).entrySet().stream()
             .collect(
@@ -202,7 +201,7 @@ public class BazelDepGraphFunction implements SkyFunction {
     String envYanked = allowedYankedVersionsFromEnv.getValue();
 
     return BzlmodFlagsAndEnvVars.create(
-        registries,
+        ModuleFileFunction.REGISTRIES.get(env),
         moduleOverrides,
         yankedVersions,
         nullToEmpty(envYanked),
@@ -238,13 +237,13 @@ public class BazelDepGraphFunction implements SkyFunction {
               Code.BAD_MODULE,
               e,
               "invalid label for module extension found at %s",
-              usage.getLocation());
+              usage.getProxies().getFirst().getLocation());
         }
         if (!moduleExtensionId.getBzlFileLabel().getRepository().isVisible()) {
           throw ExternalDepsException.withMessage(
               Code.BAD_MODULE,
               "invalid label for module extension found at %s: no repo visible as '@%s' here",
-              usage.getLocation(),
+              usage.getProxies().getFirst().getLocation(),
               moduleExtensionId.getBzlFileLabel().getRepository().getName());
         }
         extensionUsagesTableBuilder.put(moduleExtensionId, module.getKey(), usage);
@@ -257,14 +256,14 @@ public class BazelDepGraphFunction implements SkyFunction {
       ImmutableMap<ModuleKey, Module> depGraph) {
     // Find modules with multiple versions in the dep graph. Currently, the only source of such
     // modules is multiple_version_override.
-    Set<String> multipleVersionsModules =
+    ImmutableSet<String> multipleVersionsModules =
         depGraph.keySet().stream()
             .collect(groupingBy(ModuleKey::getName, counting()))
             .entrySet()
             .stream()
             .filter(entry -> entry.getValue() > 1)
             .map(Entry::getKey)
-            .collect(toSet());
+            .collect(toImmutableSet());
 
     // If there is a unique version of this module in the entire dep graph, we elide the version
     // from the canonical repository name. This has a number of benefits:
@@ -311,6 +310,10 @@ public class BazelDepGraphFunction implements SkyFunction {
     // Starlark identifier, which in the case of an exported symbol cannot start with "_".
     Preconditions.checkArgument(attempt >= 1);
     String extensionNameDisambiguator = attempt == 1 ? "" : String.valueOf(attempt);
+    // Avoid emitting unique names that resemble Windows short paths as those can cause additional
+    // file IO during analysis (see WindowsShortPath). In both cases, the final tilde is followed
+    // by a Starlark identifier (either the exported name of the usage or the extension name),
+    // neither of which can start with a digit.
     return id.getIsolationKey()
         .map(
             namespace ->

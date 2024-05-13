@@ -87,6 +87,12 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactory.Dat
     return new ComposingTransition(transition1, transition2);
   }
 
+  @Override
+  public TransitionType transitionType() {
+    // Both types must match so this is correct.
+    return transitionFactory1().transitionType();
+  }
+
   abstract TransitionFactory<T> transitionFactory1();
 
   abstract TransitionFactory<T> transitionFactory2();
@@ -99,5 +105,11 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactory.Dat
   @Override
   public boolean isSplit() {
     return transitionFactory1().isSplit() || transitionFactory2().isSplit();
+  }
+
+  @Override
+  public void visit(Visitor<T> visitor) {
+    this.transitionFactory1().visit(visitor);
+    this.transitionFactory2().visit(visitor);
   }
 }

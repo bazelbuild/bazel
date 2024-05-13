@@ -56,9 +56,9 @@ public abstract class DeferredObjectCodec<T> implements ObjectCodec<T> {
    * <p>This is used in cases where the deserialized object cannot even be constructed before the
    * children become available, which is common for immutable types.
    *
-   * <p>Note that {@link DeferredValue} is invoked when all child instances have been provided, but
-   * that may include partially formed child-instances. Use {@link
-   * FlatDeserializationContext#deserializeFully} if the child-instances must be fully formed.
+   * <p>{@link DeferredValue#call} is invoked when all child objects are available. These are
+   * completely deserialized except if the child is a reference to a parent. See comment at {@link
+   * AsyncDeserializationContext} for details.
    */
   public abstract DeferredValue<T> deserializeDeferred(
       AsyncDeserializationContext context, CodedInputStream codedIn)

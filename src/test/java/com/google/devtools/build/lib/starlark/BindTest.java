@@ -28,6 +28,7 @@ import com.google.devtools.build.runfiles.Runfiles;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.util.function.Function;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -39,6 +40,7 @@ public class BindTest extends BuildViewTestCase {
 
   @Before
   public final void createFiles() throws Exception {
+    analysisMock.javaSupport().setupRulesJava(mockToolsConfig, Function.identity());
     setupStarlarkRules(scratch);
     scratch.file(
         "test/BUILD",
@@ -94,8 +96,10 @@ public class BindTest extends BuildViewTestCase {
     Artifact giraffeArtifact =
         ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(giraffeTarget), "giraffe.jar");
     ConfiguredTarget safariTarget = getConfiguredTarget("//test:safari");
-    Action safariAction = getGeneratingAction(
-        ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(safariTarget), "safari.jar"));
+    Action safariAction =
+        getGeneratingAction(
+            ActionsTestUtil.getFirstArtifactEndingWith(
+                getFilesToBuild(safariTarget), "safari.jar"));
     assertThat(safariAction.getInputs().toList()).contains(giraffeArtifact);
   }
 

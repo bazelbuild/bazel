@@ -62,6 +62,8 @@ public final class StarlarkThread {
 
   private final Map<Class<?>, Object> threadLocals = new HashMap<>();
 
+  private final SymbolGenerator<?> symbolGenerator;
+
   private boolean interruptible = true;
 
   long steps; // count of logical computation steps executed so far
@@ -395,35 +397,51 @@ public final class StarlarkThread {
   }
 
   /**
-   * Constructs a StarlarkThread.
+   * Creates a StarlarkThread.
    *
    * @param mu the (non-frozen) mutability of values created by this thread.
    * @param semantics the StarlarkSemantics for this thread. Note that it is generally a code smell
    *     to use {@link StarlarkSemantics#DEFAULT} if the application permits customizing the
    *     semantics (e.g. via command line flags). Usually, all Starlark evaluation contexts within
    *     the same application would use the same {@code StarlarkSemantics} instance.
+   * @param contextDescription a short description of this evaluation, added as context when an
+   *     exception is thrown. The empty String can be used as a default value.
+   * @param symbolGenerator a supplier of deterministic, stable IDs for objects created by this
+   *     thread
    */
-  public StarlarkThread(Mutability mu, StarlarkSemantics semantics) {
+  // TODO(bazel-team): Consider merging contextDescription into the symbolGenerator.
+  public static StarlarkThread create(
+      Mutability mu,
+      StarlarkSemantics semantics,
+      String contextDescription,
+      SymbolGenerator<?> symbolGenerator) {
+    return new StarlarkThread(mu, semantics, contextDescription, symbolGenerator);
+  }
+
+  /**
+   * Creates a StarlarkThread with an empty {@code contextDescription} and transient {@code
+   * symbolGenerator}.
+   *
+   * <p>See comments at {@link SymbolGenerator#createTransient} for when this is applicable.
+   */
+  public static StarlarkThread createTransient(Mutability mu, StarlarkSemantics semantics) {
+    return new StarlarkThread(
+        mu, semantics, /* contextDescription= */ "", SymbolGenerator.createTransient());
+  }
+
+  private StarlarkThread(
+      Mutability mu,
+      StarlarkSemantics semantics,
+      String contextDescription,
+      SymbolGenerator<?> symbolGenerator) {
     Preconditions.checkArgument(!mu.isFrozen());
     this.mutability = mu;
     this.semantics = semantics;
     this.allowRecursion = semantics.getBool(StarlarkSemantics.ALLOW_RECURSION);
-  }
-
-  /**
-   * Constructs a StarlarkThread.
-   *
-   * @param mu the (non-frozen) mutability of values created by this thread.
-   * @param semantics the StarlarkSemantics for this thread. Note that it is generally a code smell
-   *     to use {@link StarlarkSemantics#DEFAULT} if the application permits customizing the
-   *     semantics (e.g. via command line flags). Usually, all Starlark evaluation contexts within
-   *     the same application would use the same {@code StarlarkSemantics} instance.
-   * @param contextDescription a short description of this evaluation, add as context when an
-   *     exception is thrown
-   */
-  public StarlarkThread(Mutability mu, StarlarkSemantics semantics, String contextDescription) {
-    this(mu, semantics);
-    setUncheckedExceptionContext(() -> contextDescription);
+    if (!contextDescription.isEmpty()) {
+      setUncheckedExceptionContext(() -> contextDescription);
+    }
+    this.symbolGenerator = symbolGenerator;
   }
 
   /**
@@ -579,6 +597,18 @@ public final class StarlarkThread {
   /** Installs a global hook that will be notified of function calls. */
   public static void setCallProfiler(@Nullable CallProfiler p) {
     callProfiler = p;
+  }
+
+  public SymbolGenerator.Symbol<?> getNextIdentityToken() {
+    return symbolGenerator.generate();
+  }
+
+  public SymbolGenerator<?> getSymbolGenerator() {
+    return symbolGenerator;
+  }
+
+  Object getOwner() {
+    return symbolGenerator.getOwner();
   }
 
   @Nullable private static CallProfiler callProfiler = null;

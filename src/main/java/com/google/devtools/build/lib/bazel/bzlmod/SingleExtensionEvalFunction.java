@@ -85,6 +85,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Location;
 
@@ -161,11 +162,16 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           lockedExtensionMap == null ? null : lockedExtensionMap.get(extension.getEvalFactors());
       if (lockedExtension != null) {
         try {
-          SingleExtensionEvalValue singleExtensionEvalValue =
+          SingleExtensionValue singleExtensionValue =
               tryGettingValueFromLockFile(
-                  env, extensionId, extension, usagesValue, lockedExtension);
-          if (singleExtensionEvalValue != null) {
-            return singleExtensionEvalValue;
+                  env,
+                  extensionId,
+                  extension,
+                  usagesValue,
+                  extension.getEvalFactors(),
+                  lockedExtension);
+          if (singleExtensionValue != null) {
+            return singleExtensionValue;
           }
         } catch (NeedsSkyframeRestartException e) {
           return null;
@@ -204,23 +210,23 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       }
     }
 
+    Optional<LockFileModuleExtension.WithFactors> lockFileInfo;
     // At this point the extension has been evaluated successfully, but SingleExtensionEvalFunction
     // may still fail if imported repositories were not generated. However, since imports do not
     // influence the evaluation of the extension and the validation also runs when the extension
-    // result is taken from the lockfile, we can already post the update event. This is necessary to
-    // prevent the extension from rerunning when only the imports change.
+    // result is taken from the lockfile, we can already populate the lockfile info. This is
+    // necessary to prevent the extension from rerunning when only the imports change.
     if (lockfileMode.equals(LockfileMode.UPDATE)) {
-      env.getListener()
-          .post(
-              ModuleExtensionResolutionEvent.create(
-                  extensionId,
+      lockFileInfo =
+          Optional.of(
+              new LockFileModuleExtension.WithFactors(
                   extension.getEvalFactors(),
                   LockFileModuleExtension.builder()
                       .setBzlTransitiveDigest(extension.getBzlTransitiveDigest())
                       .setUsagesDigest(
-                          ModuleExtensionUsage.hashForEvaluation(
-                              GsonTypeAdapterUtil.createModuleExtensionUsagesHashGson(),
-                              usagesValue.getExtensionUsages()))
+                          SingleExtensionUsagesValue.hashForEvaluation(
+                              GsonTypeAdapterUtil.createSingleExtensionUsagesValueHashGson(),
+                              usagesValue))
                       .setRecordedFileInputs(moduleExtensionResult.getRecordedFileInputs())
                       .setRecordedDirentsInputs(moduleExtensionResult.getRecordedDirentsInputs())
                       .setEnvVariables(extension.getEnvVars())
@@ -229,9 +235,11 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                       .setRecordedRepoMappingEntries(
                           moduleExtensionResult.getRecordedRepoMappingEntries())
                       .build()));
+    } else {
+      lockFileInfo = Optional.empty();
     }
-    return validateAndCreateSingleExtensionEvalValue(
-        generatedRepoSpecs, moduleExtensionMetadata, extensionId, usagesValue, env);
+    return createSingleExtensionValue(
+        generatedRepoSpecs, moduleExtensionMetadata, extensionId, usagesValue, lockFileInfo, env);
   }
 
   /**
@@ -242,11 +250,12 @@ public class SingleExtensionEvalFunction implements SkyFunction {
    *     <em>don't</em> return {@code null} in this case!
    */
   @Nullable
-  private SingleExtensionEvalValue tryGettingValueFromLockFile(
+  private SingleExtensionValue tryGettingValueFromLockFile(
       Environment env,
       ModuleExtensionId extensionId,
       RunnableExtension extension,
       SingleExtensionUsagesValue usagesValue,
+      ModuleExtensionEvalFactors evalFactors,
       LockFileModuleExtension lockedExtension)
       throws SingleExtensionEvalFunctionException,
           InterruptedException,
@@ -272,9 +281,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       // Check extension data in lockfile is still valid, disregarding usage information that is not
       // relevant for the evaluation of the extension.
       if (!Arrays.equals(
-          ModuleExtensionUsage.hashForEvaluation(
-              GsonTypeAdapterUtil.createModuleExtensionUsagesHashGson(),
-              usagesValue.getExtensionUsages()),
+          SingleExtensionUsagesValue.hashForEvaluation(
+              GsonTypeAdapterUtil.createSingleExtensionUsagesValueHashGson(), usagesValue),
           lockedExtension.getUsagesDigest())) {
         diffRecorder.record("The usages of the extension '" + extensionId + "' have changed");
       }
@@ -298,11 +306,12 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       // ignored
     }
     if (!diffRecorder.anyDiffsDetected()) {
-      return validateAndCreateSingleExtensionEvalValue(
+      return createSingleExtensionValue(
           lockedExtension.getGeneratedRepoSpecs(),
           lockedExtension.getModuleExtensionMetadata(),
           extensionId,
           usagesValue,
+          Optional.of(new LockFileModuleExtension.WithFactors(evalFactors, lockedExtension)),
           env);
     }
     if (lockfileMode.equals(LockfileMode.ERROR)) {
@@ -405,31 +414,32 @@ public class SingleExtensionEvalFunction implements SkyFunction {
 
   /**
    * Validates the result of the module extension evaluation against the declared imports, throwing
-   * an exception if validation fails, and returns a SingleExtensionEvalValue otherwise.
+   * an exception if validation fails, and returns a SingleExtensionValue otherwise.
    *
    * <p>Since extension evaluation does not depend on the declared imports, the result of the
    * evaluation of the extension implementation function can be reused and persisted in the lockfile
    * even if validation fails.
    */
-  private SingleExtensionEvalValue validateAndCreateSingleExtensionEvalValue(
+  private SingleExtensionValue createSingleExtensionValue(
       ImmutableMap<String, RepoSpec> generatedRepoSpecs,
       Optional<ModuleExtensionMetadata> moduleExtensionMetadata,
       ModuleExtensionId extensionId,
       SingleExtensionUsagesValue usagesValue,
+      Optional<LockFileModuleExtension.WithFactors> lockFileInfo,
       Environment env)
       throws SingleExtensionEvalFunctionException {
-    // Evaluate the metadata before failing on invalid imports so that fixup warning are still
-    // emitted in case of an error.
+    Optional<RootModuleFileFixup> fixup = Optional.empty();
     if (moduleExtensionMetadata.isPresent()) {
       try {
-        // TODO: ModuleExtensionMetadata#evaluate should throw ExternalDepsException instead of
+        // TODO: ModuleExtensionMetadata#generateFixup should throw ExternalDepsException instead of
         // EvalException.
-        moduleExtensionMetadata
-            .get()
-            .evaluate(
-                usagesValue.getExtensionUsages().values(),
-                generatedRepoSpecs.keySet(),
-                env.getListener());
+        fixup =
+            moduleExtensionMetadata
+                .get()
+                .generateFixup(
+                    usagesValue.getExtensionUsages().values(),
+                    generatedRepoSpecs.keySet(),
+                    env.getListener());
       } catch (EvalException e) {
         env.getListener().handle(Event.error(e.getMessageWithStack()));
         throw new SingleExtensionEvalFunctionException(
@@ -442,27 +452,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       }
     }
 
-    // Check that all imported repos have actually been generated.
-    for (ModuleExtensionUsage usage : usagesValue.getExtensionUsages().values()) {
-      for (Entry<String, String> repoImport : usage.getImports().entrySet()) {
-        if (!generatedRepoSpecs.containsKey(repoImport.getValue())) {
-          throw new SingleExtensionEvalFunctionException(
-              ExternalDepsException.withMessage(
-                  Code.INVALID_EXTENSION_IMPORT,
-                  "module extension \"%s\" from \"%s\" does not generate repository \"%s\", yet it"
-                      + " is imported as \"%s\" in the usage at %s%s",
-                  extensionId.getExtensionName(),
-                  extensionId.getBzlFileLabel(),
-                  repoImport.getValue(),
-                  repoImport.getKey(),
-                  usage.getLocation(),
-                  SpellChecker.didYouMean(repoImport.getValue(), generatedRepoSpecs.keySet())),
-              Transience.PERSISTENT);
-        }
-      }
-    }
-
-    return SingleExtensionEvalValue.create(
+    return SingleExtensionValue.create(
         generatedRepoSpecs,
         generatedRepoSpecs.keySet().stream()
             .collect(
@@ -470,7 +460,9 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                     e ->
                         RepositoryName.createUnvalidated(
                             usagesValue.getExtensionUniqueName() + "~" + e),
-                    Function.identity())));
+                    Function.identity())),
+        lockFileInfo,
+        fixup);
   }
 
   private BzlLoadValue loadBzlFile(
@@ -778,8 +770,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       StarlarkSemantics starlarkSemantics,
       Environment env)
       throws InterruptedException, SingleExtensionEvalFunctionException {
-    Location sampleUsageLocation =
-        usagesValue.getExtensionUsages().values().iterator().next().getLocation();
+    ModuleExtensionUsage sampleUsage = usagesValue.getExtensionUsages().values().iterator().next();
+    Location sampleUsageLocation = sampleUsage.getProxies().getFirst().getLocation();
     BzlLoadValue bzlLoadValue =
         loadBzlFile(extensionId.getBzlFileLabel(), sampleUsageLocation, starlarkSemantics, env);
     if (bzlLoadValue == null) {
@@ -792,7 +784,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
 
     // Check that the .bzl file actually exports a module extension by our name.
     Object exported = bzlLoadValue.getModule().getGlobal(extensionId.getExtensionName());
-    if (!(exported instanceof ModuleExtension)) {
+    if (!(exported instanceof ModuleExtension extension)) {
       ImmutableSet<String> exportedExtensions =
           bzlLoadValue.getModule().getGlobals().entrySet().stream()
               .filter(e -> e.getValue() instanceof ModuleExtension)
@@ -809,7 +801,6 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           Transience.PERSISTENT);
     }
 
-    ModuleExtension extension = (ModuleExtension) exported;
     ImmutableMap<String, String> envVars =
         RepositoryFunction.getEnvVarValues(env, ImmutableSet.copyOf(extension.getEnvVariables()));
     if (envVars == null) {
@@ -870,7 +861,12 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       repoMappingRecorder.mergeEntries(bzlLoadValue.getRecordedRepoMappings());
       try (Mutability mu =
           Mutability.create("module extension", usagesValue.getExtensionUniqueName())) {
-        StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
+        StarlarkThread thread =
+            StarlarkThread.create(
+                mu,
+                starlarkSemantics,
+                /* contextDescription= */ "",
+                SymbolGenerator.create(extensionId));
         thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
         moduleContext = createContext(env, usagesValue, starlarkSemantics, extensionId);
         threadContext.storeInThread(thread);
@@ -899,8 +895,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                     Starlark.type(returnValue)),
                 Transience.PERSISTENT);
           }
-          if (returnValue instanceof ModuleExtensionMetadata) {
-            moduleExtensionMetadata = Optional.of((ModuleExtensionMetadata) returnValue);
+          if (returnValue instanceof ModuleExtensionMetadata retMetadata) {
+            moduleExtensionMetadata = Optional.of(retMetadata);
           } else {
             moduleExtensionMetadata = Optional.empty();
           }

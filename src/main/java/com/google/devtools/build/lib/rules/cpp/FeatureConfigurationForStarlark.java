@@ -73,6 +73,7 @@ public class FeatureConfigurationForStarlark implements FeatureConfigurationApi 
       parameters = {@Param(name = "feature")},
       documented = false,
       useStarlarkThread = true)
+  // TODO(b/339328480): collect all feature names in a single location
   public boolean isEnabled(String feature, StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return featureConfiguration.isEnabled(feature);

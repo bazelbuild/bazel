@@ -1660,8 +1660,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             NotifyingHelper.makeNotifyingTransformer(
                 (key, type, order, context) -> {
                   if (EventType.IS_READY.equals(type)
-                      && key instanceof ActionLookupData
-                      && lc1.equals(((ActionLookupData) key).getActionLookupKey())) {
+                      && key instanceof ActionLookupData actionLookupData
+                      && lc1.equals(actionLookupData.getActionLookupKey())) {
                     TrackingAwaiter.INSTANCE.awaitLatchAndTrackExceptions(startedSleep, "No sleep");
                   }
                 }));
@@ -2713,6 +2713,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             /* repoEnvOption= */ ImmutableMap.of(),
             tsgm,
             QuiescingExecutorsImpl.forTesting(),
-            options);
+            options,
+            /* commandName= */ "build");
   }
 }

@@ -117,11 +117,10 @@ public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof PrepareDepsOfTargetsUnderDirectoryKey)) {
+      if (!(o instanceof PrepareDepsOfTargetsUnderDirectoryKey that)) {
         return false;
       }
 
-      PrepareDepsOfTargetsUnderDirectoryKey that = (PrepareDepsOfTargetsUnderDirectoryKey) o;
       return Objects.equals(recursivePkgKey, that.recursivePkgKey)
           && Objects.equals(filteringPolicy, that.filteringPolicy);
     }

@@ -126,6 +126,8 @@ public enum CompileBuildVariables {
   PROPELLER_OPTIMIZE_LD_PATH("propeller_optimize_ld_path"),
   /** Path to the memprof profile artifact */
   MEMPROF_PROFILE_PATH("memprof_profile_path"),
+  /** Variable marking memprof profile is being used */
+  IS_USING_MEMPROF("is_using_memprof"),
   /** Variable for includes that compiler needs to include into sources. */
   INCLUDES("includes");
 
@@ -140,6 +142,7 @@ public enum CompileBuildVariables {
       CcToolchainProvider ccToolchainProvider,
       String sourceFile,
       String outputFile,
+      boolean isCodeCoverageEnabled,
       String gcnoFile,
       boolean isUsingFission,
       String dwoFile,
@@ -171,6 +174,7 @@ public enum CompileBuildVariables {
         ccToolchainProvider.getBuildVars(),
         sourceFile,
         outputFile,
+        isCodeCoverageEnabled,
         gcnoFile,
         isUsingFission,
         dwoFile,
@@ -183,6 +187,7 @@ public enum CompileBuildVariables {
         cppModuleMap,
         usePic,
         fdoStamp,
+        ccToolchainProvider.getFdoContext().getMemProfProfileArtifact() != null,
         dotdFileExecPath,
         diagnosticsFileExecPath,
         variablesExtensions,
@@ -201,6 +206,7 @@ public enum CompileBuildVariables {
       CcToolchainProvider ccToolchainProvider,
       String sourceFile,
       String outputFile,
+      boolean isCodeCoverageEnabled,
       String gcnoFile,
       boolean isUsingFission,
       String dwoFile,
@@ -235,6 +241,7 @@ public enum CompileBuildVariables {
         ccToolchainProvider.getBuildVars(),
         sourceFile,
         outputFile,
+        isCodeCoverageEnabled,
         gcnoFile,
         isUsingFission,
         dwoFile,
@@ -247,6 +254,7 @@ public enum CompileBuildVariables {
         cppModuleMap,
         usePic,
         fdoStamp,
+        ccToolchainProvider.getFdoContext().getMemProfProfileArtifact() != null,
         dotdFileExecPath,
         diagnosticsFileExecPath,
         variablesExtensions,
@@ -265,6 +273,7 @@ public enum CompileBuildVariables {
       CcToolchainVariables parent,
       String sourceFile,
       String outputFile,
+      boolean isCodeCoverageEnabled,
       String gcnoFile,
       boolean isUsingFission,
       String dwoFile,
@@ -277,6 +286,7 @@ public enum CompileBuildVariables {
       CppModuleMap cppModuleMap,
       boolean usePic,
       String fdoStamp,
+      boolean isUsingMemProf,
       String dotdFileExecPath,
       String diagnosticsFileExecPath,
       ImmutableList<VariablesExtension> variablesExtensions,
@@ -295,6 +305,7 @@ public enum CompileBuildVariables {
         includes,
         cppModuleMap,
         fdoStamp,
+        isUsingMemProf,
         variablesExtensions,
         additionalBuildVariables,
         directModuleMaps,
@@ -308,6 +319,7 @@ public enum CompileBuildVariables {
         buildVariables,
         sourceFile,
         outputFile,
+        isCodeCoverageEnabled,
         gcnoFile,
         dwoFile,
         isUsingFission,
@@ -328,6 +340,7 @@ public enum CompileBuildVariables {
       CcToolchainVariables.Builder buildVariables,
       String sourceFile,
       String outputFile,
+      boolean isCodeCoverageEnabled,
       String gcnoFile,
       String dwoFile,
       boolean isUsingFission,
@@ -365,6 +378,10 @@ public enum CompileBuildVariables {
 
     if (gcnoFile != null) {
       buildVariables.addStringVariable(GCOV_GCNO_FILE.getVariableName(), gcnoFile);
+    } else if (isCodeCoverageEnabled) {
+      // TODO: Blaze currently uses `gcov_gcno_file` to detect if code coverage is enabled. It
+      // should use a different signal.
+      buildVariables.addStringVariable(GCOV_GCNO_FILE.getVariableName(), "");
     }
 
     if (dwoFile != null) {
@@ -410,6 +427,7 @@ public enum CompileBuildVariables {
       List<String> includes,
       CppModuleMap cppModuleMap,
       String fdoStamp,
+      boolean isUsingMemProf,
       List<VariablesExtension> variablesExtensions,
       Map<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
@@ -425,6 +443,7 @@ public enum CompileBuildVariables {
         includes,
         cppModuleMap,
         fdoStamp,
+        isUsingMemProf,
         variablesExtensions,
         additionalBuildVariables,
         directModuleMaps,
@@ -442,6 +461,7 @@ public enum CompileBuildVariables {
       List<String> includes,
       CppModuleMap cppModuleMap,
       String fdoStamp,
+      boolean isUsingMemProf,
       List<VariablesExtension> variablesExtensions,
       Map<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
@@ -494,6 +514,10 @@ public enum CompileBuildVariables {
               ImmutableList.of(CppConfiguration.FDO_STAMP_MACRO + "=\"" + fdoStamp + "\""));
     } else {
       allDefines = Iterables.concat(defines, localDefines);
+    }
+
+    if (isUsingMemProf) {
+      buildVariables.addStringVariable(IS_USING_MEMPROF.getVariableName(), "1");
     }
 
     buildVariables.addStringSequenceVariable(PREPROCESSOR_DEFINES.getVariableName(), allDefines);

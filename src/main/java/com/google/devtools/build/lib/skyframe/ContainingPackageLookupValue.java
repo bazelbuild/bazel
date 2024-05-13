@@ -229,10 +229,9 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof ContainingPackage)) {
+      if (!(obj instanceof ContainingPackage other)) {
         return false;
       }
-      ContainingPackage other = (ContainingPackage) obj;
       return containingPackage.equals(other.containingPackage)
           && containingPackageRoot.equals(other.containingPackageRoot)
           && hasProjectFile == other.hasProjectFile;

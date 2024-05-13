@@ -299,10 +299,9 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, FileRootApi
     if (o == this) {
       return true;
     }
-    if (!(o instanceof ArtifactRoot)) {
+    if (!(o instanceof ArtifactRoot r)) {
       return false;
     }
-    ArtifactRoot r = (ArtifactRoot) o;
     return root.equals(r.root) && execPath.equals(r.execPath) && rootType == r.rootType;
   }
 

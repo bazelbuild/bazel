@@ -156,10 +156,9 @@ public final class SingleJarActionBuilder {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof ResourceArgMapFn)) {
+      if (!(o instanceof ResourceArgMapFn that)) {
         return false;
       }
-      ResourceArgMapFn that = (ResourceArgMapFn) o;
       return semantics.equals(that.semantics);
     }
 

@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -53,9 +54,9 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
         "javainfo/javainfo_to_dict.bzl",
         """
         load("//tools/build_defs/inspect:struct_to_dict.bzl", "struct_to_dict")
-
+        Info = provider()
         def _impl(ctx):
-            return struct(result = struct_to_dict(ctx.attr.dep[JavaInfo], 10))
+            return Info(result = struct_to_dict(ctx.attr.dep[JavaInfo], 10))
 
         javainfo_to_dict = rule(_impl, attrs = {"dep": attr.label()})
         """);
@@ -135,8 +136,9 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
             "  name = 'javainfo',",
             "  dep = '//" + packageName + ':' + javaInfoTarget + "',",
             ")");
+    StarlarkInfo dictInfo = getStarlarkProvider(dictTarget, "Info");
     @SuppressWarnings("unchecked") // deserialization
-    Dict<Object, Object> javaInfo = (Dict<Object, Object>) dictTarget.get("result");
+    Dict<Object, Object> javaInfo = (Dict<Object, Object>) dictInfo.getValue("result");
     return deepStripAttributes(
         javaInfo,
         attr -> attr.startsWith("_") || ImmutableSet.of("to_proto", "to_json").contains(attr));
@@ -153,8 +155,8 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
         builder.add(deepStripAttributes(item, shouldRemove));
       }
       return (T) StarlarkList.immutableCopyOf(builder.build());
-    } else if (obj instanceof Structure) {
-      for (String fieldName : ((Structure) obj).getFieldNames()) {
+    } else if (obj instanceof Structure structure) {
+      for (String fieldName : structure.getFieldNames()) {
         Dict.Builder<String, Object> builder = Dict.builder();
         if (!shouldRemove.test(fieldName)) {
           builder.put(

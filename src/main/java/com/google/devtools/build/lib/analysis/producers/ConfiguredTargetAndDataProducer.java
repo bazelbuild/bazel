@@ -188,12 +188,12 @@ public final class ConfiguredTargetAndDataProducer
 
   @Override
   public void accept(SkyValue value) {
-    if (value instanceof BuildConfigurationValue) {
-      this.configurationValue = (BuildConfigurationValue) value;
+    if (value instanceof BuildConfigurationValue buildConfigurationValue) {
+      this.configurationValue = buildConfigurationValue;
       return;
     }
-    if (value instanceof PackageValue) {
-      this.pkg = ((PackageValue) value).getPackage();
+    if (value instanceof PackageValue packageValue) {
+      this.pkg = packageValue.getPackage();
       return;
     }
     throw new IllegalArgumentException("unexpected value: " + value);

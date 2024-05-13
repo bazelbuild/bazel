@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -24,13 +26,14 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
 import org.junit.Before;
@@ -41,6 +44,12 @@ import org.junit.runners.JUnit4;
 /** Tests for Starlark interaction with the objc_* rules. */
 @RunWith(JUnit4.class)
 public class ObjcStarlarkTest extends ObjcRuleTestCase {
+  private static final Provider.Key APPLE_EXECUTABLE_BINARY_PROVIDER_KEY =
+      new StarlarkProvider.Key(
+          keyForBuiltins(
+              Label.parseCanonicalUnchecked("@_builtins//:common/objc/linking_support.bzl")),
+          "AppleExecutableBinaryInfo");
+
   @Before
   public void setupMyInfo() throws Exception {
     scratch.file("myinfo/myinfo.bzl", "MyInfo = provider()");
@@ -50,7 +59,8 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
   private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
     Provider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonical("//myinfo:myinfo.bzl"), "MyInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//myinfo:myinfo.bzl")), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
   }
 
@@ -102,47 +112,6 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testObjcProviderLegacyName() throws Exception {
-    scratch.file(
-        "test/my_rule.bzl",
-        """
-        load('//myinfo:myinfo.bzl', 'MyInfo')
-        def _dep_rule_impl(ctx):
-           objc_provider = apple_common.new_objc_provider(strict_include=depset(['foo']))
-           return struct(foo = objc_provider)
-
-        def _root_rule_impl(ctx):
-           dep = ctx.attr.deps[0]
-           return MyInfo(
-              strict_include = dep.objc.strict_include,
-           )
-
-        root_rule = rule(implementation = _root_rule_impl,
-           attrs = {'deps': attr.label_list(providers = [['objc']]),
-        })
-        dep_rule = rule(implementation = _dep_rule_impl)
-        """);
-    scratch.file(
-        "test/BUILD",
-        """
-        load(':my_rule.bzl', 'root_rule', 'dep_rule')
-        root_rule(
-            name = 'test',
-            deps = [':dep'],
-        )
-        dep_rule(
-            name = 'dep',
-        )
-        """);
-
-    ConfiguredTarget starlarkTarget = getConfiguredTarget("//test:test");
-    StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
-    Depset strictIncludes = (Depset) myInfo.getValue("strict_include");
-
-    assertThat(strictIncludes.getSet(String.class).toList()).containsExactly("foo");
-  }
-
-  @Test
   public void testStarlarkProviderRetrievalNoneIfNoProvider() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
@@ -188,7 +157,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         .hasMessageThat()
         .contains(
             "<target //examples/apple_starlark:lib> (rule 'cc_library') "
-                + "doesn't contain declared provider 'objc'");
+                + "doesn't contain declared provider 'ObjcInfo'");
   }
 
   @Test
@@ -280,9 +249,10 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         """);
 
     ConfiguredTarget binaryTarget = getConfiguredTarget("//examples/apple_starlark:bin");
-    AppleExecutableBinaryInfo executableProvider =
-        binaryTarget.get(AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR);
-    CcLinkingContext ccLinkingContext = executableProvider.getDepsCcInfo().getCcLinkingContext();
+    StructImpl executableProvider =
+        (StructImpl) binaryTarget.get(APPLE_EXECUTABLE_BINARY_PROVIDER_KEY);
+    CcLinkingContext ccLinkingContext =
+        executableProvider.getValue("cc_info", CcInfo.class).getCcLinkingContext();
 
     assertThat(
             Artifact.toRootRelativePaths(
@@ -522,8 +492,8 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
 
     @SuppressWarnings("unchecked")
-    List<String> flags = (List<String>) getMyInfoFromTarget(starlarkTarget)
-        .getValue("j2objc_flags");
+    List<String> flags =
+        (List<String>) getMyInfoFromTarget(starlarkTarget).getValue("j2objc_flags");
     assertThat(flags).contains("-DTestJ2ObjcFlag");
     assertThat(flags).doesNotContain("-unspecifiedFlag");
   }
@@ -605,9 +575,9 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
     assertThat(platformDevFrameworksDir)
         .isEqualTo(
-            AppleToolchain.developerDir()
+            "__BAZEL_XCODE_DEVELOPER_DIR__"
                 + "/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks");
-    assertThat(sdkDir).isEqualTo(AppleToolchain.sdkDir());
+    assertThat(sdkDir).isEqualTo("__BAZEL_XCODE_SDKROOT__");
   }
 
   @Test
@@ -686,7 +656,8 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     assertThat(myInfo.getValue("macos_sdk_version")).isEqualTo("4.1");
     assertThat(myInfo.getValue("visionos_minimum_os")).isEqualTo("5.1");
 
-    useConfiguration("--ios_sdk_version=1.1",
+    useConfiguration(
+        "--ios_sdk_version=1.1",
         "--watchos_sdk_version=2.1",
         "--tvos_sdk_version=3.1",
         "--macos_sdk_version=4.1");
@@ -859,9 +830,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         )
         """);
 
-    useConfiguration(
-        "--compilation_mode=dbg",
-        "--nodevice_debug_entitlements");
+    useConfiguration("--compilation_mode=dbg", "--nodevice_debug_entitlements");
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/objc_starlark:my_target");
 
     boolean usesDeviceDebugEntitlements =
@@ -949,9 +918,8 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
             "   created_provider = apple_common.new_objc_provider(source=depset([file]))",
             "   return [created_provider]");
 
-    ImmutableList<Artifact> sources =
-        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).get(ObjcProvider.SOURCE).toList();
-
+    StarlarkInfo dependerProvider = getObjcInfo(starlarkTarget);
+    ImmutableList<Artifact> sources = getSource(dependerProvider);
     assertThat(ActionsTestUtil.baseArtifactNames(sources)).containsExactly("foo.m");
   }
 
@@ -963,9 +931,8 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
             "   created_provider = apple_common.new_objc_provider(strict_include=strict_includes)",
             "   return [created_provider, CcInfo()]");
 
-    ObjcProvider starlarkProvider = starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(starlarkProvider.getStrictDependencyIncludes())
-        .containsExactly(PathFragment.create("path"));
+    StarlarkInfo starlarkProvider = getObjcInfo(starlarkTarget);
+    assertThat(getStrictInclude(starlarkProvider)).containsExactly("path");
 
     scratch.file(
         "examples/objc_starlark2/BUILD",
@@ -976,10 +943,9 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         )
         """);
 
-    ObjcProvider starlarkProviderDirectDepender =
-        getConfiguredTarget("//examples/objc_starlark2:direct_dep")
-            .get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(starlarkProviderDirectDepender.getStrictDependencyIncludes()).isEmpty();
+    StarlarkInfo starlarkProviderDirectDepender =
+        getObjcInfo(getConfiguredTarget("//examples/objc_starlark2:direct_dep"));
+    assertThat(getStrictInclude(starlarkProviderDirectDepender)).isEmpty();
   }
 
   @Test
@@ -1031,10 +997,12 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/objc_starlark:bin");
 
+    StarlarkInfo dependerProvider = getObjcInfo(starlarkTarget);
     ImmutableList<Artifact> libraries =
-        starlarkTarget
-            .get(ObjcProvider.STARLARK_CONSTRUCTOR)
-            .get(ObjcProvider.J2OBJC_LIBRARY)
+        Depset.cast(
+                dependerProvider.getValue("j2objc_library"),
+                Artifact.class,
+                "dependerProvider value j2objc_library")
             .toList();
 
     assertThat(ActionsTestUtil.baseArtifactNames(libraries)).containsExactly("lib.a", "bin.a");
@@ -1049,63 +1017,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
                 createObjcProviderStarlarkTarget(
                     "   created_provider = apple_common.new_objc_provider(foo=depset(['bar']))",
                     "   return created_provider"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains(String.format(AppleStarlarkCommon.BAD_KEY_ERROR, "foo"));
-  }
-
-  @Test
-  public void testStarlarkErrorOnNonSetObjcProviderInputValue() throws Exception {
-    AssertionError e =
-        assertThrows(
-            AssertionError.class,
-            () ->
-                createObjcProviderStarlarkTarget(
-                    "   created_provider = apple_common.new_objc_provider(source='bar')",
-                    "   return created_provider"));
-    assertThat(e).hasMessageThat().contains("for source, got string, want a depset of File");
-  }
-
-  @Test
-  public void testStarlarkErrorOnObjcProviderInputValueWrongSetType() throws Exception {
-    AssertionError e =
-        assertThrows(
-            AssertionError.class,
-            () ->
-                createObjcProviderStarlarkTarget(
-                    "   created_provider = apple_common.new_objc_provider(source=depset(['bar']))",
-                    "   return created_provider"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("for 'source', got a depset of 'string', expected a depset of 'File'");
-  }
-
-  @Test
-  public void testStarlarkErrorOnNonIterableObjcProviderProviderValue() throws Exception {
-    AssertionError e =
-        assertThrows(
-            AssertionError.class,
-            () ->
-                createObjcProviderStarlarkTarget(
-                    "   created_provider = apple_common.new_objc_provider(providers='bar')",
-                    "   return created_provider"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains(String.format(AppleStarlarkCommon.BAD_PROVIDERS_ITER_ERROR, "string"));
-  }
-
-  @Test
-  public void testStarlarkErrorOnBadIterableObjcProviderProviderValue() throws Exception {
-    AssertionError e =
-        assertThrows(
-            AssertionError.class,
-            () ->
-                createObjcProviderStarlarkTarget(
-                    "   created_provider = apple_common.new_objc_provider(providers=['bar'])",
-                    "   return created_provider"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains(String.format(AppleStarlarkCommon.BAD_PROVIDERS_ELEM_ERROR, "string"));
+    assertThat(e).hasMessageThat().contains("got unexpected keyword argument: foo");
   }
 
   @Test
@@ -1149,7 +1061,11 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         )
         """);
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
-    Depset emptyValue = (Depset) getMyInfoFromTarget(starlarkTarget).getValue("empty_value");
+    NestedSet<Artifact> emptyValue =
+        Depset.cast(
+            getMyInfoFromTarget(starlarkTarget).getValue("empty_value"),
+            Artifact.class,
+            "provider \"empty_value\"'s j2objc_library");
     assertThat(emptyValue.toList()).isEmpty();
   }
 
@@ -1184,10 +1100,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         )
         """);
 
-    useConfiguration(
-        "--ios_multi_cpus=arm64,armv7",
-        "--watchos_cpus=armv7k",
-        "--tvos_cpus=arm64");
+    useConfiguration("--ios_multi_cpus=arm64,armv7", "--watchos_cpus=armv7k", "--tvos_cpus=arm64");
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
 
@@ -1227,8 +1140,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         )
         """);
 
-    useConfiguration(
-        "--ios_multi_cpus=arm64,armv7");
+    useConfiguration("--ios_multi_cpus=arm64,armv7");
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
 
     Boolean isDevice = (Boolean) getMyInfoFromTarget(starlarkTarget).getValue("is_device");
@@ -1281,8 +1193,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
   @Test
   public void testDottedVersion() throws Exception {
-    scratch.file("examples/rule/BUILD",
-        "exports_files(['test_artifact'])");
+    scratch.file("examples/rule/BUILD", "exports_files(['test_artifact'])");
     scratch.file(
         "examples/rule/apple_rules.bzl",
         """
@@ -1313,8 +1224,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
   @Test
   public void testDottedVersion_invalid() throws Exception {
-    scratch.file("examples/rule/BUILD",
-        "exports_files(['test_artifact'])");
+    scratch.file("examples/rule/BUILD", "exports_files(['test_artifact'])");
     scratch.file(
         "examples/rule/apple_rules.bzl",
         """
@@ -1384,7 +1294,8 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         """);
 
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
-    assertThat(starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR)).isNotNull();
+    StarlarkInfo dependerProvider = getObjcInfo(starlarkTarget);
+    assertThat(dependerProvider).isNotNull();
   }
 
   private void checkStarlarkRunMemleaksWithExpectedValue(boolean expectedValue) throws Exception {

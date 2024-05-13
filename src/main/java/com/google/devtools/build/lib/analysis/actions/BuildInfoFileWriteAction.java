@@ -46,6 +46,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 
 /**
  * Translates workspace status text files(<a
@@ -120,10 +121,13 @@ public final class BuildInfoFileWriteAction extends AbstractAction {
     try (Mutability mutability = Mutability.create("translate_build_info_file")) {
       try {
         StarlarkThread thread =
-            new StarlarkThread(
+            StarlarkThread.create(
                 mutability,
                 semantics,
-                isVolatile() ? "transform_version_file callback" : "transform_info_file callback");
+                isVolatile() ? "transform_version_file callback" : "transform_info_file callback",
+                // Since the result of this thread is a String to String Dict, it should not result
+                // in any reference-equals objects.
+                SymbolGenerator.createTransient());
         substitutionDictObject =
             Starlark.call(
                 thread,

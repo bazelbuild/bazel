@@ -76,10 +76,9 @@ public abstract class JavaCompilationInfoProvider
       throws EvalException, RuleErrorException {
     if (value == null || value == Starlark.NONE) {
       return null;
-    } else if (value instanceof JavaCompilationInfoProvider) {
-      return (JavaCompilationInfoProvider) value;
-    } else if (value instanceof StructImpl) {
-      StructImpl info = (StructImpl) value;
+    } else if (value instanceof JavaCompilationInfoProvider javaCompilationInfoProvider) {
+      return javaCompilationInfoProvider;
+    } else if (value instanceof StructImpl info) {
       Builder builder =
           new Builder()
               .setJavacOpts(
@@ -204,10 +203,9 @@ public abstract class JavaCompilationInfoProvider
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof JavaCompilationInfoProvider)) {
+    if (!(obj instanceof JavaCompilationInfoProvider other)) {
       return false;
     }
-    JavaCompilationInfoProvider other = (JavaCompilationInfoProvider) obj;
     return getJavacOpts().shallowEquals(other.getJavacOpts())
         && Objects.equals(getRuntimeClasspath(), other.getRuntimeClasspath())
         && Objects.equals(getCompilationClasspath(), other.getCompilationClasspath())

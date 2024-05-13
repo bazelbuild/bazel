@@ -463,22 +463,22 @@ public class BuildEventStreamer {
         break; // proceed
     }
 
-    if (event instanceof BuildStartingEvent) {
-      BuildRequest buildRequest = ((BuildStartingEvent) event).request();
+    if (event instanceof BuildStartingEvent buildStartingEvent) {
+      BuildRequest buildRequest = buildStartingEvent.request();
       isCommandToSkipBuildCompleteEvent =
           buildRequest.getCommandName().equals("test")
               || buildRequest.getCommandName().equals("coverage")
               || buildRequest.getCommandName().equals("run");
     }
 
-    if (event instanceof BuildEventWithConfiguration) {
-      for (BuildEvent configuration : ((BuildEventWithConfiguration) event).getConfigurations()) {
+    if (event instanceof BuildEventWithConfiguration buildEventWithConfiguration) {
+      for (BuildEvent configuration : buildEventWithConfiguration.getConfigurations()) {
         maybeReportConfiguration(configuration);
       }
     }
 
-    if (event instanceof EventReportingArtifacts) {
-      ReportedArtifacts reportedArtifacts = ((EventReportingArtifacts) event).reportedArtifacts();
+    if (event instanceof EventReportingArtifacts eventReportingArtifacts) {
+      ReportedArtifacts reportedArtifacts = eventReportingArtifacts.reportedArtifacts();
       for (NestedSet<Artifact> artifactSet : reportedArtifacts.artifacts) {
         maybeReportArtifactSet(reportedArtifacts.completionContext, artifactSet);
       }
@@ -504,8 +504,7 @@ public class BuildEventStreamer {
       buildEvent(freedEvent);
     }
 
-    if (event instanceof BuildCompleteEvent) {
-      BuildCompleteEvent buildCompleteEvent = (BuildCompleteEvent) event;
+    if (event instanceof BuildCompleteEvent buildCompleteEvent) {
       if (isCrash(buildCompleteEvent) || isCatastrophe(buildCompleteEvent)) {
         addAbortReason(AbortReason.INTERNAL);
       } else if (isIncomplete(buildCompleteEvent)) {
@@ -517,8 +516,8 @@ public class BuildEventStreamer {
       buildComplete(event);
     }
 
-    if (event instanceof NoBuildEvent) {
-      if (!((NoBuildEvent) event).separateFinishedEvent()) {
+    if (event instanceof NoBuildEvent noBuildEvent) {
+      if (!noBuildEvent.separateFinishedEvent()) {
         buildComplete(event);
       }
     }
@@ -713,8 +712,8 @@ public class BuildEventStreamer {
 
   /** Returns whether a {@link BuildEvent} should be ignored or was buffered. */
   private RetentionDecision routeBuildEvent(BuildEvent event) {
-    if (event instanceof ActionExecutedEvent
-        && !shouldPublishActionExecutedEvent((ActionExecutedEvent) event)) {
+    if (event instanceof ActionExecutedEvent actionExecutedEvent
+        && !shouldPublishActionExecutedEvent(actionExecutedEvent)) {
       return RetentionDecision.DISCARD;
     }
 
@@ -762,7 +761,7 @@ public class BuildEventStreamer {
       // Publish all new logs with inputs and input sizes
       return true;
     }
-    return (event.getAction() instanceof ExtraAction);
+    return event.getAction() instanceof ExtraAction;
   }
 
   private synchronized boolean bufferUntilPrerequisitesReceived(BuildEvent event) {
@@ -781,7 +780,7 @@ public class BuildEventStreamer {
 
   /** Return true if the test summary contains no actual test runs. */
   private static boolean isVacuousTestSummary(BuildEvent event) {
-    return event instanceof TestSummary && (((TestSummary) event).totalRuns() == 0);
+    return event instanceof TestSummary && ((TestSummary) event).totalRuns() == 0;
   }
 
   /**

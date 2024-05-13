@@ -106,10 +106,9 @@ public final class PrepareDepsOfPatternsValue implements SkyValue {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof TargetPatternSequence)) {
+      if (!(o instanceof TargetPatternSequence that)) {
         return false;
       }
-      TargetPatternSequence that = (TargetPatternSequence) o;
       return Objects.equals(offset, that.offset) && Objects.equals(patterns, that.patterns);
     }
 
@@ -134,8 +133,8 @@ public final class PrepareDepsOfPatternsValue implements SkyValue {
 
   @Override
   public boolean equals(Object other) {
-    return other instanceof PrepareDepsOfPatternsValue
-        && targetPatternKeys.equals(((PrepareDepsOfPatternsValue) other).getTargetPatternKeys());
+    return other instanceof PrepareDepsOfPatternsValue prepareDepsOfPatternsValue
+        && targetPatternKeys.equals(prepareDepsOfPatternsValue.getTargetPatternKeys());
   }
 
   @Override

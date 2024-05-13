@@ -428,6 +428,9 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     return server;
   }
 
+  // Suppress ErrorProne warnings for hardcoding "[::1]" and "127.0.0.1" instead of
+  // InetAddress.getLoopbackAddress().
+  @SuppressWarnings("AddressSelection")
   @Override
   public void serve() throws AbruptExitException {
     Preconditions.checkState(!serving);
@@ -623,13 +626,10 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
                                 .setCode(Command.Code.INVOCATION_POLICY_PARSE_FAILURE))
                         .build()));
       }
-      if (!result.stateKeptAfterBuild()) {
-        // If state was not kept, GC as soon as the server becomes idle. This ensures that weakly
-        // reachable objects are not "resurrected" on a subsequent command. See b/291641466. Without
-        // this call, a manual GC will only be triggered if the server remains idle for at least 10
-        // seconds before the next command starts.
-        command.requestEagerIdleServerCleanup();
-      }
+
+      // The actual cleanup will be triggered in RunningCommand#close() (as a Closeable),
+      // as we go out of scope immediately after this.
+      command.requestCleanup(result.stateKeptAfterBuild());
     } catch (InterruptedException e) {
       result =
           BlazeCommandResult.detailedExitCode(

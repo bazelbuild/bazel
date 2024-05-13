@@ -21,9 +21,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
@@ -31,9 +28,6 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-import java.io.IOException;
 import java.util.List;
 
 /** Command-line options for building for Apple platforms. */
@@ -68,7 +62,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
       help =
           "Specifies the version of the iOS SDK to use to build iOS applications. "
-              + "If unspecified, uses default iOS SDK version from 'xcode_version'.")
+              + "If unspecified, uses the default iOS SDK version from 'xcode_version'.")
   public DottedVersion.Option iosSdkVersion;
 
   @Option(
@@ -79,7 +73,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
       help =
           "Specifies the version of the watchOS SDK to use to build watchOS applications. "
-              + "If unspecified, uses default watchOS SDK version from 'xcode_version'.")
+              + "If unspecified, uses the default watchOS SDK version from 'xcode_version'.")
   public DottedVersion.Option watchOsSdkVersion;
 
   @Option(
@@ -90,7 +84,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
       help =
           "Specifies the version of the tvOS SDK to use to build tvOS applications. "
-              + "If unspecified, uses default tvOS SDK version from 'xcode_version'.")
+              + "If unspecified, uses the default tvOS SDK version from 'xcode_version'.")
   public DottedVersion.Option tvOsSdkVersion;
 
   @Option(
@@ -101,7 +95,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
       help =
           "Specifies the version of the macOS SDK to use to build macOS applications. "
-              + "If unspecified, uses default macOS SDK version from 'xcode_version'.")
+              + "If unspecified, uses the default macOS SDK version from 'xcode_version'.")
   public DottedVersion.Option macOsSdkVersion;
 
   @Option(
@@ -329,7 +323,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       },
       help =
           "If set, add a \"requires-xcode:{version}\" execution requirement to every Xcode action."
-              + "  If the xcode version has a hyphenated label,  also add a"
+              + "  If the Xcode version has a hyphenated label,  also add a"
               + " \"requires-xcode-label:{version_label}\" execution requirement.")
   public boolean includeXcodeExecutionRequirements;
 
@@ -386,16 +380,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
     }
 
     return DottedVersion.maybeUnwrap(option);
-  }
-
-  void serialize(SerializationContext context, CodedOutputStream out)
-      throws IOException, SerializationException {
-    context.serialize(this, out);
-  }
-
-  static AppleCommandLineOptions deserialize(DeserializationContext context, CodedInputStream in)
-      throws IOException, SerializationException {
-    return context.deserialize(in);
   }
 
   /** Converter for the Apple configuration distinguisher. */

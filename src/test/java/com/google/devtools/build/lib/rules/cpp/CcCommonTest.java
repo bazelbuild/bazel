@@ -872,7 +872,32 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testStampTests() throws Exception {
+  public void testStampTests_enabled() throws Exception {
+    writeStampTestFiles();
+
+    useConfiguration("--stamp");
+    assertStamping(false, "//test:a");
+    assertStamping(false, "//test:b");
+    assertStamping(true, "//test:c");
+    assertStamping(true, "//test:d");
+    assertStamping(false, "//test:e");
+    assertStamping(true, "//test:f");
+  }
+
+  @Test
+  public void testStampTests_disabled() throws Exception {
+    writeStampTestFiles();
+
+    useConfiguration("--nostamp");
+    assertStamping(false, "//test:a");
+    assertStamping(false, "//test:b");
+    assertStamping(true, "//test:c");
+    assertStamping(false, "//test:d");
+    assertStamping(false, "//test:e");
+    assertStamping(true, "//test:f");
+  }
+
+  private void writeStampTestFiles() throws Exception {
     scratch.file(
         "test/BUILD",
         """
@@ -910,29 +935,6 @@ public class CcCommonTest extends BuildViewTestCase {
             stamp = 1,
         )
         """);
-
-    assertStamping(false, "//test:a");
-    assertStamping(false, "//test:b");
-    assertStamping(true, "//test:c");
-    assertStamping(true, "//test:d");
-    assertStamping(false, "//test:e");
-    assertStamping(true, "//test:f");
-
-    useConfiguration("--stamp");
-    assertStamping(false, "//test:a");
-    assertStamping(false, "//test:b");
-    assertStamping(true, "//test:c");
-    assertStamping(true, "//test:d");
-    assertStamping(false, "//test:e");
-    assertStamping(true, "//test:f");
-
-    useConfiguration("--nostamp");
-    assertStamping(false, "//test:a");
-    assertStamping(false, "//test:b");
-    assertStamping(true, "//test:c");
-    assertStamping(false, "//test:d");
-    assertStamping(false, "//test:e");
-    assertStamping(true, "//test:f");
   }
 
   private void assertStamping(boolean enabled, String label) throws Exception {
@@ -1401,6 +1403,12 @@ public class CcCommonTest extends BuildViewTestCase {
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.COMPILER_PARAM_FILE));
     scratch.file("a/BUILD", "cc_library(name='foo', srcs=['foo.cc'])");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
     CppCompileAction cppCompileAction = getCppCompileAction("//a:foo");
     assertThat(
             cppCompileAction.getArguments().stream()
@@ -1417,6 +1425,12 @@ public class CcCommonTest extends BuildViewTestCase {
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.COMPILER_PARAM_FILE));
     scratch.file("a/BUILD", "cc_library(name='foo', srcs=['foo.cc'])");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
     CppCompileAction cppCompileAction = getCppCompileAction("//a:foo");
     ImmutableList<String> argv =
         cppCompileAction.getStarlarkArgv().stream()

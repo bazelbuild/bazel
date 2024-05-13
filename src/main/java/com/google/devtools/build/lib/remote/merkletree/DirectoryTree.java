@@ -64,8 +64,7 @@ final class DirectoryTree {
 
     @Override
     public boolean equals(Object o) {
-      if (o instanceof Node) {
-        Node other = (Node) o;
+      if (o instanceof Node other) {
         return Objects.equals(pathSegment, other.pathSegment);
       }
       return false;
@@ -152,8 +151,7 @@ final class DirectoryTree {
 
     @Override
     public boolean equals(Object o) {
-      if (o instanceof FileNode) {
-        FileNode other = (FileNode) o;
+      if (o instanceof FileNode other) {
         return super.equals(other)
             && Objects.equals(path, other.path)
             && Objects.equals(data, other.data)
@@ -190,8 +188,7 @@ final class DirectoryTree {
 
     @Override
     public boolean equals(Object o) {
-      if (o instanceof SymlinkNode) {
-        SymlinkNode other = (SymlinkNode) o;
+      if (o instanceof SymlinkNode other) {
         return super.equals(other) && Objects.equals(target, other.target);
       }
       return false;
@@ -236,8 +233,7 @@ final class DirectoryTree {
 
     @Override
     public boolean equals(Object o) {
-      if (o instanceof DirectoryNode) {
-        DirectoryNode other = (DirectoryNode) o;
+      if (o instanceof DirectoryNode other) {
         return super.equals(other)
             && Objects.equals(files, other.files)
             && Objects.equals(symlinks, other.symlinks)
@@ -327,10 +323,9 @@ final class DirectoryTree {
     if (o == this) {
       return true;
     }
-    if (!(o instanceof DirectoryTree)) {
+    if (!(o instanceof DirectoryTree other)) {
       return false;
     }
-    DirectoryTree other = (DirectoryTree) o;
     return tree.equals(other.tree);
   }
 }

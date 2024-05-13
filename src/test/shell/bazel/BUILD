@@ -681,7 +681,10 @@ sh_test(
         ":test-deps",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages/testing:BazelPackageLoaderTester",
     ],
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",
+    ],
 )
 
 sh_test(
@@ -793,6 +796,17 @@ sh_test(
     name = "external_patching_test",
     size = "medium",
     srcs = ["external_patching_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 3,
+)
+
+sh_test(
+    name = "external_remote_file_test",
+    size = "small",
+    srcs = ["external_remote_file_test.sh"],
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",

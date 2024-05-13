@@ -120,8 +120,7 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
         return true;
       }
 
-      if (other instanceof SuccessfulRepositoryDirectoryValue) {
-        SuccessfulRepositoryDirectoryValue otherValue = (SuccessfulRepositoryDirectoryValue) other;
+      if (other instanceof SuccessfulRepositoryDirectoryValue otherValue) {
         return Objects.equal(path, otherValue.path)
             && Objects.equal(sourceDir, otherValue.sourceDir)
             && Arrays.equals(digest, otherValue.digest)

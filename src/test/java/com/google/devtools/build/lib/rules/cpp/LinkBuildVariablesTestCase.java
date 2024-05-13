@@ -14,12 +14,15 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -28,12 +31,11 @@ import com.google.protobuf.TextFormat;
 import java.util.List;
 
 /**
- * Common test code to test that {@code CppLinkAction} is populated with the correct build
- * variables.
- **/
+ * Common test code to test that C++ linking action is populated with the correct build variables.
+ */
 public class LinkBuildVariablesTestCase extends BuildViewTestCase {
 
-  protected CppLinkAction getCppLinkAction(ConfiguredTarget target, Link.LinkTargetType type) {
+  protected SpawnAction getCppLinkAction(ConfiguredTarget target, Link.LinkTargetType type) {
     Artifact linkerOutput = null;
     switch (type) {
       case STATIC_LIBRARY:
@@ -55,15 +57,22 @@ public class LinkBuildVariablesTestCase extends BuildViewTestCase {
         break;
       default:
         throw new IllegalArgumentException(
-            String.format("Cannot get CppLinkAction for link type %s", type));
+            String.format("Cannot get SpawnAction for link type %s", type));
     }
-    return (CppLinkAction) getGeneratingAction(linkerOutput);
+    return (SpawnAction) getGeneratingAction(linkerOutput);
+  }
+
+  protected LinkCommandLine getLinkCommandLine(SpawnAction cppLinkAction) {
+    var commandLines = cppLinkAction.getCommandLines().unpack();
+    assertThat(commandLines).hasSize(2);
+    assertThat(commandLines.get(1).commandLine).isInstanceOf(LinkCommandLine.class);
+    return (LinkCommandLine) commandLines.get(1).commandLine;
   }
 
   /** Returns active build variables for a link action of given type for given target. */
   protected CcToolchainVariables getLinkBuildVariables(
       ConfiguredTarget target, Link.LinkTargetType type) {
-    return getCppLinkAction(target, type).getLinkCommandLineForTesting().getBuildVariables();
+    return getLinkCommandLine(getCppLinkAction(target, type)).getBuildVariables();
   }
 
   /** Creates a CcToolchainFeatures from features described in the given toolchain fragment. */

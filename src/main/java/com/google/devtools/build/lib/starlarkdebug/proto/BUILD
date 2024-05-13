@@ -26,4 +26,5 @@ java_proto_library(
 proto_library(
     name = "starlark_debugging_proto",
     srcs = ["starlark_debugging.proto"],
+    visibility = ["//visibility:public"],
 )

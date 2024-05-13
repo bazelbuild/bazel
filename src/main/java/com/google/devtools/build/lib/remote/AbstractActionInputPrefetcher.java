@@ -331,8 +331,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       ActionInput input,
       Priority priority) {
     try {
-      if (input instanceof VirtualActionInput) {
-        prefetchVirtualActionInput((VirtualActionInput) input);
+      if (input instanceof VirtualActionInput virtualActionInput) {
+        prefetchVirtualActionInput(virtualActionInput);
         return immediateVoidFuture();
       }
 
@@ -385,10 +385,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   private PathFragment maybeGetTreeRoot(
       ActionExecutionMetadata action, ActionInput input, MetadataSupplier metadataSupplier)
       throws IOException, InterruptedException {
-    if (!(input instanceof TreeFileArtifact)) {
+    if (!(input instanceof TreeFileArtifact treeFile)) {
       return null;
     }
-    TreeFileArtifact treeFile = (TreeFileArtifact) input;
     SpecialArtifact treeArtifact = treeFile.getParent();
     FileArtifactValue treeMetadata = metadataSupplier.getMetadata(treeArtifact);
     if (treeMetadata == null) {
@@ -420,8 +419,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       FileArtifactValue metadata,
       MetadataSupplier metadataSupplier)
       throws IOException, InterruptedException {
-    if (input instanceof TreeFileArtifact) {
-      TreeFileArtifact treeFile = (TreeFileArtifact) input;
+    if (input instanceof TreeFileArtifact treeFile) {
       SpecialArtifact treeArtifact = treeFile.getParent();
       FileArtifactValue treeMetadata = metadataSupplier.getMetadata(treeArtifact);
       if (treeMetadata == null) {

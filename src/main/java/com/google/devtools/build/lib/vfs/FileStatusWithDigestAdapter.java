@@ -25,8 +25,8 @@ public class FileStatusWithDigestAdapter implements FileStatusWithDigest {
   public static FileStatusWithDigest maybeAdapt(@Nullable FileStatus stat) {
     return stat == null
         ? null
-        : (stat instanceof FileStatusWithDigest)
-            ? (FileStatusWithDigest) stat
+        : stat instanceof FileStatusWithDigest fileStatusWithDigest
+            ? fileStatusWithDigest
             : new FileStatusWithDigestAdapter(stat);
   }
 

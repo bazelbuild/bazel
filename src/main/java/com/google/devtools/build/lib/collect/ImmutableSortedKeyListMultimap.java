@@ -373,8 +373,7 @@ public final class ImmutableSortedKeyListMultimap<K extends Comparable<K>, V>
     if (this == object) {
       return true;
     }
-    if (object instanceof Multimap) {
-      Multimap<?, ?> that = (Multimap<?, ?>) object;
+    if (object instanceof Multimap<?, ?> that) {
       return asMap().equals(that.asMap());
     }
     return false;

@@ -248,11 +248,10 @@ message BuildEventId {
   // Identifier of an event providing convenience symlinks information.
   message ConvenienceSymlinksIdentifiedId {}
 
-  // Identifier of an event signalling that the coverage actions are finished.
-  message CoverageActionsFinishedId {}
-
   // Identifier of an event providing the ExecRequest of a run command.
   message ExecRequestId {}
+
+  reserved 27;
 
   oneof id {
     UnknownBuildEventId unknown = 1;
@@ -282,7 +281,6 @@ message BuildEventId {
     WorkspaceConfigId workspace = 23;
     BuildMetadataId build_metadata = 24;
     ConvenienceSymlinksIdentifiedId convenience_symlinks_identified = 25;
-    CoverageActionsFinishedId coverage_actions_finished = 27;
     ExecRequestId exec_request = 28;
   }
 }
@@ -1080,6 +1078,14 @@ message BuildMetrics {
 
   ArtifactMetrics artifact_metrics = 7;
 
+  // Data about the evaluation of Skyfunctions.
+  message EvaluationStat {
+    // Name of the Skyfunction.
+    string skyfunction_name = 1;
+    // How many times a given operation was carried out on a Skyfunction.
+    int64 count = 2;
+  }
+
   // Information about the size and shape of the build graph. Some fields may
   // not be populated if Bazel was able to skip steps due to caching.
   message BuildGraphMetrics {
@@ -1119,6 +1125,64 @@ message BuildMetrics {
     // settings or with Skybuild, and may overestimate if there are nodes from
     // prior evaluations still in the cache.
     int32 post_invocation_skyframe_node_count = 4;
+    // Number of SkyValues that were dirtied during the build. Dirtied nodes are
+    // those that transitively depend on a node that changed by itself (e.g. one
+    // representing a file in the file system)
+    repeated EvaluationStat dirtied_values = 10;
+    // Number of SkyValues that changed by themselves. For example, when a file
+    // on the file system changes, the SkyValue representing it will change.
+    repeated EvaluationStat changed_values = 11;
+    // Number of SkyValues that were built. This means that they were evaluated
+    // and were found to have changed from their previous version.
+    repeated EvaluationStat built_values = 12;
+    // Number of SkyValues that were evaluated and found clean, i.e. equal to
+    // their previous version.
+    repeated EvaluationStat cleaned_values = 13;
+
+    // For SkyKeys in 'done values' where the SkyValue is of type
+    // RuleConfiguredTargetValue, we pull those out separately and report the
+    // ruleClass and action count.
+    message RuleClassCount {
+      // Unique key for the rule class.
+      string key = 1;
+
+      // String name of the rule_class (not guaranteed unique)
+      string rule_class = 2;
+
+      // how many rule instances of this type were seen.
+      uint64 count = 3;
+
+      // how many actions were created by this rule class.
+      uint64 action_count = 4;
+    }
+    repeated RuleClassCount rule_class = 14;
+
+    // For SkyKeys whose function name is ASPECT break out that information
+    message AspectCount {
+      // Unique key for Aspect.
+      string key = 1;
+
+      // usually the same as above, but can differ in some cases.
+      string aspect_name = 2;
+
+      // number of aspects created of this type.
+      uint64 count = 3;
+
+      // number of actions created by aspects of this type.
+      uint64 action_count = 4;
+    }
+    repeated AspectCount aspect = 15;
+
+    // This is a summary table of all SkyFunctions and the number of Keys
+    // created of that type.
+    message SkyFunctionCount {
+      // See SkyFunctions.java for name
+      string sky_function_name = 1;
+
+      // Number of SkyKey/SkyValues with this name
+      uint64 count = 2;
+    }
+    repeated SkyFunctionCount sky_function = 16;
   }
 
   BuildGraphMetrics build_graph_metrics = 8;

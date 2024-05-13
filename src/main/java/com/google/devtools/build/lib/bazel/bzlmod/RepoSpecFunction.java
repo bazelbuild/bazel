@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -24,7 +25,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import javax.annotation.Nullable;
 
 /**
@@ -32,23 +32,24 @@ import javax.annotation.Nullable;
  * fetching required information from its {@link Registry}.
  */
 public class RepoSpecFunction implements SkyFunction {
-  private final RegistryFactory registryFactory;
-
-  public RepoSpecFunction(RegistryFactory registryFactory) {
-    this.registryFactory = registryFactory;
-  }
 
   @Override
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, RepoSpecException {
     RepoSpecKey key = (RepoSpecKey) skyKey.argument();
+
+    Registry registry = (Registry) env.getValue(RegistryKey.create(key.getRegistryUrl()));
+    if (registry == null) {
+      return null;
+    }
+
+    StoredEventHandler downloadEvents = new StoredEventHandler();
+    RepoSpec repoSpec;
     try (SilentCloseable c =
         Profiler.instance()
             .profile(ProfilerTask.BZLMOD, () -> "compute repo spec: " + key.getModuleKey())) {
-      return registryFactory
-          .getRegistryWithUrl(key.getRegistryUrl())
-          .getRepoSpec(key.getModuleKey(), env.getListener());
+      repoSpec = registry.getRepoSpec(key.getModuleKey(), downloadEvents);
     } catch (IOException e) {
       throw new RepoSpecException(
           ExternalDepsException.withCauseAndMessage(
@@ -56,11 +57,10 @@ public class RepoSpecFunction implements SkyFunction {
               e,
               "Unable to get module repo spec for %s from registry",
               key.getModuleKey()));
-    } catch (URISyntaxException e) {
-      // This should never happen since we obtain the registry URL from an already constructed
-      // registry.
-      throw new IllegalStateException(e);
     }
+    downloadEvents.replayOn(env.getListener());
+    return RepoSpecValue.create(
+        repoSpec, RegistryFileDownloadEvent.collectToMap(downloadEvents.getPosts()));
   }
 
   static final class RepoSpecException extends SkyFunctionException {

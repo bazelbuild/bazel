@@ -97,8 +97,7 @@ public class RunUnderConverter implements Converter<RunUnder> {
     public boolean equals(Object other) {
       if (this == other) {
         return true;
-      } else if (other instanceof RunUnderLabel) {
-        RunUnderLabel otherRunUnderLabel = (RunUnderLabel) other;
+      } else if (other instanceof RunUnderLabel otherRunUnderLabel) {
         return Objects.equals(input, otherRunUnderLabel.input)
             && Objects.equals(runUnderLabel, otherRunUnderLabel.runUnderLabel)
             && Objects.equals(runUnderList, otherRunUnderLabel.runUnderList);
@@ -154,8 +153,7 @@ public class RunUnderConverter implements Converter<RunUnder> {
     public boolean equals(Object other) {
       if (this == other) {
         return true;
-      } else if (other instanceof RunUnderCommand) {
-        RunUnderCommand otherRunUnderCommand = (RunUnderCommand) other;
+      } else if (other instanceof RunUnderCommand otherRunUnderCommand) {
         return Objects.equals(input, otherRunUnderCommand.input)
             && Objects.equals(runUnderCommand, otherRunUnderCommand.runUnderCommand)
             && Objects.equals(runUnderList, otherRunUnderCommand.runUnderList);

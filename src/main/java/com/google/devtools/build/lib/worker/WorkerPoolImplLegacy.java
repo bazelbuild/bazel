@@ -58,7 +58,7 @@ public class WorkerPoolImplLegacy implements WorkerPool {
   /** Map of multiplex worker pools, one per mnemonic. */
   private final ImmutableMap<String, SimpleWorkerPool> multiplexPools;
 
-  public WorkerPoolImplLegacy(WorkerPoolConfig workerPoolConfig) {
+  public WorkerPoolImplLegacy(WorkerFactory factory, WorkerPoolConfig workerPoolConfig) {
     this.workerPoolConfig = workerPoolConfig;
 
     ImmutableMap<String, Integer> config =
@@ -67,8 +67,8 @@ public class WorkerPoolImplLegacy implements WorkerPool {
         createConfigFromOptions(
             workerPoolConfig.getWorkerMaxMultiplexInstances(), DEFAULT_MAX_MULTIPLEX_WORKERS);
 
-    workerPools = createWorkerPools(workerPoolConfig.getWorkerFactory(), config);
-    multiplexPools = createWorkerPools(workerPoolConfig.getWorkerFactory(), multiplexConfig);
+    workerPools = createWorkerPools(factory, config);
+    multiplexPools = createWorkerPools(factory, multiplexConfig);
   }
 
   public WorkerPoolConfig getWorkerPoolConfig() {
@@ -126,6 +126,11 @@ public class WorkerPoolImplLegacy implements WorkerPool {
   @Override
   public int getNumActive(WorkerKey key) {
     return getPool(key).getNumActive(key);
+  }
+
+  @Override
+  public synchronized boolean hasAvailableQuota(WorkerKey key) {
+    return getPool(key).hasAvailableQuota(key);
   }
 
   public void evictWithPolicy(EvictionPolicy<Worker> evictionPolicy) throws InterruptedException {

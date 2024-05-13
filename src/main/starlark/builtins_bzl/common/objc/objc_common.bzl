@@ -15,10 +15,11 @@
 """Common functionality for Objc rules."""
 
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/objc/apple_toolchain.bzl", "apple_toolchain")
+load(":common/objc/objc_info.bzl", "ObjcInfo")
 load(":common/objc/providers.bzl", "J2ObjcEntryClassInfo", "J2ObjcMappingFileInfo")
 
 objc_internal = _builtins.internal.objc_internal
-apple_common = _builtins.internal.apple_common
 cc_internal = _builtins.internal.cc_internal
 
 CPP_SOURCES = [".cc", ".cpp", ".mm", ".cxx", ".C"]
@@ -70,8 +71,8 @@ def _create_context_and_provider(
     cc_linking_contexts = []
 
     for dep in deps:
-        if apple_common.Objc in dep:
-            objc_providers.append(dep[apple_common.Objc])
+        if ObjcInfo in dep:
+            objc_providers.append(dep[ObjcInfo])
 
         if CcInfo in dep:
             cc_compilation_contexts.append(dep[CcInfo].compilation_context)
@@ -115,7 +116,7 @@ def _create_context_and_provider(
     all_non_sdk_linkopts.extend(non_sdk_linkopts)
 
     if compilation_attributes != None:
-        sdk_dir = apple_common.apple_toolchain().sdk_dir()
+        sdk_dir = apple_toolchain.sdk_dir()
         usr_include_dir = sdk_dir + "/usr/include/"
         sdk_includes = []
 
@@ -194,7 +195,7 @@ def _create_context_and_provider(
     )
 
     return (
-        apple_common.new_objc_provider(**objc_provider_kwargs_built),
+        ObjcInfo(**objc_provider_kwargs_built),
         objc_compilation_context,
         objc_linking_context,
     )

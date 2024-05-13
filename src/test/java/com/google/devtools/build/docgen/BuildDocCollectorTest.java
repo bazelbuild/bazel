@@ -304,4 +304,23 @@ public final class BuildDocCollectorTest {
     assertThat(getAttribute(attributes, "uncommonly_named_attr").getGeneratedInRule("my_library"))
         .isEqualTo("my_library");
   }
+
+  @Test
+  public void collectModuleInfoDocs_genericRulesFlaggedAsGeneric() throws Exception {
+    ModuleInfo moduleInfo =
+        ModuleInfo.newBuilder()
+            .setModuleDocstring("Family")
+            .setFile("//:test.bzl")
+            .addRuleInfo(
+                RuleInfo.newBuilder()
+                    .setRuleName("generic_rules.my_rule")
+                    .setDocString("My rule")
+                    .setOriginKey(
+                        OriginKey.newBuilder().setName("my_rule").setFile("//:my_rule.bzl")))
+            .build();
+
+    assertThat(collectModuleInfoDocs(moduleInfo)).isEqualTo(1);
+    assertThat(ruleDocEntries.get("my_rule").isLanguageSpecific()).isFalse();
+    assertThat(ruleDocEntries.get("my_rule").getRuleFamily()).isEqualTo("Family");
+  }
 }

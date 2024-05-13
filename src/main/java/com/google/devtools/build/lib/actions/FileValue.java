@@ -301,10 +301,9 @@ public abstract class FileValue implements SkyValue {
       if (obj == null) {
         return false;
       }
-      if (!(obj instanceof RegularFileValue)) {
+      if (!(obj instanceof RegularFileValue other)) {
         return false;
       }
-      RegularFileValue other = (RegularFileValue) obj;
       return rootedPath.equals(other.rootedPath) && fileStateValue.equals(other.fileStateValue);
     }
 
@@ -648,10 +647,9 @@ public abstract class FileValue implements SkyValue {
       if (obj == null) {
         return false;
       }
-      if (!(obj instanceof SymlinkFileValueWithStoredChain)) {
+      if (!(obj instanceof SymlinkFileValueWithStoredChain other)) {
         return false;
       }
-      SymlinkFileValueWithStoredChain other = (SymlinkFileValueWithStoredChain) obj;
       return realRootedPath.equals(other.realRootedPath)
           && realFileStateValue.equals(other.realFileStateValue)
           && logicalChainDuringResolution.equals(other.logicalChainDuringResolution)
@@ -703,10 +701,9 @@ public abstract class FileValue implements SkyValue {
       if (obj == null) {
         return false;
       }
-      if (!(obj instanceof SymlinkFileValueWithoutStoredChain)) {
+      if (!(obj instanceof SymlinkFileValueWithoutStoredChain other)) {
         return false;
       }
-      SymlinkFileValueWithoutStoredChain other = (SymlinkFileValueWithoutStoredChain) obj;
       return realRootedPath.equals(other.realRootedPath)
           && realFileStateValue.equals(other.realFileStateValue)
           && linkTarget.equals(other.linkTarget);

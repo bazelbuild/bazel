@@ -69,10 +69,9 @@ public final class BuildConfigurationKey implements SkyKey {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof BuildConfigurationKey)) {
+    if (!(o instanceof BuildConfigurationKey otherConfig)) {
       return false;
     }
-    BuildConfigurationKey otherConfig = (BuildConfigurationKey) o;
     return options.equals(otherConfig.options);
   }
 

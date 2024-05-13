@@ -112,10 +112,9 @@ public final class RunfilesArtifactValue implements SkyValue {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof RunfilesArtifactValue)) {
+    if (!(o instanceof RunfilesArtifactValue that)) {
       return false;
     }
-    RunfilesArtifactValue that = (RunfilesArtifactValue) o;
     return metadata.equals(that.metadata)
         && files.equals(that.files)
         && fileValues.equals(that.fileValues)

@@ -20,6 +20,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -27,8 +28,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCh
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceManager;
@@ -66,7 +65,6 @@ import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import org.junit.Before;
@@ -80,17 +78,10 @@ import org.mockito.Mockito;
  */
 @RunWith(JUnit4.class)
 public class StandaloneSpawnStrategyTest {
-  private static final ArtifactExpander SIMPLE_ARTIFACT_EXPANDER =
-      new ArtifactExpander() {
-        @Override
-        public void expand(Artifact artifact, Collection<? super Artifact> output) {
-          output.add(artifact);
-        }
-      };
   private static final String WINDOWS_SYSTEM_DRIVE = "C:";
   private static final String CMD_EXE = getWinSystemBinary("cmd.exe");
 
-  private Reporter reporter =
+  private final Reporter reporter =
       new Reporter(new EventBus(), PrintingEventHandler.ERRORS_AND_WARNINGS_TO_STDERR);
   private BlazeExecutor executor;
   private FileSystem fileSystem;
@@ -142,7 +133,7 @@ public class StandaloneSpawnStrategyTest {
 
     ResourceManager resourceManager = ResourceManager.instanceForTestingOnly();
     resourceManager.setAvailableResources(
-        ResourceSet.create(/*memoryMb=*/1, /*cpuUsage=*/1, /*localTestCount=*/1));
+        ResourceSet.create(/* memoryMb= */ 1, /* cpu= */ 1, /* localTestCount= */ 1));
     Path execRoot = directories.getExecRoot(TestConstants.WORKSPACE_NAME);
     BinTools binTools = BinTools.forIntegrationTesting(directories, ImmutableList.of());
     StandaloneSpawnStrategy strategy =
@@ -166,14 +157,14 @@ public class StandaloneSpawnStrategyTest {
     executor.getExecRoot().createDirectoryAndParents();
   }
 
-  private Spawn createSpawn(String... arguments) {
+  private static Spawn createSpawn(String... arguments) {
     return new SimpleSpawn(
         new ActionsTestUtil.NullAction(),
         ImmutableList.copyOf(arguments),
-        /*environment=*/ ImmutableMap.of(),
-        /*executionInfo=*/ ImmutableMap.of(),
-        /*inputs=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /*outputs=*/ ImmutableSet.of(),
+        /* environment= */ ImmutableMap.of(),
+        /* executionInfo= */ ImmutableMap.of(),
+        /* inputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /* outputs= */ ImmutableSet.of(),
         ResourceSet.ZERO);
   }
 
@@ -214,7 +205,7 @@ public class StandaloneSpawnStrategyTest {
         reporter,
         /* clientEnv= */ ImmutableMap.of(),
         /* topLevelFilesets= */ ImmutableMap.of(),
-        SIMPLE_ARTIFACT_EXPANDER,
+        treeArtifact -> ImmutableSortedSet.of(),
         /* actionFileSystem= */ null,
         /* skyframeDepsResult= */ null,
         DiscoveredModulesPruner.DEFAULT,

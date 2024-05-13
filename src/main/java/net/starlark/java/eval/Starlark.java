@@ -66,8 +66,9 @@ public final class Starlark {
    */
   public static final Object UNBOUND = new UnboundMarker();
 
+  /** A type representing no argument passed to {@code StarlarkMethod}s */
   @Immutable
-  private static final class UnboundMarker implements StarlarkValue {
+  public static final class UnboundMarker implements StarlarkValue {
     private UnboundMarker() {}
 
     @Override
@@ -1094,8 +1095,9 @@ public final class Starlark {
             rfn,
             module,
             globalIndex,
-            /*defaultValues=*/ Tuple.empty(),
-            /*freevars=*/ Tuple.empty());
+            /* defaultValues= */ Tuple.empty(),
+            /* freevars= */ Tuple.empty(),
+            thread.getNextIdentityToken());
     return Starlark.fastcall(thread, toplevel, EMPTY, EMPTY);
   }
 
@@ -1112,7 +1114,7 @@ public final class Starlark {
   public static Object eval(
       ParserInput input, FileOptions options, Module module, StarlarkThread thread)
       throws SyntaxError.Exception, EvalException, InterruptedException {
-    StarlarkFunction fn = newExprFunction(input, options, module);
+    StarlarkFunction fn = newExprFunction(input, options, module, thread.getNextIdentityToken());
     return Starlark.fastcall(thread, fn, EMPTY, EMPTY);
   }
 
@@ -1136,13 +1138,22 @@ public final class Starlark {
    * @throws SyntaxError.Exception if there were scanner, parser, or resolver errors.
    */
   private static StarlarkFunction newExprFunction(
-      ParserInput input, FileOptions options, Module module) throws SyntaxError.Exception {
+      ParserInput input,
+      FileOptions options,
+      Module module,
+      SymbolGenerator.Symbol<?> referenceIdentity)
+      throws SyntaxError.Exception {
     Expression expr = Expression.parse(input);
     Program prog = Program.compileExpr(expr, module, options);
     Resolver.Function rfn = prog.getResolvedFunction();
     int[] globalIndex = module.getIndicesOfGlobals(rfn.getGlobals()); // see execFileProgram
     return new StarlarkFunction(
-        rfn, module, globalIndex, /*defaultValues=*/ Tuple.empty(), /*freevars=*/ Tuple.empty());
+        rfn,
+        module,
+        globalIndex,
+        /* defaultValues= */ Tuple.empty(),
+        /* freevars= */ Tuple.empty(),
+        referenceIdentity);
   }
 
   /**

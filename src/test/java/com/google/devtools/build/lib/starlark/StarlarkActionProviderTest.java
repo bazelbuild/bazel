@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -67,7 +68,7 @@ public class StarlarkActionProviderTest extends AnalysisTestCase {
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
 
     StarlarkProvider.Key fooKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "foo");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "foo");
 
     StructImpl fooProvider = (StructImpl) configuredAspect.get(fooKey);
     assertThat(fooProvider.getValue("actions")).isNotNull();
@@ -150,7 +151,7 @@ public class StarlarkActionProviderTest extends AnalysisTestCase {
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
 
     StarlarkProvider.Key fooKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "foo");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "foo");
     StructImpl fooProvider = (StructImpl) configuredAspect.get(fooKey);
     assertThat(fooProvider.getValue("actions")).isNotNull();
 

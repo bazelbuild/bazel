@@ -121,10 +121,9 @@ public abstract class DirectoryListingValue implements SkyValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof RegularDirectoryListingValue)) {
+      if (!(obj instanceof RegularDirectoryListingValue other)) {
         return false;
       }
-      RegularDirectoryListingValue other = (RegularDirectoryListingValue) obj;
       return directoryListingStateValue.equals(other.directoryListingStateValue);
     }
 
@@ -161,10 +160,9 @@ public abstract class DirectoryListingValue implements SkyValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof DifferentRealPathDirectoryListingValue)) {
+      if (!(obj instanceof DifferentRealPathDirectoryListingValue other)) {
         return false;
       }
-      DifferentRealPathDirectoryListingValue other = (DifferentRealPathDirectoryListingValue) obj;
       return realDirRootedPath.equals(other.realDirRootedPath)
           && directoryListingStateValue.equals(other.directoryListingStateValue);
     }

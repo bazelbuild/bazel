@@ -25,11 +25,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -49,55 +50,78 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
 
   private static final Object PLACEHOLDER = new Object();
 
-  static class TrieArtifact {
-    private Map<String, TrieArtifact> subFolders = ImmutableMap.of();
-    @Nullable private TreeArtifactValue treeArtifactValue;
+  /**
+   * Trie-like data structure that mimics the filesystem for tree artifacts.
+   *
+   * <p>It is too expensive to store all tree children in the input map individually, so in order to
+   * find a child's metadata, we need to find the parent. Sometimes it is necessary to look up an
+   * input's metadata by exec path without even knowing whether it is a {@link TreeFileArtifact},
+   * let alone how many directory levels up its parent is. This data structure supports efficient
+   * lookups in such cases.
+   */
+  static final class TrieArtifact {
 
-    TrieArtifact add(PathFragment treeExecPath, TreeArtifactValue treeArtifactValue) {
+    // Values in this map are either TrieArtifact (for intermediate directory nodes) or
+    // TreeArtifactValue (for terminal nodes). This saves memory by not creating a TrieArtifact for
+    // terminal nodes. This optimization is safe because nested tree artifacts are forbidden.
+    //
+    // We special case when we have a single child in order to save memory. This way, we do not
+    // allocate hash maps for path entries with a single child (prefixes of unbranched paths, e.g.
+    // [a/b/c/d]/tree{1..n}).
+    // Invariant: subFolders is an immutable map iff subFolders.size() <= 1.
+    private Map<String, Object> subFolders = ImmutableMap.of();
+
+    void add(PathFragment treeExecPath, TreeArtifactValue treeArtifactValue) {
       TrieArtifact current = this;
-      for (String segment : treeExecPath.segments()) {
-        current = current.getOrPutSubFolder(segment);
+      Iterator<String> it = treeExecPath.segments().iterator();
+      while (it.hasNext()) {
+        String segment = it.next();
+        Object next = current.subFolders.get(segment);
+
+        if (it.hasNext()) {
+          // Intermediate node.
+          if (next == null) {
+            var newNode = new TrieArtifact();
+            current.put(segment, newNode);
+            current = newNode;
+          } else {
+            current = (TrieArtifact) next;
+          }
+        } else if (next == null) {
+          // Terminal node.
+          current.put(segment, treeArtifactValue);
+        }
       }
-      current.treeArtifactValue = treeArtifactValue;
-      return current;
     }
 
-    TrieArtifact getOrPutSubFolder(String name) {
-      TrieArtifact trieArtifact;
-      // We special case when we have 0 or 1 child in order to save memory.
-      // This way, we do not allocate hash maps for leaf entries and path entries with a single
-      // child (prefixes of unbranched paths, e.g. [a/b/c/d]/tree{1..n}).
-      // Invariant: subFolders is an immutable map iff subFolders.size() <= 1.
+    private void put(String name, Object val) {
+      // Input path segments are commonly shared among actions, so intern before storing.
+      name = name.intern();
+
       switch (subFolders.size()) {
-        case 0:
-          trieArtifact = new TrieArtifact();
-          subFolders = ImmutableMap.of(name, trieArtifact);
-          break;
-        case 1:
-          trieArtifact = subFolders.get(name);
-          if (trieArtifact == null) {
-            trieArtifact = new TrieArtifact();
-            subFolders = new HashMap<>(subFolders);
-            subFolders.put(name, trieArtifact);
-          }
-          break;
-        default:
-          trieArtifact = subFolders.computeIfAbsent(name, ignored -> new TrieArtifact());
+        case 0 -> subFolders = ImmutableMap.of(name, val);
+        case 1 -> {
+          Map<String, Object> newMap = CompactHashMap.createWithExpectedSize(2);
+          newMap.putAll(subFolders);
+          newMap.put(name, val);
+          subFolders = newMap;
+        }
+        default -> subFolders.put(name, val);
       }
-      return trieArtifact;
     }
 
     @Nullable
     TreeArtifactValue findTreeArtifactNodeAtPrefix(PathFragment execPath) {
       TrieArtifact current = this;
       for (String segment : execPath.segments()) {
-        current = current.subFolders.get(segment);
-        if (current == null) {
+        Object next = current.subFolders.get(segment);
+        if (next == null) {
           break;
         }
-        if (current.treeArtifactValue != null) {
-          return current.treeArtifactValue;
+        if (next instanceof TreeArtifactValue val) {
+          return val;
         }
+        current = (TrieArtifact) next;
       }
       return null;
     }
@@ -185,25 +209,22 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
       return runfilesMetadata == null ? null : runfilesMetadata.getMetadata();
     }
 
-    if (input instanceof TreeFileArtifact) {
-      TreeFileArtifact treeFileArtifact = (TreeFileArtifact) input;
+    if (input instanceof TreeFileArtifact treeFileArtifact) {
       int treeIndex = getIndex(treeFileArtifact.getParent().getExecPathString());
       if (treeIndex != -1) {
         checkArgument(
-            values[treeIndex] instanceof TrieArtifact,
+            values[treeIndex] instanceof TreeArtifactValue,
             "Requested tree file artifact under non-tree/omitted tree artifact: %s",
             input);
-        return ((TrieArtifact) values[treeIndex])
-            .treeArtifactValue
-            .getChildValues()
-            .get(treeFileArtifact);
+        return ((TreeArtifactValue) values[treeIndex]).getChildValues().get(treeFileArtifact);
       }
     }
     int index = getIndex(input.getExecPathString());
     if (index != -1) {
-      return values[index] instanceof TrieArtifact
-          ? ((TrieArtifact) values[index]).treeArtifactValue.getMetadata()
-          : (FileArtifactValue) values[index];
+      Object value = values[index];
+      return value instanceof TreeArtifactValue treeValue
+          ? treeValue.getMetadata()
+          : (FileArtifactValue) value;
     }
     if (input instanceof Artifact) {
       // Non tree artifacts cannot overlap with tree files, therefore we can skip searching the
@@ -253,8 +274,8 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
     int index = getIndex(execPath.getPathString());
     if (index != -1) {
       Object value = values[index];
-      return (value instanceof TrieArtifact)
-          ? ((TrieArtifact) value).treeArtifactValue.getMetadata()
+      return value instanceof TreeArtifactValue treeValue
+          ? treeValue.getMetadata()
           : (FileArtifactValue) value;
     }
 
@@ -284,10 +305,7 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
       return null;
     }
     Object value = values[index];
-    if (!(value instanceof TrieArtifact)) {
-      return null;
-    }
-    return ((TrieArtifact) value).treeArtifactValue;
+    return value instanceof TreeArtifactValue treeValue ? treeValue : null;
   }
 
   /**
@@ -363,11 +381,13 @@ public final class ActionInputMap implements InputMetadataProvider, ActionInputM
     }
 
     // Overwrite the placeholder.
-    values[size - 1] =
-        treeArtifactValue.equals(TreeArtifactValue.OMITTED_TREE_MARKER)
-            // No trie entry for omitted tree -- it cannot have any children anyway.
-            ? FileArtifactValue.OMITTED_FILE_MARKER
-            : treeArtifactsRoot.add(tree.getExecPath(), treeArtifactValue);
+    if (treeArtifactValue.equals(TreeArtifactValue.OMITTED_TREE_MARKER)) {
+      // No trie entry for omitted tree -- it cannot have any children anyway.
+      values[size - 1] = FileArtifactValue.OMITTED_FILE_MARKER;
+    } else {
+      treeArtifactsRoot.add(tree.getExecPath(), treeArtifactValue);
+      values[size - 1] = treeArtifactValue;
+    }
   }
 
   public void putWithNoDepOwner(ActionInput input, FileArtifactValue metadata) {

@@ -41,9 +41,9 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
+import com.google.devtools.common.options.OptionAndRawValue;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsBase;
@@ -435,8 +435,12 @@ public final class BlazeOptionHandler {
    *
    * @return {@code DetailedExitCode.success()} if everything went well, or some other value if not
    */
-  DetailedExitCode parseOptions(List<String> args, ExtendedEventHandler eventHandler) {
-    DetailedExitCode result = parseOptionsInternal(args, eventHandler);
+  DetailedExitCode parseOptions(
+      List<String> args,
+      ExtendedEventHandler eventHandler,
+      ImmutableList.Builder<OptionAndRawValue> invocationPolicyFlagListBuilder) {
+    DetailedExitCode result =
+        parseOptionsInternal(args, eventHandler, invocationPolicyFlagListBuilder);
     if (!result.isSuccess()) {
       optionsParser.setError();
     }
@@ -444,7 +448,9 @@ public final class BlazeOptionHandler {
   }
 
   private DetailedExitCode parseOptionsInternal(
-      List<String> args, ExtendedEventHandler eventHandler) {
+      List<String> args,
+      ExtendedEventHandler eventHandler,
+      ImmutableList.Builder<OptionAndRawValue> invocationPolicyFlagListBuilder) {
     // The initialization code here was carefully written to parse the options early before we call
     // into the BlazeModule APIs, which means we must not generate any output to outErr, return, or
     // throw an exception. All the events happening here are instead stored in a temporary event
@@ -490,7 +496,8 @@ public final class BlazeOptionHandler {
       // BlazeCommand.editOptions, so the code needs to be safe regardless of the actual flag
       // values. At the time of this writing, editOptions was only used as a convenience feature or
       // to improve the user experience, but not required for safety or correctness.
-      optionsPolicyEnforcer.enforce(optionsParser, commandAnnotation.name());
+      optionsPolicyEnforcer.enforce(
+          optionsParser, commandAnnotation.name(), invocationPolicyFlagListBuilder);
       // Print warnings for odd options usage
       for (String warning : optionsParser.getWarnings()) {
         eventHandler.handle(Event.warn(warning));

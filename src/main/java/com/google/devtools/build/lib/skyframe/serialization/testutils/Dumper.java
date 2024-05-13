@@ -14,11 +14,13 @@
 package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
 import static com.google.common.collect.Iterables.isEmpty;
+import static com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.getClassInfo;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.getFieldInfo;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.Fingerprinter.computeFingerprints;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.ClosedClassInfo;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.FieldInfo;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.ObjectInfo;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.PrimitiveInfo;
@@ -274,15 +276,12 @@ public final class Dumper {
   }
 
   private void outputField(Object parent, FieldInfo info) {
-    if (info instanceof PrimitiveInfo primitiveInfo) {
-      primitiveInfo.output(parent, out);
-    } else if (info instanceof ObjectInfo objectInfo) {
-      out.append(objectInfo.name()).append('=');
-      outputObject(objectInfo.getFieldValue(parent));
-    } else {
-      // TODO: b/297857068 - it should be possible to replace this with a pattern matching switch
-      // which won't require this line, but that's not yet supported.
-      throw new IllegalArgumentException("Unexpected FieldInfo type: " + info);
+    switch (info) {
+      case PrimitiveInfo primitiveInfo -> primitiveInfo.output(parent, out);
+      case ObjectInfo objectInfo -> {
+        out.append(objectInfo.name()).append('=');
+        outputObject(objectInfo.getFieldValue(parent));
+      }
     }
   }
 
@@ -294,7 +293,16 @@ public final class Dumper {
   }
 
   static boolean shouldInline(Class<?> type) {
-    return type.isPrimitive() || DIRECT_INLINE_TYPES.contains(type) || type.isSynthetic();
+    return !type.isArray()
+        && (type.isPrimitive()
+            || DIRECT_INLINE_TYPES.contains(type)
+            || type.isSynthetic()
+            // Reflectively inaccessible classes will be represented directly using their string
+            // representations as there's nothing else we can do with them.
+            //
+            // TODO: b/331765692 - this might cause a loss of fidelity. Consider including a hash of
+            // the serialized representation in such cases.
+            || getClassInfo(type) instanceof ClosedClassInfo);
   }
 
   private static final ImmutableSet<Class<?>> WRAPPER_TYPES =

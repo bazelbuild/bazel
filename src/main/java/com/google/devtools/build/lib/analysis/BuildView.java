@@ -81,6 +81,8 @@ import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
+import com.google.devtools.build.lib.skyframe.SkyfocusState;
+import com.google.devtools.build.lib.skyframe.SkyfocusState.Request;
 import com.google.devtools.build.lib.skyframe.SkyframeAnalysisAndExecutionResult;
 import com.google.devtools.build.lib.skyframe.SkyframeAnalysisResult;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
@@ -250,6 +252,15 @@ public class BuildView {
     // needed. This requires cleaning up the invalidation in SkyframeBuildView.setConfigurations.
     try (SilentCloseable c = Profiler.instance().profile("createConfigurations")) {
       topLevelConfig = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
+
+      SkyfocusState skyfocusState = skyframeExecutor.getSkyfocusState();
+      if (skyfocusState.enabled()) {
+        Request newRequest =
+            skyfocusState.checkBuildConfigChanges(
+                topLevelConfig, skyfocusState.request(), eventHandler);
+        skyframeExecutor.setSkyfocusState(
+            skyfocusState.withBuildConfiguration(topLevelConfig).withRequest(newRequest));
+      }
       eventBus.post(new ConfigRequestedEvent(topLevelConfig, /* parentChecksum= */ null));
     }
     if (buildConfigurationsCreatedCallback != null) {
@@ -764,8 +775,8 @@ public class BuildView {
     for (Artifact.DerivedArtifact artifact :
         provider.getTransitiveExtraActionArtifacts().toList()) {
       ActionLookupKey owner = artifact.getArtifactOwner();
-      if (owner instanceof AspectKey) {
-        if (aspectClasses.contains(((AspectKey) owner).getAspectClass())) {
+      if (owner instanceof AspectKey aspectKey) {
+        if (aspectClasses.contains(aspectKey.getAspectClass())) {
           artifacts.add(artifact);
         }
       }
@@ -787,8 +798,8 @@ public class BuildView {
       final boolean isExclusive = topLevelOptions.runTestsExclusively();
       for (ConfiguredTarget configuredTarget : allTestTargets) {
         Target target = labelToTargetMap.get(configuredTarget.getLabel());
-        if (target instanceof Rule) {
-          if (isExclusive || TargetUtils.isExclusiveTestRule((Rule) target)) {
+        if (target instanceof Rule rule) {
+          if (isExclusive || TargetUtils.isExclusiveTestRule(rule)) {
             exclusiveTests.add(configuredTarget);
           } else if (TargetUtils.isExclusiveIfLocalTestRule((Rule) target)
               && TargetUtils.isLocalTestRule((Rule) target)) {
@@ -842,32 +853,39 @@ public class BuildView {
       EventBus eventBus,
       TargetPatternPhaseValue loadingResult)
       throws InterruptedException {
-    if (memoizedCoverageArtifacts != null) {
-      return memoizedCoverageArtifacts;
+    if (memoizedCoverageArtifacts == null) {
+      memoizedCoverageArtifacts =
+          constructCoverageArtifacts(
+              configuredTargets, allTargetsToTest, eventHandler, eventBus, loadingResult);
     }
-    ImmutableSet.Builder<Artifact> resultBuilder = ImmutableSet.builder();
-    // Coverage
-    NestedSet<Artifact> baselineCoverageArtifacts = getBaselineCoverageArtifacts(configuredTargets);
-    resultBuilder.addAll(baselineCoverageArtifacts.toList());
-
-    if (coverageReportActionFactory != null) {
-      CoverageReportActionsWrapper actionsWrapper =
-          coverageReportActionFactory.createCoverageReportActionsWrapper(
-              eventHandler,
-              eventBus,
-              directories,
-              allTargetsToTest,
-              baselineCoverageArtifacts,
-              getArtifactFactory(),
-              skyframeExecutor.getActionKeyContext(),
-              CoverageReportValue.COVERAGE_REPORT_KEY,
-              loadingResult.getWorkspaceName());
-      if (actionsWrapper != null) {
-        skyframeExecutor.injectCoverageReportData(actionsWrapper.getActions());
-        actionsWrapper.getCoverageOutputs().forEach(resultBuilder::add);
-      }
-    }
-    memoizedCoverageArtifacts = resultBuilder.build();
     return memoizedCoverageArtifacts;
+  }
+
+  private ImmutableSet<Artifact> constructCoverageArtifacts(
+      Set<ConfiguredTarget> configuredTargets,
+      Set<ConfiguredTarget> allTargetsToTest,
+      EventHandler eventHandler,
+      EventBus eventBus,
+      TargetPatternPhaseValue loadingResult)
+      throws InterruptedException {
+    if (coverageReportActionFactory == null) {
+      return ImmutableSet.of();
+    }
+    CoverageReportActionsWrapper actionsWrapper =
+        coverageReportActionFactory.createCoverageReportActionsWrapper(
+            eventHandler,
+            eventBus,
+            directories,
+            allTargetsToTest,
+            getBaselineCoverageArtifacts(configuredTargets),
+            getArtifactFactory(),
+            skyframeExecutor.getActionKeyContext(),
+            CoverageReportValue.COVERAGE_REPORT_KEY,
+            loadingResult.getWorkspaceName());
+    if (actionsWrapper == null) {
+      return ImmutableSet.of();
+    }
+    skyframeExecutor.injectCoverageReportData(actionsWrapper.getActions());
+    return ImmutableSet.copyOf(actionsWrapper.getCoverageOutputs());
   }
 }

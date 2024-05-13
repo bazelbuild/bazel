@@ -217,13 +217,15 @@ public final class FetchCommand implements BlazeCommand {
   private BlazeCommandResult fetchTarget(
       CommandEnvironment env, OptionsParsingResult options, List<String> targets) {
     try {
-      TargetFetcher.fetchTargets(env, options, targets);
+      var unused = TargetFetcher.fetchTargets(env, options, targets);
     } catch (TargetFetcherException e) {
       return createFailedBlazeCommandResult(
           env.getReporter(), Code.QUERY_EVALUATION_ERROR, e.getMessage());
     }
     env.getReporter()
-        .handle(Event.info("All external dependencies for these targets fetched successfully."));
+        .handle(
+            Event.info(
+                "All external dependencies for the requested targets fetched successfully."));
     return BlazeCommandResult.success();
   }
 

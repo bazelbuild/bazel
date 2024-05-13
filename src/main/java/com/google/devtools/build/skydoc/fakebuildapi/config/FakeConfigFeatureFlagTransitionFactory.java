@@ -31,4 +31,9 @@ public class FakeConfigFeatureFlagTransitionFactory
   public PatchTransition create(RuleTransitionData ruleData) {
     return null;
   }
+
+  @Override
+  public TransitionType transitionType() {
+    return TransitionType.RULE;
+  }
 }

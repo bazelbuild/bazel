@@ -141,8 +141,8 @@ public abstract class ActionExecutionValue implements SkyValue {
         actionOutputMetadataStore.getAllArtifactData(),
         actionOutputMetadataStore.getAllTreeArtifactData(),
         outputSymlinks,
-        action instanceof IncludeScannable
-            ? ((IncludeScannable) action).getDiscoveredModules()
+        action instanceof IncludeScannable includeScannable
+            ? includeScannable.getDiscoveredModules()
             : NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
@@ -224,10 +224,9 @@ public abstract class ActionExecutionValue implements SkyValue {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof ActionExecutionValue)) {
+    if (!(obj instanceof ActionExecutionValue o)) {
       return false;
     }
-    ActionExecutionValue o = (ActionExecutionValue) obj;
     return getAllFileValues().equals(o.getAllFileValues())
         && getAllTreeArtifactValues().equals(o.getAllTreeArtifactValues())
         && Objects.equals(getOutputSymlinks(), o.getOutputSymlinks())

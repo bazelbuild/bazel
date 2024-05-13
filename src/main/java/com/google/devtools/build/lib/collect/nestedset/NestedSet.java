@@ -209,8 +209,7 @@ public final class NestedSet<E> {
           approxDepth = Math.max(approxDepth, 1 + subset.getApproxDepth());
           // If this is a deserialization future, this call blocks.
           Object c = subset.getChildrenInternal(interruptStrategy);
-          if (c instanceof Object[]) {
-            Object[] a = (Object[]) c;
+          if (c instanceof Object[] a) {
             if (a.length < 2) {
               throw new AssertionError(a.length);
             }
@@ -771,10 +770,9 @@ public final class NestedSet<E> {
   public NestedSet<E> splitIfExceedsMaximumSize(int maxDegree) {
     Preconditions.checkArgument(maxDegree >= 2, "maxDegree must be at least 2");
     Object children = getChildren(); // may wait for a future
-    if (!(children instanceof Object[])) {
+    if (!(children instanceof Object[] succs)) {
       return this;
     }
-    Object[] succs = (Object[]) children;
     int nsuccs = succs.length;
     if (nsuccs <= maxDegree) {
       return this;

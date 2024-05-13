@@ -76,9 +76,16 @@ public class DynamicExecutionModule extends BlazeModule {
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
-    executorService =
-        Executors.newCachedThreadPool(
-            new ThreadFactoryBuilder().setNameFormat("dynamic-execution-thread-%d").build());
+    var buildRequestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
+    if (buildRequestOptions != null && buildRequestOptions.useAsyncExecution) {
+      executorService =
+          Executors.newThreadPerTaskExecutor(
+              Thread.ofVirtual().name("dynamic-execution-thread-", 0).factory());
+    } else {
+      executorService =
+          Executors.newCachedThreadPool(
+              new ThreadFactoryBuilder().setNameFormat("dynamic-execution-thread-%d").build());
+    }
     env.getEventBus().register(this);
     com.google.devtools.build.lib.exec.ExecutionOptions executionOptions =
         env.getOptions().getOptions(com.google.devtools.build.lib.exec.ExecutionOptions.class);

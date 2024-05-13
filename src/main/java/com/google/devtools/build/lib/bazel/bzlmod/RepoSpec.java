@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.skyframe.SkyValue;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import javax.annotation.Nullable;
 
@@ -26,7 +25,7 @@ import javax.annotation.Nullable;
  */
 @AutoValue
 @GenerateTypeAdapter
-public abstract class RepoSpec implements SkyValue {
+public abstract class RepoSpec {
 
   /**
    * The unambiguous canonical label string for the bzl file this repository rule is defined in,

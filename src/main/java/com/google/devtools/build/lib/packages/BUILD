@@ -47,18 +47,22 @@ java_library(
         ["*.java"],
         exclude = [
             "BuilderFactoryForTesting.java",  # see builder_factory_for_testing
+            "BzlVisibility.java",
             "Globber.java",
             "GlobberUtils.java",
             "ExecGroup.java",
             "ConfiguredAttributeMapper.java",
             "LabelPrinter.java",
+            "PackageSpecification.java",
         ],
     ),
     deps = [
+        ":bzl_visibility",
         ":exec_group",
         ":globber",
         ":globber_utils",
         ":label_printer",
+        ":package_specification",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
@@ -81,7 +85,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/io:file_symlink_exception",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:starlark_builtins_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
@@ -89,6 +95,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
@@ -113,12 +120,37 @@ java_library(
 )
 
 java_library(
+    name = "bzl_visibility",
+    srcs = ["BzlVisibility.java"],
+    deps = [
+        ":package_specification",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "exec_group",
     srcs = ["ExecGroup.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:config/toolchain_type_requirement",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "package_specification",
+    srcs = ["PackageSpecification.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/net/starlark/java/eval",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -144,5 +176,13 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/net/starlark/java/eval",
+    ],
+)
+
+java_library(
+    name = "rule_class_id",
+    srcs = ["RuleClassId.java"],
+    deps = [
+        "//third_party:auto_value",
     ],
 )

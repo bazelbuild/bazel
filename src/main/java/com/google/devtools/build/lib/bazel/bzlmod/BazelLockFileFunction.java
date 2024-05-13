@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -55,7 +56,7 @@ public class BazelLockFileFunction implements SkyFunction {
 
   private static final BzlmodFlagsAndEnvVars EMPTY_FLAGS =
       BzlmodFlagsAndEnvVars.create(
-          ImmutableList.of(), ImmutableMap.of(), ImmutableList.of(), "", false, "", "");
+          ImmutableSet.of(), ImmutableMap.of(), ImmutableList.of(), "", false, "", "");
 
   private static final BazelLockFileValue EMPTY_LOCKFILE =
       BazelLockFileValue.builder()
@@ -65,6 +66,7 @@ public class BazelLockFileFunction implements SkyFunction {
           .setLocalOverrideHashes(ImmutableMap.of())
           .setModuleDepGraph(ImmutableMap.of())
           .setModuleExtensions(ImmutableMap.of())
+          .setRegistryFileHashes(ImmutableMap.of())
           .build();
 
   public BazelLockFileFunction(Path rootDirectory) {

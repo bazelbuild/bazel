@@ -19,6 +19,7 @@ import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -44,7 +45,6 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.Collection;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.Location;
@@ -57,7 +57,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class StarlarkCustomCommandLineTest {
 
-  private static final ArtifactExpander EMPTY_EXPANDER = (artifact, output) -> {};
+  private static final ArtifactExpander EMPTY_EXPANDER = artifact -> ImmutableSortedSet.of();
 
   private final Scratch scratch = new Scratch();
   private Path execRoot;
@@ -248,7 +248,7 @@ public final class StarlarkCustomCommandLineTest {
     Fingerprint fingerprint = new Fingerprint();
     ArtifactExpander artifactExpander =
         createArtifactExpander(
-            ImmutableMap.of(tree, ImmutableList.of(child)),
+            ImmutableMap.of(tree, ImmutableSortedSet.of(child)),
             /*filesetExpansions*/ ImmutableMap.of());
 
     commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
@@ -282,7 +282,7 @@ public final class StarlarkCustomCommandLineTest {
     TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(tree, "child2");
     ArtifactExpander artifactExpander =
         createArtifactExpander(
-            ImmutableMap.of(tree, ImmutableList.of(child1, child2)),
+            ImmutableMap.of(tree, ImmutableSortedSet.of(child1, child2)),
             /*filesetExpansions*/ ImmutableMap.of());
 
     Iterable<String> arguments = commandLine.arguments(artifactExpander, PathMapper.NOOP);
@@ -375,20 +375,17 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   private static ArtifactExpander createArtifactExpander(
-      ImmutableMap<SpecialArtifact, ImmutableList<TreeFileArtifact>> treeExpansions,
+      ImmutableMap<SpecialArtifact, ImmutableSortedSet<TreeFileArtifact>> treeExpansions,
       ImmutableMap<SpecialArtifact, ImmutableList<FilesetOutputSymlink>> filesetExpansions) {
     return new ArtifactExpander() {
       @Override
-      public void expand(Artifact artifact, Collection<? super Artifact> output) {
+      public ImmutableSortedSet<TreeFileArtifact> expandTreeArtifact(Artifact treeArtifact) {
         //noinspection SuspiciousMethodCalls
-        ImmutableList<TreeFileArtifact> expansion = treeExpansions.get(artifact);
-        if (expansion != null) {
-          output.addAll(expansion);
-        }
+        return treeExpansions.getOrDefault(treeArtifact, ImmutableSortedSet.of());
       }
 
       @Override
-      public ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact)
+      public ImmutableList<FilesetOutputSymlink> expandFileset(Artifact artifact)
           throws MissingExpansionException {
         //noinspection SuspiciousMethodCalls
         ImmutableList<FilesetOutputSymlink> filesetLinks = filesetExpansions.get(artifact);

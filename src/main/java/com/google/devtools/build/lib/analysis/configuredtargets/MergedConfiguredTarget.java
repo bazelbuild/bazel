@@ -113,13 +113,13 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
 
   @Override
   protected void addExtraStarlarkKeys(Consumer<String> result) {
-    if (base instanceof AbstractConfiguredTarget) {
-      ((AbstractConfiguredTarget) base).addExtraStarlarkKeys(result);
+    if (base instanceof AbstractConfiguredTarget abstractConfiguredTarget) {
+      abstractConfiguredTarget.addExtraStarlarkKeys(result);
     }
     for (int i = 0; i < nonBaseProviders.getProviderCount(); i++) {
       Object classAt = nonBaseProviders.getProviderKeyAt(i);
-      if (classAt instanceof String) {
-        result.accept((String) classAt);
+      if (classAt instanceof String string) {
+        result.accept(string);
       }
     }
     result.accept(AbstractConfiguredTarget.ACTIONS_FIELD_NAME);
@@ -214,14 +214,12 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
           }
           nonBaseProviders.put(
               providerClass, (TransitiveInfoProvider) providers.getProviderInstanceAt(i));
-        } else if (providerKey instanceof String) {
-          String legacyId = (String) providerKey;
+        } else if (providerKey instanceof String legacyId) {
           if (base.get(legacyId) != null || nonBaseProviders.contains(legacyId)) {
             throw new DuplicateException("Provider " + legacyId + " provided twice");
           }
           nonBaseProviders.put(legacyId, providers.getProviderInstanceAt(i));
-        } else if (providerKey instanceof Provider.Key) {
-          Provider.Key key = (Provider.Key) providerKey;
+        } else if (providerKey instanceof Provider.Key key) {
           // If InstrumentedFilesInfo is on both the base target and an aspect, ignore the one from
           // the base. Otherwise, sharing implementation between a rule which returns
           // InstrumentedFilesInfo (e.g. *_library) and a related aspect (e.g. *_proto_library) can
@@ -304,10 +302,9 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
 
   @Override
   public String getRuleClassString() {
-    if (!(base instanceof AbstractConfiguredTarget)) {
+    if (!(base instanceof AbstractConfiguredTarget act)) {
       return super.getRuleClassString();
     }
-    AbstractConfiguredTarget act = (AbstractConfiguredTarget) base;
     return act.getRuleClassString();
   }
 

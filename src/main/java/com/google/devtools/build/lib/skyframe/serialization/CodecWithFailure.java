@@ -37,14 +37,13 @@ public class CodecWithFailure<T> extends LeafObjectCodec<T> {
   }
 
   @Override
-  public void serialize(
-      SerializationDependencyProvider dependencies, T obj, CodedOutputStream codedOut)
+  public void serialize(LeafSerializationContext context, T obj, CodedOutputStream codedOut)
       throws SerializationException {
     throw new SerializationException(message);
   }
 
   @Override
-  public T deserialize(SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+  public T deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException {
     throw new SerializationException(message);
   }

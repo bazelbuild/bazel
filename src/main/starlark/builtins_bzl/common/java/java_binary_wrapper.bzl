@@ -20,13 +20,9 @@ the supplied value of the `create_executable` attribute.
 
 load(":common/java/java_semantics.bzl", "semantics")
 
-_DEPLOY_JAR_RULE_NAME_SUFFIX = "_deployjars_internal_rule"
-
 def register_legacy_java_binary_rules(
         rule_exec,
         rule_nonexec,
-        rule_deploy_jars = None,
-        rule_deploy_jars_nonexec = None,
         **kwargs):
     """Registers the correct java_binary rule and deploy jar rule
 
@@ -52,30 +48,8 @@ def register_legacy_java_binary_rules(
                 kwargs["launcher"] = semantics.LAUNCHER_FLAG_LABEL
         rule_exec(**kwargs)
 
-    if not create_executable:
-        rule_deploy_jars = rule_deploy_jars_nonexec
-    if rule_deploy_jars and (
-        not kwargs.get("tags", []) or "nodeployjar" not in kwargs.get("tags", [])
-    ):
-        deploy_jar_args = _filtered_dict(kwargs, _DEPLOY_JAR_RULE_ATTRS)
-
-        # Do not let the deploy jar be matched by wildcard target patterns.
-        if "tags" not in deploy_jar_args or not deploy_jar_args["tags"]:
-            deploy_jar_args["tags"] = []
-        if "manual" not in deploy_jar_args["tags"]:
-            tags = []
-            tags.extend(deploy_jar_args["tags"])
-            tags.append("manual")
-            deploy_jar_args["tags"] = tags
-        rule_deploy_jars(
-            name = kwargs["name"] + _DEPLOY_JAR_RULE_NAME_SUFFIX,  # to avoid collision
-            binary = kwargs["name"],
-            **deploy_jar_args
-        )
-
 def register_java_binary_rules(
         java_binary,
-        rule_deploy_jars = None,
         **kwargs):
     """Creates a java_binary rule and a deploy jar rule
 
@@ -95,43 +69,3 @@ def register_java_binary_rules(
         if "launcher" not in kwargs or not kwargs["launcher"]:
             kwargs["launcher"] = semantics.LAUNCHER_FLAG_LABEL
     java_binary(**kwargs)
-
-    if rule_deploy_jars and (
-        not kwargs.get("tags", []) or "nodeployjar" not in kwargs.get("tags", [])
-    ):
-        deploy_jar_args = _filtered_dict(kwargs, _DEPLOY_JAR_RULE_ATTRS)
-
-        # Do not let the deploy jar be matched by wildcard target patterns.
-        if "tags" not in deploy_jar_args or not deploy_jar_args["tags"]:
-            deploy_jar_args["tags"] = []
-        if "manual" not in deploy_jar_args["tags"]:
-            tags = []
-            tags.extend(deploy_jar_args["tags"])
-            tags.append("manual")
-            deploy_jar_args["tags"] = tags
-        rule_deploy_jars(
-            name = kwargs["name"] + _DEPLOY_JAR_RULE_NAME_SUFFIX,  # to avoid collision
-            binary = kwargs["name"],
-            **deploy_jar_args
-        )
-
-_DEPLOY_JAR_RULE_ATTRS = {key: None for key in [
-    "visibility",
-    "testonly",
-    "tags",
-    "compatible_with",
-    "restricted_to",
-    "target_compatible_with",
-]}
-
-def _filtered_dict(input_dict, select_keys):
-    res = {}
-    if len(input_dict) > len(select_keys):
-        for key in select_keys:
-            if key in input_dict:
-                res[key] = input_dict[key]
-    else:
-        for key in input_dict:
-            if key in select_keys:
-                res[key] = input_dict[key]
-    return res

@@ -210,10 +210,9 @@ public final class AspectKeyCreator {
       if (this == other) {
         return true;
       }
-      if (!(other instanceof AspectKey)) {
+      if (!(other instanceof AspectKey that)) {
         return false;
       }
-      AspectKey that = (AspectKey) other;
       return hashCode() == that.hashCode()
           && Objects.equal(getBaseKeys(), that.getBaseKeys())
           && Objects.equal(getBaseConfiguredTargetKey(), that.getBaseConfiguredTargetKey())
@@ -384,10 +383,9 @@ public final class AspectKeyCreator {
       if (o == this) {
         return true;
       }
-      if (!(o instanceof TopLevelAspectsKey)) {
+      if (!(o instanceof TopLevelAspectsKey that)) {
         return false;
       }
-      TopLevelAspectsKey that = (TopLevelAspectsKey) o;
       return hashCode() == that.hashCode()
           && Objects.equal(targetLabel, that.targetLabel)
           && Objects.equal(getBaseConfiguredTargetKey(), that.getBaseConfiguredTargetKey())

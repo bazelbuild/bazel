@@ -15,11 +15,12 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.collect.HashBiMap;
-import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import java.util.ArrayList;
@@ -34,13 +35,14 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 
-/** Context object for a Starlark thread evaluating the MODULE.bazel file and its imports. */
+/** Context object for a Starlark thread evaluating the MODULE.bazel file and files it includes. */
 public class ModuleThreadContext {
   private boolean moduleCalled = false;
   private boolean hadNonModuleCall = false;
   private final boolean ignoreDevDeps;
   private final InterimModule.Builder module;
   private final ImmutableMap<String, NonRegistryOverride> builtinModules;
+  @Nullable private final ImmutableMap<String, CompiledModuleFile> includeLabelToCompiledModuleFile;
   private final Map<String, DepSpec> deps = new LinkedHashMap<>();
   private final List<ModuleExtensionUsageBuilder> extensionUsageBuilders = new ArrayList<>();
   private final Map<String, ModuleOverride> overrides = new HashMap<>();
@@ -50,7 +52,7 @@ public class ModuleThreadContext {
       throws EvalException {
     ModuleThreadContext context = thread.getThreadLocal(ModuleThreadContext.class);
     if (context == null) {
-      throw Starlark.errorf("%s can only be called from MODULE.bazel and its imports", what);
+      throw Starlark.errorf("%s can only be called from MODULE.bazel and files it includes", what);
     }
     return context;
   }
@@ -62,11 +64,12 @@ public class ModuleThreadContext {
   public ModuleThreadContext(
       ImmutableMap<String, NonRegistryOverride> builtinModules,
       ModuleKey key,
-      @Nullable Registry registry,
-      boolean ignoreDevDeps) {
-    module = InterimModule.builder().setKey(key).setRegistry(registry);
+      boolean ignoreDevDeps,
+      @Nullable ImmutableMap<String, CompiledModuleFile> includeLabelToCompiledModuleFile) {
+    module = InterimModule.builder().setKey(key);
     this.ignoreDevDeps = ignoreDevDeps;
     this.builtinModules = builtinModules;
+    this.includeLabelToCompiledModuleFile = includeLabelToCompiledModuleFile;
   }
 
   record RepoNameUsage(String how, Location where) {}
@@ -119,28 +122,21 @@ public class ModuleThreadContext {
     private final String extensionBzlFile;
     private final String extensionName;
     private final boolean isolate;
-    private final Location location;
+    private final ArrayList<ModuleExtensionUsage.Proxy.Builder> proxyBuilders;
     private final HashBiMap<String, String> imports;
-    private final ImmutableSet.Builder<String> devImports;
     private final ImmutableList.Builder<Tag> tags;
-
-    private boolean hasNonDevUseExtension;
-    private boolean hasDevUseExtension;
-    private String exportedName;
 
     ModuleExtensionUsageBuilder(
         ModuleThreadContext context,
         String extensionBzlFile,
         String extensionName,
-        boolean isolate,
-        Location location) {
+        boolean isolate) {
       this.context = context;
       this.extensionBzlFile = extensionBzlFile;
       this.extensionName = extensionName;
       this.isolate = isolate;
-      this.location = location;
+      this.proxyBuilders = new ArrayList<>();
       this.imports = HashBiMap.create();
-      this.devImports = ImmutableSet.builder();
       this.tags = ImmutableList.builder();
     }
 
@@ -148,20 +144,8 @@ public class ModuleThreadContext {
       return context;
     }
 
-    void setHasNonDevUseExtension() {
-      hasNonDevUseExtension = true;
-    }
-
-    void setHasDevUseExtension() {
-      hasDevUseExtension = true;
-    }
-
-    void setExportedName(String exportedName) {
-      this.exportedName = exportedName;
-    }
-
-    boolean isExported() {
-      return exportedName != null;
+    void addProxyBuilder(ModuleExtensionUsage.Proxy.Builder builder) {
+      proxyBuilders.add(builder);
     }
 
     boolean isForExtension(String extensionBzlFile, String extensionName) {
@@ -173,7 +157,6 @@ public class ModuleThreadContext {
     void addImport(
         String localRepoName,
         String exportedName,
-        boolean devDependency,
         String byWhat,
         Location location)
         throws EvalException {
@@ -187,9 +170,6 @@ public class ModuleThreadContext {
             exportedName, extensionName, context.repoNameUsages.get(collisionRepoName).where());
       }
       imports.put(localRepoName, exportedName);
-      if (devDependency) {
-        devImports.add(exportedName);
-      }
     }
 
     void addTag(Tag tag) {
@@ -197,31 +177,46 @@ public class ModuleThreadContext {
     }
 
     ModuleExtensionUsage buildUsage() throws EvalException {
+      var proxies = proxyBuilders.stream().map(p -> p.build()).collect(toImmutableList());
       var builder =
           ModuleExtensionUsage.builder()
               .setExtensionBzlFile(extensionBzlFile)
               .setExtensionName(extensionName)
               .setUsingModule(context.getModuleBuilder().getKey())
-              .setLocation(location)
-              .setImports(ImmutableBiMap.copyOf(imports))
-              .setDevImports(devImports.build())
-              .setHasDevUseExtension(hasDevUseExtension)
-              .setHasNonDevUseExtension(hasNonDevUseExtension)
+              .setProxies(proxies)
               .setTags(tags.build());
       if (isolate) {
-        if (exportedName == null) {
+        ModuleExtensionUsage.Proxy onlyProxy = Iterables.getOnlyElement(proxies);
+        if (onlyProxy.getProxyName().isEmpty()) {
           throw Starlark.errorf(
-              "Isolated extension usage at %s must be assigned to a top-level variable", location);
+              "Isolated extension usage at %s must be assigned to a top-level variable",
+              onlyProxy.getLocation());
         }
         builder.setIsolationKey(
             Optional.of(
                 ModuleExtensionId.IsolationKey.create(
-                    context.getModuleBuilder().getKey(), exportedName)));
+                    context.getModuleBuilder().getKey(), onlyProxy.getProxyName())));
       } else {
         builder.setIsolationKey(Optional.empty());
       }
       return builder.build();
     }
+  }
+
+  public void include(String includeLabel, StarlarkThread thread)
+      throws InterruptedException, EvalException {
+    if (includeLabelToCompiledModuleFile == null) {
+      // This should never happen because compiling the non-root module file should have failed, way
+      // before evaluation started.
+      throw Starlark.errorf("trying to call `include()` from a non-root module");
+    }
+    var compiledModuleFile = includeLabelToCompiledModuleFile.get(includeLabel);
+    if (compiledModuleFile == null) {
+      // This should never happen because the file we're trying to include should have already been
+      // compiled before evaluation started.
+      throw Starlark.errorf("internal error; included file %s not compiled", includeLabel);
+    }
+    compiledModuleFile.runOnThread(thread);
   }
 
   public void addOverride(String moduleName, ModuleOverride override) throws EvalException {
@@ -231,7 +226,7 @@ public class ModuleThreadContext {
     }
   }
 
-  public InterimModule buildModule() throws EvalException {
+  public InterimModule buildModule(@Nullable Registry registry) throws EvalException {
     // Add builtin modules as default deps of the current module.
     for (String builtinModule : builtinModules.keySet()) {
       if (module.getKey().getName().equals(builtinModule)) {
@@ -257,6 +252,7 @@ public class ModuleThreadContext {
       extensionUsages.add(extensionUsageBuilder.buildUsage());
     }
     return module
+        .setRegistry(registry)
         .setDeps(ImmutableMap.copyOf(deps))
         .setOriginalDeps(ImmutableMap.copyOf(deps))
         .setExtensionUsages(extensionUsages.build())

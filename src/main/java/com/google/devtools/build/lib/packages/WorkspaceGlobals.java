@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.WorkspaceGlobalsApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
@@ -68,7 +69,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     }
     // Add entry in repository map from "@name" --> "@" to avoid issue where bazel
     // treats references to @name as a separate external repo
-    PackageFactory.getContext(thread)
+    Package.Builder.fromOrFailDisallowingSymbolicMacros(thread, "workspace()")
         .setWorkspaceName(name)
         .addRepositoryMappingEntry(RepositoryName.MAIN, name, RepositoryName.MAIN);
   }
@@ -104,7 +105,9 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
   public void registerExecutionPlatforms(Sequence<?> platformLabels, StarlarkThread thread)
       throws EvalException {
     // Add to the package definition for later.
-    Package.Builder builder = PackageFactory.getContext(thread);
+    Package.Builder builder =
+        Package.Builder.fromOrFailDisallowingSymbolicMacros(
+            thread, "register_execution_platforms()");
     List<String> patterns = Sequence.cast(platformLabels, String.class, "platform_labels");
     builder.addRegisteredExecutionPlatforms(parsePatterns(patterns, builder, thread));
   }
@@ -113,11 +116,32 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
   public void registerToolchains(Sequence<?> toolchainLabels, StarlarkThread thread)
       throws EvalException {
     // Add to the package definition for later.
-    Package.Builder builder = PackageFactory.getContext(thread);
+    Package.Builder builder =
+        Package.Builder.fromOrFailDisallowingSymbolicMacros(thread, "register_toolchains()");
     List<String> patterns = Sequence.cast(toolchainLabels, String.class, "toolchain_labels");
+
+    ImmutableList<TargetPattern> targetPatterns = parsePatterns(patterns, builder, thread);
+
+    if (thread
+        .getSemantics()
+        .getBool(BuildLanguageOptions.EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING)) {
+      for (TargetPattern tp : targetPatterns) {
+        if (tp.getType() == TargetPattern.Type.TARGETS_BELOW_DIRECTORY) {
+          throw Starlark.errorf(
+              "invalid target pattern \"%s\": register_toolchain target patterns may only refer to "
+                  + "targets within a single package",
+              tp.getOriginalPattern());
+        } else if (tp.getType() == TargetPattern.Type.PATH_AS_TARGET) {
+          throw Starlark.errorf(
+              "invalid target pattern \"%s\": register_toolchain target patterns may only refer to "
+                  + "targets with a declared package (relative path syntax omitting ':' is "
+                  + "ambiguous)",
+              tp.getOriginalPattern());
+        }
+      }
+    }
     builder.addRegisteredToolchains(
-        parsePatterns(patterns, builder, thread),
-        originatesInWorkspaceSuffix(thread.getCallStack()));
+        targetPatterns, originatesInWorkspaceSuffix(thread.getCallStack()));
   }
 
   @Override
@@ -130,7 +154,8 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
       throw Starlark.errorf("%s", e.getMessage());
     }
     try {
-      Package.Builder builder = PackageFactory.getContext(thread);
+      Package.Builder builder =
+          Package.Builder.fromOrFailDisallowingSymbolicMacros(thread, "bind()");
       RuleClass ruleClass = ruleClassMap.get("bind");
       RepositoryName currentRepo = getCurrentRepoName(thread);
       WorkspaceFactoryHelper.addBindRule(

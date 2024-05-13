@@ -44,6 +44,14 @@ public final class BazelRulesModule extends BlazeModule {
   @SuppressWarnings("deprecation") // These fields have no JavaDoc by design
   public static class BuildGraveyardOptions extends OptionsBase {
     @Option(
+        name = "enable_fdo_profile_absolute_path",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "Deprecated. No-op.")
+    public boolean enableFdoProfileAbsolutePath;
+
+    @Option(
         name = "incompatible_disallow_unsound_directory_outputs",
         defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -420,6 +428,47 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "No-op")
     public boolean dontUseJavaSourceInfoProvider;
+
+    private static final String ANDROID_FLAG_DEPRECATION =
+        "Legacy Android flags have been deprecated. See"
+            + " https://blog.bazel.build/2023/11/15/android-platforms.html for details and"
+            + " migration directions";
+
+    @Option(
+        name = "android_cpu",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "No-op",
+        deprecationWarning = ANDROID_FLAG_DEPRECATION)
+    public String cpu;
+
+    @Option(
+        name = "android_crosstool_top",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op",
+        deprecationWarning = ANDROID_FLAG_DEPRECATION)
+    public String androidCrosstoolTop;
+
+    @Option(
+        name = "android_grte_top",
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op",
+        deprecationWarning = ANDROID_FLAG_DEPRECATION)
+    public String androidLibcTopLabel;
+
+    @Option(
+        name = "incompatible_enable_android_toolchain_resolution",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op",
+        deprecationWarning = ANDROID_FLAG_DEPRECATION)
+    public boolean incompatibleUseToolchainResolution;
   }
 
   /**
@@ -427,6 +476,15 @@ public final class BazelRulesModule extends BlazeModule {
    * want to graveyard an all-command option specific to Blaze or Bazel, create a subclass.
    */
   public static final class AllCommandGraveyardOptions extends OptionsBase {
+
+    @Option(
+        name = "auto_cpu_environment_group",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        help = "No-op")
+    public String autoCpuEnvironmentGroup;
 
     @Option(
         name = "separate_aspect_deps",

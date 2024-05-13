@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.CommandLineItem.ExceptionlessMapFn;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -53,8 +54,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
 import java.util.UUID;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -380,8 +379,8 @@ public class CustomCommandLine extends AbstractCommandLine {
         // It'd be nice to build this into ActionInput's CommandLine interface so we don't have
         // to explicitly check if an object is a ActionInput. Unfortunately that would require
         // a lot more dependencies on the Java library ActionInput is built into.
-        return pathMapper != null && object instanceof ActionInput
-            ? pathMapper.getMappedExecPathString((ActionInput) object)
+        return pathMapper != null && object instanceof ActionInput actionInput
+            ? pathMapper.getMappedExecPathString(actionInput)
             : CommandLineItem.expandToCommandLine(object);
       }
 
@@ -580,9 +579,16 @@ public class CustomCommandLine extends AbstractCommandLine {
 
     private static final UUID PREFIX_UUID = UUID.fromString("a95eccdf-4f54-46fc-b925-c8c7e1f50c95");
 
-    private static void push(List<Object> arguments, String before, Object arg) {
+    private static void push(
+        List<Object> arguments,
+        String before,
+        Object arg,
+        @Nullable RepositoryMapping mainRepoMapping) {
       arguments.add(INSTANCE);
       arguments.add(before);
+      if (mainRepoMapping != null) {
+        arguments.add(mainRepoMapping);
+      }
       arguments.add(arg);
     }
 
@@ -594,6 +600,9 @@ public class CustomCommandLine extends AbstractCommandLine {
         PathMapper pathMapper) {
       String before = (String) arguments.get(argi++);
       Object arg = arguments.get(argi++);
+      if (arg instanceof RepositoryMapping mainRepoMapping) {
+        arg = ((Label) arguments.get(argi++)).getDisplayForm(mainRepoMapping);
+      }
       builder.add(before + CommandLineItem.expandToCommandLine(arg));
       return argi;
     }
@@ -606,7 +615,11 @@ public class CustomCommandLine extends AbstractCommandLine {
         Fingerprint fingerprint) {
       fingerprint.addUUID(PREFIX_UUID);
       fingerprint.addString((String) arguments.get(argi++));
-      fingerprint.addString(CommandLineItem.expandToCommandLine(arguments.get(argi++)));
+      Object arg = arguments.get(argi++);
+      if (arg instanceof RepositoryMapping mainRepoMapping) {
+        arg = ((Label) arguments.get(argi++)).getDisplayForm(mainRepoMapping);
+      }
+      fingerprint.addString(CommandLineItem.expandToCommandLine(arg));
       return argi;
     }
   }
@@ -678,11 +691,8 @@ public class CustomCommandLine extends AbstractCommandLine {
 
     @Override
     void eval(ImmutableList.Builder<String> builder, ArtifactExpander artifactExpander) {
-      Set<Artifact> expandedArtifacts = new TreeSet<>();
-      artifactExpander.expand(treeArtifact, expandedArtifacts);
-
-      for (Artifact expandedArtifact : expandedArtifacts) {
-        builder.add(expandedArtifact.getExecPathString());
+      for (TreeFileArtifact child : artifactExpander.expandTreeArtifact(treeArtifact)) {
+        builder.add(child.getExecPathString());
       }
     }
 
@@ -752,6 +762,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>Prefer this over its dynamic cousin, as using static strings saves memory.
      */
+    @CanIgnoreReturnValue
     public Builder add(@CompileTimeConstant String value) {
       return addObjectInternal(value);
     }
@@ -761,6 +772,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If the value is null, neither the arg nor the value is added.
      */
+    @CanIgnoreReturnValue
     public Builder add(@CompileTimeConstant String arg, @Nullable String value) {
       return addObjectInternal(arg, value);
     }
@@ -797,6 +809,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      * <p>There are many other ways you can try to avoid calling this. In general, try to use
      * constants or objects that are already on the heap elsewhere.
      */
+    @CanIgnoreReturnValue
     public Builder addDynamicString(@Nullable String value) {
       return addObjectInternal(value);
     }
@@ -807,6 +820,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      * <p>Prefer this over manually calling {@link Label#getCanonicalForm}, as it avoids a copy of
      * the label value.
      */
+    @CanIgnoreReturnValue
     public Builder addLabel(@Nullable Label value) {
       return addObjectInternal(value);
     }
@@ -819,6 +833,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If the value is null, neither the arg nor the value is added.
      */
+    @CanIgnoreReturnValue
     public Builder addLabel(@CompileTimeConstant String arg, @Nullable Label value) {
       return addObjectInternal(arg, value);
     }
@@ -829,6 +844,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      * <p>Prefer this over manually calling {@link PathFragment#getPathString}, as it avoids storing
      * a copy of the path string.
      */
+    @CanIgnoreReturnValue
     public Builder addPath(@Nullable PathFragment value) {
       return addObjectInternal(value);
     }
@@ -841,6 +857,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If the value is null, neither the arg nor the value is added.
      */
+    @CanIgnoreReturnValue
     public Builder addPath(@CompileTimeConstant String arg, @Nullable PathFragment value) {
       return addObjectInternal(arg, value);
     }
@@ -851,6 +868,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      * <p>Prefer this over manually calling {@link Artifact#getExecPath}, as it avoids storing a
      * copy of the artifact path string.
      */
+    @CanIgnoreReturnValue
     public Builder addExecPath(@Nullable Artifact value) {
       return addObjectInternal(value);
     }
@@ -863,16 +881,19 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If the value is null, neither the arg nor the value is added.
      */
+    @CanIgnoreReturnValue
     public Builder addExecPath(@CompileTimeConstant String arg, @Nullable Artifact value) {
       return addObjectInternal(arg, value);
     }
 
     /** Adds a lazily expanded string. */
+    @CanIgnoreReturnValue
     public Builder addLazyString(@Nullable OnDemandString value) {
       return addObjectInternal(value);
     }
 
     /** Adds a lazily expanded string. */
+    @CanIgnoreReturnValue
     public Builder addLazyString(@CompileTimeConstant String arg, @Nullable OnDemandString value) {
       return addObjectInternal(arg, value);
     }
@@ -887,23 +908,33 @@ public class CustomCommandLine extends AbstractCommandLine {
     }
 
     /** Concatenates the passed prefix string and the string. */
+    @CanIgnoreReturnValue
     public Builder addPrefixed(@CompileTimeConstant String prefix, @Nullable String arg) {
-      return addPrefixedInternal(prefix, arg);
+      return addPrefixedInternal(prefix, arg, /* mainRepoMapping= */ null);
     }
 
-    /** Concatenates the passed prefix string and the label using {@link Label#getCanonicalForm}. */
-    public Builder addPrefixedLabel(@CompileTimeConstant String prefix, @Nullable Label arg) {
-      return addPrefixedInternal(prefix, arg);
+    /**
+     * Concatenates the passed prefix string and the label using {@link Label#getDisplayForm}, which
+     * is identical to {@link Label#getCanonicalForm()} for main repo labels.
+     */
+    @CanIgnoreReturnValue
+    public Builder addPrefixedLabel(
+        @CompileTimeConstant String prefix,
+        @Nullable Label arg,
+        RepositoryMapping mainRepoMapping) {
+      return addPrefixedInternal(prefix, arg, mainRepoMapping);
     }
 
     /** Concatenates the passed prefix string and the path. */
+    @CanIgnoreReturnValue
     public Builder addPrefixedPath(@CompileTimeConstant String prefix, @Nullable PathFragment arg) {
-      return addPrefixedInternal(prefix, arg);
+      return addPrefixedInternal(prefix, arg, /* mainRepoMapping= */ null);
     }
 
     /** Concatenates the passed prefix string and the artifact's exec path. */
+    @CanIgnoreReturnValue
     public Builder addPrefixedExecPath(@CompileTimeConstant String prefix, @Nullable Artifact arg) {
-      return addPrefixedInternal(prefix, arg);
+      return addPrefixedInternal(prefix, arg, /* mainRepoMapping= */ null);
     }
 
     /**
@@ -912,6 +943,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      * <p>If you are converting long lists or nested sets of a different type to string lists,
      * please try to use a different method that supports what you are trying to do directly.
      */
+    @CanIgnoreReturnValue
     public Builder addAll(@Nullable Collection<String> values) {
       return addCollectionInternal(values);
     }
@@ -922,6 +954,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      * <p>If you are converting long lists or nested sets of a different type to string lists,
      * please try to use a different method that supports what you are trying to do directly.
      */
+    @CanIgnoreReturnValue
     public Builder addAll(@Nullable NestedSet<String> values) {
       return addNestedSetInternal(values);
     }
@@ -934,6 +967,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If values is empty, the arg isn't added.
      */
+    @CanIgnoreReturnValue
     public Builder addAll(@CompileTimeConstant String arg, @Nullable Collection<String> values) {
       return addCollectionInternal(arg, values);
     }
@@ -943,11 +977,13 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If values is empty, the arg isn't added.
      */
+    @CanIgnoreReturnValue
     public Builder addAll(@CompileTimeConstant String arg, @Nullable NestedSet<String> values) {
       return addNestedSetInternal(arg, values);
     }
 
     /** Adds the passed vector arg. See {@link VectorArg}. */
+    @CanIgnoreReturnValue
     public Builder addAll(VectorArg<String> vectorArg) {
       return addVectorArgInternal(vectorArg);
     }
@@ -957,16 +993,19 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If values is empty, the arg isn't added.
      */
+    @CanIgnoreReturnValue
     public Builder addAll(@CompileTimeConstant String arg, VectorArg<String> vectorArg) {
       return addVectorArgInternal(arg, vectorArg);
     }
 
     /** Adds the passed paths to the command line. */
+    @CanIgnoreReturnValue
     public Builder addPaths(@Nullable Collection<PathFragment> values) {
       return addCollectionInternal(values);
     }
 
     /** Adds the passed paths to the command line. */
+    @CanIgnoreReturnValue
     public Builder addPaths(@Nullable NestedSet<PathFragment> values) {
       return addNestedSetInternal(values);
     }
@@ -976,6 +1015,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If values is empty, the arg isn't added.
      */
+    @CanIgnoreReturnValue
     public Builder addPaths(
         @CompileTimeConstant String arg, @Nullable Collection<PathFragment> values) {
       return addCollectionInternal(arg, values);
@@ -986,12 +1026,14 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If values is empty, the arg isn't added.
      */
+    @CanIgnoreReturnValue
     public Builder addPaths(
         @CompileTimeConstant String arg, @Nullable NestedSet<PathFragment> values) {
       return addNestedSetInternal(arg, values);
     }
 
     /** Adds the passed vector arg. See {@link VectorArg}. */
+    @CanIgnoreReturnValue
     public Builder addPaths(VectorArg<PathFragment> vectorArg) {
       return addVectorArgInternal(vectorArg);
     }
@@ -1001,6 +1043,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If values is empty, the arg isn't added.
      */
+    @CanIgnoreReturnValue
     public Builder addPaths(@CompileTimeConstant String arg, VectorArg<PathFragment> vectorArg) {
       return addVectorArgInternal(arg, vectorArg);
     }
@@ -1011,11 +1054,13 @@ public class CustomCommandLine extends AbstractCommandLine {
      * <p>Do not use this method if the list is derived from a flattened nested set. Instead, figure
      * out how to avoid flattening the set and use {@link #addExecPaths(NestedSet)}.
      */
+    @CanIgnoreReturnValue
     public Builder addExecPaths(@Nullable Collection<Artifact> values) {
       return addCollectionInternal(values);
     }
 
     /** Adds the artifacts' exec paths to the command line. */
+    @CanIgnoreReturnValue
     public Builder addExecPaths(@Nullable NestedSet<Artifact> values) {
       return addNestedSetInternal(values);
     }
@@ -1028,6 +1073,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If values is empty, the arg isn't added.
      */
+    @CanIgnoreReturnValue
     public Builder addExecPaths(
         @CompileTimeConstant String arg, @Nullable Collection<Artifact> values) {
       return addCollectionInternal(arg, values);
@@ -1038,12 +1084,14 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If values is empty, the arg isn't added.
      */
+    @CanIgnoreReturnValue
     public Builder addExecPaths(
         @CompileTimeConstant String arg, @Nullable NestedSet<Artifact> values) {
       return addNestedSetInternal(arg, values);
     }
 
     /** Adds the passed vector arg. See {@link VectorArg}. */
+    @CanIgnoreReturnValue
     public Builder addExecPaths(VectorArg<Artifact> vectorArg) {
       return addVectorArgInternal(vectorArg);
     }
@@ -1053,6 +1101,7 @@ public class CustomCommandLine extends AbstractCommandLine {
      *
      * <p>If values is empty, the arg isn't added.
      */
+    @CanIgnoreReturnValue
     public Builder addExecPaths(@CompileTimeConstant String arg, VectorArg<Artifact> vectorArg) {
       return addVectorArgInternal(arg, vectorArg);
     }
@@ -1129,10 +1178,11 @@ public class CustomCommandLine extends AbstractCommandLine {
     }
 
     @CanIgnoreReturnValue
-    private Builder addPrefixedInternal(String prefix, @Nullable Object arg) {
+    private Builder addPrefixedInternal(
+        String prefix, @Nullable Object arg, @Nullable RepositoryMapping mainRepoMapping) {
       Preconditions.checkNotNull(prefix);
       if (arg != null) {
-        PrefixArg.push(arguments, prefix, arg);
+        PrefixArg.push(arguments, prefix, arg, mainRepoMapping);
       }
       return this;
     }
@@ -1248,31 +1298,31 @@ public class CustomCommandLine extends AbstractCommandLine {
     String previousFlag = null;
     for (int i = 0; i < count; ) {
       Object arg = arguments.get(i++);
-      if (arg instanceof TreeFileArtifactArgvFragment) {
-        arg = substituteTreeFileArtifactArgvFragment((TreeFileArtifactArgvFragment) arg);
+      if (arg instanceof TreeFileArtifactArgvFragment treeFileArtifactArgvFragment) {
+        arg = substituteTreeFileArtifactArgvFragment(treeFileArtifactArgvFragment);
       }
-      if (arg instanceof NestedSet) {
-        evalSimpleVectorArg(((NestedSet<?>) arg).toList(), builder, pathMapper, previousFlag);
+      if (arg instanceof NestedSet<?> nestedSet) {
+        evalSimpleVectorArg(nestedSet.toList(), builder, pathMapper, previousFlag);
       } else if (arg instanceof Iterable) {
         evalSimpleVectorArg((Iterable<?>) arg, builder, pathMapper, previousFlag);
       } else if (arg instanceof ArgvFragment) {
-        if (artifactExpander != null && arg instanceof TreeArtifactExpansionArgvFragment) {
-          TreeArtifactExpansionArgvFragment expansionArg = (TreeArtifactExpansionArgvFragment) arg;
+        if (artifactExpander != null
+            && arg instanceof TreeArtifactExpansionArgvFragment expansionArg) {
           expansionArg.eval(builder, artifactExpander);
         } else {
           i = ((ArgvFragment) arg).eval(arguments, i, builder, pathMapper);
         }
-      } else if (arg instanceof ActionInput) {
-        builder.add(pathMapper.getMappedExecPathString((ActionInput) arg));
-      } else if (arg instanceof PathFragment) {
-        builder.add(pathMapper.map((PathFragment) arg).getPathString());
+      } else if (arg instanceof ActionInput actionInput) {
+        builder.add(pathMapper.getMappedExecPathString(actionInput));
+      } else if (arg instanceof PathFragment pathFragment) {
+        builder.add(pathMapper.map(pathFragment).getPathString());
       } else {
         builder.add(CommandLineItem.expandToCommandLine(arg));
       }
       // Track the last scalar string argument (e.g. "--javacopts") so that the PathMapper can
       // heuristically map subsequent argument collections that contain paths.
-      if (arg instanceof String) {
-        previousFlag = (String) arg;
+      if (arg instanceof String string) {
+        previousFlag = string;
       } else {
         previousFlag = null;
       }
@@ -1287,8 +1337,8 @@ public class CustomCommandLine extends AbstractCommandLine {
       String previousFlag) {
     ExceptionlessMapFn<Object> mapFn = pathMapper.getMapFn(previousFlag);
     for (Object value : arg) {
-      if (value instanceof ActionInput) {
-        builder.add(pathMapper.getMappedExecPathString((ActionInput) value));
+      if (value instanceof ActionInput actionInput) {
+        builder.add(pathMapper.getMappedExecPathString(actionInput));
       } else {
         mapFn.expandToCommandLine(value, builder::add);
       }
@@ -1315,8 +1365,8 @@ public class CustomCommandLine extends AbstractCommandLine {
     int count = arguments.size();
     for (int i = 0; i < count; ) {
       Object arg = arguments.get(i++);
-      if (arg instanceof TreeFileArtifactArgvFragment) {
-        arg = substituteTreeFileArtifactArgvFragment((TreeFileArtifactArgvFragment) arg);
+      if (arg instanceof TreeFileArtifactArgvFragment treeFileArtifactArgvFragment) {
+        arg = substituteTreeFileArtifactArgvFragment(treeFileArtifactArgvFragment);
       }
       if (arg instanceof NestedSet) {
         actionKeyContext.addNestedSetToFingerprint(fingerprint, (NestedSet<Object>) arg);
@@ -1324,8 +1374,8 @@ public class CustomCommandLine extends AbstractCommandLine {
         for (Object value : (Iterable<Object>) arg) {
           fingerprint.addString(CommandLineItem.expandToCommandLine(value));
         }
-      } else if (arg instanceof ArgvFragment) {
-        i = ((ArgvFragment) arg).addToFingerprint(arguments, i, actionKeyContext, fingerprint);
+      } else if (arg instanceof ArgvFragment argvFragment) {
+        i = argvFragment.addToFingerprint(arguments, i, actionKeyContext, fingerprint);
       } else {
         fingerprint.addString(CommandLineItem.expandToCommandLine(arg));
       }

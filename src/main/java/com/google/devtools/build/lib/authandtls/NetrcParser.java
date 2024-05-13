@@ -137,8 +137,8 @@ public class NetrcParser {
     boolean done = false;
     while (!done && tokenStream.hasNext()) {
       Token token = tokenStream.next();
-      if (token instanceof ItemToken) {
-        String item = ((ItemToken) token).item();
+      if (token instanceof ItemToken itemToken) {
+        String item = itemToken.item();
         switch (item) {
           case MACHINE:
             String machine = nextItem(tokenStream);
@@ -168,8 +168,8 @@ public class NetrcParser {
   private static String nextItem(TokenStream tokenStream) throws IOException {
     while (tokenStream.hasNext()) {
       Token token = tokenStream.next();
-      if (token instanceof ItemToken) {
-        return ((ItemToken) token).item();
+      if (token instanceof ItemToken itemToken) {
+        return itemToken.item();
       }
     }
 
@@ -185,8 +185,8 @@ public class NetrcParser {
     while (!done && tokenStream.hasNext()) {
       // Peek rather than taking next token since we probably won't process it
       Token token = tokenStream.peek();
-      if (token instanceof ItemToken) {
-        String item = ((ItemToken) token).item();
+      if (token instanceof ItemToken itemToken) {
+        String item = itemToken.item();
         switch (item) {
           case LOGIN:
             tokenStream.next();

@@ -178,8 +178,7 @@ public final class CredentialHelper {
 
   @Override
   public boolean equals(Object o) {
-    if (o instanceof CredentialHelper) {
-      CredentialHelper that = (CredentialHelper) o;
+    if (o instanceof CredentialHelper that) {
       return Objects.equals(this.getPath(), that.getPath());
     }
 

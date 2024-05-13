@@ -296,8 +296,7 @@ public class HttpCacheClientTest {
                   retryScheduler,
                   Retrier.ALLOW_ALL_CALLS);
             });
-    if (socketAddress instanceof DomainSocketAddress) {
-      DomainSocketAddress domainSocketAddress = (DomainSocketAddress) socketAddress;
+    if (socketAddress instanceof DomainSocketAddress domainSocketAddress) {
       URI uri = new URI("http://localhost");
       return HttpCacheClient.create(
           domainSocketAddress,
@@ -310,8 +309,7 @@ public class HttpCacheClientTest {
           retrier,
           creds,
           authAndTlsOptions);
-    } else if (socketAddress instanceof InetSocketAddress) {
-      InetSocketAddress inetSocketAddress = (InetSocketAddress) socketAddress;
+    } else if (socketAddress instanceof InetSocketAddress inetSocketAddress) {
       URI uri = new URI("http://localhost:" + inetSocketAddress.getPort());
       return HttpCacheClient.create(
           uri,

@@ -44,7 +44,7 @@ class CommandManager {
   CommandManager(boolean doIdleServerTasks, @Nullable String slowInterruptMessageSuffix) {
     this.doIdleServerTasks = doIdleServerTasks;
     this.slowInterruptMessageSuffix = slowInterruptMessageSuffix;
-    idle(IdleServerCleanupStrategy.DELAYED);
+    idle(IdleServerCleanupStrategy.STATE_KEPT_AFTER_BUILD);
   }
 
   void preemptEligibleCommands() {
@@ -181,7 +181,8 @@ class CommandManager {
     private final Thread thread;
     private final String id;
     private final boolean preemptible;
-    private IdleServerCleanupStrategy cleanupStrategy = IdleServerCleanupStrategy.DELAYED;
+    private IdleServerCleanupStrategy cleanupStrategy =
+        IdleServerCleanupStrategy.STATE_KEPT_AFTER_BUILD;
 
     private RunningCommand(boolean preemptible) {
       thread = Thread.currentThread();
@@ -210,9 +211,18 @@ class CommandManager {
       return preemptible;
     }
 
-    /** Requests a manual GC as soon as the server becomes idle. */
-    void requestEagerIdleServerCleanup() {
-      cleanupStrategy = IdleServerCleanupStrategy.EAGER;
+    /**
+     * If state was not kept, GC as soon as the server becomes idle.
+     *
+     * <p>If state was kept, a manual GC will only be triggered if the server remains idle for a
+     * time period before the next command starts. See {@link IdleServerCleanupStrategy} for the
+     * exact duration.
+     */
+    void requestCleanup(boolean stateKeptAfterbuild) {
+      cleanupStrategy =
+          stateKeptAfterbuild
+              ? IdleServerCleanupStrategy.STATE_KEPT_AFTER_BUILD
+              : IdleServerCleanupStrategy.NO_STATE_KEPT_AFTER_BUILD;
     }
   }
 }

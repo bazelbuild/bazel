@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.Project.ProjectParseException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.UploadContext;
@@ -74,6 +75,7 @@ import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler.OutputType;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.InvalidAqueryOutputFormatException;
+import com.google.devtools.build.lib.skyframe.config.FlagSetValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -172,6 +174,7 @@ public class BuildTool {
 
     ExecutionTool executionTool = null;
     boolean catastrophe = false;
+    boolean hasAnyExceptionOrError = false;
     try {
       try (SilentCloseable c = Profiler.instance().profile("BuildStartingEvent")) {
         env.getEventBus().post(BuildStartingEvent.create(env, request));
@@ -266,6 +269,10 @@ public class BuildTool {
     } catch (Error | RuntimeException e) {
       // Don't handle the error here. We will do so in stopRequest.
       catastrophe = true;
+      hasAnyExceptionOrError = true;
+      throw e;
+    } catch (Exception e) {
+      hasAnyExceptionOrError = true;
       throw e;
     } finally {
       if (executionTool != null) {
@@ -281,6 +288,12 @@ public class BuildTool {
         // in the build. Ensure that build info is posted on every build.
         env.ensureBuildInfoPosted();
       }
+
+      if (!hasAnyExceptionOrError) {
+        // Skyfocus only works at the end of a successful build.
+        env.getSkyframeExecutor()
+            .runSkyfocus(env.getReporter(), env.getBlazeWorkspace().getPersistentActionCache());
+      }
     }
   }
 
@@ -289,10 +302,16 @@ public class BuildTool {
       BuildRequest request,
       BuildResult result,
       TargetValidator validator,
-      BuildOptions buildOptions)
-      throws InterruptedException, TargetParsingException, LoadingFailedException,
-          AbruptExitException, ViewCreationFailedException, BuildFailedException, TestExecException,
-          InvalidConfigurationException, RepositoryMappingResolutionException {
+      BuildOptions buildOptionsBeforeFlagSets)
+      throws InterruptedException,
+          TargetParsingException,
+          LoadingFailedException,
+          AbruptExitException,
+          ViewCreationFailedException,
+          BuildFailedException,
+          TestExecException,
+          InvalidConfigurationException,
+          RepositoryMappingResolutionException {
     // Target pattern evaluation.
     TargetPatternPhaseValue loadingResult;
     Profiler.instance().markPhase(ProfilePhase.TARGET_PATTERN_EVAL);
@@ -302,9 +321,21 @@ public class BuildTool {
     }
     env.setWorkspaceName(loadingResult.getWorkspaceName());
 
-    // TODO: b/324127375 - Use with incoming --scl_config flag.
-    PathFragment unusedProjectFile =
-        getProjectFile(loadingResult.getTargetLabels(), env.getSkyframeExecutor(), getReporter());
+    BuildOptions postFlagSetsBuildOptions;
+    String sclConfig = buildOptionsBeforeFlagSets.get(CoreOptions.class).sclConfig;
+    if (sclConfig != null && !sclConfig.isEmpty()) {
+      PathFragment projectFile =
+          getProjectFile(loadingResult.getTargetLabels(), env.getSkyframeExecutor(), getReporter());
+      if (projectFile != null) {
+        postFlagSetsBuildOptions =
+            applySclConfigs(
+                buildOptionsBeforeFlagSets, projectFile, env.getSkyframeExecutor(), getReporter());
+      } else {
+        postFlagSetsBuildOptions = buildOptionsBeforeFlagSets;
+      }
+    } else {
+      postFlagSetsBuildOptions = buildOptionsBeforeFlagSets;
+    }
 
     // See https://github.com/bazelbuild/rules_nodejs/issues/3693.
     env.getSkyframeExecutor().clearSyscallCache();
@@ -323,7 +354,7 @@ public class BuildTool {
           AnalysisAndExecutionPhaseRunner.execute(
               env,
               request,
-              buildOptions,
+              postFlagSetsBuildOptions,
               loadingResult,
               () -> executionTool.prepareForExecution(executionTimer),
               result::setBuildConfiguration,
@@ -458,7 +489,7 @@ public class BuildTool {
               /* includeSchedulingDependencies= */ true,
               /* actionFilters= */ null,
               /* includeParamFiles= */ false,
-              /* includeFileWriteContents */ false,
+              /* includeFileWriteContents= */ false,
               aqueryOutputHandler,
               getReporter());
       AqueryProcessor.dumpActionGraph(env, aqueryOutputHandler, actionGraphDump);
@@ -681,10 +712,6 @@ public class BuildTool {
       env.getReporter().handle(Event.error("Build interrupted during command completion"));
       ie = e;
     }
-    // Handle subscribers that need to run between the end of the command, and the end of the
-    // invocation proper. Tasks here will count to the overall time in profiles/metrics, unlike
-    // BuildPrecompleteEvent below.
-    env.getEventBus().post(new BuildToolFinalizingEvent(result.getDetailedExitCode()));
 
     // The stop time has to be captured before we send the BuildCompleteEvent.
     result.setStopTime(runtime.getClock().currentTimeMillis());
@@ -801,6 +828,22 @@ public class BuildTool {
           errorMsg,
           DetailedExitCode.of(ExitCode.BUILD_FAILURE, FailureDetail.getDefaultInstance()));
     }
+  }
+
+  /** Creates a BuildOptions class for the given options taken from an {@link OptionsProvider}. */
+  public static BuildOptions applySclConfigs(
+      BuildOptions buildOptionsBeforeFlagSets,
+      PathFragment projectFile,
+      SkyframeExecutor skyframeExecutor,
+      ExtendedEventHandler eventHandler)
+      throws InvalidConfigurationException {
+
+    FlagSetValue flagSetValue =
+        Project.modifyBuildOptionsWithFlagSets(
+            projectFile, buildOptionsBeforeFlagSets, eventHandler, skyframeExecutor);
+
+    // BuildOptions after Flagsets
+    return flagSetValue.getTopLevelBuildOptions();
   }
 
   private Reporter getReporter() {

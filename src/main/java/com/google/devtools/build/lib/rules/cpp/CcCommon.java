@@ -471,9 +471,10 @@ public final class CcCommon implements StarlarkValue {
     FdoContext.BranchFdoProfile branchFdoProvider = toolchain.getFdoContext().getBranchFdoProfile();
 
     boolean enablePropellerOptimize =
-        (cppConfiguration.getPropellerOptimizeLabel() != null
-            || cppConfiguration.getPropellerOptimizeAbsoluteCCProfile() != null
-            || cppConfiguration.getPropellerOptimizeAbsoluteLdProfile() != null);
+        (toolchain.getFdoContext().getPropellerOptimizeInputFile() != null
+            && (toolchain.getFdoContext().getPropellerOptimizeInputFile().getCcArtifact() != null
+                || toolchain.getFdoContext().getPropellerOptimizeInputFile().getLdArtifact()
+                    != null));
 
     if (branchFdoProvider != null && cppConfiguration.getCompilationMode() == CompilationMode.OPT) {
       if ((branchFdoProvider.isLlvmFdo() || branchFdoProvider.isLlvmCSFdo())
@@ -526,10 +527,6 @@ public final class CcCommon implements StarlarkValue {
 
     if (enablePropellerOptimize) {
       allRequestedFeaturesBuilder.add(CppRuleClasses.PROPELLER_OPTIMIZE);
-    }
-
-    if (cppConfiguration.getMemProfProfileLabel() != null) {
-      allRequestedFeaturesBuilder.add(CppRuleClasses.MEMPROF_OPTIMIZE);
     }
 
     for (String feature : allFeatures.build()) {

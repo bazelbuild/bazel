@@ -43,6 +43,7 @@ public abstract class JavaCcInfoProvider implements JavaInfoInternalProvider {
         CcInfo.builder()
             .setCcLinkingContext(ccInfo.getCcLinkingContext())
             .setCcNativeLibraryInfo(ccInfo.getCcNativeLibraryInfo())
+            .setCcDebugInfoContext(ccInfo.getCcDebugInfoContext())
             .build());
   }
 

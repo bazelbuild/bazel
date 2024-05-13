@@ -953,7 +953,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   /** Returns the compiler options. */
   @VisibleForTesting
   public List<String> getCompilerOptions() throws CommandLineExpansionException {
-    return compileCommandLine.getCompilerOptions(/*overwrittenVariables=*/ null);
+    return compileCommandLine.getCompilerOptions(/* overwrittenVariables= */ null);
   }
 
   @Override
@@ -961,10 +961,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return mergeMaps(super.getExecutionInfo(), executionInfo);
   }
 
-  private boolean validateInclude(
-      Set<Artifact> allowedIncludes,
-      Iterable<PathFragment> ignoreDirs,
-      Artifact include) {
+  private static boolean validateInclude(
+      Set<Artifact> allowedIncludes, Iterable<PathFragment> ignoreDirs, Artifact include) {
     // Only declared modules are added to an action and so they are always valid.
     return include.isFileType(CppFileTypes.CPP_MODULE)
         ||
@@ -1006,15 +1004,18 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     IncludeProblems errors = new IncludeProblems();
     Set<Artifact> allowedIncludes = new HashSet<>();
-    for (Artifact input :
-        Iterables.concat(
-            mandatoryInputs.toList(),
-            ccCompilationContext.getDeclaredIncludeSrcs().toList(),
-            additionalPrunableHeaders.toList())) {
-      if (input.isMiddlemanArtifact() || input.isTreeArtifact()) {
-        actionExecutionContext.getArtifactExpander().expand(input, allowedIncludes);
+    for (NestedSet<Artifact> set :
+        ImmutableList.of(
+            mandatoryInputs,
+            ccCompilationContext.getDeclaredIncludeSrcs(),
+            additionalPrunableHeaders)) {
+      for (Artifact input : set.toList()) {
+        if (input.isTreeArtifact()) {
+          allowedIncludes.addAll(
+              actionExecutionContext.getArtifactExpander().expandTreeArtifact(input));
+        }
+        allowedIncludes.add(input);
       }
-      allowedIncludes.add(input);
     }
 
     Iterable<PathFragment> ignoreDirs =

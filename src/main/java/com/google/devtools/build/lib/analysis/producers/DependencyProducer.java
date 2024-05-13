@@ -327,8 +327,7 @@ final class DependencyProducer
     // `LoadingFailedCause`. Requests parent-side context to be added to such errors by propagating
     // a `MissingEdgeError`.
     for (Cause cause : error.getRootCauses().toList()) {
-      if (cause instanceof LoadingFailedCause) {
-        var loadingFailed = (LoadingFailedCause) cause;
+      if (cause instanceof LoadingFailedCause loadingFailed) {
         if (loadingFailed.getLabel().equals(toLabel)) {
           sink.acceptDependencyError(
               new MissingEdgeError(

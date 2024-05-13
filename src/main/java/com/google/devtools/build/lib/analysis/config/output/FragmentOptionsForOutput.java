@@ -51,8 +51,7 @@ public class FragmentOptionsForOutput {
 
   @Override
   public boolean equals(Object o) {
-    if (o instanceof FragmentOptionsForOutput) {
-      FragmentOptionsForOutput other = (FragmentOptionsForOutput) o;
+    if (o instanceof FragmentOptionsForOutput other) {
       return other.name.equals(name) && other.options.equals(options);
     }
     return false;

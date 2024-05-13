@@ -37,11 +37,14 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionEvent;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
+import com.google.devtools.build.lib.bazel.bzlmod.CompiledModuleFile;
+import com.google.devtools.build.lib.bazel.bzlmod.ExternalDepsException;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFile;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
-import com.google.devtools.build.lib.bazel.bzlmod.RootModuleFileFixupEvent;
+import com.google.devtools.build.lib.bazel.bzlmod.RootModuleFileFixup;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ExtensionArg;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ExtensionArg.ExtensionArgConverter;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.InvalidArgumentException;
@@ -91,7 +94,6 @@ import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -101,6 +103,7 @@ import java.util.Optional;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.SymbolGenerator;
 
 /** Queries the Bzlmod external dependency graph. */
 @Command(
@@ -565,13 +568,7 @@ public final class ModCommand implements BlazeCommand {
   }
 
   private static class TidyEventRecorder {
-    final List<RootModuleFileFixupEvent> fixupEvents = new ArrayList<>();
     @Nullable BazelModuleResolutionEvent bazelModuleResolutionEvent;
-
-    @Subscribe
-    public void fixupGenerated(RootModuleFileFixupEvent event) {
-      fixupEvents.add(event);
-    }
 
     @Subscribe
     public void bazelModuleResolved(BazelModuleResolutionEvent event) {
@@ -587,8 +584,8 @@ public final class ModCommand implements BlazeCommand {
             .addArg(modTidyValue.buildozer().getPathString())
             .addArgs(
                 Stream.concat(
-                        eventRecorder.fixupEvents.stream()
-                            .map(RootModuleFileFixupEvent::getBuildozerCommands)
+                        modTidyValue.fixups().stream()
+                            .map(RootModuleFileFixup::buildozerCommands)
                             .flatMap(Collection::stream),
                         Stream.of("format"))
                     .collect(toImmutableList()))
@@ -597,9 +594,8 @@ public final class ModCommand implements BlazeCommand {
       buildozerCommand.build().execute();
     } catch (InterruptedException | CommandException e) {
       String suffix = "";
-      if (e instanceof AbnormalTerminationException) {
-        if (((AbnormalTerminationException) e).getResult().getTerminationStatus().getRawExitCode()
-            == 3) {
+      if (e instanceof AbnormalTerminationException abnormalTerminationException) {
+        if (abnormalTerminationException.getResult().getTerminationStatus().getRawExitCode() == 3) {
           // Buildozer exits with exit code 3 if it didn't make any changes.
           return BlazeCommandResult.success();
         }
@@ -612,7 +608,7 @@ public final class ModCommand implements BlazeCommand {
           Code.BUILDOZER_FAILED);
     }
 
-    for (RootModuleFileFixupEvent fixupEvent : eventRecorder.fixupEvents) {
+    for (RootModuleFileFixup fixupEvent : modTidyValue.fixups()) {
       env.getReporter().handle(Event.info(fixupEvent.getSuccessMessage()));
     }
 
@@ -632,19 +628,36 @@ public final class ModCommand implements BlazeCommand {
             "Unexpected error while reading module file after running buildozer: " + e.getMessage(),
             Code.BUILDOZER_FAILED);
       }
+      CompiledModuleFile compiledModuleFile;
+      try {
+        compiledModuleFile =
+            CompiledModuleFile.parseAndCompile(
+                ModuleFile.create(moduleFileContents, moduleFilePath.asPath().getPathString()),
+                ModuleKey.ROOT,
+                modTidyValue.starlarkSemantics(),
+                env.getRuntime().getRuleClassProvider().getBazelStarlarkEnvironment(),
+                env.getReporter());
+      } catch (ExternalDepsException e) {
+        return reportAndCreateFailureResult(
+            env,
+            "Unexpected error while compiling module file after running buildozer: "
+                + e.getMessage(),
+            Code.BUILDOZER_FAILED);
+      }
       ModuleFileValue.RootModuleFileValue newRootModuleFileValue;
       try {
         newRootModuleFileValue =
             ModuleFileFunction.evaluateRootModuleFile(
-                moduleFileContents,
-                moduleFilePath,
+                compiledModuleFile,
+                modTidyValue.includeLabelToCompiledModuleFile(),
                 ModuleFileFunction.getBuiltinModules(
                     env.getDirectories().getEmbeddedBinariesRoot()),
                 modTidyValue.moduleOverrides(),
                 modTidyValue.ignoreDevDeps(),
                 modTidyValue.starlarkSemantics(),
-                env.getRuntime().getRuleClassProvider().getBazelStarlarkEnvironment(),
-                env.getReporter());
+                env.getReporter(),
+                // Not persisted to Skyframe.
+                SymbolGenerator.createTransient());
       } catch (SkyFunctionException | InterruptedException e) {
         return reportAndCreateFailureResult(
             env,

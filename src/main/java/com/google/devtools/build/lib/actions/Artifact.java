@@ -23,11 +23,12 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Collections2;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.HashCodes;
@@ -51,13 +53,14 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * An Artifact represents a file used by the build system, whether it's a source file or a derived
@@ -212,38 +215,37 @@ public abstract class Artifact
     return EXEC_PATH_COMPARATOR.compare(this, o);
   }
 
-  /** An object that can expand middleman and tree artifacts. */
+  /** Expands tree artifacts and filesets. */
   public interface ArtifactExpander {
 
     /**
-     * Expands the given artifact, and populates "output" with the result.
+     * Returns the expansion of the given {@linkplain SpecialArtifactType#TREE tree artifact}.
      *
-     * <p>{@code artifact.isMiddlemanArtifact() || artifact.isTreeArtifact()} must be true. Only
-     * middlemen and tree artifacts are expanded.
+     * <p>If this expander does not have data for the given tree artifact, returns an empty set.
      */
-    void expand(Artifact artifact, Collection<? super Artifact> output);
+    ImmutableSortedSet<TreeFileArtifact> expandTreeArtifact(Artifact treeArtifact);
 
     /**
-     * Returns the expansion of Fileset for the given artifact.
+     * Returns the expansion of the given {@linkplain SpecialArtifactType#FILESET fileset artifact}.
      *
      * @param artifact {@code artifact.isFileset()} must be true.
      * @throws MissingExpansionException if the expander is missing data needed to expand provided
      *     fileset.
      */
-    default ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact)
+    default ImmutableList<FilesetOutputSymlink> expandFileset(Artifact fileset)
         throws MissingExpansionException {
-      throw new MissingExpansionException("Cannot expand fileset " + artifact);
+      throw new MissingExpansionException("Cannot expand fileset " + fileset);
     }
 
     /**
-     * Return an {@link ArchivedTreeArtifact} for a provided {@linkplain SpecialArtifact tree
-     * artifact} if one is available.
+     * Returns an {@link ArchivedTreeArtifact} for a provided {@linkplain SpecialArtifactType#TREE
+     * tree artifact} if one is available.
      *
      * <p>The {@linkplain ArchivedTreeArtifact archived tree artifact} can be used instead of the
      * tree artifact expansion.
      */
     @Nullable
-    default ArchivedTreeArtifact getArchivedTreeArtifact(SpecialArtifact treeArtifact) {
+    default ArchivedTreeArtifact getArchivedTreeArtifact(Artifact treeArtifact) {
       return null;
     }
   }
@@ -256,48 +258,6 @@ public abstract class Artifact
 
     public MissingExpansionException(String message) {
       super(message);
-    }
-  }
-
-  /** Implementation of {@link ArtifactExpander} */
-  public static class ArtifactExpanderImpl implements ArtifactExpander {
-    private final Map<Artifact, ImmutableCollection<? extends Artifact>> expandedInputs;
-    private final Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts;
-    private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets;
-
-    public ArtifactExpanderImpl(
-        Map<Artifact, ImmutableCollection<? extends Artifact>> expandedInputs,
-        Map<SpecialArtifact, ArchivedTreeArtifact> archivedTreeArtifacts,
-        Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets) {
-      this.expandedInputs = expandedInputs;
-      this.archivedTreeArtifacts = archivedTreeArtifacts;
-      this.expandedFilesets = expandedFilesets;
-    }
-
-    @Override
-    public void expand(Artifact artifact, Collection<? super Artifact> output) {
-      Preconditions.checkState(
-          artifact.isMiddlemanArtifact() || artifact.isTreeArtifact(), artifact);
-      ImmutableCollection<? extends Artifact> result = expandedInputs.get(artifact);
-      if (result != null) {
-        output.addAll(result);
-      }
-    }
-
-    @Override
-    public ImmutableList<FilesetOutputSymlink> getFileset(Artifact artifact)
-        throws MissingExpansionException {
-      Preconditions.checkState(artifact.isFileset());
-      ImmutableList<FilesetOutputSymlink> filesetLinks = expandedFilesets.get(artifact);
-      if (filesetLinks == null) {
-        throw new MissingExpansionException("Missing expansion for fileset: " + artifact);
-      }
-      return filesetLinks;
-    }
-
-    @Override
-    public ArchivedTreeArtifact getArchivedTreeArtifact(SpecialArtifact treeArtifact) {
-      return archivedTreeArtifacts.get(treeArtifact);
     }
   }
 
@@ -347,8 +307,8 @@ public abstract class Artifact
     }
 
     /**
-     * Same as {@link #create(ArtifactRoot, PathFragment, ActionLookupKeyOrOwner)} but includes the
-     * option to use a content-based path for this artifact (see {@link
+     * Same as {@link #create(ArtifactRoot, PathFragment, ActionLookupKey)} but includes the option
+     * to use a content-based path for this artifact (see {@link
      * com.google.devtools.build.lib.analysis.config.BuildConfigurationValue#useContentBasedOutputPaths}).
      */
     public static DerivedArtifact create(
@@ -418,8 +378,8 @@ public abstract class Artifact
      * consistent across calls to {@link #setGeneratingActionKey} and also serialization.
      */
     private static Object getOwnerToUseForHashCode(Object owner) {
-      return owner instanceof ActionLookupData
-          ? ((ActionLookupData) owner).getActionLookupKey()
+      return owner instanceof ActionLookupData actionLookupData
+          ? actionLookupData.getActionLookupKey()
           : owner;
     }
 
@@ -520,15 +480,21 @@ public abstract class Artifact
    *
    * <p> The directory name is always a relative path to the execution directory.
    */
-  @Override
   public final String getDirname() {
+    return getDirname(execPath);
+  }
+
+  private static String getDirname(PathFragment execPath) {
     PathFragment parent = execPath.getParentDirectory();
     return (parent == null) ? "/" : parent.getSafePathString();
   }
 
-  /**
-   * Returns the base file name of this artifact, similar to basename(1).
-   */
+  @Override
+  public final String getDirnameForStarlark(StarlarkSemantics semantics) {
+    return getDirname(PathMapper.loadFrom(semantics).map(execPath));
+  }
+
+  /** Returns the base file name of this artifact, similar to basename(1). */
   @Override
   public final String getFilename() {
     return execPath.getBaseName();
@@ -585,14 +551,35 @@ public abstract class Artifact
    * package-path entries (for source Artifacts), or one of the bin, genfiles or includes dirs (for
    * derived Artifacts). It will always be an ancestor of getPath().
    */
-  @Override
   public final ArtifactRoot getRoot() {
     return root;
   }
 
   @Override
+  public final FileRootApi getRootForStarlark(StarlarkSemantics semantics) {
+    // It would *not* be correct to just apply PathMapper#map to the exec path of the root: The
+    // root part of the mapped exec path of this artifact may depend on its complete exec path as
+    // well as on e.g. the digest of the artifact.
+    PathFragment mappedExecPath = PathMapper.loadFrom(semantics).map(execPath);
+    if (mappedExecPath.equals(execPath)) {
+      return root;
+    }
+    // PathMapper#map never changes the root-relative part of the exec path, so we can remove that
+    // suffix to get the mapped root part.
+    int rootRelativeSegmentCount = execPath.segmentCount() - root.getExecPath().segmentCount();
+    PathFragment mappedRootExecPath =
+        mappedExecPath.subFragment(0, mappedExecPath.segmentCount() - rootRelativeSegmentCount);
+    return new MappedArtifactRoot(mappedRootExecPath);
+  }
+
+  @Override
   public final PathFragment getExecPath() {
     return execPath;
+  }
+
+  @Override
+  public String getExecPathStringForStarlark(StarlarkSemantics semantics) {
+    return PathMapper.loadFrom(semantics).getMappedExecPathString(this);
   }
 
   /**
@@ -806,13 +793,12 @@ public abstract class Artifact
     if (this == other) {
       return true;
     }
-    if (!(other instanceof Artifact)) {
+    if (!(other instanceof Artifact that)) {
       return false;
     }
     if (!getClass().equals(other.getClass())) {
       return false;
     }
-    Artifact that = (Artifact) other;
     return equalsWithoutOwner(that) && ownersEqual(that);
   }
 
@@ -1362,7 +1348,7 @@ public abstract class Artifact
    */
   static void addExpandedArtifact(
       Artifact artifact,
-      Collection<? super Artifact> output,
+      List<? super Artifact> output,
       ArtifactExpander artifactExpander,
       Set<Artifact> emptyTreeArtifacts,
       boolean keepMiddlemanArtifacts) {
@@ -1374,11 +1360,11 @@ public abstract class Artifact
     }
 
     if (artifact.isTreeArtifact()) {
-      List<Artifact> expandedArtifacts = new ArrayList<>();
-      artifactExpander.expand(artifact, expandedArtifacts);
-      output.addAll(expandedArtifacts);
-      if (artifact.isTreeArtifact() && expandedArtifacts.isEmpty()) {
+      ImmutableSortedSet<TreeFileArtifact> children = artifactExpander.expandTreeArtifact(artifact);
+      if (children.isEmpty()) {
         emptyTreeArtifacts.add(artifact);
+      } else {
+        output.addAll(children);
       }
       return;
     }
@@ -1453,13 +1439,70 @@ public abstract class Artifact
 
     @Override
     public boolean equals(Object obj) {
-      return obj instanceof OwnerlessArtifactWrapper
-          && this.artifact.equalsWithoutOwner(((OwnerlessArtifactWrapper) obj).artifact);
+      return obj instanceof OwnerlessArtifactWrapper ownerlessArtifactWrapper
+          && this.artifact.equalsWithoutOwner(ownerlessArtifactWrapper.artifact);
     }
 
     @Override
     public String toString() {
       return MoreObjects.toStringHelper(this).add("artifact", artifact.toDebugString()).toString();
+    }
+  }
+
+  /** A {@link FileRootApi} obtained by applying a {@link PathMapper} to an {@link ArtifactRoot}. */
+  @StarlarkBuiltin(
+      name = "mapped_root",
+      category = DocCategory.BUILTIN,
+      doc = "A root for files that have been subject to path mapping")
+  private static final class MappedArtifactRoot
+      implements FileRootApi, Comparable<MappedArtifactRoot> {
+    private final PathFragment mappedRootExecPath;
+
+    public MappedArtifactRoot(PathFragment mappedRootExecPath) {
+      this.mappedRootExecPath = mappedRootExecPath;
+    }
+
+    @Override
+    public String getExecPathString() {
+      return mappedRootExecPath.getPathString();
+    }
+
+    @Override
+    public int compareTo(MappedArtifactRoot otherRoot) {
+      return mappedRootExecPath.compareTo(otherRoot.mappedRootExecPath);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      // Per the contract of PathMapper#map, mapped roots never have exec paths that are equal to
+      // exec paths of non-mapped roots, that is, of instances of ArtifactRoot. Thus, it is correct
+      // for both equals implementations to return false if the other object is not an instance of
+      // the respective class.
+      if (!(obj instanceof MappedArtifactRoot)) {
+        return false;
+      }
+      MappedArtifactRoot other = (MappedArtifactRoot) obj;
+      return mappedRootExecPath.equals(other.mappedRootExecPath);
+    }
+
+    @Override
+    public int hashCode() {
+      return mappedRootExecPath.hashCode();
+    }
+
+    @Override
+    public String toString() {
+      return mappedRootExecPath + " [mapped]";
+    }
+
+    @Override
+    public void repr(Printer printer) {
+      printer.append("<mapped root>");
+    }
+
+    @Override
+    public boolean isImmutable() {
+      return true;
     }
   }
 }

@@ -15,147 +15,95 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.cpp.FdoContext.BranchFdoProfile;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.BranchFdoProfileApi;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.FdoContextApi;
+import com.google.devtools.build.lib.packages.StructImpl;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Describes how C++ FDO compilation should be done.
  *
+ * <p>A POJO encapsulating the branch profiling configuration. For implementation see
+ * fdo_context.bzl.
+ *
  * <p><b>The {@code fdoProfilePath} member was a mistake. DO NOT USE IT FOR ANYTHING!</b>
  */
 @Immutable
-public final class FdoContext implements FdoContextApi<BranchFdoProfile> {
-  public static FdoContext getDisabledContext() {
-    return new FdoContext(
-        /* branchFdoProfile= */ null,
-        /* prefetchHintsArtifact= */ null,
-        /* propellerOptimizeInputFile= */ null,
-        /* memprofProfileArtifact= */ null);
-  }
-
-  /** The Branch FDO mode we are operating in. */
-  public enum BranchFdoMode {
-    /** FDO based on automatically collected data. */
-    AUTO_FDO,
-
-    /** FDO based on cross binary collected data. */
-    XBINARY_FDO,
-
-    /** Instrumentation-based FDO implemented on LLVM. */
-    LLVM_FDO,
-
-    /** Instrumentation-based Context Sensitive FDO implemented on LLVM. */
-    LLVM_CS_FDO,
-  }
+public final class FdoContext {
+  private final StructImpl fdoContextStruct;
 
   /** A POJO encapsulating the branch profiling configuration. */
   @Immutable
-  public static class BranchFdoProfile implements BranchFdoProfileApi {
-    private final BranchFdoMode branchFdoMode;
-    private final Artifact profileArtifact;
-    private final Artifact protoProfileArtifact;
+  public static class BranchFdoProfile {
+    private final StructImpl branchFdoProfile;
 
-    public BranchFdoProfile(
-        BranchFdoMode branchFdoMode, Artifact profileArtifact, Artifact protoProfileArtifact) {
-      this.branchFdoMode = branchFdoMode;
-      this.profileArtifact = profileArtifact;
-      this.protoProfileArtifact = protoProfileArtifact;
+    public BranchFdoProfile(StructImpl branchFdoProfile) {
+      this.branchFdoProfile = branchFdoProfile;
     }
 
-    public boolean isAutoFdo() {
-      return branchFdoMode == BranchFdoMode.AUTO_FDO;
+    public boolean isAutoFdo() throws EvalException {
+      return getBranchFdoMode().equals("auto_fdo");
     }
 
-    @Override
-    public boolean isAutoFdoForStarlark(StarlarkThread thread) throws EvalException {
-      CcModule.checkPrivateStarlarkificationAllowlist(thread);
-      return isAutoFdo();
+    public boolean isAutoXBinaryFdo() throws EvalException {
+      return getBranchFdoMode().equals("xbinary_fdo");
     }
 
-    public boolean isAutoXBinaryFdo() {
-      return branchFdoMode == BranchFdoMode.XBINARY_FDO;
+    public boolean isLlvmFdo() throws EvalException {
+      return getBranchFdoMode().equals("llvm_fdo");
     }
 
-    @Override
-    public boolean isAutoXBinaryFdoForStarlark(StarlarkThread thread) throws EvalException {
-      CcModule.checkPrivateStarlarkificationAllowlist(thread);
-      return isAutoXBinaryFdo();
+    public boolean isLlvmCSFdo() throws EvalException {
+      return getBranchFdoMode().equals("llvm_cs_fdo");
     }
 
-    public boolean isLlvmFdo() {
-      return branchFdoMode == BranchFdoMode.LLVM_FDO;
+    @Nullable
+    public Artifact getProfileArtifact() throws EvalException {
+      return branchFdoProfile.getNoneableValue("profile_artifact", Artifact.class);
     }
 
-    @Override
-    public boolean isLlvmFdoForStarlark(StarlarkThread thread) throws EvalException {
-      CcModule.checkPrivateStarlarkificationAllowlist(thread);
-      return isLlvmFdo();
-    }
-
-    public boolean isLlvmCSFdo() {
-      return branchFdoMode == BranchFdoMode.LLVM_CS_FDO;
-    }
-
-    @Override
-    public boolean isLlvmCSFdoForStarlark(StarlarkThread thread) throws EvalException {
-      CcModule.checkPrivateStarlarkificationAllowlist(thread);
-      return isLlvmCSFdo();
-    }
-
-    public Artifact getProfileArtifact() {
-      return profileArtifact;
-    }
-
-    public Artifact getProtoProfileArtifact() {
-      return protoProfileArtifact;
+    private String getBranchFdoMode() throws EvalException {
+      return branchFdoProfile.getValue("branch_fdo_mode", String.class);
     }
   }
 
-  private final BranchFdoProfile branchFdoProfile;
-  private final Artifact prefetchHintsArtifact;
-  private final PropellerOptimizeInputFile propellerOptimizeInputFile;
-  private final Artifact memprofProfileArtifact;
-
-  public FdoContext(
-      BranchFdoProfile branchFdoProfile,
-      Artifact prefetchHintsArtifact,
-      PropellerOptimizeInputFile propellerOptimizeInputFile,
-      Artifact memprofProfileArtifact) {
-    this.branchFdoProfile = branchFdoProfile;
-    this.prefetchHintsArtifact = prefetchHintsArtifact;
-    this.propellerOptimizeInputFile = propellerOptimizeInputFile;
-    this.memprofProfileArtifact = memprofProfileArtifact;
+  public FdoContext(StructImpl fdoContextStruct) {
+    this.fdoContextStruct = fdoContextStruct;
   }
 
-  public BranchFdoProfile getBranchFdoProfile() {
-    return branchFdoProfile;
-  }
-
-  @Override
   @Nullable
-  public BranchFdoProfile getBranchFdoProfileForStarlark(StarlarkThread thread)
-      throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return branchFdoProfile;
+  public BranchFdoProfile getBranchFdoProfile() throws EvalException {
+    StructImpl branchFdoProfile =
+        fdoContextStruct.getNoneableValue("branch_fdo_profile", StructImpl.class);
+    if (branchFdoProfile == null) {
+      return null;
+    }
+    return new BranchFdoProfile(branchFdoProfile);
   }
 
-  public Artifact getPrefetchHintsArtifact() {
-    return prefetchHintsArtifact;
+  public Artifact getPrefetchHintsArtifact() throws EvalException {
+    return fdoContextStruct.getNoneableValue("prefetch_hints_artifact", Artifact.class);
   }
 
-  public PropellerOptimizeInputFile getPropellerOptimizeInputFile() {
-    return propellerOptimizeInputFile;
+  @Nullable
+  public PropellerOptimizeInputFile getPropellerOptimizeInputFile() throws EvalException {
+    StructImpl inputFile =
+        fdoContextStruct.getNoneableValue("propeller_optimize_info", StructImpl.class);
+    if (inputFile == null) {
+      return null;
+    }
+    return new PropellerOptimizeInputFile(inputFile);
   }
 
-  public Artifact getMemProfProfileArtifact() {
-    return memprofProfileArtifact;
+  public Artifact getMemProfProfileArtifact() throws EvalException {
+    return fdoContextStruct.getNoneableValue("memprof_profile_artifact", Artifact.class);
   }
 
-  boolean hasArtifacts(CppConfiguration cppConfiguration) {
+  @Nullable
+  public Artifact getProtoProfileArtifact() throws EvalException {
+    return fdoContextStruct.getNoneableValue("proto_profile_artifact", Artifact.class);
+  }
+
+  boolean hasArtifacts() throws EvalException {
     return getBranchFdoProfile() != null
         || getPrefetchHintsArtifact() != null
         || getPropellerOptimizeInputFile() != null

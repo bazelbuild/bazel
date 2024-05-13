@@ -70,8 +70,8 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
   public ImmutableList<SkyKey> getDirectDepKeys() {
     ImmutableList.Builder<SkyKey> depKeys = ImmutableList.builderWithExpectedSize(children.length);
     for (Object child : children) {
-      if (child instanceof Artifact) {
-        depKeys.add(Artifact.key((Artifact) child));
+      if (child instanceof Artifact artifact) {
+        depKeys.add(Artifact.key(artifact));
       } else {
         depKeys.add(createInternal((Object[]) child));
       }
@@ -82,8 +82,8 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
   /** Applies a consumer function to the direct artifacts of this nested set. */
   public void applyToDirectArtifacts(DirectArtifactConsumer function) throws InterruptedException {
     for (Object child : children) {
-      if (child instanceof Artifact) {
-        function.accept((Artifact) child);
+      if (child instanceof Artifact artifact) {
+        function.accept(artifact);
       }
     }
   }
@@ -140,10 +140,9 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
       }
     }
     for (Object child : currentNode) {
-      if (!(child instanceof Object[])) {
+      if (!(child instanceof Object[] nextNode)) {
         continue;
       }
-      Object[] nextNode = (Object[]) child;
       if (findPathToArtifact(target, nextNode, path, seen)) {
         path.add(createInternal(nextNode));
         return true;
@@ -174,8 +173,8 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
     if (this == that) {
       return true;
     }
-    return that instanceof ArtifactNestedSetKey
-        && children == ((ArtifactNestedSetKey) that).children;
+    return that instanceof ArtifactNestedSetKey artifactNestedSetKey
+        && children == artifactNestedSetKey.children;
   }
 
   @Override

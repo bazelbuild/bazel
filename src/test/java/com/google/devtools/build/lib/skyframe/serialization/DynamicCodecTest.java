@@ -50,10 +50,9 @@ public final class DynamicCodecTest {
     @SuppressWarnings("EqualsHashCode") // Testing
     @Override
     public boolean equals(Object other) {
-      if (!(other instanceof SimpleExample)) {
+      if (!(other instanceof SimpleExample that)) {
         return false;
       }
-      SimpleExample that = (SimpleExample) other;
       return Objects.equals(elt, that.elt) && Objects.equals(elt2, that.elt2) && x == that.x;
     }
   }
@@ -77,13 +76,12 @@ public final class DynamicCodecTest {
     @SuppressWarnings("EqualsHashCode") // Testing
     @Override
     public boolean equals(Object other) {
-      if (!(other instanceof ExampleSubclass)) {
+      if (!(other instanceof ExampleSubclass that)) {
         return false;
       }
       if (!super.equals(other)) {
         return false;
       }
-      ExampleSubclass that = (ExampleSubclass) other;
       return Objects.equals(elt, that.elt);
     }
   }
@@ -115,10 +113,9 @@ public final class DynamicCodecTest {
     @SuppressWarnings("EqualsHashCode") // Testing
     @Override
     public boolean equals(Object other) {
-      if (!(other instanceof ExampleSmallPrimitives)) {
+      if (!(other instanceof ExampleSmallPrimitives that)) {
         return false;
       }
-      ExampleSmallPrimitives that = (ExampleSmallPrimitives) other;
       return v == that.v && bit == that.bit && b == that.b && s == that.s && c == that.c;
     }
   }
@@ -147,10 +144,9 @@ public final class DynamicCodecTest {
     @SuppressWarnings("EqualsHashCode") // Testing
     @Override
     public boolean equals(Object other) {
-      if (!(other instanceof ExampleMediumPrimitives)) {
+      if (!(other instanceof ExampleMediumPrimitives that)) {
         return false;
       }
-      ExampleMediumPrimitives that = (ExampleMediumPrimitives) other;
       return i == that.i && f == that.f;
     }
   }
@@ -179,10 +175,9 @@ public final class DynamicCodecTest {
     @SuppressWarnings("EqualsHashCode") // Testing
     @Override
     public boolean equals(Object other) {
-      if (!(other instanceof ExampleLargePrimitives)) {
+      if (!(other instanceof ExampleLargePrimitives that)) {
         return false;
       }
-      ExampleLargePrimitives that = (ExampleLargePrimitives) other;
       return l == that.l && d == that.d;
     }
   }
@@ -215,10 +210,9 @@ public final class DynamicCodecTest {
     @SuppressWarnings("EqualsHashCode") // Testing
     @Override
     public boolean equals(Object other) {
-      if (!(other instanceof ArrayExample)) {
+      if (!(other instanceof ArrayExample that)) {
         return false;
       }
-      ArrayExample that = (ArrayExample) other;
       return Arrays.equals(text, that.text)
           && Arrays.equals(numbers, that.numbers)
           && Arrays.equals(chars, that.chars)
@@ -250,10 +244,9 @@ public final class DynamicCodecTest {
     @SuppressWarnings("EqualsHashCode") // Testing
     @Override
     public boolean equals(Object other) {
-      if (!(other instanceof NestedArrayExample)) {
+      if (!(other instanceof NestedArrayExample that)) {
         return false;
       }
-      NestedArrayExample that = (NestedArrayExample) other;
       return Arrays.deepEquals(numbers, that.numbers);
     }
   }
@@ -286,10 +279,9 @@ public final class DynamicCodecTest {
     public boolean equals(Object other) {
       // Integrity check. Not really part of equals.
       assertThat(b.a).isEqualTo(this);
-      if (!(other instanceof CycleA)) {
+      if (!(other instanceof CycleA that)) {
         return false;
       }
-      CycleA that = (CycleA) other;
       // Consistency check. Not really part of equals.
       assertThat(that.b.a).isEqualTo(that);
       return value == that.value && b.value() == that.b.value;
@@ -356,10 +348,9 @@ public final class DynamicCodecTest {
     @SuppressWarnings("EqualsHashCode") // Testing
     @Override
     public boolean equals(Object object) {
-      if (!(object instanceof PrimitiveExample)) {
+      if (!(object instanceof PrimitiveExample that)) {
         return false;
       }
-      PrimitiveExample that = (PrimitiveExample) object;
       return booleanValue == that.booleanValue
           && intValue == that.intValue
           && doubleValue == that.doubleValue
@@ -495,10 +486,9 @@ public final class DynamicCodecTest {
     @SuppressWarnings("EqualsHashCode") // Testing
     @Override
     public boolean equals(Object other) {
-      if (!(other instanceof CustomHandlerExample)) {
+      if (!(other instanceof CustomHandlerExample that)) {
         return false;
       }
-      CustomHandlerExample that = (CustomHandlerExample) other;
       return Objects.equals(text, that.text) && Objects.equals(tricky, that.tricky);
     }
   }

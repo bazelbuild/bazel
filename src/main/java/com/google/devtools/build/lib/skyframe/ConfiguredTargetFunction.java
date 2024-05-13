@@ -341,6 +341,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                   prereqs.getTargetAndConfiguration().getTarget().getLocation(),
                   cvce.getMessage()));
       throw new ReportedException(cvce);
+    } catch (ActionConflictException e) {
+      // The reporting will be done when going through errors in the build.
+      throw new UnreportedException(e);
     } finally {
       maybeReleaseSemaphore();
     }
@@ -363,7 +366,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       ExecGroupCollection.Builder execGroupCollectionBuilder,
       @Nullable NestedSet<Package> transitivePackages)
-      throws ConfiguredValueCreationException, InterruptedException {
+      throws ConfiguredValueCreationException, InterruptedException, ActionConflictException {
     Target target = ctgValue.getTarget();
     BuildConfigurationValue configuration = ctgValue.getConfiguration();
 
@@ -396,9 +399,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     } catch (MissingDepException e) {
       Preconditions.checkState(env.valuesMissing(), e.getMessage());
       return null;
-    } catch (ActionConflictException e) {
-      e.reportTo(env.getListener());
-      throw new ConfiguredValueCreationException(ctgValue.getTarget(), e.getMessage());
     } catch (InvalidExecGroupException | StarlarkExecTransitionLoadingException e) {
       throw new ConfiguredValueCreationException(ctgValue.getTarget(), e.getMessage());
     } catch (AnalysisFailurePropagationException e) {
@@ -441,8 +441,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     analysisEnvironment.disable(target);
     Preconditions.checkNotNull(configuredTarget, target);
 
-    if (configuredTarget instanceof RuleConfiguredTarget) {
-      RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
+    if (configuredTarget instanceof RuleConfiguredTarget ruleConfiguredTarget) {
       return new RuleConfiguredTargetValue(ruleConfiguredTarget, transitivePackages);
     } else {
       // Expected 4 args, but got 3.
@@ -481,8 +480,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         state.targetAndConfigurationProducer = null;
       }
       result = state.targetAndConfigurationResult;
-      if (result instanceof TargetAndConfigurationError) {
-        var error = (TargetAndConfigurationError) result;
+      if (result instanceof TargetAndConfigurationError error) {
         switch (error.kind()) {
           case CONFIGURED_VALUE_CREATION:
             ConfiguredValueCreationException e = error.configuredValueCreation();

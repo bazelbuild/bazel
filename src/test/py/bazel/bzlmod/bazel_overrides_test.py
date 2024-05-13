@@ -15,6 +15,7 @@
 # pylint: disable=g-long-ternary
 
 import os
+import shutil
 import tempfile
 from absl.testing import absltest
 from src.test.py.bazel import test_base
@@ -29,12 +30,15 @@ class BazelOverridesTest(test_base.TestBase):
     self.main_registry = BazelRegistry(
         os.path.join(self.registries_work_dir, 'main')
     )
+    self.main_registry.start()
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'aaa', '1.1'
     ).createCcModule('bbb', '1.0', {'aaa': '1.0'}).createCcModule(
         'bbb', '1.1', {'aaa': '1.1'}
     ).createCcModule(
         'ccc', '1.1', {'aaa': '1.1', 'bbb': '1.1'}
+    ).createCcModule(
+        'ddd', '1.0'
     )
     self.ScratchFile(
         '.bazelrc',
@@ -53,6 +57,10 @@ class BazelOverridesTest(test_base.TestBase):
             'build --lockfile_mode=update',
         ],
     )
+
+  def tearDown(self):
+    self.main_registry.stop()
+    test_base.TestBase.tearDown(self)
 
   def writeMainProjectFiles(self):
     self.ScratchFile(
@@ -122,22 +130,26 @@ class BazelOverridesTest(test_base.TestBase):
         os.path.join(self.registries_work_dir, 'another'),
         ' from another registry',
     )
-    another_registry.createCcModule('aaa', '1.0')
-    self.ScratchFile(
-        'MODULE.bazel',
-        [
-            'bazel_dep(name = "aaa", version = "1.0")',
-            'bazel_dep(name = "bbb", version = "1.0")',
-            'single_version_override(',
-            '  module_name = "aaa",',
-            '  registry = "%s",' % another_registry.getURL(),
-            ')',
-        ],
-    )
-    _, stdout, _ = self.RunBazel(['run', '//:main'])
-    self.assertIn('main function => aaa@1.0 from another registry', stdout)
-    self.assertIn('main function => bbb@1.0', stdout)
-    self.assertIn('bbb@1.0 => aaa@1.0 from another registry', stdout)
+    another_registry.start()
+    try:
+      another_registry.createCcModule('aaa', '1.0')
+      self.ScratchFile(
+          'MODULE.bazel',
+          [
+              'bazel_dep(name = "aaa", version = "1.0")',
+              'bazel_dep(name = "bbb", version = "1.0")',
+              'single_version_override(',
+              '  module_name = "aaa",',
+              '  registry = "%s",' % another_registry.getURL(),
+              ')',
+          ],
+      )
+      _, stdout, _ = self.RunBazel(['run', '//:main'])
+      self.assertIn('main function => aaa@1.0 from another registry', stdout)
+      self.assertIn('main function => bbb@1.0', stdout)
+      self.assertIn('bbb@1.0 => aaa@1.0 from another registry', stdout)
+    finally:
+      another_registry.stop()
 
   def testArchiveOverride(self):
     self.writeMainProjectFiles()
@@ -262,6 +274,104 @@ class BazelOverridesTest(test_base.TestBase):
     self.assertIn('main function => aaa@1.0 (locally patched)', stdout)
     self.assertIn('main function => bbb@1.1', stdout)
     self.assertIn('bbb@1.1 => aaa@1.0 (locally patched)', stdout)
+
+  def testGitOverrideStripPrefix(self):
+    self.writeMainProjectFiles()
+
+    # Update BUILD and main.cc to also call `ddd`.
+    self.ScratchFile(
+        'BUILD',
+        [
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = [',
+            '    "@aaa//:lib_aaa",',
+            '    "@bbb//:lib_bbb",',
+            '    "@ddd//:lib_ddd",',
+            '  ],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'main.cc',
+        [
+            '#include "aaa.h"',
+            '#include "bbb.h"',
+            '#include "ddd.h"',
+            'int main() {',
+            '    hello_aaa("main function");',
+            '    hello_bbb("main function");',
+            '    hello_ddd("main function");',
+            '}',
+        ],
+    )
+    src_aaa_1_0 = self.main_registry.projects.joinpath('aaa', '1.0')
+    src_ddd_1_0 = self.main_registry.projects.joinpath('ddd', '1.0')
+    self.RunProgram(['git', 'init'], cwd=src_aaa_1_0)
+    self.RunProgram(
+        ['git', 'config', 'user.name', 'tester'],
+        cwd=src_aaa_1_0,
+    )
+    self.RunProgram(
+        ['git', 'config', 'user.email', 'tester@foo.com'],
+        cwd=src_aaa_1_0,
+    )
+
+    # Make a subdirectory that itself is the published module 'ddd'.
+    subdir_name = 'subdir_containing_ddd'
+    shutil.copytree(src=src_ddd_1_0, dst=src_aaa_1_0 / subdir_name)
+
+    # Edit the code in 'subdir_containing_ddd/ddd.cc' so that we can assert
+    # that we're using it.
+    src_aaa_relpath = src_aaa_1_0.relative_to(self._test_cwd)
+    self.ScratchFile(
+        str(src_aaa_relpath / subdir_name / 'ddd.cc'),
+        [
+            '#include <stdio.h>',
+            '#include "ddd.h"',
+            'void hello_ddd(const std::string& caller) {',
+            '    std::string lib_name = "ddd@1.0";',
+            (
+                '    printf("%s => %s from subdir\\n", caller.c_str(),'
+                ' lib_name.c_str());'
+            ),
+            '}',
+        ],
+    )
+
+    self.RunProgram(['git', 'add', './'], cwd=src_aaa_1_0)
+    self.RunProgram(
+        ['git', 'commit', '-m', 'Initial commit.'],
+        cwd=src_aaa_1_0,
+    )
+
+    _, stdout, _ = self.RunProgram(
+        ['git', 'rev-parse', 'HEAD'], cwd=src_aaa_1_0
+    )
+
+    commit = stdout[0].strip()
+
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.1")',
+            'bazel_dep(name = "bbb", version = "1.1")',
+            'bazel_dep(name = "ddd", version = "1.0")',
+            'git_override(',
+            '  module_name = "ddd",',
+            '  remote = "%s",' % src_aaa_1_0.as_uri(),
+            '  commit = "%s",' % commit,
+            '  strip_prefix = "%s",' % subdir_name,
+            ')',
+        ],
+    )
+
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
+    self.assertIn('main function => aaa@1.1', stdout)
+    self.assertIn('main function => bbb@1.1', stdout)
+    self.assertIn('bbb@1.1 => aaa@1.1', stdout)
+    self.assertIn('main function => ddd@1.0 from subdir', stdout)
 
   def testLocalPathOverride(self):
     src_aaa_1_0 = self.main_registry.projects.joinpath('aaa', '1.0')

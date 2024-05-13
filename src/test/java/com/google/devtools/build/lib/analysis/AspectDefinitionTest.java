@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -51,16 +52,20 @@ public class AspectDefinitionTest {
   private static final Label FAKE_LABEL = Label.parseCanonicalUnchecked("//fake/label.bzl");
 
   private static final StarlarkProviderIdentifier STARLARK_P1 =
-      StarlarkProviderIdentifier.forKey(new StarlarkProvider.Key(FAKE_LABEL, "STARLARK_P1"));
+      StarlarkProviderIdentifier.forKey(
+          new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "STARLARK_P1"));
 
   private static final StarlarkProviderIdentifier STARLARK_P2 =
-      StarlarkProviderIdentifier.forKey(new StarlarkProvider.Key(FAKE_LABEL, "STARLARK_P2"));
+      StarlarkProviderIdentifier.forKey(
+          new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "STARLARK_P2"));
 
   private static final StarlarkProviderIdentifier STARLARK_P3 =
-      StarlarkProviderIdentifier.forKey(new StarlarkProvider.Key(FAKE_LABEL, "STARLARK_P3"));
+      StarlarkProviderIdentifier.forKey(
+          new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "STARLARK_P3"));
 
   private static final StarlarkProviderIdentifier STARLARK_P4 =
-      StarlarkProviderIdentifier.forKey(new StarlarkProvider.Key(FAKE_LABEL, "STARLARK_P4"));
+      StarlarkProviderIdentifier.forKey(
+          new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "STARLARK_P4"));
 
   /**
    * A dummy aspect factory. Is there to demonstrate how to define aspects and so that we can test

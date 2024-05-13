@@ -306,7 +306,7 @@ public class SandboxHelpersTest {
             ParameterFileType.UNQUOTED,
             UTF_8);
 
-    paramFile.atomicallyWriteRelativeTo(scratch.resolve("/outputs"), "-1234");
+    paramFile.atomicallyWriteRelativeTo(scratch.resolve("/outputs"));
 
     assertThat(scratch.resolve("/outputs").readdir(Symlinks.NOFOLLOW))
         .containsExactly(new Dirent("paramFile", Dirent.Type.FILE));
@@ -321,7 +321,7 @@ public class SandboxHelpersTest {
         new BinTools.PathActionInput(
             scratch.file("tool", "tool_code"), PathFragment.create("tools/tool"));
 
-    tool.atomicallyWriteRelativeTo(scratch.resolve("/outputs"), "-1234");
+    tool.atomicallyWriteRelativeTo(scratch.resolve("/outputs"));
 
     assertThat(scratch.resolve("/outputs").readdir(Symlinks.NOFOLLOW))
         .containsExactly(new Dirent("tools", Dirent.Type.DIRECTORY));
@@ -334,12 +334,7 @@ public class SandboxHelpersTest {
   public void atomicallyWriteVirtualInput_writesArbitraryVirtualInput() throws Exception {
     VirtualActionInput input = ActionsTestUtil.createVirtualActionInput("file", "hello");
 
-    // Store an existing directory at the location where atomicallyWriteTo()
-    // writes its temporary file. It should be removed prior to the creation of
-    // the temporary file.
-    scratch.resolve("/outputs/file-1234").createDirectoryAndParents();
-
-    input.atomicallyWriteRelativeTo(scratch.resolve("/outputs"), "-1234");
+    input.atomicallyWriteRelativeTo(scratch.resolve("/outputs"));
 
     assertThat(scratch.resolve("/outputs").readdir(Symlinks.NOFOLLOW))
         .containsExactly(new Dirent("file", Dirent.Type.FILE));

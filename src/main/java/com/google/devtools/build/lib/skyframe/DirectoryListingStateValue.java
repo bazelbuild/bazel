@@ -107,10 +107,9 @@ public final class DirectoryListingStateValue implements SkyValue {
     if (this == obj) {
       return true;
     }
-    if (!(obj instanceof DirectoryListingStateValue)) {
+    if (!(obj instanceof DirectoryListingStateValue other)) {
       return false;
     }
-    DirectoryListingStateValue other = (DirectoryListingStateValue) obj;
     return compactSortedDirents.equals(other.compactSortedDirents);
   }
 
@@ -157,13 +156,12 @@ public final class DirectoryListingStateValue implements SkyValue {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof CompactSortedDirents)) {
+      if (!(obj instanceof CompactSortedDirents other)) {
         return false;
       }
       if (this == obj) {
         return true;
       }
-      CompactSortedDirents other = (CompactSortedDirents) obj;
       return Arrays.equals(names,  other.names) && packedTypes.equals(other.packedTypes);
     }
 

@@ -19,7 +19,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
@@ -27,8 +26,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.Reportable;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -43,7 +41,6 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
-import net.starlark.java.syntax.Location;
 
 /** The Starlark object passed to the implementation function of module extension metadata. */
 @StarlarkBuiltin(
@@ -173,14 +170,9 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
         reproducible);
   }
 
-  public void evaluate(
-      Collection<ModuleExtensionUsage> usages, Set<String> allRepos, ExtendedEventHandler handler)
+  public Optional<RootModuleFileFixup> generateFixup(
+      Collection<ModuleExtensionUsage> usages, Set<String> allRepos, EventHandler eventHandler)
       throws EvalException {
-    generateFixupMessage(usages, allRepos).forEach(reportable -> reportable.reportTo(handler));
-  }
-
-  private ImmutableList<Reportable> generateFixupMessage(
-      Collection<ModuleExtensionUsage> usages, Set<String> allRepos) throws EvalException {
     var rootUsages =
         usages.stream()
             .filter(usage -> usage.getUsingModule().equals(ModuleKey.ROOT))
@@ -188,7 +180,7 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
     if (rootUsages.isEmpty()) {
       // The root module doesn't use the current extension. Do not suggest fixes as the user isn't
       // expected to modify any other module's MODULE.bazel file.
-      return ImmutableList.of();
+      return Optional.empty();
     }
     // Every module only has at most a single usage of a given extension.
     ModuleExtensionUsage rootUsage = Iterables.getOnlyElement(rootUsages);
@@ -196,7 +188,7 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
     var rootModuleDirectDevDeps = getRootModuleDirectDevDeps(allRepos);
     var rootModuleDirectDeps = getRootModuleDirectDeps(allRepos);
     if (rootModuleDirectDevDeps.isEmpty() && rootModuleDirectDeps.isEmpty()) {
-      return ImmutableList.of();
+      return Optional.empty();
     }
     Preconditions.checkState(
         rootModuleDirectDevDeps.isPresent() && rootModuleDirectDeps.isPresent());
@@ -212,24 +204,33 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
               + "usages with dev_dependency = True");
     }
 
-    return generateFixupMessage(
-        rootUsage, allRepos, rootModuleDirectDeps.get(), rootModuleDirectDevDeps.get());
+    return generateFixup(
+        rootUsage,
+        allRepos,
+        rootModuleDirectDeps.get(),
+        rootModuleDirectDevDeps.get(),
+        eventHandler);
   }
 
-  private static ImmutableList<Reportable> generateFixupMessage(
+  private static Optional<RootModuleFileFixup> generateFixup(
       ModuleExtensionUsage rootUsage,
       Set<String> allRepos,
       Set<String> expectedImports,
-      Set<String> expectedDevImports) {
-    var actualDevImports = ImmutableSet.copyOf(rootUsage.getDevImports());
+      Set<String> expectedDevImports,
+      EventHandler eventHandler) {
+    var actualDevImports =
+        rootUsage.getProxies().stream()
+            .filter(p -> p.isDevDependency())
+            .flatMap(p -> p.getImports().values().stream())
+            .collect(toImmutableSet());
     var actualImports =
-        rootUsage.getImports().values().stream()
-            .filter(repo -> !actualDevImports.contains(repo))
+        rootUsage.getProxies().stream()
+            .filter(p -> !p.isDevDependency())
+            .flatMap(p -> p.getImports().values().stream())
             .collect(toImmutableSet());
 
     String extensionBzlFile = rootUsage.getExtensionBzlFile();
     String extensionName = rootUsage.getExtensionName();
-    Location location = rootUsage.getLocation();
 
     var importsToAdd = ImmutableSortedSet.copyOf(Sets.difference(expectedImports, actualImports));
     var importsToRemove =
@@ -243,7 +244,7 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
         && importsToRemove.isEmpty()
         && devImportsToAdd.isEmpty()
         && devImportsToRemove.isEmpty()) {
-      return ImmutableList.of();
+      return Optional.empty();
     }
 
     var message =
@@ -343,8 +344,8 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
             .flatMap(Optional::stream)
             .collect(toImmutableList());
 
-    return ImmutableList.of(
-        Event.warn(location, message), new RootModuleFileFixupEvent(buildozerCommands, rootUsage));
+    eventHandler.handle(Event.warn(rootUsage.getProxies().getFirst().getLocation(), message));
+    return Optional.of(new RootModuleFileFixup(buildozerCommands, rootUsage));
   }
 
   private static Optional<String> makeUseRepoCommand(

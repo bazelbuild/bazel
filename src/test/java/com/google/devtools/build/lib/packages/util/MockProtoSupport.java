@@ -392,52 +392,52 @@ public final class MockProtoSupport {
     config.create(
         "third_party/bazel_rules/rules_proto/proto/proto_toolchain_rule.bzl",
         """
-        ProtoLangToolchainInfo = proto_common_do_not_use.ProtoLangToolchainInfo
+ProtoLangToolchainInfo = proto_common_do_not_use.ProtoLangToolchainInfo
 
-        def _impl(ctx):
-            return [
-                DefaultInfo(
-                    files = depset(),
-                    runfiles = ctx.runfiles(),
-                ),
-                platform_common.ToolchainInfo(
-                    proto = ProtoLangToolchainInfo(
-                        out_replacement_format_flag = ctx.attr.command_line,
-                        output_files = ctx.attr.output_files,
-                        plugin = None,
-                        runtime = None,
-                        proto_compiler = ctx.attr.proto_compiler.files_to_run,
-                        protoc_opts = ctx.fragments.proto.experimental_protoc_opts,
-                        progress_message = ctx.attr.progress_message,
-                        mnemonic = ctx.attr.mnemonic,
-                        allowlist_different_package = None,
-                        toolchain_type =
-                            "//third_party/bazel_rules/rules_proto/proto:toolchain_type",
-                    ),
-                ),
-            ]
+def _impl(ctx):
+    return [
+        DefaultInfo(
+            files = depset(),
+            runfiles = ctx.runfiles(),
+        ),
+        platform_common.ToolchainInfo(
+            proto = ProtoLangToolchainInfo(
+                out_replacement_format_flag = ctx.attr.command_line,
+                output_files = ctx.attr.output_files,
+                plugin = None,
+                runtime = None,
+                proto_compiler = ctx.attr.proto_compiler.files_to_run,
+                protoc_opts = ctx.fragments.proto.experimental_protoc_opts,
+                progress_message = ctx.attr.progress_message,
+                mnemonic = ctx.attr.mnemonic,
+                allowlist_different_package = None,
+                toolchain_type =
+                    "//third_party/bazel_rules/rules_proto/proto:toolchain_type",
+            ),
+        ),
+    ]
 
-        proto_toolchain = rule(
-            _impl,
-            attrs = {
-                "progress_message": attr.string(default =
-                    "Generating Descriptor Set proto_library %{label}"),
-                "mnemonic": attr.string(default = "GenProtoDescriptorSet"),
-                "command_line": attr.string(default = "--descriptor_set_out=%s"),
-                "output_files": attr.string(
-                    values = ["single", "multiple", "legacy"],
-                    default = "single",
-                ),
-                "proto_compiler": attr.label(
-                    cfg = "exec",
-                    executable = True,
-                    allow_files = True,
-                ),
-            },
-            provides = [platform_common.ToolchainInfo],
-            fragments = ["proto"],
-        )
-        """);
+proto_toolchain = rule(
+    _impl,
+    attrs = {
+        "progress_message": attr.string(default =
+                                            "Generating Descriptor Set proto_library %{label}"),
+        "mnemonic": attr.string(default = "GenProtoDescriptorSet"),
+        "command_line": attr.string(default = "--descriptor_set_out=%s"),
+        "output_files": attr.string(
+            values = ["single", "multiple", "legacy"],
+            default = "single",
+        ),
+        "proto_compiler": attr.label(
+            cfg = "exec",
+            executable = True,
+            allow_files = True,
+        ),
+    },
+    provides = [platform_common.ToolchainInfo],
+    fragments = ["proto"],
+)
+""");
     config.create(
         "third_party/bazel_rules/rules_proto/proto/proto_lang_toolchain.bzl",
         """

@@ -588,6 +588,13 @@ abstract class InMemoryNodeEntryTest<V extends Version> {
     assertThat(entry.getErrorInfo()).isEqualTo(errorInfo);
   }
 
+  @Test
+  public void skipsBatchPrefetch_testTemporaryDepsContainsHashSet() {
+    InMemoryNodeEntry entry = createEntry(GraphTester.skipBatchPrefetchKey("dropBatchPrefetch"));
+    entry.addReverseDepAndCheckIfDone(null); // Start evaluation
+    assertThat(entry.getTemporaryDirectDeps()).isInstanceOf(GroupedDeps.WithHashSet.class);
+  }
+
   @CanIgnoreReturnValue
   static Set<SkyKey> setValue(
       NodeEntry entry, SkyValue value, @Nullable ErrorInfo errorInfo, Version graphVersion)

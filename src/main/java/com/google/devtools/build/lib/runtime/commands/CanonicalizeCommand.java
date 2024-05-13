@@ -227,7 +227,8 @@ public final class CanonicalizeCommand implements BlazeCommand {
     try {
       InvocationPolicyEnforcer invocationPolicyEnforcer =
           new InvocationPolicyEnforcer(policy, Level.INFO, mainRepoMapping);
-      invocationPolicyEnforcer.enforce(parser, commandName);
+      invocationPolicyEnforcer.enforce(
+          parser, commandName, /* invocationPolicyFlagListBuilder= */ ImmutableList.builder());
 
       // Print out the canonical invocation policy if requested.
       if (canonicalizeOptions.canonicalizePolicy) {

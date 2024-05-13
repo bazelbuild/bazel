@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.LtoCompilationContextApi;
 import java.util.Objects;
 import java.util.Set;
 import net.starlark.java.eval.StarlarkValue;
@@ -28,7 +29,7 @@ import net.starlark.java.eval.StarlarkValue;
  * that can be used for the LTO indexing step, as well as to compile flags applying to that
  * compilation that should also be applied to the LTO backend compilation invocation.
  */
-public final class LtoCompilationContext implements StarlarkValue {
+public final class LtoCompilationContext implements StarlarkValue, LtoCompilationContextApi {
   static final LtoCompilationContext EMPTY = new LtoCompilationContext(ImmutableMap.of());
 
   private final ImmutableMap<Artifact, BitcodeInfo> ltoBitcodeFiles;
@@ -155,8 +156,8 @@ public final class LtoCompilationContext implements StarlarkValue {
     if (this == o) {
       return true;
     }
-    return (o instanceof LtoCompilationContext)
-        && ltoBitcodeFiles.equals(((LtoCompilationContext) o).ltoBitcodeFiles);
+    return o instanceof LtoCompilationContext ltoCompilationContext
+        && ltoBitcodeFiles.equals(ltoCompilationContext.ltoBitcodeFiles);
   }
 
   @Override

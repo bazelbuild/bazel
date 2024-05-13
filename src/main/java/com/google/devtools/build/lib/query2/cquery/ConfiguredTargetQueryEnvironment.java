@@ -274,7 +274,7 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
         Futures.catchingAsync(
             patternToEval.evalAdaptedForAsync(
                 resolver,
-                getIgnoredPackagePrefixesPathFragments(),
+                getIgnoredPackagePrefixesPathFragments(patternToEval.getRepository()),
                 /* excludedSubdirectories= */ ImmutableSet.of(),
                 (Callback<Target>)
                     partialResult -> {
@@ -323,10 +323,10 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
     SkyValue value = getConfiguredTargetValue(key);
     if (value == null) {
       return null;
-    } else if (value instanceof ConfiguredTargetValue) {
-      return ((ConfiguredTargetValue) value).getConfiguredTarget();
-    } else if (value instanceof AspectValue && key instanceof AspectKey) {
-      return (AspectKey) key;
+    } else if (value instanceof ConfiguredTargetValue configuredTargetValue) {
+      return configuredTargetValue.getConfiguredTarget();
+    } else if (value instanceof AspectValue && key instanceof AspectKey aspectValue) {
+      return aspectValue;
     } else {
       throw new IllegalStateException("unknown value type for CqueryNode");
     }
@@ -490,8 +490,8 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
   @Nullable
   @Override
   protected RuleConfiguredTarget getRuleConfiguredTarget(CqueryNode configuredTarget) {
-    if (configuredTarget instanceof RuleConfiguredTarget) {
-      return (RuleConfiguredTarget) configuredTarget;
+    if (configuredTarget instanceof RuleConfiguredTarget ruleConfiguredTarget) {
+      return ruleConfiguredTarget;
     }
     return null;
   }

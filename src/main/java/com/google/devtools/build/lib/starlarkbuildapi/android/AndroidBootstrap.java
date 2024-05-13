@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidApplicationResourceInfoApi.AndroidApplicationResourceInfoApiProvider;
-import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDeviceBrokerInfoApi.AndroidDeviceBrokerInfoApiProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidInstrumentationInfoApi.AndroidInstrumentationInfoApiProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidNativeLibsInfoApi.AndroidNativeLibsInfoApiProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidResourcesInfoApi.AndroidResourcesInfoApiProvider;
@@ -45,7 +44,6 @@ public class AndroidBootstrap implements Bootstrap {
       AndroidStarlarkCommonApi<?, ?, ?, ?, ?> androidCommon,
       ApkInfoApiProvider<?> apkInfoProvider,
       AndroidInstrumentationInfoApiProvider<?> androidInstrumentationInfoProvider,
-      AndroidDeviceBrokerInfoApiProvider androidDeviceBrokerInfoProvider,
       AndroidResourcesInfoApiProvider<?, ?, ?> androidResourcesInfoProvider,
       AndroidNativeLibsInfoApiProvider androidNativeLibsInfoProvider,
       AndroidApplicationResourceInfoApiProvider<?> androidApplicationResourceInfoApiProvider,
@@ -76,7 +74,6 @@ public class AndroidBootstrap implements Bootstrap {
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
     builder.put(ApkInfoApi.NAME, apkInfoProvider);
     builder.put(AndroidInstrumentationInfoApi.NAME, androidInstrumentationInfoProvider);
-    builder.put(AndroidDeviceBrokerInfoApi.NAME, androidDeviceBrokerInfoProvider);
     builder.put(AndroidResourcesInfoApi.NAME, androidResourcesInfoProvider);
     builder.put(AndroidNativeLibsInfoApi.NAME, androidNativeLibsInfoProvider);
     builder.put(AndroidApplicationResourceInfoApi.NAME, androidApplicationResourceInfoApiProvider);

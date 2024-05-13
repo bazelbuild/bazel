@@ -16,12 +16,14 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
+import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 
 /**
  * An abridged version of a {@link Module}, with a reduced set of information available, used for
  * module extension resolution.
  */
 @AutoValue
+@GenerateTypeAdapter
 public abstract class AbridgedModule {
   public abstract String getName();
 

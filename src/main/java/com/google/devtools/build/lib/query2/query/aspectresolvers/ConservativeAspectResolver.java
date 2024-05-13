@@ -36,10 +36,9 @@ public class ConservativeAspectResolver implements AspectResolver {
   @Override
   public ImmutableMap<Aspect, ImmutableMultimap<Attribute, Label>> computeAspectDependencies(
       Target target, DependencyFilter dependencyFilter) {
-    if (!(target instanceof Rule)) {
+    if (!(target instanceof Rule rule)) {
       return ImmutableMap.of();
     }
-    Rule rule = (Rule) target;
     if (!rule.hasAspects()) {
       return ImmutableMap.of();
     }

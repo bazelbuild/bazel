@@ -230,8 +230,8 @@ public class RuleDocumentationAttribute
       // We cannot print anything useful here other than "optional". Let's assume the doc string for
       // the attribute explains the details.
       return null;
-    } else if (value instanceof TriState) {
-      switch ((TriState) value) {
+    } else if (value instanceof TriState triState) {
+      switch (triState) {
         case AUTO:
           return "-1";
         case NO:

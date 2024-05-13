@@ -21,6 +21,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.ABSOLUTE_INCLUDES_PATH_FORMAT;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.BOTH_MODULE_NAME_AND_MODULE_MAP_SPECIFIED;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -47,6 +49,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
@@ -56,7 +59,6 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkerInput;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
-import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -67,7 +69,11 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Test case for objc_library. */
+/**
+ * Test case for objc_library.
+ *
+ * <p>TODO(b/322845822): remove uses of `--cpu=k8` in tests.
+ */
 @RunWith(JUnit4.class)
 public class ObjcLibraryTest extends ObjcRuleTestCase {
 
@@ -121,8 +127,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         """);
 
     setBuildLanguageOptions("--incompatible_disable_objc_library_transition");
-    useConfiguration("--macos_cpus=arm64,x86_64");
-
+    useConfiguration("--macos_cpus=arm64,x86_64", "--cpu=k8");
     ConfiguredTarget cc = getConfiguredTarget("//bin:cc");
     Artifact objcObject =
         ActionsTestUtil.getFirstArtifactEndingWith(
@@ -509,7 +514,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(compileActionA.getArguments())
         .contains("tools/osx/crosstool/iossim/" + WRAPPED_CLANG);
     assertThat(compileActionA.getArguments())
-        .containsAtLeast("-isysroot", AppleToolchain.sdkDir())
+        .containsAtLeast("-isysroot", "__BAZEL_XCODE_SDKROOT__")
         .inOrder();
     assertThat(compileActionA.getArguments())
         .containsAtLeastElementsIn(CompilationSupport.DEFAULT_COMPILER_FLAGS);
@@ -550,7 +555,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertRequiresDarwin(compileActionA);
     assertThat(compileActionA.getArguments()).contains("tools/osx/crosstool/ios/" + WRAPPED_CLANG);
     assertThat(compileActionA.getArguments())
-        .containsAtLeast("-isysroot", AppleToolchain.sdkDir())
+        .containsAtLeast("-isysroot", "__BAZEL_XCODE_SDKROOT__")
         .inOrder();
     assertThat(compileActionA.getArguments())
         .containsAtLeastElementsIn(CompilationSupport.DEFAULT_COMPILER_FLAGS);
@@ -1010,7 +1015,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "--apple_platform_type=ios",
         "--platforms=" + MockObjcSupport.IOS_X86_64,
         "--compilation_mode=dbg",
-        "--incompatible_avoid_hardcoded_objc_compilation_flags");
+        "--incompatible_avoid_hardcoded_objc_compilation_flags",
+        "--cpu=k8");
     scratch.file("x/a.m");
     RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
 
@@ -1024,7 +1030,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "--platforms=" + MockObjcSupport.IOS_X86_64,
         "--compilation_mode=dbg",
         "--objc_debug_with_GLIBCXX=false",
-        "--incompatible_avoid_hardcoded_objc_compilation_flags");
+        "--incompatible_avoid_hardcoded_objc_compilation_flags",
+        "--cpu=k8");
     scratch.file("x/a.m");
     RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
 
@@ -1043,7 +1050,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         "--apple_platform_type=ios",
         "--platforms=" + MockObjcSupport.IOS_X86_64,
         "--compilation_mode=opt",
-        "--incompatible_avoid_hardcoded_objc_compilation_flags");
+        "--incompatible_avoid_hardcoded_objc_compilation_flags",
+        "--cpu=k8");
     scratch.file("x/a.m");
     RULE_TYPE.scratchTarget(scratch, "srcs", "['a.m']");
 
@@ -1147,7 +1155,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilationActionsWithPch() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--platforms=" + MockObjcSupport.IOS_X86_64);
+    useConfiguration(
+        "--apple_platform_type=ios", "--platforms=" + MockObjcSupport.IOS_X86_64, "--cpu=k8");
     scratch.file("objc/foo.pch");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -1166,7 +1175,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                 .add("-fobjc-legacy-dispatch")
                 .addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS)
                 .add("-arch x86_64")
-                .add("-isysroot", AppleToolchain.sdkDir())
+                .add("-isysroot", "__BAZEL_XCODE_SDKROOT__")
                 .addAll(FASTBUILD_COPTS)
                 .add("-iquote", ".")
                 .add("-iquote", OUTPUTDIR)
@@ -1310,7 +1319,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertContainsSublist(
         removeConfigFragment(removeConfigFragment(compileAction.getArguments())),
         ImmutableList.copyOf(
-            Interspersing.beforeEach("-isystem", rootedIncludePaths("package/foo/bar"))));
+            Iterables.concat(
+                Iterables.transform(
+                    rootedIncludePaths("package/foo/bar"),
+                    element -> ImmutableList.of("-isystem", element)))));
   }
 
   @Test
@@ -1477,7 +1489,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testAppleSdkDefaultPlatformEnv() throws Exception {
-    useConfiguration("--apple_platform_type=ios", "--platforms=" + MockObjcSupport.IOS_X86_64);
+    useConfiguration(
+        "--apple_platform_type=ios", "--platforms=" + MockObjcSupport.IOS_X86_64, "--cpu=k8");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
@@ -1505,7 +1518,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
       throws Exception {
     Provider.Key key =
         new StarlarkProvider.Key(
-            Label.parseCanonical("@_builtins//:common/objc/providers.bzl"), providerName);
+            keyForBuiltins(Label.parseCanonical("@_builtins//:common/objc/providers.bzl")),
+            providerName);
     return (StructImpl) configuredTarget.get(key);
   }
 
@@ -1702,9 +1716,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         )
         """);
 
-    ObjcProvider dependerProvider =
-        getConfiguredTarget("//x:bar").get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(baseArtifactNames(dependerProvider.getDirect(ObjcProvider.SOURCE)))
+    StarlarkInfo dependerProvider = getObjcInfo(getConfiguredTarget("//x:bar"));
+    assertThat(baseArtifactNames(getDirectSources(dependerProvider)))
         .containsExactly("bar.m", "bar_impl.h");
 
     ConfiguredTarget target = getConfiguredTarget("//x:bar");
@@ -1994,7 +2007,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   public void testLinkActionMnemonic() throws Exception {
     scratchConfiguredTarget("foo", "x", "objc_library(name = 'x', srcs = ['a.m'])");
 
-    CppLinkAction archiveAction = (CppLinkAction) archiveAction("//foo:x");
+    SpawnAction archiveAction = (SpawnAction) archiveAction("//foo:x");
     assertThat(archiveAction.getMnemonic()).isEqualTo("CppArchive");
   }
 
@@ -2162,6 +2175,11 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             deps = [":foo"],
         )
         """);
+    useConfiguration(
+        "--proto_toolchain_for_java=//tools/proto/toolchains:java",
+        "--platforms=" + MockObjcSupport.DARWIN_X86_64,
+        "--apple_platform_type=macos",
+        "--cpu=darwin_x86_64");
 
     CcInfo ccInfo = getConfiguredTarget("//x:bar").get(CcInfo.PROVIDER);
 
@@ -2172,7 +2190,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
                     .flatMap(List::stream)
                     .map(LibraryToLink::getStaticLibrary)
                     .collect(toImmutableList())))
-        .contains("/ x/libbaz.a");
+        .contains("bin x/libbaz.a");
   }
 
   @Test

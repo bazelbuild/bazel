@@ -53,10 +53,9 @@ public class PreciseAspectResolver implements AspectResolver {
   @Override
   public ImmutableMap<Aspect, ImmutableMultimap<Attribute, Label>> computeAspectDependencies(
       Target target, DependencyFilter dependencyFilter) throws InterruptedException {
-    if (!(target instanceof Rule)) {
+    if (!(target instanceof Rule rule)) {
       return ImmutableMap.of();
     }
-    Rule rule = (Rule) target;
     if (!rule.hasAspects()) {
       return ImmutableMap.of();
     }
@@ -114,12 +113,11 @@ public class PreciseAspectResolver implements AspectResolver {
     // Iterate over all rules...
     for (Target target : pkg.getTargets().values()) {
 
-      if (!(target instanceof Rule)) {
+      if (!(target instanceof Rule rule)) {
         continue;
       }
 
       // ...figure out which direct dependencies can possibly have aspects attached to them...
-      Rule rule = (Rule) target;
       Multimap<Attribute, Label> depsWithPossibleAspects =
           rule.getTransitions(
               (infoProvider, attribute) -> {

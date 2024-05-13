@@ -37,9 +37,12 @@ public class MetricsModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.LOGGING,
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
-            "By default the number of action types is limited to the 20 mnemonics with the largest "
-                + "number of executed actions. Setting this option will write statistics for all "
-                + "mnemonics.")
+            "Controls the output of BEP ActionSummary and BuildGraphMetrics, limiting the number of"
+                + " mnemonics in ActionData and number of entries reported in"
+                + " BuildGraphMetrics.AspectCount/RuleClassCount. By default the number of types is"
+                + " limited to the top 20, by number of executed actions for ActionData, and"
+                + " instances for RuleClass and Asepcts. Setting this option will write statistics"
+                + " for all mnemonics, rule classes and aspects.")
     public boolean recordMetricsForAllMnemonics;
   }
 

@@ -64,6 +64,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/util:simple_log_handler",
         "//src/main/java/com/google/devtools/build/lib/util:single_line_formatter",
         "//src/main/java/com/google/devtools/build/lib/util:string",
+        "//src/main/java/com/google/devtools/build/lib/util:value_or_exception",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.protobuf.CodedInputStream;
 import java.io.IOException;
 import javax.annotation.Nullable;
@@ -36,7 +38,7 @@ import javax.annotation.Nullable;
  *       to guarantee that the provided value is complete due to the cycle.
  * </ul>
  */
-public interface AsyncDeserializationContext extends SerializationDependencyProvider {
+public interface AsyncDeserializationContext extends LeafDeserializationContext {
   /** Defines a way to set a field in a given object. */
   interface FieldSetter<T> {
     /**
@@ -119,4 +121,11 @@ public interface AsyncDeserializationContext extends SerializationDependencyProv
       T obj,
       FieldSetter<? super T> setter)
       throws IOException, SerializationException;
+
+  /**
+   * Looks up the {@link SkyValue} for {@code key}, and sets it in {@code parent} using {@code
+   * setter}.
+   */
+  <T> void getSkyValue(SkyKey key, T parent, FieldSetter<? super T> setter)
+      throws SerializationException;
 }

@@ -32,6 +32,7 @@ class BazelModuleTest(test_base.TestBase):
     self.registries_work_dir = tempfile.mkdtemp(dir=self._test_cwd)
     self.main_registry = BazelRegistry(
         os.path.join(self.registries_work_dir, 'main'))
+    self.main_registry.start()
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'aaa', '1.1'
     ).createCcModule(
@@ -47,6 +48,7 @@ class BazelModuleTest(test_base.TestBase):
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
             'build --noenable_workspace',
+            'build --incompatible_disable_native_repo_rules',
             'build --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
@@ -62,6 +64,10 @@ class BazelModuleTest(test_base.TestBase):
             ),
         ],
     )
+
+  def tearDown(self):
+    self.main_registry.stop()
+    test_base.TestBase.tearDown(self)
 
   def writeMainProjectFiles(self):
     self.ScratchFile('aaa.patch', [
@@ -863,6 +869,79 @@ class BazelModuleTest(test_base.TestBase):
     )
 
     self.RunBazel(['build', '@my_jar//jar'])
+
+  def testNoEnableNativeRepoRules(self):
+    self.ScratchFile('MODULE.bazel')
+    self.ScratchFile(
+        'WORKSPACE.bzlmod', ['local_repository(name="foo",path="foo")']
+    )
+    self.ScratchFile('BUILD', ['filegroup(name="bar")'])
+    self.ScratchFile('foo/REPO.bazel')
+    self.ScratchFile('foo/BUILD', ['filegroup(name="foo")'])
+
+    self.RunBazel([
+        'build',
+        '--enable_workspace',
+        '--noincompatible_disable_native_repo_rules',
+        '@foo',
+    ])
+    _, _, stderr = self.RunBazel(
+        [
+            'build',
+            '--enable_workspace',
+            '--incompatible_disable_native_repo_rules',
+            '@foo',
+        ],
+        allow_failure=True,
+    )
+    self.assertIn(
+        'Native repo rule local_repository is disabled', '\n'.join(stderr)
+    )
+    # a build that doesn't use the defined @foo should be ok.
+    self.RunBazel([
+        'build',
+        '--enable_workspace',
+        '--incompatible_disable_native_repo_rules',
+        ':bar',
+    ])
+
+  def testInclude(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name="foo")',
+            'bazel_dep(name="bbb", version="1.0")',
+            'include("//java:java.MODULE.bazel")',
+        ],
+    )
+    self.ScratchFile('java/BUILD')
+    self.ScratchFile(
+        'java/java.MODULE.bazel',
+        [
+            'bazel_dep(name="aaa", version="1.0", repo_name="lol")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = ["@lol//:lib_aaa"],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'main.cc',
+        [
+            '#include "aaa.h"',
+            'int main() {',
+            '    hello_aaa("main function");',
+            '}',
+        ],
+    )
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
+    self.assertIn('main function => aaa@1.0', stdout)
 
 
 if __name__ == '__main__':

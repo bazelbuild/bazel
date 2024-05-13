@@ -84,6 +84,11 @@ public class Checksum {
       expectedLength = 64;
       hash = decoder.decode(integrity.substring(7));
     }
+    if (integrity.startsWith("blake3-")) {
+      keyType = KeyType.BLAKE3;
+      expectedLength = 32;
+      hash = decoder.decode(integrity.substring(7));
+    }
 
     if (keyType == null) {
       throw new InvalidChecksumException(
@@ -113,6 +118,22 @@ public class Checksum {
   @Override
   public String toString() {
     return hashCode.toString();
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (other == this) {
+      return true;
+    }
+    if (other instanceof Checksum c) {
+      return keyType.equals(c.keyType) && hashCode.equals(c.hashCode);
+    }
+    return false;
+  }
+
+  @Override
+  public int hashCode() {
+    return hashCode.hashCode() * 31 + keyType.hashCode();
   }
 
   public HashCode getHashCode() {

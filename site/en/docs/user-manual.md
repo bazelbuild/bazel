@@ -565,8 +565,6 @@ the [linkstatic attribute](/reference/be/c-cpp#cc_binary.linkstatic) on build ru
 
 Modes:
 
-* `auto`: Translates to a platform-dependent mode;
-  `default` for linux and `off` for cygwin.
 * `default`: Allows bazel to choose whether to link dynamically.
   See [linkstatic](/reference/be/c-cpp#cc_binary.linkstatic) for more
   information.
@@ -1493,7 +1491,7 @@ status as "NO STATUS" (in red, if color output is enabled), and will return
 a non-zero exit code.
 
 This option also implies
-`[--check_up_to_date](#check-up-to-date)` behavior.
+[`--check_up_to_date`](#check-up-to-date) behavior.
 
 This option may be useful for pre-submit checks.
 
@@ -1717,21 +1715,18 @@ The syntax and the remaining options are exactly like
 ## Running executables {:#running-executables}
 
 The `bazel run` command is similar to `bazel build`, except
-it is used to build _and run_ a single target. Here is a typical session:
+it is used to build _and run_ a single target. Here is a typical session
+(`//java/myapp:myapp` says hello and prints out its args):
 
 <pre>
   % bazel run java/myapp:myapp -- --arg1 --arg2
-  Welcome to Bazel
-  INFO: Loading package: java/myapp
-  INFO: Loading package: foo/bar
-  INFO: Loading complete.  Analyzing...
+  INFO: Analyzed target //java/myapp:myapp (13 packages loaded, 27 targets configured).
   INFO: Found 1 target...
-  ...
   Target //java/myapp:myapp up-to-date:
-    bazel-bin/java/myapp:myapp
-  INFO: Elapsed time: 0.638s, Critical Path: 0.34s
-
-  INFO: Running command line: bazel-bin/java/myapp:myapp --arg1 --arg2
+    bazel-bin/java/myapp/myapp
+  INFO: Elapsed time: 14.290s, Critical Path: 5.54s, ...
+  INFO: Build completed successfully, 4 total actions
+  INFO: Running command line: bazel-bin/java/myapp/myapp &lt;args omitted&gt;
   Hello there
   $EXEC_ROOT/java/myapp/myapp
   --arg1
@@ -1741,7 +1736,8 @@ it is used to build _and run_ a single target. Here is a typical session:
 Note: `--` is needed so that Bazel
 does not interpret `--arg1` and `--arg2` as
 Bazel options, but rather as part of the command line for running the binary.
-(The program being run simply says hello and prints out its args.)
+Additionally, Bazel will avoid logging these arguments to the console in case
+they contain sensitive information.
 
 `bazel run` is similar, but not identical, to directly invoking
 the binary built by Bazel and its behavior is different depending on whether the
@@ -2464,8 +2460,8 @@ interactivity at the expense of Bazel throughput.
 
 #### `--[no]announce_rc` {:#announce-rc}
 
-Controls whether Bazel announces command options read from the bazelrc file when
-starting up. (Startup options are unconditionally announced.)
+Controls whether Bazel announces startup options and command options read from
+the bazelrc files when starting up.
 
 #### `--color (yes|no|auto)` {:#color}
 

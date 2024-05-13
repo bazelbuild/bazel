@@ -148,4 +148,15 @@ final class FragmentProducer implements StateMachine {
     return new PatternWithWildcardProducer(
         globDetail, base, fragmentIndex, resultSink, visitedGlobSubTasks);
   }
+
+  /** Returns if a matching path at the given pattern index should be added to the result. */
+  static boolean shouldAddFileMatchingToResult(int fragmentIndex, GlobDetail globDetail) {
+    if (globDetail.globOperation().equals(Operation.SUBPACKAGES)) {
+      return false;
+    }
+    if (fragmentIndex < globDetail.patternFragments().size() - 1) {
+      return false;
+    }
+    return true;
+  }
 }

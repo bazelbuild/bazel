@@ -74,9 +74,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -433,7 +431,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   @Test
-  public void symlinkLoopRejected() throws Exception {
+  public void symlinkLoopRejected() {
     // Failure expected
     EventCollector eventCollector = new EventCollector(EventKind.ERROR);
     reporter.removeHandler(failFastHandler);
@@ -579,7 +577,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   @Test
-  public void danglingRelativeSymlinkOutsideOfTreeArtifactRejected() throws Exception {
+  public void danglingRelativeSymlinkOutsideOfTreeArtifactRejected() {
     // Failure expected
     EventCollector eventCollector = new EventCollector(EventKind.ERROR);
     reporter.removeHandler(failFastHandler);
@@ -1022,9 +1020,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     @Override
     void run(ActionExecutionContext context) throws IOException {
-      List<Artifact> children = new ArrayList<>();
-      context.getArtifactExpander().expand(getPrimaryInput(), children);
-      for (Artifact child : children) {
+      for (Artifact child : context.getArtifactExpander().expandTreeArtifact(getPrimaryInput())) {
         Path newOutput = getPrimaryOutput().getPath().getRelative(child.getParentRelativePath());
         newOutput.createDirectoryAndParents();
         FileSystemUtils.copyFile(child.getPath(), newOutput);

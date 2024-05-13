@@ -45,10 +45,10 @@ public class BulkTransferException extends IOException {
    * filter and record whether all suppressed exceptions are CacheNotFoundExceptions.
    */
   public void add(IOException e) {
-    if (e instanceof BulkTransferException) {
-      for (Throwable t : ((BulkTransferException) e).getSuppressed()) {
+    if (e instanceof BulkTransferException bulkTransferException) {
+      for (Throwable t : bulkTransferException.getSuppressed()) {
         checkState(t instanceof IOException);
-        add((IOException) t);
+        add(bulkTransferException);
       }
       return;
     }
@@ -62,8 +62,8 @@ public class BulkTransferException extends IOException {
   }
 
   public static boolean anyCausedByCacheNotFoundException(Throwable e) {
-    return e instanceof BulkTransferException
-        && ((BulkTransferException) e).anyCausedByCacheNotFoundException();
+    return e instanceof BulkTransferException bulkTransferException
+        && bulkTransferException.anyCausedByCacheNotFoundException();
   }
 
   public boolean allCausedByCacheNotFoundException() {
@@ -71,8 +71,8 @@ public class BulkTransferException extends IOException {
   }
 
   public static boolean allCausedByCacheNotFoundException(Throwable e) {
-    return e instanceof BulkTransferException
-        && ((BulkTransferException) e).allCausedByCacheNotFoundException();
+    return e instanceof BulkTransferException bulkTransferException
+        && bulkTransferException.allCausedByCacheNotFoundException();
   }
 
   @Override

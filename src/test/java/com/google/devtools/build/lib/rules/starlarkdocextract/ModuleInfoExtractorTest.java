@@ -106,25 +106,34 @@ public final class ModuleInfoExtractorTest {
   public void extractOnlyWantedLoadablePublicNames() throws Exception {
     Module module =
         exec(
-            "def loadable_unwanted():",
-            "    pass",
-            "def loadable_wanted():",
-            "    pass",
-            "def _nonloadable():",
-            "    pass",
-            "def _nonloadable_matches_wanted_predicate():",
-            "    pass",
-            "def _f():",
-            "    pass",
-            "def _g():",
-            "    pass",
-            "def _h():",
-            "    pass",
-            "namespace = struct(",
-            "    public_field_wanted = _f,",
-            "    public_field_unwanted = _g,",
-            "    _hidden_field_matches_wanted_predicate = _h,",
-            ")");
+            """
+            def loadable_unwanted():
+                pass
+
+            def loadable_wanted():
+                pass
+
+            def _nonloadable():
+                pass
+
+            def _nonloadable_matches_wanted_predicate():
+                pass
+
+            def _f():
+                pass
+
+            def _g():
+                pass
+
+            def _h():
+                pass
+
+            namespace = struct(
+                public_field_wanted = _f,
+                public_field_unwanted = _g,
+                _hidden_field_matches_wanted_predicate = _h,
+            )
+            """);
 
     ModuleInfo moduleInfo = getExtractor(name -> name.contains("_wanted")).extractFrom(module);
     assertThat(moduleInfo.getFuncInfoList().stream().map(StarlarkFunctionInfo::getFunctionName))
@@ -135,19 +144,22 @@ public final class ModuleInfoExtractorTest {
   public void namespacedEntities() throws Exception {
     Module module =
         exec(
-            "def _my_func(**kwargs):",
-            "    pass",
-            "_my_binary = rule(implementation = _my_func)",
-            "_my_aspect = aspect(implementation = _my_func)",
-            "_MyInfo = provider()",
-            "name = struct(",
-            "    spaced = struct(",
-            "        my_func = _my_func,",
-            "        my_binary = _my_binary,",
-            "        my_aspect = _my_aspect,",
-            "        MyInfo = _MyInfo,",
-            "    ),",
-            ")");
+            """
+            def _my_func(**kwargs):
+                pass
+
+            _my_binary = rule(implementation = _my_func)
+            _my_aspect = aspect(implementation = _my_func)
+            _MyInfo = provider()
+            name = struct(
+                spaced = struct(
+                    my_func = _my_func,
+                    my_binary = _my_binary,
+                    my_aspect = _my_aspect,
+                    MyInfo = _MyInfo,
+                ),
+            )
+            """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getFuncInfoList().stream().map(StarlarkFunctionInfo::getFunctionName))
         .containsExactly("name.spaced.my_func");
@@ -186,26 +198,38 @@ public final class ModuleInfoExtractorTest {
   public void isWantedQualifiedName_appliesToQualifiedNamePrefixes() throws Exception {
     Module module =
         exec(
-            "def _f(): pass", //
-            "def _g(): pass",
-            "def _h(): pass",
-            "def _i(): pass",
-            "def _j(): pass",
-            "foo = struct(",
-            "   bar = struct(",
-            "       f = _f,",
-            "   ),",
-            "   baz = struct(",
-            "       g = _g,",
-            "   ),",
-            "   h = _h,",
-            ")",
-            "baz = struct(",
-            "   qux = struct(",
-            "       i = _i,",
-            "   ),",
-            "   j = _j,",
-            ")");
+            """
+            def _f():
+                pass
+
+            def _g():
+                pass
+
+            def _h():
+                pass
+
+            def _i():
+                pass
+
+            def _j():
+                pass
+
+            foo = struct(
+                bar = struct(
+                    f = _f,
+                ),
+                baz = struct(
+                    g = _g,
+                ),
+                h = _h,
+            )
+            baz = struct(
+                qux = struct(
+                    i = _i,
+                ),
+                j = _j,
+            )
+            """);
 
     ModuleInfo moduleInfo =
         getExtractor(name -> name.equals("foo.bar") || name.equals("baz")).extractFrom(module);
@@ -217,17 +241,21 @@ public final class ModuleInfoExtractorTest {
   public void functionDocstring() throws Exception {
     Module module =
         exec(
-            "def with_detailed_docstring():",
-            "    '''My function",
-            "    ",
-            "    This function does things.",
-            "    '''",
-            "    pass",
-            "def with_one_line_docstring():",
-            "    '''My function'''",
-            "    pass",
-            "def without_docstring():",
-            "    pass");
+            """
+            def with_detailed_docstring():
+                '''My function
+
+                This function does things.
+                '''
+                pass
+
+            def with_one_line_docstring():
+                '''My function'''
+                pass
+
+            def without_docstring():
+                pass
+            """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getFuncInfoList())
         .containsExactly(
@@ -258,13 +286,15 @@ public final class ModuleInfoExtractorTest {
   public void functionParams() throws Exception {
     Module module =
         exec(
-            "def my_func(documented, undocumented, has_default = {'foo': 'bar'}, *args, **kwargs):",
-            "    '''My function",
-            "    ",
-            "    Args:",
-            "      documented: Documented param",
-            "    '''",
-            "    pass");
+            """
+            def my_func(documented, undocumented, has_default = {"foo": "bar"}, *args, **kwargs):
+                '''My function
+
+                Args:
+                  documented: Documented param
+                '''
+                pass
+            """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getFuncInfoList().get(0).getParameterList())
         .containsExactly(
@@ -286,16 +316,19 @@ public final class ModuleInfoExtractorTest {
   public void functionReturn() throws Exception {
     Module module =
         exec(
-            "def with_return():",
-            "    '''My doc",
-            "    ",
-            "    Returns:",
-            "      None",
-            "    '''",
-            "    return None",
-            "def without_return():",
-            "    '''My doc'''",
-            "    pass");
+            """
+            def with_return():
+                '''My doc
+
+                Returns:
+                  None
+                '''
+                return None
+
+            def without_return():
+                '''My doc'''
+                pass
+            """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getFuncInfoList())
         .ignoringFields(StarlarkFunctionInfo.ORIGIN_KEY_FIELD_NUMBER)
@@ -315,16 +348,19 @@ public final class ModuleInfoExtractorTest {
   public void functionDeprecated() throws Exception {
     Module module =
         exec(
-            "def with_deprecated():",
-            "    '''My doc",
-            "    ",
-            "    Deprecated:",
-            "      This is deprecated",
-            "    '''",
-            "    pass",
-            "def without_deprecated():",
-            "    '''My doc'''",
-            "    pass");
+            """
+            def with_deprecated():
+                '''My doc
+
+                Deprecated:
+                  This is deprecated
+                '''
+                pass
+
+            def without_deprecated():
+                '''My doc'''
+                pass
+            """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getFuncInfoList())
         .ignoringFields(StarlarkFunctionInfo.ORIGIN_KEY_FIELD_NUMBER)
@@ -342,11 +378,60 @@ public final class ModuleInfoExtractorTest {
   }
 
   @Test
+  public void unexportedLambdaFunction() throws Exception {
+    Module module =
+        exec(
+            """
+            s = struct(
+                lambda_function = lambda x: x * 2,
+            )
+            """);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
+    assertThat(moduleInfo.getFuncInfoList())
+        .containsExactly(
+            StarlarkFunctionInfo.newBuilder()
+                // Note that origin key name is unset
+                .setOriginKey(OriginKey.newBuilder().setFile(fakeLabelString))
+                .setFunctionName("s.lambda_function")
+                .addParameter(FunctionParamInfo.newBuilder().setName("x").setMandatory(true))
+                .build());
+  }
+
+  @Test
+  public void unexportedGeneratedFunction() throws Exception {
+    Module module =
+        exec(
+            """
+            def _multiply_by(y):
+                def multiply(x):
+                    '''Multiplies x by constant y'''
+                    return x * y
+                return multiply
+
+            s = struct(
+                generated = _multiply_by(2),
+            )
+            """);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
+    assertThat(moduleInfo.getFuncInfoList())
+        .containsExactly(
+            StarlarkFunctionInfo.newBuilder()
+                // Note that origin key name is unset
+                .setOriginKey(OriginKey.newBuilder().setFile(fakeLabelString))
+                .setFunctionName("s.generated")
+                .setDocString("Multiplies x by constant y")
+                .addParameter(FunctionParamInfo.newBuilder().setName("x").setMandatory(true))
+                .build());
+  }
+
+  @Test
   public void providerDocstring() throws Exception {
     Module module =
         exec(
-            "DocumentedInfo = provider(doc = 'My doc')", //
-            "UndocumentedInfo = provider()");
+            """
+            DocumentedInfo = provider(doc = "My doc")
+            UndocumentedInfo = provider()
+            """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getProviderInfoList())
         .containsExactly(
@@ -368,9 +453,10 @@ public final class ModuleInfoExtractorTest {
     Module module =
         exec(
             // Note fields below are not alphabetized
-            "DocumentedInfo = provider(fields = {'c': 'C', 'a': 'A', 'b': 'B', '_hidden':"
-                + " 'Hidden'})",
-            "UndocumentedInfo = provider(fields = ['c', 'a', 'b', '_hidden'])");
+            """
+            DocumentedInfo = provider(fields = {"c": "C", "a": "A", "b": "B", "_hidden": "Hidden"})
+            UndocumentedInfo = provider(fields = ["c", "a", "b", "_hidden"])
+            """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getProviderInfoList())
         .ignoringFields(ProviderInfo.ORIGIN_KEY_FIELD_NUMBER)
@@ -393,24 +479,26 @@ public final class ModuleInfoExtractorTest {
   public void providerInit() throws Exception {
     Module module =
         exec(
-            "def _my_info_init(x_value, y_value = 0):",
-            "    '''MyInfo constructor",
-            "",
-            "    Args:",
-            "        x_value: my x value",
-            "        y_value: my y value",
-            "    '''",
-            "    return {'x': x_value, 'y': y_value}",
-            "",
-            "_MyInfo, _new_my_info = provider(",
-            "    doc = '''My provider''',",
-            "    fields = ['x', 'y'],",
-            "    init = _my_info_init,",
-            ")",
-            "",
-            "namespace = struct(",
-            "    MyInfo = _MyInfo,",
-            ")");
+            """
+            def _my_info_init(x_value, y_value = 0):
+                '''MyInfo constructor
+
+                Args:
+                    x_value: my x value
+                    y_value: my y value
+                '''
+                return {"x": x_value, "y": y_value}
+
+            _MyInfo, _new_my_info = provider(
+                doc = '''My provider''',
+                fields = ["x", "y"],
+                init = _my_info_init,
+            )
+
+            namespace = struct(
+                MyInfo = _MyInfo,
+            )
+            """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getProviderInfoList())
         .containsExactly(
@@ -444,13 +532,29 @@ public final class ModuleInfoExtractorTest {
   }
 
   @Test
+  public void unexportedProvider_notDocumented() throws Exception {
+    Module module =
+        exec(
+            """
+            s = struct(
+                MyUnexportedInfo = provider(),
+            )
+            """);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
+    assertThat(moduleInfo.getProviderInfoList()).isEmpty();
+  }
+
+  @Test
   public void ruleDocstring() throws Exception {
     Module module =
         exec(
-            "def _my_impl(ctx):",
-            "    pass",
-            "documented_lib = rule(doc = 'My doc', implementation = _my_impl)",
-            "undocumented_lib = rule(implementation = _my_impl)");
+            """
+            def _my_impl(ctx):
+                pass
+
+            documented_lib = rule(doc = "My doc", implementation = _my_impl)
+            undocumented_lib = rule(implementation = _my_impl)
+            """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getRuleInfoList())
         .ignoringFields(RuleInfo.ATTRIBUTE_FIELD_NUMBER) // ignore implicit attributes
@@ -472,13 +576,17 @@ public final class ModuleInfoExtractorTest {
   public void ruleAdvertisedProviders() throws Exception {
     Module module =
         exec(
-            "MyInfo = provider()",
-            "def _my_impl(ctx):",
-            "    pass",
-            "my_lib = rule(",
-            "    implementation = _my_impl,",
-            "    provides = [MyInfo, DefaultInfo, 'LegacyStructInfo']",
-            ")");
+            """
+            MyInfo = provider()
+
+            def _my_impl(ctx):
+                pass
+
+            my_lib = rule(
+                implementation = _my_impl,
+                provides = [MyInfo, DefaultInfo, "LegacyStructInfo"],
+            )
+            """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getRuleInfoList())
         .ignoringFields(RuleInfo.ATTRIBUTE_FIELD_NUMBER) // ignore implicit attributes
@@ -503,13 +611,17 @@ public final class ModuleInfoExtractorTest {
   public void ruleTest() throws Exception {
     Module module =
         exec(
-            "MyInfo = provider()",
-            "def _my_impl(ctx):",
-            "    pass",
-            "my_test = rule(",
-            "    implementation = _my_impl,",
-            "    test = True",
-            ")");
+            """
+            MyInfo = provider()
+
+            def _my_impl(ctx):
+                pass
+
+            my_test = rule(
+                implementation = _my_impl,
+                test = True,
+            )
+            """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getRuleInfoList())
         .ignoringFields(RuleInfo.ATTRIBUTE_FIELD_NUMBER) // ignore implicit attributes
@@ -526,13 +638,17 @@ public final class ModuleInfoExtractorTest {
   public void ruleExecutable() throws Exception {
     Module module =
         exec(
-            "MyInfo = provider()",
-            "def _my_impl(ctx):",
-            "    pass",
-            "my_binary = rule(",
-            "    implementation = _my_impl,",
-            "    executable = True",
-            ")");
+            """
+            MyInfo = provider()
+
+            def _my_impl(ctx):
+                pass
+
+            my_binary = rule(
+                implementation = _my_impl,
+                executable = True,
+            )
+            """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getRuleInfoList())
         .ignoringFields(RuleInfo.ATTRIBUTE_FIELD_NUMBER) // ignore implicit attributes
@@ -551,22 +667,26 @@ public final class ModuleInfoExtractorTest {
             // TODO(https://github.com/bazelbuild/bazel/issues/6420): attr.license() is deprecated,
             // and will eventually be removed from Bazel.
             ImmutableList.of("--noincompatible_no_attr_license"),
-            "MyInfo1 = provider()",
-            "MyInfo2 = provider()",
-            "MyInfo3 = provider()",
-            "def _my_impl(ctx):",
-            "    pass",
-            "my_lib = rule(",
-            "    implementation = _my_impl,",
-            "    attrs = {",
-            "        'a': attr.string(doc = 'My doc', default = 'foo'),",
-            "        'b': attr.string(mandatory = True),",
-            "        'c': attr.label(providers = [MyInfo1, MyInfo2]),",
-            "        'd': attr.label(providers = [[MyInfo1, MyInfo2], [MyInfo3]]),",
-            "        '_e': attr.string(doc = 'Hidden attribute'),",
-            "        'deprecated_license': attr.license(),",
-            "    }",
-            ")");
+            """
+            MyInfo1 = provider()
+            MyInfo2 = provider()
+            MyInfo3 = provider()
+
+            def _my_impl(ctx):
+                pass
+
+            my_lib = rule(
+                implementation = _my_impl,
+                attrs = {
+                    "a": attr.string(doc = "My doc", default = "foo"),
+                    "b": attr.string(mandatory = True),
+                    "c": attr.label(providers = [MyInfo1, MyInfo2]),
+                    "d": attr.label(providers = [[MyInfo1, MyInfo2], [MyInfo3]]),
+                    "_e": attr.string(doc = "Hidden attribute"),
+                    "deprecated_license": attr.license(),
+                },
+            )
+            """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getRuleInfoList().get(0).getAttributeList())
         .containsExactly(
@@ -625,16 +745,19 @@ public final class ModuleInfoExtractorTest {
   public void attributeOrder() throws Exception {
     Module module =
         exec(
-            "def _my_impl(ctx):",
-            "    pass",
-            "my_lib = rule(",
-            "    implementation = _my_impl,",
-            "    attrs = {",
-            "        'foo': attr.int(),",
-            "        'bar': attr.int(),",
-            "        'baz': attr.int(),",
-            "    }",
-            ")");
+            """
+            def _my_impl(ctx):
+                pass
+
+            my_lib = rule(
+                implementation = _my_impl,
+                attrs = {
+                    "foo": attr.int(),
+                    "bar": attr.int(),
+                    "baz": attr.int(),
+                },
+            )
+            """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(
             moduleInfo.getRuleInfoList().get(0).getAttributeList().stream()
@@ -647,25 +770,28 @@ public final class ModuleInfoExtractorTest {
   public void attributeTypes() throws Exception {
     Module module =
         exec(
-            "def _my_impl(ctx):",
-            "    pass",
-            "my_lib = rule(",
-            "    implementation = _my_impl,",
-            "    attrs = {",
-            "        'a': attr.int(),",
-            "        'b': attr.label(),",
-            "        'c': attr.string(),",
-            "        'd': attr.string_list(),",
-            "        'e': attr.int_list(),",
-            "        'f': attr.label_list(),",
-            "        'g': attr.bool(),",
-            "        'h': attr.label_keyed_string_dict(),",
-            "        'i': attr.string_dict(),",
-            "        'j': attr.string_list_dict(),",
-            "        'k': attr.output(),",
-            "        'l': attr.output_list(),",
-            "    }",
-            ")");
+            """
+            def _my_impl(ctx):
+                pass
+
+            my_lib = rule(
+                implementation = _my_impl,
+                attrs = {
+                    "a": attr.int(),
+                    "b": attr.label(),
+                    "c": attr.string(),
+                    "d": attr.string_list(),
+                    "e": attr.int_list(),
+                    "f": attr.label_list(),
+                    "g": attr.bool(),
+                    "h": attr.label_keyed_string_dict(),
+                    "i": attr.string_dict(),
+                    "j": attr.string_list_dict(),
+                    "k": attr.output(),
+                    "l": attr.output_list(),
+                },
+            )
+            """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getRuleInfoList().get(0).getAttributeList())
         .containsExactly(
@@ -735,6 +861,25 @@ public final class ModuleInfoExtractorTest {
   }
 
   @Test
+  public void unexportedRule_notDocumented() throws Exception {
+    Module module =
+        exec(
+            """
+            def _my_impl(name):
+                pass
+
+            s = struct(
+                my_rule = rule(
+                    doc = "Unexported rule",
+                    implementation = _my_impl,
+                )
+            )
+            """);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
+    assertThat(moduleInfo.getRuleInfoList()).isEmpty();
+  }
+
+  @Test
   public void macroDocstring() throws Exception {
     Module module =
         execWithOptions(
@@ -759,31 +904,94 @@ public final class ModuleInfoExtractorTest {
                 .setDocString("My doc")
                 .setOriginKey(
                     OriginKey.newBuilder().setName("documented_macro").setFile(fakeLabelString))
+                .addAttribute(ModuleInfoExtractor.IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO)
                 .build(),
             MacroInfo.newBuilder()
                 .setMacroName("undocumented_macro")
                 .setOriginKey(
                     OriginKey.newBuilder().setName("undocumented_macro").setFile(fakeLabelString))
+                .addAttribute(ModuleInfoExtractor.IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO)
                 .build());
+  }
+
+  @Test
+  public void macroAttributes() throws Exception {
+    Module module =
+        execWithOptions(
+            ImmutableList.of("--experimental_enable_first_class_macros"),
+            """
+            def _my_impl(name):
+                pass
+
+            my_macro = macro(
+                attrs = {
+                    "some_attr": attr.label(mandatory = True),
+                    "another_attr": attr.int(doc = "An integer", default = 42),
+                    "_implicit_attr": attr.string(default = "IMPLICIT"),
+                },
+                implementation = _my_impl,
+            )
+            """);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
+    assertThat(moduleInfo.getMacroInfoList().get(0).getAttributeList())
+        .containsExactly(
+            ModuleInfoExtractor.IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO, // name comes first
+            AttributeInfo.newBuilder()
+                .setName("some_attr")
+                .setType(AttributeType.LABEL)
+                .setMandatory(true)
+                .build(),
+            AttributeInfo.newBuilder()
+                .setName("another_attr")
+                .setType(AttributeType.INT)
+                .setDocString("An integer")
+                .setDefaultValue("42")
+                .build()
+            // note that implicit attributes don't get documented
+            );
+  }
+
+  @Test
+  public void unexportedMacro_notDocumented() throws Exception {
+    Module module =
+        execWithOptions(
+            ImmutableList.of("--experimental_enable_first_class_macros"),
+            """
+            def _my_impl(name):
+                pass
+
+            s = struct(
+                my_macro = macro(
+                    doc = "Unexported macro",
+                    implementation = _my_impl,
+                )
+            )
+            """);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
+    assertThat(moduleInfo.getMacroInfoList()).isEmpty();
   }
 
   @Test
   public void providerNameGroups_useFirstDocumentableProviderName() throws Exception {
     Module module =
         exec(
-            "_MyInfo = provider()",
-            "def _my_impl(ctx):",
-            "    pass",
-            "my_lib = rule(",
-            "    implementation = _my_impl,",
-            "    attrs = {",
-            "        'foo': attr.label(providers = [_MyInfo]),",
-            "    },",
-            "    provides = [_MyInfo],",
-            ")",
-            "namespace1 = struct(_MyUndocumentedInfo = _MyInfo)",
-            "namespace2 = struct(MyInfoB = _MyInfo, MyInfoA = _MyInfo)",
-            "namespace3 = struct(MyInfo = _MyInfo)");
+            """
+            _MyInfo = provider()
+
+            def _my_impl(ctx):
+                pass
+
+            my_lib = rule(
+                implementation = _my_impl,
+                attrs = {
+                    "foo": attr.label(providers = [_MyInfo]),
+                },
+                provides = [_MyInfo],
+            )
+            namespace1 = struct(_MyUndocumentedInfo = _MyInfo)
+            namespace2 = struct(MyInfoB = _MyInfo, MyInfoA = _MyInfo)
+            namespace3 = struct(MyInfo = _MyInfo)
+            """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getRuleInfoList().get(0).getAdvertisedProviders().getProviderName(0))
         // Struct fields are extracted in field name alphabetical order, so namespace2.MyInfoA
@@ -807,20 +1015,23 @@ public final class ModuleInfoExtractorTest {
   public void labelStringification() throws Exception {
     Module module =
         exec(
-            "def _my_impl(ctx):",
-            "    pass",
-            "my_lib = rule(",
-            "    implementation = _my_impl,",
-            "    attrs = {",
-            "        'label': attr.label(default = '//test:foo'),",
-            "        'label_list': attr.label_list(",
-            "            default = ['//x', '@canonical//y', '@canonical//y:z'],",
-            "        ),",
-            "        'label_keyed_string_dict': attr.label_keyed_string_dict(",
-            "           default = {'//x': 'label_in_main', '@canonical//y': 'label_in_dep'}",
-            "         ),",
-            "    }",
-            ")");
+            """
+            def _my_impl(ctx):
+                pass
+
+            my_lib = rule(
+                implementation = _my_impl,
+                attrs = {
+                    "label": attr.label(default = "//test:foo"),
+                    "label_list": attr.label_list(
+                        default = ["//x", "@canonical//y", "@canonical//y:z"],
+                    ),
+                    "label_keyed_string_dict": attr.label_keyed_string_dict(
+                        default = {"//x": "label_in_main", "@canonical//y": "label_in_dep"},
+                    ),
+                },
+            )
+            """);
     RepositoryName canonicalName = RepositoryName.create("canonical");
     RepositoryMapping repositoryMapping =
         RepositoryMapping.create(ImmutableMap.of("local", canonicalName), RepositoryName.MAIN);
@@ -839,10 +1050,13 @@ public final class ModuleInfoExtractorTest {
   public void aspectDocstring() throws Exception {
     Module module =
         exec(
-            "def _my_impl(target, ctx):",
-            "    pass",
-            "documented_aspect = aspect(doc = 'My doc', implementation = _my_impl)",
-            "undocumented_aspect = aspect(implementation = _my_impl)");
+            """
+            def _my_impl(target, ctx):
+                pass
+
+            documented_aspect = aspect(doc = "My doc", implementation = _my_impl)
+            undocumented_aspect = aspect(implementation = _my_impl)
+            """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getAspectInfoList())
         .ignoringFields(AspectInfo.ATTRIBUTE_FIELD_NUMBER) // ignore implicit attributes
@@ -864,17 +1078,20 @@ public final class ModuleInfoExtractorTest {
   public void aspectAttributes() throws Exception {
     Module module =
         exec(
-            "def _my_impl(target, ctx):",
-            "    pass",
-            "my_aspect = aspect(",
-            "    implementation = _my_impl,",
-            "    attr_aspects = ['deps', 'srcs', '_private'],",
-            "    attrs = {",
-            "        'a': attr.string(doc = 'My doc', default = 'foo'),",
-            "        'b': attr.string(mandatory = True),",
-            "        '_c': attr.string(doc = 'Hidden attribute'),",
-            "    }",
-            ")");
+            """
+            def _my_impl(target, ctx):
+                pass
+
+            my_aspect = aspect(
+                implementation = _my_impl,
+                attr_aspects = ["deps", "srcs", "_private"],
+                attrs = {
+                    "a": attr.string(doc = "My doc", default = "foo"),
+                    "b": attr.string(mandatory = True),
+                    "_c": attr.string(doc = "Hidden attribute"),
+                },
+            )
+            """);
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getAspectInfoList())
         .containsExactly(
@@ -897,5 +1114,24 @@ public final class ModuleInfoExtractorTest {
                         .setMandatory(true)
                         .build())
                 .build());
+  }
+
+  @Test
+  public void unexportedAspect_notDocumented() throws Exception {
+    Module module =
+        exec(
+            """
+            def _my_impl(target, ctx):
+                pass
+
+            s = struct(
+                my_aspect = aspect(
+                    doc = "Unexported aspect",
+                    implementation = _my_impl,
+                )
+            )
+            """);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
+    assertThat(moduleInfo.getAspectInfoList()).isEmpty();
   }
 }

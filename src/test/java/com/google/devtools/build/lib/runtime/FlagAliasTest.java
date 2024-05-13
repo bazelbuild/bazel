@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.TestOptions;
@@ -58,7 +59,8 @@ public final class FlagAliasTest {
   public void useAliasWithNonStarlarkFlag() {
     ImmutableList<String> args =
         ImmutableList.of("build", "--rc_source=/somewhere/.blazerc", "--flag_alias=foo=bar");
-    optionHandler.parseOptions(args, eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(args, eventHandler, ImmutableList.builder());
     assertThat(eventHandler.getEvents())
         .contains(
             Event.error(
@@ -70,7 +72,8 @@ public final class FlagAliasTest {
   public void useAliasWithValueAssignment() {
     ImmutableList<String> args =
         ImmutableList.of("build", "--rc_source=/somewhere/.blazerc", "--flag_alias=foo=//bar=7");
-    optionHandler.parseOptions(args, eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(args, eventHandler, ImmutableList.builder());
     assertThat(eventHandler.getEvents())
         .contains(
             Event.error(
@@ -82,7 +85,8 @@ public final class FlagAliasTest {
   public void useAliasWithInvalidName() {
     ImmutableList<String> args =
         ImmutableList.of("build", "--rc_source=/somewhere/.blazerc", "--flag_alias=bad$foo=//bar");
-    optionHandler.parseOptions(args, eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(args, eventHandler, ImmutableList.builder());
     assertThat(eventHandler.getEvents())
         .contains(
             Event.error(
@@ -94,7 +98,8 @@ public final class FlagAliasTest {
   public void useAliasWithoutEqualsInValue() {
     ImmutableList<String> args =
         ImmutableList.of("build", "--rc_source=/somewhere/.blazerc", "--flag_alias=foo");
-    optionHandler.parseOptions(args, eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(args, eventHandler, ImmutableList.builder());
     assertThat(eventHandler.getEvents())
         .contains(
             Event.error(
@@ -106,7 +111,8 @@ public final class FlagAliasTest {
   public void useAliasWithoutEqualsInArg() {
     ImmutableList<String> args =
         ImmutableList.of("build", "--rc_source=/somewhere/.blazerc", "--flag_alias", "foo=//bar");
-    optionHandler.parseOptions(args, eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(args, eventHandler, ImmutableList.builder());
     assertThat(eventHandler.hasErrors()).isFalse();
   }
 
@@ -115,7 +121,8 @@ public final class FlagAliasTest {
     ImmutableList<String> args =
         ImmutableList.of(
             "build", "--rc_source=/somewhere/.blazerc", "--flag_alias=foo=//bar", "--foo");
-    optionHandler.parseOptions(args, eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(args, eventHandler, ImmutableList.builder());
     assertThat(parser.getSkippedArgs()).contains("--//bar");
   }
 
@@ -124,7 +131,8 @@ public final class FlagAliasTest {
     ImmutableList<String> args =
         ImmutableList.of(
             "build", "--rc_source=/somewhere/.blazerc", "--flag_alias=foo=//bar", "--nofoo");
-    optionHandler.parseOptions(args, eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(args, eventHandler, ImmutableList.builder());
     assertThat(eventHandler.getEvents())
         .contains(Event.error("--nofoo :: Unrecognized option: --nofoo").withTag(BAD_OPTION_TAG));
   }
@@ -140,7 +148,8 @@ public final class FlagAliasTest {
             "--flag_alias=foo=//baz",
             "--foo");
     ImmutableList<String> expectedSkippedArgs = ImmutableList.of("--//bar", "--//baz");
-    optionHandler.parseOptions(args, eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(args, eventHandler, ImmutableList.builder());
     assertThat(parser.getSkippedArgs()).isEqualTo(expectedSkippedArgs);
   }
 
@@ -153,7 +162,8 @@ public final class FlagAliasTest {
             "--default_override=0:build=--foo",
             "--rc_source=/somewhere/.blazerc");
     ImmutableList<String> expectedSkippedArgs = ImmutableList.of("--//bar");
-    optionHandler.parseOptions(args, eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(args, eventHandler, ImmutableList.builder());
     assertThat(parser.getSkippedArgs()).isEqualTo(expectedSkippedArgs);
   }
 
@@ -166,7 +176,8 @@ public final class FlagAliasTest {
             "--rc_source=/somewhere/.blazerc",
             "--foo");
     ImmutableList<String> expectedSkippedArgs = ImmutableList.of("--//bar");
-    optionHandler.parseOptions(args, eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(args, eventHandler, ImmutableList.builder());
     assertThat(parser.getSkippedArgs()).isEqualTo(expectedSkippedArgs);
   }
 
@@ -176,7 +187,8 @@ public final class FlagAliasTest {
         ImmutableList.of(
             "build", "--rc_source=/somewhere/.blazerc", "--flag_alias=foo=//bar", "--foo=7");
     ImmutableList<String> expectedSkippedArgs = ImmutableList.of("--//bar=7");
-    optionHandler.parseOptions(args, eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(args, eventHandler, ImmutableList.builder());
     assertThat(parser.getSkippedArgs()).isEqualTo(expectedSkippedArgs);
   }
 
@@ -184,7 +196,8 @@ public final class FlagAliasTest {
   @Test
   public void aliasLogicSkipsNonDoubleDashArgs() {
     ImmutableList<String> args = ImmutableList.of("build", "--rc_source=/somewhere/.blazerc", "-=");
-    optionHandler.parseOptions(args, eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(args, eventHandler, ImmutableList.builder());
     assertThat(eventHandler.getEvents())
         .contains(Event.error("-= :: Unrecognized option: -=").withTag(BAD_OPTION_TAG));
   }
@@ -197,7 +210,8 @@ public final class FlagAliasTest {
             "--default_override=0:build=--foo=7",
             "--rc_source=/somewhere/.blazerc",
             "--flag_alias=foo=//bar");
-    optionHandler.parseOptions(args, eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(args, eventHandler, ImmutableList.builder());
     assertThat(eventHandler.getEvents())
         .contains(Event.error("--foo=7 :: Unrecognized option: --foo=7").withTag(BAD_OPTION_TAG));
   }
@@ -207,7 +221,8 @@ public final class FlagAliasTest {
     ImmutableList<String> args =
         ImmutableList.of(
             "build", "--rc_source=/somewhere/.blazerc", "--foo=7", "--flag_alias=foo=//bar");
-    optionHandler.parseOptions(args, eventHandler);
+    DetailedExitCode unused =
+        optionHandler.parseOptions(args, eventHandler, ImmutableList.builder());
     assertThat(eventHandler.getEvents())
         .contains(Event.error("--foo=7 :: Unrecognized option: --foo=7").withTag(BAD_OPTION_TAG));
   }

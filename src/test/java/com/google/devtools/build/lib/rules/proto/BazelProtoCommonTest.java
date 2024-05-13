@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.truth.Correspondence;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -47,7 +48,8 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
   private static final StarlarkProviderIdentifier boolProviderId =
       StarlarkProviderIdentifier.forKey(
           new StarlarkProvider.Key(
-              Label.parseCanonicalUnchecked("//foo:should_generate.bzl"), "BoolProvider"));
+              keyForBuild(Label.parseCanonicalUnchecked("//foo:should_generate.bzl")),
+              "BoolProvider"));
 
   @Before
   public final void setup() throws Exception {
@@ -256,7 +258,12 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         "load('//foo:generate.bzl', 'generate_rule')",
         "proto_library(name = 'proto', srcs = ['A.proto'])",
         "generate_rule(name = 'simple', proto_dep = ':proto', plugin_output = 'single')");
-
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
     ConfiguredTarget target = getConfiguredTarget("//bar:simple");
 
     List<String> cmdLine =
@@ -265,7 +272,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         .comparingElementsUsing(MATCHES_REGEX)
         .containsExactly(
             "--java_out=param1,param2:bl?azel?-out/k8-fastbuild/bin/bar/out",
-            "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
+            "--plugin=bl?azel?-out/[^/]*-exec/bin/third_party/x/plugin",
             "-I.",
             "bar/A.proto")
         .inOrder();
@@ -283,6 +290,12 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         "load('//foo:generate.bzl', 'generate_rule')",
         "proto_library(name = 'proto', srcs = ['A.proto'])",
         "generate_rule(name = 'simple', proto_dep = ':proto', plugin_output = 'multiple')");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
 
     ConfiguredTarget target = getConfiguredTarget("//bar:simple");
 
@@ -292,7 +305,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         .comparingElementsUsing(MATCHES_REGEX)
         .containsExactly(
             "--java_out=param1,param2:bl?azel?-out/k8-fastbuild/bin",
-            "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
+            "--plugin=bl?azel?-out/[^/]*-exec/bin/third_party/x/plugin",
             "-I.",
             "bar/A.proto")
         .inOrder();
@@ -457,6 +470,12 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         "genrule(name = 'generate', srcs = ['A.txt'], cmd = '', outs = ['G.proto'])",
         "proto_library(name = 'proto', srcs = ['A.proto', 'G.proto'])",
         "generate_rule(name = 'simple', proto_dep = ':proto')");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
 
     ConfiguredTarget target = getConfiguredTarget("//bar:simple");
 
@@ -465,7 +484,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
     assertThat(cmdLine)
         .comparingElementsUsing(MATCHES_REGEX)
         .containsExactly(
-            "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
+            "--plugin=bl?azel?-out/[^/]*-exec/bin/third_party/x/plugin",
             "-Ibl?azel?-out/k8-fastbuild/bin",
             "-I.",
             "bar/A.proto",
@@ -488,6 +507,13 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         "proto_library(name = 'proto', srcs = ['A.proto'], deps = [':generated'])",
         "generate_rule(name = 'simple', proto_dep = ':proto')");
 
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
+
     ConfiguredTarget target = getConfiguredTarget("//bar:simple");
 
     SpawnAction spawnAction = getGeneratingSpawnAction(getBinArtifact("out", target));
@@ -495,7 +521,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
     assertThat(cmdLine)
         .comparingElementsUsing(MATCHES_REGEX)
         .containsExactly(
-            "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
+            "--plugin=bl?azel?-out/[^/]*-exec/bin/third_party/x/plugin",
             "-Ibl?azel?-out/k8-fastbuild/bin",
             "-I.",
             "bar/A.proto")
@@ -535,6 +561,12 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         "load('//foo:generate.bzl', 'generate_rule')",
         "proto_library(name = 'proto', srcs = ['A.proto'], deps = ['@foo//e:e'])",
         "generate_rule(name = 'simple', proto_dep = ':proto')");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
 
     ConfiguredTarget target = getConfiguredTarget("//bar:simple");
 
@@ -543,7 +575,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
     assertThat(cmdLine)
         .comparingElementsUsing(MATCHES_REGEX)
         .containsExactly(
-            "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
+            "--plugin=bl?azel?-out/[^/]*-exec/bin/third_party/x/plugin",
             expectedFlags.get(0),
             "-I.",
             "bar/A.proto")

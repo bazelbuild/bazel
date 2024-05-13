@@ -683,8 +683,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     actionKeyContext.clear();
     DebugLoggerConfigurator.flushServerLog();
     storedExitCode.set(null);
+    boolean keepStateAfterBuild =
+        !env.getCommandName().equals("clean") && commonOptions.keepStateAfterBuild;
     return BlazeCommandResult.withResponseExtensions(
-        finalCommandResult, env.getResponseExtensions(), commonOptions.keepStateAfterBuild);
+        finalCommandResult, env.getResponseExtensions(), keepStateAfterBuild);
   }
 
   /**

@@ -495,8 +495,7 @@ public final class DependencyResolver {
   private void handleException(ExtendedEventHandler listener, Target target, Exception untyped)
       throws ReportedException {
 
-    if (untyped instanceof DependencyEvaluationException) {
-      DependencyEvaluationException e = (DependencyEvaluationException) untyped;
+    if (untyped instanceof DependencyEvaluationException e) {
       String errorMessage = e.getMessage();
       if (!e.depReportedOwnError()) {
         listener.handle(Event.error(e.getLocation(), e.getMessage()));
@@ -532,15 +531,13 @@ public final class DependencyResolver {
                   errorMessage,
                   null,
                   e.getDetailedExitCode()));
-    } else if (untyped instanceof ConfiguredValueCreationException) {
-      ConfiguredValueCreationException e = (ConfiguredValueCreationException) untyped;
+    } else if (untyped instanceof ConfiguredValueCreationException e) {
       if (!e.getMessage().isEmpty()) {
         // Report the error to the user.
         listener.handle(Event.error(e.getLocation(), e.getMessage()));
       }
       throw new ReportedException(e);
-    } else if (untyped instanceof AspectCreationException) {
-      AspectCreationException e = (AspectCreationException) untyped;
+    } else if (untyped instanceof AspectCreationException e) {
       if (!e.getMessage().isEmpty()) {
         // Report the error to the user.
         listener.handle(Event.error(null, e.getMessage()));
@@ -552,8 +549,7 @@ public final class DependencyResolver {
               e.getMessage(),
               e.getCauses(),
               e.getDetailedExitCode()));
-    } else if (untyped instanceof ToolchainException) {
-      ToolchainException e = (ToolchainException) untyped;
+    } else if (untyped instanceof ToolchainException e) {
       ConfiguredValueCreationException cvce =
           e.asConfiguredValueCreationException(targetAndConfiguration);
       listener.handle(Event.error(target.getLocation(), cvce.getMessage()));
@@ -760,11 +756,10 @@ public final class DependencyResolver {
       ExtendedEventHandler listener)
       throws InterruptedException {
     var target = targetAndConfiguration.getTarget();
-    if (!(target instanceof Rule)) {
+    if (!(target instanceof Rule rule)) {
       return UnloadedToolchainContextsInputs.empty();
     }
 
-    Rule rule = (Rule) target;
     var configuration = targetAndConfiguration.getConfiguration();
     boolean useAutoExecGroups =
         rule.isAttrDefined("$use_auto_exec_groups", Type.BOOLEAN)

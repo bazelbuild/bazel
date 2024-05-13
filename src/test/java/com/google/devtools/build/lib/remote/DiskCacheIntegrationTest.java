@@ -57,8 +57,7 @@ public class DiskCacheIntegrationTest extends BuildIntegrationTestCase {
       new ExtendedEventHandler() {
         @Override
         public void post(Postable obj) {
-          if (obj instanceof ActionUploadFinishedEvent) {
-            var event = (ActionUploadFinishedEvent) obj;
+          if (obj instanceof ActionUploadFinishedEvent event) {
             if (!event.action().getMnemonic().equals("Genrule") || event.store() != Store.AC) {
               return;
             }

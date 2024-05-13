@@ -162,8 +162,10 @@ public final class FileArtifactValueTest {
   public void testUnresolvedSymlink() throws Exception {
     Path path = scratchSymlink("/sym", "/some/path");
     FileArtifactValue value = FileArtifactValue.createForUnresolvedSymlink(path);
+    FileArtifactValue value2 = FileArtifactValue.createForUnresolvedSymlink(path);
     assertThat(value).isInstanceOf(UnresolvedSymlinkArtifactValue.class);
     assertThat(((UnresolvedSymlinkArtifactValue) value).getSymlinkTarget()).isEqualTo("/some/path");
+    new EqualsTester().addEqualityGroup(value, value2).testEquals();
   }
 
   // Empty files are the same as normal files -- mtime is not stored.

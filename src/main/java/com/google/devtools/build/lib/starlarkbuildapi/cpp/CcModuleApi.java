@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -47,7 +48,6 @@ import net.starlark.java.eval.Tuple;
 public interface CcModuleApi<
         StarlarkActionFactoryT extends StarlarkActionFactoryApi,
         FileT extends FileApi,
-        FdoContextT extends FdoContextApi<?>,
         FeatureConfigurationT extends FeatureConfigurationApi,
         CompilationContextT extends CcCompilationContextApi<FileT, CppModuleMapT>,
         LtoBackendArtifactsT extends LtoBackendArtifactsApi<FileT>,
@@ -691,6 +691,24 @@ public interface CcModuleApi<
       throws EvalException;
 
   @StarlarkMethod(
+      name = "create_lto_compilation_context",
+      doc = "Create LTO compilation context",
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "objects",
+            doc = "map of full object to index object",
+            positional = false,
+            named = true,
+            defaultValue = "{}",
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+            })
+      })
+  LtoCompilationContextApi createLtoCompilationContextFromStarlark(
+      Object objectsObject, StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
       name = "create_compilation_outputs",
       doc = "Create compilation outputs object.",
       useStarlarkThread = true,
@@ -1126,22 +1144,22 @@ public interface CcModuleApi<
             doc = "Depset of directories where linker will look for libraries at link time.",
             positional = false,
             named = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
+            defaultValue = "[]",
+            allowedTypes = {@ParamType(type = Depset.class)}),
         @Param(
             name = "runtime_library_search_directories",
             doc = "Depset of directories where loader will look for libraries at runtime.",
             positional = false,
             named = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
+            defaultValue = "[]",
+            allowedTypes = {@ParamType(type = Depset.class)}),
         @Param(
             name = "user_link_flags",
             doc = "List of additional link flags (linkopts).",
             positional = false,
             named = true,
-            defaultValue = "None",
-            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
+            defaultValue = "[]",
+            allowedTypes = {@ParamType(type = Sequence.class)}),
         @Param(
             name = "output_file",
             doc = "Optional output file path.",
@@ -1199,7 +1217,7 @@ public interface CcModuleApi<
             defaultValue = "True"),
       },
       useStarlarkThread = true)
-  CcToolchainVariablesT getLinkBuildVariables(
+  default CcToolchainVariablesT getLinkBuildVariables(
       Info ccToolchainProvider,
       FeatureConfigurationT featureConfiguration,
       Object librarySearchDirectories,
@@ -1212,8 +1230,9 @@ public interface CcModuleApi<
       boolean mustKeepDebug,
       boolean useTestOnlyFlags,
       boolean isStaticLinkingMode,
-      StarlarkThread thread)
-      throws EvalException;
+      StarlarkThread thread) {
+    throw new UnsupportedOperationException();
+  }
 
   @StarlarkMethod(name = "empty_variables", documented = false, useStarlarkThread = true)
   CcToolchainVariablesT getVariables(StarlarkThread thread) throws EvalException;
@@ -1297,6 +1316,12 @@ public interface CcModuleApi<
             defaultValue = "unbound",
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = FileApi.class)}),
         @Param(
+            name = "lto_compilation_context",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "None"),
+        @Param(
             name = "alwayslink",
             doc = "Whether to link the static library/objects in the --whole_archive block.",
             positional = false,
@@ -1338,6 +1363,7 @@ public interface CcModuleApi<
       Object interfaceLibrary,
       Object picObjectFiles, // Sequence<Artifact> expected
       Object nopicObjectFiles, // Sequence<Artifact> expected
+      Object ltoCopmilationContextObject,
       boolean alwayslink,
       String dynamicLibraryPath,
       String interfaceLibraryPath,
@@ -1830,20 +1856,29 @@ public interface CcModuleApi<
         @Param(
             name = "target_system_name",
             positional = false,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             named = true,
-            doc = "The GNU System Name."),
+            doc =
+                "Deprecated. The GNU System Name. The string is exposed to"
+                    + " CcToolchainInfo.target_gnu_system_name."),
         @Param(
             name = "target_cpu",
             positional = false,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             named = true,
-            doc = "The target architecture string."),
+            doc = "Deprecated: Use cpu based constraints instead."),
         @Param(
             name = "target_libc",
             positional = false,
+            defaultValue = "None",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             named = true,
             doc =
-                "The libc version string (e.g. \"glibc-2.2.2\"). If the string is \"macosx\","
-                    + " platform is assumed to be MacOS. Otherwise, Linux"),
+                "Deprecated: Use OS based constraints instead. The libc version string (e.g."
+                    + " \"glibc-2.2.2\"). If the string is \"macosx\", platform is assumed to be"
+                    + " MacOS. Otherwise, Linux. The string is exposed to CcToolchainInfo.libc."),
         @Param(
             name = "compiler",
             positional = false,
@@ -1862,14 +1897,18 @@ public interface CcModuleApi<
             defaultValue = "None",
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             named = true,
-            doc = "The abi in use, which is a gcc version. E.g.: \"gcc-3.4\""),
+            doc =
+                "The abi in use, which is a gcc version. E.g.: \"gcc-3.4\". The string is set to"
+                    + " C++ toolchain variable ABI."),
         @Param(
             name = "abi_libc_version",
             positional = false,
             defaultValue = "None",
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             named = true,
-            doc = "The glibc version used by the abi we're using."),
+            doc =
+                "The glibc version used by the abi we're using. The string is set to C++ toolchain"
+                    + " variable ABI_LIBC_VERSION."),
         @Param(
             name = "tool_paths",
             positional = false,
@@ -1904,9 +1943,9 @@ public interface CcModuleApi<
       Sequence<?> cxxBuiltInIncludeDirectories, // <String> expected
       String toolchainIdentifier,
       Object hostSystemName,
-      String targetSystemName,
-      String targetCpu,
-      String targetLibc,
+      Object targetSystemName,
+      Object targetCpu,
+      Object targetLibc,
       String compiler,
       Object abiVersion,
       Object abiLibcVersion,
@@ -2102,7 +2141,7 @@ public interface CcModuleApi<
       FileT bitcodeFile,
       FeatureConfigurationT featureConfigurationForStarlark,
       Info ccToolchain,
-      FdoContextT fdoContext,
+      StructImpl fdoContextStruct,
       boolean usePic,
       boolean shouldCreatePerObjectDebugInfo,
       Sequence<?> argv,

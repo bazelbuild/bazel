@@ -45,6 +45,7 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
@@ -150,11 +151,14 @@ public class RepoFileFunction implements SkyFunction {
     try (Mutability mu = Mutability.create("repo file", repoName)) {
       new DotBazelFileSyntaxChecker("REPO.bazel files", /* canLoadBzl= */ false)
           .check(starlarkFile);
-      Module predeclared =
-          Module.withPredeclared(
-              starlarkSemantics, starlarkEnv.getStarlarkGlobals().getRepoToplevels());
+      Module predeclared = Module.withPredeclared(starlarkSemantics, starlarkEnv.getRepoBazelEnv());
       Program program = Program.compileFile(starlarkFile, predeclared);
-      StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
+      StarlarkThread thread =
+          StarlarkThread.create(
+              mu,
+              starlarkSemantics,
+              /* contextDescription= */ "",
+              SymbolGenerator.create(repoName));
       thread.setPrintHandler(Event.makeDebugPrintHandler(handler));
       RepoThreadContext context =
           new RepoThreadContext(

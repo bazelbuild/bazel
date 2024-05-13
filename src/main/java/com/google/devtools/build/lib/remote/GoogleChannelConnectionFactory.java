@@ -159,8 +159,8 @@ public class GoogleChannelConnectionFactory
               reporter.handle(Event.error(message));
 
               IOException exception;
-              if (error instanceof IOException) {
-                exception = (IOException) error;
+              if (error instanceof IOException ioException) {
+                exception = ioException;
               } else {
                 exception = new IOException(error);
               }

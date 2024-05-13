@@ -114,7 +114,12 @@ public class WorkspaceFactory {
       Program prog = Program.compileFile(file, module);
 
       // create thread
-      StarlarkThread thread = new StarlarkThread(mutability, starlarkSemantics);
+      StarlarkThread thread =
+          StarlarkThread.create(
+              mutability,
+              starlarkSemantics,
+              /* contextDescription= */ "",
+              builder.getSymbolGenerator());
       thread.setLoader(loadedModules::get);
       thread.setPrintHandler(Event.makeDebugPrintHandler(builder.getLocalEventHandler()));
       builder.storeInThread(thread);
@@ -239,7 +244,8 @@ public class WorkspaceFactory {
           throw new EvalException("unexpected positional arguments");
         }
         try {
-          Package.Builder builder = PackageFactory.getContext(thread);
+          Package.Builder builder =
+              Package.Builder.fromOrFailDisallowingSymbolicMacros(thread, "repository rules");
           // TODO(adonovan): this cast doesn't look safe!
           String externalRepoName = (String) kwargs.get("name");
           if (!allowOverride

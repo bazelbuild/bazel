@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileValue;
@@ -28,31 +27,51 @@ import javax.annotation.Nullable;
 
 /**
  * {@link GraphInconsistencyReceiver} for evaluations operating on graphs when {@code
- * --heuristically_drop_nodes} flag is applied.
+ * --heuristically_drop_nodes} flag is applied, or when some form of node dropping is done in
+ * combination with skymeld mode.
  *
- * <p>The expected inconsistency caused by heuristically dropping state nodes should be tolerated
- * while all other inconsistencies should result in throwing an exception.
+ * <p>The expected inconsistency should be tolerated while all other inconsistencies should result
+ * in throwing an exception.
  *
  * <p>{@code RewindableGraphInconsistencyReceiver} implements similar logic to handle heuristically
  * dropping state nodes.
  */
-public class NodeDroppingInconsistencyReceiver implements GraphInconsistencyReceiver {
+public final class NodeDroppingInconsistencyReceiver implements GraphInconsistencyReceiver {
 
+  private final boolean heuristicallyDropNodes;
+  private final boolean skymeldInconsistenciesExpected;
   private static final ImmutableMap<SkyFunctionName, SkyFunctionName> EXPECTED_MISSING_CHILDREN =
       ImmutableMap.of(
           FileValue.FILE, FileStateKey.FILE_STATE,
           SkyFunctions.DIRECTORY_LISTING, SkyFunctions.DIRECTORY_LISTING_STATE,
           SkyFunctions.CONFIGURED_TARGET, GenQueryDirectPackageProviderFactory.GENQUERY_SCOPE);
 
+  // TODO: b/290998109#comment60 - After the GLOB nodes are replaced by GLOBS, the missing children
+  // below might be unexpected.
+  // These are only expected when Skymeld is enabled and we're dropping nodes.
+  private static final ImmutableMap<SkyFunctionName, SkyFunctionName>
+      SKYMELD_EXPECTED_MISSING_CHILDREN =
+          ImmutableMap.of(SkyFunctions.ACTION_EXECUTION, SkyFunctions.GLOB);
+
+  public NodeDroppingInconsistencyReceiver(
+      boolean heuristicallyDropNodes, boolean skymeldInconsistenciesExpected) {
+    this.heuristicallyDropNodes = heuristicallyDropNodes;
+    this.skymeldInconsistenciesExpected = skymeldInconsistenciesExpected;
+  }
+
   @Override
   public void noteInconsistencyAndMaybeThrow(
       SkyKey key, @Nullable Collection<SkyKey> otherKeys, Inconsistency inconsistency) {
-    checkState(
-        isExpectedInconsistency(key, otherKeys, inconsistency),
-        "Unexpected inconsistency: %s, %s, %s",
-        key,
-        otherKeys,
-        inconsistency);
+    if (heuristicallyDropNodes && isExpectedInconsistency(key, otherKeys, inconsistency)) {
+      return;
+    }
+    if (skymeldInconsistenciesExpected
+        && isExpectedInconsistencySkymeld(key, otherKeys, inconsistency)) {
+      return;
+    }
+
+    throw new IllegalStateException(
+        String.format("Unexpected inconsistency: %s, %s, %s", key, otherKeys, inconsistency));
   }
 
   /**
@@ -61,19 +80,40 @@ public class NodeDroppingInconsistencyReceiver implements GraphInconsistencyRece
    */
   public static boolean isExpectedInconsistency(
       SkyKey key, @Nullable Collection<SkyKey> otherKeys, Inconsistency inconsistency) {
-    return isExpectedInconsistency(key, otherKeys, inconsistency, EXPECTED_MISSING_CHILDREN);
+    return isExpectedInternal(
+        key,
+        otherKeys,
+        inconsistency,
+        EXPECTED_MISSING_CHILDREN,
+        /* isSkymeldInconsistency= */ false);
   }
 
-  static boolean isExpectedInconsistency(
+  /**
+   * Checks whether the input inconsistency is an expected scenario caused by skymeld + some form of
+   * node dropping.
+   */
+  public static boolean isExpectedInconsistencySkymeld(
+      SkyKey key, @Nullable Collection<SkyKey> otherKeys, Inconsistency inconsistency) {
+    return isExpectedInternal(
+        key,
+        otherKeys,
+        inconsistency,
+        SKYMELD_EXPECTED_MISSING_CHILDREN,
+        /* isSkymeldInconsistency= */ true);
+  }
+
+  private static boolean isExpectedInternal(
       SkyKey key,
       @Nullable Collection<SkyKey> otherKeys,
       Inconsistency inconsistency,
-      ImmutableMap<SkyFunctionName, SkyFunctionName> expectedMissingChildrenTypes) {
-    SkyFunctionName expectedMissingChildType = expectedMissingChildrenTypes.get(key.functionName());
+      ImmutableMap<SkyFunctionName, SkyFunctionName> expectedMissingChildTypes,
+      boolean isSkymeldInconsistency) {
+    SkyFunctionName expectedMissingChildType = expectedMissingChildTypes.get(key.functionName());
     if (expectedMissingChildType == null) {
       return false;
     }
-    if (inconsistency == Inconsistency.RESET_REQUESTED) {
+    // Skymeld shouldn't cause any inconsistency of this type.
+    if (!isSkymeldInconsistency && inconsistency == Inconsistency.RESET_REQUESTED) {
       return otherKeys == null;
     }
     if (inconsistency == Inconsistency.ALREADY_DECLARED_CHILD_MISSING

@@ -18,6 +18,7 @@ import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static java.util.stream.Collectors.toList;
 import static org.junit.Assert.assertThrows;
 
@@ -43,6 +44,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
@@ -81,7 +83,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         """
         def _impl(target, ctx):
            print('This aspect does nothing')
-           return struct()
+           return []
         MyAspect = aspect(implementation=_impl)
         """);
     scratch.file("test/BUILD", "java_library(name = 'xxx',)");
@@ -114,7 +116,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
 
     StarlarkProvider.Key fooKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "foo");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "foo");
 
     assertThat(configuredAspect.get(fooKey).getProvider().getKey()).isEqualTo(fooKey);
   }
@@ -141,9 +143,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
 
     StarlarkProvider.Key fooKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "foo");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "foo");
     StarlarkProvider.Key barKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "bar");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "bar");
 
     assertThat(configuredAspect.get(fooKey).getProvider().getKey()).isEqualTo(fooKey);
     assertThat(configuredAspect.get(barKey).getProvider().getKey()).isEqualTo(barKey);
@@ -157,7 +159,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         foo = provider()
         bar = provider()
         def _impl(target, ctx):
-           return struct(foobar='foobar', providers=[foo(), bar()])
+           return [foo(), bar()]
         MyAspect = aspect(implementation=_impl)
         """);
     scratch.file("test/BUILD", "java_library(name = 'xxx',)");
@@ -172,9 +174,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
 
     StarlarkProvider.Key fooKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "foo");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "foo");
     StarlarkProvider.Key barKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "bar");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "bar");
 
     assertThat(configuredAspect.get(fooKey).getProvider().getKey()).isEqualTo(fooKey);
     assertThat(configuredAspect.get(barKey).getProvider().getKey()).isEqualTo(barKey);
@@ -194,7 +196,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         """
         def _impl(target, ctx):
            print('This aspect does nothing')
-           return struct()
+           return []
         MyAspect = aspect(implementation=_impl)
         """);
     scratch.file("test/BUILD", "java_library(name = 'xxx',)");
@@ -218,7 +220,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         """
         def _impl(target, ctx):
            print('This aspect does nothing')
-           return struct()
+           return []
         MyAspect = aspect(implementation=_impl)
         """);
     scratch.file("local/repo/BUILD");
@@ -245,7 +247,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         """
         def _impl(target, ctx):
            print('This aspect does nothing')
-           return struct()
+           return []
         MyAspect = aspect(implementation=_impl, fragments=['java'])
         """);
     scratch.file("test/BUILD", "java_library(name = 'xxx',)");
@@ -273,16 +275,17 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/aspect.bzl",
         """
-        def _impl(target, ctx):
-           s = depset([target.label], transitive = [i.target_labels for i in ctx.rule.attr.deps])
-           c = depset([ctx.rule.kind], transitive = [i.rule_kinds for i in ctx.rule.attr.deps])
-           return struct(target_labels = s, rule_kinds = c)
+Info = provider()
+def _impl(target, ctx):
+   s = depset([target.label], transitive = [i[Info].target_labels for i in ctx.rule.attr.deps])
+   c = depset([ctx.rule.kind], transitive = [i[Info].rule_kinds for i in ctx.rule.attr.deps])
+   return Info(target_labels = s, rule_kinds = c)
 
-        MyAspect = aspect(
-           implementation=_impl,
-           attr_aspects=['deps'],
-        )
-        """);
+MyAspect = aspect(
+   implementation=_impl,
+   attr_aspects=['deps'],
+)
+""");
     scratch.file(
         "test/BUILD",
         """
@@ -301,17 +304,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:xxx");
     ConfiguredAspect configuredAspect = analysisResult.getAspectsMap().values().iterator().next();
     assertThat(configuredAspect).isNotNull();
-    Object names = configuredAspect.get("target_labels");
-    assertThat(names).isInstanceOf(Depset.class);
-    assertThat(
-            Iterables.transform(
-                ((Depset) names).toList(),
-                o -> {
-                  assertThat(o).isInstanceOf(Label.class);
-                  return o.toString();
-                }))
+    StarlarkInfo info = getStarlarkProvider(configuredAspect, "//test:aspect.bzl", "Info");
+    NestedSet<Label> names =
+        Depset.cast(info.getValue("target_labels"), Label.class, "target_labels");
+    assertThat(names.toList().stream().map(Label::toString))
         .containsExactly("//test:xxx", "//test:yyy");
-    Object ruleKinds = configuredAspect.get("rule_kinds");
+    Object ruleKinds =
+        getStarlarkProvider(configuredAspect, "//test:aspect.bzl", "Info").getValue("rule_kinds");
     assertThat(ruleKinds).isInstanceOf(Depset.class);
     assertThat(((Depset) ruleKinds).toList()).containsExactly("java_library");
   }
@@ -324,17 +323,18 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/aspect.bzl",
         """
+        Info = provider()
         def _impl(target, ctx):
            s = []
            c = []
            a = ctx.rule.attr
            if getattr(a, '_defaultattr', None):
-               s += [a._defaultattr.target_labels]
-               c += [a._defaultattr.rule_kinds]
+               s += [a._defaultattr[Info].target_labels]
+               c += [a._defaultattr[Info].rule_kinds]
            if getattr(a, '_cc_toolchain', None):
-               s += [a._cc_toolchain.target_labels]
-               c += [a._cc_toolchain.rule_kinds]
-           return struct(
+               s += [a._cc_toolchain[Info].target_labels]
+               c += [a._cc_toolchain[Info].rule_kinds]
+           return Info(
                target_labels = depset([target.label], transitive = s),
                rule_kinds = depset([ctx.rule.kind], transitive = c))
 
@@ -364,7 +364,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:yyy");
     ConfiguredAspect configuredAspect = analysisResult.getAspectsMap().values().iterator().next();
     assertThat(configuredAspect).isNotNull();
-    Object nameSet = configuredAspect.get("target_labels");
+    StarlarkProvider.Key infoKey =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "Info");
+    Object nameSet = ((StarlarkInfo) configuredAspect.get(infoKey)).getValue("target_labels");
     ImmutableList<String> names =
         ImmutableList.copyOf(
             Iterables.transform(
@@ -382,8 +384,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/aspect.bzl",
         """
+        Info = provider()
         def _impl(target, ctx):
-           return struct(aspect_provider = 'data')
+           return Info(aspect_provider = 'data')
 
         p = provider()
         MyAspect = aspect(implementation=_impl)
@@ -396,8 +399,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
            attrs = { 'dep' : attr.label(aspects = [MyAspect]) },
         )
         """);
-    StarlarkProvider.Key providerKey =
-        new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//test:aspect.bzl"), "p");
     scratch.file(
         "test/BUILD",
         """
@@ -408,11 +409,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     AnalysisResult analysisResult = update("//test:yyy");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
 
-    StructImpl names = (StructImpl) target.get(providerKey);
+    StructImpl names = getStarlarkProvider(target, "p");
     assertThat((Iterable<?>) names.getValue("dir"))
         .containsExactly(
             "actions",
-            "aspect_provider",
             "data_runfiles",
             "default_runfiles",
             "files",
@@ -517,24 +517,27 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/aspect.bzl",
         """
-        def _aspect_impl(target, ctx):
-           s = depset([target.label], transitive = [i.target_labels for i in ctx.rule.attr.deps])
-           return struct(target_labels = s)
+AspectInfo = provider()
+def _aspect_impl(target, ctx):
+   s = depset([target.label], transitive =
+       [i[AspectInfo].target_labels for i in ctx.rule.attr.deps])
+   return AspectInfo(target_labels = s)
 
-        def _rule_impl(ctx):
-           s = depset(transitive = [i.target_labels for i in ctx.attr.attr])
-           return struct(rule_deps = s)
+TargetInfo = provider()
+def _rule_impl(ctx):
+   s = depset(transitive = [i[AspectInfo].target_labels for i in ctx.attr.attr])
+   return TargetInfo(rule_deps = s)
 
-        MyAspect = aspect(
-           implementation=_aspect_impl,
-           attr_aspects=['deps'],
-        )
-        my_rule = rule(
-           implementation=_rule_impl,
-           attrs = { 'attr' :
-                     attr.label_list(mandatory=True, allow_files=True, aspects = [MyAspect]) },
-        )
-        """);
+MyAspect = aspect(
+   implementation=_aspect_impl,
+   attr_aspects=['deps'],
+)
+my_rule = rule(
+   implementation=_rule_impl,
+   attrs = { 'attr' :
+             attr.label_list(mandatory=True, allow_files=True, aspects = [MyAspect]) },
+)
+""");
 
     scratch.file(
         "test/BUILD",
@@ -552,16 +555,12 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     AnalysisResult analysisResult = update("//test:xxx");
     assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:xxx");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
-    Object names = target.get("rule_deps");
-    assertThat(names).isInstanceOf(Depset.class);
-    assertThat(
-            Iterables.transform(
-                ((Depset) names).toList(),
-                o -> {
-                  assertThat(o).isInstanceOf(Label.class);
-                  return o.toString();
-                }))
-        .containsExactly("//test:yyy");
+    NestedSet<Label> names =
+        Depset.cast(
+            getStarlarkProvider(target, "TargetInfo").getValue("rule_deps", Depset.class),
+            Label.class,
+            "rule_deps");
+    assertThat(names.toList().stream().map(Label::toString)).containsExactly("//test:yyy");
   }
 
   @Test
@@ -692,11 +691,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/aspect.bzl",
         """
+        AspectInfo = provider()
         def _aspect_impl(target, ctx):
-           return struct(aspect_data='foo')
+           return AspectInfo(aspect_data='foo')
 
+        RuleInfo = provider()
         def _rule_impl(ctx):
-           return struct(data=ctx.attr.attr.aspect_data)
+           return RuleInfo(data=ctx.attr.attr[AspectInfo].aspect_data)
 
         MyAspect = aspect(
            implementation=_aspect_impl,
@@ -723,7 +724,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     AnalysisResult analysisResult = update("//test:xxx");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
-    Object value = target.get("data");
+    String value = getStarlarkProvider(target, "RuleInfo").getValue("data", String.class);
     assertThat(value).isEqualTo("foo");
   }
 
@@ -732,12 +733,14 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/aspect.bzl",
         """
+        AspectInfo = provider()
         def _aspect_impl(target, ctx):
-           return struct(aspect_data=target.label.name)
+           return AspectInfo(aspect_data=target.label.name)
 
+        RuleInfo = provider()
         def _rule_impl(ctx):
-           return struct(
-               data=','.join(['{}:{}'.format(dep.aspect_data, val)
+           return RuleInfo(
+               data=','.join(['{}:{}'.format(dep[AspectInfo].aspect_data, val)
                               for dep, val in ctx.attr.attr.items()]))
 
         MyAspect = aspect(
@@ -765,7 +768,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     AnalysisResult analysisResult = update("//test:xxx");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
-    Object value = target.get("data");
+    String value = getStarlarkProvider(target, "RuleInfo").getValue("data", String.class);
     assertThat(value).isEqualTo("yyy:zzz");
   }
 
@@ -777,7 +780,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         """
         def _impl(target, ctx):
-           return struct()
+           return []
 
         MyAspect = aspect(
            implementation=_impl,
@@ -899,7 +902,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         """
         def _impl(target, ctx):
           ctx.actions.declare_file('missing_in_action.txt')
-          return struct()
+          return []
 
         MyAspect = aspect(implementation=_impl)
         """);
@@ -925,8 +928,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file(
         "simple/print.bzl",
         """
+        Info = provider()
         def _print_expanded_location_impl(target, ctx):
-            return struct(result=ctx.expand_location(ctx.rule.attr.cmd, []))
+            return Info(result=ctx.expand_location(ctx.rule.attr.cmd, []))
 
         print_expanded_location = aspect(
             implementation = _print_expanded_location_impl,
@@ -955,7 +959,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
             "//simple:concat_all_files");
     assertThat(analysisResult.hasError()).isFalse();
     ConfiguredAspect configuredAspect = analysisResult.getAspectsMap().values().iterator().next();
-    String result = (String) configuredAspect.get("result");
+    String result =
+        getStarlarkProvider(configuredAspect, "//simple:print.bzl", "Info")
+            .getValue("result", String.class);
 
     assertThat(result).isEqualTo("simple/afile");
   }
@@ -991,8 +997,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "        'my_dep': attr.label(cfg = split_transition),",
         "    })",
         "",
+        "Info = provider()",
         "def _print_expanded_location_impl(target, ctx):",
-        "    return struct(result=ctx.expand_location('$(location //a:lib)',"
+        "    return Info(result=ctx.expand_location('$(location //a:lib)',"
             + " [ctx.rule.attr.my_dep[0], ctx.rule.attr.my_dep[1]]))",
         "",
         "print_expanded_location = aspect(",
@@ -1045,13 +1052,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         def _impl(target, ctx):
           f = ctx.actions.declare_file('f.txt')
           ctx.actions.write(f, 'f')
-          return struct(output_groups = { 'duplicate' : depset([f]) })
+          return [OutputGroupInfo(duplicate = depset([f]))]
 
         MyAspect = aspect(implementation=_impl)
         def _rule_impl(ctx):
           g = ctx.actions.declare_file('g.txt')
           ctx.actions.write(g, 'g')
-          return struct(output_groups = { 'duplicate' : depset([g]) })
+          return [OutputGroupInfo(duplicate = depset([g]))]
         my_rule = rule(_rule_impl)
         def _noop(ctx):
           pass
@@ -1084,14 +1091,14 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         def _a1_impl(target, ctx):
           f = ctx.actions.declare_file(target.label.name + '_a1.txt')
           ctx.actions.write(f, 'f')
-          return struct(output_groups = { 'a1_group' : depset([f]) })
+          return [OutputGroupInfo(a1_group = depset([f]))]
 
         a1 = aspect(implementation=_a1_impl, attr_aspects = ['dep'])
         def _rule_impl(ctx):
           if not ctx.attr.dep:
-             return struct()
-          og = {k:ctx.attr.dep.output_groups[k] for k in ctx.attr.dep.output_groups}
-          return struct(output_groups = og)
+             return []
+          og = {k:ctx.attr.dep.output_groups[k] for k in ctx.attr.dep[OutputGroupInfo]}
+          return [OutputGroupInfo(**og)]
         my_rule1 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a1]) })
         """);
     scratch.file(
@@ -1122,7 +1129,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         a1 = aspect(implementation=_a1_impl, attr_aspects = ['dep'])
         def _rule_impl(ctx):
           if not ctx.attr.dep:
-             return struct()
+             return []
           return [OutputGroupInfo(a1_group = ctx.attr.dep[OutputGroupInfo].a1_group)]
         my_rule1 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a1]) })
         """);
@@ -1149,19 +1156,19 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         def _a1_impl(target, ctx):
           f = ctx.actions.declare_file(target.label.name + '_a1.txt')
           ctx.actions.write(f, 'f')
-          return struct(output_groups = { 'a1_group' : depset([f]) })
+          return [OutputGroupInfo(a1_group = depset([f]))]
 
         a1 = aspect(implementation=_a1_impl, attr_aspects = ['dep'])
         def _rule_impl(ctx):
           if not ctx.attr.dep:
-             return struct()
+             return []
           og = {k:ctx.attr.dep.output_groups[k] for k in ctx.attr.dep.output_groups}
-          return struct(output_groups = og)
+          return [OutputGroupInfo(**og)]
         my_rule1 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a1]) })
         def _a2_impl(target, ctx):
           g = ctx.actions.declare_file(target.label.name + '_a2.txt')
           ctx.actions.write(g, 'f')
-          return struct(output_groups = { 'a2_group' : depset([g]) })
+          return [OutputGroupInfo(a2_group = depset([g]))]
 
         a2 = aspect(implementation=_a2_impl, attr_aspects = ['dep'])
         my_rule2 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a2]) })
@@ -1197,7 +1204,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         a1 = aspect(implementation=_a1_impl, attr_aspects = ['dep'])
         def _rule_impl(ctx):
           if not ctx.attr.dep:
-             return struct()
+             return []
           og = dict()
           dep_og = ctx.attr.dep[OutputGroupInfo]
           if hasattr(dep_og, 'a1_group'):
@@ -1240,19 +1247,19 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         def _a1_impl(target, ctx):
           f = ctx.actions.declare_file(target.label.name + '_a1.txt')
           ctx.actions.write(f, 'f')
-          return struct(output_groups = { 'a1_group' : depset([f]) })
+          return [OutputGroupInfo(a1_group = depset([f]))]
 
         a1 = aspect(implementation=_a1_impl, attr_aspects = ['dep'])
         def _rule_impl(ctx):
           if not ctx.attr.dep:
-             return struct()
-          og = {k:ctx.attr.dep.output_groups[k] for k in ctx.attr.dep.output_groups}
-          return struct(output_groups = og)
+             return []
+          og = {k:ctx.attr.dep.output_groups[k] for k in ctx.attr.dep[OutputGroupInfo]}
+          return [OutputGroupInfo(**og)]
         my_rule1 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a1]) })
         def _a2_impl(target, ctx):
           g = ctx.actions.declare_file(target.label.name + '_a2.txt')
           ctx.actions.write(g, 'f')
-          return struct(output_groups = { 'a1_group' : depset([g]) })
+          return [OutputGroupInfo(a1_group = depset([g]))]
 
         a2 = aspect(implementation=_a2_impl, attr_aspects = ['dep'])
         my_rule2 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a2]) })
@@ -1288,12 +1295,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/aspect.bzl",
         """
+        Info = provider()
         def _impl(target, ctx):
-          return struct(duplicate = 'x')
+          return Info(duplicate = 'x')
 
         MyAspect = aspect(implementation=_impl)
         def _rule_impl(ctx):
-          return struct(duplicate = 'y')
+          return Info(duplicate = 'y')
         my_rule = rule(_rule_impl)
         def _noop(ctx):
           pass
@@ -1315,7 +1323,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     } catch (ViewCreationFailedException e) {
       // expect to fail.
     }
-    assertContainsEvent("ERROR /workspace/test/BUILD:3:6: Provider duplicate provided twice");
+    assertContainsEvent("ERROR /workspace/test/BUILD:3:6: Provider Info provided twice");
   }
 
   @Test
@@ -1452,9 +1460,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         """
         def _impl(target, ctx):
-           return struct()
+           return []
         def _rule_impl(ctx):
-           return struct()
+           return []
         MyAspectUncovered = aspect(
             implementation=_impl,
             attrs = { 'my_attr' : attr.string(values=['aaa']) },
@@ -1490,9 +1498,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         """
         def _impl(target, ctx):
-           return struct()
+           return []
         def _rule_impl(ctx):
-           return struct()
+           return []
         MyAspectMismatch = aspect(
             implementation=_impl,
             attrs = { 'my_attr' : attr.string(values=['aaa']) },
@@ -1529,9 +1537,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         """
         def _impl(target, ctx):
-           return struct()
+           return []
         def _rule_impl(ctx):
-           return struct()
+           return []
         MyAspectMismatch = aspect(
             implementation=_impl,
             attrs = { 'my_attr' : attr.string(values=['aaa']) },
@@ -1569,9 +1577,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         """
         def _impl(target, ctx):
-           return struct()
+           return []
         def _rule_impl(ctx):
-           return struct()
+           return []
         MyAspectBadDefault = aspect(
             implementation=_impl,
             attrs = { 'my_attr' : attr.string(values=['a'], default='b') },
@@ -1610,9 +1618,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         """
         def _impl(target, ctx):
-           return struct()
+           return []
         def _rule_impl(ctx):
-           return struct()
+           return []
         MyAspectBadValue = aspect(
             implementation=_impl,
             attrs = { 'my_attr' : attr.string(values=['a']) },
@@ -1649,9 +1657,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         """
         def _impl(target, ctx):
-           return struct()
+           return []
         def _rule_impl(ctx):
-           return struct()
+           return []
         MyAspect = aspect(
             implementation=_impl,
             attrs = { 'my_attr' : attr.string(values=['aaa']) },
@@ -1679,9 +1687,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         """
         def _impl(target, ctx):
-           return struct()
+           return []
         def _rule_impl(ctx):
-           return struct()
+           return []
         MyAspect = aspect(
             implementation=_impl,
             attrs = { '_my_attr' : attr.label(default=
@@ -1709,9 +1717,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         """
         def _impl(target, ctx):
-           return struct()
+           return []
         def _rule_impl(ctx):
-           return struct()
+           return []
         def _defattr():
            return Label('//foo/bar:baz')
         MyAspect = aspect(
@@ -1747,9 +1755,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         """
         def _impl(target, ctx):
-           return struct()
+           return []
         def _rule_impl(ctx):
-           return struct()
+           return []
         MyAspectOptParam = aspect(
             implementation=_impl,
             attrs = { 'my_attr' : attr.string(values=['aaa'], default='aaa') },
@@ -1778,9 +1786,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         def _impl(target, ctx):
            if (ctx.attr.my_attr == 'a'):
                fail('Rule is not overriding default, still has value ' + ctx.attr.my_attr)
-           return struct()
+           return []
         def _rule_impl(ctx):
-           return struct()
+           return []
         MyAspectOptOverride = aspect(
             implementation=_impl,
             attrs = { 'my_attr' : attr.string(values=['a', 'b'], default='a') },
@@ -1808,7 +1816,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "foo/extension.bzl",
         """
         def _aspect_impl(target, ctx):
-           return struct()
+           return []
         my_aspect = aspect(_aspect_impl)
         def _main_rule_impl(ctx):
            pass
@@ -1859,11 +1867,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
       String fullFieldName, String fragments, String ruleFragments) throws Exception {
     scratch.file(
         "test/aspect.bzl",
+        "AspectInfo = provider()",
         "def _aspect_impl(target, ctx):",
-        "   return struct(result = str(" + fullFieldName + "))",
+        "   return AspectInfo(result = str(" + fullFieldName + "))",
         "",
+        "RuleInfo = provider()",
         "def _rule_impl(ctx):",
-        "   return struct(stuff = '...')",
+        "   return RuleInfo(stuff = '...')",
         "",
         "MyAspect = aspect(",
         "   implementation=_aspect_impl,",
@@ -1929,27 +1939,30 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   private void buildTargetAndCheckRuleInfo(String... expectedLabels) throws Exception {
     AnalysisResult result = update(ImmutableList.of(), "//test:r2");
     ConfiguredTarget configuredTarget = result.getTargetsToBuild().iterator().next();
-    Depset ruleInfoValue = (Depset) configuredTarget.get("rule_info");
+    Depset ruleInfoValue =
+        (Depset) getStarlarkProvider(configuredTarget, "RuleInfo").getValue("rule_info");
     assertThat(ruleInfoValue.getSet(String.class).toList())
         .containsExactlyElementsIn(expectedLabels);
   }
 
   private static String[] aspectBzlFile(String attrAspects) {
     return new String[] {
+      "AspectInfo = provider()",
       "def _repro_aspect_impl(target, ctx):",
       "    s = depset([str(target.label)], transitive =",
-      "      [d.aspect_info for d in ctx.rule.attr.deps if hasattr(d, 'aspect_info')])",
-      "    return struct(aspect_info = s)",
+      "      [d[AspectInfo].aspect_info for d in ctx.rule.attr.deps if AspectInfo in d])",
+      "    return AspectInfo(aspect_info = s)",
       "",
       "_repro_aspect = aspect(",
       "    _repro_aspect_impl,",
       "    attr_aspects = [" + attrAspects + "],",
       ")",
       "",
+      "RuleInfo = provider()",
       "def repro_impl(ctx):",
       "    s = depset(transitive = ",
-      "      [d.aspect_info for d in ctx.attr.deps if hasattr(d, 'aspect_info')])",
-      "    return struct(rule_info = s)",
+      "      [d[AspectInfo].aspect_info for d in ctx.attr.deps if AspectInfo in d])",
+      "    return RuleInfo(rule_info = s)",
       "",
       "def repro_no_aspect_impl(ctx):",
       "    pass",
@@ -1978,18 +1991,20 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file(
         "foo/extension.bzl",
         """
+        AspectInfo = provider()
         def _aspect_impl(target, ctx):
            file = ctx.actions.declare_file('aspect-output-' + target.label.name)
            ctx.actions.write(file, 'data')
-           return struct(aspect_file = file)
+           return AspectInfo(aspect_file = file)
         my_aspect = aspect(_aspect_impl)
         def _rule_impl(ctx):
            pass
         rule_bin_out = rule(_rule_impl, output_to_genfiles=False)
         rule_gen_out = rule(_rule_impl, output_to_genfiles=True)
+        RuleInfo = provider()
         def _main_rule_impl(ctx):
-           s = depset([d.aspect_file for d in ctx.attr.deps])
-           return struct(aspect_files = s)
+           s = depset([d[AspectInfo].aspect_file for d in ctx.attr.deps])
+           return RuleInfo(aspect_files = s)
         main_rule = rule(_main_rule_impl,
            attrs = { 'deps' : attr.label_list(aspects = [my_aspect]) },
         )
@@ -2005,7 +2020,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         """);
     AnalysisResult analysisResult = update(ImmutableList.of(), "//foo:main");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
-    NestedSet<Artifact> aspectFiles = ((Depset) target.get("aspect_files")).getSet(Artifact.class);
+    NestedSet<Artifact> aspectFiles =
+        getStarlarkProvider(target, "RuleInfo")
+            .getValue("aspect_files", Depset.class)
+            .getSet(Artifact.class);
     assertThat(Iterables.transform(aspectFiles.toList(), Artifact::getFilename))
         .containsExactly("aspect-output-rbin", "aspect-output-rgen");
     for (Artifact aspectFile : aspectFiles.toList()) {
@@ -2024,7 +2042,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         """
         def _impl(target, ctx):
            print('This aspect does nothing')
-           return struct()
+           return []
         MyAspect = aspect(implementation=_impl)
         """);
     scratch.file("test/BUILD", "exports_files(['file.txt'])");
@@ -2045,7 +2063,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         """
         def _aspect_impl(target,ctx):
-          return struct()
+          return []
         my_aspect = aspect(implementation = _aspect_impl)
         _ATTR = { 'deps' : attr.label_list(aspects = [my_aspect]) }
         def _dummy_impl(ctx):
@@ -2071,7 +2089,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         """
         def _aspect_impl(target,ctx):
-          return struct()
+          return []
         my_aspect = aspect(implementation = _aspect_impl)
         def _dummy_impl(ctx):
           pass
@@ -2106,7 +2124,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
           f = ctx.actions.declare_file('dummy.txt')
           ctx.actions.run_shell(outputs = [f], command='echo xxx > $(location f)',
                                 mnemonic='AspectAction')
-          return struct()
+          return []
         my_aspect = aspect(implementation = _aspect_impl)
         """);
     scratch.file(
@@ -2140,7 +2158,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
           f = ctx.actions.declare_file('dummy.txt')
           ctx.actions.run_shell(outputs = [f], command='echo xxx > $(location f)',
                                 mnemonic='AspectAction')
-          return struct()
+          return []
         my_aspect = aspect(implementation = _aspect_impl)
         """);
     scratch.file(
@@ -2231,23 +2249,24 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         """
         a1p = provider()
         def _a1_impl(target,ctx):
-          return struct(a1p = a1p(text = 'random'))
-        a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = ['a1p'])
+          return a1p(text = 'random')
+        a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = [a1p])
         a2p = provider()
         def _a2_impl(target,ctx):
           value = []
-          if hasattr(ctx.rule.attr.dep, 'a2p'):
-             value += ctx.rule.attr.dep.a2p.value
-          if hasattr(target, 'a1p'):
+          if  ctx.rule.attr.dep and a2p in ctx.rule.attr.dep:
+             value += ctx.rule.attr.dep[a2p].value
+          if a1p in target:
              value.append(str(target.label) + str(ctx.aspect_ids) + '=yes')
           else:
              value.append(str(target.label) + str(ctx.aspect_ids) + '=no')
-          return struct(a2p = a2p(value = value))
-        a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = ['a1p'])
+          return a2p(value = value)
+        a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = [a1p])
         def _r1_impl(ctx):
           pass
+        r2info = provider()
         def _r2_impl(ctx):
-          return struct(result = ctx.attr.dep.a2p.value)
+          return r2info(result = ctx.attr.dep[a2p].value)
         r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})
         r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})
         """);
@@ -2261,7 +2280,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         """);
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    Sequence<?> result = (Sequence<?>) target.get("result");
+    Sequence<?> result = getStarlarkProvider(target, "r2info").getValue("result", Sequence.class);
 
     // "yes" means that aspect a2 sees a1's providers.
     assertThat(result)
@@ -2282,38 +2301,42 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/aspect.bzl",
         """
+        a1p = provider()
+        a2p = provider()
+        a3p = provider()
         def _a1_impl(target,ctx):
-          return struct(a1p = 'text from a1')
-        a1 = aspect(_a1_impl, attr_aspects = ['deps'], provides = ['a1p'])
+          return [a1p(value = 'text from a1')]
+        a1 = aspect(_a1_impl, attr_aspects = ['deps'], provides = [a1p])
 
         def _a2_impl(target,ctx):
-          return struct(a2p = 'text from a2')
-        a2 = aspect(_a2_impl, attr_aspects = ['deps'], provides = ['a2p'])
+          return [a2p(value = 'text from a2')]
+        a2 = aspect(_a2_impl, attr_aspects = ['deps'], provides = [a2p])
 
         def _a3_impl(target,ctx):
           value = []
           f = ctx.actions.declare_file('a3.out')
           ctx.actions.write(f, 'text')
           for dep in ctx.rule.attr.deps:
-             if hasattr(dep, 'a3p'):
-                 value += dep.a3p
+             if a3p in dep:
+                 value += dep[a3p].value
           s = str(target.label) + str(ctx.aspect_ids) + '='
-          if hasattr(target, 'a1p'):
+          if a1p in target:
              s += 'a1p'
-          if hasattr(target, 'a2p'):
+          if a2p in target:
              s += 'a2p'
           value.append(s)
-          return struct(a3p = value)
+          return [a3p(value = value)]
         a3 = aspect(_a3_impl, attr_aspects = ['deps'],
-                    required_aspect_providers = [['a1p'], ['a2p']])
+                    required_aspect_providers = [[a1p], [a2p]])
         def _r1_impl(ctx):
           pass
+        RCollectInfo = provider()
         def _rcollect_impl(ctx):
           value = []
           for dep in ctx.attr.deps:
-             if hasattr(dep, 'a3p'):
-                 value += dep.a3p
-          return struct(result = value)
+             if a3p in dep:
+                 value += dep[a3p].value
+          return RCollectInfo(result = value)
         r1 = rule(_r1_impl, attrs = { 'deps' : attr.label_list(aspects = [a1])})
         r2 = rule(_r1_impl, attrs = { 'deps' : attr.label_list(aspects = [a2])})
         rcollect = rule(_rcollect_impl, attrs = { 'deps' : attr.label_list(aspects = [a3])})
@@ -2329,7 +2352,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         """);
     AnalysisResult analysisResult = update("//test:rcollect");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    Sequence<?> result = (Sequence<?>) target.get("result");
+    Sequence<?> result =
+        (Sequence<?>) getStarlarkProvider(target, "RCollectInfo").getValue("result");
     assertThat(result)
         .containsExactly(
             "@//test:r0[\"//test:aspect.bzl%a1\", \"//test:aspect.bzl%a3\"]=a1p",
@@ -2352,23 +2376,24 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         """
         a1p = provider()
         def _a1_impl(target,ctx):
-          return struct(a1p = 'a1p')
-        a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = ['a1p'])
+          return a1p()
+        a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = [a1p])
         a2p = provider()
         def _a2_impl(target,ctx):
           value = []
-          if hasattr(ctx.rule.attr.dep, 'a2p'):
-             value += ctx.rule.attr.dep.a2p.value
-          if hasattr(target, 'a1p'):
+          if ctx.rule.attr.dep and a2p in ctx.rule.attr.dep:
+             value += ctx.rule.attr.dep[a2p].value
+          if a1p in target:
              value.append(str(target.label) + str(ctx.aspect_ids) + '=yes')
           else:
              value.append(str(target.label) + str(ctx.aspect_ids) + '=no')
-          return struct(a2p = a2p(value = value))
+          return a2p(value = value)
         a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = [])
         def _r1_impl(ctx):
           pass
+        r2info = provider()
         def _r2_impl(ctx):
-          return struct(result = ctx.attr.dep.a2p.value)
+          return r2info(result = ctx.attr.dep[a2p].value)
         r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})
         r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})
         """);
@@ -2383,7 +2408,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         """);
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    Sequence<?> result = (Sequence<?>) target.get("result");
+    Sequence<?> result = getStarlarkProvider(target, "r2info").getValue("result", Sequence.class);
     // "yes" means that aspect a2 sees a1's providers.
     assertThat(result)
         .containsExactly(
@@ -2399,23 +2424,24 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         """
         a1p = provider()
         def _a1_impl(target,ctx):
-          return struct(a1p = a1p(text = 'random'))
-        a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = ['a1p'])
+          return [a1p(text = 'random')]
+        a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = [a1p])
         a2p = provider()
         def _a2_impl(target,ctx):
           value = []
-          if hasattr(ctx.rule.attr.dep, 'a2p'):
-             value += ctx.rule.attr.dep.a2p.value
-          if hasattr(target, 'a1p'):
+          if ctx.rule.attr.dep and a2p in ctx.rule.attr.dep:
+             value += ctx.rule.attr.dep[a2p].value
+          if a1p in target:
              value.append(str(target.label) + str(ctx.aspect_ids) + '=yes')
           else:
              value.append(str(target.label) + str(ctx.aspect_ids) + '=no')
-          return struct(a2p = a2p(value = value))
-        a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = ['a1p'])
+          return [a2p(value = value)]
+        a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = [a1p])
         def _r1_impl(ctx):
           pass
+        r2info = provider()
         def _r2_impl(ctx):
-          return struct(result = ctx.attr.dep.a2p.value)
+          return r2info(result = ctx.attr.dep[a2p].value)
         r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})
         r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})
         """);
@@ -2430,7 +2456,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         """);
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    Sequence<?> result = (Sequence<?>) target.get("result");
+    Sequence<?> result = getStarlarkProvider(target, "r2info").getValue("result", Sequence.class);
 
     // "yes" means that aspect a2 sees a1's providers.
     assertThat(result)
@@ -2444,25 +2470,27 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/aspect.bzl",
         """
-        def _a_impl(target,ctx):
-          s = str(target.label) + str(ctx.aspect_ids) + '='
-          value = []
-          if ctx.rule.attr.dep:
-             d = ctx.rule.attr.dep
-             this_id = ctx.aspect_ids[len(ctx.aspect_ids) - 1]
-             s += str(d.label) + str(d.my_ids) + ',' + str(this_id in d.my_ids)
-             value += ctx.rule.attr.dep.ap
-          else:
-             s += 'None'
-          value.append(s)
-          return struct(ap = value, my_ids = ctx.aspect_ids)
-        a = aspect(_a_impl, attr_aspects = ['dep'])
-        def _r_impl(ctx):
-          if not ctx.attr.dep:
-             return struct(result = [])
-          return struct(result = ctx.attr.dep.ap)
-        r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
-        """);
+AspectInfo = provider()
+def _a_impl(target,ctx):
+  s = str(target.label) + str(ctx.aspect_ids) + '='
+  value = []
+  if ctx.rule.attr.dep:
+     d = ctx.rule.attr.dep
+     this_id = ctx.aspect_ids[len(ctx.aspect_ids) - 1]
+     s += str(d.label) + str(d[AspectInfo].my_ids) + ',' + str(this_id in d[AspectInfo].my_ids)
+     value += ctx.rule.attr.dep[AspectInfo].ap
+  else:
+     s += 'None'
+  value.append(s)
+  return AspectInfo(ap = value, my_ids = ctx.aspect_ids)
+a = aspect(_a_impl, attr_aspects = ['dep'])
+RuleInfo = provider()
+def _r_impl(ctx):
+  if not ctx.attr.dep:
+     return RuleInfo(result = [])
+  return RuleInfo(result = ctx.attr.dep[AspectInfo].ap)
+r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
+""");
     scratch.file(
         "test/BUILD",
         """
@@ -2473,7 +2501,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         """);
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    Sequence<?> result = (Sequence<?>) target.get("result");
+    Sequence<?> result = (Sequence<?>) getStarlarkProvider(target, "RuleInfo").getValue("result");
 
     assertThat(result)
         .containsExactly(
@@ -2487,7 +2515,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         """
         def _impl(target, ctx):
-           return struct()
+           return []
         my_aspect = aspect(_impl)
         a_dict = { 'foo' : attr.label_list(aspects = [my_aspect]) }
         """);
@@ -2528,7 +2556,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         """
         def _impl(target, ctx):
-           return struct()
+           return []
         my_aspect = aspect(_impl, provides = ['foo'])
         a_dict = { 'foo' : attr.label_list(aspects = [my_aspect]) }
         """);
@@ -2555,16 +2583,17 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         """
         a1p = provider()
         def _a1_impl(target,ctx):
-          return struct(a1p = a1p(text = 'random'))
-        a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = ['a1p'])
+          return [a1p(text = 'random')]
+        a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = [a1p])
         a2p = provider()
         def _a2_impl(target,ctx):
-          return struct(a2p = a2p(value = 'random'))
-        a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = ['a1p'])
+          return [a2p(value = 'random')]
+        a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = [a1p])
         def _r1_impl(ctx):
           pass
+        r2info = provider()
         def _r2_impl(ctx):
-          return struct(result = ctx.attr.dep.a2p.value)
+          return r2info(result = ctx.attr.dep[a2p].value)
         r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})
         r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})
         """);
@@ -2600,16 +2629,17 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         """
         a1p = provider()
         def _a1_impl(target,ctx):
-          return struct(a1p = a1p(text = 'random'))
-        a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = ['a1p'])
+          return [a1p(text = 'random')]
+        a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = [a1p])
         a2p = provider()
         def _a2_impl(target,ctx):
-          return struct(a2p = a2p(value = 'random'))
-        a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = ['a1p'])
+          return [a2p(value = 'random')]
+        a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = [a1p])
         def _r1_impl(ctx):
           pass
+        r2info = provider()
         def _r2_impl(ctx):
-          return struct(result = ctx.attr.dep.a2p.value)
+          return r2info(result = ctx.attr.dep[a2p].value)
         r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})
         r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})
         def _r0_impl(ctx):
@@ -2695,7 +2725,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     StarlarkProvider.Key p3 =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "p3");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "p3");
     StructImpl p3Provider = (StructImpl) configuredAspect.get(p3);
     assertThat((Sequence<?>) p3Provider.getValue("value"))
         .containsExactly(
@@ -2762,7 +2792,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     StarlarkProvider.Key pCollector =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "PCollector");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "PCollector");
     StructImpl pCollectorProvider = (StructImpl) configuredTarget.get(pCollector);
     assertThat((Sequence<?>) pCollectorProvider.getValue("result"))
         .containsExactly("@//test:r1", "@//test:r0", "@//test:r0+PAspect");
@@ -2805,7 +2836,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     StarlarkProvider.Key pCollector =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "PCollector");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "PCollector");
     StructImpl collector = (StructImpl) configuredAspect.get(pCollector);
     assertThat(collector.getValue("aspect_attr")).isEqualTo(Label.parseCanonical("//test:foo"));
   }
@@ -2851,7 +2883,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     StarlarkProvider.Key pCollector =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "PCollector");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "PCollector");
     StructImpl collector = (StructImpl) configuredAspect.get(pCollector);
     assertThat(collector.getValue("attr_value")).isEqualTo(StarlarkInt.of(30));
   }
@@ -2909,7 +2942,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     StarlarkProvider.Key pCollector =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "PCollector");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "PCollector");
     StructImpl collector = (StructImpl) configuredAspect.get(pCollector);
     assertThat(collector.getValue("attr_value")).isEqualTo(StarlarkInt.of(30));
   }
@@ -2953,7 +2987,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     StarlarkProvider.Key pCollector =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "PCollector");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "PCollector");
     StructImpl collector = (StructImpl) configuredAspect.get(pCollector);
     assertThat(((Depset) collector.getValue("visited")).toList())
         .containsExactly(
@@ -2973,25 +3008,26 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
             outputs = [ctx.actions.declare_file('a1')],
             command = 'touch $@'
           )
-          return struct(a1p=a1p())
-        a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = ['a1p'])
+          return [a1p()]
+        a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = [a1p])
         a2p = provider()
         def _a2_impl(target, ctx):
           value = []
-          if hasattr(ctx.rule.attr, 'dep') and hasattr(ctx.rule.attr.dep, 'a2p'):
-             value += ctx.rule.attr.dep.a2p.value
+          if hasattr(ctx.rule.attr, 'dep') and a2p in ctx.rule.attr.dep:
+             value += ctx.rule.attr.dep[a2p].value
           value += target.actions
-          return struct(a2p = a2p(value = value))
-        a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = ['a1p'])
+          return [a2p(value = value)]
+        a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = [a1p])
         def _r0_impl(ctx):
           ctx.actions.run_shell(
             outputs = [ctx.actions.declare_file('r0')],
             command = 'touch $@'
           )
+        RuleInfo = provider()
         def _r1_impl(ctx):
           pass
         def _r2_impl(ctx):
-          return struct(result = ctx.attr.dep.a2p.value)
+          return RuleInfo(result = ctx.attr.dep[a2p].value)
         r0 = rule(_r0_impl)
         r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})
         r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})
@@ -3006,7 +3042,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         """);
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    Sequence<?> result = (Sequence<?>) target.get("result");
+    Sequence<?> result = (Sequence<?>) getStarlarkProvider(target, "RuleInfo").getValue("result");
 
     // We should see both the action from the 'r0' rule, and the action from the 'a1' aspect
     assertThat(result).hasSize(2);
@@ -3057,7 +3093,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     assertThat(configuredAspect).isNotNull();
 
     StarlarkProvider.Key myInfoKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "MyInfo");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "MyInfo");
     StructImpl myInfo = (StructImpl) configuredAspect.get(myInfoKey);
     assertThat(myInfo.getValue("hidden_attr_label")).isEqualTo("@//test:zzz");
   }
@@ -3071,20 +3107,21 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         MyInfo = provider()
         a1p = provider()
         def _a1_impl(target,ctx):
-          return struct(a1p = a1p(text = 'random'))
+          return a1p(text = 'random')
         a1 = aspect(_a1_impl,
            attrs = { '_hiddenattr' : attr.label(default = Label('//test:xxx')) },
-           attr_aspects = ['dep'], provides = ['a1p'])
+           attr_aspects = ['dep'], provides = [a1p])
         a2p = provider()
         def _a2_impl(target,ctx):
            return [MyInfo(hidden_attr_label = str(ctx.attr._hiddenattr.label))]
         a2 = aspect(_a2_impl,
           attrs = { '_hiddenattr' : attr.label(default = Label('//test:zzz')) },
-          attr_aspects = ['dep'], required_aspect_providers = ['a1p'])
+          attr_aspects = ['dep'], required_aspect_providers = [a1p])
+        RuleInfo = provider()
         def _r1_impl(ctx):
           pass
         def _r2_impl(ctx):
-          return struct(result = ctx.attr.dep[MyInfo].hidden_attr_label)
+          return RuleInfo(result = ctx.attr.dep[MyInfo].hidden_attr_label)
         r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})
         r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a1, a2])})
         """);
@@ -3105,7 +3142,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     AnalysisResult analysisResult = update("//test:r2");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    String result = (String) target.get("result");
+    String result = getStarlarkProvider(target, "RuleInfo").getValue("result", String.class);
 
     assertThat(result).isEqualTo("@//test:zzz");
   }
@@ -3218,7 +3255,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         """);
 
     StarlarkProvider.Key rootInfoKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:lib.bzl"), "RootInfo");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:lib.bzl")), "RootInfo");
 
     AnalysisResult analysisResultWithFiles = update("//test:test_with_files");
     ConfiguredTarget targetWithFiles =
@@ -3331,9 +3368,11 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         /* applyRootToGeneratingRules= */ true, /* applyDepToGeneratingRules= */ true);
 
     StarlarkProvider.Key rootInfoKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:lib.bzl"), "RootAspectInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:lib.bzl")), "RootAspectInfo");
     StarlarkProvider.Key depInfoKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:lib.bzl"), "DepAspectInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:lib.bzl")), "DepAspectInfo");
 
     AnalysisResult analysisResult = update("//test:test");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
@@ -3359,9 +3398,11 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         /* applyRootToGeneratingRules= */ false, /* applyDepToGeneratingRules= */ false);
 
     StarlarkProvider.Key rootInfoKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:lib.bzl"), "RootAspectInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:lib.bzl")), "RootAspectInfo");
     StarlarkProvider.Key depInfoKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:lib.bzl"), "DepAspectInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:lib.bzl")), "DepAspectInfo");
 
     AnalysisResult analysisResult = update("//test:test");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
@@ -3381,9 +3422,11 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         /* applyRootToGeneratingRules= */ true, /* applyDepToGeneratingRules= */ false);
 
     StarlarkProvider.Key rootInfoKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:lib.bzl"), "RootAspectInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:lib.bzl")), "RootAspectInfo");
     StarlarkProvider.Key depInfoKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:lib.bzl"), "DepAspectInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:lib.bzl")), "DepAspectInfo");
 
     AnalysisResult analysisResult = update("//test:test");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
@@ -3405,9 +3448,11 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         /* applyRootToGeneratingRules= */ false, /* applyDepToGeneratingRules= */ true);
 
     StarlarkProvider.Key rootInfoKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:lib.bzl"), "RootAspectInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:lib.bzl")), "RootAspectInfo");
     StarlarkProvider.Key depInfoKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:lib.bzl"), "DepAspectInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:lib.bzl")), "DepAspectInfo");
 
     AnalysisResult analysisResult = update("//test:test");
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
@@ -3480,24 +3525,26 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         prov_a = provider()
         prov_b = provider()
 
+        AspectInfo = provider()
         def _my_aspect_impl(target, ctx):
           targets_labels = ["//test:defs.bzl%my_aspect({})".format(target.label)]
           for dep in ctx.rule.attr.deps:
-            if hasattr(dep, 'target_labels'):
-              targets_labels.extend(dep.target_labels)
-          return struct(target_labels = targets_labels)
+            if AspectInfo in dep:
+              targets_labels.extend(dep[AspectInfo].target_labels)
+          return [AspectInfo(target_labels = targets_labels)]
 
         my_aspect = aspect(
           implementation = _my_aspect_impl,
           attr_aspects = ['deps'],
         )
 
+        RuleInfo = provider()
         def _rule_without_providers_impl(ctx):
           s = []
           for dep in ctx.attr.deps:
-            if hasattr(dep, 'target_labels'):
-              s.extend(dep.target_labels)
-          return struct(rule_deps = s)
+            if AspectInfo in dep:
+              s.extend(dep[AspectInfo].target_labels)
+          return RuleInfo(rule_deps = s)
 
         rule_without_providers = rule(
           implementation = _rule_without_providers_impl,
@@ -3561,7 +3608,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     expected.add("//test:defs.bzl%my_aspect(@//test:target_with_providers_indeps)");
     assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:main");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
-    Object ruleDepsUnchecked = target.get("rule_deps");
+    Object ruleDepsUnchecked = getStarlarkProvider(target, "RuleInfo").getValue("rule_deps");
     assertThat(ruleDepsUnchecked).isInstanceOf(StarlarkList.class);
     StarlarkList<?> ruleDeps = (StarlarkList) ruleDepsUnchecked;
     assertThat(Starlark.toIterable(ruleDeps)).containsExactlyElementsIn(expected);
@@ -3575,12 +3622,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         prov_a = provider()
         prov_b = provider()
 
+        AspectInfo = provider()
         def _my_aspect_impl(target, ctx):
           targets_labels = ["//test:defs.bzl%my_aspect({})".format(target.label)]
           for dep in ctx.rule.attr.deps:
-            if hasattr(dep, 'target_labels'):
-              targets_labels.extend(dep.target_labels)
-          return struct(target_labels = targets_labels)
+            if AspectInfo in dep:
+              targets_labels.extend(dep[AspectInfo].target_labels)
+          return AspectInfo(target_labels = targets_labels)
 
         my_aspect = aspect(
           implementation = _my_aspect_impl,
@@ -3588,12 +3636,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
           required_providers = [prov_a, prov_b],
         )
 
+        RuleInfo = provider()
         def _rule_without_providers_impl(ctx):
           s = []
           for dep in ctx.attr.deps:
-            if hasattr(dep, 'target_labels'):
-              s.extend(dep.target_labels)
-          return struct(rule_deps = s)
+            if AspectInfo in dep:
+              s.extend(dep[AspectInfo].target_labels)
+          return RuleInfo(rule_deps = s)
 
         rule_without_providers = rule(
           implementation = _rule_without_providers_impl,
@@ -3676,7 +3725,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     expected.add("//test:defs.bzl%my_aspect(@//test:target_with_ab_indeps_reached)");
     assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:main");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
-    Object ruleDepsUnchecked = target.get("rule_deps");
+    Object ruleDepsUnchecked = getStarlarkProvider(target, "RuleInfo").getValue("rule_deps");
     assertThat(ruleDepsUnchecked).isInstanceOf(StarlarkList.class);
     StarlarkList<?> ruleDeps = (StarlarkList) ruleDepsUnchecked;
     assertThat(Starlark.toIterable(ruleDeps)).containsExactlyElementsIn(expected);
@@ -3690,13 +3739,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         prov_a = provider()
         prov_b = provider()
         prov_c = provider()
-
+        AspectInfo = provider()
         def _my_aspect_impl(target, ctx):
           targets_labels = ["//test:defs.bzl%my_aspect({})".format(target.label)]
           for dep in ctx.rule.attr.deps:
-            if hasattr(dep, 'target_labels'):
-              targets_labels.extend(dep.target_labels)
-          return struct(target_labels = targets_labels)
+            if AspectInfo in dep:
+              targets_labels.extend(dep[AspectInfo].target_labels)
+          return [AspectInfo(target_labels = targets_labels)]
 
         my_aspect = aspect(
           implementation = _my_aspect_impl,
@@ -3704,12 +3753,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
           required_providers = [[prov_a, prov_b], [prov_c]],
         )
 
+        RuleInfo = provider()
         def _rule_without_providers_impl(ctx):
           s = []
           for dep in ctx.attr.deps:
-            if hasattr(dep, 'target_labels'):
-              s.extend(dep.target_labels)
-          return struct(rule_deps = s)
+            if AspectInfo in dep:
+              s.extend(dep[AspectInfo].target_labels)
+          return RuleInfo(rule_deps = s)
 
         rule_without_providers = rule(
           implementation = _rule_without_providers_impl,
@@ -3808,7 +3858,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     expected.add("//test:defs.bzl%my_aspect(@//test:target_with_c_indeps_reached)");
     assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:main");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
-    Object ruleDepsUnchecked = target.get("rule_deps");
+    Object ruleDepsUnchecked = getStarlarkProvider(target, "RuleInfo").getValue("rule_deps");
     assertThat(ruleDepsUnchecked).isInstanceOf(StarlarkList.class);
     StarlarkList<?> ruleDeps = (StarlarkList) ruleDepsUnchecked;
     assertThat(Starlark.toIterable(ruleDeps)).containsExactlyElementsIn(expected);
@@ -3895,7 +3945,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
     assertThat(aspectA).isNotNull();
     StarlarkProvider.Key aResult =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "prov_a");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "prov_a");
     StructImpl aResultProvider = (StructImpl) aspectA.get(aResult);
     assertThat((Sequence<?>) aResultProvider.getValue("val"))
         .containsExactly(
@@ -3909,7 +3959,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect aspectB = getConfiguredAspect(configuredAspects, "aspect_b");
     assertThat(aspectA).isNotNull();
     StarlarkProvider.Key bResult =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "prov_b");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "prov_b");
     StructImpl bResultProvider = (StructImpl) aspectB.get(bResult);
     assertThat((Sequence<?>) bResultProvider.getValue("val"))
         .containsExactly(
@@ -4049,7 +4099,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
     assertThat(aspectA).isNotNull();
     StarlarkProvider.Key aResult =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "aspect_prov_a");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "aspect_prov_a");
     StructImpl aResultProvider = (StructImpl) aspectA.get(aResult);
     assertThat((Sequence<?>) aResultProvider.getValue("val"))
         .containsExactly(
@@ -4063,7 +4114,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect aspectB = getConfiguredAspect(configuredAspects, "aspect_b");
     assertThat(aspectA).isNotNull();
     StarlarkProvider.Key bResult =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "aspect_prov_b");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "aspect_prov_b");
     StructImpl bResultProvider = (StructImpl) aspectB.get(bResult);
     assertThat((Sequence<?>) bResultProvider.getValue("val"))
         .containsExactly(
@@ -4184,7 +4236,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     // aspect_c here should get its parameter value from rule_2
     ConfiguredTarget target1 = it.next();
     StarlarkProvider.Key provAkey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "prov_a");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "prov_a");
     StructImpl provA = (StructImpl) target1.get(provAkey);
     assertThat((Sequence<?>) provA.getValue("val"))
         .containsExactly(
@@ -4197,7 +4249,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     // aspect_c here should get its parameter value from rule_2
     ConfiguredTarget target2 = it.next();
     StarlarkProvider.Key provBkey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "prov_b");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "prov_b");
     StructImpl provB = (StructImpl) target2.get(provBkey);
     assertThat((Sequence<?>) provB.getValue("val"))
         .containsExactly(
@@ -4259,7 +4311,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
     assertThat(aspectA).isNotNull();
     StarlarkProvider.Key aResult =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "prov_a");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "prov_a");
     StructImpl aResultProvider = (StructImpl) aspectA.get(aResult);
     assertThat((Sequence<?>) aResultProvider.getValue("val"))
         .containsExactly(
@@ -4340,7 +4392,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     StarlarkProvider.Key requiredAspectProv =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "RequiredAspectProv");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "RequiredAspectProv");
     StructImpl requiredAspectProvider = (StructImpl) configuredTarget.get(requiredAspectProv);
     assertThat(requiredAspectProvider.getValue("p1_val"))
         .isEqualTo("In required_aspect, p1 = p1_v1 on target @//test:dep_target");
@@ -4348,7 +4401,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         .isEqualTo("In required_aspect, p2 not found on target @//test:dep_target");
 
     StarlarkProvider.Key baseAspectProv =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "BaseAspectProv");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "BaseAspectProv");
     StructImpl baseAspectProvider = (StructImpl) configuredTarget.get(baseAspectProv);
     assertThat(baseAspectProvider.getValue("p1_val"))
         .isEqualTo("In base_aspect, p1 not found on target @//test:dep_target");
@@ -4419,13 +4473,15 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     StarlarkProvider.Key requiredAspectProv =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "RequiredAspectProv");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "RequiredAspectProv");
     StructImpl requiredAspectProvider = (StructImpl) configuredTarget.get(requiredAspectProv);
     assertThat(requiredAspectProvider.getValue("p_val"))
         .isEqualTo("In required_aspect, p = p_v2 on target @//test:dep_target");
 
     StarlarkProvider.Key baseAspectProv =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "BaseAspectProv");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "BaseAspectProv");
     StructImpl baseAspectProvider = (StructImpl) configuredTarget.get(baseAspectProv);
     assertThat(baseAspectProvider.getValue("p_val"))
         .isEqualTo("In base_aspect, p = p_v2 on target @//test:dep_target");
@@ -4534,7 +4590,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     StarlarkProvider.Key baseAspectProv =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "BaseAspectProv");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "BaseAspectProv");
     StructImpl baseAspectProvider = (StructImpl) configuredTarget.get(baseAspectProv);
     assertThat((Sequence<?>) baseAspectProvider.getValue("result"))
         .containsExactly(
@@ -4661,7 +4718,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     StarlarkProvider.Key collectorProv =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "CollectorProv");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "CollectorProv");
     StructImpl collectorProvider = (StructImpl) configuredTarget.get(collectorProv);
     assertThat((Sequence<?>) collectorProvider.getValue("result"))
         .containsExactly(
@@ -4680,28 +4738,30 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
           f = ctx.actions.declare_file('dummy.txt')
           ctx.actions.run_shell(outputs = [f], command='echo xxx > $(location f)',
                                 mnemonic='RequiredAspectAction')
-          return struct()
+          return []
         required_aspect = aspect(
           implementation = _required_aspect_impl,
         )
 
+        AspectInfo = provider()
         def _base_aspect_impl(target, ctx):
           required_aspect_action = None
           for action in target.actions:
             if action.mnemonic == 'RequiredAspectAction':
               required_aspect_action = action
           if required_aspect_action:
-            return struct(result = 'base_aspect can see required_aspect action')
+            return AspectInfo(result = 'base_aspect can see required_aspect action')
           else:
-            return struct(result = 'base_aspect cannot see required_aspect action')
+            return AspectInfo(result = 'base_aspect cannot see required_aspect action')
         base_aspect = aspect(
           implementation = _base_aspect_impl,
           attr_aspects = ['dep'],
           requires = [required_aspect]
         )
 
+        RuleInfo = provider()
         def _main_rule_impl(ctx):
-          return struct(result = ctx.attr.dep.result)
+          return RuleInfo(result = ctx.attr.dep[AspectInfo].result)
         main_rule = rule(
           implementation = _main_rule_impl,
           attrs = {
@@ -4732,7 +4792,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    String result = (String) configuredTarget.get("result");
+    String result = (String) getStarlarkProvider(configuredTarget, "RuleInfo").getValue("result");
     assertThat(result).isEqualTo("base_aspect can see required_aspect action");
   }
 
@@ -4748,18 +4808,20 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "  implementation = _required_aspect_impl,",
         ")",
         "",
+        "AspectInfo = provider()",
         "def _base_aspect_impl(target, ctx):",
         "  files = ['base_aspect can see file ' + f.path.split('/')[-1] for f in"
             + " target[OutputGroupInfo].out.to_list()]",
-        "  return struct(my_files = files)",
+        "  return AspectInfo(my_files = files)",
         "base_aspect = aspect(",
         "  implementation = _base_aspect_impl,",
         "  attr_aspects = ['dep'],",
         "  requires = [required_aspect]",
         ")",
         "",
+        "RuleInfo = provider()",
         "def _main_rule_impl(ctx):",
-        "  return struct(my_files = ctx.attr.dep.my_files)",
+        "  return RuleInfo(my_files = ctx.attr.dep[AspectInfo].my_files)",
         "main_rule = rule(",
         "  implementation = _main_rule_impl,",
         "  attrs = {",
@@ -4789,7 +4851,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    StarlarkList<?> files = (StarlarkList) configuredTarget.get("my_files");
+    StarlarkList<?> files =
+        (StarlarkList) getStarlarkProvider(configuredTarget, "RuleInfo").getValue("my_files");
     assertThat(Starlark.toIterable(files))
         .containsExactly("base_aspect can see file required_aspect_file");
   }
@@ -4802,16 +4865,18 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         prov_a = provider()
         prov_b = provider()
         prov_b_forwarded = provider()
-
+        AspectAInfo = provider()
+        AspectBInfo = provider()
+        RuleInfo = provider()
         def _aspect_b_impl(target, ctx):
           result = 'aspect_b on target {} '.format(target.label)
           if prov_b in target:
             result += 'found prov_b = {}'.format(target[prov_b].val)
-            return struct(aspect_b_result = result,
-                          providers = [prov_b_forwarded(val = target[prov_b].val)])
+            return [AspectBInfo(aspect_b_result = result),
+                    prov_b_forwarded(val = target[prov_b].val)]
           else:
             result += 'cannot find prov_b'
-            return struct(aspect_b_result = result)
+            return [AspectBInfo(aspect_b_result = result)]
         aspect_b = aspect(
           implementation = _aspect_b_impl,
           required_aspect_providers = [prov_b]
@@ -4827,7 +4892,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
             result += ' and found prov_b = {}'.format(target[prov_b_forwarded].val)
           else:
             result += ' but cannot find prov_b'
-          return struct(aspect_a_result = result)
+          return AspectAInfo(aspect_a_result = result)
 
         aspect_a = aspect(
           implementation = _aspect_a_impl,
@@ -4853,8 +4918,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         )
 
         def _main_rule_impl(ctx):
-          return struct(aspect_a_result = ctx.attr.dep.aspect_a_result,
-                        aspect_b_result = ctx.attr.dep.aspect_b_result)
+          return RuleInfo(aspect_a_result = ctx.attr.dep[AspectAInfo].aspect_a_result,
+                        aspect_b_result = ctx.attr.dep[AspectBInfo].aspect_b_result)
         main_rule = rule(
           implementation = _main_rule_impl,
           attrs = {
@@ -4885,11 +4950,12 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    String aspectAResult = (String) configuredTarget.get("aspect_a_result");
+    StarlarkInfo targetInfo = getStarlarkProvider(configuredTarget, "RuleInfo");
+    String aspectAResult = targetInfo.getValue("aspect_a_result", String.class);
     assertThat(aspectAResult)
         .isEqualTo("aspect_a on target @//test:dep_target found prov_a = a1 and found prov_b = b1");
 
-    String aspectBResult = (String) configuredTarget.get("aspect_b_result");
+    String aspectBResult = targetInfo.getValue("aspect_b_result", String.class);
     assertThat(aspectBResult).isEqualTo("aspect_b on target @//test:dep_target found prov_b = b1");
   }
 
@@ -4900,14 +4966,15 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         """
         prov_a = provider()
         prov_b = provider()
-
+        AspectAInfo = provider()
+        AspectBInfo = provider()
         def _aspect_b_impl(target, ctx):
           result = 'aspect_b on target {} '.format(target.label)
           if prov_b in target:
             result += 'found prov_b = {}'.format(target[prov_b].val)
           else:
             result += 'cannot find prov_b'
-          return struct(aspect_b_result = result)
+          return AspectBInfo(aspect_b_result = result)
         aspect_b = aspect(
           implementation = _aspect_b_impl,
           required_aspect_providers = [prov_b]
@@ -4919,7 +4986,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
             result += 'found prov_a = {}'.format(target[prov_a].val)
           else:
             result += 'cannot find prov_a'
-          return struct(aspect_a_result = result)
+          return AspectAInfo(aspect_a_result = result)
 
         aspect_a = aspect(
           implementation = _aspect_a_impl,
@@ -4936,9 +5003,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
           attr_aspects = ['dep'],
         )
 
+        RuleInfo = provider()
         def _main_rule_impl(ctx):
-          return struct(aspect_a_result = ctx.attr.dep.aspect_a_result,
-                        aspect_b_result = ctx.attr.dep.aspect_b_result)
+          return RuleInfo(aspect_a_result = ctx.attr.dep[AspectAInfo].aspect_a_result,
+                        aspect_b_result = ctx.attr.dep[AspectBInfo].aspect_b_result)
         main_rule = rule(
           implementation = _main_rule_impl,
           attrs = {
@@ -4969,10 +5037,11 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    String aspectAResult = (String) configuredTarget.get("aspect_a_result");
+    StarlarkInfo ruleInfo = getStarlarkProvider(configuredTarget, "RuleInfo");
+    String aspectAResult = ruleInfo.getValue("aspect_a_result", String.class);
     assertThat(aspectAResult).isEqualTo("aspect_a on target @//test:dep_target found prov_a = a1");
 
-    String aspectBResult = (String) configuredTarget.get("aspect_b_result");
+    String aspectBResult = ruleInfo.getValue("aspect_b_result", String.class);
     assertThat(aspectBResult).isEqualTo("aspect_b on target @//test:dep_target cannot find prov_b");
   }
 
@@ -5090,7 +5159,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect a3 = getConfiguredAspect(configuredAspects, "a3");
     assertThat(a3).isNotNull();
     StarlarkProvider.Key a3Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a3_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a3_result");
     StructImpl a3ResultProvider = (StructImpl) a3.get(a3Result);
     assertThat((Sequence<?>) a3ResultProvider.getValue("value"))
         .containsExactly(
@@ -5100,7 +5169,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect a2 = getConfiguredAspect(configuredAspects, "a2");
     assertThat(a2).isNotNull();
     StarlarkProvider.Key a2Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a2_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a2_result");
     StructImpl a2ResultProvider = (StructImpl) a2.get(a2Result);
     assertThat((Sequence<?>) a2ResultProvider.getValue("value"))
         .containsExactly(
@@ -5110,7 +5179,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a1_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a1_result");
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
@@ -5283,7 +5352,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a1_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a1_result");
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
@@ -5355,7 +5424,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a1_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a1_result");
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
@@ -5430,7 +5499,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a1_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a1_result");
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
@@ -5511,7 +5580,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a1_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a1_result");
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
@@ -5609,7 +5678,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a1_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a1_result");
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
@@ -5706,7 +5775,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect a2 = getConfiguredAspect(configuredAspects, "a2");
     assertThat(a2).isNotNull();
     StarlarkProvider.Key a2Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a2_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a2_result");
     StructImpl a2ResultProvider = (StructImpl) a2.get(a2Result);
     assertThat((Sequence<?>) a2ResultProvider.getValue("value"))
         .containsExactly(
@@ -5716,7 +5785,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a1_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a1_result");
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
@@ -5841,7 +5910,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect a3 = getConfiguredAspect(configuredAspects, "a3");
     assertThat(a3).isNotNull();
     StarlarkProvider.Key a3Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a3_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a3_result");
     StructImpl a3ResultProvider = (StructImpl) a3.get(a3Result);
     assertThat((Sequence<?>) a3ResultProvider.getValue("value"))
         .containsExactly(
@@ -5996,7 +6065,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a1_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a1_result");
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
@@ -6066,7 +6135,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect a1Ont1 = getConfiguredAspect(configuredAspects, "a1", "t1");
     assertThat(a1Ont1).isNotNull();
     StarlarkProvider.Key a1Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a1_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a1_result");
     StructImpl a1ResultProvider = (StructImpl) a1Ont1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly("aspect a1 on target @//test:t1 sees a2p = a2p_val");
@@ -6156,7 +6225,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a1_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a1_result");
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
@@ -6254,7 +6323,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect a1 = getConfiguredAspect(configuredAspects, "a1");
     assertThat(a1).isNotNull();
     StarlarkProvider.Key a1Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a1_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a1_result");
     StructImpl a1ResultProvider = (StructImpl) a1.get(a1Result);
     assertThat((Sequence<?>) a1ResultProvider.getValue("value"))
         .containsExactly(
@@ -6264,7 +6333,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect a2 = getConfiguredAspect(configuredAspects, "a2");
     assertThat(a2).isNotNull();
     StarlarkProvider.Key a2Result =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "a2_result");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "a2_result");
     StructImpl a2ResultProvider = (StructImpl) a2.get(a2Result);
     assertThat((Sequence<?>) a2ResultProvider.getValue("value"))
         .containsExactly(
@@ -6531,7 +6600,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect requiredAspect = getConfiguredAspect(configuredAspects, "required_aspect");
     assertThat(requiredAspect).isNotNull();
     StarlarkProvider.Key requiredAspectProv =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "RequiredAspectProv");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "RequiredAspectProv");
     StructImpl requiredAspectProvider = (StructImpl) requiredAspect.get(requiredAspectProv);
     assertThat((Sequence<?>) requiredAspectProvider.getValue("p_val"))
         .containsExactly("In required_aspect, p = main_val on target @//test:main_target");
@@ -6541,7 +6611,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect baseAspect = getConfiguredAspect(configuredAspects, "base_aspect");
     assertThat(baseAspect).isNotNull();
     StarlarkProvider.Key baseAspectProv =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "BaseAspectProv");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "BaseAspectProv");
     StructImpl baseAspectProvider = (StructImpl) baseAspect.get(baseAspectProv);
     assertThat((Sequence<?>) baseAspectProvider.getValue("p_val"))
         .containsExactly(
@@ -6643,7 +6714,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect baseAspect = getConfiguredAspect(configuredAspects, "base_aspect");
     assertThat(baseAspect).isNotNull();
     StarlarkProvider.Key baseAspectProv =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "BaseAspectProv");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "BaseAspectProv");
     StructImpl baseAspectProvider = (StructImpl) baseAspect.get(baseAspectProv);
     assertThat((Sequence<?>) baseAspectProvider.getValue("result"))
         .containsExactly(
@@ -6775,7 +6847,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
     assertThat(aspectA).isNotNull();
     StarlarkProvider.Key collectorProv =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "CollectorProv");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "CollectorProv");
     StructImpl collectorProvider = (StructImpl) aspectA.get(collectorProv);
     assertThat((Sequence<?>) collectorProvider.getValue("result"))
         .containsExactly(
@@ -6796,7 +6869,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
           f = ctx.actions.declare_file('dummy.txt')
           ctx.actions.run_shell(outputs = [f], command='echo xxx > $(location f)',
                                 mnemonic='RequiredAspectAction')
-          return struct()
+          return []
         required_aspect = aspect(
           implementation = _required_aspect_impl,
         )
@@ -6838,7 +6911,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect baseAspect = getConfiguredAspect(configuredAspects, "base_aspect");
     assertThat(baseAspect).isNotNull();
     StarlarkProvider.Key baseAspectProv =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "BaseAspectProvider");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "BaseAspectProvider");
     StructImpl baseAspectProvider = (StructImpl) baseAspect.get(baseAspectProv);
     assertThat(baseAspectProvider.getValue("result"))
         .isEqualTo("base_aspect can see required_aspect action");
@@ -6891,7 +6965,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredAspect baseAspect = getConfiguredAspect(configuredAspects, "base_aspect");
     assertThat(baseAspect).isNotNull();
     StarlarkProvider.Key baseAspectProv =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "BaseAspectProvider");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:defs.bzl")), "BaseAspectProvider");
     StructImpl baseAspectProvider = (StructImpl) baseAspect.get(baseAspectProv);
     assertThat((Sequence<?>) baseAspectProvider.getValue("my_files"))
         .containsExactly("base_aspect can see file required_aspect_file");
@@ -7109,7 +7184,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     assertThat(aspectB).isNotNull();
 
     StarlarkProvider.Key provB =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "BInfo");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "BInfo");
     assertThat(((StructImpl) aspectB.get(provB)).getValue("value")).isEqualTo("bin");
 
     ConfiguredAspect aspectA =
@@ -7121,7 +7196,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     assertThat(aspectA).isNotNull();
 
     StarlarkProvider.Key provA =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:defs.bzl"), "AInfo");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:defs.bzl")), "AInfo");
     assertThat(((StructImpl) aspectA.get(provA)).getValue("value")).isEqualTo("@//test:lib");
   }
 
@@ -7411,7 +7486,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
             ImmutableMap.of("p1", "p1_v1", "p2", "p2_v2", "p3", "p3_v3"),
             "//test:main_target");
 
-    Map<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
+    ImmutableMap<AspectKey, ConfiguredAspect> configuredAspects = analysisResult.getAspectsMap();
     ConfiguredAspect aspectA = getConfiguredAspect(configuredAspects, "aspect_a");
     assertThat(aspectA).isNotNull();
     StarlarkList<?> aspectAResult = (StarlarkList) aspectA.get("aspect_a_result");
@@ -7850,9 +7925,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         """
         def _impl(target, ctx):
-           return struct()
+           return []
         def _rule_impl(ctx):
-           return struct()
+           return []
         MyAspectUncovered = aspect(
             implementation=_impl,
             attrs = { 'my_attr' : attr.int(default = 1, values = [1, 2], mandatory = True) },
@@ -7890,9 +7965,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         """
         def _impl(target, ctx):
-           return struct()
+           return []
         def _rule_impl(ctx):
-           return struct()
+           return []
         MyAspectUncovered = aspect(
             implementation=_impl,
             attrs = { 'my_attr' : attr.int(default = 1, values = [1, 2], mandatory = True) },
@@ -7931,9 +8006,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         """
         def _impl(target, ctx):
-           return struct()
+           return []
         def _rule_impl(ctx):
-           return struct()
+           return []
         MyAspectUncovered = aspect(
             implementation=_impl,
             attrs = { 'my_attr' : attr.int(values = [1, 2]) },
@@ -7971,9 +8046,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         """
         def _impl(target, ctx):
-           return struct()
+           return []
         def _rule_impl(ctx):
-           return struct()
+           return []
         MyAspectUncovered = aspect(
             implementation=_impl,
             attrs = { 'my_attr' : attr.int(values = [1, 2]) },
@@ -8012,9 +8087,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         """
         def _impl(target, ctx):
-           return struct()
+           return []
         def _rule_impl(ctx):
-           return struct()
+           return []
         MyAspectUncovered = aspect(
             implementation=_impl,
             attrs = { 'my_attr' : attr.int() },
@@ -8053,9 +8128,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         """
         def _impl(target, ctx):
-           return struct()
+           return []
         def _rule_impl(ctx):
-           return struct()
+           return []
         MyAspectUncovered = aspect(
             implementation=_impl,
             attrs = { 'my_attr' : attr.int(default = 2, values = [0, 1]) },
@@ -8092,16 +8167,18 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/aspect.bzl",
         """
+        AspectInfo = provider()
         def _aspect_impl(target, ctx):
           result = ['my_aspect on target {}, my_attr = {}'.
                                             format(target.label, ctx.attr.my_attr)]
           if ctx.rule.attr.dep:
-            result += ctx.rule.attr.dep.my_aspect_result
-          return struct(my_aspect_result = result)
+            result += ctx.rule.attr.dep[AspectInfo].my_aspect_result
+          return AspectInfo(my_aspect_result = result)
 
+        RuleInfo = provider()
         def _rule_impl(ctx):
           if ctx.attr.dep:
-            return struct(my_rule_result = ctx.attr.dep.my_aspect_result)
+            return RuleInfo(my_rule_result = ctx.attr.dep[AspectInfo].my_aspect_result)
           pass
 
         MyAspect = aspect(
@@ -8128,7 +8205,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    StarlarkList<?> ruleResult = (StarlarkList) configuredTarget.get("my_rule_result");
+    StarlarkList<?> ruleResult =
+        (StarlarkList) getStarlarkProvider(configuredTarget, "RuleInfo").getValue("my_rule_result");
     assertThat(Starlark.toIterable(ruleResult))
         .containsExactly("my_aspect on target @//test:dep_target, my_attr = 1");
   }
@@ -8138,16 +8216,18 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/aspect.bzl",
         """
+        AspectInfo = provider()
         def _aspect_impl(target, ctx):
           result = ['my_aspect on target {}, my_attr = {}'.
                                             format(target.label, ctx.attr.my_attr)]
           if ctx.rule.attr.dep:
             result += ctx.rule.attr.dep.my_aspect_result
-          return struct(my_aspect_result = result)
+          return [AspectInfo(my_aspect_result = result)]
 
+        RuleInfo = provider()
         def _rule_impl(ctx):
           if ctx.attr.dep:
-            return struct(my_rule_result = ctx.attr.dep.my_aspect_result)
+            return RuleInfo(my_rule_result = ctx.attr.dep[AspectInfo].my_aspect_result)
           pass
 
         MyAspect = aspect(
@@ -8175,7 +8255,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    StarlarkList<?> ruleResult = (StarlarkList) configuredTarget.get("my_rule_result");
+    StarlarkList<?> ruleResult =
+        (StarlarkList) getStarlarkProvider(configuredTarget, "RuleInfo").getValue("my_rule_result");
     assertThat(Starlark.toIterable(ruleResult))
         .containsExactly("my_aspect on target @//test:dep_target, my_attr = 2");
   }
@@ -8185,16 +8266,18 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/aspect.bzl",
         """
+        AspectInfo = provider()
         def _aspect_impl(target, ctx):
           result = ['my_aspect on target {}, my_attr = {}'.
                                             format(target.label, ctx.attr.my_attr)]
           if ctx.rule.attr.dep:
-            result += ctx.rule.attr.dep.my_aspect_result
-          return struct(my_aspect_result = result)
+            result += ctx.rule.attr.dep[AspectInfo].my_aspect_result
+          return AspectInfo(my_aspect_result = result)
 
+        RuleInfo = provider()
         def _rule_impl(ctx):
           if ctx.attr.dep:
-            return struct(my_rule_result = ctx.attr.dep.my_aspect_result)
+            return RuleInfo(my_rule_result = ctx.attr.dep[AspectInfo].my_aspect_result)
           pass
 
         MyAspect = aspect(
@@ -8223,7 +8306,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    StarlarkList<?> ruleResult = (StarlarkList) configuredTarget.get("my_rule_result");
+    StarlarkList<?> ruleResult =
+        (StarlarkList) getStarlarkProvider(configuredTarget, "RuleInfo").getValue("my_rule_result");
     assertThat(Starlark.toIterable(ruleResult))
         .containsExactly("my_aspect on target @//test:dep_target, my_attr = 3");
   }
@@ -8415,9 +8499,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         """
         def _impl(target, ctx):
-           return struct()
+           return []
         def _rule_impl(ctx):
-           return struct()
+           return []
         MyAspectUncovered = aspect(
             implementation=_impl,
             attrs = { 'my_attr' : attr.bool(default = True, mandatory = True) },
@@ -8455,9 +8539,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         """
         def _impl(target, ctx):
-           return struct()
+           return []
         def _rule_impl(ctx):
-           return struct()
+           return []
         MyAspectUncovered = aspect(
             implementation=_impl,
             attrs = { 'my_attr' : attr.bool(default = True, mandatory = True) },
@@ -8496,9 +8580,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         """
         def _impl(target, ctx):
-           return struct()
+           return []
         def _rule_impl(ctx):
-           return struct()
+           return []
         MyAspectUncovered = aspect(
             implementation=_impl,
             attrs = { 'my_attr' : attr.bool() },
@@ -8536,9 +8620,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         """
         def _impl(target, ctx):
-           return struct()
+           return []
         def _rule_impl(ctx):
-           return struct()
+           return []
         MyAspectUncovered = aspect(
             implementation=_impl,
             attrs = { 'my_attr' : attr.bool() },
@@ -8576,16 +8660,18 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/aspect.bzl",
         """
+        AspectInfo = provider()
         def _aspect_impl(target, ctx):
           result = ['my_aspect on target {}, my_attr = {}'.
                                             format(target.label, ctx.attr.my_attr)]
           if ctx.rule.attr.dep:
             result += ctx.rule.attr.dep.my_aspect_result
-          return struct(my_aspect_result = result)
+          return AspectInfo(my_aspect_result = result)
 
+        RuleInfo = provider()
         def _rule_impl(ctx):
           if ctx.attr.dep:
-            return struct(my_rule_result = ctx.attr.dep.my_aspect_result)
+            return RuleInfo(my_rule_result = ctx.attr.dep[AspectInfo].my_aspect_result)
           pass
 
         MyAspect = aspect(
@@ -8612,7 +8698,9 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    StarlarkList<?> ruleResult = (StarlarkList) configuredTarget.get("my_rule_result");
+    StarlarkList<?> ruleResult =
+        getStarlarkProvider(configuredTarget, "RuleInfo")
+            .getValue("my_rule_result", StarlarkList.class);
     assertThat(Starlark.toIterable(ruleResult))
         .containsExactly("my_aspect on target @//test:dep_target, my_attr = True");
   }
@@ -8622,16 +8710,18 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/aspect.bzl",
         """
+        AspectInfo = provider()
         def _aspect_impl(target, ctx):
           result = ['my_aspect on target {}, my_attr = {}'.
                                             format(target.label, ctx.attr.my_attr)]
           if ctx.rule.attr.dep:
-            result += ctx.rule.attr.dep.my_aspect_result
-          return struct(my_aspect_result = result)
+            result += ctx.rule.attr.dep[AspectInfo].my_aspect_result
+          return AspectInfo(my_aspect_result = result)
 
+        RuleInfo = provider()
         def _rule_impl(ctx):
           if ctx.attr.dep:
-            return struct(my_rule_result = ctx.attr.dep.my_aspect_result)
+            return RuleInfo(my_rule_result = ctx.attr.dep[AspectInfo].my_aspect_result)
           pass
 
         MyAspect = aspect(
@@ -8659,7 +8749,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    StarlarkList<?> ruleResult = (StarlarkList) configuredTarget.get("my_rule_result");
+    StarlarkList<?> ruleResult =
+        (StarlarkList) getStarlarkProvider(configuredTarget, "RuleInfo").getValue("my_rule_result");
     assertThat(Starlark.toIterable(ruleResult))
         .containsExactly("my_aspect on target @//test:dep_target, my_attr = False");
   }
@@ -8669,16 +8760,18 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/aspect.bzl",
         """
+        AspectInfo = provider()
         def _aspect_impl(target, ctx):
           result = ['my_aspect on target {}, my_attr = {}'.
                                             format(target.label, ctx.attr.my_attr)]
           if ctx.rule.attr.dep:
-            result += ctx.rule.attr.dep.my_aspect_result
-          return struct(my_aspect_result = result)
+            result += ctx.rule.attr.dep[AspectInfo].my_aspect_result
+          return AspectInfo(my_aspect_result = result)
 
+        RuleInfo = provider()
         def _rule_impl(ctx):
           if ctx.attr.dep:
-            return struct(my_rule_result = ctx.attr.dep.my_aspect_result)
+            return RuleInfo(my_rule_result = ctx.attr.dep[AspectInfo].my_aspect_result)
           pass
 
         MyAspect = aspect(
@@ -8707,7 +8800,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    StarlarkList<?> ruleResult = (StarlarkList) configuredTarget.get("my_rule_result");
+    StarlarkList<?> ruleResult =
+        (StarlarkList) getStarlarkProvider(configuredTarget, "RuleInfo").getValue("my_rule_result");
     assertThat(Starlark.toIterable(ruleResult))
         .containsExactly("my_aspect on target @//test:dep_target, my_attr = False");
   }
@@ -9010,9 +9104,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/defs.bzl",
         """
+        AspectInfo = provider()
         def _aspect_a_impl(target, ctx):
           result = 'aspect_a on target {}, p = {}'.format(target.label, ctx.attr.p)
-          return struct(aspect_a_result = result)
+          return AspectInfo(aspect_a_result = result)
 
         aspect_a = aspect(
           implementation = _aspect_a_impl,
@@ -9021,9 +9116,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
                                       mandatory = True) },
         )
 
+        RuleInfo = provider()
         def _main_rule_impl(ctx):
           if ctx.attr.dep:
-            return struct(aspect_a_result = ctx.attr.dep.aspect_a_result)
+            return RuleInfo(aspect_a_result = ctx.attr.dep[AspectInfo].aspect_a_result)
           pass
         main_rule = rule(
           implementation = _main_rule_impl,
@@ -9050,7 +9146,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    String aspectAResult = (String) configuredTarget.get("aspect_a_result");
+    String aspectAResult =
+        getStarlarkProvider(configuredTarget, "RuleInfo").getValue("aspect_a_result", String.class);
     assertThat(aspectAResult).isEqualTo("aspect_a on target @//test:dep_target, p = p_v2");
   }
 
@@ -9059,9 +9156,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/defs.bzl",
         """
+        AspectInfo = provider()
         def _aspect_a_impl(target, ctx):
           result = 'aspect_a on target {}, p = {}'.format(target.label, ctx.attr.p)
-          return struct(aspect_a_result = result)
+          return AspectInfo(aspect_a_result = result)
 
         aspect_a = aspect(
           implementation = _aspect_a_impl,
@@ -9070,9 +9168,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
                                       mandatory = True) },
         )
 
+        RuleInfo = provider()
         def _main_rule_impl(ctx):
           if ctx.attr.dep:
-            return struct(aspect_a_result = ctx.attr.dep.aspect_a_result)
+            return RuleInfo(aspect_a_result = ctx.attr.dep[AspectInfo].aspect_a_result)
           pass
         main_rule = rule(
           implementation = _main_rule_impl,
@@ -9101,7 +9200,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    String aspectAResult = (String) configuredTarget.get("aspect_a_result");
+    String aspectAResult =
+        (String) getStarlarkProvider(configuredTarget, "RuleInfo").getValue("aspect_a_result");
     assertThat(aspectAResult).isEqualTo("aspect_a on target @//test:dep_target, p = p_v1");
   }
 
@@ -9115,7 +9215,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         def _impl(target, ctx):
            if MyInfo not in target:
                fail('Provider identity mismatch')
-           return struct()
+           return []
         MyAspect = aspect(implementation=_impl)
         """);
     scratch.file(
@@ -9146,6 +9246,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         a_provider = provider()
         b_provider = provider()
         c_provider = provider()
+        RuleInfo = provider()
 
         def _a_impl(target, ctx):
           result = []
@@ -9182,7 +9283,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
           if ctx.attr.deps:
             for dep in ctx.attr.deps:
               result.extend(dep[a_provider].value)
-          return struct(aspect_a_collected_result = result)
+          return RuleInfo(aspect_a_collected_result = result)
         r1 = rule(
           implementation = _r1_impl,
           attrs = {
@@ -9276,12 +9377,13 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
           provides = [c_provider]
         )
 
+        RuleInfo = provider()
         def _r1_impl(ctx):
           result = []
           if ctx.attr.deps:
             for dep in ctx.attr.deps:
               result.extend(dep[a_provider].value)
-          return struct(aspect_a_collected_result = result)
+          return RuleInfo(aspect_a_collected_result = result)
         r1 = rule(
           implementation = _r1_impl,
           attrs = {
@@ -9343,7 +9445,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     ConfiguredTarget configuredTarget =
         Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     StarlarkList<?> aspectAResult =
-        (StarlarkList) configuredTarget.get("aspect_a_collected_result");
+        (StarlarkList)
+            getStarlarkProvider(configuredTarget, "RuleInfo").getValue("aspect_a_collected_result");
     assertThat(Starlark.toIterable(aspectAResult))
         .containsExactly(
             "aspect a on @//test:t4 sees b_provider = aspect b can see c_provider",
@@ -9471,8 +9574,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
       Map<AspectKey, ConfiguredAspect> aspectsMap, String aspectName) {
     for (Map.Entry<AspectKey, ConfiguredAspect> entry : aspectsMap.entrySet()) {
       AspectClass aspectClass = entry.getKey().getAspectClass();
-      if (aspectClass instanceof StarlarkAspectClass) {
-        String aspectExportedName = ((StarlarkAspectClass) aspectClass).getExportedName();
+      if (aspectClass instanceof StarlarkAspectClass starlarkAspectClass) {
+        String aspectExportedName = starlarkAspectClass.getExportedName();
         if (aspectExportedName.equals(aspectName)) {
           return entry.getValue();
         }
@@ -9485,8 +9588,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
       Map<AspectKey, ConfiguredAspect> aspectsMap, String aspectName, String targetName) {
     for (Map.Entry<AspectKey, ConfiguredAspect> entry : aspectsMap.entrySet()) {
       AspectClass aspectClass = entry.getKey().getAspectClass();
-      if (aspectClass instanceof StarlarkAspectClass) {
-        String aspectExportedName = ((StarlarkAspectClass) aspectClass).getExportedName();
+      if (aspectClass instanceof StarlarkAspectClass starlarkAspectClass) {
+        String aspectExportedName = starlarkAspectClass.getExportedName();
         String target = entry.getKey().getLabel().getName();
         if (aspectExportedName.equals(aspectName) && target.equals(targetName)) {
           return entry.getValue();

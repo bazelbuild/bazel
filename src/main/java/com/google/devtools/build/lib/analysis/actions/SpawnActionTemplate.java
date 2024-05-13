@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionKeyCacher;
+import com.google.devtools.build.lib.actions.ActionKeyComputer;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -51,7 +51,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /** An {@link ActionTemplate} that expands into {@link SpawnAction}s at execution time. */
-public final class SpawnActionTemplate extends ActionKeyCacher
+public final class SpawnActionTemplate extends ActionKeyComputer
     implements ActionTemplate<SpawnAction> {
   private final SpecialArtifact inputTreeArtifact;
   private final SpecialArtifact outputTreeArtifact;
