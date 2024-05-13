@@ -126,7 +126,11 @@ public class BlazeRuntimeTest {
             FailureDetail.newBuilder()
                 .setCrash(Crash.newBuilder().setCode(Code.CRASH_UNKNOWN))
                 .build());
-    assertThat(runtime.afterCommand(env, mainThreadCrash).getDetailedExitCode()).isEqualTo(oom);
+    assertThat(
+            runtime
+                .afterCommand(/* forceKeepStateForTesting= */ false, env, mainThreadCrash)
+                .getDetailedExitCode())
+        .isEqualTo(oom);
     // Confirm that runtime interrupted the command thread.
     verify(commandThread).interrupt();
     assertThat(shutdownMessage.get()).isEqualTo("foo product is crashing: ");
@@ -169,7 +173,11 @@ public class BlazeRuntimeTest {
     Any anyFoo = Any.pack(StringValue.of("foo"));
     Any anyBar = Any.pack(BytesValue.of(ByteString.copyFromUtf8("bar")));
     env.addResponseExtensions(ImmutableList.of(anyFoo, anyBar));
-    assertThat(runtime.afterCommand(env, BlazeCommandResult.success()).getResponseExtensions())
+    assertThat(
+            runtime
+                .afterCommand(
+                    /* forceKeepStateForTesting= */ false, env, BlazeCommandResult.success())
+                .getResponseExtensions())
         .containsExactly(anyFoo, anyBar);
   }
 

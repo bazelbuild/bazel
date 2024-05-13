@@ -1464,6 +1464,26 @@ function test_skyframe_stats() {
   expect_not_log '"skyfunctionName":"BUILD_INFO","count":'
 }
 
+function test_build_metrics() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+sh_test(name="a", srcs=["a.sh"])
+EOF
+
+  cat > a/a.sh <<'EOF'
+#!/bin/bash
+exit 0
+EOF
+
+  chmod +x a/a.sh
+
+  bazel build --build_event_text_file=bep.txt //a:a || fail "build failed"
+  assert_contains "^build_metrics {" bep.txt
+
+  bazel test --build_event_text_file=bep.txt //a:a || fail "build failed"
+  assert_contains "^build_metrics {" bep.txt
+}
+
 function test_packages_loaded_contains_only_successfully_loaded_packages() {
   mkdir just-to-get-packages-needed-for-toolchain-resolution
   cat > just-to-get-packages-needed-for-toolchain-resolution/BUILD <<'EOF'
