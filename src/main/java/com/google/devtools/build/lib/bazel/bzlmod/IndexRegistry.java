@@ -196,6 +196,7 @@ public class IndexRegistry implements Registry {
     String integrity;
     String stripPrefix;
     Map<String, String> patches;
+    Map<String, RemoteFile> overlay;
     int patchStrip;
     String archiveType;
   }
@@ -386,11 +387,17 @@ public class IndexRegistry implements Registry {
       }
     }
 
+    ImmutableMap.Builder<String, RemoteFile> overlay = new ImmutableMap.Builder<>();
+    if (sourceJson .overlay != null) {
+      overlay.putAll(sourceJson.overlay);
+    }
+
     return new ArchiveRepoSpecBuilder()
         .setUrls(urls.build())
         .setIntegrity(sourceJson.integrity)
         .setStripPrefix(Strings.nullToEmpty(sourceJson.stripPrefix))
         .setRemotePatches(remotePatches.buildOrThrow())
+        .setOverlay(overlay.buildOrThrow())
         .setRemotePatchStrip(sourceJson.patchStrip)
         .setArchiveType(sourceJson.archiveType)
         .build();

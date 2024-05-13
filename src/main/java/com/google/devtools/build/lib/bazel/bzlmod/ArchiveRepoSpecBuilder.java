@@ -19,6 +19,11 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.net.URL;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
 import net.starlark.java.eval.StarlarkInt;
 
 /**
@@ -74,6 +79,19 @@ public class ArchiveRepoSpecBuilder {
   @CanIgnoreReturnValue
   public ArchiveRepoSpecBuilder setRemotePatches(ImmutableMap<String, String> remotePatches) {
     attrBuilder.put("remote_patches", remotePatches);
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public ArchiveRepoSpecBuilder setOverlay(ImmutableMap<String, RemoteFile> overlay) {
+    final Map<String, List<String>> remoteFiles = overlay.entrySet().stream().collect(Collectors.toMap(
+        Entry::getKey,
+        e -> e.getValue().urls.stream().map(URL::toString).collect(Collectors.toList())
+    ));
+    final Map<String, String> remoteFilesIntegrity = overlay.entrySet().stream()
+        .collect(Collectors.toMap(Entry::getKey, e -> e.getValue().integrity));
+    attrBuilder.put("remote_file_urls", remoteFiles);
+    attrBuilder.put("remote_file_integrity", remoteFilesIntegrity);
     return this;
   }
 

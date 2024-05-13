@@ -21,6 +21,7 @@ java_library(
         "GitRepoSpecBuilder.java",
         "ModuleFile.java",
         "ModuleKey.java",
+        "RemoteFile.java",
         "RepoSpec.java",
         "Version.java",
     ],

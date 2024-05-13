@@ -41,6 +41,7 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.Writer;
+import java.net.URL;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
@@ -182,6 +183,18 @@ public class IndexRegistryTest extends FoundationTestCase {
         "  },",
         "  \"patch_strip\": 3",
         "}");
+    server.serve(
+        "/modules/baz/3.0/source.json",
+        "{",
+        "  \"url\": \"https://example.com/archive.jar?with=query\",",
+        "  \"integrity\": \"sha256-bleh\",",
+        "  \"overlay\": {",
+        "    \"BUILD.bazel\": {",
+        "       \"urls\": [\"http://mirror1\", \"http://mirror2\"],",
+        "       \"integrity\": \"sha256-bleh-overlay\"",
+        "   }",
+        "  }",
+        "}");
     server.start();
 
     Registry registry =
@@ -198,6 +211,7 @@ public class IndexRegistryTest extends FoundationTestCase {
                 .setIntegrity("sha256-blah")
                 .setStripPrefix("pref")
                 .setRemotePatches(ImmutableMap.of())
+                .setOverlay(ImmutableMap.of())
                 .setRemotePatchStrip(0)
                 .build());
     assertThat(registry.getRepoSpec(createModuleKey("bar", "2.0"), reporter))
@@ -216,6 +230,28 @@ public class IndexRegistryTest extends FoundationTestCase {
                         server.getUrl() + "/modules/bar/2.0/patches/2.fix-that.patch",
                             "sha256-kek"))
                 .setRemotePatchStrip(3)
+                .setOverlay(ImmutableMap.of())
+                .build());
+    assertThat(registry.getRepoSpec(createModuleKey("baz", "3.0"), reporter))
+        .isEqualTo(
+            new ArchiveRepoSpecBuilder()
+                .setUrls(
+                    ImmutableList.of(
+                        "https://mirror.bazel.build/example.com/archive.jar?with=query",
+                        "file:///home/bazel/mymirror/example.com/archive.jar?with=query",
+                        "https://example.com/archive.jar?with=query"))
+                .setIntegrity("sha256-bleh")
+                .setStripPrefix("")
+                .setOverlay(
+                    ImmutableMap.of(
+                        "BUILD.bazel", new RemoteFile(
+                            "sha256-bleh-overlay",
+                            List.of(new URL("http://mirror1"), new URL("http://mirror2"))
+                        )
+                    )
+                )
+                .setRemotePatches(ImmutableMap.of())
+                .setRemotePatchStrip(0)
                 .build());
   }
 
@@ -264,6 +300,7 @@ public class IndexRegistryTest extends FoundationTestCase {
                 .setIntegrity("sha256-blah")
                 .setStripPrefix("pref")
                 .setRemotePatches(ImmutableMap.of())
+                .setOverlay(ImmutableMap.of())
                 .setRemotePatchStrip(0)
                 .build());
   }
@@ -351,6 +388,7 @@ public class IndexRegistryTest extends FoundationTestCase {
                 .setArchiveType("zip")
                 .setRemotePatches(ImmutableMap.of())
                 .setRemotePatchStrip(0)
+                .setOverlay(ImmutableMap.of())
                 .build());
   }
 
