@@ -62,7 +62,7 @@ public class BazelLockFileModule extends BlazeModule {
     BazelLockFileValue oldLockfile;
     try {
       PrecomputedValue lockfileModeValue =
-          (PrecomputedValue) evaluator.getExistingValue(LOCKFILE_MODE.getKey());
+          (PrecomputedValue) evaluator.getExistingValue(LOCKFILE_MODE.getKeyForTesting());
       if (lockfileModeValue == null) {
         // No command run on this server has triggered module resolution yet.
         return;
