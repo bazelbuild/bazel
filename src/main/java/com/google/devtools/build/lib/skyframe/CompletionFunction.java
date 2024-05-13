@@ -367,7 +367,6 @@ public final class CompletionFunction<
           var treeFile = child.getKey();
           var metadata = child.getValue();
           if (metadata.isRemote()
-              && !treeFile.getPath().exists()
               && !remoteArtifactChecker.shouldTrustRemoteArtifact(
                   treeFile, (RemoteFileArtifactValue) metadata)) {
             filesToDownload.add(treeFile);
@@ -396,7 +395,6 @@ public final class CompletionFunction<
       } else {
         var metadata = checkNotNull(inputMap.getInputMetadata(artifact));
         if (metadata.isRemote()
-            && !artifact.getPath().exists()
             && !remoteArtifactChecker.shouldTrustRemoteArtifact(
                 artifact, (RemoteFileArtifactValue) metadata)) {
           var action =
