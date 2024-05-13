@@ -1868,7 +1868,9 @@ public interface CcModuleApi<
             defaultValue = "None",
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             named = true,
-            doc = "Deprecated: Use cpu based constraints instead."),
+            doc =
+                "Deprecated: Use cpu based constraints instead. If the string is \"k8\", "
+                    + "`target_cpu` will be omitted from the filename of raw FDO profile data."),
         @Param(
             name = "target_libc",
             positional = false,
