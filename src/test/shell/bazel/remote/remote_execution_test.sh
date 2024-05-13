@@ -3336,4 +3336,44 @@ EOF
   expect_log "2 processes: 1 remote cache hit, 1 internal"
 }
 
+function test_platform_no_remote_exec() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+platform(
+    name = "no_remote_exec_platform",
+    exec_properties = {
+        "foo": "bar",
+        "no-remote-exec": "true",
+    },
+)
+
+genrule(
+    name = "foo",
+    srcs = [],
+    outs = ["foo.txt"],
+    cmd = "echo \"foo\" > \"$@\"",
+)
+EOF
+
+  bazel build \
+    --extra_execution_platforms=//a:no_remote_exec_platform \
+    --spawn_strategy=remote,local \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
+
+  expect_log "1 local"
+  expect_not_log "1 remote"
+
+  bazel clean
+
+  bazel build \
+    --extra_execution_platforms=//a:no_remote_exec_platform \
+    --spawn_strategy=remote,local \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
+
+  expect_log "1 remote cache hit"
+  expect_not_log "1 local"
+}
+
 run_suite "Remote execution and remote cache tests"
