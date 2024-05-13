@@ -2617,7 +2617,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     setRemoteExecutionEnabled(remoteOptions != null && remoteOptions.isRemoteExecutionEnabled());
     cpuBoundSemaphore.set(getUpdatedSkyFunctionsSemaphore(options));
     syncPackageLoading(
-        pathPackageLocator, commandId, clientEnv, tsgm, executors, options, commandName);
+        pathPackageLocator,
+        commandId,
+        clientEnv,
+        tsgm,
+        executors,
+        options,
+        commandName,
+        eventHandler);
 
     if (lastAnalysisDiscarded) {
       logger.atInfo().log("Discarding analysis cache because the previous invocation told us to");
@@ -2649,7 +2656,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       TimestampGranularityMonitor tsgm,
       QuiescingExecutors executors,
       OptionsProvider options,
-      String commandName)
+      String commandName,
+      ExtendedEventHandler eventHandler)
       throws AbruptExitException {
     PackageOptions packageOptions = options.getOptions(PackageOptions.class);
     try (SilentCloseable c = Profiler.instance().profile("preparePackageLoading")) {
