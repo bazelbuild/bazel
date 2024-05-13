@@ -549,6 +549,18 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public String remoteDefaultPlatformProperties;
 
   @Option(
+          name = "remote_default_objclink_platform_properties",
+          defaultValue = "",
+          documentationCategory = OptionDocumentationCategory.REMOTE,
+          effectTags = {OptionEffectTag.UNKNOWN},
+          help =
+                  "Set the default ObjCLink platform properties to be set for the remote execution API, "
+                          + "if the execution platform does not already set remote_execution_properties. "
+                          + "This value will also be used if the host platform is selected as the execution "
+                          + "platform for remote execution.")
+  public String remoteDefaultObjcLinkPlatformProperties;
+
+  @Option(
       name = "remote_default_exec_properties",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
@@ -811,6 +823,46 @@ public final class RemoteOptions extends CommonRemoteOptions {
     return !Strings.isNullOrEmpty(remoteExecutor);
   }
 
+
+  public SortedMap<String, String> getRemoteDefaultObjcLinkPlatformProperties() throws UserExecException {
+    boolean hasExecProperties = !remoteDefaultExecProperties.isEmpty();
+    boolean hasObjcLinkPlatformProperties = !remoteDefaultObjcLinkPlatformProperties.isEmpty();
+    if (hasExecProperties && hasObjcLinkPlatformProperties) {
+      throw new UserExecException(
+              createFailureDetail(
+                      "Setting both --remote_default_objclink_platform_properties and "
+                              + "--remote_default_exec_properties is not allowed. Prefer setting "
+                              + "--remote_default_exec_properties.",
+                      Code.INVALID_EXEC_AND_PLATFORM_PROPERTIES));
+    }
+
+    if (hasExecProperties) {
+      return ImmutableSortedMap.copyOf(remoteDefaultExecProperties);
+    }
+    if (hasObjcLinkPlatformProperties) {
+      // Try and use the provided default value.
+      final Platform platform;
+      try {
+        Platform.Builder builder = Platform.newBuilder();
+        TextFormat.getParser().merge(remoteDefaultObjcLinkPlatformProperties, builder);
+        platform = builder.build();
+      } catch (ParseException e) {
+        String message =
+                "Failed to parse --remote_default_objclink_platform_properties "
+                        + remoteDefaultObjcLinkPlatformProperties;
+        throw new UserExecException(
+                e, createFailureDetail(message, Code.REMOTE_DEFAULT_PLATFORM_PROPERTIES_PARSE_FAILURE));
+      }
+
+      ImmutableSortedMap.Builder<String, String> builder = ImmutableSortedMap.naturalOrder();
+      for (Property property : platform.getPropertiesList()) {
+        builder.put(property.getName(), property.getValue());
+      }
+      return builder.build();
+    }
+
+    return ImmutableSortedMap.of();
+  }
   /**
    * Returns the default exec properties specified by the user or an empty map if nothing was
    * specified. Use this method instead of directly accessing the fields.
