@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.config;
 
-import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigStarlarkCommonApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkToolchainTypeRequirement;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
@@ -32,8 +32,7 @@ public class FakeConfigStarlarkCommon implements ConfigStarlarkCommonApi {
   }
 
   @Override
-  public StarlarkExposedRuleTransitionFactory createConfigFeatureFlagTransitionFactory(
-      String attribute) {
+  public ConfigurationTransitionApi createConfigFeatureFlagTransitionFactory(String attribute) {
     return new FakeConfigFeatureFlagTransitionFactory();
   }
 

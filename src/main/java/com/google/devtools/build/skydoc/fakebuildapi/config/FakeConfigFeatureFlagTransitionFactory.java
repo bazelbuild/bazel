@@ -14,18 +14,17 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.config;
 
-import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
-import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 
-/** Fake callable implementation of {@link StarlarkExposedRuleTransitionFactory}. */
+/**
+ * Fake callable implementation of the {@link
+ * com.google.devtools.build.lib.rules.config.ConfigFeatureFlagTransitionFactory}.
+ */
 public class FakeConfigFeatureFlagTransitionFactory
-    implements StarlarkExposedRuleTransitionFactory {
-
-  @Override
-  public void addToStarlarkRule(RuleDefinitionEnvironment ctx, RuleClass.Builder builder) {}
+    implements TransitionFactory<RuleTransitionData>, ConfigurationTransitionApi {
 
   @Override
   public PatchTransition create(RuleTransitionData ruleData) {

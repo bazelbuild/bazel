@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransi
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionType;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.Visitor;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
@@ -755,7 +756,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         factory -> {
           if (factory instanceof StarlarkExposedRuleTransitionFactory exposed) {
             // only used for native Android transitions (platforms and feature flags)
-            exposed.addToStarlarkRule(ruleDefinitionEnvironment, builder);
+            exposed.addToRuleFromStarlark(ruleDefinitionEnvironment, builder);
           }
         });
     if (parent != null && parent.getTransitionFactory() != null) {
@@ -846,8 +847,13 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       // defined in Starlark via, cfg = transition
       return new StarlarkRuleTransitionProvider(starlarkDefinedConfigTransition);
     }
-    if (cfg instanceof StarlarkExposedRuleTransitionFactory transition) {
-      return transition;
+    if (cfg instanceof TransitionFactory<?> tf) {
+      if (tf.transitionType().isCompatibleWith(TransitionType.RULE)) {
+        @SuppressWarnings("unchecked")
+        TransitionFactory<RuleTransitionData> ruleTransition =
+            (TransitionFactory<RuleTransitionData>) tf;
+        return ruleTransition;
+      }
     }
     throw Starlark.errorf(
         "`cfg` must be set to a transition object initialized by the transition() function.");

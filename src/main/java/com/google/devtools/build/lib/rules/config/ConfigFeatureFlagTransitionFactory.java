@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.packages.AllowlistChecker;
 import com.google.devtools.build.lib.packages.NonconfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import java.util.Map;
 
 /**
@@ -41,9 +42,10 @@ import java.util.Map;
  *
  * <p>Currently, this is only intended for use by android_binary and other Android top-level rules.
  */
-public class ConfigFeatureFlagTransitionFactory implements StarlarkExposedRuleTransitionFactory {
+public class ConfigFeatureFlagTransitionFactory
+    implements StarlarkExposedRuleTransitionFactory, ConfigurationTransitionApi {
   @Override
-  public void addToStarlarkRule(RuleDefinitionEnvironment ctx, RuleClass.Builder builder) {
+  public void addToRuleFromStarlark(RuleDefinitionEnvironment ctx, RuleClass.Builder builder) {
     builder.add(ConfigFeatureFlag.getAllowlistAttribute(ctx, attributeName));
     builder.addAllowlistChecker(
         AllowlistChecker.builder()

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.packages.Info;
@@ -27,6 +26,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidIdeInfoProv
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSdkProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSplitTransitionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidStarlarkCommonApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -48,7 +48,7 @@ public class AndroidStarlarkCommon
   }
 
   @Override
-  public StarlarkExposedRuleTransitionFactory getAndroidPlatformsTransition() {
+  public ConfigurationTransitionApi getAndroidPlatformsTransition() {
     return new AndroidPlatformsTransition.AndroidPlatformsTransitionFactory();
   }
 

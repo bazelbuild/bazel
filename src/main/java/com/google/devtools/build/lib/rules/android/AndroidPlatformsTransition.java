@@ -21,11 +21,11 @@ import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 
 /**
  * Ensures that Android binaries have a valid target platform by resetting the "--platforms" flag to
@@ -38,7 +38,7 @@ public final class AndroidPlatformsTransition implements PatchTransition {
 
   /** Machinery to expose the transition to Starlark. */
   public static final class AndroidPlatformsTransitionFactory
-      implements StarlarkExposedRuleTransitionFactory {
+      implements TransitionFactory<RuleTransitionData>, ConfigurationTransitionApi {
     @Override
     public PatchTransition create(RuleTransitionData unused) {
       return INSTANCE;
