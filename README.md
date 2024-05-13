@@ -1,4 +1,4 @@
-# [Bazel](https://bazel.build)
+# [Bazel](https://huawea33.bazel.build)
 
 *{Fast, Correct} - Choose two*
 
