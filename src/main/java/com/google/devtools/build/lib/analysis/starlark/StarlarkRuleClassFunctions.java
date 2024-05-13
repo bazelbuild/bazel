@@ -120,7 +120,6 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkInt;
-import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.Identifier;
@@ -384,15 +383,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     // Ensure we're initializing a .bzl file, which also means we have a RuleDefinitionEnvironment.
     BzlInitThreadContext bazelContext = BzlInitThreadContext.fromOrFail(thread, "rule()");
 
-    if (initializer != Starlark.NONE
-        || parentUnchecked != Starlark.NONE
-        || !subrules.isEmpty()
-        || extendableUnchecked != Starlark.NONE) {
-      if (!thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_RULE_EXTENSION_API)) {
-        BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_RULE_EXTENSION_API);
-      }
-    }
-
     final RuleClass parent;
     final boolean executable;
     final boolean test;
@@ -438,21 +428,15 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       failIf(buildSetting != Starlark.NONE, "build_setting is not supported when extending rules.");
     }
 
-    // Get the callstack, sans the last entry, which is the builtin 'rule' callable itself.
-    ImmutableList<StarlarkThread.CallStackEntry> callStack = thread.getCallStack();
-    callStack = callStack.subList(0, callStack.size() - 1);
-
     LabelConverter labelConverter = LabelConverter.forBzlEvaluatingThread(thread);
 
     return createRule(
         // Contextual parameters.
         bazelContext,
-        thread.getCallerLocation(),
-        callStack,
+        thread,
         bazelContext.getBzlFile(),
         bazelContext.getTransitiveDigest(),
         labelConverter,
-        thread.getSemantics(),
         // rule() parameters
         parent,
         extendableUnchecked,
@@ -489,12 +473,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   public static StarlarkRuleFunction createRule(
       // Contextual parameters.
       RuleDefinitionEnvironment ruleDefinitionEnvironment,
-      Location loc,
-      ImmutableList<StarlarkThread.CallStackEntry> definitionCallstack,
+      StarlarkThread thread,
       Label bzlFile,
       byte[] transitiveDigest,
       LabelConverter labelConverter,
-      StarlarkSemantics starlarkSemantics,
       // Parameters that come from rule().
       @Nullable RuleClass parent,
       @Nullable Object extendableUnchecked,
@@ -577,11 +559,66 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       }
     }
 
+    if (parent != null
+        && !thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_RULE_EXTENSION_API)
+        && !bzlFile.getRepository().getName().equals("_builtins")) {
+      builder.addAllowlistChecker(EXTEND_RULE_API_ALLOWLIST_CHECKER);
+      if (!builder.contains("$allowlist_extend_rule")) {
+        Attribute.Builder<Label> allowlistAttr =
+            attr("$allowlist_extend_rule_api", LABEL)
+                .cfg(ExecutionTransitionFactory.createFactory())
+                .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class))
+                .value(
+                    ruleDefinitionEnvironment.getToolsLabel(
+                        "//tools/allowlists/extend_rule_allowlist:extend_rule_api_allowlist"));
+        builder.add(allowlistAttr);
+      }
+    }
+
+    if (initializer != null) {
+      if (!thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_RULE_EXTENSION_API)
+          && !bzlFile.getRepository().getName().equals("_builtins")) {
+        builder.addAllowlistChecker(INITIALIZER_ALLOWLIST_CHECKER);
+        if (!builder.contains("$allowlist_initializer")) {
+          // the allowlist already exist if this is an extended rule
+          Attribute.Builder<Label> allowlistAttr =
+              attr("$allowlist_initializer", LABEL)
+                  .cfg(ExecutionTransitionFactory.createFactory())
+                  .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class))
+                  .value(
+                      ruleDefinitionEnvironment.getToolsLabel(
+                          "//tools/allowlists/initializer_allowlist"));
+          builder.add(allowlistAttr);
+        }
+      }
+    }
+
+    if (!subrulesUnchecked.isEmpty()) {
+      if (!thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_RULE_EXTENSION_API)
+          && !bzlFile.getRepository().getName().equals("_builtins")) {
+        builder.addAllowlistChecker(SUBRULES_ALLOWLIST_CHECKER);
+        if (!builder.contains("$allowlist_subrules")) {
+          // the allowlist already exist if this is an extended rule
+          Attribute.Builder<Label> allowlistAttr =
+              attr("$allowlist_subrules", LABEL)
+                  .cfg(ExecutionTransitionFactory.createFactory())
+                  .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class))
+                  .value(
+                      ruleDefinitionEnvironment.getToolsLabel(
+                          "//tools/allowlists/subrules_allowlist"));
+          builder.add(allowlistAttr);
+        }
+      }
+    }
+
     if (executable || test) {
       builder.setExecutableStarlark();
     }
 
-    builder.setCallStack(definitionCallstack);
+    // Get the callstack, sans the last entry, which is the builtin 'rule' callable itself.
+    ImmutableList<StarlarkThread.CallStackEntry> callStack = thread.getCallStack();
+    callStack = callStack.subList(0, callStack.size() - 1);
+    builder.setCallStack(callStack);
 
     ImmutableList<Pair<String, StarlarkAttrModule.Descriptor>> attributes =
         attrObjectToAttributesList(attrs);
@@ -655,7 +692,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     if (implicitOutputs != Starlark.NONE) {
       if (implicitOutputs instanceof StarlarkFunction) {
         StarlarkCallbackHelper callback =
-            new StarlarkCallbackHelper((StarlarkFunction) implicitOutputs, starlarkSemantics);
+            new StarlarkCallbackHelper((StarlarkFunction) implicitOutputs, thread.getSemantics());
         builder.setImplicitOutputsFunction(
             new StarlarkImplicitOutputsFunctionWithCallback(callback));
       } else {
@@ -796,7 +833,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     return new StarlarkRuleFunction(
         builder,
-        loc,
+        thread.getCallerLocation(),
         Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString));
   }
 
@@ -1504,6 +1541,30 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           .build();
 
   @SerializationConstant
+  static final AllowlistChecker EXTEND_RULE_API_ALLOWLIST_CHECKER =
+      AllowlistChecker.builder()
+          .setAllowlistAttr("extend_rule_api")
+          .setErrorMessage("Non-allowlisted attempt to use extend rule APIs.")
+          .setLocationCheck(AllowlistChecker.LocationCheck.DEFINITION)
+          .build();
+
+  @SerializationConstant
+  static final AllowlistChecker INITIALIZER_ALLOWLIST_CHECKER =
+      AllowlistChecker.builder()
+          .setAllowlistAttr("initializer")
+          .setErrorMessage("Non-allowlisted attempt to use initializer.")
+          .setLocationCheck(AllowlistChecker.LocationCheck.DEFINITION)
+          .build();
+
+  @SerializationConstant
+  static final AllowlistChecker SUBRULES_ALLOWLIST_CHECKER =
+      AllowlistChecker.builder()
+          .setAllowlistAttr("subrules")
+          .setErrorMessage("Non-allowlisted attempt to use subrules.")
+          .setLocationCheck(AllowlistChecker.LocationCheck.DEFINITION)
+          .build();
+
+  @SerializationConstant
   static final AllowlistChecker SKIP_VALIDATIONS_ALLOWLIST_CHECKER =
       AllowlistChecker.builder()
           .setAllowlistAttr("skip_validations")
@@ -1557,9 +1618,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Sequence<?> subrulesUnchecked,
       StarlarkThread thread)
       throws EvalException {
-    if (!thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_RULE_EXTENSION_API)) {
-      BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_RULE_EXTENSION_API);
-    }
     ImmutableMap<String, Descriptor> attrs =
         ImmutableMap.copyOf(Dict.cast(attrsUnchecked, String.class, Descriptor.class, "attrs"));
     ImmutableList<String> fragments =

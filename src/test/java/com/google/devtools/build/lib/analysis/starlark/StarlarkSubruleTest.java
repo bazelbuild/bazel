@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import net.starlark.java.eval.BuiltinFunction;
 import net.starlark.java.eval.Sequence;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -58,6 +59,11 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase("//subrule_testing:label");
   private final BazelEvaluationTestCase evOutsideAllowlist =
       new BazelEvaluationTestCase("//foo:bar");
+
+  @Before
+  public void allowExperimentalApi() throws Exception {
+    setBuildLanguageOptions("--experimental_rule_extension_api");
+  }
 
   @Test
   public void testSubruleFunctionSymbol_notVisibleInBUILD() throws Exception {
@@ -1772,16 +1778,29 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSubruleInstantiation_outsideAllowlist_failsWithPrivateAPIError()
-      throws Exception {
-    evOutsideAllowlist.checkEvalErrorContains(
-        "'//foo:bar' cannot use private API", "subrule(implementation = lambda: 0 )");
-  }
-
-  @Test
   public void testSubrulesParamForRule_isPrivateAPI() throws Exception {
-    evOutsideAllowlist.checkEvalErrorContains(
-        "'//foo:bar' cannot use private API", "rule(implementation = lambda: 0, subrules = [1])");
+    setBuildLanguageOptions("--noexperimental_rule_extension_api");
+    scratch.file(
+        "foo/myrule.bzl",
+        """
+        def _impl(ctx):
+            pass
+        my_subrule = subrule(implementation = _impl)
+        my_rule = rule(_impl, subrules = [my_subrule])
+        """);
+    scratch.file(
+        "foo/BUILD",
+        """
+        load("myrule.bzl", "my_rule")
+
+        my_rule(name = "foo")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//foo");
+
+    ev.assertContainsError("Non-allowlisted attempt to use subrules.");
   }
 
   @Test

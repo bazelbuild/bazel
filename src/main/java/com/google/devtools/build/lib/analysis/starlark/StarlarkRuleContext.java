@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
-import static com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.ALLOWLIST_RULE_EXTENSION_API;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
 import com.google.common.base.Optional;
@@ -596,9 +595,6 @@ public final class StarlarkRuleContext
 
   @Override
   public Object callParent(StarlarkThread thread) throws EvalException, InterruptedException {
-    if (!thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_RULE_EXTENSION_API)) {
-      BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_RULE_EXTENSION_API);
-    }
     checkMutable("super()");
     if (isForAspect()) {
       throw Starlark.errorf("Can't use 'super' call in an aspect.");

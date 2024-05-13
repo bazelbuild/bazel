@@ -141,6 +141,11 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @org.junit.Rule public ExpectedException thrown = ExpectedException.none();
 
   @Before
+  public void allowExperimentalApi() throws Exception {
+    setBuildLanguageOptions("--experimental_rule_extension_api");
+  }
+
+  @Before
   public void createBuildFile() throws Exception {
     scratch.file(
         "foo/BUILD",
@@ -3459,7 +3464,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void initializer_onlyAllowedInBuiltins() throws Exception {
+  public void initializer_allowlist() throws Exception {
     scratch.file(
         "p/b.bzl",
         """
@@ -3478,12 +3483,13 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
         my_rule(name = "my_target")
         """);
+    setBuildLanguageOptions("--noexperimental_rule_extension_api");
 
     reporter.removeHandler(failFastHandler);
     reporter.addHandler(ev.getEventCollector());
     getConfiguredTarget("//p:my_target");
 
-    ev.assertContainsError("file '//p:b.bzl' cannot use private API");
+    ev.assertContainsError("Non-allowlisted attempt to use initializer.");
   }
 
   // TODO b/298561048 - move the initializers tests below into a separate file
@@ -4455,7 +4461,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void extendRule_onlyAllowedInBuiltins() throws Exception {
+  public void extendRule_allowlist() throws Exception {
     scratchParentRule("parent_library");
     scratch.file(
         "bar/child.bzl",
@@ -4463,13 +4469,14 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         load("//extend_rule_testing/parent:parent.bzl", "parent_library")
 
         def _impl(ctx):
-            pass
+            return ctx.super()
 
         my_library = rule(
             implementation = _impl,
             parent = parent_library,
         )
         """);
+    scratch.file("bar/a.parent");
     scratch.file(
         "bar/BUILD",
         """
@@ -4477,15 +4484,16 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
         my_library(
             name = "my_target",
-            srcs = ["a.proto"],
+            srcs = ["a.parent"],
         )
         """);
+    setBuildLanguageOptions("--noexperimental_rule_extension_api");
 
     reporter.removeHandler(failFastHandler);
     reporter.addHandler(ev.getEventCollector());
     getConfiguredTarget("//bar:my_target");
 
-    ev.assertContainsError("file '//bar:child.bzl' cannot use private API");
+    ev.assertContainsError("Non-allowlisted attempt to use extend rule APIs.");
   }
 
   @Test
