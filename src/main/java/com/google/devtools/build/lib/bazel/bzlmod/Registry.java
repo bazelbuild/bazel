@@ -48,4 +48,10 @@ public interface Registry extends SkyValue {
   Optional<ImmutableMap<Version, String>> getYankedVersions(
       String moduleName, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException;
+
+  /**
+   * Returns the yanked versions information, limited to the given selected module version, purely
+   * based on the lockfile (if possible).
+   */
+  Optional<YankedVersionsValue> tryGetYankedVersionsFromLockfile(ModuleKey selectedModuleKey);
 }

@@ -134,7 +134,9 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                         ruleClassProvider.getBazelStarlarkEnvironment(),
                         workspaceRoot,
                         ImmutableMap.of()))
-                .put(SkyFunctions.REGISTRY, new RegistryFunction(registryFactory))
+                .put(
+                    SkyFunctions.REGISTRY,
+                    new RegistryFunction(registryFactory, directories.getWorkspace()))
                 .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
                 .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
                 .put(

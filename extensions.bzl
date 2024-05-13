@@ -29,7 +29,17 @@ def _bazel_build_deps(_ctx):
     _ctx.path(Label("//:MODULE.bazel"))  # Make sure the `bootstrap_repo_cache` repo is updated when MODULE.bazel changes.
     embedded_jdk_repositories()
     debian_deps()
-    repo_cache_tar(name = "bootstrap_repo_cache", repos = DIST_ARCHIVE_REPOS, dirname = "derived/repository_cache")
+    repo_cache_tar(
+        name = "bootstrap_repo_cache",
+        repos = DIST_ARCHIVE_REPOS,
+        dirname = "derived/repository_cache",
+        module_files = [
+            "//:MODULE.bazel",
+            "//third_party/googleapis:MODULE.bazel",
+            "//third_party/remoteapis:MODULE.bazel",
+            "//src:MODULE.tools",
+        ],
+    )
     BAZEL_TOOLS_DEPS_REPOS = parse_bazel_module_repos(_ctx, _ctx.path(Label("//src/test/tools/bzlmod:MODULE.bazel.lock")))
     repo_cache_tar(name = "bazel_tools_repo_cache", repos = BAZEL_TOOLS_DEPS_REPOS, lockfile = "//src/test/tools/bzlmod:MODULE.bazel.lock")
     distdir_tar(name = "workspace_repo_cache", dist_deps = WORKSPACE_REPOS)

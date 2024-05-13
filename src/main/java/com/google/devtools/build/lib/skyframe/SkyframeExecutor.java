@@ -271,6 +271,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import net.starlark.java.eval.StarlarkSemantics;

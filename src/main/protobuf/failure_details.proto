@@ -1300,6 +1300,7 @@ message ExternalDeps {
     INVALID_REGISTRY_URL = 4 [(metadata) = { exit_code: 48 }];
     ERROR_ACCESSING_REGISTRY = 5 [(metadata) = { exit_code: 32 }];
     INVALID_EXTENSION_IMPORT = 6 [(metadata) = { exit_code: 48 }];
+    BAD_LOCKFILE = 7 [(metadata) = { exit_code: 48 }];
   }
 
   Code code = 1;

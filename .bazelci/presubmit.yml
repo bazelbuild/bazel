@@ -428,6 +428,7 @@ tasks:
       - "-//src/test/py/bazel:bazel_yanked_versions_test"
       - "-//src/test/py/bazel:bzlmod_query_test"
       - "-//src/test/py/bazel:mod_command_test"
+      - "-//src/test/shell/bazel:starlark_repository_test"
       - "-//src/test/shell/bazel:verify_workspace"
       # Flaky on rbe_ubuntu2004
       # https://github.com/bazelbuild/continuous-integration/issues/1631

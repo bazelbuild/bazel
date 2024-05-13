@@ -59,25 +59,6 @@ public final class YankedVersionsUtil {
     return Optional.of(allowedYankedVersionBuilder.build());
   }
 
-  static Optional<String> getYankedInfo(
-      ModuleKey key,
-      YankedVersionsValue yankedVersionsValue,
-      Optional<ImmutableSet<ModuleKey>> allowedYankedVersions) {
-    return yankedVersionsValue
-        .yankedVersions()
-        .flatMap(
-            yankedVersions -> {
-              String yankedInfo = yankedVersions.get(key.getVersion());
-              if (yankedInfo != null
-                  && allowedYankedVersions.isPresent()
-                  && !allowedYankedVersions.get().contains(key)) {
-                return Optional.of(yankedInfo);
-              } else {
-                return Optional.empty();
-              }
-            });
-  }
-
   /**
    * Parse of a comma-separated list of module version(s) of the form '<module name>@<version>' or
    * 'all' from the string. Returns true if 'all' is present, otherwise returns false.
