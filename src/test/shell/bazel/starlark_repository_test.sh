@@ -2327,9 +2327,6 @@ genrule(
 )
 EOF
 
-  # Ensure that all Bzlmod-related downloads have happened before disabling
-  # downloads.
-  bazel mod deps || fail "Failed to cache Bazel modules"
   bazel build --repository_disable_download //:it > "${TEST_log}" 2>&1 \
       && fail "Expected failure" || :
   expect_log "Failed to download repository @.*: download is disabled"

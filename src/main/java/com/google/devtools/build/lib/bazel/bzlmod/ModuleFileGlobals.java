@@ -428,14 +428,18 @@ public class ModuleFileGlobals {
           "innate extensions cannot be directly used; try `use_repo_rule` instead");
     }
 
+    var proxyBuilder =
+        ModuleExtensionUsage.Proxy.builder()
+            .setLocation(thread.getCallerLocation())
+            .setDevDependency(devDependency);
+
     String extensionBzlFile = normalizeLabelString(context.getModuleBuilder(), rawExtensionBzlFile);
-    ModuleExtensionUsageBuilder newUsageBuilder =
-        new ModuleExtensionUsageBuilder(
-            context, extensionBzlFile, extensionName, isolate, thread.getCallerLocation());
+    var newUsageBuilder =
+        new ModuleExtensionUsageBuilder(context, extensionBzlFile, extensionName, isolate);
 
     if (context.shouldIgnoreDevDeps() && devDependency) {
       // This is a no-op proxy.
-      return ModuleExtensionProxy.createFromUsagesBuilder(newUsageBuilder, devDependency);
+      return new ModuleExtensionProxy(newUsageBuilder, proxyBuilder);
     }
 
     // Find an existing usage builder corresponding to this extension. Isolated usages need to get
@@ -443,14 +447,14 @@ public class ModuleFileGlobals {
     if (!isolate) {
       for (ModuleExtensionUsageBuilder usageBuilder : context.getExtensionUsageBuilders()) {
         if (usageBuilder.isForExtension(extensionBzlFile, extensionName)) {
-          return ModuleExtensionProxy.createFromUsagesBuilder(usageBuilder, devDependency);
+          return new ModuleExtensionProxy(usageBuilder, proxyBuilder);
         }
       }
     }
 
     // If no such proxy exists, we can just use a new one.
     context.getExtensionUsageBuilders().add(newUsageBuilder);
-    return ModuleExtensionProxy.createFromUsagesBuilder(newUsageBuilder, devDependency);
+    return new ModuleExtensionProxy(newUsageBuilder, proxyBuilder);
   }
 
   private String normalizeLabelString(InterimModule.Builder module, String rawExtensionBzlFile) {
@@ -507,30 +511,19 @@ public class ModuleFileGlobals {
   @StarlarkBuiltin(name = "module_extension_proxy", documented = false)
   static class ModuleExtensionProxy implements Structure, StarlarkExportable {
     private final ModuleExtensionUsageBuilder usageBuilder;
-    private final boolean devDependency;
+    private final ModuleExtensionUsage.Proxy.Builder proxyBuilder;
 
-    /**
-     * Creates a proxy with the specified dev_dependency bit that shares accumulated imports and
-     * tags with all other such proxies, thus preserving their order across dev/non-dev deps.
-     */
-    static ModuleExtensionProxy createFromUsagesBuilder(
-        ModuleExtensionUsageBuilder usageBuilder, boolean devDependency) {
-      if (devDependency) {
-        usageBuilder.setHasDevUseExtension();
-      } else {
-        usageBuilder.setHasNonDevUseExtension();
-      }
-      return new ModuleExtensionProxy(usageBuilder, devDependency);
-    }
-
-    private ModuleExtensionProxy(ModuleExtensionUsageBuilder usageBuilder, boolean devDependency) {
+    ModuleExtensionProxy(
+        ModuleExtensionUsageBuilder usageBuilder, ModuleExtensionUsage.Proxy.Builder proxyBuilder) {
       this.usageBuilder = usageBuilder;
-      this.devDependency = devDependency;
+      this.proxyBuilder = proxyBuilder;
+      usageBuilder.addProxyBuilder(proxyBuilder);
     }
 
     void addImport(String localRepoName, String exportedName, String byWhat, Location location)
         throws EvalException {
-      usageBuilder.addImport(localRepoName, exportedName, devDependency, byWhat, location);
+      usageBuilder.addImport(localRepoName, exportedName, byWhat, location);
+      proxyBuilder.addImport(localRepoName, exportedName);
     }
 
     class TagCallable implements StarlarkValue {
@@ -551,7 +544,7 @@ public class ModuleFileGlobals {
             Tag.builder()
                 .setTagName(tagName)
                 .setAttributeValues(AttributeValues.create(kwargs))
-                .setDevDependency(devDependency)
+                .setDevDependency(proxyBuilder.isDevDependency())
                 .setLocation(thread.getCallerLocation())
                 .build());
       }
@@ -575,12 +568,12 @@ public class ModuleFileGlobals {
 
     @Override
     public boolean isExported() {
-      return usageBuilder.isExported();
+      return !proxyBuilder.getProxyName().isEmpty();
     }
 
     @Override
     public void export(EventHandler handler, Label bzlFileLabel, String name) {
-      usageBuilder.setExportedName(name);
+      proxyBuilder.setProxyName(name);
     }
   }
 
@@ -646,15 +639,13 @@ public class ModuleFileGlobals {
       throws EvalException {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "use_repo_rule()");
     context.setNonModuleCalled();
-    // The builder for the singular "innate" extension of this module. Note that there's only one
-    // such usage (and it's fabricated), so the usage location just points to this file.
+    // The builder for the singular "innate" extension of this module.
     ModuleExtensionUsageBuilder newUsageBuilder =
         new ModuleExtensionUsageBuilder(
             context,
             "//:MODULE.bazel",
             ModuleExtensionId.INNATE_EXTENSION_NAME,
-            /* isolate= */ false,
-            Location.fromFile(thread.getCallerLocation().file()));
+            /* isolate= */ false);
     for (ModuleExtensionUsageBuilder usageBuilder : context.getExtensionUsageBuilders()) {
       if (usageBuilder.isForExtension("//:MODULE.bazel", ModuleExtensionId.INNATE_EXTENSION_NAME)) {
         return new RepoRuleProxy(usageBuilder, bzlFile + '%' + ruleName);
@@ -693,7 +684,11 @@ public class ModuleFileGlobals {
       }
       kwargs.putEntry("name", name);
       ModuleExtensionProxy extensionProxy =
-          ModuleExtensionProxy.createFromUsagesBuilder(usageBuilder, devDependency);
+          new ModuleExtensionProxy(
+              usageBuilder,
+              ModuleExtensionUsage.Proxy.builder()
+                  .setDevDependency(devDependency)
+                  .setLocation(thread.getCallerLocation()));
       extensionProxy.getValue(tagName).call(kwargs, thread);
       extensionProxy.addImport(name, name, "by a repo rule", thread.getCallerLocation());
     }

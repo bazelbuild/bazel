@@ -199,7 +199,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       if (lockedExtension == null && extensionShouldHaveBeenLocked) {
         throw new SingleExtensionEvalFunctionException(
             ExternalDepsException.withMessage(
-                Code.BAD_MODULE,
+                Code.BAD_LOCKFILE,
                 "The module extension '%s'%s does not exist in the lockfile",
                 extensionId,
                 extension.getEvalFactors().isEmpty()
@@ -224,8 +224,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                       .setBzlTransitiveDigest(extension.getBzlTransitiveDigest())
                       .setUsagesDigest(
                           SingleExtensionUsagesValue.hashForEvaluation(
-                              GsonTypeAdapterUtil.createSingleExtensionUsagesValueHashGson(),
-                              usagesValue))
+                              GsonTypeAdapterUtil.SINGLE_EXTENSION_USAGES_VALUE_GSON, usagesValue))
                       .setRecordedFileInputs(moduleExtensionResult.getRecordedFileInputs())
                       .setRecordedDirentsInputs(moduleExtensionResult.getRecordedDirentsInputs())
                       .setEnvVariables(extension.getEnvVars())
@@ -281,7 +280,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       // relevant for the evaluation of the extension.
       if (!Arrays.equals(
           SingleExtensionUsagesValue.hashForEvaluation(
-              GsonTypeAdapterUtil.createSingleExtensionUsagesValueHashGson(), usagesValue),
+              GsonTypeAdapterUtil.SINGLE_EXTENSION_USAGES_VALUE_GSON, usagesValue),
           lockedExtension.getUsagesDigest())) {
         diffRecorder.record("The usages of the extension '" + extensionId + "' have changed");
       }
@@ -316,7 +315,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     if (lockfileMode.equals(LockfileMode.ERROR)) {
       throw new SingleExtensionEvalFunctionException(
           ExternalDepsException.withMessage(
-              Code.BAD_MODULE,
+              Code.BAD_LOCKFILE,
               "MODULE.bazel.lock is no longer up-to-date because: %s. "
                   + "Please run `bazel mod deps --lockfile_mode=update` to update your lockfile.",
               diffRecorder.getRecordedDiffMessages()),
@@ -769,8 +768,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       StarlarkSemantics starlarkSemantics,
       Environment env)
       throws InterruptedException, SingleExtensionEvalFunctionException {
-    Location sampleUsageLocation =
-        usagesValue.getExtensionUsages().values().iterator().next().getLocation();
+    ModuleExtensionUsage sampleUsage = usagesValue.getExtensionUsages().values().iterator().next();
+    Location sampleUsageLocation = sampleUsage.getProxies().getFirst().getLocation();
     BzlLoadValue bzlLoadValue =
         loadBzlFile(extensionId.getBzlFileLabel(), sampleUsageLocation, starlarkSemantics, env);
     if (bzlLoadValue == null) {

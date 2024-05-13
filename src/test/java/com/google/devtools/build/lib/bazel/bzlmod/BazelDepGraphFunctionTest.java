@@ -129,7 +129,9 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                 .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(rootDirectory))
                 .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, resolutionFunctionMock)
-                .put(SkyFunctions.REGISTRY, new RegistryFunction(new FakeRegistry.Factory()))
+                .put(
+                    SkyFunctions.REGISTRY,
+                    new RegistryFunction(new FakeRegistry.Factory(), directories.getWorkspace()))
                 .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
                 .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
                 .put(
@@ -217,12 +219,13 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
         .setExtensionBzlFile(bzlFile)
         .setExtensionName(name)
         .setIsolationKey(Optional.empty())
-        .setImports(importsBuilder.buildOrThrow())
-        .setDevImports(ImmutableSet.of())
+        .addProxy(
+            ModuleExtensionUsage.Proxy.builder()
+                .setDevDependency(false)
+                .setLocation(Location.BUILTIN)
+                .setImports(importsBuilder.buildOrThrow())
+                .build())
         .setUsingModule(ModuleKey.ROOT)
-        .setLocation(Location.BUILTIN)
-        .setHasDevUseExtension(false)
-        .setHasNonDevUseExtension(true)
         .build();
   }
 
@@ -364,7 +367,8 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
     @Override
     @Nullable
     public SkyValue compute(SkyKey skyKey, Environment env) {
-      return BazelModuleResolutionValue.create(depGraph, ImmutableMap.of(), ImmutableMap.of());
+      return BazelModuleResolutionValue.create(
+          depGraph, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
     }
   }
 }

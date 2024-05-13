@@ -118,14 +118,16 @@ public abstract class BazelDepGraphValue implements SkyValue {
    */
   public final RepositoryMapping getFullRepoMapping(ModuleKey key) {
     ImmutableMap.Builder<String, RepositoryName> mapping = ImmutableMap.builder();
-    for (Map.Entry<ModuleExtensionId, ModuleExtensionUsage> e :
+    for (Map.Entry<ModuleExtensionId, ModuleExtensionUsage> extIdAndUsage :
         getExtensionUsagesTable().column(key).entrySet()) {
-      ModuleExtensionId extensionId = e.getKey();
-      ModuleExtensionUsage usage = e.getValue();
-      for (Map.Entry<String, String> entry : usage.getImports().entrySet()) {
-        String canonicalRepoName =
-            getExtensionUniqueNames().get(extensionId) + "~" + entry.getValue();
-        mapping.put(entry.getKey(), RepositoryName.createUnvalidated(canonicalRepoName));
+      ModuleExtensionId extensionId = extIdAndUsage.getKey();
+      ModuleExtensionUsage usage = extIdAndUsage.getValue();
+      String repoNamePrefix = getExtensionUniqueNames().get(extensionId) + "~";
+      for (ModuleExtensionUsage.Proxy proxy : usage.getProxies()) {
+        for (Map.Entry<String, String> entry : proxy.getImports().entrySet()) {
+          String canonicalRepoName = repoNamePrefix + entry.getValue();
+          mapping.put(entry.getKey(), RepositoryName.createUnvalidated(canonicalRepoName));
+        }
       }
     }
     return getDepGraph()

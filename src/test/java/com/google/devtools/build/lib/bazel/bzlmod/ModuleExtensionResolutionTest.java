@@ -268,7 +268,9 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                 .put(
                     SkyFunctions.SINGLE_EXTENSION_EVAL,
                     new SingleExtensionEvalFunction(directories, ImmutableMap::of, downloadManager))
-                .put(SkyFunctions.REGISTRY, new RegistryFunction(registryFactory))
+                .put(
+                    SkyFunctions.REGISTRY,
+                    new RegistryFunction(registryFactory, directories.getWorkspace()))
                 .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
                 .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
                 .put(

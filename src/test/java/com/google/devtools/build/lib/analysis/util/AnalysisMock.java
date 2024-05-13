@@ -181,7 +181,9 @@ public abstract class AnalysisMock extends LoadingMock {
             SkyFunctions.SINGLE_EXTENSION_EVAL,
             new SingleExtensionEvalFunction(directories, ImmutableMap::of, downloadManager))
         .put(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
-        .put(SkyFunctions.REGISTRY, new RegistryFunction(FakeRegistry.DEFAULT_FACTORY))
+        .put(
+            SkyFunctions.REGISTRY,
+            new RegistryFunction(FakeRegistry.DEFAULT_FACTORY, directories.getWorkspace()))
         .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
         .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
         .put(
