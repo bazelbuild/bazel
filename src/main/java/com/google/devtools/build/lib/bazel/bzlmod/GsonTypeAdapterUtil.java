@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFact
 import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_MAP;
 import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_SET;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableTable;
@@ -32,7 +31,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
@@ -49,7 +47,6 @@ import java.lang.reflect.Type;
 import java.util.Base64;
 import java.util.Optional;
 import javax.annotation.Nullable;
-import net.starlark.java.syntax.Location;
 
 /**
  * Utility class to hold type adapters and helper methods to get gson registered with type adapters
@@ -366,87 +363,6 @@ public final class GsonTypeAdapterUtil {
         }
       };
 
-  /**
-   * A variant of {@link Location} that converts the absolute path to the root module file to a
-   * constant and back.
-   */
-  // protected only for @AutoValue
-  @GenerateTypeAdapter
-  @AutoValue
-  protected abstract static class RootModuleFileEscapingLocation {
-    // This marker string is neither a valid absolute path nor a valid URL and thus cannot conflict
-    // with any real module file location.
-    private static final String ROOT_MODULE_FILE_LABEL = "@@//:MODULE.bazel";
-
-    public abstract String file();
-
-    public abstract int line();
-
-    public abstract int column();
-
-    public Location toLocation(String moduleFilePath, String workspaceRoot) {
-      String file;
-      if (file().equals(ROOT_MODULE_FILE_LABEL)) {
-        file = moduleFilePath;
-      } else {
-        file = file().replace("%workspace%", workspaceRoot);
-      }
-      return Location.fromFileLineColumn(file, line(), column());
-    }
-
-    public static RootModuleFileEscapingLocation fromLocation(
-        Location location, String moduleFilePath, String workspaceRoot) {
-      String file;
-      if (location.file().equals(moduleFilePath)) {
-        file = ROOT_MODULE_FILE_LABEL;
-      } else {
-        file = location.file().replace(workspaceRoot, "%workspace%");
-      }
-      return new AutoValue_GsonTypeAdapterUtil_RootModuleFileEscapingLocation(
-          file, location.line(), location.column());
-    }
-  }
-
-  private static final class LocationTypeAdapterFactory implements TypeAdapterFactory {
-
-    private final String moduleFilePath;
-    private final String workspaceRoot;
-
-    public LocationTypeAdapterFactory(Path moduleFilePath, Path workspaceRoot) {
-      this.moduleFilePath = moduleFilePath.getPathString();
-      this.workspaceRoot = workspaceRoot.getPathString();
-    }
-
-    @Nullable
-    @Override
-    @SuppressWarnings("unchecked")
-    public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> typeToken) {
-      if (typeToken.getRawType() != Location.class) {
-        return null;
-      }
-      TypeAdapter<RootModuleFileEscapingLocation> relativizedLocationTypeAdapter =
-          gson.getAdapter(RootModuleFileEscapingLocation.class);
-      return (TypeAdapter<T>)
-          new TypeAdapter<Location>() {
-
-            @Override
-            public void write(JsonWriter jsonWriter, Location location) throws IOException {
-              relativizedLocationTypeAdapter.write(
-                  jsonWriter,
-                  RootModuleFileEscapingLocation.fromLocation(
-                      location, moduleFilePath, workspaceRoot));
-            }
-
-            @Override
-            public Location read(JsonReader jsonReader) throws IOException {
-              return relativizedLocationTypeAdapter
-                  .read(jsonReader)
-                  .toLocation(moduleFilePath, workspaceRoot);
-            }
-          };
-    }
-  }
-
   private static final TypeAdapter<RepoRecordedInput.File> REPO_RECORDED_INPUT_FILE_TYPE_ADAPTER =
       new TypeAdapter<>() {
         @Override
@@ -528,17 +444,13 @@ public final class GsonTypeAdapterUtil {
     }
   }
 
-  public static Gson createLockFileGson(Path moduleFilePath, Path workspaceRoot) {
-    return newGsonBuilder()
-        .setPrettyPrinting()
-        .registerTypeAdapterFactory(new LocationTypeAdapterFactory(moduleFilePath, workspaceRoot))
-        .registerTypeAdapterFactory(new OptionalChecksumTypeAdapterFactory())
-        .create();
-  }
+  public static final Gson LOCKFILE_GSON =
+      newGsonBuilder()
+          .setPrettyPrinting()
+          .registerTypeAdapterFactory(new OptionalChecksumTypeAdapterFactory())
+          .create();
 
-  public static Gson createSingleExtensionUsagesValueHashGson() {
-    return newGsonBuilder().create();
-  }
+  public static final Gson SINGLE_EXTENSION_USAGES_VALUE_GSON = newGsonBuilder().create();
 
   private static GsonBuilder newGsonBuilder() {
     return new GsonBuilder()

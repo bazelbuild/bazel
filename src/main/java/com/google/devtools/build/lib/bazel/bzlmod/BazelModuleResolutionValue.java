@@ -30,9 +30,6 @@ import java.util.Optional;
  */
 @AutoValue
 abstract class BazelModuleResolutionValue implements SkyValue {
-  /* TODO(andreisolo): Also load the modules overridden by {@code single_version_override} or
-      NonRegistryOverride if we need to detect changes in the dependency graph caused by them.
-  */
 
   @SerializationConstant
   public static final SkyKey KEY = () -> SkyFunctions.BAZEL_MODULE_RESOLUTION;
@@ -53,11 +50,18 @@ abstract class BazelModuleResolutionValue implements SkyValue {
    */
   abstract ImmutableMap<String, Optional<Checksum>> getRegistryFileHashes();
 
+  /**
+   * Selected module versions that are known to be yanked (and hence must have been explicitly
+   * allowed by the user).
+   */
+  abstract ImmutableMap<ModuleKey, String> getSelectedYankedVersions();
+
   static BazelModuleResolutionValue create(
       ImmutableMap<ModuleKey, Module> resolvedDepGraph,
       ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph,
-      ImmutableMap<String, Optional<Checksum>> registryFileHashes) {
+      ImmutableMap<String, Optional<Checksum>> registryFileHashes,
+      ImmutableMap<ModuleKey, String> selectedYankedVersions) {
     return new AutoValue_BazelModuleResolutionValue(
-        resolvedDepGraph, unprunedDepGraph, registryFileHashes);
+        resolvedDepGraph, unprunedDepGraph, registryFileHashes, selectedYankedVersions);
   }
 }

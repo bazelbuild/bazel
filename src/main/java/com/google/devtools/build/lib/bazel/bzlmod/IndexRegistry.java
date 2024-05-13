@@ -17,11 +17,13 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum.MissingChecksumException;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -57,17 +59,16 @@ public class IndexRegistry implements Registry {
    */
   public enum KnownFileHashesMode {
     IGNORE,
-    USE_AND_UPDATE;
+    USE_AND_UPDATE,
+    ENFORCE
   }
-
-  /** The unresolved version of the url. Ex: has %workspace% placeholder */
-  private final String unresolvedUri;
 
   private final URI uri;
   private final DownloadManager downloadManager;
   private final Map<String, String> clientEnv;
   private final Gson gson;
   private final ImmutableMap<String, Optional<Checksum>> knownFileHashes;
+  private final ImmutableMap<ModuleKey, String> previouslySelectedYankedVersions;
   private final KnownFileHashesMode knownFileHashesMode;
   private volatile Optional<BazelRegistryJson> bazelRegistryJson;
   private volatile StoredEventHandler bazelRegistryJsonEvents;
@@ -76,13 +77,12 @@ public class IndexRegistry implements Registry {
 
   public IndexRegistry(
       URI uri,
-      String unresolvedUri,
       DownloadManager downloadManager,
       Map<String, String> clientEnv,
       ImmutableMap<String, Optional<Checksum>> knownFileHashes,
-      KnownFileHashesMode knownFileHashesMode) {
+      KnownFileHashesMode knownFileHashesMode,
+      ImmutableMap<ModuleKey, String> previouslySelectedYankedVersions) {
     this.uri = uri;
-    this.unresolvedUri = unresolvedUri;
     this.downloadManager = downloadManager;
     this.clientEnv = clientEnv;
     this.gson =
@@ -91,11 +91,12 @@ public class IndexRegistry implements Registry {
             .create();
     this.knownFileHashes = knownFileHashes;
     this.knownFileHashesMode = knownFileHashesMode;
+    this.previouslySelectedYankedVersions = previouslySelectedYankedVersions;
   }
 
   @Override
   public String getUrl() {
-    return unresolvedUri;
+    return uri.toString();
   }
 
   private String constructUrl(String base, String... segments) {
@@ -127,6 +128,14 @@ public class IndexRegistry implements Registry {
     if (knownFileHashesMode != KnownFileHashesMode.IGNORE && useChecksum) {
       Optional<Checksum> knownChecksum = knownFileHashes.get(url);
       if (knownChecksum == null) {
+        if (knownFileHashesMode == KnownFileHashesMode.ENFORCE) {
+          throw new MissingChecksumException(
+              String.format(
+                  "Missing checksum for registry file %s not permitted with --lockfile_mode=error."
+                      + " Please run `bazel mod deps --lockfile_mode=update` to update your"
+                      + " lockfile.",
+                  url));
+        }
         // This is a new file, download without providing a checksum.
         checksum = Optional.empty();
       } else if (knownChecksum.isEmpty()) {
@@ -140,10 +149,17 @@ public class IndexRegistry implements Registry {
     } else {
       checksum = Optional.empty();
     }
+    if (knownFileHashesMode == KnownFileHashesMode.ENFORCE) {
+      Preconditions.checkState(
+          checksum.isPresent(),
+          "Cannot fetch a file without a checksum in ENFORCE mode. This is a bug in Bazel, please "
+              + "report at https://github.com/bazelbuild/bazel/issues/new/choose.");
+    }
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.BZLMOD, () -> "download file: " + url)) {
       return Optional.of(
-          downloadManager.downloadAndReadOneUrl(new URL(url), eventHandler, clientEnv, checksum));
+          downloadManager.downloadAndReadOneUrlForBzlmod(
+              new URL(url), eventHandler, clientEnv, checksum));
     } catch (FileNotFoundException e) {
       return Optional.empty();
     } catch (IOException e) {
@@ -158,7 +174,7 @@ public class IndexRegistry implements Registry {
       throws IOException, InterruptedException {
     String url =
         constructUrl(
-            uri.toString(), "modules", key.getName(), key.getVersion().toString(), "MODULE.bazel");
+            getUrl(), "modules", key.getName(), key.getVersion().toString(), "MODULE.bazel");
     Optional<byte[]> maybeContent = grabFile(url, eventHandler, /* useChecksum= */ true);
     return maybeContent.map(content -> ModuleFile.create(content, url));
   }
@@ -237,17 +253,12 @@ public class IndexRegistry implements Registry {
   @Override
   public RepoSpec getRepoSpec(ModuleKey key, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException {
-    String jsonUrl =
-        constructUrl(
-            uri.toString(),
-            "modules",
-            key.getName(),
-            key.getVersion().toString(),
-            SOURCE_JSON_FILENAME);
+    String jsonUrl = getSourceJsonUrl(key);
     Optional<String> jsonString = grabJsonFile(jsonUrl, eventHandler, /* useChecksum= */ true);
     if (jsonString.isEmpty()) {
       throw new FileNotFoundException(
-          String.format("Module %s's %s not found in registry %s", key, SOURCE_JSON_FILENAME, uri));
+          String.format(
+              "Module %s's %s not found in registry %s", key, SOURCE_JSON_FILENAME, getUrl()));
     }
     SourceJson sourceJson = parseJson(jsonString.get(), jsonUrl, SourceJson.class);
     switch (sourceJson.type) {
@@ -275,7 +286,11 @@ public class IndexRegistry implements Registry {
     }
   }
 
-  @SuppressWarnings("OptionalAssignedToNull")
+  private String getSourceJsonUrl(ModuleKey key) {
+    return constructUrl(
+        getUrl(), "modules", key.getName(), key.getVersion().toString(), SOURCE_JSON_FILENAME);
+  }
+
   private Optional<BazelRegistryJson> getBazelRegistryJson(ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException {
     if (bazelRegistryJson == null) {
@@ -284,7 +299,7 @@ public class IndexRegistry implements Registry {
           var storedEventHandler = new StoredEventHandler();
           bazelRegistryJson =
               grabJson(
-                  constructUrl(uri.toString(), "bazel_registry.json"),
+                  constructUrl(getUrl(), "bazel_registry.json"),
                   BazelRegistryJson.class,
                   storedEventHandler,
                   /* useChecksum= */ true);
@@ -361,7 +376,7 @@ public class IndexRegistry implements Registry {
       for (Map.Entry<String, String> entry : sourceJson.patches.entrySet()) {
         remotePatches.put(
             constructUrl(
-                unresolvedUri,
+                getUrl(),
                 "modules",
                 key.getName(),
                 key.getVersion().toString(),
@@ -399,7 +414,7 @@ public class IndexRegistry implements Registry {
       throws IOException, InterruptedException {
     Optional<MetadataJson> metadataJson =
         grabJson(
-            constructUrl(uri.toString(), "modules", moduleName, "metadata.json"),
+            constructUrl(getUrl(), "modules", moduleName, "metadata.json"),
             MetadataJson.class,
             eventHandler,
             // metadata.json is not immutable
@@ -421,6 +436,40 @@ public class IndexRegistry implements Registry {
           String.format(
               "Could not parse module %s's metadata file: %s", moduleName, e.getMessage()));
     }
+  }
+
+  @Override
+  public Optional<YankedVersionsValue> tryGetYankedVersionsFromLockfile(
+      ModuleKey selectedModuleKey) {
+    String yankedInfo = previouslySelectedYankedVersions.get(selectedModuleKey);
+    if (yankedInfo != null) {
+      // The module version was selected when the lockfile was created, but known to be yanked
+      // (hence, it was explicitly allowed by the user). We reuse the yanked info from the lockfile.
+      // Rationale: A module that was yanked in the past should remain yanked in the future. The
+      // yanked info may have been updated since then, but by not fetching it, we avoid network
+      // access if the set of yanked versions has not changed, but the set allowed versions has.
+      return Optional.of(
+          YankedVersionsValue.create(
+              Optional.of(ImmutableMap.of(selectedModuleKey.getVersion(), yankedInfo))));
+    }
+    if (knownFileHashes.containsKey(getSourceJsonUrl(selectedModuleKey))) {
+      // If the source.json hash is recorded in the lockfile, we know that the module was selected
+      // when the lockfile was created. Since it does not appear in the list of selected yanked
+      // versions recorded in the lockfile, it must not have been yanked at that time. We do not
+      // refresh yanked versions information.
+      // Rationale: This ensures that builds with --lockfile_mode=update or error are reproducible
+      // and do not fail due to changes in the set of yanked versions. Furthermore, it avoids
+      // refetching yanked versions for all modules every time the user modifies or adds a
+      // dependency. If the selected version for a module changes, yanked version information is
+      // always refreshed.
+      return Optional.of(YankedVersionsValue.NONE_YANKED);
+    }
+    // The lockfile does not contain sufficient information to determine the "yanked" status of the
+    // module - network access to the registry is required.
+    // Note that this point can't (and must not) be reached with --lockfile_mode=error: The lockfile
+    // records the source.json hashes of all selected modules and the result of selection is fully
+    // determined by the lockfile.
+    return Optional.empty();
   }
 
   /** Represents fields available in {@code metadata.json} for each module. */

@@ -375,6 +375,9 @@ public class DownloadManager {
   /**
    * Downloads the contents of one URL and reads it into a byte array.
    *
+   * <p>This is only meant to be used for Bzlmod registry downloads as it ignores the value of
+   * <code>--repository_disable_download</code>.
+   *
    * <p>If the checksum and path to the repository cache is specified, attempt to load the file from
    * the {@link RepositoryCache}. If it doesn't exist, proceed to download the file and load it into
    * the cache prior to returning the value.
@@ -388,7 +391,7 @@ public class DownloadManager {
    * @throws IOException if download was attempted and ended up failing
    * @throws InterruptedException if this thread is being cast into oblivion
    */
-  public byte[] downloadAndReadOneUrl(
+  public byte[] downloadAndReadOneUrlForBzlmod(
       URL originalUrl,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
@@ -437,11 +440,6 @@ public class DownloadManager {
       rewrittenUrls =
           rewrittenUrlMappings.stream().map(RewrittenURL::url).collect(toImmutableList());
       authHeaders = rewriter.updateAuthHeaders(rewrittenUrlMappings, authHeaders, netrcCreds);
-    }
-
-    if (disableDownload) {
-      throw new IOException(
-          String.format("Failed to download %s: download is disabled.", originalUrl));
     }
 
     if (rewrittenUrls.isEmpty()) {

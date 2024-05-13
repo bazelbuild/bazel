@@ -311,6 +311,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -4180,7 +4181,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // This may be an issue with packages from a different package_path root.
     Root packageRoot = pkgLocator.get().getPathEntries().get(0);
     ImmutableSet<RootedPath> workingSetRootedPaths =
-        skyfocusState.workingSet().stream()
+        Stream.concat(
+                skyfocusState.workingSet().stream(),
+                // The Bzlmod lockfile can be created after a build without having existed before
+                // and must always be kept in the working set if it is used.
+                Stream.of("MODULE.bazel.lock"))
             .map(f -> RootedPath.toRootedPath(packageRoot, PathFragment.create(f)))
             .collect(toImmutableSet());
 

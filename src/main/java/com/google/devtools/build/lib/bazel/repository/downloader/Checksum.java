@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 import com.google.common.base.Ascii;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
+import java.io.IOException;
 import java.util.Base64;
 
 /** The content checksum for an HTTP download, which knows its own type. */
@@ -29,6 +30,13 @@ public class Checksum {
 
     private InvalidChecksumException(String msg) {
       super(msg);
+    }
+  }
+
+  /** Exception thrown to indicate that a checksum is missing. */
+  public static final class MissingChecksumException extends IOException {
+    public MissingChecksumException(String message) {
+      super(message);
     }
   }
 

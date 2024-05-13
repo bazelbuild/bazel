@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.IndexRegistry.KnownFileHashesMode;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
-import com.google.devtools.build.lib.vfs.Path;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
@@ -28,24 +28,23 @@ import java.util.function.Supplier;
 
 /** Prod implementation of {@link RegistryFactory}. */
 public class RegistryFactoryImpl implements RegistryFactory {
-  private final Path workspacePath;
   private final DownloadManager downloadManager;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
 
   public RegistryFactoryImpl(
-      Path workspacePath,
-      DownloadManager downloadManager,
-      Supplier<Map<String, String>> clientEnvironmentSupplier) {
-    this.workspacePath = workspacePath;
+      DownloadManager downloadManager, Supplier<Map<String, String>> clientEnvironmentSupplier) {
     this.downloadManager = downloadManager;
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
   }
 
   @Override
   public Registry createRegistry(
-      String unresolvedUrl, ImmutableMap<String, Optional<Checksum>> knownFileHashes)
+      String url,
+      LockfileMode lockfileMode,
+      ImmutableMap<String, Optional<Checksum>> knownFileHashes,
+      ImmutableMap<ModuleKey, String> previouslySelectedYankedVersions)
       throws URISyntaxException {
-    URI uri = new URI(unresolvedUrl.replace("%workspace%", workspacePath.getPathString()));
+    URI uri = new URI(url);
     if (uri.getScheme() == null) {
       throw new URISyntaxException(
           uri.toString(),
@@ -60,17 +59,20 @@ public class RegistryFactoryImpl implements RegistryFactory {
     }
     var knownFileHashesMode =
         switch (uri.getScheme()) {
-          case "http", "https" -> KnownFileHashesMode.USE_AND_UPDATE;
+          case "http", "https" ->
+              lockfileMode == LockfileMode.ERROR
+                  ? KnownFileHashesMode.ENFORCE
+                  : KnownFileHashesMode.USE_AND_UPDATE;
           case "file" -> KnownFileHashesMode.IGNORE;
           default ->
               throw new URISyntaxException(uri.toString(), "Unrecognized registry URL protocol");
         };
     return new IndexRegistry(
         uri,
-        unresolvedUrl,
         downloadManager,
         clientEnvironmentSupplier.get(),
         knownFileHashes,
-        knownFileHashesMode);
+        knownFileHashesMode,
+        previouslySelectedYankedVersions);
   }
 }
