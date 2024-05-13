@@ -61,9 +61,12 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.protobuf.util.Timestamps;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.IOException;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.SortedMap;
@@ -898,18 +901,22 @@ public abstract class SpawnLogContextTestBase {
 
     SpawnLogContext context = createSpawnLogContext();
 
+    Instant now = Instant.now();
     context.logSpawn(
         defaultSpawn(),
         createInputMetadataProvider(),
         createInputMap(),
         fs,
         defaultTimeout(),
-        defaultSpawnResultBuilder().setSpawnMetrics(metrics).build());
+        defaultSpawnResultBuilder().setSpawnMetrics(metrics).setStartTime(now).build());
 
     closeAndAssertLog(
         context,
         defaultSpawnExecBuilder()
-            .setMetrics(Protos.SpawnMetrics.newBuilder().setTotalTime(millisToProto(1)))
+            .setMetrics(
+                Protos.SpawnMetrics.newBuilder()
+                    .setTotalTime(millisToProto(1))
+                    .setStartTime(Timestamps.fromDate(Date.from(now))))
             .build());
   }
 
