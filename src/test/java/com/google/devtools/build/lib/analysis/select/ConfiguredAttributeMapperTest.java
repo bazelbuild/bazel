@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.analysis;
+package com.google.devtools.build.lib.analysis.select;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -32,11 +32,8 @@ import org.junit.runners.JUnit4;
 /**
  * Unit tests for {@link ConfiguredAttributeMapper}.
  *
- * <p>This is distinct from {@link
- * com.google.devtools.build.lib.analysis.select.ConfiguredAttributeMapperCommonTest} because the
- * latter needs to inherit from {@link
- * com.google.devtools.build.lib.analysis.select.AbstractAttributeMapperTest} to run tests common to
- * all attribute mappers.
+ * <p>This is distinct from {@link ConfiguredAttributeMapperCommonTest} because the latter needs to
+ * inherit from {@link AbstractAttributeMapperTest} to run tests common to all attribute mappers.
  */
 @RunWith(JUnit4.class)
 public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
