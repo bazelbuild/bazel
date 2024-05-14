@@ -364,11 +364,6 @@ public class StarlarkOptionsParser {
     return aliasChain.map(Label::getCanonicalForm).collect(joining(" -> "));
   }
 
-  @VisibleForTesting
-  public OptionsParser getNativeOptionsParserFortesting() {
-    return nativeOptionsParser;
-  }
-
   public boolean checkIfParsedOptionAllowsMultiple(String option) {
     BuildSetting setting = parsedBuildSettings.get(option);
     return setting.allowsMultiple() || setting.isRepeatableFlag();

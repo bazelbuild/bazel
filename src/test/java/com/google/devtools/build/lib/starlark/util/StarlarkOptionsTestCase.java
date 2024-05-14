@@ -81,7 +81,7 @@ public class StarlarkOptionsTestCase extends BuildViewTestCase {
       optionsParser.parse(asList);
     }
     assertThat(starlarkOptionsParser.parseGivenArgs(asList)).isTrue();
-    return starlarkOptionsParser.getNativeOptionsParserFortesting();
+    return optionsParser;
   }
 
   protected OptionsParsingResult parseStarlarkOptions(
@@ -97,7 +97,7 @@ public class StarlarkOptionsTestCase extends BuildViewTestCase {
                     .addAll(bazelrcOptionsList)
                     .build()))
         .isTrue();
-    return starlarkOptionsParser.getNativeOptionsParserFortesting();
+    return optionsParser;
   }
 
   private void writeBuildSetting(String type, String defaultValue, boolean isFlag)
