@@ -551,7 +551,7 @@ EOF
   local tmp_output_base=$(mktemp -d "/tmp/bazel_output_base.XXXXXXXX")
   trap "chmod -R u+w $tmp_output_base && rm -fr $tmp_output_base" EXIT
 
-  bazel --output_base="$tmp_output_base" build //pkg:{er,es,r,s}3
+  bazel --output_base="$tmp_output_base" build //pkg:{er,es,r,s}3 --sandbox_debug
   assert_contains EXTERNAL_GEN_CONTENT bazel-bin/pkg/er3
   assert_contains EXTERNAL_SOURCE_CONTENT bazel-bin/pkg/es3
   assert_contains GEN_CONTENT bazel-bin/pkg/r3

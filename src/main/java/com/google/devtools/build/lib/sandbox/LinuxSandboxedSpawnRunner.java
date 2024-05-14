@@ -139,6 +139,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final Reporter reporter;
   private final Path slashTmp;
   private final Path outputBase;
+  private final ImmutableList<Root> packagePath;
   private final LoadingCache<Root, ImmutableSet<Path>> symlinkChainCache =
       Caffeine.newBuilder().build(LinuxSandboxedSpawnRunner::readSymlinkChainUncached);
   private String cgroupsDir;
@@ -176,6 +177,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.reporter = cmdEnv.getReporter();
     this.slashTmp = cmdEnv.getRuntime().getFileSystem().getPath("/tmp");
     this.outputBase = cmdEnv.getOutputBase();
+    this.packagePath = cmdEnv.getPackageLocator().getPathEntries();
   }
 
   private boolean useHermeticTmp() {
@@ -235,20 +237,34 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       // symlink to a directory under /tmp, we need to account for all intermediate symlinks.
       SequencedSet<Path> resolvedRoots = new LinkedHashSet<>();
       resolvedRoots.add(outputBase);
-      for (Root root : inputs.getSourceRoots()) {
+      for (Root root : Iterables.concat(packagePath)) {
         if (!root.asPath().startsWith(outputBase)) {
           resolvedRoots.add(root.asPath());
         }
-        resolvedRoots.addAll(readSymlinkChain(root));
+//        resolvedRoots.addAll(readSymlinkChain(root));
       }
-      pathsUnderTmpToMount =
-          resolvedRoots.stream().filter(p -> p.startsWith(slashTmp)).collect(toImmutableSet());
-
       // /tmp as a package path entry, output base or target of a local_repository seems very
       // unlikely to work, but the bind mounting logic is not prepared for it and we don't want to
       // crash, so just disable hermetic tmp in this case.
-      if (!pathsUnderTmpToMount.contains(slashTmp)) {
-        // The base dir for the upperdir and workdir of an overlayfs on /tmp.
+      if (!resolvedRoots.contains(slashTmp)) {
+        pathsUnderTmpToMount =
+            resolvedRoots.stream()
+                .filter(p -> p.startsWith(slashTmp))
+                // For any path /tmp/dir1/dir2 we encounter, we instead mount /tmp/dir1 (first two
+                // path segments). This is necessary to gracefully handle an edge case:
+                // - A workspace contains a subdirectory (e.g. examples) that is itself a workspace.
+                // - The child workspace brings in the parent workspace as a local_repository with
+                //   an up-level reference.
+                // - The parent workspace is checked out under /tmp.
+                // - The parent workspace uses resolved symlink artifacts.
+                // In this scenario, the symlinks point to the parent workspace's external source
+                // root, which in turn points to the parent workspace's source directory under /tmp.
+                // Since the symlinks are not followed when finding the resolved roots above, only
+                // the child workspace's directory shows up in resolvedRoots.
+                .map(p -> p.getFileSystem().getPath(p.asFragment().subFragment(0, 2)))
+                .collect(toImmutableSet());
+
+        // The initially empty directory that will be mounted as /tmp in the sandbox.
         sandboxTmp = sandboxPath.getRelative("_hermetic_tmp");
         sandboxTmp.createDirectoryAndParents();
 
