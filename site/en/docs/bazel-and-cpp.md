@@ -86,8 +86,8 @@ Follow these guidelines for include paths:
 ### Toolchain features {:#toolchain-features}
 
 The following optional [features](/docs/cc-toolchain-config-reference#features)
-can improve the hygiene of a C++ project. They can be enabled via the
-`--features` command-line flag or using the `features` attribute of
+can improve the hygiene of a C++ project. They can be enabled using the
+`--features` command-line flag or the `features` attribute of
 [`repo`](/external/overview#repo.bazel),
 [`package`](/reference/be/functions#package) or `cc_*` rules:
 
