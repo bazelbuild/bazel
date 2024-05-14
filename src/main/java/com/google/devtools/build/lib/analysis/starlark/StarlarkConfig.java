@@ -20,7 +20,9 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.packages.BuildSetting;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkConfigApi;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
@@ -57,6 +59,11 @@ public class StarlarkConfig implements StarlarkConfigApi {
     return execGroupUnchecked == Starlark.NONE
         ? ExecutionTransitionFactory.createFactory()
         : ExecutionTransitionFactory.createFactory((String) execGroupUnchecked);
+  }
+
+  @Override
+  public ConfigurationTransitionApi target() {
+    return (ConfigurationTransitionApi) NoTransition.createFactory();
   }
 
   @Override

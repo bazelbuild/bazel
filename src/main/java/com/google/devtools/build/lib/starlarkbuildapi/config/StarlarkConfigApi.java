@@ -158,6 +158,14 @@ public interface StarlarkConfigApi extends StarlarkValue {
       })
   ExecTransitionFactoryApi exec(Object execGroupUnchecked);
 
+  @StarlarkMethod(
+      name = "target",
+      doc =
+          "Creates a target transition. This is a no-op transition intended for the case where a"
+              + " transition object is needed, but doesn't want to actually change anything."
+              + " Equivalent to <code>cfg = \"target\"</code> in <code>attr.label()</code>.")
+  ConfigurationTransitionApi target();
+
   /** The api for exec transitions. */
   @StarlarkBuiltin(
       name = "ExecTransitionFactory",
