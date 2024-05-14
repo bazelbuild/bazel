@@ -45,20 +45,19 @@ function setup_font_resources() {
 
   cat > java/bazel/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
-aar_import(
-    name = "aar",
-    aar = "sample.aar",
-)
 android_library(
     name = "lib",
     srcs = ["Lib.java"],
-    deps = [":aar"],
+    resource_files = glob(["res/**"]),
+    custom_package = "bazel.android",
+    manifest = "AndroidManifest.xml",
 )
 android_binary(
     name = "bin",
     srcs = ["MainActivity.java"],
     resource_files = glob(["res/**"]),
     manifest = "AndroidManifest.xml",
+    custom_package = "bazel.android",
     deps = [":lib"],
 )
 EOF

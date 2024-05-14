@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.packages.RepositoryFetchException;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.android.AndroidBuildViewTestCase;
 import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import org.junit.Before;
 import org.junit.Test;
@@ -87,28 +86,6 @@ public class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase {
         "  <version>" + version + "</version>",
         "  <packaging>" + packaging + "</packaging>",
         "</project>");
-  }
-
-  @Test
-  public void testGeneratedAarImport() throws Exception {
-    scratchPlatformsDirectories(25);
-    scratchBuildToolsDirectories();
-    scratchExtrasLibrary("extras/google/m2repository", "com.google.android", "foo", "1.0.0", "aar");
-    String bazelToolsWorkspace = scratch.dir("embedded_tools").getPathString();
-    FileSystemUtils.appendIsoLatin1(
-        scratch.resolve("WORKSPACE"),
-        "local_repository(name = 'bazel_tools', path = '" + bazelToolsWorkspace + "')",
-        "android_sdk_repository(",
-        "    name = 'androidsdk',",
-        "    path = '/sdk',",
-        ")");
-    invalidatePackages();
-
-    ConfiguredTargetAndData aarImportTarget =
-        getConfiguredTargetAndData("@androidsdk//com.google.android:foo-1.0.0");
-    assertThat(aarImportTarget).isNotNull();
-    assertThat(aarImportTarget.getTargetForTesting().getAssociatedRule().getRuleClass())
-        .isEqualTo("aar_import");
   }
 
   @Test
