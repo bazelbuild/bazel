@@ -21,7 +21,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.reflect.TypeToken;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum.MissingChecksumException;
@@ -36,18 +35,12 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.gson.FieldNamingPolicy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonDeserializationContext;
-import com.google.gson.JsonDeserializer;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.lang.reflect.Type;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -95,18 +88,6 @@ public class IndexRegistry implements Registry {
     this.gson =
         new GsonBuilder()
             .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
-            // record types in JDK15+ causes issues with GSON since fields are now final
-            // create custom deserializer
-            // https://github.com/google/gson/issues/1794#issuecomment-706532333
-            .registerTypeAdapter(RemoteFile.class, new JsonDeserializer<RemoteFile>() {
-              @Override
-              public RemoteFile deserialize(JsonElement json, Type type,
-                  JsonDeserializationContext ctxt) throws JsonParseException {
-                final JsonObject object = json.getAsJsonObject();
-                return new RemoteFile(object.get("integrity").getAsString(),
-                    ctxt.deserialize(object.get("urls"), new TypeToken<List<URL>>(){}.getType()));
-              }
-            })
             .create();
     this.knownFileHashes = knownFileHashes;
     this.knownFileHashesMode = knownFileHashesMode;
@@ -215,7 +196,7 @@ public class IndexRegistry implements Registry {
     String integrity;
     String stripPrefix;
     Map<String, String> patches;
-    Map<String, RemoteFile> overlay;
+    Map<String, ArchiveRepoSpecBuilder.RemoteFile> overlay;
     int patchStrip;
     String archiveType;
   }
@@ -406,15 +387,15 @@ public class IndexRegistry implements Registry {
       }
     }
 
-    var overlay = sourceJson.overlay != null ?
-        ImmutableMap.copyOf(sourceJson.overlay) : ImmutableMap.<String, RemoteFile>of();
-
     return new ArchiveRepoSpecBuilder()
         .setUrls(urls.build())
         .setIntegrity(sourceJson.integrity)
         .setStripPrefix(Strings.nullToEmpty(sourceJson.stripPrefix))
         .setRemotePatches(remotePatches.buildOrThrow())
-        .setOverlay(overlay)
+        .setOverlay(
+            sourceJson.overlay != null
+                ? ImmutableMap.copyOf(sourceJson.overlay)
+                : ImmutableMap.of())
         .setRemotePatchStrip(sourceJson.patchStrip)
         .setArchiveType(sourceJson.archiveType)
         .build();

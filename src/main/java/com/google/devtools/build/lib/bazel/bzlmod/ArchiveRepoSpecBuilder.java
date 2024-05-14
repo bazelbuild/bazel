@@ -15,8 +15,8 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -86,12 +86,14 @@ public class ArchiveRepoSpecBuilder {
 
   @CanIgnoreReturnValue
   public ArchiveRepoSpecBuilder setOverlay(ImmutableMap<String, RemoteFile> overlay) {
-    final Map<String, List<String>> remoteFiles = overlay.entrySet().stream().collect(toMap(
-        Entry::getKey,
-        e -> e.getValue().urls().stream().map(URL::toString).collect(toList())
-    ));
-    final Map<String, String> remoteFilesIntegrity = overlay.entrySet().stream()
-        .collect(toMap(Entry::getKey, e -> e.getValue().integrity()));
+    Map<String, List<String>> remoteFiles =
+        overlay.entrySet().stream()
+            .collect(
+                toMap(
+                    Entry::getKey,
+                    e -> e.getValue().urls().stream().map(URL::toString).collect(toList())));
+    Map<String, String> remoteFilesIntegrity =
+        overlay.entrySet().stream().collect(toMap(Entry::getKey, e -> e.getValue().integrity()));
     attrBuilder.put("remote_file_urls", remoteFiles);
     attrBuilder.put("remote_file_integrity", remoteFilesIntegrity);
     return this;
@@ -118,4 +120,10 @@ public class ArchiveRepoSpecBuilder {
         .setAttributes(AttributeValues.create(attrBuilder.buildOrThrow()))
         .build();
   }
+
+  /**
+   * A simple pojo to track remote files that are offered at multiple urls (mirrors) with a single
+   * integrity. We split up the file here to simplify the dependency.
+   */
+  public record RemoteFile(String integrity, List<URL> urls) {}
 }
