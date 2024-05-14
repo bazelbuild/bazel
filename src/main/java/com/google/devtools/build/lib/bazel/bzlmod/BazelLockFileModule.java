@@ -71,7 +71,7 @@ public class BazelLockFileModule extends BlazeModule {
       // Check the Skyframe value instead of the option since some commands (e.g. shutdown) don't
       // propagate the options to Skyframe, but we can only operate on Skyframe values that were
       // generated in UPDATE mode.
-      if (lockfileMode != LockfileMode.UPDATE) {
+      if (lockfileMode != LockfileMode.UPDATE && lockfileMode != LockfileMode.REFRESH) {
         return;
       }
       moduleResolutionValue =

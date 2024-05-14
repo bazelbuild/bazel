@@ -58,8 +58,26 @@ public class IndexRegistry implements Registry {
    * registry.
    */
   public enum KnownFileHashesMode {
+    /**
+     * Neither use nor update any file hashes. All registry downloads will go out to the network.
+     */
     IGNORE,
+    /**
+     * Use file hashes from the lockfile if available and add hashes for new files to the lockfile.
+     * Avoid revalidation of mutable registry information (yanked versions in metadata.json and
+     * modules that previously 404'd) by using these hashes and recording absent files in the
+     * lockfile.
+     */
     USE_AND_UPDATE,
+    /**
+     * Use file hashes from the lockfile if available and add hashes for new files to the lockfile.
+     * Always revalidate mutable registry information.
+     */
+    USE_IMMUTABLE_AND_UPDATE,
+    /**
+     * Require file hashes for all registry downloads. In particular, mutable registry files such as
+     * metadata.json can't be downloaded in this mode.
+     */
     ENFORCE
   }
 
@@ -115,7 +133,9 @@ public class IndexRegistry implements Registry {
       String url, ExtendedEventHandler eventHandler, boolean useChecksum)
       throws IOException, InterruptedException {
     var maybeContent = doGrabFile(url, eventHandler, useChecksum);
-    if (knownFileHashesMode == KnownFileHashesMode.USE_AND_UPDATE && useChecksum) {
+    if ((knownFileHashesMode == KnownFileHashesMode.USE_AND_UPDATE
+            || knownFileHashesMode == KnownFileHashesMode.USE_IMMUTABLE_AND_UPDATE)
+        && useChecksum) {
       eventHandler.post(RegistryFileDownloadEvent.create(url, maybeContent));
     }
     return maybeContent;
@@ -139,8 +159,14 @@ public class IndexRegistry implements Registry {
         // This is a new file, download without providing a checksum.
         checksum = Optional.empty();
       } else if (knownChecksum.isEmpty()) {
-        // The file is known to not exist, so don't attempt to download it.
-        return Optional.empty();
+        // The file didn't exist when the lockfile was created, but it may exist now.
+        if (knownFileHashesMode == KnownFileHashesMode.USE_IMMUTABLE_AND_UPDATE) {
+          // Attempt to download the file again.
+          checksum = Optional.empty();
+        } else {
+          // Guarantee reproducibility by assuming that the file still doesn't exist.
+          return Optional.empty();
+        }
       } else {
         // The file is known, download with a checksum to potentially obtain a repository cache hit
         // and ensure that the remote file hasn't changed.
@@ -441,6 +467,10 @@ public class IndexRegistry implements Registry {
   @Override
   public Optional<YankedVersionsValue> tryGetYankedVersionsFromLockfile(
       ModuleKey selectedModuleKey) {
+    if (knownFileHashesMode == KnownFileHashesMode.USE_IMMUTABLE_AND_UPDATE) {
+      // Yanked version information is inherently mutable, so always refresh it when requested.
+      return Optional.empty();
+    }
     String yankedInfo = previouslySelectedYankedVersions.get(selectedModuleKey);
     if (yankedInfo != null) {
       // The module version was selected when the lockfile was created, but known to be yanked

@@ -60,9 +60,11 @@ public class RegistryFactoryImpl implements RegistryFactory {
     var knownFileHashesMode =
         switch (uri.getScheme()) {
           case "http", "https" ->
-              lockfileMode == LockfileMode.ERROR
-                  ? KnownFileHashesMode.ENFORCE
-                  : KnownFileHashesMode.USE_AND_UPDATE;
+              switch (lockfileMode) {
+                case ERROR -> KnownFileHashesMode.ENFORCE;
+                case REFRESH -> KnownFileHashesMode.USE_IMMUTABLE_AND_UPDATE;
+                case OFF, UPDATE -> KnownFileHashesMode.USE_AND_UPDATE;
+              };
           case "file" -> KnownFileHashesMode.IGNORE;
           default ->
               throw new URISyntaxException(uri.toString(), "Unrecognized registry URL protocol");
