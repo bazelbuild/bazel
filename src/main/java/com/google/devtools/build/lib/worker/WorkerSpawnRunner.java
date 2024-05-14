@@ -61,7 +61,11 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.XattrProvider;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.protobuf.ByteString;
@@ -308,21 +312,20 @@ final class WorkerSpawnRunner implements SpawnRunner {
         throw new InterruptedException();
       }
       String argValue = arg.substring(1);
-      RootedPath path = inputs.getFiles().get(PathFragment.create(argValue));
+      Path path = inputs.getFiles().get(PathFragment.create(argValue));
       if (path == null) {
         throw new IOException(
             String.format(
                 "Failed to read @-argument '%s': file is not a declared input", argValue));
       }
       try {
-        for (String line : FileSystemUtils.readLines(path.asPath(), UTF_8)) {
+        for (String line : FileSystemUtils.readLines(path, UTF_8)) {
           expandArgument(inputs, line, requestBuilder);
         }
       } catch (IOException e) {
         throw new IOException(
             String.format(
-                "Failed to read @-argument '%s' from file '%s'.",
-                argValue, path.asPath().getPathString()),
+                "Failed to read @-argument '%s' from file '%s'.", argValue, path.getPathString()),
             e);
       }
     } else {

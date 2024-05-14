@@ -26,8 +26,6 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
@@ -62,9 +60,8 @@ public class SymlinkedSandboxedSpawnTest {
 
   @Test
   public void createFileSystem() throws Exception {
-    RootedPath helloTxt =
-        RootedPath.toRootedPath(Root.fromPath(workspaceDir), PathFragment.create("hello.txt"));
-    FileSystemUtils.createEmptyFile(helloTxt.asPath());
+    Path helloTxt = workspaceDir.getRelative("hello.txt");
+    FileSystemUtils.createEmptyFile(helloTxt);
 
     SymlinkedSandboxedSpawn symlinkedExecRoot =
         new SymlinkedSandboxedSpawn(
@@ -75,8 +72,7 @@ public class SymlinkedSandboxedSpawnTest {
             new SandboxInputs(
                 ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
                 ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableSet.of()),
+                ImmutableMap.of()),
             SandboxOutputs.create(
                 ImmutableSet.of(PathFragment.create("very/output.txt")), ImmutableSet.of()),
             ImmutableSet.of(execRoot.getRelative("wow/writable")),
@@ -89,8 +85,7 @@ public class SymlinkedSandboxedSpawnTest {
     symlinkedExecRoot.createFileSystem();
 
     assertThat(execRoot.getRelative("such/input.txt").isSymbolicLink()).isTrue();
-    assertThat(execRoot.getRelative("such/input.txt").resolveSymbolicLinks())
-        .isEqualTo(helloTxt.asPath());
+    assertThat(execRoot.getRelative("such/input.txt").resolveSymbolicLinks()).isEqualTo(helloTxt);
     assertThat(execRoot.getRelative("very").isDirectory()).isTrue();
     assertThat(execRoot.getRelative("wow/writable").isDirectory()).isTrue();
   }
@@ -107,8 +102,7 @@ public class SymlinkedSandboxedSpawnTest {
             execRoot,
             ImmutableList.of("/bin/true"),
             ImmutableMap.of(),
-            new SandboxInputs(
-                ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of()),
+            new SandboxInputs(ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()),
             SandboxOutputs.create(
                 ImmutableSet.of(outputFile.relativeTo(execRoot)), ImmutableSet.of()),
             ImmutableSet.of(),
