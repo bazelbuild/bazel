@@ -844,7 +844,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
 
     for (OptionDefinition optionDefinition : startupOptions) {
-      Type optionType = optionDefinition.getField().getType();
+      Type optionType = optionDefinition.getType();
       prefixes.add("--" + optionDefinition.getOptionName());
       if (optionType == boolean.class || optionType == TriState.class) {
         prefixes.add("--no" + optionDefinition.getOptionName());

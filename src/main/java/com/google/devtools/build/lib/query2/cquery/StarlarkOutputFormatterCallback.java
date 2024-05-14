@@ -34,7 +34,6 @@ import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.lang.reflect.Field;
 import java.util.Map;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
@@ -82,25 +81,20 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
           String optionName = def.getOptionName();
           String optionKey = COMMAND_LINE_OPTION_PREFIX + optionName;
 
-          try {
-            Field field = def.getField();
-            FragmentOptions options = buildOptions.get(optionClass);
-            Object optionValue = field.get(options);
+          FragmentOptions options = buildOptions.get(optionClass);
+          Object optionValue = def.getValue(options);
 
-            try {
-              // fromJava is not a deep validity check.
-              // It is not guaranteed to catch all errors,
-              // nor does it specify how it reports the errors it does find.
-              // Passing arbitrary Java values into the Starlark interpreter
-              // is not safe.
-              // TODO(cparsons,twigg): fix it: convert value by explicit cases.
-              result.put(optionKey, Starlark.fromJava(optionValue, null));
-            } catch (IllegalArgumentException | NullPointerException ex) {
-              // optionValue is not a valid Starlark value, so skip this option.
-              // (e.g. tristate; a map with null values)
-            }
-          } catch (IllegalAccessException e) {
-            throw new IllegalStateException(e);
+          try {
+            // fromJava is not a deep validity check.
+            // It is not guaranteed to catch all errors,
+            // nor does it specify how it reports the errors it does find.
+            // Passing arbitrary Java values into the Starlark interpreter
+            // is not safe.
+            // TODO(cparsons,twigg): fix it: convert value by explicit cases.
+            result.put(optionKey, Starlark.fromJava(optionValue, null));
+          } catch (IllegalArgumentException | NullPointerException ex) {
+            // optionValue is not a valid Starlark value, so skip this option.
+            // (e.g. tristate; a map with null values)
           }
         }
       }

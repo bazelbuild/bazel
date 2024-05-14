@@ -74,11 +74,7 @@ public abstract class OptionsBase {
 
   /** Returns the value of the option described by {@code definition}. */
   public final Object getValueFromDefinition(OptionDefinition definition) {
-    try {
-      return definition.getField().get(this);
-    } catch (IllegalAccessException e) {
-      throw new IllegalStateException("All options fields of options classes should be public", e);
-    }
+    return definition.getValue(this);
   }
 
   @Override
