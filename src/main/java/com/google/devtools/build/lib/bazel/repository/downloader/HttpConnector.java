@@ -126,8 +126,6 @@ class HttpConnector {
       try {
         connection = (HttpURLConnection)
             url.openConnection(proxyHelper.createProxyIfNeeded(url));
-        // TODO(zecke): Revise once https://bugs.openjdk.java.net/browse/JDK-8163921 is fixed.
-        connection.addRequestProperty("Accept", "text/html, image/gif, image/jpeg, */*");
         boolean isAlreadyCompressed =
             COMPRESSED_EXTENSIONS.contains(HttpUtils.getExtension(url.getPath()))
                 || COMPRESSED_EXTENSIONS.contains(HttpUtils.getExtension(originalUrl.getPath()));
@@ -142,6 +140,12 @@ class HttpConnector {
           for (String value : entry.getValue()) {
             connection.addRequestProperty(key, value);
           }
+        }
+
+        // Set default headers if they're not already set.
+        if (connection.getRequestProperty("Accept") == null) {
+          // TODO(zecke): Revise once https://bugs.openjdk.java.net/browse/JDK-8163921 is fixed.
+          connection.setRequestProperty("Accept", "text/html, image/gif, image/jpeg, */*");
         }
         if (connection.getRequestProperty("User-Agent") == null) {
           connection.setRequestProperty("User-Agent", USER_AGENT_VALUE);
