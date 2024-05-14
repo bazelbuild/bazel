@@ -1976,4 +1976,39 @@ EOF
   fi
 }
 
+function test_parse_headers_unclean() {
+  mkdir pkg
+  cat > pkg/BUILD <<'EOF'
+cc_library(name = "lib", hdrs = ["lib.h"])
+EOF
+  cat > pkg/lib.h <<'EOF'
+// Missing include of cstdint, which defines uint8_t.
+uint8_t foo();
+EOF
+
+  bazel build -s --process_headers_in_dependencies --features parse_headers \
+    //pkg:lib &> "$TEST_log" && fail "Build should have failed due to unclean headers"
+  expect_log "Compiling pkg/lib.h"
+  expect_log "error:.*'uint8_t'"
+
+  bazel build -s --process_headers_in_dependencies \
+    //pkg:lib &> "$TEST_log" || fail "Build should have passed"
+}
+
+function test_parse_headers_clean() {
+  mkdir pkg
+  cat > pkg/BUILD <<'EOF'
+package(features = ["parse_headers"])
+cc_library(name = "lib", hdrs = ["lib.h"])
+EOF
+  cat > pkg/lib.h <<'EOF'
+#include <cstdint>
+uint8_t foo();
+EOF
+
+  bazel build -s --process_headers_in_dependencies \
+    //pkg:lib &> "$TEST_log" || fail "Build should have passed"
+  expect_log "Compiling pkg/lib.h"
+}
+
 run_suite "cc_integration_test"
