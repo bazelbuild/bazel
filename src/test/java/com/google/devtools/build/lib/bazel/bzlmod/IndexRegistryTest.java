@@ -41,7 +41,7 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.Writer;
-import java.net.URL;
+import java.net.URI;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
@@ -198,7 +198,7 @@ public class IndexRegistryTest extends FoundationTestCase {
                     "integrity": "sha256-bleh-overlay"
                 }
             }
-        }       
+        }
         """);
     server.start();
 
@@ -249,12 +249,12 @@ public class IndexRegistryTest extends FoundationTestCase {
                 .setStripPrefix("")
                 .setOverlay(
                     ImmutableMap.of(
-                        "BUILD.bazel", new RemoteFile(
+                        "BUILD.bazel",
+                        new ArchiveRepoSpecBuilder.RemoteFile(
                             "sha256-bleh-overlay",
-                            List.of(new URL("http://mirror1"), new URL("http://mirror2"))
-                        )
-                    )
-                )
+                            ImmutableList.of(
+                                URI.create("http://mirror1").toURL(),
+                                URI.create("http://mirror2").toURL()))))
                 .setRemotePatches(ImmutableMap.of())
                 .setRemotePatchStrip(0)
                 .build());
