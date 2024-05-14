@@ -17,11 +17,7 @@ package com.google.devtools.build.lib.sandbox;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NETNS_WITH_LOOPBACK;
 import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NO_NETNS;
-import static java.util.stream.Collectors.joining;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -62,15 +58,13 @@ import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.SequencedSet;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /** Spawn runner that uses linux sandboxing APIs to execute a local subprocess. */
@@ -138,10 +132,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final TreeDeleter treeDeleter;
   private final Reporter reporter;
   private final Path slashTmp;
-  private final Path outputBase;
-  private final ImmutableList<Root> packagePath;
-  private final LoadingCache<Root, ImmutableSet<Path>> symlinkChainCache =
-      Caffeine.newBuilder().build(LinuxSandboxedSpawnRunner::readSymlinkChainUncached);
+  private final ImmutableSet<Path> knownPathsToMountUnderHermeticTmp;
   private String cgroupsDir;
 
   /**
@@ -176,8 +167,41 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.treeDeleter = treeDeleter;
     this.reporter = cmdEnv.getReporter();
     this.slashTmp = cmdEnv.getRuntime().getFileSystem().getPath("/tmp");
-    this.outputBase = cmdEnv.getOutputBase();
-    this.packagePath = cmdEnv.getPackageLocator().getPathEntries();
+    this.knownPathsToMountUnderHermeticTmp = collectPathsToMountUnderHermeticTmp(cmdEnv);
+  }
+
+  private ImmutableSet<Path> collectPathsToMountUnderHermeticTmp(CommandEnvironment cmdEnv) {
+    // If any path managed or tracked by Bazel is under /tmp, it needs to be explicitly mounted
+    // into the sandbox when using hermetic /tmp. We attempt to collect an over-approximation of
+    // these paths, as the main goal of hermetic /tmp is to avoid inheriting any direct
+    // or well-known children of /tmp from the host.
+    return Stream.concat(
+            Stream.of(cmdEnv.getOutputBase()),
+            cmdEnv.getPackageLocator().getPathEntries().stream().map(Root::asPath))
+        .filter(p -> p.startsWith(slashTmp))
+        // For any path /tmp/dir1/dir2 we encounter, we instead mount /tmp/dir1 (first two
+        // path segments). This is necessary to gracefully handle an edge case:
+        // - A workspace contains a subdirectory (e.g. examples) that is itself a workspace.
+        // - The child workspace brings in the parent workspace as a local_repository with
+        //   an up-level reference.
+        // - The parent workspace is checked out under /tmp.
+        // In this scenario, the parent workspace's external source root points to the parent
+        // workspace's source directory under /tmp, but this directory is neither under the
+        // output base nor on the package path. While it would be possible to track the
+        // external roots of all inputs and mount their entire symlink chain, this would be
+        // very invasive to do in the face of resolved symlink artifacts (and impossible with
+        // unresolved symlinks).
+        // Instead, by mounting the direct children of /tmp that are parents of the source
+        // roots, we attempt to cover all reasonable cases in which repositories symlink
+        // paths relative to themselves and workspaces are checked out into subdirectories of
+        // /tmp. All explicit references to paths under /tmp must be handled by the user via
+        // --sandbox_add_mount_pair.
+        .map(
+            p ->
+                p.getFileSystem()
+                    .getPath(
+                        p.asFragment().subFragment(0, Math.min(2, p.asFragment().segmentCount()))))
+        .collect(toImmutableSet());
   }
 
   private boolean useHermeticTmp() {
@@ -197,6 +221,13 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .anyMatch(e -> e.getKey().equals("/tmp"));
     if (tmpExplicitlyBindMounted) {
       // An explicit mount on /tmp is likely an explicit way to make it non-hermetic.
+      return false;
+    }
+
+    if (knownPathsToMountUnderHermeticTmp.contains(slashTmp)) {
+      // /tmp as a package path entry or output base seems very unlikely to work, but the bind
+      // mounting logic is not prepared for it and we don't want to crash, so just disable hermetic
+      // tmp in this case.
       return false;
     }
 
@@ -232,50 +263,21 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     Path sandboxTmp = null;
     ImmutableSet<Path> pathsUnderTmpToMount = ImmutableSet.of();
     if (useHermeticTmp()) {
-      // Roots under /tmp are treated exactly like a user mount under /tmp to ensure that they are
-      // visible at the same path after mounting the hermetic tmp. Since a source root can be a
-      // symlink to a directory under /tmp, we need to account for all intermediate symlinks.
-      SequencedSet<Path> resolvedRoots = new LinkedHashSet<>();
-      resolvedRoots.add(outputBase);
-      for (Root root : Iterables.concat(packagePath)) {
-        if (!root.asPath().startsWith(outputBase)) {
-          resolvedRoots.add(root.asPath());
-        }
-//        resolvedRoots.addAll(readSymlinkChain(root));
-      }
-      // /tmp as a package path entry, output base or target of a local_repository seems very
-      // unlikely to work, but the bind mounting logic is not prepared for it and we don't want to
-      // crash, so just disable hermetic tmp in this case.
-      if (!resolvedRoots.contains(slashTmp)) {
-        pathsUnderTmpToMount =
-            resolvedRoots.stream()
-                .filter(p -> p.startsWith(slashTmp))
-                // For any path /tmp/dir1/dir2 we encounter, we instead mount /tmp/dir1 (first two
-                // path segments). This is necessary to gracefully handle an edge case:
-                // - A workspace contains a subdirectory (e.g. examples) that is itself a workspace.
-                // - The child workspace brings in the parent workspace as a local_repository with
-                //   an up-level reference.
-                // - The parent workspace is checked out under /tmp.
-                // - The parent workspace uses resolved symlink artifacts.
-                // In this scenario, the symlinks point to the parent workspace's external source
-                // root, which in turn points to the parent workspace's source directory under /tmp.
-                // Since the symlinks are not followed when finding the resolved roots above, only
-                // the child workspace's directory shows up in resolvedRoots.
-                .map(p -> p.getFileSystem().getPath(p.asFragment().subFragment(0, 2)))
-                .collect(toImmutableSet());
+      // Special paths under /tmp are treated exactly like a user mount under /tmp to ensure that
+      // they are visible at the same path after mounting the hermetic tmp.
+      pathsUnderTmpToMount = knownPathsToMountUnderHermeticTmp;
 
-        // The initially empty directory that will be mounted as /tmp in the sandbox.
-        sandboxTmp = sandboxPath.getRelative("_hermetic_tmp");
-        sandboxTmp.createDirectoryAndParents();
+      // The initially empty directory that will be mounted as /tmp in the sandbox.
+      sandboxTmp = sandboxPath.getRelative("_hermetic_tmp");
+      sandboxTmp.createDirectoryAndParents();
 
-        for (PathFragment pathFragment : getSandboxOptions().sandboxTmpfsPath) {
-          Path path = fileSystem.getPath(pathFragment);
-          if (path.startsWith(slashTmp)) {
-            // tmpfs mount points must exist, which is usually the user's responsibility. But if the
-            // user requests a tmpfs mount under /tmp, we have to create it under the sandbox tmp
-            // directory.
-            sandboxTmp.getRelative(path.relativeTo(slashTmp)).createDirectoryAndParents();
-          }
+      for (PathFragment pathFragment : getSandboxOptions().sandboxTmpfsPath) {
+        Path path = fileSystem.getPath(pathFragment);
+        if (path.startsWith(slashTmp)) {
+          // tmpfs mount points must exist, which is usually the user's responsibility. But if the
+          // user requests a tmpfs mount under /tmp, we have to create it under the sandbox tmp
+          // directory.
+          sandboxTmp.getRelative(path.relativeTo(slashTmp)).createDirectoryAndParents();
         }
       }
     }
@@ -424,38 +426,6 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         .putAll(bindMounts)
         .put(slashTmp, sandboxTmp)
         .buildOrThrow();
-  }
-
-  /** Returns the chain of symlink targets obtained while resolving the path of the given root. */
-  private ImmutableSet<Path> readSymlinkChain(Root root) throws IOException {
-    // We don't expect roots to change where they point to during a single build, so we can cache
-    // the symlink chains. The root path itself is not stored to reduce memory usage by having most
-    // roots share the empty set instance.
-    try {
-      return symlinkChainCache.get(root);
-    } catch (CompletionException e) {
-      Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
-      throw e;
-    }
-  }
-
-  private static ImmutableSet<Path> readSymlinkChainUncached(Root root) throws IOException {
-    Path path = root.asPath();
-    SequencedSet<Path> result = new LinkedHashSet<>();
-    while (true) {
-      try {
-        path = path.getParentDirectory().getRelative(path.readSymbolicLink());
-      } catch (FileSystem.NotASymlinkException e) {
-        break;
-      }
-      if (!result.add(path)) {
-        throw new IOException(
-            String.format(
-                "Cycle in symlink chain for root %s: %s",
-                root, result.stream().map(Path::toString).collect(joining(" -> "))));
-      }
-    }
-    return ImmutableSet.copyOf(result);
   }
 
   @Override
