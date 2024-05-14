@@ -257,7 +257,7 @@ public class BuildRequestOptions extends OptionsBase {
 
   @Option(
       name = "experimental_convenience_symlinks_bep_event",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
