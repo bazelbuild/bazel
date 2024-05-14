@@ -488,17 +488,10 @@ function test_symlink_with_output_base_under_tmp() {
     return 0
   fi
 
-  create_workspace_with_default_repos WORKSPACE
-
   local repo=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
   trap "rm -fr $repo" EXIT
 
-  cat > WORKSPACE <<EOF
-local_repository(
-    name = "repo",
-    path = "$repo",
-)
-EOF
+  touch WORKSPACE
 
   mkdir -p $repo/pkg
   touch $repo/WORKSPACE
@@ -513,6 +506,16 @@ genrule(
     outs=[":er1"],
     cmd="echo EXTERNAL_GEN_CONTENT > $@",
     visibility=["//visibility:public"],
+)
+EOF
+
+  mkdir -p $repo/examples
+  cd $repo/examples || fail "cd $repo/examples failed"
+
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "repo",
+    path = "$repo",
 )
 EOF
 
