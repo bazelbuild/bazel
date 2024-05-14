@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
+import com.google.devtools.build.lib.runtime.StarlarkOptionsParser.BuildSettingLoader;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.CanonicalizeFlags;
@@ -197,11 +198,13 @@ public final class CanonicalizeCommand implements BlazeCommand {
           env, e.getMessage(), FailureDetails.Command.Code.OPTIONS_PARSE_FAILURE);
     }
 
+    BuildSettingLoader buildSettingLoader = new SkyframeExecutorTargetLoader(env);
     StarlarkOptionsParser starlarkOptionsParser =
-        StarlarkOptionsParser.newStarlarkOptionsParser(
-            new SkyframeExecutorTargetLoader(env),
-            parser,
-            canonicalizeOptions.includeDefaultValues);
+        StarlarkOptionsParser.builder()
+            .buildSettingLoader(buildSettingLoader)
+            .nativeOptionsParser(parser)
+            .includeDefaultValues(canonicalizeOptions.includeDefaultValues)
+            .build();
     try {
       Preconditions.checkState(starlarkOptionsParser.parse());
     } catch (OptionsParsingException e) {

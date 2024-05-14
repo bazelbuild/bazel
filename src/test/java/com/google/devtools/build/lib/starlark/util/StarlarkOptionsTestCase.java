@@ -64,10 +64,12 @@ public class StarlarkOptionsTestCase extends BuildViewTestCase {
             .skipStarlarkOptionPrefixes()
             .build();
     starlarkOptionsParser =
-        StarlarkOptionsParser.newStarlarkOptionsParser(
-            new BlazeOptionHandler.SkyframeExecutorTargetLoader(
-                skyframeExecutor, PathFragment.EMPTY_FRAGMENT, reporter),
-            optionsParser);
+        StarlarkOptionsParser.builder()
+            .buildSettingLoader(
+                new BlazeOptionHandler.SkyframeExecutorTargetLoader(
+                    skyframeExecutor, PathFragment.EMPTY_FRAGMENT, reporter))
+            .nativeOptionsParser(optionsParser)
+            .build();
   }
 
   protected OptionsParsingResult parseStarlarkOptions(String options) throws Exception {
