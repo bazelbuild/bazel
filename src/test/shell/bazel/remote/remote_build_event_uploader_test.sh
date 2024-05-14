@@ -540,7 +540,7 @@ EOF
       --build_event_json_file=$BEP_JSON \
       //a:foo >& $TEST_log || fail "Failed to build"
 
-  expect_bes_file_uploaded "mycommand.profile.gz"
+  expect_bes_file_uploaded "command.profile.gz"
 }
 
 function test_upload_all_upload_profile() {
@@ -560,7 +560,27 @@ EOF
       --build_event_json_file=$BEP_JSON \
       //a:foo >& $TEST_log || fail "Failed to build"
 
-  expect_bes_file_uploaded "mycommand.profile.gz"
+  expect_bes_file_uploaded "command.profile.gz"
+}
+
+function test_upload_upload_uncompressed_profile() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_build_event_upload=all \
+      --profile=mycommand.profile \
+      --build_event_json_file=$BEP_JSON \
+      //a:foo >& $TEST_log || fail "Failed to build"
+
+  expect_bes_file_uploaded "command.profile.json"
 }
 
 run_suite "Remote build event uploader tests"
