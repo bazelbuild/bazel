@@ -243,7 +243,7 @@ def setup_common_linking_variables(
         vars[LINK_BUILD_VARIABLES.LINKER_PARAM_FILE] = param_file
 
     if feature_configuration.is_enabled("fdo_instrument"):
-        if cc_toolchain._fdo_context.branch_fdo_profile:
+        if getattr(cc_toolchain._fdo_context, "branch_fdo_profile", None):
             fail("Can't use --feature=fdo_instrument together with --fdo_profile")
         if not cpp_config.fdo_instrument():
             fail("When using --feature=fdo_instrument, you need to set --fdo_instrument as well")
