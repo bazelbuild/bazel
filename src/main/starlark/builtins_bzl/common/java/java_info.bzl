@@ -770,8 +770,16 @@ def _javainfo_init(
 JavaInfo, _new_javainfo = provider(
     doc = "Info object encapsulating all information by java rules.",
     fields = {
-        "transitive_runtime_jars": "(depset[File]) A transitive set of jars required on the runtime classpath.",
-        "transitive_compile_time_jars": "(depset[File]) The transitive set of jars required to build the target.",
+        "transitive_runtime_jars": """(depset[File]) A transitive set of jars required on the
+        runtime classpath.
+        <p/>Note: for binary targets (such as java_binary and java_test), this is empty, since such
+        targets are not intended to be dependencies of other Java targets.
+        """,
+        "transitive_compile_time_jars": """(depset[File]) The transitive set of jars required to
+        build the target.
+        <p/>Note: for binary targets (such as java_binary and java_test), this is empty, since such
+        targets are not intended to be dependencies of other Java targets.
+        """,
         "compile_jars": """(depset[File]) The jars required directly at compile time. They can be interface jars
                 (ijar or hjar), regular jars or both, depending on whether rule
                 implementations chose to create interface jars or not.""",

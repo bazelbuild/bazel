@@ -13,8 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
+import static java.lang.Math.max;
+
 import java.time.Duration;
 import java.util.Arrays;
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * Converts a set of ranges into a graph by counting the number of ranges that are active at any
@@ -25,6 +28,8 @@ public class TimeSeries {
   private final Duration startTime;
   private final long bucketSizeMillis;
   private static final int INITIAL_SIZE = 100;
+
+  @GuardedBy("this")
   private double[] data = new double[INITIAL_SIZE];
 
   public TimeSeries(Duration startTime, Duration bucketDuration) {
@@ -65,25 +70,27 @@ public class TimeSeries {
       missingEndFraction = 0;
     }
 
-    // Resize data array if necessary so it can at least fit endPosition.
-    if (endPosition >= data.length) {
-      data = Arrays.copyOf(data, Math.max(endPosition + 1, 2 * data.length));
-    }
+    synchronized (this) {
+      // Resize data array if necessary so it can at least fit endPosition.
+      if (endPosition >= data.length) {
+        data = Arrays.copyOf(data, max(endPosition + 1, 2 * data.length));
+      }
 
-    // Do the actual update.
-    for (int i = startPosition; i <= endPosition; i++) {
-      double fraction = 1;
-      if (i == startPosition) {
-        fraction -= missingStartFraction;
+      // Do the actual update.
+      for (int i = startPosition; i <= endPosition; i++) {
+        double fraction = 1;
+        if (i == startPosition) {
+          fraction -= missingStartFraction;
+        }
+        if (i == endPosition) {
+          fraction -= missingEndFraction;
+        }
+        data[i] += fraction * value;
       }
-      if (i == endPosition) {
-        fraction -= missingEndFraction;
-      }
-      data[i] += fraction * value;
     }
   }
 
-  public double[] toDoubleArray(int len) {
+  public synchronized double[] toDoubleArray(int len) {
     return Arrays.copyOf(data, len);
   }
 }

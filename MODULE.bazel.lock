@@ -2928,7 +2928,7 @@
         "bzlTransitiveDigest": "VBORN+IBXeLBoYFlmaQRhi4EgJwXxJ9i+65BUjwwG18=",
         "recordedFileInputs": {
           "@@//MODULE.bazel": "ec2861042ece461ae1d704f7f8643f5dbc353e5683f6138cfedf9b63b3d63343",
-          "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "5ec134260b73e7d7669c621a8d7c5ed02c6725ab1e5bbd7339658945c83694b8"
+          "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "c2da7815256d6bb92f953b05334419abb9fc698d13710d129a3ca9346eb04a4e"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -3503,70 +3503,6 @@
             "_main~bazel_test_deps~bazelci_rules"
           ]
         ]
-      }
-    },
-    "//tools/android:android_extensions.bzl%android_sdk_proxy_extensions": {
-      "general": {
-        "bzlTransitiveDigest": "XLVk7GLje5iUTApmiCu5fapV2+/7HqWPF7cQEu7SPOE=",
-        "recordedFileInputs": {},
-        "recordedDirentsInputs": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "android_external": {
-            "bzlFile": "@@//tools/android:android_extensions.bzl",
-            "ruleClassName": "android_external_repository",
-            "attributes": {}
-          }
-        },
-        "recordedRepoMappingEntries": []
-      }
-    },
-    "//tools/android:android_extensions.bzl%remote_android_tools_extensions": {
-      "general": {
-        "bzlTransitiveDigest": "XLVk7GLje5iUTApmiCu5fapV2+/7HqWPF7cQEu7SPOE=",
-        "recordedFileInputs": {},
-        "recordedDirentsInputs": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "android_tools": {
-            "bzlFile": "@@//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_archive",
-            "attributes": {
-              "sha256": "d7cdfc03f3ad6571b7719f4355379177a4bde68d17dca2bdbf6c274d72e4d6cf",
-              "url": "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.31.0.tar"
-            }
-          },
-          "android_gmaven_r8": {
-            "bzlFile": "@@//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_jar",
-            "attributes": {
-              "sha256": "59753e70a74f918389cc87f1b7d66b5c0862932559167425708ded159e3de439",
-              "url": "https://maven.google.com/com/android/tools/r8/8.3.37/r8-8.3.37.jar"
-            }
-          }
-        },
-        "recordedRepoMappingEntries": []
-      }
-    },
-    "//tools/test:extensions.bzl%remote_coverage_tools_extension": {
-      "general": {
-        "bzlTransitiveDigest": "ia4DMKKuTJ4QAHKSrRs4v/QBfK48p52gn2SwHL6BXd8=",
-        "recordedFileInputs": {},
-        "recordedDirentsInputs": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "remote_coverage_tools": {
-            "bzlFile": "@@//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_archive",
-            "attributes": {
-              "sha256": "7006375f6756819b7013ca875eab70a541cf7d89142d9c511ed78ea4fefa38af",
-              "urls": [
-                "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.6.zip"
-              ]
-            }
-          }
-        },
-        "recordedRepoMappingEntries": []
       }
     },
     "@@apple_support~//crosstool:setup.bzl%apple_cc_configure_extension": {

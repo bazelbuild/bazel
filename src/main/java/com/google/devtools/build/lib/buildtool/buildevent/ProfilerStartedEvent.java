@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.buildtool.buildevent;
 
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.UploadContext;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.vfs.Path;
 import javax.annotation.Nullable;
 
@@ -24,11 +25,14 @@ import javax.annotation.Nullable;
 public class ProfilerStartedEvent implements ExtendedEventHandler.Postable {
   @Nullable private final Path profilePath;
   @Nullable private final UploadContext streamingContext;
+  private final Profiler.Format format;
   @Nullable private final String name;
 
-  public ProfilerStartedEvent(String name, Path profilePath, UploadContext streamingContext) {
+  public ProfilerStartedEvent(
+      String name, Path profilePath, Profiler.Format format, UploadContext streamingContext) {
     this.profilePath = profilePath;
     this.streamingContext = streamingContext;
+    this.format = format;
     this.name = name;
   }
 
@@ -38,6 +42,10 @@ public class ProfilerStartedEvent implements ExtendedEventHandler.Postable {
 
   public UploadContext getStreamingContext() {
     return streamingContext;
+  }
+
+  public Profiler.Format getFormat() {
+    return format;
   }
 
   public String getName() {
