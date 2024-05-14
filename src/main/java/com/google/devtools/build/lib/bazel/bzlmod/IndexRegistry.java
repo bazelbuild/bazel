@@ -58,9 +58,26 @@ public class IndexRegistry implements Registry {
    * registry.
    */
   public enum KnownFileHashesMode {
+    /**
+     * Neither use nor update any file hashes. All registry downloads will go out to the network.
+     */
     IGNORE,
+    /**
+     * Use file hashes from the lockfile if available and add hashes for new files to the lockfile.
+     * Avoid revalidation of mutable registry information (yanked versions in metadata.json and
+     * modules that previously 404'd) by using these hashes and recording absent files in the
+     * lockfile.
+     */
     USE_AND_UPDATE,
+    /**
+     * Use file hashes from the lockfile if available and add hashes for new files to the lockfile.
+     * Always revalidate mutable registry information.
+     */
     USE_IMMUTABLE_AND_UPDATE,
+    /**
+     * Require file hashes for all registry downloads. In particular, mutable registry files such as
+     * metadata.json can't be downloaded in this mode.
+     */
     ENFORCE
   }
 

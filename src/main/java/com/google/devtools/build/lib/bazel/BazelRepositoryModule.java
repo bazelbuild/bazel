@@ -533,14 +533,13 @@ public class BazelRepositoryModule extends BlazeModule {
 
       clock = env.getClock();
       try {
-        var lastYankedVersionsInvalidationValue =
+        var lastRegistryInvalidationValue =
             (PrecomputedValue)
                 env.getSkyframeExecutor()
                     .getEvaluator()
                     .getExistingValue(RegistryFunction.LAST_INVALIDATION.getKey());
-        if (lastYankedVersionsInvalidationValue != null) {
-          lastRegistryInvalidation =
-              Instant.ofEpochMilli((long) lastYankedVersionsInvalidationValue.get());
+        if (lastRegistryInvalidationValue != null) {
+          lastRegistryInvalidation = (Instant) lastRegistryInvalidationValue.get();
         }
       } catch (InterruptedException e) {
         // Not thrown in Bazel.
@@ -607,8 +606,7 @@ public class BazelRepositoryModule extends BlazeModule {
             YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, allowedYankedVersions),
         PrecomputedValue.injected(
             RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, disableNativeRepoRules),
-        PrecomputedValue.injected(
-            RegistryFunction.LAST_INVALIDATION, lastRegistryInvalidation.toEpochMilli()));
+        PrecomputedValue.injected(RegistryFunction.LAST_INVALIDATION, lastRegistryInvalidation));
   }
 
   @Override

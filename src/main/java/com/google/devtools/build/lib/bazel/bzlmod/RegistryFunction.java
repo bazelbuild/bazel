@@ -25,12 +25,22 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.net.URISyntaxException;
 import java.time.Duration;
+import java.time.Instant;
 import javax.annotation.Nullable;
 
 /** A simple SkyFunction that creates a {@link Registry} with a given URL. */
 public class RegistryFunction implements SkyFunction {
-  public static final Precomputed<Long> LAST_INVALIDATION =
+  /**
+   * Set to the current time in {@link com.google.devtools.build.lib.bazel.BazelRepositoryModule}
+   * after {@link #INVALIDATION_INTERVAL} has passed. This is used to refresh the mutable registry
+   * contents cached in memory from time to time.
+   */
+  public static final Precomputed<Instant> LAST_INVALIDATION =
       new Precomputed<>("last_registry_invalidation");
+
+  /**
+   * The interval after which the mutable registry contents cached in memory should be refreshed.
+   */
   public static final Duration INVALIDATION_INTERVAL = Duration.ofHours(1);
 
   private final RegistryFactory registryFactory;
@@ -48,8 +58,6 @@ public class RegistryFunction implements SkyFunction {
     LockfileMode lockfileMode = BazelLockFileFunction.LOCKFILE_MODE.get(env);
 
     if (lockfileMode == LockfileMode.REFRESH) {
-      // Set to the current time in BazelRepositoryFunction after INVALIDATION_INTERVAL has passed.
-      // This is used to refresh the mutable registry contents cached in memory from time to time.
       RegistryFunction.LAST_INVALIDATION.get(env);
     }
 
