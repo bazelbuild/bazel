@@ -80,6 +80,7 @@ import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFun
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
+import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -121,6 +122,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -159,6 +161,8 @@ public class BazelRepositoryModule extends BlazeModule {
   private CheckDirectDepsMode checkDirectDepsMode = CheckDirectDepsMode.WARNING;
   private BazelCompatibilityMode bazelCompatibilityMode = BazelCompatibilityMode.ERROR;
   private LockfileMode bazelLockfileMode = LockfileMode.UPDATE;
+  private Clock clock;
+  private Instant lastRegistryInvalidation = Instant.EPOCH;
 
   private Optional<Path> vendorDirectory;
   private List<String> allowedYankedVersions = ImmutableList.of();
@@ -526,6 +530,21 @@ public class BazelRepositoryModule extends BlazeModule {
       starlarkRepositoryFunction.setRepositoryRemoteExecutor(remoteExecutor);
       singleExtensionEvalFunction.setRepositoryRemoteExecutor(remoteExecutor);
       delegatingDownloader.setDelegate(env.getRuntime().getDownloaderSupplier().get());
+
+      clock = env.getClock();
+      try {
+        var lastRegistryInvalidationValue =
+            (PrecomputedValue)
+                env.getSkyframeExecutor()
+                    .getEvaluator()
+                    .getExistingValue(RegistryFunction.LAST_INVALIDATION.getKey());
+        if (lastRegistryInvalidationValue != null) {
+          lastRegistryInvalidation = (Instant) lastRegistryInvalidationValue.get();
+        }
+      } catch (InterruptedException e) {
+        // Not thrown in Bazel.
+        throw new IllegalStateException(e);
+      }
     }
   }
 
@@ -556,6 +575,10 @@ public class BazelRepositoryModule extends BlazeModule {
 
   @Override
   public ImmutableList<Injected> getPrecomputedValues() {
+    Instant now = clock.now();
+    if (now.isAfter(lastRegistryInvalidation.plus(RegistryFunction.INVALIDATION_INTERVAL))) {
+      lastRegistryInvalidation = now;
+    }
     return ImmutableList.of(
         PrecomputedValue.injected(RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, overrides),
         PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, moduleOverrides),
@@ -582,7 +605,8 @@ public class BazelRepositoryModule extends BlazeModule {
         PrecomputedValue.injected(
             YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, allowedYankedVersions),
         PrecomputedValue.injected(
-            RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, disableNativeRepoRules));
+            RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, disableNativeRepoRules),
+        PrecomputedValue.injected(RegistryFunction.LAST_INVALIDATION, lastRegistryInvalidation));
   }
 
   @Override
