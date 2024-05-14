@@ -86,10 +86,10 @@ public class ArchiveRepoSpecBuilder {
   public ArchiveRepoSpecBuilder setOverlay(ImmutableMap<String, RemoteFile> overlay) {
     final Map<String, List<String>> remoteFiles = overlay.entrySet().stream().collect(Collectors.toMap(
         Entry::getKey,
-        e -> e.getValue().urls.stream().map(URL::toString).collect(Collectors.toList())
+        e -> e.getValue().urls().stream().map(URL::toString).collect(Collectors.toList())
     ));
     final Map<String, String> remoteFilesIntegrity = overlay.entrySet().stream()
-        .collect(Collectors.toMap(Entry::getKey, e -> e.getValue().integrity));
+        .collect(Collectors.toMap(Entry::getKey, e -> e.getValue().integrity()));
     attrBuilder.put("remote_file_urls", remoteFiles);
     attrBuilder.put("remote_file_integrity", remoteFilesIntegrity);
     return this;

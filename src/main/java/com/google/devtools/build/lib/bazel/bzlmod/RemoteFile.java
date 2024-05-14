@@ -7,14 +7,6 @@ import java.util.List;
  * offered at multiple urls (mirrors) with a single integrity.
  * We split up the file here to simplify the dependency.
  */
-class RemoteFile {
-
-  RemoteFile(String integrity, List<URL> urls) {
-    this.integrity = integrity;
-    this.urls = urls;
-  }
-
-  List<URL> urls;
-  String integrity;
+record RemoteFile(String integrity, List<URL> urls) {
 }
 

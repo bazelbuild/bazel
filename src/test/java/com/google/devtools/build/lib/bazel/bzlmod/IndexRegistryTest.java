@@ -185,16 +185,21 @@ public class IndexRegistryTest extends FoundationTestCase {
         "}");
     server.serve(
         "/modules/baz/3.0/source.json",
-        "{",
-        "  \"url\": \"https://example.com/archive.jar?with=query\",",
-        "  \"integrity\": \"sha256-bleh\",",
-        "  \"overlay\": {",
-        "    \"BUILD.bazel\": {",
-        "       \"urls\": [\"http://mirror1\", \"http://mirror2\"],",
-        "       \"integrity\": \"sha256-bleh-overlay\"",
-        "   }",
-        "  }",
-        "}");
+        """
+        {
+            "url": "https://example.com/archive.jar?with=query",
+            "integrity": "sha256-bleh",
+            "overlay": {
+                "BUILD.bazel": {
+                    "urls": [
+                        "http://mirror1",
+                        "http://mirror2"
+                    ],
+                    "integrity": "sha256-bleh-overlay"
+                }
+            }
+        }       
+        """);
     server.start();
 
     Registry registry =
