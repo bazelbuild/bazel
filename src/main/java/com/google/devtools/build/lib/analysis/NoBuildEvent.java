@@ -77,8 +77,7 @@ public final class NoBuildEvent implements BuildEvent {
       started.setCommand(command);
     }
     if (startTimeMillis != null) {
-      started.setStartTimeMillis(startTimeMillis);
-      started.setStartTime(Timestamps.fromMillis(startTimeMillis));
+      started.setStartTimeMillis(startTimeMillis).setStartTime(Timestamps.fromMillis(startTimeMillis));
     }
     if (id != null) {
       started.setUuid(id);
