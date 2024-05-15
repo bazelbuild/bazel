@@ -537,7 +537,7 @@ public class BazelRepositoryModule extends BlazeModule {
             (PrecomputedValue)
                 env.getSkyframeExecutor()
                     .getEvaluator()
-                    .getExistingValue(RegistryFunction.LAST_INVALIDATION.getKey());
+                    .getExistingValue(RegistryFunction.LAST_INVALIDATION.getKeyForTesting());
         if (lastRegistryInvalidationValue != null) {
           lastRegistryInvalidation = (Instant) lastRegistryInvalidationValue.get();
         }
