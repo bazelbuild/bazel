@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.cmdline.BazelStarlarkContext;
@@ -245,8 +246,15 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
     }
 
     boolean enableBzlmod = starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD);
-    RepositoryMapping mainRepoMapping;
-    if (enableBzlmod || !isWorkspaceRepo(rule)) {
+    @Nullable RepositoryMapping mainRepoMapping;
+    String ruleClass =
+        rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel().getUnambiguousCanonicalForm()
+            + "%"
+            + rule.getRuleClass();
+    if (NonRegistryOverride.BOOTSTRAP_RULE_CLASSES.contains(ruleClass)) {
+      // Avoid a cycle.
+      mainRepoMapping = null;
+    } else if (enableBzlmod || !isWorkspaceRepo(rule)) {
       var mainRepoMappingValue =
           (RepositoryMappingValue)
               env.getValue(RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS);
