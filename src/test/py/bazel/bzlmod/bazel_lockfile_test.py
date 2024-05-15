@@ -171,6 +171,41 @@ class BazelLockfileTest(test_base.TestBase):
     # Even adding a new dependency should not fail due to the registry change
     self.RunBazel(['build', '--nobuild', '//:all'])
 
+  def testChangeModuleInRegistryWithLockfileInRefreshMode(self):
+    # Add module 'sss' to the registry with dep on 'aaa'
+    self.main_registry.createCcModule('sss', '1.3', {'aaa': '1.1'})
+    # Create a project with deps on 'sss'
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "sss", version = "1.3")',
+        ],
+    )
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
+    self.RunBazel(['build', '--nobuild', '//:all'])
+
+    # Change registry -> update 'sss' module file (corrupt it)
+    module_dir = self.main_registry.root.joinpath('modules', 'sss', '1.3')
+    scratchFile(module_dir.joinpath('MODULE.bazel'), ['whatever!'])
+
+    # Shutdown bazel to empty any cache of the deps tree
+    self.RunBazel(['shutdown'])
+    # Running with the lockfile, should not recognize the registry changes
+    # hence find no errors
+    self.RunBazel(['build', '--nobuild', '--lockfile_mode=refresh', '//:all'])
+
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "sss", version = "1.3")',
+            'bazel_dep(name = "bbb", version = "1.1")',
+        ],
+    )
+    # Shutdown bazel to empty any cache of the deps tree
+    self.RunBazel(['shutdown'])
+    # Even adding a new dependency should not fail due to the registry change
+    self.RunBazel(['build', '--nobuild', '--lockfile_mode=refresh', '//:all'])
+
   def testAddModuleToRegistryWithLockfile(self):
     # Create a project with deps on the BCR's 'platforms' module
     self.ScratchFile(
@@ -205,6 +240,46 @@ class BazelLockfileTest(test_base.TestBase):
     self.RunBazel(['shutdown'])
     # Even adding a new dependency should not fail due to the registry change
     self.RunBazel(['build', '--nobuild', '//:all'])
+
+  def testAddModuleToRegistryWithLockfileInRefreshMode(self):
+    # Create a project with deps on the BCR's 'platforms' module
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "platforms", version = "0.0.9")',
+        ],
+    )
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
+    self.RunBazel(['build', '--nobuild', '//:all'])
+
+    # Add a broken 'platforms' module to the first registry
+    module_dir = self.main_registry.root.joinpath(
+        'modules', 'platforms', '0.0.9'
+    )
+    scratchFile(module_dir.joinpath('MODULE.bazel'), ['whatever!'])
+
+    # Shutdown bazel to empty any cache of the deps tree
+    self.RunBazel(['shutdown'])
+    # Running with the lockfile in refresh mode should recognize the addition
+    # to the first registry
+    exit_code, _, stderr = self.RunBazel(
+        [
+            'build',
+            '--nobuild',
+            '--lockfile_mode=refresh',
+            '//:all',
+        ],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        (
+            'ERROR: Error computing the main repository mapping: in module '
+            'dependency chain <root> -> platforms@0.0.9: error parsing '
+            'MODULE.bazel file for platforms@0.0.9'
+        ),
+        stderr,
+    )
 
   def testChangeFlagWithLockfile(self):
     # Create a project with an outdated direct dep on aaa

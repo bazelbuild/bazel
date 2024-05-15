@@ -330,6 +330,145 @@ class BazelYankedVersionsTest(test_base.TestBase):
         ''.join(stderr),
     )
 
+  def testYankedVersionsRefreshedOnModeSwitch(self):
+    self.writeBazelrcFile(allow_yanked_versions=False)
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.0")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = ["@aaa//:lib_aaa"],',
+            ')',
+        ],
+    )
+
+    # Verify that when switching to refresh mode, yanked version information is
+    # always updated immediately, even if it was fetched previously.
+    self.RunBazel(['build', '--nobuild', '--lockfile_mode=refresh', '//:main'])
+    self.RunBazel(['build', '--nobuild', '//:main'])
+
+    # Yank aaa@1.0.
+    self.main_registry.addMetadata(
+        'aaa', yanked_versions={'1.0': 'already dodgy'}
+    )
+
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nobuild', '--lockfile_mode=refresh', '//:main'],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        'Yanked version detected in your resolved dependency graph: '
+        + 'aaa@1.0, for the reason: already dodgy.',
+        ''.join(stderr),
+    )
+
+  def testYankedVersionsRefreshedAfterShutdown(self):
+    self.writeBazelrcFile(allow_yanked_versions=False)
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.0")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = ["@aaa//:lib_aaa"],',
+            ')',
+        ],
+    )
+
+    self.RunBazel(['build', '--nobuild', '--lockfile_mode=refresh', '//:main'])
+
+    # Yank aaa@1.0.
+    self.main_registry.addMetadata(
+        'aaa', yanked_versions={'1.0': 'already dodgy'}
+    )
+    self.RunBazel(['shutdown'])
+
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nobuild', '--lockfile_mode=refresh', '//:main'],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        'Yanked version detected in your resolved dependency graph: '
+        + 'aaa@1.0, for the reason: already dodgy.',
+        ''.join(stderr),
+    )
+
+  def testYankedVersionsRefreshedAfterAllowed(self):
+    self.writeBazelrcFile(allow_yanked_versions=False)
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.0")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = ["@aaa//:lib_aaa"],',
+            ')',
+        ],
+    )
+    self.RunBazel(['build', '--nobuild', '//:main'])
+
+    # Yank aaa@1.0.
+    self.main_registry.addMetadata(
+        'aaa', yanked_versions={'1.0': 'already dodgy'}
+    )
+
+    # Without any changes, even a warm build should fail.
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nobuild', '--lockfile_mode=refresh', '//:main'],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        'Yanked version detected in your resolved dependency graph: '
+        + 'aaa@1.0, for the reason: already dodgy.',
+        ''.join(stderr),
+    )
+
+    # If the yanked version is allowed, the build should pass.
+    self.RunBazel(
+        ['build', '--nobuild', '--lockfile_mode=refresh', '//:main'],
+        env_add={'BZLMOD_ALLOW_YANKED_VERSIONS': 'aaa@1.0'},
+    )
+
+    # Yank aaa@1.0 with a different message.
+    self.main_registry.addMetadata(
+        'aaa', yanked_versions={'1.0': 'even more dodgy'}
+    )
+
+    # After temporarily allowing a yanked version, the yanked info is
+    # still refreshed.
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nobuild', '--lockfile_mode=refresh', '//:main'],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        'Yanked version detected in your resolved dependency graph: '
+        + 'aaa@1.0, for the reason: even more dodgy.',
+        ''.join(stderr),
+    )
+
 
 if __name__ == '__main__':
   absltest.main()
