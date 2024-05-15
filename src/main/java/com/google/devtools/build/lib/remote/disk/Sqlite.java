@@ -30,11 +30,59 @@ import javax.annotation.Nullable;
  */
 public final class Sqlite {
 
+  private Sqlite() {}
+
+  public static final int ERR_ERROR = 1;
+  public static final int ERR_INTERNAL = 2;
+  public static final int ERR_PERM = 3;
+  public static final int ERR_ABORT = 4;
+  public static final int ERR_BUSY = 5;
+  public static final int ERR_LOCKED = 6;
+  public static final int ERR_NOMEM = 7;
+  public static final int ERR_READONLY = 8;
+  public static final int ERR_INTERRUPT = 9;
+  public static final int ERR_IOERR = 10;
+  public static final int ERR_CORRUPT = 11;
+  public static final int ERR_NOTFOUND = 12;
+  public static final int ERR_FULL = 13;
+  public static final int ERR_CANTOPEN = 14;
+  public static final int ERR_PROTOCOL = 15;
+  public static final int ERR_EMPTY = 16;
+  public static final int ERR_SCHEMA = 17;
+  public static final int ERR_TOOBIG = 18;
+  public static final int ERR_CONSTRAINT = 19;
+  public static final int ERR_MISMATCH = 20;
+  public static final int ERR_MISUSE = 21;
+  public static final int ERR_NOLFS = 22;
+  public static final int ERR_AUTH = 23;
+  public static final int ERR_FORMAT = 24;
+  public static final int ERR_RANGE = 25;
+  public static final int ERR_NOTADB = 26;
+  public static final int ERR_NOTICE = 27;
+  public static final int ERR_WARNING = 28;
+
   static {
     JniLoader.loadJni();
   }
 
-  private Sqlite() {}
+  /** An exception thrown when the SQLite C API returns an error. */
+  public static final class SqliteException extends IOException {
+    private final int code;
+
+    public SqliteException(int code) {
+      super(String.format("SQLite error: %s (%d)", errStr(code), code));
+      this.code = code;
+    }
+
+    /**
+     * Returns the SQLite error code.
+     *
+     * <p>Error codes SQLITE_OK, SQLITE_ROW and SQLITE_DONE never cause an exception to be thrown.
+     */
+    public int getCode() {
+      return code;
+    }
+  }
 
   /**
    * Opens a connection to a database, creating it in an empty state if it doesn't yet exist.
@@ -402,6 +450,8 @@ public final class Sqlite {
       return columnString(stmt.stmtPtr, i);
     }
   }
+
+  private static native String errStr(int code);
 
   private static native long openConn(String path) throws IOException;
 

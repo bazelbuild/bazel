@@ -18,6 +18,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.remote.disk.Sqlite.Connection;
 import com.google.devtools.build.lib.remote.disk.Sqlite.Result;
+import com.google.devtools.build.lib.remote.disk.Sqlite.SqliteException;
 import com.google.devtools.build.lib.remote.disk.Sqlite.Statement;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -123,8 +124,9 @@ public final class SqliteTest {
         assertThat(result.next()).isFalse();
       }
       try (Result result = stmt.executeQuery()) {
-        IOException e = assertThrows(IOException.class, result::next);
+        SqliteException e = assertThrows(SqliteException.class, result::next);
         assertThat(e).hasMessageThat().contains("SQL logic error");
+        assertThat(e.getCode()).isEqualTo(Sqlite.ERR_ERROR);
       }
     }
   }
@@ -190,8 +192,9 @@ public final class SqliteTest {
     try (Connection conn = Sqlite.newConnection(dbPath);
         Statement stmt = conn.newStatement("CREATE TABLE tbl (id INTEGER)")) {
       stmt.executeUpdate();
-      IOException e = assertThrows(IOException.class, stmt::executeUpdate);
+      SqliteException e = assertThrows(SqliteException.class, stmt::executeUpdate);
       assertThat(e).hasMessageThat().contains("SQL logic error");
+      assertThat(e.getCode()).isEqualTo(Sqlite.ERR_ERROR);
     }
   }
 
@@ -240,8 +243,10 @@ public final class SqliteTest {
   @Test
   public void newStatement_withInvalidStatement_throws() throws Exception {
     try (Connection conn = Sqlite.newConnection(dbPath)) {
-      IOException e = assertThrows(IOException.class, () -> conn.newStatement("i am not sql"));
-      assertThat(e).hasMessageThat().contains("[1] SQL logic error");
+      SqliteException e =
+          assertThrows(SqliteException.class, () -> conn.newStatement("i am not sql"));
+      assertThat(e).hasMessageThat().contains("SQL logic error");
+      assertThat(e.getCode()).isEqualTo(Sqlite.ERR_ERROR);
     }
   }
 
@@ -265,6 +270,25 @@ public final class SqliteTest {
     try (Connection conn = Sqlite.newConnection(dbPath);
         Statement stmt = conn.newStatement("SELECT 1")) {
       Result unusedResult = stmt.executeQuery();
+    }
+  }
+
+  @Test
+  public void multipleConnections_onBusy_throws_onRetry_works() throws Exception {
+    try (Connection conn1 = Sqlite.newConnection(dbPath);
+        Connection conn2 = Sqlite.newConnection(dbPath)) {
+      conn1.executeUpdate("BEGIN");
+      conn1.executeUpdate("CREATE TABLE IF NOT EXISTS tbl (id INTEGER)");
+      conn2.executeUpdate("BEGIN");
+      SqliteException e =
+          assertThrows(
+              SqliteException.class,
+              () -> conn2.executeUpdate("CREATE TABLE IF NOT EXISTS tbl (id INTEGER)"));
+      assertThat(e).hasMessageThat().contains("database is locked");
+      assertThat(e.getCode()).isEqualTo(Sqlite.ERR_BUSY);
+      conn1.executeUpdate("COMMIT");
+      conn2.executeUpdate("CREATE TABLE IF NOT EXISTS tbl (id INTEGER)");
+      conn2.executeUpdate("COMMIT");
     }
   }
 

@@ -14,8 +14,6 @@
 
 #include <jni.h>
 
-#include <string>
-
 #include "src/main/cpp/util/logging.h"
 #include "src/main/native/latin1_jni_path.h"
 #include "sqlite3.h"
@@ -46,22 +44,36 @@ class ScopedUTFString {
   int len_;
 };
 
-// Throws an exception for the given JNI function name and SQLite error code.
-void PostException(JNIEnv *env, const std::string &fn, int err) {
-  std::string message =
-      fn + ": [" + std::to_string(err) + "] " + sqlite3_errstr(err);
-  bool success = false;
-  jclass exc_class = env->FindClass("java/io/IOException");
-  if (exc_class != nullptr) {
-    success = env->ThrowNew(exc_class, message.c_str()) == 0;
+// Throws an exception for the given SQLite error code.
+void PostException(JNIEnv *env, int err) {
+  jclass exc_class = env->FindClass(
+      "com/google/devtools/build/lib/remote/disk/Sqlite$SqliteException");
+  if (exc_class == nullptr) {
+    BAZEL_LOG(FATAL) << "Failed to throw SQLite exception from JNI";
   }
-  if (!success) {
-    BAZEL_LOG(FATAL) << "Failed to throw Java exception from JNI: "
-                     << message.c_str();
+  jmethodID exc_ctor = env->GetMethodID(exc_class, "<init>", "(I)V");
+  if (exc_ctor == nullptr) {
+    BAZEL_LOG(FATAL) << "Failed to throw SQLite exception from JNI";
+  }
+  jthrowable exc =
+      static_cast<jthrowable>(env->NewObject(exc_class, exc_ctor, err));
+  if (env->Throw(exc)) {
+    BAZEL_LOG(FATAL) << "Failed to throw SQLite exception from JNI";
   }
 }
 
 }  // namespace
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_google_devtools_build_lib_remote_disk_Sqlite_errStr(JNIEnv *env,
+                                                             jclass cls,
+                                                             jint err) {
+  const char *str = sqlite3_errstr(err);
+  if (str == nullptr) {
+    str = "unknown error";
+  }
+  return env->NewStringUTF(str);
+}
 
 extern "C" JNIEXPORT jlong JNICALL
 Java_com_google_devtools_build_lib_remote_disk_Sqlite_openConn(
@@ -70,7 +82,7 @@ Java_com_google_devtools_build_lib_remote_disk_Sqlite_openConn(
   sqlite3 *conn = nullptr;
   int err = sqlite3_open(path, &conn);
   if (err != SQLITE_OK) {
-    PostException(env, "sqlite3_open", err);
+    PostException(env, err);
   }
   ReleaseStringLatin1Chars(path);
   return reinterpret_cast<jlong>(conn);
@@ -82,7 +94,7 @@ Java_com_google_devtools_build_lib_remote_disk_Sqlite_closeConn(
   sqlite3 *conn = reinterpret_cast<sqlite3 *>(conn_ptr);
   int err = sqlite3_close(conn);
   if (err != SQLITE_OK) {
-    PostException(env, "sqlite3_close", err);
+    PostException(env, err);
   }
 }
 
@@ -101,7 +113,7 @@ Java_com_google_devtools_build_lib_remote_disk_Sqlite_prepareStmt(
     return -1L;
   }
   if (err != SQLITE_OK) {
-    PostException(env, "sqlite3_prepare_v3", err);
+    PostException(env, err);
   }
   return reinterpret_cast<jlong>(stmt);
 }
@@ -112,7 +124,7 @@ Java_com_google_devtools_build_lib_remote_disk_Sqlite_bindStmtLong(
   sqlite3_stmt *stmt = reinterpret_cast<sqlite3_stmt *>(stmt_ptr);
   int err = sqlite3_bind_int64(stmt, i, val);
   if (err != SQLITE_OK) {
-    PostException(env, "sqlite3_bind_int64", err);
+    PostException(env, err);
   }
 }
 
@@ -122,7 +134,7 @@ Java_com_google_devtools_build_lib_remote_disk_Sqlite_bindStmtDouble(
   sqlite3_stmt *stmt = reinterpret_cast<sqlite3_stmt *>(stmt_ptr);
   int err = sqlite3_bind_double(stmt, i, val);
   if (err != SQLITE_OK) {
-    PostException(env, "sqlite3_bind_double", err);
+    PostException(env, err);
   }
 }
 
@@ -134,7 +146,7 @@ Java_com_google_devtools_build_lib_remote_disk_Sqlite_bindStmtString(
   int err =
       sqlite3_bind_text(stmt, i, val.c_str(), val.length(), SQLITE_TRANSIENT);
   if (err != SQLITE_OK) {
-    PostException(env, "sqlite3_bind_text", err);
+    PostException(env, err);
   }
 }
 
@@ -144,7 +156,7 @@ Java_com_google_devtools_build_lib_remote_disk_Sqlite_clearStmtBinding(
   sqlite3_stmt *stmt = reinterpret_cast<sqlite3_stmt *>(stmt_ptr);
   int err = sqlite3_bind_null(stmt, i);
   if (err != SQLITE_OK) {
-    PostException(env, "sqlite3_bind_null", err);
+    PostException(env, err);
   }
 }
 
@@ -154,7 +166,7 @@ Java_com_google_devtools_build_lib_remote_disk_Sqlite_clearStmtBindings(
   sqlite3_stmt *stmt = reinterpret_cast<sqlite3_stmt *>(stmt_ptr);
   int err = sqlite3_clear_bindings(stmt);
   if (err != SQLITE_OK) {
-    PostException(env, "sqlite3_clear_bindings", err);
+    PostException(env, err);
   }
 }
 
@@ -171,7 +183,7 @@ Java_com_google_devtools_build_lib_remote_disk_Sqlite_stepStmt(JNIEnv *env,
   } else if (err == SQLITE_DONE) {
     return false;
   }
-  PostException(env, "sqlite3_step", err);
+  PostException(env, err);
   return false;
 }
 
@@ -213,7 +225,7 @@ Java_com_google_devtools_build_lib_remote_disk_Sqlite_resetStmt(
   sqlite3_stmt *stmt = reinterpret_cast<sqlite3_stmt *>(stmt_ptr);
   int err = sqlite3_reset(stmt);
   if (err != SQLITE_OK) {
-    PostException(env, "sqlite3_reset", err);
+    PostException(env, err);
   }
 }
 
@@ -223,7 +235,7 @@ Java_com_google_devtools_build_lib_remote_disk_Sqlite_finalizeStmt(
   sqlite3_stmt *stmt = reinterpret_cast<sqlite3_stmt *>(stmt_ptr);
   int err = sqlite3_finalize(stmt);
   if (err != SQLITE_OK) {
-    PostException(env, "sqlite3_finalize", err);
+    PostException(env, err);
   }
 }
 
