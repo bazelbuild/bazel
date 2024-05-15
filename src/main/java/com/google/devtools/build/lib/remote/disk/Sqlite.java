@@ -102,14 +102,13 @@ public final class Sqlite {
     }
 
     /**
-     * Executes a statement not expected to return a result.
+     * Executes a statement to completion and discards its result.
      *
-     * <p>For statements expected to return a result, or statements that will be executed multiple
-     * times, use {@link #newStatement}.
+     * <p>For statements whose result is of interest, or statements that will be executed multiple
+     * times, use {@link #newStatement} and {@link Statement#executeQuery}.
      *
      * @throws IOException if the string contains multiple SQL statements; or the single SQL
-     *     statement could not be parsed and validated; or the statement returned a non-empty
-     *     result; or an execution error occurred
+     *     statement could not be parsed and validated; or an execution error occurred
      */
     public void executeUpdate(String sql) throws IOException {
       try (Statement stmt = new Statement(this, sql)) {
@@ -245,7 +244,7 @@ public final class Sqlite {
     }
 
     /**
-     * Executes a statement expected to return a result.
+     * Executes a statement.
      *
      * <p>Execution doesn't actually start until the first call to {@link Result#next}.
      *
@@ -258,21 +257,20 @@ public final class Sqlite {
     }
 
     /**
-     * Executes a statement not expected to return a result.
+     * Executes a statement to completion and discards its result.
+     *
+     * <p>For statements whose result is of interest, use {@link #executeQuery}.
      *
      * <p>Must not be called after {@link #executeQuery} until the returned {@link Result} has been
      * closed.
      *
-     * @throws IOException if the statement returned a non-empty result or an execution error
-     *     occurred
+     * @throws IOException if an execution error occurred
      */
     public void executeUpdate() throws IOException {
       checkState(stmtPtr != 0 && currentResult == null, "executeUpdate() called in invalid state");
       currentResult = new Result(this);
       try {
-        if (currentResult.next()) {
-          throw new IOException("unexpected non-empty result");
-        }
+        while (currentResult.next()) {}
       } finally {
         currentResult.close();
       }
