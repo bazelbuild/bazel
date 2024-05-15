@@ -307,9 +307,8 @@ public final class BuildOptions implements Cloneable {
 
       // All options obtained from an options parser are guaranteed to have been defined in an
       // FragmentOptions class.
-      @SuppressWarnings("unchecked")
       Class<? extends FragmentOptions> fragmentOptionClass =
-          (Class<? extends FragmentOptions>) optionDefinition.getField().getDeclaringClass();
+          optionDefinition.getDeclaringClass(FragmentOptions.class);
 
       FragmentOptions originalFragment = fragmentOptionsMap.get(fragmentOptionClass);
       if (originalFragment == null) {
@@ -318,13 +317,9 @@ public final class BuildOptions implements Cloneable {
       }
       FragmentOptions newOptions =
           replacedOptions.computeIfAbsent(fragmentOptionClass, unused -> originalFragment.clone());
-      try {
-        Object value =
-            parsingResult.getOptionValueDescription(optionDefinition.getOptionName()).getValue();
-        optionDefinition.getField().set(newOptions, value);
-      } catch (IllegalAccessException e) {
-        throw new IllegalStateException("Couldn't set " + optionDefinition.getField(), e);
-      }
+      Object value =
+          parsingResult.getOptionValueDescription(optionDefinition.getOptionName()).getValue();
+      optionDefinition.setValue(newOptions, value);
     }
 
     return replacedOptions;
@@ -351,9 +346,8 @@ public final class BuildOptions implements Cloneable {
 
       // All options obtained from an options parser are guaranteed to have been defined in an
       // FragmentOptions class.
-      @SuppressWarnings("unchecked")
       Class<? extends FragmentOptions> fragmentClass =
-          (Class<? extends FragmentOptions>) optionDefinition.getField().getDeclaringClass();
+          optionDefinition.getDeclaringClass(FragmentOptions.class);
 
       FragmentOptions originalFragment = fragmentOptionsMap.get(fragmentClass);
       if (originalFragment == null) {

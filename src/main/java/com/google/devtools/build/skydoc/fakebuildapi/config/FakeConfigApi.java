@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.config;
 
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkConfigApi;
 import com.google.devtools.build.skydoc.fakebuildapi.config.ConfigApiFakes.FakeBuildSettingDescriptor;
 import com.google.devtools.build.skydoc.fakebuildapi.config.ConfigApiFakes.FakeExecTransitionFactory;
@@ -45,6 +46,11 @@ public class FakeConfigApi implements StarlarkConfigApi {
   @Override
   public ExecTransitionFactoryApi exec(Object execGroup) {
     return new FakeExecTransitionFactory();
+  }
+
+  @Override
+  public ConfigurationTransitionApi target() {
+    return new FakeConfigurationTransition();
   }
 
   @Override

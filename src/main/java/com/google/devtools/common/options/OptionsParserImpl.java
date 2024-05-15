@@ -318,7 +318,7 @@ class OptionsParserImpl {
     }
     // Continue to support the old behavior for @Deprecated options.
     String warning = optionDefinition.getDeprecationWarning();
-    if (!warning.isEmpty() || optionDefinition.getField().isAnnotationPresent(Deprecated.class)) {
+    if (!warning.isEmpty() || optionDefinition.isDeprecated()) {
       addDeprecationWarning(optionDefinition.getOptionName(), warning);
     }
   }
@@ -940,15 +940,10 @@ class OptionsParserImpl {
         value = optionValue.getValue();
       }
       try {
-        optionDefinition.getField().set(optionsInstance, value);
+        optionDefinition.setValue(optionsInstance, value);
       } catch (IllegalArgumentException e) {
         // May happen when a boolean option got a string value. Just ignore this error without
         // updating the field. Fixes https://github.com/bazelbuild/bazel/issues/7847
-      } catch (IllegalAccessException e) {
-        throw new IllegalStateException(
-            "Could not set the field due to access issues. This is impossible, as the "
-                + "OptionProcessor checks that all options are non-final public fields.",
-            e);
       }
     }
     return optionsInstance;

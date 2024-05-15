@@ -197,6 +197,11 @@ public abstract class NativeDepsHelper {
                       .getCcBuildInfoTranslator()
                       .getOutputGroup("redacted_build_info_files")
                       .toList();
+      if (AnalysisUtils.isStampingEnabled(ruleContext, configuration)) {
+        // Makes the target depend on BUILD_INFO_KEY, which helps to discover stamped targets
+        // See b/326620485 for more details.
+        var unused = ruleContext.getAnalysisEnvironment().getVolatileWorkspaceStatusArtifact();
+      }
 
       ImmutableSortedSet.Builder<String> requestedFeaturesBuilder =
           ImmutableSortedSet.<String>naturalOrder()

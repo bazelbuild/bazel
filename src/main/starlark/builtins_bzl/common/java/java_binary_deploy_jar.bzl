@@ -26,6 +26,9 @@ def _stamping_enabled(ctx, stamp):
 
 def get_build_info(ctx, stamp):
     if _stamping_enabled(ctx, stamp):
+        # Makes the target depend on BUILD_INFO_KEY, which helps to discover stamped targets
+        # See b/326620485 for more details.
+        ctx.version_file  # buildifier: disable=no-effect
         return ctx.attr._build_info_translator[OutputGroupInfo].non_redacted_build_info_files.to_list()
     else:
         return ctx.attr._build_info_translator[OutputGroupInfo].redacted_build_info_files.to_list()

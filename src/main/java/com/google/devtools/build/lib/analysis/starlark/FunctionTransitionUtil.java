@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.lang.reflect.Field;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -390,16 +389,11 @@ public final class FunctionTransitionUtil {
       return Optional.empty();
     }
     OptionInfo optionInfo = optionInfoMap.get(setting);
-    Field field = optionInfo.getDefinition().getField();
     FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
-    try {
-      Object optionValue = field.get(options);
-      // convert nulls here b/c ImmutableMap bans null values
-      return Optional.of(optionValue == null ? Starlark.NONE : optionValue);
-    } catch (IllegalAccessException e) {
-      // These exceptions should not happen, but if they do, throw a RuntimeException.
-      throw new IllegalStateException(e);
-    }
+    // Get the raw value to avoid the default handling for null values.
+    Object optionValue = optionInfo.getDefinition().getRawValue(options);
+    // convert nulls here b/c ImmutableMap bans null values
+    return Optional.of(optionValue == null ? Starlark.NONE : optionValue);
   }
 
   private static Object findStarlarkOptionValue(BuildOptions buildOptions, String setting) {
@@ -494,7 +488,6 @@ public final class FunctionTransitionUtil {
         }
         try {
           OptionDefinition def = optionInfo.getDefinition();
-          Field field = def.getField();
           // TODO(b/153867317): check for crashing options types in this logic.
           Object convertedValue;
           if (def.getType() == List.class && optionValue instanceof List<?> optionValueAsList) {
@@ -556,12 +549,12 @@ public final class FunctionTransitionUtil {
             throw ValidationException.format("Invalid value type for option '%s'", optionName);
           }
 
-          Object oldValue = field.get(fromOptions.get(optionInfo.getOptionClass()));
+          Object oldValue = def.getRawValue(fromOptions.get(optionInfo.getOptionClass()));
           if (!Objects.equals(oldValue, convertedValue)) {
             if (toOptions == null) {
               toOptions = fromOptions.clone();
             }
-            field.set(toOptions.get(optionInfo.getOptionClass()), convertedValue);
+            def.setValue(toOptions.get(optionInfo.getOptionClass()), convertedValue);
 
             convertedAffectedOptions.add(optionKey);
           }
@@ -569,9 +562,6 @@ public final class FunctionTransitionUtil {
         } catch (IllegalArgumentException e) {
           throw ValidationException.format(
               "IllegalArgumentError for option '%s': %s", optionName, e.getMessage());
-        } catch (IllegalAccessException e) {
-          throw new VerifyException(
-              "IllegalAccess for option " + optionName + ": " + e.getMessage());
         } catch (OptionsParsingException e) {
           throw ValidationException.format(
               "OptionsParsingError for option '%s': %s", optionName, e.getMessage());

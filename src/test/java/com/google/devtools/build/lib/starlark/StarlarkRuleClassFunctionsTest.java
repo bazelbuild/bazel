@@ -1381,8 +1381,14 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testAttrCfgTarget() throws Exception {
+  public void testAttrCfgTarget_string() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.label(cfg = 'target', allow_files = True)");
+    assertThat(NoTransition.isInstance(attr.getTransitionFactory())).isTrue();
+  }
+
+  @Test
+  public void testAttrCfgTarget_object() throws Exception {
+    Attribute attr = buildAttribute("a1", "attr.label(cfg = config.target(), allow_files = True)");
     assertThat(NoTransition.isInstance(attr.getTransitionFactory())).isTrue();
   }
 

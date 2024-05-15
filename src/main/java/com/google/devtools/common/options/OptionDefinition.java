@@ -79,8 +79,58 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
   }
 
   /** Returns the underlying {@code field} for this {@code OptionDefinition}. */
-  public Field getField() {
+  protected Field getField() {
     return field;
+  }
+
+  public <C extends OptionsBase> Class<? extends C> getDeclaringClass(Class<C> baseClass) {
+    Class<?> declaringClass = field.getDeclaringClass();
+    if (!baseClass.isAssignableFrom(declaringClass)) {
+      throw new IllegalStateException(
+          String.format(
+              "Declaring class %s is not assignable from requested base class %s",
+              declaringClass, baseClass));
+    }
+    @SuppressWarnings("unchecked") // This should be safe based on the previous check.
+    Class<? extends C> castClass = (Class<? extends C>) declaringClass;
+    return castClass;
+  }
+
+  public Object getRawValue(OptionsBase optionsBase) {
+    try {
+      return field.get(optionsBase);
+    } catch (IllegalAccessException e) {
+      throw new IllegalStateException(
+          String.format(
+              "Unexpected illegal access trying to fetch value for field %s in options %s: ",
+              this.getOptionName(), optionsBase),
+          e);
+    }
+  }
+
+  public Object getValue(OptionsBase optionsBase) {
+    Object value = getRawValue(optionsBase);
+    if (value == null && !isSpecialNullDefault()) {
+      // See {@link Option#defaultValue} for an explanation of default "null" strings.
+      value = getUnparsedDefaultValue();
+    }
+    return value;
+  }
+
+  public boolean getBooleanValue(OptionsBase optionsBase) {
+    return getValue(optionsBase).equals(Boolean.TRUE);
+  }
+
+  public void setValue(OptionsBase optionsBase, Object value) {
+    try {
+      field.set(optionsBase, value);
+    } catch (IllegalAccessException e) {
+      throw new IllegalStateException("Couldn't set " + this.getOptionName(), e);
+    }
+  }
+
+  public boolean isDeprecated() {
+    return field.isAnnotationPresent(Deprecated.class);
   }
 
   /**
@@ -203,7 +253,7 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
    * {@code T}.
    */
   Type getFieldSingularType() {
-    Type fieldType = getField().getGenericType();
+    Type fieldType = field.getGenericType();
     if (allowsMultiple()) {
       // The validity of the converter is checked at compile time. We know the type to be
       // List<singularType>.
@@ -245,8 +295,7 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
           // This indicates an error in the Converter, and should be discovered the first time it is
           // used.
           throw new ConstructionException(
-              String.format("Error in the provided converter for option %s", getField().getName()),
-              e);
+              String.format("Error in the provided converter for option %s", field.getName()), e);
         }
       }
       return converter;
@@ -300,7 +349,7 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
         throw new ConstructionException(
             String.format(
                 "OptionsParsingException while retrieving the default value for %s: %s",
-                getField().getName(), e.getMessage()),
+                field.getName(), e.getMessage()),
             e);
       }
 

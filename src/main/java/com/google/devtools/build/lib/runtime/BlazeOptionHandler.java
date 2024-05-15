@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.runtime.StarlarkOptionsParser.BuildSettingLoader;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Command.Code;
@@ -416,10 +417,13 @@ public final class BlazeOptionHandler {
       return DetailedExitCode.success();
     }
     try {
-      Preconditions.checkState(
-          StarlarkOptionsParser.newStarlarkOptionsParser(
-                  new SkyframeExecutorTargetLoader(env), optionsParser)
-              .parse());
+      BuildSettingLoader buildSettingLoader = new SkyframeExecutorTargetLoader(env);
+      StarlarkOptionsParser starlarkOptionsParser =
+          StarlarkOptionsParser.builder()
+              .buildSettingLoader(buildSettingLoader)
+              .nativeOptionsParser(optionsParser)
+              .build();
+      Preconditions.checkState(starlarkOptionsParser.parse());
     } catch (OptionsParsingException e) {
       String logMessage = "Error parsing Starlark options";
       logger.atInfo().withCause(e).log("%s", logMessage);

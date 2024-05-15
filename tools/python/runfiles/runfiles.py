@@ -104,6 +104,8 @@ def Create(env=None):
     return CreateManifestBased(manifest)
 
   directory = env_map.get("RUNFILES_DIR")
+  if not directory:
+    directory = env_map.get("PYTHON_RUNFILES")
   if directory:
     return CreateDirectoryBased(directory)
 

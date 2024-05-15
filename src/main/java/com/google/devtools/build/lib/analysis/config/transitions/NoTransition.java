@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 
 /** No-op configuration transition. */
 public final class NoTransition implements PatchTransition {
@@ -47,7 +48,8 @@ public final class NoTransition implements PatchTransition {
 
   /** A {@link TransitionFactory} implementation that generates the no transition. */
   @AutoValue
-  abstract static class Factory<T extends TransitionFactory.Data> implements TransitionFactory<T> {
+  abstract static class Factory<T extends TransitionFactory.Data>
+      implements TransitionFactory<T>, ConfigurationTransitionApi {
     @Override
     public ConfigurationTransition create(T unused) {
       return INSTANCE;

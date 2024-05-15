@@ -50,7 +50,7 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValues;
-import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValuesProvider;
+import com.google.testing.junit.testparameterinjector.TestParametersValuesProvider;
 import java.util.Iterator;
 import java.util.List;
 import net.starlark.java.annot.StarlarkMethod;
@@ -4862,10 +4862,10 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     assertThat(type).isEqualTo("JavaInfo");
   }
 
-  private static class PlatformsParametersProvider implements TestParametersValuesProvider {
+  private static class PlatformsParametersProvider extends TestParametersValuesProvider {
 
     @Override
-    public List<TestParametersValues> provideValues() {
+    public List<TestParametersValues> provideValues(Context context) {
       ImmutableList.Builder<TestParametersValues> parameters = ImmutableList.builder();
       parameters
           .add(

@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static java.util.stream.Collectors.joining;
 
+import com.google.auto.value.AutoBuilder;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -55,8 +56,6 @@ import javax.annotation.Nullable;
  */
 public class StarlarkOptionsParser {
 
-  private final OptionsParser nativeOptionsParser;
-
   /**
    * Interface for caller-specific logic to convert flag names to {@link Target}s.
    *
@@ -76,6 +75,29 @@ public class StarlarkOptionsParser {
     Target loadBuildSetting(String name) throws InterruptedException, TargetParsingException;
   }
 
+  /** Create a new {@link Builder} instance for {@link StarlarkOptionsParser}. */
+  public static Builder builder() {
+    return new AutoBuilder_StarlarkOptionsParser_Builder().includeDefaultValues(false);
+  }
+
+  /** A helper class to create new instances of {@link StarlarkOptionsParser}. */
+  @AutoBuilder(ofClass = StarlarkOptionsParser.class)
+  public abstract static class Builder {
+    /** Set the {@link BuildSettingLoader} used to find flags. */
+    public abstract Builder buildSettingLoader(BuildSettingLoader buildSettingLoader);
+
+    /** Sets the native {@link OptionsParser} used for handling flags. */
+    public abstract Builder nativeOptionsParser(OptionsParser nativeOptionsParser);
+
+    /** Whether or not to report Starlark flags which are set to their default values. */
+    public abstract Builder includeDefaultValues(boolean includeDefaultValues);
+
+    /** Returns a new {@link StarlarkOptionsParser}. */
+    public abstract StarlarkOptionsParser build();
+  }
+
+  private final OptionsParser nativeOptionsParser;
+
   private final BuildSettingLoader buildSettingLoader;
 
   // Result of #parse, store the parsed options and their values.
@@ -88,25 +110,13 @@ public class StarlarkOptionsParser {
   // whether options explicitly set to their default values are added to {@code starlarkOptions}
   private final boolean includeDefaultValues;
 
-  private StarlarkOptionsParser(
+  protected StarlarkOptionsParser(
       BuildSettingLoader buildSettingLoader,
       OptionsParser nativeOptionsParser,
       boolean includeDefaultValues) {
     this.buildSettingLoader = buildSettingLoader;
     this.nativeOptionsParser = nativeOptionsParser;
     this.includeDefaultValues = includeDefaultValues;
-  }
-
-  public static StarlarkOptionsParser newStarlarkOptionsParser(
-      BuildSettingLoader buildSettingLoader, OptionsParser optionsParser) {
-    return newStarlarkOptionsParser(buildSettingLoader, optionsParser, false);
-  }
-
-  public static StarlarkOptionsParser newStarlarkOptionsParser(
-      BuildSettingLoader buildSettingLoader,
-      OptionsParser optionsParser,
-      boolean includeDefaultValues) {
-    return new StarlarkOptionsParser(buildSettingLoader, optionsParser, includeDefaultValues);
   }
 
   /**
@@ -362,11 +372,6 @@ public class StarlarkOptionsParser {
 
   private static String formatAliasChain(Stream<Label> aliasChain) {
     return aliasChain.map(Label::getCanonicalForm).collect(joining(" -> "));
-  }
-
-  @VisibleForTesting
-  public OptionsParser getNativeOptionsParserFortesting() {
-    return nativeOptionsParser;
   }
 
   public boolean checkIfParsedOptionAllowsMultiple(String option) {
