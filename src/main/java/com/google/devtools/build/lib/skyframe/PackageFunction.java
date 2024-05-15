@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
@@ -926,6 +927,9 @@ public abstract class PackageFunction implements SkyFunction {
     RepositoryMappingValue repositoryMappingValue =
         (RepositoryMappingValue)
             env.getValue(RepositoryMappingValue.key(packageId.getRepository()));
+    RepositoryMappingValue mainRepositoryMappingValue =
+            (RepositoryMappingValue)
+                    env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
     RootedPath buildFileRootedPath = packageLookupValue.getRootedPath(packageId);
     FileValue buildFileValue = getBuildFileValue(env, buildFileRootedPath);
     RuleVisibility defaultVisibility = PrecomputedValue.DEFAULT_VISIBILITY.get(env);
@@ -961,6 +965,7 @@ public abstract class PackageFunction implements SkyFunction {
     }
     String workspaceName = workspaceNameValue.getName();
     RepositoryMapping repositoryMapping = repositoryMappingValue.getRepositoryMapping();
+    RepositoryMapping mainRepositoryMapping = mainRepositoryMappingValue.getRepositoryMapping();
     ImmutableSet<PathFragment> repositoryIgnoredPatterns =
         repositoryIgnoredPackagePrefixes.getPatterns();
     Label preludeLabel = null;
@@ -1108,6 +1113,7 @@ public abstract class PackageFunction implements SkyFunction {
               repositoryMappingValue.getAssociatedModuleVersion(),
               starlarkBuiltinsValue.starlarkSemantics,
               repositoryMapping,
+              mainRepositoryMapping,
               cpuBoundSemaphore.get(),
               /* (Nullable) */ compiled.generatorMap,
               configSettingVisibilityPolicy,

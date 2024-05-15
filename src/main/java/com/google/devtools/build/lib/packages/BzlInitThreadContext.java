@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.cmdline.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Optional;
@@ -57,15 +59,16 @@ public final class BzlInitThreadContext extends BazelStarlarkContext
    * @param networkAllowlistForTests an allowlist for rule classes created by this thread
    * @param fragmentNameToClass a map from configuration fragment name to configuration fragment
    *     class, such as "apple" to AppleConfiguration.class
-   * @param symbolGenerator symbol generator for this context
+   * @param mainRepoMapping the repository mapping of the main repository
    */
   public BzlInitThreadContext(
       Label bzlFile,
       byte[] transitiveDigest,
       RepositoryName toolsRepository,
       Optional<Label> networkAllowlistForTests,
-      ImmutableMap<String, Class<?>> fragmentNameToClass) {
-    super(BazelStarlarkContext.Phase.LOADING);
+      ImmutableMap<String, Class<?>> fragmentNameToClass,
+      RepositoryMapping mainRepoMapping) {
+    super(BazelStarlarkContext.Phase.LOADING, () -> mainRepoMapping);
     this.bzlFile = bzlFile;
     this.transitiveDigest = transitiveDigest;
     this.toolsRepository = toolsRepository;

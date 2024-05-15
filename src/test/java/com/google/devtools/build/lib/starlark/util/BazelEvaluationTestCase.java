@@ -164,7 +164,8 @@ public final class BazelEvaluationTestCase {
             /* transitiveDigest= */ new byte[0], // dummy value for tests
             TestConstants.TOOLS_REPOSITORY,
             /* networkAllowlistForTests= */ Optional.empty(),
-            fragmentNameToClass)
+            fragmentNameToClass,
+            /* mainRepoMapping= */ null)
         .storeInThread(thread);
   }
 
@@ -189,7 +190,6 @@ public final class BazelEvaluationTestCase {
     return BazelModuleContext.create(
         label,
         RepositoryMapping.ALWAYS_FALLBACK,
-        /* mainRepoMapping= */ null,
         "test/label.bzl",
         /* loads= */ ImmutableList.of(),
         /* bzlTransitiveDigest= */ new byte[0]);

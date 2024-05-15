@@ -44,13 +44,6 @@ public abstract class BazelModuleContext {
   /** The repository mapping applicable to the repo where the .bzl file is located in. */
   public abstract RepositoryMapping repoMapping();
 
-  /**
-   * The repository mapping applicable to the main repository. This is purely meant to support
-   * {@link Label#debugPrint}.
-   */
-  @Nullable
-  public abstract RepositoryMapping mainRepoMapping();
-
   /** Returns the name of the module's .bzl file, as provided to the parser. */
   public abstract String filename();
 
@@ -167,12 +160,11 @@ public abstract class BazelModuleContext {
   public static BazelModuleContext create(
       Label label,
       RepositoryMapping repoMapping,
-      @Nullable RepositoryMapping mainRepoMapping,
       String filename,
       ImmutableList<Module> loads,
       byte[] bzlTransitiveDigest) {
     return new AutoValue_BazelModuleContext(
-        label, repoMapping, mainRepoMapping, filename, loads, bzlTransitiveDigest);
+        label, repoMapping, filename, loads, bzlTransitiveDigest);
   }
 
   public final Label.PackageContext packageContext() {

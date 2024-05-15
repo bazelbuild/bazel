@@ -29,6 +29,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext.LoadGraphVisitor;
+import com.google.devtools.build.lib.cmdline.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -756,6 +757,7 @@ public class Package {
       Optional<String> associatedModuleVersion,
       boolean noImplicitFileExport,
       RepositoryMapping repositoryMapping,
+      RepositoryMapping mainRepositoryMapping,
       @Nullable Semaphore cpuBoundSemaphore,
       PackageOverheadEstimator packageOverheadEstimator,
       @Nullable ImmutableMap<Location, String> generatorMap,
@@ -773,6 +775,7 @@ public class Package {
         associatedModuleVersion,
         noImplicitFileExport,
         repositoryMapping,
+        mainRepositoryMapping,
         cpuBoundSemaphore,
         packageOverheadEstimator,
         generatorMap,
@@ -800,6 +803,7 @@ public class Package {
         /* associatedModuleVersion= */ Optional.empty(),
         noImplicitFileExport,
         /* repositoryMapping= */ mainRepoMapping,
+        /* mainRepositoryMapping= */ mainRepoMapping,
         /* cpuBoundSemaphore= */ null,
         packageOverheadEstimator,
         /* generatorMap= */ null,
@@ -823,6 +827,7 @@ public class Package {
             /* associatedModuleVersion= */ Optional.empty(),
             noImplicitFileExport,
             repoMapping,
+            /* mainRepoMapping= */ null,
             /* cpuBoundSemaphore= */ null,
             PackageOverheadEstimator.NOOP_ESTIMATOR,
             /* generatorMap= */ null,
@@ -1060,7 +1065,7 @@ public class Package {
     private boolean alreadyBuilt = false;
 
     private Builder(
-        BazelStarlarkContext.Phase phase,
+        Phase phase,
         SymbolGenerator<?> symbolGenerator,
         PackageSettings packageSettings,
         PackageIdentifier id,
@@ -1070,6 +1075,7 @@ public class Package {
         Optional<String> associatedModuleVersion,
         boolean noImplicitFileExport,
         RepositoryMapping repositoryMapping,
+        @Nullable RepositoryMapping mainRepositoryMapping,
         @Nullable Semaphore cpuBoundSemaphore,
         PackageOverheadEstimator packageOverheadEstimator,
         @Nullable ImmutableMap<Location, String> generatorMap,
@@ -1077,7 +1083,7 @@ public class Package {
         // Maybe convert null -> LEGACY_OFF, assuming that's the correct default.
         @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
         @Nullable Globber globber) {
-      super(phase);
+      super(phase, mainRepositoryMapping);
       this.symbolGenerator = symbolGenerator;
 
       Metadata metadata = new Metadata();

@@ -845,7 +845,6 @@ public class BzlLoadFunction implements SkyFunction {
         BazelModuleContext.create(
             label,
             repoMapping,
-            mainRepoMapping,
             prog.getFilename(),
             ImmutableList.copyOf(loadMap.values()),
             transitiveDigest);
@@ -864,7 +863,8 @@ public class BzlLoadFunction implements SkyFunction {
             transitiveDigest,
             ruleClassProvider.getToolsRepository(),
             ruleClassProvider.getNetworkAllowlistForTests(),
-            ruleClassProvider.getConfigurationFragmentMap());
+            ruleClassProvider.getConfigurationFragmentMap(),
+            mainRepoMapping);
 
     // executeBzlFile may post events to the Environment's handler, but events do not matter when
     // caching BzlLoadValues. Note that executing the code mutates the Module and
