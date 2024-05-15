@@ -17,7 +17,7 @@
 import ctypes
 import os
 import unittest
-import python.runfiles as runfiles
+from python import runfiles
 
 
 class TestStandaloneSharedLibrary(unittest.TestCase):
