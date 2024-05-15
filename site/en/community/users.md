@@ -227,11 +227,6 @@ Just is an enterprise financial technology company, headquartered in Norway,
 creating software solutions to transform how global corporate treasurers manage
 risk and liquidity. Their entire application stack is built with Bazel.
 
-### [Kitty Hawk Corporation](https://kittyhawk.aero/){: .external}
-
-The Kitty Hawk Corporation is an American aircraft manufacturer producing
-electric aircraft. They use Bazel with Haskell and Scala rules.
-
 ### [Line](https://line.me/)
 
 Line provides an app for instant communications, which is the most popular
