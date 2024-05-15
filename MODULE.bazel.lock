@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "3fcc0fc076445b8746d57d176f2cfb3d34d2f274eb575d6f9adb23248cb70fa8",
+  "moduleFileHash": "4eebeaeeb7d1bc5641eec120ce761681d8205038b021db7669a08da700ade4f3",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -225,7 +225,7 @@
                 "testonly": true,
                 "artifact": "test-parameter-injector",
                 "group": "com.google.testparameterinjector",
-                "version": "1.15"
+                "version": "1.16"
               },
               "devDependency": false,
               "location": {
@@ -2927,7 +2927,7 @@
       "general": {
         "bzlTransitiveDigest": "VBORN+IBXeLBoYFlmaQRhi4EgJwXxJ9i+65BUjwwG18=",
         "recordedFileInputs": {
-          "@@//MODULE.bazel": "3fcc0fc076445b8746d57d176f2cfb3d34d2f274eb575d6f9adb23248cb70fa8",
+          "@@//MODULE.bazel": "4eebeaeeb7d1bc5641eec120ce761681d8205038b021db7669a08da700ade4f3",
           "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "c2da7815256d6bb92f953b05334419abb9fc698d13710d129a3ca9346eb04a4e"
         },
         "recordedDirentsInputs": {},
@@ -5395,7 +5395,7 @@
         "recordedFileInputs": {
           "@@//src/tools/android/maven_android_install.json": "09bff3e33d291336046f7c9201630fb5e014f0e60b78b6f09b84e4f5f73ed04f",
           "@@rules_jvm_external~//rules_jvm_external_deps_install.json": "cafb5d2d8119391eb2b322ce3840d3352ea82d496bdb8cbd4b6779ec4d044dda",
-          "@@//maven_install.json": "4ead338dba7a64df6e62913456afdf3bd3d03765e64a1469cd83132b150339c9"
+          "@@//maven_install.json": "84ca3646b4d12570872521f9057b92581b595bea625ce3c288880dd1d27282eb"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -5704,17 +5704,6 @@
               "downloaded_file_path": "v1/com/google/code/gson/gson/2.10.1/gson-2.10.1.jar"
             }
           },
-          "com_google_testparameterinjector_test_parameter_injector_1_15": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "a1ac1820becc772baaac57c4d2a4d49b6f7920e5dfd25b293ba8fb933a11dfe2",
-              "urls": [
-                "https://repo1.maven.org/maven2/com/google/testparameterinjector/test-parameter-injector/1.15/test-parameter-injector-1.15.jar"
-              ],
-              "downloaded_file_path": "v1/com/google/testparameterinjector/test-parameter-injector/1.15/test-parameter-injector-1.15.jar"
-            }
-          },
           "com_google_api_grpc_proto_google_iam_v1_1_18_0": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -5724,6 +5713,17 @@
                 "https://repo1.maven.org/maven2/com/google/api/grpc/proto-google-iam-v1/1.18.0/proto-google-iam-v1-1.18.0.jar"
               ],
               "downloaded_file_path": "v1/com/google/api/grpc/proto-google-iam-v1/1.18.0/proto-google-iam-v1-1.18.0.jar"
+            }
+          },
+          "com_google_testparameterinjector_test_parameter_injector_1_16": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "b269726d95f87f83ea94c9c9d7438f5f6375291db5ebf64cc1c20b1574e324f9",
+              "urls": [
+                "https://repo1.maven.org/maven2/com/google/testparameterinjector/test-parameter-injector/1.16/test-parameter-injector-1.16.jar"
+              ],
+              "downloaded_file_path": "v1/com/google/testparameterinjector/test-parameter-injector/1.16/test-parameter-injector-1.16.jar"
             }
           },
           "com_google_http_client_google_http_client_gson_1_43_3": {
@@ -5986,7 +5986,7 @@
                 "{ \"group\": \"com.google.guava\", \"artifact\": \"guava-testlib\", \"version\": \"33.0.0-jre\", \"testonly\": true }",
                 "{ \"group\": \"com.google.jimfs\", \"artifact\": \"jimfs\", \"version\": \"1.2\", \"testonly\": true }",
                 "{ \"group\": \"com.google.testing.compile\", \"artifact\": \"compile-testing\", \"version\": \"0.18\", \"testonly\": true }",
-                "{ \"group\": \"com.google.testparameterinjector\", \"artifact\": \"test-parameter-injector\", \"version\": \"1.15\", \"testonly\": true }",
+                "{ \"group\": \"com.google.testparameterinjector\", \"artifact\": \"test-parameter-injector\", \"version\": \"1.16\", \"testonly\": true }",
                 "{ \"group\": \"com.google.truth\", \"artifact\": \"truth\", \"version\": \"1.4.0\", \"testonly\": true }",
                 "{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-java8-extension\", \"version\": \"1.4.0\", \"testonly\": true }",
                 "{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-liteproto-extension\", \"version\": \"1.4.0\", \"testonly\": true }",
@@ -8635,7 +8635,7 @@
                 "{ \"group\": \"com.google.guava\", \"artifact\": \"guava-testlib\", \"version\": \"33.0.0-jre\", \"testonly\": true }",
                 "{ \"group\": \"com.google.jimfs\", \"artifact\": \"jimfs\", \"version\": \"1.2\", \"testonly\": true }",
                 "{ \"group\": \"com.google.testing.compile\", \"artifact\": \"compile-testing\", \"version\": \"0.18\", \"testonly\": true }",
-                "{ \"group\": \"com.google.testparameterinjector\", \"artifact\": \"test-parameter-injector\", \"version\": \"1.15\", \"testonly\": true }",
+                "{ \"group\": \"com.google.testparameterinjector\", \"artifact\": \"test-parameter-injector\", \"version\": \"1.16\", \"testonly\": true }",
                 "{ \"group\": \"com.google.truth\", \"artifact\": \"truth\", \"version\": \"1.4.0\", \"testonly\": true }",
                 "{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-java8-extension\", \"version\": \"1.4.0\", \"testonly\": true }",
                 "{ \"group\": \"com.google.truth.extensions\", \"artifact\": \"truth-liteproto-extension\", \"version\": \"1.4.0\", \"testonly\": true }",

@@ -213,7 +213,7 @@ maven.install(
         "com.google.guava:guava-testlib:33.0.0-jre",
         "com.google.jimfs:jimfs:1.2",
         "com.google.testing.compile:compile-testing:0.18",
-        "com.google.testparameterinjector:test-parameter-injector:1.15",
+        "com.google.testparameterinjector:test-parameter-injector:1.16",
         "com.google.truth:truth:1.4.0",
         "com.google.truth.extensions:truth-java8-extension:1.4.0",
         "com.google.truth.extensions:truth-liteproto-extension:1.4.0",
