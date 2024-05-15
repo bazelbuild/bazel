@@ -25,6 +25,7 @@ import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Ascii;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
@@ -64,10 +65,16 @@ import javax.annotation.Nullable;
  */
 public class DiskCacheClient implements RemoteCacheClient {
 
+  private static final String AC_DIR = "ac";
+  private static final String CAS_DIR = "cas";
+  private static final String TMP_DIR = "tmp";
+
   private static final SpawnCheckingCacheEvent SPAWN_CHECKING_CACHE_EVENT =
       SpawnCheckingCacheEvent.create("disk-cache");
 
-  private final Path root;
+  private final ImmutableMap<Store, Path> storeRootMap;
+  private final Path tmpRoot;
+
   private final ListeningExecutorService executorService;
   private final boolean verifyDownloads;
   private final DigestUtil digestUtil;
@@ -83,15 +90,18 @@ public class DiskCacheClient implements RemoteCacheClient {
     this.executorService = MoreExecutors.listeningDecorator(executorService);
     this.verifyDownloads = verifyDownloads;
 
-    if (isOldStyleDigestFunction(digestUtil.getDigestFunction())) {
-      this.root = root;
-    } else {
-      this.root =
-          root.getChild(
-              Ascii.toLowerCase(digestUtil.getDigestFunction().getValueDescriptor().getName()));
-    }
+    Path fnRoot =
+        isOldStyleDigestFunction(digestUtil.getDigestFunction())
+            ? root
+            : root.getChild(
+                Ascii.toLowerCase(digestUtil.getDigestFunction().getValueDescriptor().getName()));
+    this.storeRootMap =
+        ImmutableMap.of(Store.AC, fnRoot.getChild(AC_DIR), Store.CAS, fnRoot.getChild(CAS_DIR));
 
-    this.root.createDirectoryAndParents();
+    this.tmpRoot = root.getChild(TMP_DIR);
+
+    fnRoot.createDirectoryAndParents();
+    tmpRoot.createDirectoryAndParents();
   }
 
   /**
@@ -309,13 +319,13 @@ public class DiskCacheClient implements RemoteCacheClient {
   }
 
   Path getTempPath() {
-    return root.getChild(UUID.randomUUID().toString());
+    return tmpRoot.getChild(UUID.randomUUID().toString());
   }
 
   public Path toPath(Digest digest, Store store) {
     String hash = digest.getHash();
     // Create the file in a subfolder to bypass possible folder file count limits.
-    return root.getChild(store.toString()).getChild(hash.substring(0, 2)).getChild(hash);
+    return storeRootMap.get(store).getChild(hash.substring(0, 2)).getChild(hash);
   }
 
   private void saveFile(Digest digest, Store store, InputStream in) throws IOException {
