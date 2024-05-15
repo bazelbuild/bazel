@@ -85,7 +85,9 @@ class JsonTraceFileWriter implements Runnable {
   }
 
   public void enqueue(TraceData data) {
-    if (!metadataPosted.get()) {
+    // We assign a virtual lane for virtual thread and the metadata for the virtual lane is posted
+    // at creation time.
+    if (!Thread.currentThread().isVirtual() && !metadataPosted.get()) {
       metadataPosted.set(Boolean.TRUE);
       queue.add(new ThreadMetadata());
     }
