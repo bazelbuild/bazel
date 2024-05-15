@@ -42,9 +42,11 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -374,6 +376,21 @@ public class IndexRegistry implements Registry {
         .build();
   }
 
+  private List<String> getMirrorUrls(Optional<BazelRegistryJson> registry) {
+    return registry.map(r -> r.mirrors)
+        .map(mirrors -> {
+          for (String mirror : mirrors) {
+            try {
+              var unused = new URL(mirror);
+            } catch (MalformedURLException e) {
+              throw new UncheckedIOException("Malformed mirror URL", e);
+            }
+          }
+          return List.of(mirrors);
+        })
+        .orElse(List.of());
+  }
+
   private RepoSpec createArchiveRepoSpec(
       ArchiveSourceJson sourceJson, Optional<BazelRegistryJson> bazelRegistryJson, ModuleKey key)
       throws IOException {
@@ -386,18 +403,8 @@ public class IndexRegistry implements Registry {
     }
 
     ImmutableList.Builder<String> urls = new ImmutableList.Builder<>();
-    // For each mirror specified in bazel_registry.json, add a URL that's essentially the mirror
-    // URL concatenated with the source URL.
-    if (bazelRegistryJson.isPresent() && bazelRegistryJson.get().mirrors != null) {
-      for (String mirror : bazelRegistryJson.get().mirrors) {
-        try {
-          var unused = new URL(mirror);
-        } catch (MalformedURLException e) {
-          throw new IOException("Malformed mirror URL", e);
-        }
-
-        urls.add(constructUrl(mirror, sourceUrl.getAuthority(), sourceUrl.getFile()));
-      }
+    for (String mirror : getMirrorUrls(bazelRegistryJson)) {
+      urls.add(constructUrl(mirror, sourceUrl.getAuthority(), sourceUrl.getFile()));
     }
     // Finally add the original source URL itself.
     urls.add(sourceUrl.toString());
@@ -419,18 +426,8 @@ public class IndexRegistry implements Registry {
     }
 
     //This should be the list of all base URLs: main URI + mirrors
-    ImmutableList.Builder<String> baseUrls = new ImmutableList.Builder<>();
-    baseUrls.add(this.getUrl());
-    if (bazelRegistryJson.isPresent() && bazelRegistryJson.get().mirrors != null) {
-      for (String mirror : bazelRegistryJson.get().mirrors) {
-        try {
-          var unused = new URL(mirror);
-        } catch (MalformedURLException e) {
-          throw new IOException("Malformed mirror URL", e);
-        }
-        baseUrls.add(mirror);
-      }
-    }
+    ImmutableList<String> baseUrls = new ImmutableList.Builder<String>()
+      .add(this.getUrl()).addAll(getMirrorUrls(bazelRegistryJson)).build();
 
     Map<String, String> sourceJsonOverlay = sourceJson.overlay != null
         ? ImmutableMap.copyOf(sourceJson.overlay)
@@ -442,7 +439,7 @@ public class IndexRegistry implements Registry {
             entry -> entry.getKey(),
             entry -> new ArchiveRepoSpecBuilder.RemoteFile(
                 entry.getValue(), // integrity
-                baseUrls.build().stream().map(url ->
+                baseUrls.stream().map(url ->
                     constructUrl(
                         url,
                         "modules",
