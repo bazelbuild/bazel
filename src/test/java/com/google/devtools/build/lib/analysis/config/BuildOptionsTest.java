@@ -93,6 +93,21 @@ public final class BuildOptionsTest {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null")
     public List<String> accumulatingOption;
+
+    @Option(
+        name = "dummy_option",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "internal_default",
+        implicitRequirements = {"--implicit_option=set_implicitly"})
+    public String dummyOption;
+
+    @Option(
+        name = "implicit_option",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "implicit_default")
+    public String implicitOption;
   }
 
   /** Extra options for this test. */
@@ -288,11 +303,56 @@ public final class BuildOptionsTest {
     BuildOptions original = BuildOptions.of(BUILD_CONFIG_OPTIONS);
 
     OptionsParser parser = OptionsParser.builder().optionsClasses(BUILD_CONFIG_OPTIONS).build();
-    parser.parse("--list_option=foo");
+    parser.parse("--list_option=foo,bar");
 
     BuildOptions modified = original.applyParsingResult(parser);
 
-    assertThat(modified.get(DummyTestOptions.class).listOption).containsExactly("foo");
+    assertThat(modified.get(DummyTestOptions.class).listOption)
+        .containsExactly("foo", "bar")
+        .inOrder();
+  }
+
+  @Test
+  public void parsingResultTransformImplicitOption() throws Exception {
+    BuildOptions original = BuildOptions.of(BUILD_CONFIG_OPTIONS);
+
+    OptionsParser parser = OptionsParser.builder().optionsClasses(BUILD_CONFIG_OPTIONS).build();
+    parser.parse("--dummy_option=direct");
+
+    BuildOptions modified = original.applyParsingResult(parser);
+
+    assertThat(modified.get(DummyTestOptions.class).dummyOption).isEqualTo("direct");
+    assertThat(modified.get(DummyTestOptions.class).implicitOption).isEqualTo("set_implicitly");
+  }
+
+  @Test
+  public void parsingResultTransform_accumulating() throws Exception {
+    BuildOptions original = BuildOptions.of(BUILD_CONFIG_OPTIONS);
+
+    OptionsParser parser = OptionsParser.builder().optionsClasses(BUILD_CONFIG_OPTIONS).build();
+    parser.parse("--accumulating_option=foo", "--accumulating_option=bar");
+
+    BuildOptions modified = original.applyParsingResult(parser);
+
+    assertThat(modified.get(DummyTestOptions.class).accumulatingOption)
+        .containsExactly("foo", "bar")
+        .inOrder();
+  }
+
+  @Test
+  public void parsingResultTransform_accumulating_combines() throws Exception {
+    BuildOptions original =
+        BuildOptions.of(
+            BUILD_CONFIG_OPTIONS, "--accumulating_option=first", "--accumulating_option=second");
+
+    OptionsParser parser = OptionsParser.builder().optionsClasses(BUILD_CONFIG_OPTIONS).build();
+    parser.parse("--accumulating_option=third", "--accumulating_option=fourth");
+
+    BuildOptions modified = original.applyParsingResult(parser);
+
+    assertThat(modified.get(DummyTestOptions.class).accumulatingOption)
+        .containsExactly("first", "second", "third", "fourth")
+        .inOrder();
   }
 
   @Test

@@ -323,21 +323,87 @@ EOF
    cat > platform_mappings <<EOF
 platforms:
   //plat:platform1
-    --//repeatable:repeatable_flag=from_mapping
+    --//repeatable:repeatable_flag=from_mapping_1
+    --//repeatable:repeatable_flag=from_mapping_2
 EOF
 
   cat > package/BUILD <<EOF
 load("//report:report.bzl", "report_flags")
+genrule(
+    name = "first",
+    srcs = [":second"],
+    outs = ["first.out"],
+    cmd = "echo hello > \$@",
+)
+genrule(
+    name = "second",
+    srcs = [":report"],
+    outs = ["second.out"],
+    cmd = "echo hello > \$@",
+)
 report_flags(name = "report")
 EOF
 
   bazel build \
     --platform_mappings=platform_mappings \
     --platforms=//plat:platform1 \
-    --//repeatable:repeatable_flag=from_cli \
-    package:report &> $TEST_log \
+    --//repeatable:repeatable_flag=from_cli_1 \
+    --//repeatable:repeatable_flag=from_cli_2 \
+    package:first &> $TEST_log \
       || fail "Build failed unexpectedly"
-  expect_log 'repeatable_flag: \["from_mapping"\]'
+  expect_log 'repeatable_flag: \["from_cli_1", "from_cli_2", "from_mapping_1", "from_mapping_2"\]'
+}
+
+function test_native_repeatable_flag_doesnt_accumulate() {
+  # Use a different flag for testing and reporting.
+  mkdir -p repeatable
+  cat > repeatable/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+EOF
+  cat > report/report.bzl <<EOF
+def _report_impl(ctx):
+  copts = ctx.fragments.cpp.copts
+  print('copts: %s' % copts)
+  print('platform: %s' % ctx.fragments.platform.platform)
+
+report_flags = rule(
+    implementation = _report_impl,
+    fragments = ["cpp", "platform"]
+)
+EOF
+
+   # Set up a platform mapping.
+   cat > platform_mappings <<EOF
+platforms:
+  //plat:platform1
+    --copt=from_mapping_1
+    --copt=from_mapping_2
+EOF
+
+  cat > package/BUILD <<EOF
+load("//report:report.bzl", "report_flags")
+genrule(
+    name = "first",
+    srcs = [":second"],
+    outs = ["first.out"],
+    cmd = "echo hello > \$@",
+)
+genrule(
+    name = "second",
+    srcs = [":report"],
+    outs = ["second.out"],
+    cmd = "echo hello > \$@",
+)
+report_flags(name = "report")
+EOF
+
+  bazel build \
+    --platform_mappings=platform_mappings \
+    --platforms=//plat:platform1 \
+    --copt=from_cli_1 --copt=from_cli_2 \
+    package:first &> $TEST_log \
+      || fail "Build failed unexpectedly"
+  expect_log 'copts: \["from_cli_1", "from_cli_2", "from_mapping_1", "from_mapping_2"\]'
 }
 
 run_suite "platform mapping test"

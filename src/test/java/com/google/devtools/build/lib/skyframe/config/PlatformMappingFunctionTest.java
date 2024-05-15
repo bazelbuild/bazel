@@ -76,6 +76,14 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     public String internalOption;
 
     @Option(
+        name = "accumulating",
+        allowMultiple = true,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public List<String> accumulating;
+
+    @Option(
         name = "list",
         converter = CommaSeparatedOptionListConverter.class,
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -328,6 +336,29 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     // The mapping should completely replace the list, because it is not accumulating.
     assertThat(mapped.get(DummyTestOptions.class).list).containsExactly("from_mapping");
+  }
+
+  @Test
+  public void mapFromFlag_accumulatingFlag_addsToConfig() throws Exception {
+    scratch.file(
+        "my_mapping_file",
+        "platforms:", // Force line break
+        "  //platforms:one", // Force line break
+        "    --accumulating=from_mapping");
+
+    PlatformMappingValue platformMappingValue =
+        executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
+
+    BuildOptions modifiedOptions = createBuildOptions();
+    modifiedOptions.get(DummyTestOptions.class).accumulating = ImmutableList.of("from_config");
+    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
+
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+
+    // The mapping should completely replace the list, because it is not accumulating.
+    assertThat(mapped.get(DummyTestOptions.class).accumulating)
+        .containsExactly("from_config", "from_mapping")
+        .inOrder();
   }
 
   @Test
