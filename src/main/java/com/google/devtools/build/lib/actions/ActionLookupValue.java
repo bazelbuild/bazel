@@ -22,11 +22,7 @@ public interface ActionLookupValue extends SkyValue {
   /** Returns a list of actions registered by this {@link SkyValue}. */
   ImmutableList<ActionAnalysisMetadata> getActions();
 
-  /**
-   * Returns the {@link Action} with index {@code index} in this value. Never null. Should only be
-   * called during action execution by {@code ArtifactFunction} and {@code ActionExecutionFunction}
-   * -- after an action has executed, calling this with its index may crash.
-   */
+  /** Returns the {@link Action} with index {@code index} in this value. Never null. */
   default Action getAction(int index) {
     ActionAnalysisMetadata result = getActions().get(index);
     // Avoid Preconditions.checkState which would box the int arg.
