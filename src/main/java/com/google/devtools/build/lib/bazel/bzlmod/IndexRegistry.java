@@ -425,10 +425,6 @@ public class IndexRegistry implements Registry {
       }
     }
 
-    //This should be the list of all base URLs: main URI + mirrors
-    ImmutableList<String> baseUrls = new ImmutableList.Builder<String>()
-      .add(this.getUrl()).addAll(getMirrorUrls(bazelRegistryJson)).build();
-
     Map<String, String> sourceJsonOverlay = sourceJson.overlay != null
         ? ImmutableMap.copyOf(sourceJson.overlay)
         : ImmutableMap.of();
@@ -439,15 +435,16 @@ public class IndexRegistry implements Registry {
             entry -> entry.getKey(),
             entry -> new ArchiveRepoSpecBuilder.RemoteFile(
                 entry.getValue(), // integrity
-                baseUrls.stream().map(url ->
-                    constructUrl(
-                        url,
-                        "modules",
-                        key.getName(),
-                        key.getVersion().toString(),
-                        entry.getKey())
-                ).collect(toList())
-            )));
+                // Registry itself is not mirror'd
+                // Confirmed with @Wyverland
+                List.of(constructUrl(
+                    getUrl(),
+                    "modules",
+                    key.getName(),
+                    key.getVersion().toString(),
+                    entry.getKey())
+                ))
+            ));
 
     return new ArchiveRepoSpecBuilder()
         .setUrls(urls.build())
