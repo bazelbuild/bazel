@@ -278,12 +278,6 @@ unlocked further growth.
 
 Lyft is using Bazel for their iOS ([source](https://twitter.com/SmileyKeith/status/1116486751806033920)) and Android Apps.
 
-### [Makani](https://www.google.com/makani){: .external}
-Makani, now a Google subsidiary, develops energy kites and uses Bazel to build
-their software (including their embedded C++ software).
-
-<img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/Meetup_Logo.png" width="100" align="right">
-
 ### [Meetup](http://www.meetup.com/){: .external}
 
 Meetup is an online social networking portal that facilitates offline group
