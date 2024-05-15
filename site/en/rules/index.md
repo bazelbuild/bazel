@@ -23,7 +23,6 @@ Here is a selection of recommended rules:
 * [Haskell](https://github.com/tweag/rules_haskell){: .external}
 * [Java](/docs/bazel-and-java)
 * [JavaScript / NodeJS](https://github.com/bazelbuild/rules_nodejs){: .external}
-* [Kubernetes](https://github.com/bazelbuild/rules_k8s){: .external}
 * [Maven dependency management](https://github.com/bazelbuild/rules_jvm_external){: .external}
 * [Objective-C](/docs/bazel-and-apple)
 * [Package building](https://github.com/bazelbuild/rules_pkg){: .external}
