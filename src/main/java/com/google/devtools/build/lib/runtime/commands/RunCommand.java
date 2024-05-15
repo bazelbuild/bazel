@@ -542,8 +542,7 @@ public class RunCommand implements BlazeCommand {
             .add(
                 CommandProtos.PathToReplace.newBuilder()
                     .setType(PathToReplace.Type.BUILD_WORKSPACE_DIRECTORY)
-                    .setValue(
-                        ByteString.copyFrom(env.getWorkingDirectory().getPathString(), ISO_8859_1))
+                    .setValue(ByteString.copyFrom(env.getWorkspace().getPathString(), ISO_8859_1))
                     .build());
     if (isTestTarget) {
       pathsToReplace.add(
