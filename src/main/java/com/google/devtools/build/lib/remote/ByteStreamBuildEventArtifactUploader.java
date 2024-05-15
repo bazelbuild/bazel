@@ -29,13 +29,11 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
-import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -89,8 +87,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   private final XattrProvider xattrProvider;
   private final RemoteBuildEventUploadMode remoteBuildEventUploadMode;
 
-  @Nullable private Path profilePath;
-
   ByteStreamBuildEventArtifactUploader(
       Executor executor,
       ExtendedEventHandler reporter,
@@ -143,6 +139,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     private final boolean symlink;
     private final boolean remote;
     private final boolean omitted;
+    private final boolean isBuildToolLog;
     private final DigestFunction.Value digestFunction;
 
     PathMetadata(
@@ -152,6 +149,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
         boolean symlink,
         boolean remote,
         boolean omitted,
+        boolean isBuildToolLog,
         DigestFunction.Value digestFunction) {
       this.path = path;
       this.digest = digest;
@@ -159,6 +157,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       this.symlink = symlink;
       this.remote = remote;
       this.omitted = omitted;
+      this.isBuildToolLog = isBuildToolLog;
       this.digestFunction = digestFunction;
     }
 
@@ -186,6 +185,10 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       return omitted;
     }
 
+    public boolean isBuildToolLog() {
+      return isBuildToolLog;
+    }
+
     public DigestFunction.Value getDigestFunction() {
       return digestFunction;
     }
@@ -210,6 +213,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
           /* symlink= */ false,
           /* remote= */ false,
           /* omitted= */ false,
+          /* isBuildToolLog= */ false,
           /* digestFunction= */ digestUtil.getDigestFunction());
     }
     if (file.type == LocalFileType.OUTPUT_SYMLINK) {
@@ -220,6 +224,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
           /* symlink= */ true,
           /* remote= */ false,
           /* omitted= */ false,
+          /* isBuildToolLog= */ false,
           /* digestFunction= */ digestUtil.getDigestFunction());
     }
 
@@ -237,6 +242,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     }
 
     Digest digest = digestUtil.compute(path);
+    boolean isBuildToolLog =
+        file.type == LocalFileType.LOG || file.type == LocalFileType.PERFORMANCE_LOG;
     return new PathMetadata(
         path,
         digest,
@@ -244,6 +251,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
         /* symlink= */ false,
         isRemoteFile(path),
         omitted,
+        isBuildToolLog,
         digestUtil.getDigestFunction());
   }
 
@@ -263,6 +271,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                 file.isSymlink(),
                 /* remote= */ true,
                 file.isOmitted(),
+                file.isBuildToolLog(),
                 file.getDigestFunction());
         knownRemotePaths.add(remotePathMetadata);
       }
@@ -278,19 +287,15 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
             && !path.isOmitted();
 
     if (remoteBuildEventUploadMode == RemoteBuildEventUploadMode.MINIMAL) {
-      result = result && (isLog(path) || isProfile(path));
+      result = result && (path.isBuildToolLog() || isBuildOrTestLog(path));
     }
 
     return result;
   }
 
-  private boolean isLog(PathMetadata path) {
+  private boolean isBuildOrTestLog(PathMetadata path) {
     return TEST_LOG_PATTERN.matcher(path.getPath().getPathString()).matches()
         || BUILD_LOG_PATTERN.matcher(path.getPath().getPathString()).matches();
-  }
-
-  private boolean isProfile(PathMetadata path) {
-    return path.getPath().equals(profilePath);
   }
 
   private Single<List<PathMetadata>> queryRemoteCache(
@@ -365,6 +370,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                               // scheme to convert the URI for this file
                               /* remote= */ true,
                               path.isOmitted(),
+                              path.isBuildToolLog(),
                               path.getDigestFunction()))
                   .onErrorResumeNext(
                       error -> {
@@ -420,6 +426,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                             /* symlink= */ false,
                             /* remote= */ false,
                             /* omitted= */ false,
+                            /* isBuildToolLog= */ false,
                             DigestFunction.Value.SHA256);
                       }
                     })
@@ -436,11 +443,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                                         paths,
                                         remoteBuildEventUploadMode))),
         RemoteCache::release);
-  }
-
-  @Subscribe
-  public void onProfilerStartedEvent(ProfilerStartedEvent event) {
-    profilePath = event.getProfilePath();
   }
 
   @Override
