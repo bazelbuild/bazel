@@ -39,6 +39,11 @@ public abstract class ModuleExtensionEvalFactors {
     return getOs().isEmpty() && getArch().isEmpty();
   }
 
+  public boolean hasSameDependenciesAs(ModuleExtensionEvalFactors other) {
+    return getOs().isEmpty() == other.getOs().isEmpty()
+        && getArch().isEmpty() == other.getArch().isEmpty();
+  }
+
   public static ModuleExtensionEvalFactors create(String os, String arch) {
     return new AutoValue_ModuleExtensionEvalFactors(os, arch);
   }
