@@ -17,6 +17,10 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import static java.util.stream.Collectors.toList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -44,6 +48,7 @@ import java.net.URL;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Represents a Bazel module registry that serves a list of module metadata from a static HTTP
@@ -222,7 +227,7 @@ public class IndexRegistry implements Registry {
     String integrity;
     String stripPrefix;
     Map<String, String> patches;
-    Map<String, ArchiveRepoSpecBuilder.RemoteFile> overlay;
+    Map<String, String> overlay;
     int patchStrip;
     String archiveType;
   }
@@ -413,15 +418,46 @@ public class IndexRegistry implements Registry {
       }
     }
 
+    //This should be the list of all base URLs: main URI + mirrors
+    ImmutableList.Builder<String> baseUrls = new ImmutableList.Builder<>();
+    baseUrls.add(this.getUrl());
+    if (bazelRegistryJson.isPresent() && bazelRegistryJson.get().mirrors != null) {
+      for (String mirror : bazelRegistryJson.get().mirrors) {
+        try {
+          var unused = new URL(mirror);
+        } catch (MalformedURLException e) {
+          throw new IOException("Malformed mirror URL", e);
+        }
+        baseUrls.add(mirror);
+      }
+    }
+
+    Map<String, String> sourceJsonOverlay = sourceJson.overlay != null
+        ? ImmutableMap.copyOf(sourceJson.overlay)
+        : ImmutableMap.of();
+    ImmutableMap<String, ArchiveRepoSpecBuilder.RemoteFile> overlay = sourceJsonOverlay
+        .entrySet()
+        .stream()
+        .collect(toImmutableMap(
+            entry -> entry.getKey(),
+            entry -> new ArchiveRepoSpecBuilder.RemoteFile(
+                entry.getValue(), // integrity
+                baseUrls.build().stream().map(url ->
+                    constructUrl(
+                        url,
+                        "modules",
+                        key.getName(),
+                        key.getVersion().toString(),
+                        entry.getKey())
+                ).collect(toList())
+            )));
+
     return new ArchiveRepoSpecBuilder()
         .setUrls(urls.build())
         .setIntegrity(sourceJson.integrity)
         .setStripPrefix(Strings.nullToEmpty(sourceJson.stripPrefix))
         .setRemotePatches(remotePatches.buildOrThrow())
-        .setOverlay(
-            sourceJson.overlay != null
-                ? ImmutableMap.copyOf(sourceJson.overlay)
-                : ImmutableMap.of())
+        .setOverlay(overlay)
         .setRemotePatchStrip(sourceJson.patchStrip)
         .setArchiveType(sourceJson.archiveType)
         .build();

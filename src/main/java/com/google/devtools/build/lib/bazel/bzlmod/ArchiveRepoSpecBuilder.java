@@ -91,7 +91,7 @@ public class ArchiveRepoSpecBuilder {
             .collect(
                 toMap(
                     Entry::getKey,
-                    e -> e.getValue().urls().stream().map(URL::toString).collect(toList())));
+                    e -> e.getValue().urls()));
     Map<String, String> remoteFilesIntegrity =
         overlay.entrySet().stream().collect(toMap(Entry::getKey, e -> e.getValue().integrity()));
     attrBuilder.put("remote_file_urls", remoteFiles);
@@ -125,5 +125,5 @@ public class ArchiveRepoSpecBuilder {
    * A simple pojo to track remote files that are offered at multiple urls (mirrors) with a single
    * integrity. We split up the file here to simplify the dependency.
    */
-  public record RemoteFile(String integrity, List<URL> urls) {}
+  public record RemoteFile(String integrity, List<String> urls) {}
 }

@@ -190,13 +190,7 @@ public class IndexRegistryTest extends FoundationTestCase {
             "url": "https://example.com/archive.jar?with=query",
             "integrity": "sha256-bleh",
             "overlay": {
-                "BUILD.bazel": {
-                    "urls": [
-                        "http://mirror1",
-                        "http://mirror2"
-                    ],
-                    "integrity": "sha256-bleh-overlay"
-                }
+                "BUILD.bazel": "sha256-bleh-overlay"
             }
         }
         """);
@@ -253,8 +247,11 @@ public class IndexRegistryTest extends FoundationTestCase {
                         new ArchiveRepoSpecBuilder.RemoteFile(
                             "sha256-bleh-overlay",
                             ImmutableList.of(
-                                URI.create("http://mirror1").toURL(),
-                                URI.create("http://mirror2").toURL()))))
+                                server.getUrl() + "/modules/baz/3.0/BUILD.bazel",
+                                "https://mirror.bazel.build/modules/baz/3.0/BUILD.bazel",
+                                "file:///home/bazel/mymirror/modules/baz/3.0/BUILD.bazel"
+                            ))
+                    ))
                 .setRemotePatches(ImmutableMap.of())
                 .setRemotePatchStrip(0)
                 .build());
