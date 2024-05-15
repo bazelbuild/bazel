@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Multiset;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
@@ -38,7 +37,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.AspectCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.RuleClassCount;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.SkyFunctionCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.DynamicExecutionMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics;
@@ -440,15 +438,6 @@ class MetricsCollector {
                     .setCount(a.getCount())
                     .setActionCount(a.getActionCount())
                     .build()));
-
-    skyframeStats.functionNameStats().entrySet().stream()
-        .sorted(Comparator.comparingLong(Multiset.Entry<SkyFunctionName>::getCount).reversed())
-        .forEach(
-            e ->
-                builder.addSkyFunction(
-                    SkyFunctionCount.newBuilder()
-                        .setSkyFunctionName(e.getElement().toString())
-                        .setCount(e.getCount())));
   }
 
   private MemoryMetrics createMemoryMetrics() {

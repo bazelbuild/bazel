@@ -1173,16 +1173,8 @@ message BuildMetrics {
     }
     repeated AspectCount aspect = 15;
 
-    // This is a summary table of all SkyFunctions and the number of Keys
-    // created of that type.
-    message SkyFunctionCount {
-      // See SkyFunctions.java for name
-      string sky_function_name = 1;
-
-      // Number of SkyKey/SkyValues with this name
-      uint64 count = 2;
-    }
-    repeated SkyFunctionCount sky_function = 16;
+    // Removed due to overlap with EvaluationStat
+    reserved 16;
   }
 
   BuildGraphMetrics build_graph_metrics = 8;
