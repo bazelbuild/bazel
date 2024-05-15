@@ -15,8 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -88,11 +87,11 @@ public class ArchiveRepoSpecBuilder {
     Map<String, List<String>> remoteFiles =
         overlay.entrySet().stream()
             .collect(
-                toMap(
+                toImmutableMap(
                     Entry::getKey,
                     e -> e.getValue().urls()));
     Map<String, String> remoteFilesIntegrity =
-        overlay.entrySet().stream().collect(toMap(Entry::getKey, e -> e.getValue().integrity()));
+        overlay.entrySet().stream().collect(toImmutableMap(Entry::getKey, e -> e.getValue().integrity()));
     attrBuilder.put("remote_file_urls", remoteFiles);
     attrBuilder.put("remote_file_integrity", remoteFilesIntegrity);
     return this;

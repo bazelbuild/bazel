@@ -246,8 +246,7 @@ public class IndexRegistryTest extends FoundationTestCase {
                         "BUILD.bazel",
                         new ArchiveRepoSpecBuilder.RemoteFile(
                             "sha256-bleh-overlay",
-                            // Registry itself is not mirror'd
-                            // Confirmed with @Wyverland
+                            // URLs in the registry itself are not mirrored.
                             ImmutableList.of(
                                 server.getUrl() + "/modules/baz/3.0/BUILD.bazel"
                             ))

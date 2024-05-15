@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import static java.util.stream.Collectors.toList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 
@@ -376,21 +375,6 @@ public class IndexRegistry implements Registry {
         .build();
   }
 
-  private List<String> getMirrorUrls(Optional<BazelRegistryJson> registry) {
-    return registry.map(r -> r.mirrors)
-        .map(mirrors -> {
-          for (String mirror : mirrors) {
-            try {
-              var unused = new URL(mirror);
-            } catch (MalformedURLException e) {
-              throw new UncheckedIOException("Malformed mirror URL", e);
-            }
-          }
-          return List.of(mirrors);
-        })
-        .orElse(List.of());
-  }
-
   private RepoSpec createArchiveRepoSpec(
       ArchiveSourceJson sourceJson, Optional<BazelRegistryJson> bazelRegistryJson, ModuleKey key)
       throws IOException {
@@ -403,8 +387,18 @@ public class IndexRegistry implements Registry {
     }
 
     ImmutableList.Builder<String> urls = new ImmutableList.Builder<>();
-    for (String mirror : getMirrorUrls(bazelRegistryJson)) {
-      urls.add(constructUrl(mirror, sourceUrl.getAuthority(), sourceUrl.getFile()));
+    // For each mirror specified in bazel_registry.json, add a URL that's essentially the mirror
+    // URL concatenated with the source URL.
+    if (bazelRegistryJson.isPresent() && bazelRegistryJson.get().mirrors != null) {
+      for (String mirror : bazelRegistryJson.get().mirrors) {
+        try {
+          var unused = new URL(mirror);
+        } catch (MalformedURLException e) {
+          throw new IOException("Malformed mirror URL", e);
+        }
+
+        urls.add(constructUrl(mirror, sourceUrl.getAuthority(), sourceUrl.getFile()));
+      }
     }
     // Finally add the original source URL itself.
     urls.add(sourceUrl.toString());
@@ -435,9 +429,8 @@ public class IndexRegistry implements Registry {
             entry -> entry.getKey(),
             entry -> new ArchiveRepoSpecBuilder.RemoteFile(
                 entry.getValue(), // integrity
-                // Registry itself is not mirror'd
-                // Confirmed with @Wyverland
-                List.of(constructUrl(
+                // URLs in the registry itself are not mirrored.
+                ImmutableList.of(constructUrl(
                     getUrl(),
                     "modules",
                     key.getName(),
