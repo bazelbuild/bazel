@@ -491,7 +491,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
                       : LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
               builder.setLibraryIdentifier("foo");
               return builder.build();
-            } catch (EvalException e) {
+            } catch (EvalException | InterruptedException e) {
               throw new RuleErrorException(e.getMessage());
             }
           }

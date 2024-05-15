@@ -618,7 +618,7 @@ public class CppLinkActionBuilder {
 
   /** This is the LTO indexing step, rather than the real link. */
   @Nullable
-  public CppLinkAction buildLtoIndexingAction() throws EvalException {
+  public CppLinkAction buildLtoIndexingAction() throws EvalException, InterruptedException {
     Preconditions.checkState(allLtoArtifacts != null);
     if (!allowLtoIndexing) {
       return null;
@@ -704,7 +704,7 @@ public class CppLinkActionBuilder {
   }
 
   /** Builds the Action as configured and returns it. */
-  public CppLinkAction build() throws EvalException {
+  public CppLinkAction build() throws EvalException, InterruptedException {
     Preconditions.checkNotNull(featureConfiguration);
 
     // Executable links do not have library identifiers.
@@ -836,7 +836,7 @@ public class CppLinkActionBuilder {
       ImmutableSet<Artifact> actionOutputs,
       CcToolchainVariables additionalBuildVariables,
       ImmutableList<String> userLinkFlags)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     Preconditions.checkNotNull(featureConfiguration);
 
     boolean needWholeArchive =
@@ -997,6 +997,15 @@ public class CppLinkActionBuilder {
                   .getCcBuildInfoTranslator()
                   .getOutputGroup("redacted_build_info_files")
                   .toList();
+      if (isStampingEnabled) {
+        // Makes the target depend on BUILD_INFO_KEY, which helps to discover stamped targets
+        // See b/326620485 for more details.
+        var unused =
+            linkActionConstruction
+                .getContext()
+                .getAnalysisEnvironment()
+                .getVolatileWorkspaceStatusArtifact();
+      }
 
       Set<String> seenLinkstampSources = new HashSet<>();
       for (Map.Entry<Linkstamp, Artifact> linkstampEntry : linkstampMap.entrySet()) {

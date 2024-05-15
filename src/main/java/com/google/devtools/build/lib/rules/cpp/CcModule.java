@@ -2543,6 +2543,15 @@ public abstract class CcModule
     CcToolchainProvider ccToolchain =
         CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(ccToolchainInfo);
     CppConfiguration cppConfiguration = ccToolchain.getCppConfiguration();
+    if (AnalysisUtils.isStampingEnabled(ruleContext, ruleContext.getConfiguration())) {
+      // Makes the target depend on BUILD_INFO_KEY, which helps to discover stamped targets
+      // See b/326620485 for more details.
+      var unused =
+          starlarkActionFactoryApi
+              .getRuleContext()
+              .getAnalysisEnvironment()
+              .getVolatileWorkspaceStatusArtifact();
+    }
     starlarkActionFactoryApi.registerAction(
         CppLinkstampCompileHelper.createLinkstampCompileAction(
             CppLinkActionBuilder.newActionConstruction(ruleContext),
