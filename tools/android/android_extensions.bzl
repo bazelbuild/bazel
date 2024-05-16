@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# NOTE: This file will be deprecated once native Android rules are deleted. Do not update this file any more.
+# The new source of truth will be at https://github.com/bazelbuild/rules_android/blob/main/bzlmod_extensions/android_extensions.bzl.
+
 """Module extension to declare Android runtime dependencies for Bazel."""
 
 load("//tools/build_defs/repo:http.bzl", "http_archive", "http_jar")
