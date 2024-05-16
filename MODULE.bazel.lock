@@ -134,7 +134,7 @@
   "moduleExtensions": {
     "//:extensions.bzl%bazel_android_deps": {
       "general": {
-        "bzlTransitiveDigest": "51/NRg2Yuex/h7TzW+J9jCXlgPIqQcGHnmKEYx6yGuY=",
+        "bzlTransitiveDigest": "VcSwKK3aFaFrY0hyocpNs4D/GueKeLHlKy6aIBA5zuU=",
         "usagesDigest": "sg97SybGLnVD/XjwZWrt/P/mpgHokHG4MDCrqAO8U4M=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -175,11 +175,6 @@
             "",
             "blake3",
             "blake3~"
-          ],
-          [
-            "",
-            "buildozer",
-            "buildozer~"
           ],
           [
             "",
@@ -280,21 +275,16 @@
             "bazel_tools",
             "bazel_tools",
             "bazel_tools"
-          ],
-          [
-            "buildozer~",
-            "buildozer_binary",
-            "buildozer~~buildozer_binary~buildozer_binary"
           ]
         ]
       }
     },
     "//:extensions.bzl%bazel_build_deps": {
       "general": {
-        "bzlTransitiveDigest": "51/NRg2Yuex/h7TzW+J9jCXlgPIqQcGHnmKEYx6yGuY=",
+        "bzlTransitiveDigest": "VcSwKK3aFaFrY0hyocpNs4D/GueKeLHlKy6aIBA5zuU=",
         "usagesDigest": "S0vNSOLxzaSWBw2qFrqtiXI9txwZdU8Tc5Bmz/zBoJA=",
         "recordedFileInputs": {
-          "@@//MODULE.bazel": "2c56771ce2290e4701c982a8bd9df9e512b0cfa45f2ba3cf0e14457446430eb2",
+          "@@//MODULE.bazel": "08dbc90b1014121e86b5e6fa1f4e894d1debeb8874722ecb19700b986e3e4248",
           "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "4a9cf4d1d48d36a3d6e24a13094b2c32aa20be5a495d4e5b33e43db973250182"
         },
         "recordedDirentsInputs": {},
@@ -380,7 +370,6 @@
                 "apple_support~",
                 "bazel_skylib~",
                 "blake3~",
-                "buildozer~",
                 "c-ares~",
                 "grpc~",
                 "protobuf~",
@@ -572,11 +561,6 @@
           ],
           [
             "",
-            "buildozer",
-            "buildozer~"
-          ],
-          [
-            "",
             "c-ares",
             "c-ares~"
           ],
@@ -674,18 +658,13 @@
             "bazel_tools",
             "bazel_tools",
             "bazel_tools"
-          ],
-          [
-            "buildozer~",
-            "buildozer_binary",
-            "buildozer~~buildozer_binary~buildozer_binary"
           ]
         ]
       }
     },
     "//:extensions.bzl%bazel_test_deps": {
       "general": {
-        "bzlTransitiveDigest": "51/NRg2Yuex/h7TzW+J9jCXlgPIqQcGHnmKEYx6yGuY=",
+        "bzlTransitiveDigest": "VcSwKK3aFaFrY0hyocpNs4D/GueKeLHlKy6aIBA5zuU=",
         "usagesDigest": "z5vKii6UDgNY0+omarLGTmjsgS9a1wb0ayg9nBqDSxI=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -730,11 +709,6 @@
           ],
           [
             "",
-            "buildozer",
-            "buildozer~"
-          ],
-          [
-            "",
             "c-ares",
             "c-ares~"
           ],
@@ -832,11 +806,6 @@
             "bazel_tools",
             "bazel_tools",
             "bazel_tools"
-          ],
-          [
-            "buildozer~",
-            "buildozer_binary",
-            "buildozer~~buildozer_binary~buildozer_binary"
           ]
         ]
       }
