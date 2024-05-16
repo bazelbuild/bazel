@@ -77,6 +77,7 @@ java_binary(
     srcs = ["ApiExporter.java"],
     main_class = "com.google.devtools.build.docgen.ApiExporter",
     runtime_deps = [
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository",
         "//src/main/java/net/starlark/java/syntax",
     ],

@@ -374,6 +374,12 @@ public class ApiExporter {
           builtins, symbols.getGlobals(), globalToDoc, typeNameToConstructor, ApiContext.ALL);
       appendGlobals(
           builtins, symbols.getBzlGlobals(), globalToDoc, typeNameToConstructor, ApiContext.BZL);
+      appendGlobals(
+          builtins,
+          symbols.getModuleFileGlobals(),
+          globalToDoc,
+          typeNameToConstructor,
+          ApiContext.MODULE);
       appendNativeRules(builtins, symbols.getNativeRules());
       writeBuiltins(options.outputFile, builtins);
 
