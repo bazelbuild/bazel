@@ -2627,6 +2627,35 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testSpawnActionInterfaceEnvInherit() throws Exception {
+    useConfiguration("--action_env=MY_VAR");
+    scratch.file(
+        "test/rules.bzl",
+        getSimpleUnderTestDefinition(
+            "ctx.actions.run_shell(",
+            "    outputs=[out],",
+            "    command='echo foo123 > ' + out.path,",
+            "    use_default_shell_env=True,",
+            ")"),
+        testingRuleDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
+    setRuleContext(ruleContext);
+    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
+
+    assertThat(ev.eval("type(action)")).isEqualTo("Action");
+
+    Object envInheritUnchecked = ev.eval("action.inherited_env");
+    assertThat(envInheritUnchecked).isInstanceOf(StarlarkList.class);
+    List<String> envInherit =
+        Sequence.cast(envInheritUnchecked, String.class, "test").getImmutableList();
+    // Depending on the OS of the host, the environment may contain other variables inherited from
+    // the client environment (possibly in modified form), such as LD_LIBRARY_PATH.
+    assertThat(envInherit).containsAtLeast("MY_VAR", "PATH");
+  }
+
+  @Test
   public void testRunShellUsesHelperScriptForLongCommand() throws Exception {
     setBuildLanguageOptions(
         "--incompatible_disallow_struct_provider_syntax=false",

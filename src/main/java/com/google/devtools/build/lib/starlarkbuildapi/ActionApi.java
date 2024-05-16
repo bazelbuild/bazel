@@ -133,6 +133,14 @@ public interface ActionApi extends StarlarkValue {
   Dict<String, String> getEnv();
 
   @StarlarkMethod(
+      name = "inherited_env",
+      structField = true,
+      doc =
+          "The list of environment variable names whose values are inherited from the shell"
+              + " environment for this action.")
+  Sequence<String> getInheritedEnv();
+
+  @StarlarkMethod(
       name = "execution_info",
       structField = true,
       doc =

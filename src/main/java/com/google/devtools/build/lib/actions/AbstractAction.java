@@ -56,6 +56,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
 
 /**
  * Abstract implementation of Action which implements basic functionality: the inputs, outputs, and
@@ -645,6 +646,11 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
   @Override
   public Dict<String, String> getEnv() {
     return Dict.immutableCopyOf(getEnvironment().getFixedEnv());
+  }
+
+  @Override
+  public Sequence<String> getInheritedEnv() {
+    return StarlarkList.immutableCopyOf(getClientEnvironmentVariables());
   }
 
   @Override
