@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -107,7 +106,7 @@ public final class WindowsSandboxUtil {
     private Path stdoutPath;
     private Path stderrPath;
     private Set<Path> writableFilesAndDirectories = ImmutableSet.of();
-    private Map<PathFragment, RootedPath> readableFilesAndDirectories = new TreeMap<>();
+    private Map<PathFragment, Path> readableFilesAndDirectories = new TreeMap<>();
     private Set<Path> inaccessiblePaths = ImmutableSet.of();
     private boolean useDebugMode = false;
     private List<String> commandArguments = ImmutableList.of();
@@ -166,7 +165,7 @@ public final class WindowsSandboxUtil {
     /** Sets the files or directories to make readable for the sandboxed process, if any. */
     @CanIgnoreReturnValue
     public CommandLineBuilder setReadableFilesAndDirectories(
-        Map<PathFragment, RootedPath> readableFilesAndDirectories) {
+        Map<PathFragment, Path> readableFilesAndDirectories) {
       this.readableFilesAndDirectories = readableFilesAndDirectories;
       return this;
     }
@@ -213,8 +212,8 @@ public final class WindowsSandboxUtil {
       for (Path writablePath : writableFilesAndDirectories) {
         commandLineBuilder.add("-w", writablePath.getPathString());
       }
-      for (RootedPath readablePath : readableFilesAndDirectories.values()) {
-        commandLineBuilder.add("-r", readablePath.asPath().getPathString());
+      for (Path readablePath : readableFilesAndDirectories.values()) {
+        commandLineBuilder.add("-r", readablePath.getPathString());
       }
       for (Path writablePath : inaccessiblePaths) {
         commandLineBuilder.add("-b", writablePath.getPathString());

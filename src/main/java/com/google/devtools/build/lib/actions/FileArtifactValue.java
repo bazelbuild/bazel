@@ -170,19 +170,11 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
   /**
    * Optional materialization path.
    *
-   * <p>If present, this artifact is a copy of another artifact whose contents live at this path.
-   * This can happen when it is declared as a file and not as an unresolved symlink but the action
-   * that creates it materializes it in the filesystem as a symlink to another output artifact. This
-   * information is useful in two situations:
-   *
-   * <ol>
-   *   <li>When the symlink target is a remotely stored artifact, we can avoid downloading it
-   *       multiple times when building without the bytes (see AbstractActionInputPrefetcher).
-   *   <li>When the symlink target is inaccessible from the sandboxed environment an action runs
-   *       under, we can rewrite it accordingly (see SandboxHelpers).
-   * </ol>
-   *
-   * @see com.google.devtools.build.lib.skyframe.TreeArtifactValue#getMaterializationExecPath().
+   * <p>If present, this artifact is a copy of another artifact. It is still tracked as a
+   * non-symlink by Bazel, but materialized in the local filesystem as a symlink to the original
+   * artifact, whose contents live at this location. This is used by {@link
+   * com.google.devtools.build.lib.remote.AbstractActionInputPrefetcher} to implement zero-cost
+   * copies of remotely stored artifacts.
    */
   public Optional<PathFragment> getMaterializationExecPath() {
     return Optional.empty();
@@ -221,12 +213,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
         isFile ? fileValue.realFileStateValue().getContentsProxy() : null,
         isFile ? fileValue.getDigest() : null,
         xattrProvider);
-  }
-
-  public static FileArtifactValue createForResolvedSymlink(
-      PathFragment realPath, FileArtifactValue metadata, @Nullable byte[] digest) {
-    return new ResolvedSymlinkFileArtifactValue(
-        realPath, digest, metadata.getContentsProxy(), metadata.getSize());
   }
 
   public static FileArtifactValue createFromInjectedDigest(
@@ -459,25 +445,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
   }
 
-  private static final class ResolvedSymlinkFileArtifactValue extends RegularFileArtifactValue {
-    private final PathFragment realPath;
-
-    private ResolvedSymlinkFileArtifactValue(
-        PathFragment realPath,
-        @Nullable byte[] digest,
-        @Nullable FileContentsProxy proxy,
-        long size) {
-      super(digest, proxy, size);
-      this.realPath = realPath;
-    }
-
-    @Override
-    public Optional<PathFragment> getMaterializationExecPath() {
-      return Optional.of(realPath);
-    }
-  }
-
-  private static class RegularFileArtifactValue extends FileArtifactValue {
+  private static final class RegularFileArtifactValue extends FileArtifactValue {
     private final byte[] digest;
     @Nullable private final FileContentsProxy proxy;
     private final long size;
@@ -500,8 +468,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       RegularFileArtifactValue that = (RegularFileArtifactValue) o;
       return Arrays.equals(digest, that.digest)
           && Objects.equals(proxy, that.proxy)
-          && size == that.size
-          && Objects.equals(getMaterializationExecPath(), that.getMaterializationExecPath());
+          && size == that.size;
     }
 
     @Override

@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
@@ -60,8 +59,6 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.protobuf.ByteString;
@@ -90,7 +87,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
   private final SandboxHelpers helpers;
   private final Path execRoot;
-  private final ImmutableList<Root> packageRoots;
   private final ExtendedEventHandler reporter;
   private final ResourceManager resourceManager;
   private final RunfilesTreeUpdater runfilesTreeUpdater;
@@ -102,7 +98,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
   public WorkerSpawnRunner(
       SandboxHelpers helpers,
       Path execRoot,
-      ImmutableList<Root> packageRoots,
       WorkerPool workers,
       ExtendedEventHandler reporter,
       LocalEnvProvider localEnvProvider,
@@ -114,7 +109,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
       Clock clock) {
     this.helpers = helpers;
     this.execRoot = execRoot;
-    this.packageRoots = packageRoots;
     this.reporter = reporter;
     this.resourceManager = resourceManager;
     this.runfilesTreeUpdater = runfilesTreeUpdater;
@@ -190,11 +184,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
             helpers.processInputFiles(
                 context.getInputMapping(
                     PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
-                context.getInputMetadataProvider(),
-                execRoot,
-                execRoot,
-                packageRoots,
-                null);
+                execRoot);
       }
       SandboxOutputs outputs = helpers.getOutputs(spawn);
 
@@ -303,21 +293,20 @@ final class WorkerSpawnRunner implements SpawnRunner {
         throw new InterruptedException();
       }
       String argValue = arg.substring(1);
-      RootedPath path = inputs.getFiles().get(PathFragment.create(argValue));
+      Path path = inputs.getFiles().get(PathFragment.create(argValue));
       if (path == null) {
         throw new IOException(
             String.format(
                 "Failed to read @-argument '%s': file is not a declared input", argValue));
       }
       try {
-        for (String line : FileSystemUtils.readLines(path.asPath(), UTF_8)) {
+        for (String line : FileSystemUtils.readLines(path, UTF_8)) {
           expandArgument(inputs, line, requestBuilder);
         }
       } catch (IOException e) {
         throw new IOException(
             String.format(
-                "Failed to read @-argument '%s' from file '%s'.",
-                argValue, path.asPath().getPathString()),
+                "Failed to read @-argument '%s' from file '%s'.", argValue, path.getPathString()),
             e);
       }
     } else {
