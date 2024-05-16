@@ -20,8 +20,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Factory for creating new {@link LegacyLinkerInput} objects. */
+@Deprecated
 public abstract class LegacyLinkerInputs {
   /**
    * An opaque linker input that is not a library, for example a linker script or an individual
@@ -152,6 +155,7 @@ public abstract class LegacyLinkerInputs {
    * has a library identifier.
    */
   public interface LibraryInput extends LegacyLinkerInput {
+    @StarlarkMethod(name = "lto_compilation_context", structField = true, documented = false)
     LtoCompilationContext getLtoCompilationContext();
 
     /**
@@ -161,6 +165,7 @@ public abstract class LegacyLinkerInputs {
      * static linking. ThinLTO is otherwise too expensive when statically linking tests, due to the
      * number of LTO backends that can be generated for a single blaze test invocation.
      */
+    @StarlarkMethod(name = "shared_non_lto_backends", structField = true, documented = false)
     ImmutableMap<Artifact, LtoBackendArtifacts> getSharedNonLtoBackends();
   }
 
@@ -266,7 +271,7 @@ public abstract class LegacyLinkerInputs {
     private final Artifact libraryArtifact;
     private final ArtifactCategory category;
     private final String libraryIdentifier;
-    private final ImmutableCollection<Artifact> objectFiles;
+    @Nullable private final ImmutableCollection<Artifact> objectFiles;
     private final LtoCompilationContext ltoCompilationContext;
     private final ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends;
     private final boolean mustKeepDebug;
@@ -276,7 +281,7 @@ public abstract class LegacyLinkerInputs {
         Artifact libraryArtifact,
         ArtifactCategory category,
         String libraryIdentifier,
-        ImmutableCollection<Artifact> objectFiles,
+        @Nullable ImmutableCollection<Artifact> objectFiles,
         LtoCompilationContext ltoCompilationContext,
         ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends,
         boolean allowArchiveTypeInAlwayslink,
@@ -481,7 +486,7 @@ public abstract class LegacyLinkerInputs {
       Artifact library,
       ArtifactCategory category,
       String libraryIdentifier,
-      ImmutableCollection<Artifact> objectFiles,
+      @Nullable ImmutableCollection<Artifact> objectFiles,
       LtoCompilationContext ltoCompilationContext,
       ImmutableMap<Artifact, LtoBackendArtifacts> sharedNonLtoBackends,
       boolean mustKeepDebug,

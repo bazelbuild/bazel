@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -58,6 +59,7 @@ import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
@@ -484,5 +486,59 @@ public class CcStarlarkInternal implements StarlarkValue {
             output,
             progressMessage);
     ctx.getRuleContext().registerAction(action);
+  }
+
+  @StarlarkMethod(
+      name = "library_linker_input",
+      documented = false,
+      parameters = {
+        @Param(name = "input", named = true),
+        @Param(name = "artifact_category", named = true),
+        @Param(name = "library_identifier", named = true),
+        @Param(name = "object_files", named = true),
+        @Param(name = "lto_compilation_context", named = true),
+        @Param(name = "shared_non_lto_backends", defaultValue = "None", named = true),
+        @Param(name = "must_keep_debug", defaultValue = "False", named = true),
+        @Param(name = "disable_whole_archive", defaultValue = "False", named = true),
+      })
+  public LegacyLinkerInput libraryLinkerInput(
+      Artifact input,
+      String artifactCategory,
+      String libraryIdentifier,
+      Object objectFiles,
+      Object ltoCompilationContext,
+      Object sharedNonLtoBackends,
+      boolean mustKeepDebug,
+      boolean disableWholeArchive)
+      throws EvalException {
+    return LegacyLinkerInputs.newInputLibrary(
+        input,
+        ArtifactCategory.valueOf(artifactCategory),
+        libraryIdentifier,
+        objectFiles == Starlark.NONE
+            ? null
+            : Sequence.cast(objectFiles, Artifact.class, "object_files").getImmutableList(),
+        ltoCompilationContext instanceof LtoCompilationContext lto ? lto : null,
+        /* sharedNonLtoBackends= */ ImmutableMap.copyOf(
+            Dict.noneableCast(
+                sharedNonLtoBackends,
+                Artifact.class,
+                LtoBackendArtifacts.class,
+                "shared_non_lto_backends")),
+        mustKeepDebug,
+        disableWholeArchive);
+  }
+
+  @StarlarkMethod(
+      name = "solib_linker_input",
+      documented = false,
+      parameters = {
+        @Param(name = "solib_symlink", named = true),
+        @Param(name = "original", named = true),
+        @Param(name = "library_identifier", named = true),
+      })
+  public LegacyLinkerInput solibLinkerInput(
+      Artifact solibSymlink, Artifact original, String libraryIdentifier) throws EvalException {
+    return LegacyLinkerInputs.solibLibraryInput(solibSymlink, original, libraryIdentifier);
   }
 }

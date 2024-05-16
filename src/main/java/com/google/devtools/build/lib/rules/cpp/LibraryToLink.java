@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.LegacyLinkerInputs.LibraryInput;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.LibraryToLinkApi;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
@@ -70,6 +71,12 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
 
   public abstract String getLibraryIdentifier();
 
+  @StarlarkMethod(name = "library_identifier", documented = false, useStarlarkThread = true)
+  public String getLibraryIdentifierForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getLibraryIdentifier();
+  }
+
   @Nullable
   public abstract ImmutableList<Artifact> getObjectFiles();
 
@@ -79,6 +86,18 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
   @Nullable
   public abstract LtoCompilationContext getLtoCompilationContext();
 
+  @StarlarkMethod(
+      name = "lto_compilation_context",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public LtoCompilationContext getLtoCompilationContextForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getLtoCompilationContext();
+  }
+
   @Nullable
   public abstract ImmutableList<Artifact> getPicObjectFiles();
 
@@ -87,6 +106,18 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
 
   @Nullable
   public abstract LtoCompilationContext getPicLtoCompilationContext();
+
+  @StarlarkMethod(
+      name = "pic_lto_compilation_context",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public LtoCompilationContext getPicLtoCompilationContextForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getPicLtoCompilationContext();
+  }
 
   public abstract AutoLibraryToLink.Builder toBuilder();
 
@@ -112,20 +143,38 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
     return objectFiles == null ? StarlarkList.empty() : StarlarkList.immutableCopyOf(objectFiles);
   }
 
+  @StarlarkMethod(
+      name = "objects_private",
+      allowReturnNones = true,
+      documented = false,
+      useStarlarkThread = true)
+  @Nullable
+  public final Sequence<Artifact> getObjectFilesForStarlarkPrivate(StarlarkThread thread)
+      throws EvalException {
+    // Returning None here is essential for start-end library functionality. Object files are set
+    // to None when calling cc_common.create_library_to_link with empty object files. This signifies
+    // to start-end that an archive needs to be used.
+    // On the other hand cc_common.link will set object files to exactly what's in the archive.
+    // Start-end library functionality may correctly expand the object files. In case they are
+    // empty,
+    // this means also the archive is empty.
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    ImmutableList<Artifact> objectFiles = getObjectFiles();
+    return objectFiles == null ? null : StarlarkList.immutableCopyOf(objectFiles);
+  }
+
   @Override
   public final Sequence<Artifact> getLtoBitcodeFilesForStarlark() {
     LtoCompilationContext ctx = getLtoCompilationContext();
     return ctx == null ? StarlarkList.empty() : StarlarkList.immutableCopyOf(ctx.getBitcodeFiles());
   }
 
-  @Override
-  public final boolean getMustKeepDebugForStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return getMustKeepDebug();
-  }
-
+  @StarlarkMethod(
+      name = "shared_non_lto_backends",
+      documented = false,
+      allowReturnNones = true,
+      useStarlarkThread = true)
   @Nullable
-  @Override
   public final Dict<Artifact, LtoBackendArtifacts> getSharedNonLtoBackendsForStarlark(
       StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
@@ -139,14 +188,32 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
     return objectFiles == null ? StarlarkList.empty() : StarlarkList.immutableCopyOf(objectFiles);
   }
 
+  @StarlarkMethod(
+      name = "pic_objects_private",
+      allowReturnNones = true,
+      documented = false,
+      useStarlarkThread = true)
+  @Nullable
+  public final Sequence<Artifact> getPicObjectFilesForStarlarkPrivate(StarlarkThread thread)
+      throws EvalException {
+    // See comment on getObjectFilesForStarlarkPrivate also
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    ImmutableList<Artifact> objectFiles = getPicObjectFiles();
+    return objectFiles == null ? null : StarlarkList.immutableCopyOf(objectFiles);
+  }
+
   @Override
   public final Sequence<Artifact> getPicLtoBitcodeFilesForStarlark() {
     LtoCompilationContext ctx = getPicLtoCompilationContext();
     return ctx == null ? StarlarkList.empty() : StarlarkList.immutableCopyOf(ctx.getBitcodeFiles());
   }
 
+  @StarlarkMethod(
+      name = "pic_shared_non_lto_backends",
+      documented = false,
+      allowReturnNones = true,
+      useStarlarkThread = true)
   @Nullable
-  @Override
   public final Dict<Artifact, LtoBackendArtifacts> getPicSharedNonLtoBackendsForStarlark(
       StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
@@ -154,6 +221,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
     return backends != null ? Dict.immutableCopyOf(backends) : null;
   }
 
+  // TODO(b/331164666): This can be removed after cc_common.link is in Starlark
   LibraryInput getStaticLibraryInput() {
     return LegacyLinkerInputs.newInputLibrary(
         Preconditions.checkNotNull(getStaticLibrary(), this),
@@ -168,6 +236,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
         getDisableWholeArchive());
   }
 
+  // TODO(b/331164666): This can be removed after cc_common.link is in Starlark
   LibraryInput getPicStaticLibraryInput() {
     return LegacyLinkerInputs.newInputLibrary(
         Preconditions.checkNotNull(getPicStaticLibrary(), this),
@@ -182,6 +251,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
         getDisableWholeArchive());
   }
 
+  // TODO(b/331164666): This can be removed after cc_common.link is in Starlark
   LibraryInput getDynamicLibraryInput() {
     Artifact dynamicLibrary = Preconditions.checkNotNull(getDynamicLibrary(), this);
     if (getResolvedSymlinkDynamicLibrary() != null) {
@@ -199,6 +269,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
         getDisableWholeArchive());
   }
 
+  // TODO(b/331164666): This can be removed after cc_common.link is in Starlark
   LibraryInput getInterfaceLibraryInput() {
     Artifact interfaceLibrary = Preconditions.checkNotNull(getInterfaceLibrary(), this);
     if (getResolvedSymlinkInterfaceLibrary() != null) {
@@ -216,13 +287,25 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact, LtoBac
         getDisableWholeArchive());
   }
 
-  // TODO(plf): This is just needed for Go, do not expose to Starlark and try to remove it. This was
-  // introduced to let a linker input declare that it needs debug info in the executable.
-  // Specifically, this was introduced for linking Go into a C++ binary when using the gccgo
-  // compiler.
   abstract boolean getMustKeepDebug();
 
+  // TODO(b/338618120): This is just needed for Go, do not expose to Starlark and try to remove it.
+  // This was introduced to let a linker input declare that it needs debug info in the executable.
+  // Specifically, this was introduced for linking Go into a C++ binary when using the gccgo
+  // compiler.
+  @StarlarkMethod(name = "must_keep_debug", documented = false, useStarlarkThread = true)
+  public final boolean getMustKeepDebugForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getMustKeepDebug();
+  }
+
   abstract boolean getDisableWholeArchive();
+
+  @StarlarkMethod(name = "disable_whole_archive", documented = false, useStarlarkThread = true)
+  public boolean getDisableWholeArchiveForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getDisableWholeArchive();
+  }
 
   @Override
   public final void debugPrint(Printer printer, StarlarkSemantics semantics) {

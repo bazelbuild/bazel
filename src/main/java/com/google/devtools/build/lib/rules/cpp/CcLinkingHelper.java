@@ -730,6 +730,7 @@ public final class CcLinkingHelper {
             || dynamicLinkType != LinkTargetType.NODEPS_DYNAMIC_LIBRARY;
 
     if (shouldLinkTransitively) {
+      // LINT.IfChange
       CcLinkingContext ccLinkingContext = CcLinkingContext.merge(ccLinkingContexts);
       ImmutableList<LibraryInput> libraries =
           convertLibraryToLinkListToLinkerInputList(
@@ -737,6 +738,7 @@ public final class CcLinkingHelper {
               linkingMode != LinkingMode.DYNAMIC,
               dynamicLinkType.isDynamicLibrary(),
               featureConfiguration);
+      // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/convert_linker_inputs.bzl)
       ImmutableList<CcLinkingContext.Linkstamp> linkstamps =
           ccLinkingContext.getLinkstamps().toList();
       if (dynamicLinkType == LinkTargetType.NODEPS_DYNAMIC_LIBRARY) {
@@ -910,6 +912,7 @@ public final class CcLinkingHelper {
         artifactFragment);
   }
 
+  // LINT.IfChange
   private static ImmutableList<LibraryInput> convertLibraryToLinkListToLinkerInputList(
       NestedSet<LibraryToLink> librariesToLink,
       boolean staticMode,
@@ -973,6 +976,8 @@ public final class CcLinkingHelper {
     }
     return libraryInputsBuilder.build();
   }
+
+  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/convert_linker_inputs.bzl)
 
   @Nullable
   private Artifact getDynamicLibrarySolibSymlinkOutput(Artifact linkerOutputArtifact)
