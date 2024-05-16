@@ -114,7 +114,7 @@ def _create_strip_action(ctx, cc_toolchain, cpp_config, input, output, feature_c
     ctx.actions.run(
         inputs = depset(
             direct = [input],
-            transitive = [cc_toolchain.all_files],
+            transitive = [cc_toolchain._strip_files],
         ),
         outputs = [output],
         use_default_shell_env = True,
