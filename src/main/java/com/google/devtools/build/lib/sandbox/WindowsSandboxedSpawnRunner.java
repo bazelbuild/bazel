@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -27,7 +26,6 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
 import java.io.IOException;
 import java.time.Duration;
 
@@ -36,7 +34,6 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   private final SandboxHelpers helpers;
   private final Path execRoot;
-  private final ImmutableList<Root> packageRoots;
   private final PathFragment windowsSandbox;
   private final LocalEnvProvider localEnvProvider;
   private final Duration timeoutKillDelay;
@@ -57,7 +54,6 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     super(cmdEnv);
     this.helpers = helpers;
     this.execRoot = cmdEnv.getExecRoot();
-    this.packageRoots = cmdEnv.getPackageLocator().getPathEntries();
     this.windowsSandbox = windowsSandboxPath;
     this.timeoutKillDelay = timeoutKillDelay;
     this.localEnvProvider = new WindowsLocalEnvProvider(cmdEnv.getClientEnv());
@@ -76,14 +72,10 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     SandboxInputs readablePaths =
         helpers.processInputFiles(
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
-            context.getInputMetadataProvider(),
-            execRoot,
-            execRoot,
-            packageRoots,
-            null);
+            execRoot);
 
     ImmutableSet.Builder<Path> writablePaths = ImmutableSet.builder();
-    writablePaths.addAll(getWritableDirs(execRoot, execRoot, environment));
+    writablePaths.addAll(getWritableDirs(execRoot, environment));
     for (ActionInput output : spawn.getOutputFiles()) {
       writablePaths.add(execRoot.getRelative(output.getExecPath()));
     }

@@ -219,7 +219,6 @@ public class WorkerModule extends BlazeModule {
         new WorkerSpawnRunner(
             new SandboxHelpers(),
             env.getExecRoot(),
-            env.getPackageLocator().getPathEntries(),
             workerPool,
             env.getReporter(),
             localEnvProvider,

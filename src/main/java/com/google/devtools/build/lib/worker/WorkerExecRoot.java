@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -87,9 +86,9 @@ final class WorkerExecRoot {
       }
       Path key = dir.getRelative(fragment);
       if (inputs.getFiles().containsKey(fragment)) {
-        RootedPath fileDest = inputs.getFiles().get(fragment);
+        Path fileDest = inputs.getFiles().get(fragment);
         if (fileDest != null) {
-          key.createSymbolicLink(fileDest.asPath());
+          key.createSymbolicLink(fileDest);
         } else {
           FileSystemUtils.createEmptyFile(key);
         }
