@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.runtime.commands;
+package com.google.devtools.build.lib.buildtool;
 
 import static com.google.devtools.build.lib.util.ShallowObjectSizeComputer.getArraySize;
 import static com.google.devtools.build.lib.util.ShallowObjectSizeComputer.getShallowSize;

@@ -17,14 +17,12 @@ package com.google.devtools.build.lib.runtime.commands;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.buildtool.SkyframeMemoryDumper;
+import com.google.devtools.build.lib.buildtool.SkyframeMemoryDumper.DisplayMode;
+import com.google.devtools.build.lib.buildtool.SkyframeMemoryDumper.DumpFailedException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.collect.ConcurrentIdentitySet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -49,20 +47,14 @@ import com.google.devtools.build.lib.skyframe.SkyKeyStats;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeStats;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
-import com.google.devtools.build.lib.util.MemoryAccountant;
 import com.google.devtools.build.lib.util.MemoryAccountant.Stats;
-import com.google.devtools.build.lib.util.ObjectGraphTraverser;
-import com.google.devtools.build.lib.util.ObjectGraphTraverser.FieldCache;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.RegexFilter.RegexFilterConverter;
 import com.google.devtools.build.skyframe.InMemoryGraph;
-import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -72,26 +64,17 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
-import com.google.gson.stream.JsonWriter;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 
 /** Implementation of the dump command. */
@@ -108,6 +91,7 @@ import javax.annotation.Nullable;
     shortDescription = "Dumps the internal state of the %{product} server process.",
     binaryStdOut = true)
 public class DumpCommand implements BlazeCommand {
+
   /** How to dump Skyframe memory. */
   private enum MemoryCollectionMode {
     /** Dump the objects owned by a single SkyValue */
@@ -118,16 +102,6 @@ public class DumpCommand implements BlazeCommand {
     TRANSITIVE,
     /** Dump every object in Skyframe in "shallow" mode. */
     FULL,
-  }
-
-  /** How to display Skyframe memory use. */
-  private enum MemoryDisplayMode {
-    /** Just a summary line */
-    SUMMARY,
-    /** Object count by class */
-    COUNT,
-    /** Bytes by class */
-    BYTES,
   }
 
   /** Whose memory use we should measure. */
@@ -142,7 +116,7 @@ public class DumpCommand implements BlazeCommand {
 
   private record MemoryMode(
       MemoryCollectionMode collectionMode,
-      MemoryDisplayMode displayMode,
+      DisplayMode displayMode,
       MemorySubjectType type,
       String needle,
       boolean reportTransient,
@@ -168,7 +142,7 @@ public class DumpCommand implements BlazeCommand {
       }
 
       MemoryCollectionMode collectionMode = null;
-      MemoryDisplayMode displayMode = null;
+      DisplayMode displayMode = null;
       String needle = null;
       boolean reportTransient = true;
       boolean reportConfiguration = true;
@@ -186,9 +160,9 @@ public class DumpCommand implements BlazeCommand {
           case "deep" -> collectionMode = MemoryCollectionMode.DEEP;
           case "transitive" -> collectionMode = MemoryCollectionMode.TRANSITIVE;
           case "full" -> collectionMode = MemoryCollectionMode.FULL;
-          case "summary" -> displayMode = MemoryDisplayMode.SUMMARY;
-          case "count" -> displayMode = MemoryDisplayMode.COUNT;
-          case "bytes" -> displayMode = MemoryDisplayMode.BYTES;
+          case "summary" -> displayMode = DisplayMode.SUMMARY;
+          case "count" -> displayMode = DisplayMode.COUNT;
+          case "bytes" -> displayMode = DisplayMode.BYTES;
           case "notransient" -> reportTransient = false;
           case "noconfig" -> reportConfiguration = false;
           case "noprecomputed" -> reportPrecomputed = false;
@@ -632,298 +606,31 @@ public class DumpCommand implements BlazeCommand {
     throw new IllegalStateException();
   }
 
-  private static String jsonQuote(String s) {
-    try {
-      StringWriter writer = new StringWriter();
-      JsonWriter json = new JsonWriter(writer);
-      json.value(s);
-      json.flush();
-      return writer.toString();
-    } catch (IOException e) {
-      // StringWriter does no I/O
-      throw new IllegalStateException(e);
-    }
-  }
-
-  private static void dumpRamByClass(String prefix, Map<String, Long> memory, PrintStream out) {
-    out.print("{");
-
-    ImmutableList<Map.Entry<String, Long>> sorted =
-        memory.entrySet().stream()
-            .sorted(Comparator.comparing(Map.Entry<String, Long>::getValue).reversed())
-            .collect(ImmutableList.toImmutableList());
-
-    boolean first = true;
-    for (Map.Entry<String, Long> entry : sorted) {
-      out.printf(
-          "%s\n%s  %s: %d", first ? "" : ",", prefix, jsonQuote(entry.getKey()), entry.getValue());
-      first = false;
-    }
-
-    out.printf("\n%s}", prefix);
-  }
-
-  private static void addBuiltins(
-      ConcurrentIdentitySet set, CommandEnvironment env, FieldCache fieldCache) {
-    ObjectGraphTraverser traverser =
-        new ObjectGraphTraverser(
-            fieldCache,
-            /* countInternedObjects= */ false,
-            /* reportTransientFields= */ true,
-            set,
-            /* collectContext= */ false,
-            ObjectGraphTraverser.NOOP_OBJECT_RECEIVER,
-            /* instanceId= */ null);
-    traverser.traverse(env.getRuntime().getRuleClassProvider());
-  }
-
-  private static Stats dumpRamShallow(
-      InMemoryGraph graph,
-      NodeEntry nodeEntry,
-      MemoryMode mode,
-      FieldCache fieldCache,
-      ImmutableList<MemoryAccountant.Measurer> measurers,
-      ConcurrentIdentitySet seen)
-      throws InterruptedException {
-    // Mark all objects accessible from direct dependencies. This will mutate seen, but that's OK.
-    for (SkyKey directDepKey : nodeEntry.getDirectDeps()) {
-      NodeEntry directDepEntry = graph.get(null, Reason.OTHER, directDepKey);
-      ObjectGraphTraverser depTraverser =
-          new ObjectGraphTraverser(
-              fieldCache,
-              false,
-              mode.reportTransient,
-              seen,
-              false,
-              ObjectGraphTraverser.NOOP_OBJECT_RECEIVER,
-              null);
-      depTraverser.traverse(directDepEntry.getValue());
-    }
-
-    // Now traverse the objects reachable from the given SkyValue. Objects reachable from direct
-    // dependencies are in "seen" and thus will not be counted.
-    return dumpRamReachable(nodeEntry, mode, fieldCache, measurers, seen);
-  }
-
-  private static Stats dumpRamReachable(
-      NodeEntry nodeEntry,
-      MemoryMode mode,
-      FieldCache fieldCache,
-      ImmutableList<MemoryAccountant.Measurer> measurers,
-      ConcurrentIdentitySet seen)
-      throws InterruptedException {
-    MemoryAccountant memoryAccountant =
-        new MemoryAccountant(measurers, mode.displayMode != MemoryDisplayMode.SUMMARY);
-    ObjectGraphTraverser traverser =
-        new ObjectGraphTraverser(
-            fieldCache,
-            true,
-            mode.reportTransient,
-            seen,
-            true,
-            memoryAccountant,
-            null,
-            mode.needle);
-    traverser.traverse(nodeEntry.getValue());
-    return memoryAccountant.getStats();
-  }
-
-  private static ListenableFuture<Void> processTransitive(
-      BiConsumer<SkyKey, SkyValue> processor,
-      InMemoryGraph graph,
-      SkyKey skyKey,
-      Executor executor,
-      Map<SkyKey, ListenableFuture<Void>> futureMap) {
-
-    // This is awkward, but preferable to plumbing this through scheduleDeps and processDeps
-    SkyValue[] value = new SkyValue[1];
-
-    // First get the SkyValue and the direct deps from the Skyframe graph. This happens in a future
-    // so that processTransitive() (which is called from computeIfAbsent()) doesn't throw a
-    // checked exception.
-    ListenableFuture<Iterable<SkyKey>> fetchNodeData =
-        Futures.submit(
-            () -> {
-              NodeEntry entry = graph.get(null, Reason.OTHER, skyKey);
-              value[0] = entry.getValue();
-              return entry.getDirectDeps();
-            },
-            executor);
-
-    // This returns a list of futures representing processing the direct deps of this node
-    ListenableFuture<ImmutableList<ListenableFuture<Void>>> scheduleDeps =
-        Futures.transform(
-            fetchNodeData,
-            directDeps -> {
-              List<ListenableFuture<Void>> depFutures = new ArrayList<>();
-              for (SkyKey dep : directDeps) {
-                // If the processing of this dependency has not been scheduled, do so
-                depFutures.add(
-                    futureMap.computeIfAbsent(
-                        dep, k -> processTransitive(processor, graph, dep, executor, futureMap)));
-              }
-              return ImmutableList.copyOf(depFutures);
-            },
-            executor);
-
-    // This is a future that gets completed when the direct deps have all been processed...
-    ListenableFuture<List<Void>> processDeps =
-        Futures.transformAsync(scheduleDeps, Futures::allAsList, executor);
-
-    // ...and when that's the case, we can proceed with processing this node in turn.
-    return Futures.transform(
-        processDeps,
-        unused -> {
-          processor.accept(skyKey, value[0]);
-          return null;
-        },
-        executor);
-  }
-
-  private static ExecutorService createRamDumpExecutor() {
-    return Executors.newFixedThreadPool(
-        Runtime.getRuntime().availableProcessors(),
-        new ThreadFactoryBuilder().setNameFormat("dump-ram-%d").build());
-  }
-
-  private static Stats dumpRamTransitive(
-      InMemoryGraph graph,
-      SkyKey skyKey,
-      MemoryMode mode,
-      FieldCache fieldCache,
-      ImmutableList<MemoryAccountant.Measurer> measurers,
-      ConcurrentIdentitySet seen)
-      throws InterruptedException {
-
-    MemoryAccountant memoryAccountant =
-        new MemoryAccountant(measurers, mode.displayMode != MemoryDisplayMode.SUMMARY);
-    BiConsumer<SkyKey, SkyValue> processor =
-        (unused, skyValue) -> {
-          ObjectGraphTraverser traverser =
-              new ObjectGraphTraverser(
-                  fieldCache,
-                  false,
-                  mode.reportTransient,
-                  seen,
-                  true,
-                  memoryAccountant,
-                  null,
-                  mode.needle);
-          traverser.traverse(skyValue);
-        };
-
-    try (ExecutorService executor = createRamDumpExecutor()) {
-      ListenableFuture<Void> work =
-          processTransitive(processor, graph, skyKey, executor, new ConcurrentHashMap<>());
-      work.get();
-    } catch (ExecutionException e) {
-      throw new IllegalStateException(e);
-    }
-
-    return memoryAccountant.getStats();
-  }
-
-  private static Optional<BlazeCommandResult> dumpRamFull(
-      CommandEnvironment env,
-      DumpOptions dumpOptions,
-      PrintStream out,
-      InMemoryGraph graph,
-      FieldCache fieldCache,
-      ImmutableList<MemoryAccountant.Measurer> measurers)
-      throws InterruptedException {
-
-    ImmutableList<SkyKey> roots =
-        graph.getAllNodeEntries().parallelStream()
-            .filter(e -> Iterables.isEmpty(e.getReverseDepsForDoneEntry()))
-            .map(InMemoryNodeEntry::getKey)
-            .collect(ImmutableList.toImmutableList());
-
-    // Profiling shows that the average object count for a Skyframe node is around 30-40. Let's
-    // go with 48 to avoid a potentially costly resize.
-    ConcurrentIdentitySet seenObjects =
-        new ConcurrentIdentitySet(graph.getAllNodeEntries().size() * 48);
-    addBuiltins(seenObjects, env, fieldCache);
-
-    ConcurrentHashMap<SkyKey, Stats> nodeStats = new ConcurrentHashMap<>();
-
-    BiConsumer<SkyKey, SkyValue> processor =
-        (skyKey, skyValue) -> {
-          MemoryAccountant memoryAccountant =
-              new MemoryAccountant(
-                  measurers, dumpOptions.memory.displayMode != MemoryDisplayMode.SUMMARY);
-          ObjectGraphTraverser traverser =
-              new ObjectGraphTraverser(
-                  fieldCache,
-                  true,
-                  dumpOptions.memory.reportTransient,
-                  seenObjects,
-                  true,
-                  memoryAccountant,
-                  skyKey,
-                  dumpOptions.memory.needle);
-          traverser.traverse(skyValue);
-          Stats stats = memoryAccountant.getStats();
-          nodeStats.put(skyKey, stats);
-        };
-
-    try (ExecutorService executor = createRamDumpExecutor()) {
-      ConcurrentHashMap<SkyKey, ListenableFuture<Void>> futureMap =
-          new ConcurrentHashMap<>(128, 0.75f, Runtime.getRuntime().availableProcessors());
-      ImmutableList<ListenableFuture<Void>> rootFutures =
-          roots.stream()
-              .map(l -> processTransitive(processor, graph, l, executor, futureMap))
-              .collect(ImmutableList.toImmutableList());
-
-      ListenableFuture<List<Void>> completion = Futures.allAsList(rootFutures);
-      completion.get();
-    } catch (ExecutionException e) {
-      return Optional.of(
-          createFailureResult(
-              "Error during traversal: " + e.getMessage(), Code.SKYFRAME_MEMORY_DUMP_FAILED));
-    }
-
-    var sortedStats =
-        nodeStats.entrySet().stream()
-            .parallel()
-            .map(e -> Pair.of(e.getKey().getCanonicalName(), e.getValue()))
-            .sorted(Comparator.comparing(Pair::getFirst))
-            .collect(ImmutableList.toImmutableList());
-
-    out.print("{");
-    boolean first = true;
-    for (Pair<String, Stats> p : sortedStats) {
-      out.printf("%s\n  %s: ", first ? "" : ",", jsonQuote(p.getFirst()));
-      Stats v = p.getSecond();
-      first = false;
-      switch (dumpOptions.memory.displayMode) {
-        case SUMMARY ->
-            out.printf("{ \"objects\": %d, \"bytes\": %d }", v.getObjectCount(), v.getMemoryUse());
-        case COUNT -> dumpRamByClass("  ", v.getObjectCountByClass(), out);
-        case BYTES -> dumpRamByClass("  ", v.getMemoryByClass(), out);
-      }
-    }
-    out.println("\n}");
-    return Optional.empty();
-  }
-
   private static Optional<BlazeCommandResult> dumpSkyframeMemory(
       CommandEnvironment env, DumpOptions dumpOptions, PrintStream out)
       throws InterruptedException {
-    BuildObjectTraverser buildObjectTraverser =
-        new BuildObjectTraverser(
+
+    InMemoryGraph graph = env.getSkyframeExecutor().getEvaluator().getInMemoryGraph();
+    SkyframeMemoryDumper dumper =
+        new SkyframeMemoryDumper(
+            dumpOptions.memory.displayMode,
+            dumpOptions.memory.needle,
+            env.getRuntime().getRuleClassProvider(),
+            graph,
+            dumpOptions.memory.reportTransient,
             dumpOptions.memory.reportConfiguration,
             dumpOptions.memory.reportPrecomputed,
             dumpOptions.memory.reportWorkspaceStatus);
-    CollectionObjectTraverser collectionObjectTraverser = new CollectionObjectTraverser();
-    FieldCache fieldCache =
-        new FieldCache(ImmutableList.of(buildObjectTraverser, collectionObjectTraverser));
-    ImmutableList<MemoryAccountant.Measurer> measurers =
-        ImmutableList.of(collectionObjectTraverser);
-    InMemoryGraph graph = env.getSkyframeExecutor().getEvaluator().getInMemoryGraph();
 
     if (dumpOptions.memory.collectionMode == MemoryCollectionMode.FULL) {
-      // FULL mode doesn't have SkyKey as an argument, nor does it need a NodeEntry.
-      return dumpRamFull(env, dumpOptions, out, graph, fieldCache, measurers);
+      try {
+        // FULL mode doesn't have SkyKey as an argument, nor does it need a NodeEntry.
+        dumper.dumpFull(out);
+        return Optional.empty();
+      } catch (DumpFailedException e) {
+        return Optional.of(
+            DumpCommand.createFailureResult(e.getMessage(), Code.SKYFRAME_MEMORY_DUMP_FAILED));
+      }
     }
 
     SkyKey skyKey = getMemoryDumpSkyKey(env, dumpOptions.memory);
@@ -940,23 +647,19 @@ public class DumpCommand implements BlazeCommand {
               "The requested node is not present", Code.SKYFRAME_MEMORY_DUMP_FAILED));
     }
 
-    ConcurrentIdentitySet seen = new ConcurrentIdentitySet(1);
-    addBuiltins(seen, env, fieldCache);
     Stats stats =
         switch (dumpOptions.memory.collectionMode) {
-          case DEEP -> dumpRamReachable(nodeEntry, dumpOptions.memory, fieldCache, measurers, seen);
-          case SHALLOW ->
-              dumpRamShallow(graph, nodeEntry, dumpOptions.memory, fieldCache, measurers, seen);
-          case TRANSITIVE ->
-              dumpRamTransitive(graph, skyKey, dumpOptions.memory, fieldCache, measurers, seen);
+          case DEEP -> dumper.dumpReachable(nodeEntry);
+          case SHALLOW -> dumper.dumpShallow(nodeEntry);
+          case TRANSITIVE -> dumper.dumpTransitive(skyKey);
           case FULL -> throw new IllegalStateException();
         };
 
     switch (dumpOptions.memory.displayMode) {
       case SUMMARY ->
           out.printf("%d objects, %d bytes retained", stats.getObjectCount(), stats.getMemoryUse());
-      case COUNT -> dumpRamByClass("", stats.getObjectCountByClass(), out);
-      case BYTES -> dumpRamByClass("", stats.getMemoryByClass(), out);
+      case COUNT -> SkyframeMemoryDumper.printByClass("", stats.getObjectCountByClass(), out);
+      case BYTES -> SkyframeMemoryDumper.printByClass("", stats.getMemoryByClass(), out);
     }
 
     out.println();
