@@ -41,6 +41,9 @@ function __git_commit_subject() {
 
 # Returns the branch name of the current git repository
 function git_get_branch() {
+  # Case 1 works when a release branch was checked out,
+  # whereas the second case works if we're in "detached HEAD" state,
+  # which can happen on CI.
   git symbolic-ref --short HEAD 2>/dev/null || git branch --remote --contains | cut -d "/" -f2
 }
 
