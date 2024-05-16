@@ -6,7 +6,7 @@ Book: /_book.yaml
 
 ## Overview
 
-The Bazel project continues to evolve in response to your needs, we want to
+As the Bazel project continues to evolve in response to your needs, we want to
 share our 2024 update.
 
 This roadmap describes current initiatives and predictions for the future of
