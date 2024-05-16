@@ -25,7 +25,7 @@ dependencies, allowing projects to scale while staying fast and
 resource-efficient.
 
 With Bazel 8, we will disable WORKSPACE support by default (it will still be
-possible to enable it via `--enable_workspace`), with Bazel 9 WORKSPACE support
+possible to enable it via `--enable_workspace`); with Bazel 9 WORKSPACE support
 will be removed. Starting with Bazel 7.1, you can set `--noenable_workspace` to
 opt into the new behavior.
 
