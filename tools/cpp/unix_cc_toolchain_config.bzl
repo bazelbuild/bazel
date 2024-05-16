@@ -1515,6 +1515,7 @@ def _impl(ctx):
             default_link_flags_feature,
             user_link_flags_feature,
             default_link_libs_feature,
+            external_include_paths_feature,
             fdo_optimize_feature,
             dbg_feature,
             opt_feature,
