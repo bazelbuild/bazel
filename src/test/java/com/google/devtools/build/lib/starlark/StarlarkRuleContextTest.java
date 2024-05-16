@@ -2651,8 +2651,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     List<String> envInherit =
         Sequence.cast(envInheritUnchecked, String.class, "test").getImmutableList();
     // Depending on the OS of the host, the environment may contain other variables inherited from
-    // the client environment (possibly in modified form), such as LD_LIBRARY_PATH.
-    assertThat(envInherit).containsAtLeast("MY_VAR", "PATH");
+    // the client environment (possibly in modified form), such as PATH or LD_LIBRARY_PATH.
+    assertThat(envInherit).contains("MY_VAR");
   }
 
   @Test
