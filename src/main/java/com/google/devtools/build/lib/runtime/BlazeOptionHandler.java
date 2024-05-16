@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -429,6 +430,10 @@ public final class BlazeOptionHandler {
       logger.atInfo().withCause(e).log("%s", logMessage);
       return processOptionsParsingException(
           env.getReporter(), e, logMessage, Code.STARLARK_OPTIONS_PARSE_FAILURE);
+    } catch (InterruptedException e) {
+      String message = "Interrupted while parsing Starlark options";
+      env.getReporter().handle(Event.error(message));
+      return InterruptedFailureDetails.detailedExitCode(message);
     }
     return DetailedExitCode.success();
   }

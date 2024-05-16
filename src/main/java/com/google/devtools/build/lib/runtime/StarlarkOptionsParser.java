@@ -129,7 +129,7 @@ public class StarlarkOptionsParser {
   // OptionsParserImpl.identifyOptionAndPossibleArgument. Consider combining. This would probably
   // require multiple rounds of parsing to fit starlark-defined options into native option format.
   @VisibleForTesting
-  public boolean parse() throws OptionsParsingException {
+  public boolean parse() throws InterruptedException, OptionsParsingException {
     return parseGivenArgs(nativeOptionsParser.getSkippedArgs());
   }
 
@@ -140,7 +140,8 @@ public class StarlarkOptionsParser {
    *     work to retrieve build setting targets (after which it'll call this method again)
    */
   @VisibleForTesting
-  public boolean parseGivenArgs(List<String> args) throws OptionsParsingException {
+  public boolean parseGivenArgs(List<String> args)
+      throws InterruptedException, OptionsParsingException {
     // Map of <option name (label), <unparsed option value, loaded option>>.
     Multimap<String, Pair<String, Target>> unparsedOptions = LinkedListMultimap.create();
 
@@ -243,7 +244,7 @@ public class StarlarkOptionsParser {
    *     to retrieve the build setting target
    */
   private boolean parseArg(String arg, Multimap<String, Pair<String, Target>> unparsedOptions)
-      throws OptionsParsingException {
+      throws InterruptedException, OptionsParsingException {
     if (!arg.startsWith("--")) {
       throw new OptionsParsingException("Invalid options syntax: " + arg, arg);
     }
@@ -302,7 +303,8 @@ public class StarlarkOptionsParser {
    *     the target
    */
   @Nullable
-  private Target loadBuildSetting(String targetToBuild) throws OptionsParsingException {
+  private Target loadBuildSetting(String targetToBuild)
+      throws InterruptedException, OptionsParsingException {
     if (buildSettings.containsKey(targetToBuild)) {
       return buildSettings.get(targetToBuild);
     }
@@ -316,8 +318,7 @@ public class StarlarkOptionsParser {
         if (target == null) {
           return null;
         }
-      } catch (InterruptedException | TargetParsingException e) {
-        Thread.currentThread().interrupt();
+      } catch (TargetParsingException e) {
         throw new OptionsParsingException(
             "Error loading option " + targetToBuild + ": " + e.getMessage(), targetToBuild, e);
       }
