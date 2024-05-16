@@ -169,7 +169,8 @@ public class BazelLockFileModule extends BlazeModule {
       }
       var newFactors = newExtensionInfo.extensionFactors();
       var perFactorResultsToKeep =
-          ImmutableMap.copyOf(Maps.filterKeys(entry.getValue(), newFactors::hasSameDependenciesAs));
+          ImmutableSortedMap.copyOf(
+              Maps.filterKeys(entry.getValue(), newFactors::hasSameDependenciesAs));
       if (perFactorResultsToKeep.isEmpty()) {
         continue;
       }
@@ -189,10 +190,11 @@ public class BazelLockFileModule extends BlazeModule {
       if (oldExtensionEntries != null) {
         // extension exists, add the new entry to the existing map
         extensionEntries =
-            new ImmutableMap.Builder<ModuleExtensionEvalFactors, LockFileModuleExtension>()
-                .putAll(oldExtensionEntries)
-                .put(factors, extension)
-                .buildKeepingLast();
+            ImmutableSortedMap.copyOf(
+                new ImmutableMap.Builder<ModuleExtensionEvalFactors, LockFileModuleExtension>()
+                    .putAll(oldExtensionEntries)
+                    .put(factors, extension)
+                    .buildKeepingLast());
       } else {
         // new extension
         extensionEntries = ImmutableMap.of(factors, extension);
