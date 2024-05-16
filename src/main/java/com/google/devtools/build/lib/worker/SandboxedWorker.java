@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.sandbox.CgroupsInfo;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder;
-import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.BindMount;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxUtil;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
@@ -146,12 +145,11 @@ final class SandboxedWorker extends SingleplexWorker {
     return writableDirs.build();
   }
 
-  private ImmutableList<BindMount> getBindMounts(Path sandboxExecRoot, @Nullable Path sandboxTmp)
+  private SortedMap<Path, Path> getBindMounts(Path sandboxExecRoot, @Nullable Path sandboxTmp)
       throws UserExecException, IOException {
     FileSystem fs = sandboxExecRoot.getFileSystem();
     Path tmpPath = fs.getPath("/tmp");
     final SortedMap<Path, Path> bindMounts = Maps.newTreeMap();
-    ImmutableList.Builder<BindMount> result = ImmutableList.builder();
     // Mount a fresh, empty temporary directory as /tmp for each sandbox rather than reusing the
     // host filesystem's /tmp. Since we're in a worker, we clean this dir between requests.
     bindMounts.put(tmpPath, sandboxTmp);
@@ -168,9 +166,8 @@ final class SandboxedWorker extends SingleplexWorker {
       }
     }
     // TODO(larsrc): Handle hermetic tmp
-    bindMounts.forEach((k, v) -> result.add(BindMount.of(k, v)));
     LinuxSandboxUtil.validateBindMounts(bindMounts);
-    return result.build();
+    return bindMounts;
   }
 
   @Override

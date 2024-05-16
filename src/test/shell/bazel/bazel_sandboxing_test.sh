@@ -32,6 +32,14 @@ function set_up {
   sed -i.bak '/sandbox_tmpfs_path/d' "$bazelrc"
 }
 
+function assert_not_exists() {
+  path="$1"
+  [ ! -f "$path" ] && return 0
+
+  fail "Expected file '$path' to not exist, but it did"
+  return 1
+}
+
 function test_sandboxed_tooldir() {
   mkdir -p examples/genrule
 
@@ -309,6 +317,68 @@ EOF
   bazel build //pkg:a &>$TEST_log || fail "expected build to succeed"
 }
 
+# Sets up targets under //test that, when building //test:all, verify that the
+# sandbox setup ensures that /tmp contents written by one action are not visible
+# to another action.
+#
+# Arguments:
+#   - The path to a unique temporary directory under /tmp that a
+#     file named "bazel_was_here" is written to in actions.
+function setup_tmp_hermeticity_check() {
+  local -r tmpdir=$1
+
+  mkdir -p test
+  cat > test/BUILD <<'EOF'
+cc_binary(
+    name = "create_file",
+    srcs = ["create_file.cc"],
+)
+
+[
+    genrule(
+        name = "gen" + str(i),
+        outs = ["gen{}.txt".format(i)],
+        tools = [":create_file"],
+        cmd = """
+        path=$$($(location :create_file))
+        cp "$$path" $@
+        """,
+    )
+    for i in range(1, 3)
+]
+EOF
+  cat > test/create_file.cc <<EOF
+// Create a file in a fixed location only if it doesn't exist.
+// Then write its path to stdout.
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+int main() {
+  if (mkdir("$tmpdir", 0755) < 0) {
+    perror("mkdir");
+    return 1;
+  }
+  int fd = open("$tmpdir/bazel_was_here", O_CREAT | O_EXCL | O_WRONLY, 0600);
+  if (fd < 0) {
+    perror("open");
+    return 1;
+  }
+  if (write(fd, "HERMETIC\n", 9) != 9) {
+    perror("write");
+    return 1;
+  }
+  close(fd);
+  printf("$tmpdir/bazel_was_here\n");
+  return 0;
+}
+EOF
+}
+
 function test_add_mount_pair_tmp_source() {
   if [[ "$PLATFORM" == "darwin" ]]; then
     # Tests Linux-specific functionality
@@ -321,19 +391,26 @@ function test_add_mount_pair_tmp_source() {
   trap "rm -fr $mounted" EXIT
   echo GOOD > "$mounted/data.txt"
 
+  local tmp_dir=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
+  trap "rm -fr $tmp_dir" EXIT
+  setup_tmp_hermeticity_check "$tmp_dir"
+
   mkdir -p pkg
-  cat > pkg/BUILD <<EOF
+  cat > pkg/BUILD <<'EOF'
 genrule(
     name = "gen",
     outs = ["gen.txt"],
-    # Verify that /tmp is still hermetic.
-    cmd = """[ ! -e "${mounted}/data.txt" ] && cp /etc/data.txt \$@""",
+    cmd = "cp /etc/data.txt $@",
 )
 EOF
 
   # This assumes the existence of /etc on the host system
-  bazel build --sandbox_add_mount_pair="$mounted:/etc" //pkg:gen || fail "build failed"
-  assert_contains GOOD bazel-bin/pkg/gen.txt
+  bazel build --sandbox_add_mount_pair="$mounted:/etc" \
+    //pkg:gen //test:all || fail "build failed"
+  assert_equals GOOD "$(cat bazel-bin/pkg/gen.txt)"
+  assert_equals HERMETIC "$(cat bazel-bin/test/gen1.txt)"
+  assert_equals HERMETIC "$(cat bazel-bin/test/gen2.txt)"
+  assert_not_exists "$tmp_dir/bazel_was_here"
 }
 
 function test_add_mount_pair_tmp_target() {
@@ -348,20 +425,28 @@ function test_add_mount_pair_tmp_target() {
   trap "rm -fr $source_dir" EXIT
   echo BAD > "$source_dir/data.txt"
 
+  local tmp_dir=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
+  trap "rm -fr $tmp_dir" EXIT
+  setup_tmp_hermeticity_check "$tmp_dir"
+
   mkdir -p pkg
   cat > pkg/BUILD <<EOF
 genrule(
     name = "gen",
     outs = ["gen.txt"],
-    # Verify that /tmp is still hermetic.
-    cmd = """[ ! -e "${source_dir}/data.txt" ] && ls "$source_dir" > \$@""",
+    cmd = """ls "$source_dir" > \$@""",
 )
 EOF
 
 
   # This assumes the existence of /etc on the host system
-  bazel build --sandbox_add_mount_pair="/etc:$source_dir" //pkg:gen || fail "build failed"
+  bazel build --sandbox_add_mount_pair="/etc:$source_dir" \
+    //pkg:gen //test:all || fail "build failed"
   assert_contains passwd bazel-bin/pkg/gen.txt
+  assert_not_contains data.txt bazel-bin/pkg/gen.txt
+  assert_equals HERMETIC "$(cat bazel-bin/test/gen1.txt)"
+  assert_equals HERMETIC "$(cat bazel-bin/test/gen2.txt)"
+  assert_not_exists "$tmp_dir/bazel_was_here"
 }
 
 function test_add_mount_pair_tmp_target_and_source() {
@@ -376,22 +461,25 @@ function test_add_mount_pair_tmp_target_and_source() {
   trap "rm -fr $mounted" EXIT
   echo GOOD > "$mounted/data.txt"
 
-  local tmp_file=$(mktemp "/tmp/bazel_tmp.XXXXXXXX")
-  trap "rm $tmp_file" EXIT
-  echo BAD > "$tmp_file"
+  local tmp_dir=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
+  trap "rm -fr $tmp_dir" EXIT
+  setup_tmp_hermeticity_check "$tmp_dir"
 
   mkdir -p pkg
   cat > pkg/BUILD <<EOF
 genrule(
     name = "gen",
     outs = ["gen.txt"],
-    # Verify that /tmp is still hermetic.
-    cmd = """[ ! -e "${tmp_file}" ] && cp "$mounted/data.txt" \$@""",
+    cmd = """cp "$mounted/data.txt" \$@""",
 )
 EOF
 
-  bazel build --sandbox_add_mount_pair="$mounted" //pkg:gen || fail "build failed"
-  assert_contains GOOD bazel-bin/pkg/gen.txt
+  bazel build --sandbox_add_mount_pair="$mounted" \
+    //pkg:gen //test:all || fail "build failed"
+  assert_equals GOOD "$(cat bazel-bin/pkg/gen.txt)"
+  assert_equals HERMETIC "$(cat bazel-bin/test/gen1.txt)"
+  assert_equals HERMETIC "$(cat bazel-bin/test/gen2.txt)"
+  assert_not_exists "$tmp_dir/bazel_was_here"
 }
 
 function test_symlink_with_output_base_under_tmp() {
@@ -400,15 +488,53 @@ function test_symlink_with_output_base_under_tmp() {
     return 0
   fi
 
-  create_workspace_with_default_repos WORKSPACE
+  local repo=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
+  trap "rm -fr $repo" EXIT
+
+  touch WORKSPACE
+
+  mkdir -p $repo/pkg
+  touch $repo/WORKSPACE
+  cat > $repo/pkg/es1 <<'EOF'
+EXTERNAL_SOURCE_CONTENT
+EOF
+  cat > $repo/pkg/BUILD <<'EOF'
+exports_files(["es1"])
+genrule(
+    name="er1",
+    srcs=[],
+    outs=[":er1"],
+    cmd="echo EXTERNAL_GEN_CONTENT > $@",
+    visibility=["//visibility:public"],
+)
+EOF
+
+  mkdir -p $repo/examples
+  cd $repo/examples || fail "cd $repo/examples failed"
+
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "repo",
+    path = "$repo",
+)
+EOF
 
   mkdir -p pkg
+  cat > pkg/s1 <<'EOF'
+SOURCE_CONTENT
+EOF
   cat > pkg/BUILD <<'EOF'
 load(":r.bzl", "symlink_rule")
 
-genrule(name="r1", srcs=[], outs=[":r1"], cmd="echo CONTENT > $@")
+genrule(name="r1", srcs=[], outs=[":r1"], cmd="echo GEN_CONTENT > $@")
 symlink_rule(name="r2", input=":r1")
 genrule(name="r3", srcs=[":r2"], outs=[":r3"], cmd="cp $< $@")
+symlink_rule(name="s2", input=":s1")
+genrule(name="s3", srcs=[":s2"], outs=[":s3"], cmd="cp $< $@")
+symlink_rule(name="er2", input="@repo//pkg:er1")
+genrule(name="er3", srcs=[":er2"], outs=[":er3"], cmd="cp $< $@")
+symlink_rule(name="es2", input="@repo//pkg:es1")
+genrule(name="es3", srcs=[":es2"], outs=[":es3"], cmd="cp $< $@")
 EOF
 
   cat > pkg/r.bzl <<'EOF'
@@ -425,8 +551,11 @@ EOF
   local tmp_output_base=$(mktemp -d "/tmp/bazel_output_base.XXXXXXXX")
   trap "chmod -R u+w $tmp_output_base && rm -fr $tmp_output_base" EXIT
 
-  bazel --output_base="$tmp_output_base" build //pkg:r3
-  assert_contains CONTENT bazel-bin/pkg/r3
+  bazel --output_base="$tmp_output_base" build //pkg:{er,es,r,s}3 --sandbox_debug
+  assert_contains EXTERNAL_GEN_CONTENT bazel-bin/pkg/er3
+  assert_contains EXTERNAL_SOURCE_CONTENT bazel-bin/pkg/es3
+  assert_contains GEN_CONTENT bazel-bin/pkg/r3
+  assert_contains SOURCE_CONTENT bazel-bin/pkg/s3
   bazel --output_base="$tmp_output_base" shutdown
 }
 
@@ -534,13 +663,13 @@ function test_tmpfs_path_under_tmp() {
 
   create_workspace_with_default_repos WORKSPACE
 
-  local tmp_file=$(mktemp "/tmp/bazel_tmp.XXXXXXXX")
-  trap "rm $tmp_file" EXIT
-  echo BAD > "$tmp_file"
-
   local tmpfs=$(mktemp -d "/tmp/bazel_tmpfs.XXXXXXXX")
   trap "rm -fr $tmpfs" EXIT
   echo BAD > "$tmpfs/data.txt"
+
+  local tmp_dir=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
+  trap "rm -fr $tmp_dir" EXIT
+  setup_tmp_hermeticity_check "$tmp_dir"
 
   mkdir -p pkg
   cat > pkg/BUILD <<EOF
@@ -548,10 +677,9 @@ genrule(
     name = "gen",
     outs = ["gen.txt"],
     cmd = """
-# Verify that /tmp is still hermetic and that the tmpfs under /tmp exists, but is empty.
-[[ ! -e "${tmp_file}" ]]
-[[ -d /tmp/tmpfs ]]
-[[ ! -e /tmp/tmpfs/data.txt ]]
+# Verify that the tmpfs under /tmp exists and is empty.
+[[ -d "$tmpfs" ]]
+[[ ! -e "$tmpfs/data.txt" ]]
 # Verify that the tmpfs on /etc exists and is empty.
 [[ -d /etc ]]
 [[ -z "\$\$(ls -A /etc)" ]]
@@ -561,8 +689,142 @@ touch \$@
 EOF
 
   # This assumes the existence of /etc on the host system
-  bazel build --sandbox_tmpfs_path=/tmp/tmpfs --sandbox_tmpfs_path=/etc \
-    //pkg:gen || fail "build failed"
+  bazel build --sandbox_tmpfs_path="$tmpfs" --sandbox_tmpfs_path=/etc \
+    //pkg:gen //test:all || fail "build failed"
+  assert_equals HERMETIC "$(cat bazel-bin/test/gen1.txt)"
+  assert_equals HERMETIC "$(cat bazel-bin/test/gen2.txt)"
+  assert_not_exists "$tmp_dir/bazel_was_here"
+}
+
+function test_hermetic_tmp_under_tmp {
+  if [[ "$(uname -s)" != Linux ]]; then
+    echo "Skipping test: --incompatible_sandbox_hermetic_tmp is only supported in Linux" 1>&2
+    return 0
+  fi
+
+  temp_dir=$(mktemp -d /tmp/test.XXXXXX)
+  trap 'rm -rf ${temp_dir}' EXIT
+
+  mkdir -p "${temp_dir}/workspace/a"
+  mkdir -p "${temp_dir}/package-path/b"
+  mkdir -p "${temp_dir}/repo/c"
+  mkdir -p "${temp_dir}/output-base"
+
+  cd "${temp_dir}/workspace"
+  cat > WORKSPACE <<EOF
+local_repository(name="repo", path="${temp_dir}/repo")
+EOF
+
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "g",
+  outs = ["go"],
+  srcs = [],
+  cmd = "echo GO > $@",
+)
+sh_binary(
+  name = "bin",
+  srcs = ["bin.sh"],
+  data = [":s", ":go", "//b:s", "//b:go", "@repo//c:s", "@repo//c:go"],
+)
+genrule(
+  name = "t",
+  tools = [":bin"],
+  srcs = [":s", ":go", "//b:s", "//b:go", "@repo//c:s", "@repo//c:go"],
+  outs = ["to"],
+  cmd = "\n".join([
+    "RUNFILES=$(location :bin).runfiles/_main",
+    "S=$(location :s); GO=$(location :go)",
+    "BS=$(location //b:s); BGO=$(location //b:go)",
+    "RS=$(location @repo//c:s); RGO=$(location @repo//c:go)",
+    "for i in $$S $$GO $$BS $$BGO $$RS $$RGO; do",
+    "  echo reading $$i",
+    "  cat $$i >> $@",
+    "done",
+    "for i in a/s a/go b/s b/go ../repo/c/s ../repo/c/go; do",
+    "  echo reading $$RUNFILES/$$i",
+    "  cat $$RUNFILES/$$i >> $@",
+    "done",
+  ]),
+)
+EOF
+
+  touch a/bin.sh
+  chmod +x a/bin.sh
+
+  touch ../repo/WORKSPACE
+  cat > ../repo/c/BUILD <<'EOF'
+exports_files(["s"])
+genrule(
+  name = "g",
+  outs = ["go"],
+  srcs = [],
+  cmd = "echo GO > $@",
+  visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > ../package-path/b/BUILD <<'EOF'
+exports_files(["s"])
+genrule(
+  name = "g",
+  outs = ["go"],
+  srcs = [],
+  cmd = "echo GO > $@",
+  visibility = ["//visibility:public"],
+)
+EOF
+
+  touch "a/s" "../package-path/b/s" "../repo/c/s"
+
+  cat WORKSPACE
+  bazel \
+    --output_base="${temp_dir}/output-base" \
+    build \
+    --incompatible_sandbox_hermetic_tmp \
+    --package_path="%workspace%:${temp_dir}/package-path" \
+    //a:t || fail "build failed"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/21215
+function test_copy_input_symlinks() {
+  create_workspace_with_default_repos WORKSPACE
+
+  cat > MODULE.bazel <<'EOF'
+repo = use_repo_rule("//pkg:repo.bzl", "repo")
+repo(name = "some_repo")
+EOF
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+genrule(
+    name = "copy_files",
+    srcs = [
+        "@some_repo//:files",
+    ],
+    outs = [
+        "some_file1.json",
+        "some_file2.json",
+    ],
+    cmd = "cp -r $(locations @some_repo//:files) $(RULEDIR)",
+)
+EOF
+  cat > pkg/repo.bzl <<'EOF'
+def _impl(rctx):
+  rctx.file("some_file1.json", "hello")
+  rctx.file("some_file2.json", "world")
+  rctx.file("BUILD", """filegroup(
+    name = "files",
+    srcs = ["some_file1.json", "some_file2.json"],
+    visibility = ["//visibility:public"],
+)""")
+
+repo = repository_rule(_impl)
+EOF
+
+  bazel build //pkg:copy_files || fail "build failed"
+  assert_equals hello "$(cat bazel-bin/pkg/some_file1.json)"
+  assert_equals world "$(cat bazel-bin/pkg/some_file2.json)"
 }
 
 # The test shouldn't fail if the environment doesn't support running it.

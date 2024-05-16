@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
@@ -374,7 +373,7 @@ public class AbstractContainerizingSandboxedSpawnTest {
 
   private static SandboxInputs createSandboxInputs(
       ImmutableList<String> files, ImmutableMap<String, String> symlinks) {
-    Map<PathFragment, RootedPath> filesMap = Maps.newHashMapWithExpectedSize(files.size());
+    Map<PathFragment, Path> filesMap = Maps.newHashMapWithExpectedSize(files.size());
     for (String file : files) {
       filesMap.put(PathFragment.create(file), null);
     }
@@ -384,8 +383,7 @@ public class AbstractContainerizingSandboxedSpawnTest {
         symlinks.entrySet().stream()
             .collect(
                 toImmutableMap(
-                    e -> PathFragment.create(e.getKey()), e -> PathFragment.create(e.getValue()))),
-        ImmutableMap.of());
+                    e -> PathFragment.create(e.getKey()), e -> PathFragment.create(e.getValue()))));
   }
 
   /** Return a list of all entries under the provided directory recursively. */
