@@ -944,16 +944,11 @@ def _map_to_list(m):
         result.append((k, v))
     return result
 
-# Returns a list of (Artifact, Label) tuples. Each tuple represents an input source
-# file and the label of the rule that generates it (or the label of the source file itself if it
-# is an input file).
-def _get_srcs(ctx):
-    if not hasattr(ctx.attr, "srcs"):
-        return []
 
-    # "srcs" attribute is a LABEL_LIST in cc_rules, which might also contain files.
+# "srcs" attribute is a LABEL_LIST in cc_rules, which might also contain files.
+def _calculate_artifact_label_map(srcs, attr):
     artifact_label_map = {}
-    for src in ctx.attr.srcs:
+    for src in srcs:
         if DefaultInfo in src:
             for artifact in src[DefaultInfo].files.to_list():
                 if "." + artifact.extension not in CC_HEADER:
@@ -962,8 +957,43 @@ def _get_srcs(ctx):
                     if old_label != None and not _are_labels_equal(old_label, src.label) and "." + artifact.extension in CC_AND_OBJC:
                         fail(
                             "Artifact '{}' is duplicated (through '{}' and '{}')".format(artifact, old_label, src),
-                            attr = "srcs",
+                            attr = attr,
                         )
+    return artifact_label_map
+# Returns a list of (Artifact, Label) tuples. Each tuple represents an input source
+# file and the label of the rule that generates it (or the label of the source file itself if it
+# is an input file).
+def _get_srcs(ctx):
+    if not hasattr(ctx.attr, "srcs"):
+        return []
+    artifact_label_map = _calculate_artifact_label_map(ctx.attr.srcs, "srcs")
+    return _map_to_list(artifact_label_map)
+
+# Returns a list of (Artifact, Label) tuples. Each tuple represents an input source
+# file and the label of the rule that generates it (or the label of the source file itself if it
+# is an input file).
+def _get_module_interfaces(ctx):
+    if not hasattr(ctx.attr, "module_interfaces"):
+        return []
+    srcs_artifact_label_map = _calculate_artifact_label_map(ctx.attr.srcs, "srcs")
+
+    artifact_label_map = {}
+    for src in ctx.attr.module_interfaces:
+        if DefaultInfo in src:
+            for artifact in src[DefaultInfo].files.to_list():
+                old_label = artifact_label_map.get(artifact, None)
+                artifact_label_map[artifact] = src.label
+                if old_label != None and not _are_labels_equal(old_label, src.label):
+                    fail(
+                        "Artifact '{}' is duplicated (through '{}' and '{}')".format(artifact.path, old_label, src),
+                        attr = "module_interfaces",
+                    )
+                label_from_srcs = srcs_artifact_label_map.get(artifact, None)
+                if label_from_srcs != None:
+                    fail(
+                        "Artifact '{}' is duplicated (through '{}' and '{}')".format(artifact.path, label_from_srcs, src),
+                        attr = "module_interfaces",
+                    )
     return _map_to_list(artifact_label_map)
 
 # Returns a list of (Artifact, Label) tuples. Each tuple represents an input source
@@ -1175,6 +1205,12 @@ def _should_use_pic(ctx, cc_toolchain, feature_configuration):
             cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "prefer_pic_for_opt_binaries")
         )
     )
+def _check_cpp20_module(ctx, feature_configuration):
+    if len(ctx.files.module_interfaces) > 0 and not cc_common.is_enabled(
+        feature_configuration = feature_configuration,
+        feature_name = "cpp20_module",
+    ):
+        fail("to use C++20 Modules, the feature cpp20_module must be enabled")
 
 cc_helper = struct(
     CPP_TOOLCHAIN_TYPE = _CPP_TOOLCHAIN_TYPE,
@@ -1225,6 +1261,7 @@ cc_helper = struct(
     get_local_defines_for_runfiles_lookup = _get_local_defines_for_runfiles_lookup,
     are_labels_equal = _are_labels_equal,
     get_srcs = _get_srcs,
+    get_module_interfaces = _get_module_interfaces,
     get_private_hdrs = _get_private_hdrs,
     get_public_hdrs = _get_public_hdrs,
     report_invalid_options = _report_invalid_options,
@@ -1242,4 +1279,5 @@ cc_helper = struct(
     package_source_root = _package_source_root,
     tokenize = _tokenize,
     should_use_pic = _should_use_pic,
+    check_cpp20_module = _check_cpp20_module,
 )

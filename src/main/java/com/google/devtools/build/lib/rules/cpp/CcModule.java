@@ -2023,6 +2023,7 @@ public abstract class CcModule
       FeatureConfigurationForStarlark starlarkFeatureConfiguration,
       Info starlarkCcToolchainProvider,
       Sequence<?> sourcesUnchecked, // <Artifact> expected
+      Sequence<?> moduleInterfacesUnchecked, // <Artifact> expected
       Sequence<?> publicHeadersUnchecked, // <Artifact> expected
       Sequence<?> privateHeadersUnchecked, // <Artifact> expected
       Object textualHeadersStarlarkObject,
@@ -2143,23 +2144,28 @@ public abstract class CcModule
                 configuration.getFragment(CppConfiguration.class)));
     boolean tuple =
         (!sourcesUnchecked.isEmpty() && sourcesUnchecked.get(0) instanceof Tuple)
+            || (!moduleInterfacesUnchecked.isEmpty() && moduleInterfacesUnchecked.get(0) instanceof Tuple)
             || (!publicHeadersUnchecked.isEmpty() && publicHeadersUnchecked.get(0) instanceof Tuple)
             || (!privateHeadersUnchecked.isEmpty()
                 && privateHeadersUnchecked.get(0) instanceof Tuple);
     if (tuple) {
       ImmutableList<Pair<Artifact, Label>> sources = convertSequenceTupleToPair(sourcesUnchecked);
+      ImmutableList<Pair<Artifact, Label>> moduleInterfaces = convertSequenceTupleToPair(moduleInterfacesUnchecked);
       ImmutableList<Pair<Artifact, Label>> publicHeaders =
           convertSequenceTupleToPair(publicHeadersUnchecked);
       ImmutableList<Pair<Artifact, Label>> privateHeaders =
           convertSequenceTupleToPair(privateHeadersUnchecked);
-      helper.addPublicHeaders(publicHeaders).addPrivateHeaders(privateHeaders).addSources(sources);
+      helper.addPublicHeaders(publicHeaders).addPrivateHeaders(privateHeaders).addSources(sources)
+              .addModuleInterfaceSources(moduleInterfaces);
     } else {
       List<Artifact> sources = Sequence.cast(sourcesUnchecked, Artifact.class, "srcs");
+      List<Artifact> moduleInterfaces = Sequence.cast(moduleInterfacesUnchecked, Artifact.class, "module_interfaces");
       List<Artifact> publicHeaders =
           Sequence.cast(publicHeadersUnchecked, Artifact.class, "public_hdrs");
       List<Artifact> privateHeaders =
           Sequence.cast(privateHeadersUnchecked, Artifact.class, "private_hdrs");
-      helper.addPublicHeaders(publicHeaders).addPrivateHeaders(privateHeaders).addSources(sources);
+      helper.addPublicHeaders(publicHeaders).addPrivateHeaders(privateHeaders).addSources(sources)
+              .addModuleInterfaceSources(moduleInterfaces);
     }
 
     List<String> includes =

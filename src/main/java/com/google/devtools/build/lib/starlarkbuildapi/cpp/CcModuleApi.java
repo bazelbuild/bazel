@@ -111,6 +111,12 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "[]"),
         @Param(
+            name = "module_interfaces",
+            doc = "The list of module interfaces source files to be compiled.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
             name = "public_hdrs",
             doc =
                 "List of headers needed for compilation of srcs and may be included by dependent "
@@ -373,6 +379,7 @@ public interface CcModuleApi<
       FeatureConfigurationT starlarkFeatureConfiguration,
       Info starlarkCcToolchainProvider,
       Sequence<?> sourcesUnchecked, // <Artifact> expected
+      Sequence<?> moduleInterfacesUnchecked, // <Artifact> expected
       Sequence<?> publicHeadersUnchecked, // <Artifact> expected
       Sequence<?> privateHeadersUnchecked, // <Artifact> expected
       Object textualHeadersStarlarkObject,

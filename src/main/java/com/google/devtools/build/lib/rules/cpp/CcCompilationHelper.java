@@ -269,6 +269,7 @@ public final class CcCompilationHelper {
   private final List<PathFragment> additionalExportedHeaders = new ArrayList<>();
   private final List<CppModuleMap> additionalCppModuleMaps = new ArrayList<>();
   private final LinkedHashMap<Artifact, CppSource> compilationUnitSources = new LinkedHashMap<>();
+  private final LinkedHashMap<Artifact, CppSource> moduleInterfaceSources = new LinkedHashMap<>();
   private ImmutableList<String> copts = ImmutableList.of();
   private CoptsFilter coptsFilter = CoptsFilter.alwaysPasses();
   private final Set<String> defines = new LinkedHashSet<>();
@@ -516,6 +517,27 @@ public final class CcCompilationHelper {
   @CanIgnoreReturnValue
   public CcCompilationHelper addSources(Artifact... sources) {
     return addSources(Arrays.asList(sources));
+  }
+
+  @CanIgnoreReturnValue
+  public CcCompilationHelper addModuleInterfaceSources(Collection<Artifact> sources) {
+    for (Artifact source : sources) {
+      addModuleInterfaceSource(source, label);
+    }
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public CcCompilationHelper addModuleInterfaceSources(Iterable<Pair<Artifact, Label>> sources) {
+    for (Pair<Artifact, Label> source : sources) {
+      addModuleInterfaceSource(source.first, source.second);
+    }
+    return this;
+  }
+
+  private void addModuleInterfaceSource(Artifact source, Label label) {
+    Preconditions.checkNotNull(featureConfiguration);
+    moduleInterfaceSources.put(source, CppSource.create(source, label, CppSource.Type.SOURCE));
   }
 
   /** Add the corresponding files as non-header, non-source input files. */
