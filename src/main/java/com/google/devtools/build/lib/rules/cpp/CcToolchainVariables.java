@@ -41,6 +41,7 @@ import java.util.Stack;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Configured build variables usable by the toolchain configuration.
@@ -651,7 +652,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    * significantly reduces memory overhead.
    */
   @Immutable
-  public abstract static class LibraryToLinkValue extends VariableValueAdapter {
+  public abstract static class LibraryToLinkValue extends VariableValueAdapter
+      implements StarlarkValue {
 
     private static final Interner<LibraryToLinkValue> interner = BlazeInterners.newWeakInterner();
 
