@@ -13,15 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+/** For exceptions that arise from a post-execution dump of debug of performance data. */
+public class PostExecutionDumpException extends Exception {
 
-/** For exceptions that arise from the post-execution action graph dump. */
-public class PostExecutionActionGraphDumpException extends Exception {
-
-  PostExecutionActionGraphDumpException(Throwable cause) {
+  PostExecutionDumpException(Throwable cause) {
     super(cause);
   }
 
-  PostExecutionActionGraphDumpException(String message, Throwable cause) {
+  PostExecutionDumpException(String message, Throwable cause) {
     super(message, cause);
   }
 }
