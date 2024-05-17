@@ -290,6 +290,8 @@ message Rule {
   required string rule_class = 2;
 
   // Whether the rule can be `bazel run` (i.e. is a binary or test rule).
+  // Note: This is optional for compatibility requirements.
+  // TODO: Make this required after Bazel 8 ships.
   optional bool is_executable = 16;
 
   // The BUILD file and line number of the location (formatted as

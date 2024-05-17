@@ -202,7 +202,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
                     BaseEncoding.base16().lowerCase().encode(transitiveDigest))); // hexify
       }
 
-      rulePb.setIsExecutable(rule.isExecutable() || TargetUtils.isTestRule(target));
+      rulePb.setIsExecutable(rule.isExecutable());
 
       ImmutableMap<Aspect, ImmutableMultimap<Attribute, Label>> aspectsDependencies =
           aspectResolver.computeAspectDependencies(target, dependencyFilter);

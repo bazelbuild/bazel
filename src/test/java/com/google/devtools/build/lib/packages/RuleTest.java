@@ -288,7 +288,9 @@ public class RuleTest extends PackageLoadingTestCase {
         "cc_library(name = 'cl')",
         "java_binary(name = 'jb')",
         "java_library(name = 'jl')");
+
     Package pkg = getTarget("//x:BUILD").getPackage();
+
     assertThat(pkg.getRule("cb").isExecutable()).isTrue();
     assertThat(pkg.getRule("jb").isExecutable()).isTrue();
 

@@ -209,6 +209,10 @@ public class BaseRuleClasses {
           .add(attr("args", STRING_LIST))
           .add(attr("env", STRING_DICT))
           .add(attr("env_inherit", STRING_LIST))
+          .add(
+              attr(Rule.IS_EXECUTABLE_ATTRIBUTE_NAME, BOOLEAN)
+                  .value(true)
+                  .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
           // Input files for every test action
           .add(
               attr("$test_wrapper", LABEL)
