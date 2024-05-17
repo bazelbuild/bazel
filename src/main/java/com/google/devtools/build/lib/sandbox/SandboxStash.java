@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.StashContents;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -163,10 +164,12 @@ public class SandboxStash {
                   relativeStashedRunfilesDir, errorMessageBuilder.toString());
             }
             Path stashedRunfilesDir = sandboxExecroot.getRelative(relativeStashedRunfilesDir);
-            Path currentRunfiles = sandboxExecroot.getRelative(getCurrentRunfilesDir(environment));
+            String relativeCurrentRunfilesDir = getCurrentRunfilesDir(environment);
+            Path currentRunfiles = sandboxExecroot.getRelative(relativeCurrentRunfilesDir);
             currentRunfiles.getParentDirectory().createDirectoryAndParents();
             stashedRunfilesDir.renameTo(currentRunfiles);
             stashPathToRunfilesDir.remove(stashExecroot);
+            updateStashContentsAfterRunfilesMove(relativeStashedRunfilesDir, relativeCurrentRunfilesDir, pathToContents.get(stash));
           }
           sandboxToTarget.remove(stash);
           return pathToContents.remove(stash);
@@ -483,8 +486,6 @@ public class SandboxStash {
     List<Path> sortedStashes = new ArrayList<>(stashes);
     Map<Path, Integer> countMap = new HashMap<>();
     String[] targetStr = target.getPackageName().split("/");
-    List<Map.Entry<Map.Entry<String, Path>, Integer>> targetToSandboxMatchingSegmentsCount =
-        new ArrayList<>();
     for (Path stash : stashes) {
       Label stashTarget = sandboxToTarget.getOrDefault(stash, /* defaultValue= */ null);
       if (stashTarget == null) {
@@ -509,6 +510,30 @@ public class SandboxStash {
       }
     }
     return count;
+  }
+
+  private void updateStashContentsAfterRunfilesMove(String stashedRunfiles, String currentRunfiles, StashContents stashContents) {
+    List<String> stashedRunfilesSegments = ImmutableList.copyOf(PathFragment.create(stashedRunfiles).segments());
+    List<String> currentRunfilesSegments = ImmutableList.copyOf(PathFragment.create(currentRunfiles).segments());
+    Preconditions.checkState(stashedRunfilesSegments.size() == currentRunfilesSegments.size());
+    updateStashContentsAfterRunfilesMoveRecursive(stashedRunfilesSegments,
+        currentRunfilesSegments,
+        0,
+        stashContents);
+  }
+
+  private void updateStashContentsAfterRunfilesMoveRecursive(List<String> stashedRunfiles, List<String> currentRunfiles, int i, StashContents stashContents) {
+    Preconditions.checkState(i < stashedRunfiles.size());
+    String stashedSegment = stashedRunfiles.get(i);
+    if (i < stashedRunfiles.size() - 1) {
+      Preconditions.checkState(stashedSegment.equals(currentRunfiles.get(i)));
+      Preconditions.checkState(stashContents.dirEntries.containsKey(stashedSegment));
+      updateStashContentsAfterRunfilesMoveRecursive(stashedRunfiles, currentRunfiles, i + 1, stashContents.dirEntries.get(stashedSegment));
+    } else {
+      Preconditions.checkState(stashContents.dirEntries.containsKey(stashedSegment));
+      stashContents.dirEntries.put(currentRunfiles.get(i), stashContents.dirEntries.get(stashedSegment));
+      stashContents.dirEntries.remove(stashedSegment);
+    }
   }
 }
 
