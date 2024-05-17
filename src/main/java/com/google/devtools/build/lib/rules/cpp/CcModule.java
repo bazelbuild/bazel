@@ -1189,6 +1189,7 @@ public abstract class CcModule
       String linkerToolPath = "DUMMY_LINKER_TOOL";
       String arToolPath = "DUMMY_AR_TOOL";
       String stripToolPath = "DUMMY_STRIP_TOOL";
+      String depsScannerToolPath = "DUMMY_DEPS_SCANNER_TOOL";
       for (Pair<String, String> tool : toolPathList) {
         if (tool.first.equals(CppConfiguration.Tool.GCC.getNamePart())) {
           gccToolPath = tool.second;
@@ -1206,6 +1207,9 @@ public abstract class CcModule
         }
         if (tool.first.equals(CppConfiguration.Tool.STRIP.getNamePart())) {
           stripToolPath = tool.second;
+        }
+        if (tool.first.equals(CppConfiguration.Tool.DEPS_SCANNER.getNamePart())) {
+          depsScannerToolPath = tool.second;
         }
       }
 
@@ -1268,6 +1272,7 @@ public abstract class CcModule
               gccToolPath,
               arToolPath,
               stripToolPath,
+              depsScannerToolPath,
               /* supportsInterfaceSharedLibraries= */ false,
               actionConfigNames)) {
         legacyActionConfigBuilder.add(new ActionConfig(actionConfig));

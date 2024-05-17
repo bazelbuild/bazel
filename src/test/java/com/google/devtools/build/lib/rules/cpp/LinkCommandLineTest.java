@@ -91,6 +91,7 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
             "MOCK_GCC_TOOL",
             "MOCK_AR_TOOL",
             "MOCK_STRIP_TOOL",
+            "MOCK_DEPS_SCANNER_TOOL",
             /* supportsInterfaceSharedLibraries= */ false,
             /* existingActionConfigNames= */ ImmutableSet.of());
 

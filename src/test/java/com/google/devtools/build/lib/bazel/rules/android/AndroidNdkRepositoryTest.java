@@ -62,11 +62,6 @@ public class AndroidNdkRepositoryTest extends AndroidBuildViewTestCase {
             .withToolchainTargetConstraints("@platforms//os:android", "@platforms//cpu:armv7"));
     scratch.overwriteFile("embedded_tools/tools/build_defs/cc/BUILD");
     scratch.overwriteFile(
-        "embedded_tools/tools/build_defs/cc/action_names.bzl",
-        ResourceLoader.readFromResources(
-            TestConstants.RULES_CC_REPOSITORY_EXECROOT + "cc/action_names.bzl"));
-
-    scratch.overwriteFile(
         "embedded_tools/tools/cpp/cc_toolchain_config_lib.bzl",
         ResourceLoader.readFromResources(
             TestConstants.RULES_CC_REPOSITORY_EXECROOT + "cc/cc_toolchain_config_lib.bzl"));

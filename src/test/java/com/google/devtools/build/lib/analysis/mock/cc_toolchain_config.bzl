@@ -32,6 +32,7 @@ load(
 )
 
 _FEATURE_NAMES = struct(
+    cpp20_module = "cpp20_module",
     generate_pdb_file = "generate_pdb_file",
     no_legacy_features = "no_legacy_features",
     do_not_split_linking_cmdline = "do_not_split_linking_cmdline",
@@ -120,6 +121,34 @@ _FEATURE_NAMES = struct(
     generate_linkmap = "generate_linkmap",
 )
 
+    # Tell bazel we support C++20 Modules now
+_cpp20_module = feature(
+        name = "cpp20_module",
+        # set default value to False
+        # to enable the feature
+        # use --features=cpp20_module
+        # or add cpp20_module to features attr
+        enabled = False,
+    )
+_cpp20_modmap_file_feature = feature(
+        name = "cpp20_modmap_file",
+        flag_sets = [
+            flag_set(
+                actions = [
+                    ACTION_NAMES.cpp_compile,
+                    ACTION_NAMES.cpp20_module_compile,
+                    ACTION_NAMES.cpp20_module_codegen,
+                ],
+                flag_groups = [
+                    flag_group(
+                        flags = ["@%{cpp20_modmap_file}"],
+                        expand_if_available = "cpp20_modmap_file",
+                    ),
+                ],
+            ),
+        ],
+        enabled = True,
+    )
 _no_copts_tokenization_feature = feature(name = _FEATURE_NAMES.no_copts_tokenization)
 
 _disable_pbh_feature = feature(name = _FEATURE_NAMES.disable_pbh)
@@ -147,6 +176,7 @@ _define_with_space = feature(
                 ACTION_NAMES.cpp_compile,
                 ACTION_NAMES.linkstamp_compile,
                 ACTION_NAMES.cpp_header_parsing,
+                ACTION_NAMES.cpp20_deps_scanning,
                 ACTION_NAMES.cpp_module_compile,
                 ACTION_NAMES.cpp_module_codegen,
                 ACTION_NAMES.clif_match,
@@ -457,6 +487,7 @@ _user_compile_flags_feature = feature(
                 ACTION_NAMES.c_compile,
                 ACTION_NAMES.cpp_compile,
                 ACTION_NAMES.cpp_header_parsing,
+                ACTION_NAMES.cpp20_deps_scanning,
                 ACTION_NAMES.cpp_module_compile,
                 ACTION_NAMES.cpp_module_codegen,
                 ACTION_NAMES.lto_backend,
@@ -1330,6 +1361,7 @@ _generate_linkmap_feature = feature(
 )
 
 _feature_name_to_feature = {
+    _FEATURE_NAMES.cpp20_module: _cpp20_module,
     _FEATURE_NAMES.no_legacy_features: _no_legacy_features_feature,
     _FEATURE_NAMES.do_not_split_linking_cmdline: _do_not_split_linking_cmdline_feature,
     _FEATURE_NAMES.supports_dynamic_linker: _supports_dynamic_linker_feature,
@@ -1511,6 +1543,7 @@ def _impl(ctx):
                     ACTION_NAMES.linkstamp_compile,
                     ACTION_NAMES.cpp_compile,
                     ACTION_NAMES.cpp_header_parsing,
+                    ACTION_NAMES.cpp20_deps_scanning,
                     ACTION_NAMES.cpp_module_compile,
                     ACTION_NAMES.cpp_module_codegen,
                     ACTION_NAMES.lto_backend,
@@ -1592,6 +1625,10 @@ def _impl(ctx):
                 name = "llvm-profdata",
                 path = "/usr/bin/mock-llvm-profdata",
             ),
+            tool_path(
+                name = "deps-scanner",
+                path = "/usr/bin/mock-deps-scanner"
+            )
         ]
     else:
         tool_paths = [_get_tool_path(name, path) for name, path in ctx.attr.tool_paths.items()]

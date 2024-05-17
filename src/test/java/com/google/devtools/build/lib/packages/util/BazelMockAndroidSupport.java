@@ -58,6 +58,7 @@ public final class BazelMockAndroidSupport {
             Pair.of("objcopy", "x86/bin/i686-linux-android-objcopy"),
             Pair.of("objdump", "x86/bin/i686-linux-android-objdump"),
             Pair.of("strip", "x86/bin/i686-linux-android-strip"),
+            Pair.of("deps-scanner", "x86/bin/i686-linux-android-deps-scanner"),
             Pair.of("ld-bfd", "x86/bin/i686-linux-android-ld.bfd"),
             Pair.of("ld-gold", "x86/bin/i686-linux-android-ld.gold"))
         .withToolchainTargetConstraints(
@@ -86,6 +87,7 @@ public final class BazelMockAndroidSupport {
             Pair.of("objcopy", "arm/bin/arm-linux-androideabi-objcopy"),
             Pair.of("objdump", "arm/bin/arm-linux-androideabi-objdump"),
             Pair.of("strip", "arm/bin/arm-linux-androideabi-strip"),
+            Pair.of("deps-scanner", "arm/bin/arm-linux-androideabi-deps-scanner"),
             Pair.of("ld-bfd", "arm/bin/arm-linux-androideabi-ld.bfd"),
             Pair.of("ld-gold", "arm/bin/arm-linux-androideabi-ld.gold"))
         .withToolchainTargetConstraints(

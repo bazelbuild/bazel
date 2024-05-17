@@ -163,6 +163,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             "gcc_tool",
             "ar_tool",
             "strip_tool",
+            "deps_scanner_tool",
             /* supportsInterfaceSharedLibraries= */ false,
             /* existingActionConfigNames= */ ImmutableSet.of());
 

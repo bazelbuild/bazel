@@ -7277,6 +7277,7 @@ def _impl(ctx):
             tool_path(name = "strip", path = "<tool_dir>/strip"),
             tool_path(name = "dwp", path = "/usr/bin/dwp"),
             tool_path(name = "objdump", path = "/usr/bin/objdump"),
+            tool_path(name = "deps-scanner", path = "/usr/bin/deps-scanner"),
         ]
     elif (ctx.attr.cpu == "ios_arm64" or
           ctx.attr.cpu == "ios_armv7"):
@@ -7290,6 +7291,7 @@ def _impl(ctx):
             tool_path(name = "strip", path = "ios/strip"),
             tool_path(name = "dwp", path = "/usr/bin/dwp"),
             tool_path(name = "objdump", path = "/usr/bin/objdump"),
+            tool_path(name = "deps-scanner", path = "/usr/bin/deps-scanner"),
         ]
     elif (ctx.attr.cpu == "ios_i386" or
           ctx.attr.cpu == "ios_x86_64"):
@@ -7303,6 +7305,7 @@ def _impl(ctx):
             tool_path(name = "strip", path = "iossim/strip"),
             tool_path(name = "dwp", path = "/usr/bin/dwp"),
             tool_path(name = "objdump", path = "/usr/bin/objdump"),
+            tool_path(name = "deps-scanner", path = "/usr/bin/deps-scanner"),
         ]
     elif (ctx.attr.cpu == "darwin_x86_64"):
         tool_paths = [
@@ -7315,6 +7318,7 @@ def _impl(ctx):
             tool_path(name = "strip", path = "mac/strip"),
             tool_path(name = "dwp", path = "/usr/bin/dwp"),
             tool_path(name = "objdump", path = "/usr/bin/objdump"),
+            tool_path(name = "deps-scanner", path = "/usr/bin/deps-scanner"),
         ]
     elif (ctx.attr.cpu == "tvos_arm64"):
         tool_paths = [
@@ -7327,6 +7331,7 @@ def _impl(ctx):
             tool_path(name = "strip", path = "tvos/strip"),
             tool_path(name = "dwp", path = "/usr/bin/dwp"),
             tool_path(name = "objdump", path = "/usr/bin/objdump"),
+            tool_path(name = "deps-scanner", path = "/usr/bin/deps-scanner"),
         ]
     elif (ctx.attr.cpu == "tvos_x86_64"):
         tool_paths = [
@@ -7339,6 +7344,7 @@ def _impl(ctx):
             tool_path(name = "strip", path = "tvsim/strip"),
             tool_path(name = "dwp", path = "/usr/bin/dwp"),
             tool_path(name = "objdump", path = "/usr/bin/objdump"),
+            tool_path(name = "deps-scanner", path = "/usr/bin/deps-scanner"),
         ]
     elif (ctx.attr.cpu == "watchos_armv7k" or
           ctx.attr.cpu == "watchos_arm64_32"):
@@ -7352,6 +7358,7 @@ def _impl(ctx):
             tool_path(name = "strip", path = "watchos/strip"),
             tool_path(name = "dwp", path = "/usr/bin/dwp"),
             tool_path(name = "objdump", path = "/usr/bin/objdump"),
+            tool_path(name = "deps-scanner", path = "/usr/bin/deps-scanner"),
         ]
     elif (ctx.attr.cpu == "watchos_i386" or
           ctx.attr.cpu == "watchos_x86_64"):
@@ -7365,6 +7372,7 @@ def _impl(ctx):
             tool_path(name = "strip", path = "watchsim/strip"),
             tool_path(name = "dwp", path = "/usr/bin/dwp"),
             tool_path(name = "objdump", path = "/usr/bin/objdump"),
+            tool_path(name = "deps-scanner", path = "/usr/bin/deps-scanner"),
         ]
     else:
         tool_paths = []

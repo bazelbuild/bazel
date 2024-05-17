@@ -271,10 +271,19 @@ public abstract class MockCcSupport {
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/cc_toolchain_config_lib.bzl",
         ResourceLoader.readFromResources(
             TestConstants.RULES_CC_REPOSITORY_EXECROOT + "cc/cc_toolchain_config_lib.bzl"));
+    // to support C++20 Modules
+    // many action names have been added
+    // However, the rules_cc is not update now, resulting test failed.
+    // e.g. Error: 'struct' value has no field or method 'cpp20_deps_scanning'
+    // to fix the error, another action_names.bzl is created for testing
+    // Attention: keep the file content same as
+    // src/main/starlark/builtins_bzl/common/cc/action_names.bzl
     config.overwrite(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/build_defs/cc/action_names.bzl",
+            readCcActionNamesFile()
+    );
         ResourceLoader.readFromResources(
-            TestConstants.RULES_CC_REPOSITORY_EXECROOT + "cc/action_names.bzl"));
+            TestConstants.RULES_CC_REPOSITORY_EXECROOT + "cc/action_names.bzl");
     config.create(
         TestConstants.RULES_CC_REPOSITORY_EXECROOT + "BUILD",
         "genrule(name='license', cmd='exit 0', outs=['dummy_license'])");
@@ -339,6 +348,11 @@ public abstract class MockCcSupport {
   protected String readCcToolchainConfigFile() throws IOException {
     return ResourceLoader.readFromResources(
         "com/google/devtools/build/lib/analysis/mock/cc_toolchain_config.bzl");
+  }
+
+  protected String readCcActionNamesFile() throws IOException {
+    return ResourceLoader.readFromResources(
+        "com/google/devtools/build/lib/analysis/mock/action_names.bzl");
   }
 
   public abstract Label getMockCrosstoolLabel();

@@ -742,6 +742,7 @@ public class CcToolchainTest extends BuildViewTestCase {
                     tool_path(name = "strip", path = "/some/path"),
                     tool_path(name = "dwp", path = "/some/path"),
                     tool_path(name = "llvm_profdata", path = "/some/path"),
+                    tool_path(name = "deps-scanner", path = "/some/path"),
                 ],
                 cc_target_os = "os",
                 builtin_sysroot = "sysroot",
