@@ -1454,6 +1454,15 @@ public class CppActionConfigs {
                         "    }",
                         "  }")));
       }
+      if (!existingFeatureNames.contains("cpp20_module")) {
+        featureBuilder.add(
+                getFeature(
+                        Joiner.on("\n")
+                                .join(
+                                        "  name: 'cpp20_module'",
+                                        "  enabled: false"
+                                )));
+      }
       // unfiltered_compile_flags contain system include paths. These must be added
       // after the user provided options (present in legacy_compile_flags build
       // variable above), otherwise users adding include paths will not pick up their own

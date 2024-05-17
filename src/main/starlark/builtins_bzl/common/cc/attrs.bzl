@@ -84,6 +84,22 @@ using the C/C++ compiler.
 </p>
 """,
     ),
+    "module_interfaces": attr.label_list(
+        allow_files = True,
+        flags = ["DIRECT_COMPILE_TIME_INPUT"],
+        doc = """
+The list of files are regarded as C++20 Modules Interface.
+
+<p>
+C++ Standard has no restriction about module interface file extension
+<ul>
+<li>Clang use cppm </li>
+<li>GCC can use any source file extension </li>
+<li>MSVC use ixx </li>
+</ul>
+</p>
+        """,
+    ),
     "data": attr.label_list(
         allow_files = True,
         flags = ["SKIP_CONSTRAINTS_OVERRIDE"],

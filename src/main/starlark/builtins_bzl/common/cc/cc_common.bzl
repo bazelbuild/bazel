@@ -657,6 +657,7 @@ def _compile(
         cc_toolchain,
         name,
         srcs = [],
+        module_interfaces = [],
         public_hdrs = [],
         private_hdrs = [],
         textual_hdrs = [],
@@ -727,7 +728,7 @@ def _compile(
     if non_compilation_additional_inputs == _UNBOUND:
         non_compilation_additional_inputs = []
 
-    has_tuple = _check_all_sources_contain_tuples_or_none_of_them([srcs, private_hdrs, public_hdrs])
+    has_tuple = _check_all_sources_contain_tuples_or_none_of_them([srcs, module_interfaces, private_hdrs, public_hdrs])
     if has_tuple:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
@@ -737,6 +738,7 @@ def _compile(
         cc_toolchain = cc_toolchain,
         name = name,
         srcs = srcs,
+        module_interfaces = module_interfaces,
         public_hdrs = public_hdrs,
         private_hdrs = private_hdrs,
         textual_hdrs = textual_hdrs,
