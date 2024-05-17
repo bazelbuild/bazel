@@ -88,6 +88,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/module:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/proto:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/server:srcs",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:srcs",
         "//src/main/java/com/google/devtools/build/lib/supplier:srcs",
         "//src/main/java/com/google/devtools/build/lib/testing/common:srcs",
         "//src/main/java/com/google/devtools/build/lib/testing/vfs:srcs",

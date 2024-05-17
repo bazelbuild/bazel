@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
+import com.google.devtools.build.lib.starlarkdocextract.ModuleInfoExtractor;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.skydoc.rendering;
+package com.google.devtools.build.lib.starlarkdocextract;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -50,34 +50,23 @@ public final class StarlarkFunctionInfoExtractor {
    *     the original exported function name; the function may have been renamed in the target
    *     Starlark file's scope)
    * @param fn the function object
-   * @param withOriginKey set the {@link OriginKey} for the original name and original module where
-   *     the function was defined
    * @param labelRenderer a string renderer for {@link Label} values in argument defaults and for
    *     the {@link OriginKey}'s file
-   * @throws com.google.devtools.build.skydoc.rendering.DocstringParseException if the function's
-   *     docstring is malformed
+   * @throws DocstringParseException if the function's docstring is malformed
    */
-  // TODO(arostovtsev): remove withOriginKey parameter and always export the origin key after we
-  // remove the legacy Stardoc extractor.
   public static StarlarkFunctionInfo fromNameAndFunction(
-      String functionName, StarlarkFunction fn, boolean withOriginKey, LabelRenderer labelRenderer)
+      String functionName, StarlarkFunction fn, LabelRenderer labelRenderer)
       throws DocstringParseException {
-    return new StarlarkFunctionInfoExtractor(labelRenderer)
-        .extract(functionName, fn, withOriginKey);
+    return new StarlarkFunctionInfoExtractor(labelRenderer).extract(functionName, fn);
   }
 
-  private StarlarkFunctionInfo extract(
-      String functionName, StarlarkFunction fn, boolean withOriginKey)
+  private StarlarkFunctionInfo extract(String functionName, StarlarkFunction fn)
       throws DocstringParseException {
     Map<String, String> paramNameToDocMap = Maps.newLinkedHashMap();
     StarlarkFunctionInfo.Builder functionInfoBuilder =
         StarlarkFunctionInfo.newBuilder().setFunctionName(functionName);
-    if (withOriginKey) {
-      functionInfoBuilder.setOriginKey(getFunctionOriginKey(fn));
-    }
-
+    functionInfoBuilder.setOriginKey(getFunctionOriginKey(fn));
     String doc = fn.getDocumentation();
-
     if (doc != null) {
       List<DocstringParseError> parseErrors = Lists.newArrayList();
       DocstringInfo docstringInfo = DocstringUtils.parseDocstring(doc, parseErrors);

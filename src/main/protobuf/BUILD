@@ -321,10 +321,10 @@ package_group(
     packages = [
         "//src/main/java/com/google/devtools/build/docgen/...",
         "//src/main/java/com/google/devtools/build/lib/rules/starlarkdocextract/...",
-        "//src/main/java/com/google/devtools/build/skydoc/...",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdocextract/...",
         "//src/test/java/com/google/devtools/build/docgen/...",
         "//src/test/java/com/google/devtools/build/lib/rules/starlarkdocextract/...",
-        "//src/test/java/com/google/devtools/build/skydoc/...",
+        "//src/test/java/com/google/devtools/build/lib/starlarkdocextract/...",
     ],
 )
 

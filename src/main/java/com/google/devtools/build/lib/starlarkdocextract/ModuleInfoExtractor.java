@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules.starlarkdocextract;
+package com.google.devtools.build.lib.starlarkdocextract;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -37,9 +37,6 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
-import com.google.devtools.build.skydoc.rendering.DocstringParseException;
-import com.google.devtools.build.skydoc.rendering.LabelRenderer;
-import com.google.devtools.build.skydoc.rendering.StarlarkFunctionInfoExtractor;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
@@ -69,7 +66,7 @@ public final class ModuleInfoExtractor {
   private final LabelRenderer labelRenderer;
 
   @VisibleForTesting
-  static final AttributeInfo IMPLICIT_NAME_ATTRIBUTE_INFO =
+  public static final AttributeInfo IMPLICIT_NAME_ATTRIBUTE_INFO =
       AttributeInfo.newBuilder()
           .setName("name")
           .setType(AttributeType.NAME)
@@ -78,7 +75,7 @@ public final class ModuleInfoExtractor {
           .build();
 
   @VisibleForTesting
-  static final AttributeInfo IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO =
+  public static final AttributeInfo IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO =
       AttributeInfo.newBuilder()
           .setName("name")
           .setType(AttributeType.NAME)
@@ -90,7 +87,7 @@ public final class ModuleInfoExtractor {
           .build();
 
   @VisibleForTesting
-  static final ImmutableList<AttributeInfo> IMPLICIT_REPOSITORY_RULE_ATTRIBUTES =
+  public static final ImmutableList<AttributeInfo> IMPLICIT_REPOSITORY_RULE_ATTRIBUTES =
       ImmutableList.of(
           AttributeInfo.newBuilder()
               .setName("name")
@@ -377,7 +374,7 @@ public final class ModuleInfoExtractor {
       try {
         moduleInfoBuilder.addFuncInfo(
             StarlarkFunctionInfoExtractor.fromNameAndFunction(
-                qualifiedName, function, /* withOriginKey= */ true, labelRenderer));
+                qualifiedName, function, labelRenderer));
       } catch (DocstringParseException e) {
         throw new ExtractionException(e);
       }
@@ -482,10 +479,7 @@ public final class ModuleInfoExtractor {
         try {
           providerInfoBuilder.setInit(
               StarlarkFunctionInfoExtractor.fromNameAndFunction(
-                  qualifiedName,
-                  (StarlarkFunction) provider.getInit(),
-                  /* withOriginKey= */ true,
-                  labelRenderer));
+                  qualifiedName, (StarlarkFunction) provider.getInit(), labelRenderer));
         } catch (DocstringParseException e) {
           throw new ExtractionException(e);
         }
