@@ -128,6 +128,7 @@ java_library(
         "//third_party:caffeine",
         "//third_party:checker_framework_annotations",
         "//third_party:flogger",
+        "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",

@@ -1080,6 +1080,9 @@ message CppCompile {
     D_FILE_PARSE_FAILURE = 9 [(metadata) = { exit_code: 1 }];
     COVERAGE_NOTES_CREATION_FAILURE = 10 [(metadata) = { exit_code: 1 }];
     MODULE_EXPANSION_MISSING_DATA = 11 [(metadata) = { exit_code: 1 }];
+    DDI_FILE_READ_FAILURE = 12 [(metadata) = { exit_code: 36 }];
+    MODULES_INFO_FILE_READ_FAILURE = 13 [(metadata) = { exit_code: 36 }];
+    MODMAP_INPUT_FILE_READ_FAILURE = 14 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
