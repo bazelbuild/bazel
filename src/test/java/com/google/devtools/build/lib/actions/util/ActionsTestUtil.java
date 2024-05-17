@@ -896,6 +896,11 @@ public final class ActionsTestUtil {
     public Path getPathFromSourceExecPath(Path execRoot, PathFragment execPath) {
       throw new UnsupportedOperationException();
     }
+
+    @Override
+    public boolean isDerivedArtifact(PathFragment execPath) {
+      throw new UnsupportedOperationException();
+    }
   }
 
   /**

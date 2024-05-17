@@ -80,4 +80,12 @@ public interface ArtifactResolver {
       throws PackageRootResolver.PackageRootException, InterruptedException;
 
   Path getPathFromSourceExecPath(Path execRoot, PathFragment execPath);
+
+  /**
+   * Determines if an artifact is derived, that is, its root is a derived root or its exec path
+   * starts with the bazel-out prefix.
+   *
+   * @param execPath The artifact's exec path.
+   */
+  boolean isDerivedArtifact(PathFragment execPath);
 }
