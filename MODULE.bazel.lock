@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "a53edbe40f270471ecb000b29c44cd7668eb7d02692665f95a7193035d3b2b37",
+  "moduleFileHash": "2f956ba77249bcfc9c6593c848866f46100e1a916e23773571ae4c931314125e",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -68,7 +68,7 @@
                   "com.google.auto.value:auto-value:1.10.4",
                   "com.google.auto.value:auto-value-annotations:1.10.4",
                   "com.google.code.findbugs:jsr305:3.0.2",
-                  "com.google.code.gson:gson:2.9.0",
+                  "com.google.code.gson:gson:2.10.1",
                   "com.google.code.java-allocation-instrumenter:java-allocation-instrumenter:3.3.0",
                   "com.google.errorprone:error_prone_annotation:2.23.0",
                   "com.google.errorprone:error_prone_annotations:2.23.0",
@@ -2939,7 +2939,7 @@
       "general": {
         "bzlTransitiveDigest": "DNJM0epQeVejZo36Ukn/eoamqYgSvq9zGHhuPLb7338=",
         "recordedFileInputs": {
-          "@@//MODULE.bazel": "a53edbe40f270471ecb000b29c44cd7668eb7d02692665f95a7193035d3b2b37",
+          "@@//MODULE.bazel": "2f956ba77249bcfc9c6593c848866f46100e1a916e23773571ae4c931314125e",
           "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "bc8e96063c5f9a9a3852468646c597b45163a1449c77183f08a9e1f9e9b7ef51"
         },
         "recordedDirentsInputs": {},
@@ -4842,7 +4842,7 @@
         "recordedFileInputs": {
           "@@//src/tools/android/maven_android_install.json": "09bff3e33d291336046f7c9201630fb5e014f0e60b78b6f09b84e4f5f73ed04f",
           "@@rules_jvm_external~//rules_jvm_external_deps_install.json": "cafb5d2d8119391eb2b322ce3840d3352ea82d496bdb8cbd4b6779ec4d044dda",
-          "@@//maven_install.json": "84ca3646b4d12570872521f9057b92581b595bea625ce3c288880dd1d27282eb"
+          "@@//maven_install.json": "01e0711721ff11f8ff15d409ba5e6e831524102317fe699a80c1609b74c9dada"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -5453,7 +5453,7 @@
                 "{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value\", \"version\": \"1.10.4\" }",
                 "{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value-annotations\", \"version\": \"1.10.4\" }",
                 "{ \"group\": \"com.google.code.findbugs\", \"artifact\": \"jsr305\", \"version\": \"3.0.2\" }",
-                "{ \"group\": \"com.google.code.gson\", \"artifact\": \"gson\", \"version\": \"2.9.0\" }",
+                "{ \"group\": \"com.google.code.gson\", \"artifact\": \"gson\", \"version\": \"2.10.1\" }",
                 "{ \"group\": \"com.google.code.java-allocation-instrumenter\", \"artifact\": \"java-allocation-instrumenter\", \"version\": \"3.3.0\" }",
                 "{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_annotation\", \"version\": \"2.23.0\" }",
                 "{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_annotations\", \"version\": \"2.23.0\" }",
@@ -7619,17 +7619,6 @@
               "downloaded_file_path": "v1/io/grpc/grpc-services/1.56.1/grpc-services-1.56.1.jar"
             }
           },
-          "com_google_code_gson_gson_2_9_0": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "c96d60551331a196dac54b745aa642cd078ef89b6f267146b705f2c2cbef052d",
-              "urls": [
-                "https://repo1.maven.org/maven2/com/google/code/gson/gson/2.9.0/gson-2.9.0.jar"
-              ],
-              "downloaded_file_path": "v1/com/google/code/gson/gson/2.9.0/gson-2.9.0.jar"
-            }
-          },
           "software_amazon_awssdk_regions_2_20_128": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -8102,7 +8091,7 @@
                 "{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value\", \"version\": \"1.10.4\" }",
                 "{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value-annotations\", \"version\": \"1.10.4\" }",
                 "{ \"group\": \"com.google.code.findbugs\", \"artifact\": \"jsr305\", \"version\": \"3.0.2\" }",
-                "{ \"group\": \"com.google.code.gson\", \"artifact\": \"gson\", \"version\": \"2.9.0\" }",
+                "{ \"group\": \"com.google.code.gson\", \"artifact\": \"gson\", \"version\": \"2.10.1\" }",
                 "{ \"group\": \"com.google.code.java-allocation-instrumenter\", \"artifact\": \"java-allocation-instrumenter\", \"version\": \"3.3.0\" }",
                 "{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_annotation\", \"version\": \"2.23.0\" }",
                 "{ \"group\": \"com.google.errorprone\", \"artifact\": \"error_prone_annotations\", \"version\": \"2.23.0\" }",
