@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -287,7 +288,7 @@ public abstract class CcModule
     return Dict.immutableCopyOf(
         featureConfiguration
             .getFeatureConfiguration()
-            .getEnvironmentVariables(actionName, variables));
+            .getEnvironmentVariables(actionName, variables, PathMapper.NOOP));
   }
 
   @Override

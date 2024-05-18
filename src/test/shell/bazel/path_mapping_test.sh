@@ -325,4 +325,223 @@ EOF
   bazel build --experimental_output_paths=strip //pkg:all &> $TEST_log || fail "build failed unexpectedly"
 }
 
+# Verifies that path mapping results in cache hits for CppCompile actions
+# subject to transitions that don't affect their inputs.
+function test_path_stripping_cc_remote() {
+  local -r pkg="${FUNCNAME[0]}"
+
+  mkdir -p "$pkg"
+  cat > "$pkg/BUILD" <<EOF
+load("//$pkg/common/utils:defs.bzl", "transition_wrapper")
+
+cc_binary(
+    name = "main",
+    srcs = ["main.cc"],
+    deps = [
+        "//$pkg/lib1",
+        "//$pkg/lib2",
+    ],
+)
+
+transition_wrapper(
+    name = "transitioned_main",
+    greeting = "Hi there",
+    target = ":main",
+)
+EOF
+  cat > "$pkg/main.cc" <<EOF
+#include <iostream>
+#include "$pkg/lib1/lib1.h"
+#include "lib2.h"
+
+int main() {
+  std::cout << GetLib1Greeting() << std::endl;
+  std::cout << GetLib2Greeting() << std::endl;
+  return 0;
+}
+EOF
+
+  mkdir -p "$pkg"/lib1
+  cat > "$pkg/lib1/BUILD" <<EOF
+cc_library(
+    name = "lib1",
+    srcs = ["lib1.cc"],
+    hdrs = ["lib1.h"],
+    deps = ["//$pkg/common/utils:utils"],
+    visibility = ["//visibility:public"],
+)
+EOF
+  cat > "$pkg/lib1/lib1.h" <<'EOF'
+#ifndef LIB1_H_
+#define LIB1_H_
+
+#include <string>
+
+std::string GetLib1Greeting();
+
+#endif
+EOF
+  cat > "$pkg/lib1/lib1.cc" <<'EOF'
+#include "lib1.h"
+#include "other_dir/utils.h"
+
+std::string GetLib1Greeting() {
+  return AsGreeting("lib1");
+}
+EOF
+
+  mkdir -p "$pkg"/lib2
+  cat > "$pkg/lib2/BUILD" <<EOF
+genrule(
+    name = "gen_header",
+    srcs = ["lib2.h.tpl"],
+    outs = ["lib2.h"],
+    cmd = "cp \$< \$@",
+)
+genrule(
+    name = "gen_source",
+    srcs = ["lib2.cc.tpl"],
+    outs = ["lib2.cc"],
+    cmd = "cp \$< \$@",
+)
+cc_library(
+    name = "lib2",
+    srcs = ["lib2.cc"],
+    hdrs = ["lib2.h"],
+    includes = ["."],
+    deps = ["//$pkg/common/utils:utils"],
+    visibility = ["//visibility:public"],
+)
+EOF
+  cat > "$pkg/lib2/lib2.h.tpl" <<'EOF'
+#ifndef LIB2_H_
+#define LIB2_H_
+
+#include <string>
+
+std::string GetLib2Greeting();
+
+#endif
+EOF
+  cat > "$pkg/lib2/lib2.cc.tpl" <<'EOF'
+#include "lib2.h"
+#include "other_dir/utils.h"
+
+std::string GetLib2Greeting() {
+  return AsGreeting("lib2");
+}
+EOF
+
+  mkdir -p "$pkg"/common/utils
+  cat > "$pkg/common/utils/BUILD" <<'EOF'
+load(":defs.bzl", "greeting_setting")
+
+greeting_setting(
+    name = "greeting",
+    build_setting_default = "Hello",
+)
+genrule(
+    name = "gen_header",
+    srcs = ["utils.h.tpl"],
+    outs = ["dir/utils.h"],
+    cmd = "cp $< $@",
+)
+genrule(
+    name = "gen_source",
+    srcs = ["utils.cc.tpl"],
+    outs = ["dir/utils.cc"],
+    cmd = "sed -e 's/{GREETING}/$(GREETING)/' $< > $@",
+    toolchains = [":greeting"],
+)
+cc_library(
+    name = "utils",
+    srcs = ["dir/utils.cc"],
+    hdrs = ["dir/utils.h"],
+    include_prefix = "other_dir",
+    strip_include_prefix = "dir",
+    visibility = ["//visibility:public"],
+)
+EOF
+  cat > "$pkg/common/utils/utils.h.tpl" <<'EOF'
+#ifndef SOME_PKG_UTILS_H_
+#define SOME_PKG_UTILS_H_
+
+#include <string>
+
+std::string AsGreeting(const std::string& name);
+#endif
+EOF
+  cat > "$pkg/common/utils/defs.bzl" <<EOF
+def _greeting_setting_impl(ctx):
+    return platform_common.TemplateVariableInfo({
+        "GREETING": ctx.build_setting_value,
+    })
+
+greeting_setting = rule(
+    implementation = _greeting_setting_impl,
+    build_setting = config.string(),
+)
+
+def _greeting_transition_impl(settings, attr):
+    return {"//$pkg/common/utils:greeting": attr.greeting}
+
+greeting_transition = transition(
+    implementation = _greeting_transition_impl,
+    inputs = [],
+    outputs = ["//$pkg/common/utils:greeting"],
+)
+
+def _transition_wrapper_impl(ctx):
+    out = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.symlink(output = out, target_file = ctx.executable.target, is_executable = True)
+    return [
+        DefaultInfo(executable = out),
+    ]
+
+transition_wrapper = rule(
+    cfg = greeting_transition,
+    implementation = _transition_wrapper_impl,
+    attrs = {
+        "greeting": attr.string(),
+        "target": attr.label(
+            cfg = "target",
+            executable = True,
+        ),
+    },
+    executable = True,
+)
+EOF
+  cat > "$pkg/common/utils/utils.cc.tpl" <<'EOF'
+#include "utils.h"
+
+std::string AsGreeting(const std::string& name) {
+  return "{GREETING}, " + name + "!";
+}
+EOF
+
+  bazel run \
+    --verbose_failures \
+    --experimental_output_paths=strip \
+    --modify_execution_info=CppCompile=+supports-path-mapping \
+    --remote_executor=grpc://localhost:${worker_port} \
+    "//$pkg:main" &>"$TEST_log" || fail "Expected success"
+
+  expect_log 'Hello, lib1!'
+  expect_log 'Hello, lib2!'
+  expect_not_log 'remote cache hit'
+
+  bazel run \
+    --verbose_failures \
+    --experimental_output_paths=strip \
+    --modify_execution_info=CppCompile=+supports-path-mapping \
+    --remote_executor=grpc://localhost:${worker_port} \
+    "//$pkg:transitioned_main" &>"$TEST_log" || fail "Expected success"
+
+  expect_log 'Hi there, lib1!'
+  expect_log 'Hi there, lib2!'
+  # Compilation actions for lib1, lib2 and main should result in cache hits due
+  # to path stripping, utils is legitimately different and should not.
+  expect_log ' 3 remote cache hit'
+}
+
 run_suite "path mapping tests"

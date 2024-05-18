@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -95,7 +96,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     assertThat(librariesToLinkSequence).isNotNull();
     Iterable<? extends VariableValue> librariesToLink =
         librariesToLinkSequence.getSequenceValue(
-            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName());
+            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), PathMapper.NOOP);
     assertThat(librariesToLink).hasSize(1);
     VariableValue nameValue =
         librariesToLink
@@ -105,7 +106,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
                 LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
                 LibraryToLinkValue.NAME_FIELD_NAME);
     assertThat(nameValue).isNotNull();
-    String name = nameValue.getStringValue(LibraryToLinkValue.NAME_FIELD_NAME);
+    String name = nameValue.getStringValue(LibraryToLinkValue.NAME_FIELD_NAME, PathMapper.NOOP);
     assertThat(name).matches(".*a\\..*o");
   }
 
@@ -140,7 +141,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
         variables.getVariable(LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName());
     Iterable<? extends VariableValue> librariestoLink =
         librariesToLinkSequence.getSequenceValue(
-            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName());
+            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), PathMapper.NOOP);
     VariableValue nameValue =
         librariestoLink
             .iterator()
@@ -149,7 +150,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
                 LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
                 LibraryToLinkValue.NAME_FIELD_NAME);
     assertThat(nameValue).isNotNull();
-    String name = nameValue.getStringValue(LibraryToLinkValue.NAME_FIELD_NAME);
+    String name = nameValue.getStringValue(LibraryToLinkValue.NAME_FIELD_NAME, PathMapper.NOOP);
     assertThat(name).isEqualTo("bar");
   }
 
@@ -167,7 +168,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
         variables.getVariable(LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName());
     Iterable<? extends VariableValue> librariestoLink =
         librariesToLinkSequence.getSequenceValue(
-            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName());
+            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), PathMapper.NOOP);
     VariableValue nameValue =
         librariestoLink
             .iterator()
@@ -176,7 +177,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
                 LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
                 LibraryToLinkValue.NAME_FIELD_NAME);
     assertThat(nameValue).isNotNull();
-    String name = nameValue.getStringValue(LibraryToLinkValue.NAME_FIELD_NAME);
+    String name = nameValue.getStringValue(LibraryToLinkValue.NAME_FIELD_NAME, PathMapper.NOOP);
     assertThat(name).isEqualTo("libbar.so.1a.2");
   }
 
@@ -194,7 +195,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
         variables.getVariable(LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName());
     Iterable<? extends VariableValue> librariestoLink =
         librariesToLinkSequence.getSequenceValue(
-            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName());
+            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), PathMapper.NOOP);
     VariableValue nameValue =
         librariestoLink
             .iterator()
@@ -203,7 +204,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
                 LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
                 LibraryToLinkValue.NAME_FIELD_NAME);
     assertThat(nameValue).isNotNull();
-    String name = nameValue.getStringValue(LibraryToLinkValue.NAME_FIELD_NAME);
+    String name = nameValue.getStringValue(LibraryToLinkValue.NAME_FIELD_NAME, PathMapper.NOOP);
     assertThat(name).isEqualTo("_libbar.so");
   }
 
@@ -631,7 +632,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
     ImmutableList<String> userLinkFlags =
         CcToolchainVariables.toStringList(
-            testVariables, LinkBuildVariables.USER_LINK_FLAGS.getVariableName());
+            testVariables, LinkBuildVariables.USER_LINK_FLAGS.getVariableName(), PathMapper.NOOP);
     assertThat(userLinkFlags).containsAtLeast("-foo", "-bar").inOrder();
   }
 
@@ -660,7 +661,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
     assertThat(librariesToLinkSequence).isNotNull();
     Iterable<? extends VariableValue> librariesToLink =
         librariesToLinkSequence.getSequenceValue(
-            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName());
+            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(), PathMapper.NOOP);
     assertThat(Iterables.size(librariesToLink)).isAnyOf(2, 3);
 
     Iterator<? extends VariableValue> librariesToLinkIterator = librariesToLink.iterator();

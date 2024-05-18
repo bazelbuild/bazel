@@ -26,6 +26,7 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -65,7 +66,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
      *
      * @param variables binding of variable names to their values for a single flag expansion.
      */
-    String expand(CcToolchainVariables variables) throws ExpansionException;
+    String expand(CcToolchainVariables variables, PathMapper pathMapper) throws ExpansionException;
 
     String getString();
   }
@@ -80,7 +81,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     @Override
-    public String expand(CcToolchainVariables variables) {
+    public String expand(CcToolchainVariables variables, PathMapper pathMapper) {
       return text;
     }
 
@@ -116,12 +117,13 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     @Override
-    public String expand(CcToolchainVariables variables) throws ExpansionException {
+    public String expand(CcToolchainVariables variables, PathMapper pathMapper)
+        throws ExpansionException {
       // We check all variables in FlagGroup.expandCommandLine.
       // If we arrive here with the variable not being available, the variable was provided, but
       // the nesting level of the NestedSequence was deeper than the nesting level of the flag
       // groups.
-      return variables.getStringVariable(variableName);
+      return variables.getStringVariable(variableName, pathMapper);
     }
 
     @Override
@@ -272,6 +274,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     void expand(
         CcToolchainVariables variables,
         @Nullable ArtifactExpander expander,
+        PathMapper pathMapper,
         List<String> commandLine)
         throws ExpansionException;
   }
@@ -291,10 +294,11 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
    * <p>Throws {@link ExpansionException} when the variable is not a {@link StringSequence}.
    */
   public static ImmutableList<String> toStringList(
-      CcToolchainVariables variables, String variableName) throws ExpansionException {
+      CcToolchainVariables variables, String variableName, PathMapper pathMapper)
+      throws ExpansionException {
     ImmutableList.Builder<String> result = ImmutableList.builder();
-    for (VariableValue value : variables.getSequenceVariable(variableName)) {
-      result.add(value.getStringValue(variableName));
+    for (VariableValue value : variables.getSequenceVariable(variableName, pathMapper)) {
+      result.add(value.getStringValue(variableName, pathMapper));
     }
     return result.build();
   }
@@ -410,18 +414,21 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     return variable;
   }
 
-  public String getStringVariable(String variableName) throws ExpansionException {
-    return getVariable(variableName, /* expander= */ null).getStringValue(variableName);
-  }
-
-  public Iterable<? extends VariableValue> getSequenceVariable(String variableName)
+  public String getStringVariable(String variableName, PathMapper pathMapper)
       throws ExpansionException {
-    return getVariable(variableName, /* expander= */ null).getSequenceValue(variableName);
+    return getVariable(variableName, /* expander= */ null).getStringValue(variableName, pathMapper);
   }
 
   public Iterable<? extends VariableValue> getSequenceVariable(
-      String variableName, @Nullable ArtifactExpander expander) throws ExpansionException {
-    return getVariable(variableName, expander).getSequenceValue(variableName);
+      String variableName, PathMapper pathMapper) throws ExpansionException {
+    return getVariable(variableName, /* expander= */ null)
+        .getSequenceValue(variableName, pathMapper);
+  }
+
+  public Iterable<? extends VariableValue> getSequenceVariable(
+      String variableName, @Nullable ArtifactExpander expander, PathMapper pathMapper)
+      throws ExpansionException {
+    return getVariable(variableName, expander).getSequenceValue(variableName, pathMapper);
   }
 
   /** Returns whether {@code variable} is set. */
@@ -461,16 +468,18 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
      * StringValue), or throw exception if it cannot (e.g. Sequence).
      *
      * @param variableName name of the variable value at hand, for better exception message.
+     * @param pathMapper
      */
-    String getStringValue(String variableName) throws ExpansionException;
+    String getStringValue(String variableName, PathMapper pathMapper) throws ExpansionException;
 
     /**
      * Returns Iterable value of the variable, if the variable type can be converted to a Iterable
      * (e.g. Sequence), or throw exception if it cannot (e.g. StringValue).
      *
      * @param variableName name of the variable value at hand, for better exception message.
+     * @param pathMapper
      */
-    Iterable<? extends VariableValue> getSequenceValue(String variableName)
+    Iterable<? extends VariableValue> getSequenceValue(String variableName, PathMapper pathMapper)
         throws ExpansionException;
 
     /**
@@ -495,8 +504,9 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   /**
    * Adapter for {@link VariableValue} predefining error handling methods. Override {@link
    * #getVariableTypeName()}, {@link #isTruthy()}, and one of {@link #getFieldValue(String,
-   * String)}, {@link #getSequenceValue(String)}, or {@link #getStringValue(String)}, and you'll get
-   * error handling for the other methods for free.
+   * String)}, {@link VariableValue#getSequenceValue(String, PathMapper)}, or {@link
+   * VariableValue#getStringValue(String, PathMapper)}, and you'll get error handling for the other
+   * methods for free.
    */
   abstract static class VariableValueAdapter implements VariableValue {
 
@@ -533,7 +543,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     @Override
-    public String getStringValue(String variableName) throws ExpansionException {
+    public String getStringValue(String variableName, PathMapper pathMapper)
+        throws ExpansionException {
       throw new ExpansionException(
           String.format(
               "Invalid toolchain configuration: Cannot expand variable '%s': expected string, "
@@ -542,8 +553,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     @Override
-    public Iterable<? extends VariableValue> getSequenceValue(String variableName)
-        throws ExpansionException {
+    public Iterable<? extends VariableValue> getSequenceValue(
+        String variableName, PathMapper pathMapper) throws ExpansionException {
       throw new ExpansionException(
           String.format(
               "Invalid toolchain configuration: Cannot expand variable '%s': expected sequence, "
@@ -972,7 +983,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     @Override
-    public ImmutableList<VariableValue> getSequenceValue(String variableName) {
+    public ImmutableList<VariableValue> getSequenceValue(
+        String variableName, PathMapper pathMapper) {
       return values;
     }
 
@@ -1026,7 +1038,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     @Override
-    public ImmutableList<VariableValue> getSequenceValue(String variableName) {
+    public ImmutableList<VariableValue> getSequenceValue(
+        String variableName, PathMapper pathMapper) {
       ImmutableList.Builder<VariableValue> sequences =
           ImmutableList.builderWithExpectedSize(values.size());
       for (String value : values) {
@@ -1086,7 +1099,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     @Override
-    public ImmutableList<VariableValue> getSequenceValue(String variableName) {
+    public ImmutableList<VariableValue> getSequenceValue(
+        String variableName, PathMapper pathMapper) {
       ImmutableList<String> valuesList = values.toList();
       ImmutableList.Builder<VariableValue> sequences =
           ImmutableList.builderWithExpectedSize(valuesList.size());
@@ -1133,12 +1147,13 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     @Override
-    public ImmutableList<VariableValue> getSequenceValue(String variableName) {
+    public ImmutableList<VariableValue> getSequenceValue(
+        String variableName, PathMapper pathMapper) {
       ImmutableList<PathFragment> valuesList = values.toList();
       ImmutableList.Builder<VariableValue> sequences =
           ImmutableList.builderWithExpectedSize(valuesList.size());
       for (PathFragment value : valuesList) {
-        sequences.add(new StringValue(value.getSafePathString()));
+        sequences.add(new StringValue(pathMapper.map(value).getSafePathString()));
       }
       return sequences.build();
     }
@@ -1236,7 +1251,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     @Override
-    public String getStringValue(String variableName) {
+    public String getStringValue(String variableName, PathMapper pathMapper) {
       return value;
     }
 
@@ -1283,7 +1298,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     @Override
-    public String getStringValue(String variableName) {
+    public String getStringValue(String variableName, PathMapper pathMapper) {
       return value ? "1" : "0";
     }
 
@@ -1314,8 +1329,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     @Override
-    public String getStringValue(String variableName) {
-      return value.getExecPathString();
+    public String getStringValue(String variableName, PathMapper pathMapper) {
+      return pathMapper.getMappedExecPathString(value);
     }
 
     @Override
