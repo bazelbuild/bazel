@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.starlarkdocextract.LabelRenderer;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeInfo;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
