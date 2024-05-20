@@ -11,15 +11,23 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
-# TODO(arostovtsev): move rendering_util to rules/starlarkdocextract when we remove legacy Stardoc.
 java_library(
-    name = "rendering_util",
+    name = "labelrenderer",
+    srcs = ["LabelRenderer.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/net/starlark/java/eval",
+    ],
+)
+
+java_library(
+    name = "starlarkfunctioninfoextractor",
     srcs = [
         "DocstringParseException.java",
-        "LabelRenderer.java",
         "StarlarkFunctionInfoExtractor.java",
     ],
     deps = [
+        ":labelrenderer",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
@@ -31,20 +39,18 @@ java_library(
 )
 
 java_library(
-    name = "rendering",
-    srcs = glob(
-        ["*.java"],
-        exclude = [
-            "DocstringParseException.java",
-            "LabelRenderer.java",
-            "StarlarkFunctionInfoExtractor.java",
-        ],
-    ),
+    name = "moduleinfoextractor",
+    srcs = ["ModuleInfoExtractor.java"],
     deps = [
-        ":rendering_util",
+        ":labelrenderer",
+        ":starlarkfunctioninfoextractor",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/starlark",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/net/starlark/java/eval",
-        "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:stardoc_output_java_proto",
-        "//third_party:error_prone_annotations",
+        "//third_party:guava",
     ],
 )

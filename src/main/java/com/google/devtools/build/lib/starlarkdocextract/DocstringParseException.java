@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.skydoc.rendering;
+package com.google.devtools.build.lib.starlarkdocextract;
 
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.StarlarkFunctionInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.StarlarkFunctionInfo;
 import com.google.devtools.starlark.common.DocstringUtils.DocstringParseError;
 import java.util.List;
 import net.starlark.java.syntax.Location;

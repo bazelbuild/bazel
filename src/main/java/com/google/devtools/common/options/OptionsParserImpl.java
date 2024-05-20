@@ -203,7 +203,7 @@ class OptionsParserImpl {
   static {
     try {
       skippedArgsDefinition =
-          OptionDefinition.extractOptionDefinition(
+          FieldOptionDefinition.extractOptionDefinition(
               OptionsParserImpl.class.getDeclaredField("skippedArgs"));
     } catch (NoSuchFieldException e) {
       throw new IllegalStateException(e);

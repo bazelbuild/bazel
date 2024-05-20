@@ -142,6 +142,12 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
     return result.getSuccess().orElse(null);
   }
 
+  public <T> AttributeResolutionResult<T> getResolvedAttribute(Attribute attr) {
+    @SuppressWarnings("unchecked")
+    Type<T> type = (Type<T>) attr.getType();
+    return getResolvedAttribute(attr.getName(), type);
+  }
+
   /**
    * Variation of {@link #getAndValidate} that does not throw Exception. Instead, the method returns
    * the AttributeResolutionResult

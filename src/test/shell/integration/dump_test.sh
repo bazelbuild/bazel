@@ -143,4 +143,20 @@ EOF
   expect_log '^.*InputFileConfiguredTarget\": 2'
 }
 
+function test_memory_after_build() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(name="g", srcs=[], outs=["go"], cmd="echo G > $@")
+EOF
+
+  bazel build //a:g \
+    --strategy=Genrule=standalone \
+    --experimental_skyframe_memory_dump=json \
+    || fail "memory dump failed"
+
+  assert_contains \
+    "ACTION_EXECUTION:.*actionLookupKey.*label=//a:g" \
+    "$(bazel info output_base)/skyframe_memory.json"
+}
+
 run_suite "Tests for 'bazel dump'"

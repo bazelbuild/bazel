@@ -20,7 +20,7 @@ syntax = "proto3";
 package stardoc_output;
 
 // option java_api_version = 2;
-option java_package = "com.google.devtools.build.skydoc.rendering.proto";
+option java_package = "com.google.devtools.build.lib.starlarkdocextract";
 option java_outer_classname = "StardocOutputProtos";
 
 // The root output proto of Stardoc. An invocation of Stardoc on a single file

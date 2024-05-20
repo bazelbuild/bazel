@@ -64,7 +64,8 @@ public abstract class OptionsBase {
    * independent. Entries are sorted alphabetically.
    */
   public final Map<String, Object> asMap() {
-    List<OptionDefinition> definitions = OptionsData.getAllOptionDefinitionsForClass(getClass());
+    List<? extends OptionDefinition> definitions =
+        OptionsData.getAllOptionDefinitionsForClass(getClass());
     Map<String, Object> map = Maps.newLinkedHashMapWithExpectedSize(definitions.size());
     for (OptionDefinition definition : definitions) {
       map.put(definition.getOptionName(), getValueFromDefinition(definition));

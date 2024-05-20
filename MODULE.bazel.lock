@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "a53edbe40f270471ecb000b29c44cd7668eb7d02692665f95a7193035d3b2b37",
+  "moduleFileHash": "cc36eefdadf81b73b65fed7d1017094aac441d7504f28b1e8d6c3b21e36d393a",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -649,11 +649,11 @@
         "rules_testing": "rules_testing@0.6.0",
         "com_google_googletest": "googletest@1.14.0",
         "with_cfg.bzl": "with_cfg.bzl@0.2.4",
+        "abseil-cpp": "abseil-cpp@20230125.1",
         "buildozer": "buildozer@7.1.1.1",
         "remoteapis": "remoteapis@_",
         "googleapis": "googleapis@_",
         "apple_support": "apple_support@1.8.1",
-        "abseil-cpp": "abseil-cpp@20230125.1",
         "c-ares": "c-ares@1.15.0",
         "rules_go": "rules_go@0.39.1",
         "rules_kotlin": "rules_kotlin@1.9.0",
@@ -1860,6 +1860,37 @@
         }
       }
     },
+    "abseil-cpp@20230125.1": {
+      "name": "abseil-cpp",
+      "version": "20230125.1",
+      "key": "abseil-cpp@20230125.1",
+      "repoName": "abseil-cpp",
+      "executionPlatformsToRegister": [],
+      "toolchainsToRegister": [],
+      "extensionUsages": [],
+      "deps": {
+        "rules_cc": "rules_cc@0.0.9",
+        "platforms": "platforms@0.0.9",
+        "bazel_skylib": "bazel_skylib@1.6.1",
+        "bazel_tools": "bazel_tools@_",
+        "local_config_platform": "local_config_platform@_"
+      },
+      "repoSpec": {
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+        "ruleClassName": "http_archive",
+        "attributes": {
+          "urls": [
+            "https://github.com/abseil/abseil-cpp/archive/refs/tags/20230125.1.tar.gz"
+          ],
+          "integrity": "sha256-gTEcF1mbNxIGne0gzKCaYqsL8qid+haZN4bIeCt+0UU=",
+          "strip_prefix": "abseil-cpp-20230125.1",
+          "remote_patches": {
+            "https://bcr.bazel.build/modules/abseil-cpp/20230125.1/patches/module_dot_bazel.patch": "sha256-L1wChhBmDOnRbPbD4MENVXHjOBT2KFrDxT6D+aoThxk="
+          },
+          "remote_patch_strip": 0
+        }
+      }
+    },
     "buildozer@7.1.1.1": {
       "name": "buildozer",
       "version": "7.1.1.1",
@@ -2008,37 +2039,6 @@
           "strip_prefix": "",
           "remote_patches": {
             "https://bcr.bazel.build/modules/apple_support/1.8.1/patches/module_dot_bazel_version.patch": "sha256-KiC39AC9hYWZhC2sZwZcY46HVerfh2p9pzF9WXqcxAI="
-          },
-          "remote_patch_strip": 0
-        }
-      }
-    },
-    "abseil-cpp@20230125.1": {
-      "name": "abseil-cpp",
-      "version": "20230125.1",
-      "key": "abseil-cpp@20230125.1",
-      "repoName": "abseil-cpp",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [],
-      "deps": {
-        "rules_cc": "rules_cc@0.0.9",
-        "platforms": "platforms@0.0.9",
-        "bazel_skylib": "bazel_skylib@1.6.1",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/abseil/abseil-cpp/archive/refs/tags/20230125.1.tar.gz"
-          ],
-          "integrity": "sha256-gTEcF1mbNxIGne0gzKCaYqsL8qid+haZN4bIeCt+0UU=",
-          "strip_prefix": "abseil-cpp-20230125.1",
-          "remote_patches": {
-            "https://bcr.bazel.build/modules/abseil-cpp/20230125.1/patches/module_dot_bazel.patch": "sha256-L1wChhBmDOnRbPbD4MENVXHjOBT2KFrDxT6D+aoThxk="
           },
           "remote_patch_strip": 0
         }
@@ -2939,7 +2939,7 @@
       "general": {
         "bzlTransitiveDigest": "DNJM0epQeVejZo36Ukn/eoamqYgSvq9zGHhuPLb7338=",
         "recordedFileInputs": {
-          "@@//MODULE.bazel": "a53edbe40f270471ecb000b29c44cd7668eb7d02692665f95a7193035d3b2b37",
+          "@@//MODULE.bazel": "cc36eefdadf81b73b65fed7d1017094aac441d7504f28b1e8d6c3b21e36d393a",
           "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "bc8e96063c5f9a9a3852468646c597b45163a1449c77183f08a9e1f9e9b7ef51"
         },
         "recordedDirentsInputs": {},

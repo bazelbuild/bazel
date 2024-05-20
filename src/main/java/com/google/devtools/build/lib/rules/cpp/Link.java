@@ -80,9 +80,9 @@ public abstract class Link {
           CppFileTypes.CLIF_OUTPUT_PROTO,
           CppFileTypes.BC_SOURCE);
 
-  /**
-   * Whether a particular link target requires PIC code.
-   */
+  // LINT.IfChange
+
+  /** Whether a particular link target requires PIC code. */
   public enum Picness {
     PIC,
     NOPIC
@@ -185,6 +185,8 @@ public abstract class Link {
         Picness.NOPIC, // Picness is not indicate in the file name
         ArtifactCategory.EXECUTABLE,
         Executable.EXECUTABLE);
+
+    // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/target_types.bzl)
 
     private final LinkerOrArchiver linkerOrArchiver;
     private final String actionName;

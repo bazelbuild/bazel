@@ -286,7 +286,7 @@ public class SkyframeMemoryDumper {
 
     ImmutableList<SkyKey> roots =
         graph.getAllNodeEntries().parallelStream()
-            .filter(e -> Iterables.isEmpty(e.getReverseDepsForDoneEntry()))
+            .filter(e -> e.isDone() && Iterables.isEmpty(e.getReverseDepsForDoneEntry()))
             .map(InMemoryNodeEntry::getKey)
             .collect(ImmutableList.toImmutableList());
 

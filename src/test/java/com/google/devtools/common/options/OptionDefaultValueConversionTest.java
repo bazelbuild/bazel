@@ -66,7 +66,7 @@ public class OptionDefaultValueConversionTest {
               .filter(c -> !isTestClass(c))
               .flatMap(c -> Arrays.stream(c.getFields()))
               .filter(f -> f.isAnnotationPresent(Option.class))
-              .map(OptionDefinition::extractOptionDefinition)
+              .map(FieldOptionDefinition::extractOptionDefinition)
               .collect(toList());
       logger.atFine().log(
           "Found %d Option-annotated fields in Prod code", optionDefinitions.size());

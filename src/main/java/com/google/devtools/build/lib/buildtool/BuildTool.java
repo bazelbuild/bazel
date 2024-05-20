@@ -17,6 +17,7 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -44,6 +45,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.Local
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.UploadContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildtool.SkyframeMemoryDumper.DisplayMode;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
@@ -106,6 +108,8 @@ public class BuildTool {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
+  private static final String SKYFRAME_MEMORY_DUMP_FILE = "skyframe_memory.json";
+
   private static final AnalysisPostProcessor NOOP_POST_PROCESSOR =
       (req, env, runtime, analysisResult) -> {};
 
@@ -160,10 +164,17 @@ public class BuildTool {
    * @param validator target validator
    */
   public void buildTargets(BuildRequest request, BuildResult result, TargetValidator validator)
-      throws BuildFailedException, InterruptedException, ViewCreationFailedException,
-          TargetParsingException, LoadingFailedException, AbruptExitException,
-          InvalidConfigurationException, TestExecException, ExitException,
-          PostExecutionActionGraphDumpException, RepositoryMappingResolutionException {
+      throws BuildFailedException,
+          InterruptedException,
+          ViewCreationFailedException,
+          TargetParsingException,
+          LoadingFailedException,
+          AbruptExitException,
+          InvalidConfigurationException,
+          TestExecException,
+          ExitException,
+          PostExecutionDumpException,
+          RepositoryMappingResolutionException {
     try (SilentCloseable c = Profiler.instance().profile("validateOptions")) {
       validateOptions(request);
     }
@@ -257,9 +268,9 @@ public class BuildTool {
                 request.getBuildOptions().aqueryDumpAfterBuildFormat,
                 request.getBuildOptions().aqueryDumpAfterBuildOutputFile);
           } catch (CommandLineExpansionException | IOException | TemplateExpansionException e) {
-            throw new PostExecutionActionGraphDumpException(e);
+            throw new PostExecutionDumpException(e);
           } catch (InvalidAqueryOutputFormatException e) {
-            throw new PostExecutionActionGraphDumpException(
+            throw new PostExecutionDumpException(
                 "--skyframe_state must be used with "
                     + "--output=proto|streamed_proto|textproto|jsonproto.",
                 e);
@@ -433,6 +444,70 @@ public class BuildTool {
     }
   }
 
+  private void dumpSkyframeMemory(
+      BuildResult buildResult, BuildEventProtocolOptions bepOptions, String format)
+      throws PostExecutionDumpException, InterruptedException {
+    if (!env.getSkyframeExecutor().tracksStateForIncrementality()) {
+      throw new PostExecutionDumpException(
+          "Skyframe memory dump requested, but incremental state is not tracked", null);
+    }
+
+    boolean reportTransient = true;
+    boolean reportConfiguration = true;
+    boolean reportPrecomputed = true;
+    boolean reportWorkspaceStatus = true;
+
+    for (String flag : Splitter.on(",").split(format)) {
+      switch (flag) {
+        case "json" -> {} // JSON is the only format we support, no need to note it explicitly
+        case "notransient" -> reportTransient = false;
+        case "noconfig" -> reportConfiguration = false;
+        case "noprecomputed" -> reportPrecomputed = false;
+        case "noworkspacestatus" -> reportWorkspaceStatus = false;
+        default -> throw new PostExecutionDumpException("Unknown flag: '" + flag + "'", null);
+      }
+    }
+
+    try {
+      OutputStream outputStream;
+      UploadContext streamingContext = null;
+
+      if (bepOptions.streamingLogFileUploads) {
+        streamingContext =
+            runtime
+                .getBuildEventArtifactUploaderFactoryMap()
+                .select(bepOptions.buildEventUploadStrategy)
+                .create(env)
+                .startUpload(LocalFileType.PERFORMANCE_LOG, null);
+        outputStream = streamingContext.getOutputStream();
+        buildResult
+            .getBuildToolLogCollection()
+            .addUriFuture(SKYFRAME_MEMORY_DUMP_FILE, streamingContext.uriFuture());
+      } else {
+        Path localPath = env.getOutputBase().getRelative(SKYFRAME_MEMORY_DUMP_FILE);
+        outputStream = localPath.getOutputStream();
+        buildResult.getBuildToolLogCollection().addLocalFile(SKYFRAME_MEMORY_DUMP_FILE, localPath);
+      }
+
+      try (PrintStream printStream = new PrintStream(outputStream)) {
+
+        SkyframeMemoryDumper dumper =
+            new SkyframeMemoryDumper(
+                DisplayMode.SUMMARY,
+                null,
+                runtime.getRuleClassProvider(),
+                env.getSkyframeExecutor().getEvaluator().getInMemoryGraph(),
+                reportTransient,
+                reportConfiguration,
+                reportPrecomputed,
+                reportWorkspaceStatus);
+        dumper.dumpFull(printStream);
+      }
+    } catch (IOException | SkyframeMemoryDumper.DumpFailedException e) {
+      throw new PostExecutionDumpException("cannot write Skyframe dump: " + e.getMessage(), e);
+    }
+  }
+
   /**
    * Produces an aquery dump of the state of Skyframe.
    *
@@ -570,6 +645,16 @@ public class BuildTool {
               InterruptedFailureDetails.detailedExitCode("post build callback interrupted");
         }
       }
+
+      if (env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor
+          && request.getBuildOptions().skyframeMemoryDump != null) {
+        try (SilentCloseable c = Profiler.instance().profile("BuildTool.dumpSkyframeMemory")) {
+          dumpSkyframeMemory(
+              result,
+              request.getOptions(BuildEventProtocolOptions.class),
+              request.getBuildOptions().skyframeMemoryDump);
+        }
+      }
     } catch (BuildFailedException e) {
       if (!e.isErrorAlreadyShown()) {
         // The actual error has not already been reported by the Builder.
@@ -631,7 +716,7 @@ public class BuildTool {
       detailedExitCode = e.getDetailedExitCode();
       reportExceptionError(e);
       result.setCatastrophe();
-    } catch (PostExecutionActionGraphDumpException e) {
+    } catch (PostExecutionDumpException e) {
       detailedExitCode =
           DetailedExitCode.of(
               FailureDetail.newBuilder()

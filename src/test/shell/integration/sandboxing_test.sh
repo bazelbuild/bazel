@@ -950,6 +950,17 @@ EOF
   bazel shutdown
 }
 
+function test_hermetic_tmp_with_tmp_sandbox_base() {
+  mkdir pkg
+  cat >pkg/BUILD <<EOF
+genrule(name = "pkg", outs = ["pkg.out"], cmd = "echo >\$@")
+EOF
+  mkdir /tmp/sandbox_base
+  bazel build --incompatible_sandbox_hermetic_tmp \
+     --sandbox_base=/tmp/sandbox_base  //pkg >"${TEST_log}" 2>&1 \
+        || fail "Expected build to succeed"
+}
+
 function test_runfiles_from_tests_get_reused_and_tmp_clean() {
   mkdir pkg
   touch pkg/file.txt

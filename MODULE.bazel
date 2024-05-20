@@ -32,6 +32,7 @@ bazel_dep(name = "rules_python", version = "0.28.0")
 bazel_dep(name = "rules_testing", version = "0.6.0")
 bazel_dep(name = "googletest", version = "1.14.0", repo_name = "com_google_googletest")
 bazel_dep(name = "with_cfg.bzl", version = "0.2.4")
+bazel_dep(name = "abseil-cpp", version = "20230125.1")
 
 # TODO(fmeum): Remove the dependency on buildozer after Bazel is built with 7.2.0.
 bazel_dep(name = "buildozer", version = "7.1.1.1")
@@ -59,7 +60,6 @@ local_path_override(
 # The following Bazel modules are not direct dependencies for building Bazel,
 # but are required for visibility from DIST_ARCHIVE_REPOS in repositories.bzl
 bazel_dep(name = "apple_support", version = "1.8.1")
-bazel_dep(name = "abseil-cpp", version = "20230125.1")
 bazel_dep(name = "c-ares", version = "1.15.0")
 bazel_dep(name = "rules_go", version = "0.39.1")
 bazel_dep(name = "rules_kotlin", version = "1.9.0")

@@ -409,4 +409,34 @@ function test_ignores_jdk_option_environment_variables() {
   expect_log ".*ignoring JAVA_TOOL_OPTIONS"
 }
 
+# Demonstrates that the client program prints exactly what we expect to stderr
+# and stdout. Notably by default (--client_debug=false) there should be no debug
+# log statements from our own codebase (or even from libraries we use!) printed
+# to stderr.
+function test_client_is_quiet_by_default() {
+  local capitalized_product_name="$(echo "$PRODUCT_NAME" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')"
+  # Ensure we don't have a server running. Also ensure we've already extracted
+  # the installation (that way we don't expect an informational message about
+  # that).
+  bazel shutdown &> /dev/null
+
+  bazel info server_pid > stdout 2> stderr || fail "bazel info failed"
+  cp stderr $TEST_log || fail "cp failed"
+  assert_equals 2 $(cat $TEST_log | wc -l)
+  expect_log "^\$TEST_TMPDIR defined: output root default"
+  expect_log "^Starting local $capitalized_product_name server and connecting to it...$"
+  cp stdout $TEST_log || fail "cp failed"
+  assert_equals 1 $(cat $TEST_log | wc -l)
+  expect_log "^[0-9]\+$"
+
+  rm stderr stdout || fail "rm failed"
+  bazel info server_pid > stdout 2> stderr || fail "bazel info failed"
+  cp stderr $TEST_log || fail "cp failed"
+  assert_equals 1 $(cat $TEST_log | wc -l)
+  expect_log "^\$TEST_TMPDIR defined: output root default"
+  cp stdout $TEST_log || fail "cp failed"
+  assert_equals 1 $(cat $TEST_log | wc -l)
+  expect_log "^[0-9]\+$"
+}
+
 run_suite "Tests of the bazel client."
