@@ -34,11 +34,14 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.Lockfile
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule.RepositoryRuleFunction;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
+import com.google.devtools.build.lib.cmdline.BazelStarlarkContext;
+import com.google.devtools.build.lib.cmdline.BazelStarlarkContext.Phase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.SymbolGenerator;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Rule;
@@ -131,6 +134,12 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     if (starlarkSemantics == null) {
       return null;
     }
+    RepositoryMappingValue mainRepoMappingValue =
+        (RepositoryMappingValue)
+            env.getValue(RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS);
+    if (mainRepoMappingValue == null) {
+      return null;
+    }
 
     ModuleExtensionId extensionId = (ModuleExtensionId) skyKey.argument();
     SingleExtensionUsagesValue usagesValue =
@@ -181,7 +190,12 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     // Run that extension!
     env.getListener().post(ModuleExtensionEvaluationProgress.ongoing(extensionId, "starting"));
     RunModuleExtensionResult moduleExtensionResult =
-        extension.run(env, usagesValue, starlarkSemantics, extensionId);
+        extension.run(
+            env,
+            usagesValue,
+            starlarkSemantics,
+            extensionId,
+            mainRepoMappingValue.getRepositoryMapping());
     if (moduleExtensionResult == null) {
       return null;
     }
@@ -523,7 +537,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         Environment env,
         SingleExtensionUsagesValue usagesValue,
         StarlarkSemantics starlarkSemantics,
-        ModuleExtensionId extensionId)
+        ModuleExtensionId extensionId,
+        RepositoryMapping repositoryMapping)
         throws InterruptedException, SingleExtensionEvalFunctionException;
   }
 
@@ -675,7 +690,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         Environment env,
         SingleExtensionUsagesValue usagesValue,
         StarlarkSemantics starlarkSemantics,
-        ModuleExtensionId extensionId)
+        ModuleExtensionId extensionId,
+        RepositoryMapping mainRepositoryMapping)
         throws InterruptedException, SingleExtensionEvalFunctionException {
       var generatedRepoSpecs = ImmutableMap.<String, RepoSpec>builderWithExpectedSize(repos.size());
       // Instantiate the repos one by one.
@@ -845,7 +861,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         Environment env,
         SingleExtensionUsagesValue usagesValue,
         StarlarkSemantics starlarkSemantics,
-        ModuleExtensionId extensionId)
+        ModuleExtensionId extensionId,
+        RepositoryMapping mainRepositoryMapping)
         throws InterruptedException, SingleExtensionEvalFunctionException {
       ModuleExtensionEvalStarlarkThreadContext threadContext =
           new ModuleExtensionEvalStarlarkThreadContext(
@@ -864,6 +881,12 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
         moduleContext = createContext(env, usagesValue, starlarkSemantics, extensionId);
         threadContext.storeInThread(thread);
+        new BazelStarlarkContext(
+                Phase.WORKSPACE,
+                // Doesn't create retained objects.
+                new SymbolGenerator<>(new Object()),
+                () -> mainRepositoryMapping)
+            .storeInThread(thread);
         // This is used by the `Label()` constructor in Starlark, to record any attempts to resolve
         // apparent repo names to canonical repo names. See #20721 for why this is necessary.
         thread.setThreadLocal(Label.RepoMappingRecorder.class, repoMappingRecorder);

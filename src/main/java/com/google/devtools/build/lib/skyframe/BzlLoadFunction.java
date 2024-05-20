@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.BzlVisibility;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
-import com.google.devtools.build.lib.packages.SymbolGenerator;
+import com.google.devtools.build.lib.cmdline.SymbolGenerator;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -765,6 +765,11 @@ public class BzlLoadFunction implements SkyFunction {
     if (repoMapping == null) {
       return null;
     }
+    RepositoryMapping mainRepoMapping =
+        getMainRepositoryMapping(key, builtins.starlarkSemantics, env);
+    if (mainRepoMapping == null) {
+      return null;
+    }
     Label.RepoMappingRecorder repoMappingRecorder = new Label.RepoMappingRecorder();
     ImmutableList<Pair<String, Location>> programLoads = getLoadsFromProgram(prog);
     ImmutableList<Label> loadLabels =
@@ -862,7 +867,8 @@ public class BzlLoadFunction implements SkyFunction {
             ruleClassProvider.getToolsRepository(),
             ruleClassProvider.getNetworkAllowlistForTests(),
             ruleClassProvider.getConfigurationFragmentMap(),
-            new SymbolGenerator<>(label));
+            new SymbolGenerator<>(label),
+            mainRepoMapping);
 
     // executeBzlFile may post events to the Environment's handler, but events do not matter when
     // caching BzlLoadValues. Note that executing the code mutates the Module and
@@ -975,6 +981,32 @@ public class BzlLoadFunction implements SkyFunction {
       return null;
     }
     return repositoryMappingValue.getRepositoryMapping();
+  }
+
+  @Nullable
+  private static RepositoryMapping getMainRepositoryMapping(
+      BzlLoadValue.Key key, StarlarkSemantics starlarkSemantics, Environment env)
+      throws InterruptedException {
+    boolean bzlmod = starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD);
+    RepositoryMappingValue.Key repoMappingKey;
+    if (key instanceof BzlLoadValue.KeyForBuild) {
+      repoMappingKey = RepositoryMappingValue.key(RepositoryName.MAIN);
+    } else if ((key instanceof BzlLoadValue.KeyForBzlmod
+            && !(key instanceof BzlLoadValue.KeyForBzlmodBootstrap))
+        || (bzlmod && key instanceof BzlLoadValue.KeyForWorkspace)) {
+      // Since the main repo mapping requires evaluating WORKSPACE, but WORKSPACE can load from
+      // extension repos, requesting the full main repo mapping would cause a cycle.
+      repoMappingKey = RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS;
+    } else {
+      // For builtins, @bazel_tools, and legacy WORKSPACE, the key's local repo mapping can be used
+      // as the main repo mapping.
+      return getRepositoryMapping(key, starlarkSemantics, env);
+    }
+    var mainRepositoryMappingValue = (RepositoryMappingValue) env.getValue(repoMappingKey);
+    if (mainRepositoryMappingValue == null) {
+      return null;
+    }
+    return mainRepositoryMappingValue.getRepositoryMapping();
   }
 
   /**

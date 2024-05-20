@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.BazelStarlarkContext;
+import com.google.devtools.build.lib.cmdline.SymbolGenerator;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import net.starlark.java.eval.EvalException;
@@ -72,7 +74,8 @@ public final class StarlarkCallbackHelper {
               // should have a unique owner object to associate it with for distinguishing
               // reference-equality objects. But I don't think implicit outputs or computed defaults
               // care about identity.
-              new SymbolGenerator<>(new Object()))
+              new SymbolGenerator<>(new Object()),
+              /* mainRepoMapping= */ null)
           .storeInThread(thread);
       return Starlark.call(
           thread, callback, buildArgumentList(struct, arguments), /*kwargs=*/ ImmutableMap.of());

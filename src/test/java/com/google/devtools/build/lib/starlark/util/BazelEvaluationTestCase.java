@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
-import com.google.devtools.build.lib.packages.SymbolGenerator;
+import com.google.devtools.build.lib.cmdline.SymbolGenerator;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.config.ConfigGlobalLibrary;
 import com.google.devtools.build.lib.rules.config.ConfigStarlarkCommon;
@@ -161,7 +161,8 @@ public final class BazelEvaluationTestCase {
             TestConstants.TOOLS_REPOSITORY,
             /* networkAllowlistForTests= */ Optional.empty(),
             /* fragmentNameToClass= */ ImmutableMap.of(),
-            new SymbolGenerator<>(new Object()))
+            new SymbolGenerator<>(new Object()),
+            /* mainRepoMapping= */ null)
         .storeInThread(thread);
   }
 

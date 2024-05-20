@@ -23,15 +23,17 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.cmdline.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.SymbolGenerator;
+import com.google.devtools.build.lib.cmdline.SymbolGenerator;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -47,7 +49,7 @@ import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.util.CPU;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -243,6 +245,27 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       return null;
     }
 
+    boolean enableBzlmod = starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD);
+    @Nullable RepositoryMapping mainRepoMapping;
+    String ruleClass =
+        rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel().getUnambiguousCanonicalForm()
+            + "%"
+            + rule.getRuleClass();
+    if (NonRegistryOverride.BOOTSTRAP_RULE_CLASSES.contains(ruleClass)) {
+      // Avoid a cycle.
+      mainRepoMapping = null;
+    } else if (enableBzlmod || !isWorkspaceRepo(rule)) {
+      var mainRepoMappingValue =
+          (RepositoryMappingValue)
+              env.getValue(RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS);
+      if (mainRepoMappingValue == null) {
+        return null;
+      }
+      mainRepoMapping = mainRepoMappingValue.getRepositoryMapping();
+    } else {
+      mainRepoMapping = rule.getPackage().getRepositoryMapping();
+    }
+
     IgnoredPackagePrefixesValue ignoredPackagesValue =
         (IgnoredPackagePrefixesValue) env.getValue(IgnoredPackagePrefixesValue.key());
     if (env.valuesMissing()) {
@@ -265,7 +288,8 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
 
       new BazelStarlarkContext(
               BazelStarlarkContext.Phase.LOADING, // ("fetch")
-              new SymbolGenerator<>(key))
+              new SymbolGenerator<>(key),
+              () -> mainRepoMapping)
           .storeInThread(thread);
 
       StarlarkRepositoryContext starlarkRepositoryContext =
