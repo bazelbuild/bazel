@@ -111,7 +111,7 @@ platform(
 EOF
 
   bazel build --experimental_platforms_api=true :a &> $TEST_log || fail "Build failed"
-  expect_log 'The label is: @@//:my_platform'
+  expect_log 'The label is: //:my_platform'
 }
 
 run_suite "platform repo test"

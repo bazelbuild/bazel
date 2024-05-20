@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.devtools.build.lib.cmdline.BazelStarlarkContext;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+
 /**
  * A context object, usually stored in a {@link StarlarkThread}, upon which rules and symbolic
  * macros can be instantiated.
@@ -40,7 +43,7 @@ public abstract class TargetDefinitionContext extends BazelStarlarkContext {
     }
   }
 
-  protected TargetDefinitionContext(Phase phase) {
-    super(phase);
+  protected TargetDefinitionContext(Phase phase, RepositoryMapping mainRepoMapping) {
+    super(phase, () -> mainRepoMapping);
   }
 }

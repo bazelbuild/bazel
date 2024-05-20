@@ -63,10 +63,14 @@ import net.starlark.java.eval.StarlarkValue;
     name = "Label",
     category = DocCategory.BUILTIN,
     doc =
-        "A BUILD target identifier."
-            + "<p>For every <code>Label</code> instance <code>l</code>, the string representation"
-            + " <code>str(l)</code> has the property that <code>Label(str(l)) == l</code>,"
-            + " regardless of where the <code>Label()</code> call occurs.")
+        "A BUILD target identifier.<p>For every <code>Label</code> instance <code>l</code>, the"
+            + " string representation <code>str(l)</code> has the property that <code>Label(str(l))"
+            + " == l</code>, regardless of where the <code>Label()</code> call occurs.<p>When"
+            + " passed as positional arguments to <code>print()</code> or <code>fail()</code>,"
+            + " <code>Label</code> use a string representation optimized for human readability"
+            + " instead. This representation uses an <a"
+            + " href=\"/external/overview#apparent-repo-name\">apparent repository name</a> from"
+            + " the perspective of the main repository if possible.")
 @Immutable
 @ThreadSafe
 public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, CommandLineItem {
@@ -442,7 +446,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    * @param mainRepositoryMapping the {@link RepositoryMapping} of the main repository
    * @return analogous to {@link PackageIdentifier#getDisplayForm(RepositoryMapping)}
    */
-  public String getDisplayForm(RepositoryMapping mainRepositoryMapping) {
+  public String getDisplayForm(@Nullable RepositoryMapping mainRepositoryMapping) {
     return packageIdentifier.getDisplayForm(mainRepositoryMapping) + ":" + name;
   }
 
@@ -653,6 +657,17 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
     printer.append("Label(");
     printer.repr(getCanonicalForm());
     printer.append(")");
+  }
+
+  @Override
+  public void debugPrint(Printer printer, StarlarkThread thread) {
+    RepositoryMapping mainRepoMapping;
+    try {
+      mainRepoMapping = BazelStarlarkContext.fromOrFail(thread).getMainRepoMapping();
+    } catch (EvalException | InterruptedException e) {
+      mainRepoMapping = null;
+    }
+    printer.append(getDisplayForm(mainRepoMapping));
   }
 
   @Override

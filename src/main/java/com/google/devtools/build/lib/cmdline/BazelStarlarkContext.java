@@ -11,9 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.packages;
+package com.google.devtools.build.lib.cmdline;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
@@ -94,17 +96,29 @@ public class BazelStarlarkContext implements StarlarkThread.UncheckedExceptionCo
 
   // TODO(b/236456122): Eliminate Phase, migrate analysisRuleLabel to a separate context class.
   private final Phase phase;
+  @Nullable private final InterruptibleSupplier<RepositoryMapping> mainRepoMappingSupplier;
 
   /**
    * @param phase the phase to which this Starlark thread belongs
    */
-  public BazelStarlarkContext(Phase phase) {
+  public BazelStarlarkContext(
+      Phase phase, @Nullable InterruptibleSupplier<RepositoryMapping> mainRepoMappingSupplier) {
     this.phase = Preconditions.checkNotNull(phase);
+    this.mainRepoMappingSupplier = mainRepoMappingSupplier;
   }
 
   /** Returns the phase associated with this context. */
   public Phase getPhase() {
     return phase;
+  }
+
+  /**
+   * The repository mapping applicable to the main repository. This is purely meant to support
+   * {@link Label#debugPrint}.
+   */
+  @Nullable
+  public RepositoryMapping getMainRepoMapping() throws InterruptedException {
+    return mainRepoMappingSupplier == null ? null : mainRepoMappingSupplier.get();
   }
 
   @Override

@@ -249,19 +249,24 @@ public final class RepositoryName {
    *       <dt><code>@protobuf</code>
    *       <dd>if this repository is a WORKSPACE dependency and its <code>name</code> is "protobuf",
    *           or if this repository is a Bzlmod dependency of the main module and its apparent name
-   *           is "protobuf"
+   *           is "protobuf" (in both cases only if mainRepositoryMapping is not null)
    *       <dt><code>@@protobuf~3.19.2</code>
    *       <dd>only with Bzlmod, if this a repository that is not visible from the main module
    */
-  public String getDisplayForm(RepositoryMapping mainRepositoryMapping) {
+  public String getDisplayForm(@Nullable RepositoryMapping mainRepositoryMapping) {
     Preconditions.checkArgument(
-        mainRepositoryMapping.ownerRepo() == null || mainRepositoryMapping.ownerRepo().isMain());
+        mainRepositoryMapping == null
+            || mainRepositoryMapping.ownerRepo() == null
+            || mainRepositoryMapping.ownerRepo().isMain());
     if (!isVisible()) {
       return getNameWithAt();
     }
     if (isMain()) {
       // Packages in the main repository can always use repo-relative form.
       return "";
+    }
+    if (mainRepositoryMapping == null) {
+      return getNameWithAt();
     }
     if (!mainRepositoryMapping.usesStrictDeps()) {
       // If the main repository mapping is not using strict visibility, then Bzlmod is certainly
