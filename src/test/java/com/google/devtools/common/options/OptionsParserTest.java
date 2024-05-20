@@ -2413,7 +2413,7 @@ public final class OptionsParserTest {
             /*implicitDependent=*/ null,
             /*expandedFrom=*/ null);
     OptionDefinition optionDefinition =
-        OptionDefinition.extractOptionDefinition(ExampleFoo.class.getField("foo"));
+        FieldOptionDefinition.extractOptionDefinition(ExampleFoo.class.getField("foo"));
 
     parser.setOptionValueAtSpecificPriorityWithoutExpansion(origin, optionDefinition, "hello");
 
@@ -2435,7 +2435,7 @@ public final class OptionsParserTest {
             /*implicitDependent=*/ null,
             /*expandedFrom=*/ null);
     OptionDefinition optionDefinition =
-        OptionDefinition.extractOptionDefinition(ExampleFoo.class.getField("foo"));
+        FieldOptionDefinition.extractOptionDefinition(ExampleFoo.class.getField("foo"));
 
     parser.setOptionValueAtSpecificPriorityWithoutExpansion(origin, optionDefinition, "hi=bar");
     parser.parse("--hi=123");
@@ -2456,7 +2456,8 @@ public final class OptionsParserTest {
         OptionsParser.builder().optionsClasses(ImplicitDependencyOptions.class).build();
     OptionInstanceOrigin origin = createInvocationPolicyOrigin();
     OptionDefinition optionDefinition =
-        OptionDefinition.extractOptionDefinition(ImplicitDependencyOptions.class.getField("first"));
+        FieldOptionDefinition.extractOptionDefinition(
+            ImplicitDependencyOptions.class.getField("first"));
 
     parser.setOptionValueAtSpecificPriorityWithoutExpansion(origin, optionDefinition, "hello");
 
@@ -2477,15 +2478,15 @@ public final class OptionsParserTest {
         OptionsParser.builder().optionsClasses(ImplicitDependencyOptions.class).build();
     ParsedOptionDescription first =
         ParsedOptionDescription.newDummyInstance(
-            OptionDefinition.extractOptionDefinition(
+            FieldOptionDefinition.extractOptionDefinition(
                 ImplicitDependencyOptions.class.getField("first")),
             createInvocationPolicyOrigin(),
-            /*conversionContext=*/ null);
+            /* conversionContext= */ null);
     OptionInstanceOrigin origin =
         createInvocationPolicyOrigin(/*implicitDependent=*/ first, /*expandedFrom=*/ null);
 
     OptionDefinition optionDefinition =
-        OptionDefinition.extractOptionDefinition(
+        FieldOptionDefinition.extractOptionDefinition(
             ImplicitDependencyOptions.class.getField("second"));
 
     parser.setOptionValueAtSpecificPriorityWithoutExpansion(origin, optionDefinition, "hello");
@@ -2506,15 +2507,15 @@ public final class OptionsParserTest {
         OptionsParser.builder().optionsClasses(ImplicitDependencyOptions.class).build();
     ParsedOptionDescription first =
         ParsedOptionDescription.newDummyInstance(
-            OptionDefinition.extractOptionDefinition(
+            FieldOptionDefinition.extractOptionDefinition(
                 ImplicitDependencyOptions.class.getField("first")),
             createInvocationPolicyOrigin(),
-            /*conversionContext=*/ null);
+            /* conversionContext= */ null);
     OptionInstanceOrigin origin =
         createInvocationPolicyOrigin(/*implicitDependent=*/ null, /*expandedFrom=*/ first);
 
     OptionDefinition optionDefinition =
-        OptionDefinition.extractOptionDefinition(
+        FieldOptionDefinition.extractOptionDefinition(
             ImplicitDependencyOptions.class.getField("second"));
 
     parser.setOptionValueAtSpecificPriorityWithoutExpansion(origin, optionDefinition, "hello");

@@ -22,7 +22,7 @@ import static org.mockito.Mockito.verify;
 import com.google.devtools.common.options.Converters.AssignmentConverter;
 import com.google.devtools.common.options.Converters.IntegerConverter;
 import com.google.devtools.common.options.Converters.StringConverter;
-import com.google.devtools.common.options.OptionDefinition.NotAnOptionException;
+import com.google.devtools.common.options.FieldOptionDefinition.NotAnOptionException;
 import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import java.util.List;
 import java.util.Map;
@@ -31,9 +31,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
-/** Tests for {@link OptionDefinition}. */
+/** Tests for {@link FieldOptionDefinition}. */
 @RunWith(JUnit4.class)
-public class OptionDefinitionTest {
+public class FieldOptionDefinitionTest {
 
   /** Dummy options class, to test various expected failures of the OptionDefinition. */
   public static class BrokenOptions extends OptionsBase {
@@ -52,7 +52,7 @@ public class OptionDefinitionTest {
   @Test
   public void optionConverterCannotParseDefaultValue() throws Exception {
     OptionDefinition optionDef =
-        OptionDefinition.extractOptionDefinition(BrokenOptions.class.getField("assignments"));
+        FieldOptionDefinition.extractOptionDefinition(BrokenOptions.class.getField("assignments"));
     ConstructionException e =
         assertThrows(
             "Incorrect default should have caused getDefaultValue to fail.",
@@ -72,7 +72,7 @@ public class OptionDefinitionTest {
             "notAnOption isn't an Option, and shouldn't be accepted as one.",
             NotAnOptionException.class,
             () ->
-                OptionDefinition.extractOptionDefinition(
+                FieldOptionDefinition.extractOptionDefinition(
                     BrokenOptions.class.getField("notAnOption")));
     assertThat(e)
         .hasMessageThat()
@@ -111,7 +111,7 @@ public class OptionDefinitionTest {
   @Test
   public void optionDefinitionMemoizesDefaultConverterValue() throws Exception {
     OptionDefinition optionDefinition =
-        OptionDefinition.extractOptionDefinition(
+        FieldOptionDefinition.extractOptionDefinition(
             ValidOptionUsingDefaultConverterForMocking.class.getField("foo"));
     OptionDefinition mockOptionDef = Mockito.spy(optionDefinition);
 
@@ -147,7 +147,7 @@ public class OptionDefinitionTest {
   @Test
   public void optionDefinitionMemoizesProvidedConverterValue() throws Exception {
     OptionDefinition optionDefinition =
-        OptionDefinition.extractOptionDefinition(
+        FieldOptionDefinition.extractOptionDefinition(
             ValidOptionUsingDefaultConverterForMocking.class.getField("bar"));
     OptionDefinition mockOptionDef = Mockito.spy(optionDefinition);
 
@@ -214,7 +214,7 @@ public class OptionDefinitionTest {
   public void specialDefaultValueForNonMultipleOptionShouldResultInNull() throws Exception {
     // arrange
     OptionDefinition optionDef =
-        OptionDefinition.extractOptionDefinition(
+        FieldOptionDefinition.extractOptionDefinition(
             DefaultValueTestOptions.class.getField("nullNonMultipleOption"));
 
     // act
@@ -229,7 +229,7 @@ public class OptionDefinitionTest {
   public void specialDefaultValueForMultipleOptionShouldResultInEmptyList() throws Exception {
     // arrange
     OptionDefinition optionDef =
-        OptionDefinition.extractOptionDefinition(
+        FieldOptionDefinition.extractOptionDefinition(
             DefaultValueTestOptions.class.getField("nullMultipleOption"));
 
     // act
@@ -244,7 +244,7 @@ public class OptionDefinitionTest {
   public void emptyStringForMultipleOptionShouldBeConverted() throws Exception {
     // arrange
     OptionDefinition optionDef =
-        OptionDefinition.extractOptionDefinition(
+        FieldOptionDefinition.extractOptionDefinition(
             DefaultValueTestOptions.class.getField("emptyStringMultipleOption"));
 
     // act
@@ -259,7 +259,7 @@ public class OptionDefinitionTest {
   public void nonEmptyStringForMultipleOptionShouldBeConverted() throws Exception {
     // arrange
     OptionDefinition optionDef =
-        OptionDefinition.extractOptionDefinition(
+        FieldOptionDefinition.extractOptionDefinition(
             DefaultValueTestOptions.class.getField("nonEmptyStringMultipleOption"));
 
     // act
