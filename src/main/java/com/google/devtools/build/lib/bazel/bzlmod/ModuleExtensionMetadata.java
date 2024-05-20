@@ -336,7 +336,7 @@ public abstract class ModuleExtensionMetadata implements StarlarkValue {
   private static String makeUseRepoCommand(String cmd, String proxyName, Collection<String> repos) {
     var commandParts = new ArrayList<String>();
     commandParts.add(cmd);
-    commandParts.add(proxyName);
+    commandParts.add(proxyName.isEmpty() ? "_unnamed_usage" : proxyName);
     commandParts.addAll(repos);
     return String.join(" ", commandParts);
   }
