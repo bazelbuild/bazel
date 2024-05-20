@@ -175,8 +175,9 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // into the sandbox when using hermetic /tmp. We attempt to collect an over-approximation of
     // these paths, as the main goal of hermetic /tmp is to avoid inheriting any direct
     // or well-known children of /tmp from the host.
+    // TODO(bazel-team): Review all flags whose path may have to be considered here.
     return Stream.concat(
-            Stream.of(cmdEnv.getOutputBase()),
+            Stream.of(sandboxBase, cmdEnv.getOutputBase()),
             cmdEnv.getPackageLocator().getPathEntries().stream().map(Root::asPath))
         .filter(p -> p.startsWith(slashTmp))
         // For any path /tmp/dir1/dir2 we encounter, we instead mount /tmp/dir1 (first two
