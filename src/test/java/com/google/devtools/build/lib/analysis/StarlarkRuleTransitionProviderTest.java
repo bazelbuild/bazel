@@ -334,6 +334,71 @@ public final class StarlarkRuleTransitionProviderTest extends BuildViewTestCase 
   }
 
   @Test
+  public void testTransitionReadsInvalidConfiguredAttribute() throws Exception {
+    scratch.file(
+        "test/transitions.bzl",
+        """
+        def _impl(settings, attr):
+            if (hasattr(attr, "my_configurable_attr")):
+                return {"//command_line_option:bool": "true"}
+            else:
+                return {"//command_line_option:bool": "false"}
+
+        my_transition = transition(
+            implementation = _impl,
+            inputs = [],
+            outputs = ["//command_line_option:bool"],
+        )
+        """);
+    scratch.file(
+        "test/rules.bzl",
+        """
+        load("//test:transitions.bzl", "my_transition")
+        def _impl(ctx):
+            return []
+
+        my_rule = rule(
+            implementation = _impl,
+            cfg = my_transition,
+            attrs = {
+                "my_configurable_attr": attr.bool(default = False),
+            },
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:rules.bzl", "my_rule")
+
+        # Both of these can be true at once.
+        config_setting(
+            name = 'dup1',
+            values = {'compilation_mode': 'opt'},
+        )
+        config_setting(
+            name = 'dup2',
+            values = {'define': 'foo=bar'},
+        )
+
+        my_rule(
+            name = "test",
+            # This select has an error, so the transition should not see the attribute.
+            my_configurable_attr = select({
+                ":dup1": True,
+                ":dup2": False,
+                "//conditions:default": False,
+            }),
+        )
+        """);
+
+    useConfiguration("-c", "opt", "--define", "foo=bar");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    // The error is from rule analysis, not from the transition.
+    assertContainsEvent("Illegal ambiguous match on configurable attribute");
+  }
+
+  @Test
   public void testLabelTypedAttrReturnsLabelNotDep() throws Exception {
     scratch.file(
         "test/transitions.bzl",
