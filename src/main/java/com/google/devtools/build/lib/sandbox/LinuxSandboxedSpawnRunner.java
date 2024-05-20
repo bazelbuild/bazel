@@ -177,8 +177,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     // or well-known children of /tmp from the host.
     // TODO(bazel-team): Review all flags whose path may have to be considered here.
     return Stream.concat(
-            Stream.concat(Stream.of(sandboxBase),
-                Stream.of(cmdEnv.getOutputBase())),
+            Stream.of(sandboxBase, cmdEnv.getOutputBase()),
             cmdEnv.getPackageLocator().getPathEntries().stream().map(Root::asPath))
         .filter(p -> p.startsWith(slashTmp))
         // For any path /tmp/dir1/dir2 we encounter, we instead mount /tmp/dir1 (first two
