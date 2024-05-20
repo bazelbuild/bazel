@@ -79,6 +79,11 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   private final NestedSet<Artifact> transitiveModules;
   private final NestedSet<Artifact> transitivePicModules;
 
+  private final NestedSet<Artifact.DerivedArtifact> pcmFiles;
+  private final NestedSet<Artifact.DerivedArtifact> picPcmFiles;
+  private final NestedSet<Artifact> modulesInfoFiles;
+  private final NestedSet<Artifact> picModulesInfoFiles;
+
   private final CppModuleMap cppModuleMap;
 
   private final boolean propagateModuleMapAsActionInput;
@@ -111,6 +116,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       HeaderInfo headerInfo,
       NestedSet<Artifact> transitiveModules,
       NestedSet<Artifact> transitivePicModules,
+      NestedSet<Artifact.DerivedArtifact> pcmFiles,
+      NestedSet<Artifact.DerivedArtifact> picPcmFiles,
+      NestedSet<Artifact> modulesInfoFiles,
+      NestedSet<Artifact> picModulesInfoFiles,
       ImmutableList<Artifact> directModuleMaps,
       ImmutableList<CppModuleMap> exportingModuleMaps,
       CppModuleMap cppModuleMap,
@@ -125,6 +134,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     this.headerInfo = headerInfo;
     this.transitiveModules = transitiveModules;
     this.transitivePicModules = transitivePicModules;
+    this.pcmFiles = pcmFiles;
+    this.picPcmFiles = picPcmFiles;
+    this.modulesInfoFiles = modulesInfoFiles;
+    this.picModulesInfoFiles = picModulesInfoFiles;
     this.cppModuleMap = cppModuleMap;
     this.nonCodeInputs = nonCodeInputs;
     this.compilationPrerequisites = compilationPrerequisites;
@@ -550,6 +563,14 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     return usePic ? transitivePicModules : transitiveModules;
   }
 
+  public NestedSet<Artifact.DerivedArtifact> getPcmFiles(boolean usePic) {
+    return usePic ? picPcmFiles: pcmFiles;
+  }
+
+  public NestedSet<Artifact> getModulesInfoFiles(boolean usePic) {
+    return usePic ? picModulesInfoFiles : modulesInfoFiles;
+  }
+
   @Override
   public Depset getStarlarkTransitiveModules(boolean usePic, StarlarkThread thread)
       throws EvalException {
@@ -627,6 +648,44 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     return commandLineCcCompilationContext.localDefines;
   }
 
+  public static CcCompilationContext createWithCpp20Modules(
+      CcCompilationContext ccCompilationContext,
+      NestedSet<Artifact.DerivedArtifact> pcmFiles,
+      NestedSet<Artifact.DerivedArtifact> picPcmFiles,
+      ImmutableList<Artifact> modulesInfoFiles,
+      ImmutableList<Artifact> picModulesInfoFiles) {
+    var pcmFilesBuilder = NestedSetBuilder
+        .fromNestedSet(ccCompilationContext.pcmFiles)
+        .addTransitive(pcmFiles);
+    var picPcmFilesBuilder = NestedSetBuilder
+        .fromNestedSet(ccCompilationContext.picPcmFiles)
+        .addTransitive(picPcmFiles);
+    var modulesInfoFilesBuilder = NestedSetBuilder
+        .fromNestedSet(ccCompilationContext.modulesInfoFiles)
+        .addAll(modulesInfoFiles);
+    var picModulesInfoFilesBuilder = NestedSetBuilder
+        .fromNestedSet(ccCompilationContext.picModulesInfoFiles)
+        .addAll(picModulesInfoFiles);
+    return new CcCompilationContext(
+        ccCompilationContext.commandLineCcCompilationContext,
+        ccCompilationContext.compilationPrerequisites,
+        ccCompilationContext.declaredIncludeSrcs,
+        ccCompilationContext.nonCodeInputs,
+        ccCompilationContext.headerInfo,
+        ccCompilationContext.transitiveModules,
+        ccCompilationContext.transitivePicModules,
+        pcmFilesBuilder.build(),
+        picPcmFilesBuilder.build(),
+        modulesInfoFilesBuilder.build(),
+        picModulesInfoFilesBuilder.build(),
+        ccCompilationContext.directModuleMaps,
+        ccCompilationContext.exportingModuleMaps,
+        ccCompilationContext.cppModuleMap,
+        ccCompilationContext.propagateModuleMapAsActionInput,
+        ccCompilationContext.virtualToOriginalHeaders,
+        ccCompilationContext.headerTokens);
+  }
+
   /**
    * Returns a {@code CcCompilationContext} that is based on a given {@code CcCompilationContext},
    * with {@code extraHeaderTokens} added to the header tokens.
@@ -644,6 +703,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         ccCompilationContext.headerInfo,
         ccCompilationContext.transitiveModules,
         ccCompilationContext.transitivePicModules,
+        ccCompilationContext.pcmFiles,
+        ccCompilationContext.picPcmFiles,
+        ccCompilationContext.modulesInfoFiles,
+        ccCompilationContext.picModulesInfoFiles,
         ccCompilationContext.directModuleMaps,
         ccCompilationContext.exportingModuleMaps,
         ccCompilationContext.cppModuleMap,
@@ -765,6 +828,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         TransitiveSetHelper<String> allDefines,
         NestedSetBuilder<Artifact> transitiveModules,
         NestedSetBuilder<Artifact> transitivePicModules,
+        NestedSetBuilder<Artifact.DerivedArtifact> pcmFiles,
+        NestedSetBuilder<Artifact.DerivedArtifact> picPcmFiles,
+        NestedSetBuilder<Artifact> modulesInfoFiles,
+        NestedSetBuilder<Artifact> picModulesInfoFiles,
         Set<Artifact> directModuleMaps) {
       Preconditions.checkNotNull(otherCcCompilationContext);
       compilationPrerequisites.addTransitive(
@@ -784,6 +851,11 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       transitivePicModules.addTransitive(otherCcCompilationContext.transitivePicModules);
       addIfNotNull(transitivePicModules, otherCcCompilationContext.headerInfo.picHeaderModule);
       addIfNotNull(transitivePicModules, otherCcCompilationContext.headerInfo.separatePicModule);
+
+      pcmFiles.addTransitive(otherCcCompilationContext.pcmFiles);
+      picPcmFiles.addTransitive(otherCcCompilationContext.picPcmFiles);
+      modulesInfoFiles.addTransitive(otherCcCompilationContext.modulesInfoFiles);
+      picModulesInfoFiles.addTransitive(otherCcCompilationContext.picModulesInfoFiles);
 
       nonCodeInputs.addTransitive(otherCcCompilationContext.nonCodeInputs);
 
@@ -842,6 +914,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         TransitiveSetHelper<String> allDefines,
         NestedSetBuilder<Artifact> transitiveModules,
         NestedSetBuilder<Artifact> transitivePicModules,
+        NestedSetBuilder<Artifact.DerivedArtifact> pcmFiles,
+        NestedSetBuilder<Artifact.DerivedArtifact> picPcmFiles,
+        NestedSetBuilder<Artifact> modulesInfoFiles,
+        NestedSetBuilder<Artifact> picModulesInfoFiles,
         Set<Artifact> directModuleMaps,
         Set<CppModuleMap> exportingModuleMaps) {
       for (CcCompilationContext ccCompilationContext :
@@ -851,6 +927,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
             allDefines,
             transitiveModules,
             transitivePicModules,
+            pcmFiles,
+            picPcmFiles,
+            modulesInfoFiles,
+            picModulesInfoFiles,
             directModuleMaps);
       }
 
@@ -1079,6 +1159,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
       TransitiveSetHelper<String> allDefines = new TransitiveSetHelper<>();
       NestedSetBuilder<Artifact> transitiveModules = NestedSetBuilder.stableOrder();
       NestedSetBuilder<Artifact> transitivePicModules = NestedSetBuilder.stableOrder();
+      NestedSetBuilder<Artifact.DerivedArtifact> pcmFiles = NestedSetBuilder.stableOrder();
+      NestedSetBuilder<Artifact.DerivedArtifact> picPcmFiles = NestedSetBuilder.stableOrder();
+      NestedSetBuilder<Artifact> modulesInfoFiles = NestedSetBuilder.stableOrder();
+      NestedSetBuilder<Artifact> picModulesInfoFiles = NestedSetBuilder.stableOrder();
       Set<Artifact> directModuleMaps = new LinkedHashSet<>();
       Set<CppModuleMap> exportingModuleMaps = new LinkedHashSet<>();
       mergeDependentCcCompilationContexts(
@@ -1087,6 +1171,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
           allDefines,
           transitiveModules,
           transitivePicModules,
+          pcmFiles,
+          picPcmFiles,
+          modulesInfoFiles,
+          picModulesInfoFiles,
           directModuleMaps,
           exportingModuleMaps);
 
@@ -1110,6 +1198,10 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
           headerInfo,
           transitiveModules.build(),
           transitivePicModules.build(),
+          pcmFiles.build(),
+          picPcmFiles.build(),
+          modulesInfoFiles.build(),
+          picModulesInfoFiles.build(),
           ImmutableList.copyOf(directModuleMaps),
           ImmutableList.copyOf(exportingModuleMaps),
           cppModuleMap,
