@@ -431,7 +431,7 @@ EOF
 
   bazel build --platforms=//pkg:exotic_platform --java_runtime_version=local_jdk \
     //pkg:foo_deploy.jar &>"$TEST_log" && fail "Build should fail"
-  expect_log "While resolving toolchains for target //pkg:foo ([0-9a-f]*): No matching toolchains found for types @@bazel_tools//tools/jdk:runtime_toolchain_type"
+  expect_log "While resolving toolchains for target //pkg:foo_deploy.jar ([0-9a-f]*): No matching toolchains found for types @@bazel_tools//tools/jdk:runtime_toolchain_type"
 }
 
 function test_executable_java_binary_fails_without_runtime_with_remote_jdk() {
@@ -445,7 +445,7 @@ java_binary(
 )
 EOF
 
-    cat > pkg/Foo.java <<'EOF'
+  cat > pkg/Foo.java <<'EOF'
 package com.example;
 public class Foo {
   public static void main(String[] args) {
@@ -460,7 +460,7 @@ EOF
 
   bazel build --platforms=//pkg:exotic_platform --java_runtime_version=remotejdk_11 \
     //pkg:foo_deploy.jar &>"$TEST_log" && fail "Build should fail"
-  expect_log "While resolving toolchains for target //pkg:foo ([0-9a-f]*): No matching toolchains found for types @@bazel_tools//tools/jdk:runtime_toolchain_type"
+  expect_log "While resolving toolchains for target //pkg:foo_deploy.jar ([0-9a-f]*): No matching toolchains found for types @@bazel_tools//tools/jdk:runtime_toolchain_type"
 }
 
 run_suite "Java toolchains tests, configured using flags or the default_java_toolchain macro."
