@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainVariablesApi;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -1026,7 +1027,8 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
     @Override
     public ImmutableList<VariableValue> getSequenceValue(String variableName) {
-      ImmutableList.Builder<VariableValue> sequences = ImmutableList.builder();
+      ImmutableList.Builder<VariableValue> sequences =
+          ImmutableList.builderWithExpectedSize(values.size());
       for (String value : values) {
         sequences.add(new StringValue(value));
       }
@@ -1085,8 +1087,10 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
 
     @Override
     public ImmutableList<VariableValue> getSequenceValue(String variableName) {
-      ImmutableList.Builder<VariableValue> sequences = ImmutableList.builder();
-      for (String value : values.toList()) {
+      List<String> valuesList = values.toList();
+      ImmutableList.Builder<VariableValue> sequences =
+          ImmutableList.builderWithExpectedSize(valuesList.size());
+      for (String value : valuesList) {
         sequences.add(new StringValue(value));
       }
       return sequences.build();
@@ -1111,6 +1115,53 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
         return true;
       }
       return values.shallowEquals(((StringSetSequence) other).values);
+    }
+
+    @Override
+    public int hashCode() {
+      return values.shallowHashCode();
+    }
+  }
+
+  @Immutable
+  private static final class PathFragmentSetSequence extends VariableValueAdapter {
+    private final NestedSet<PathFragment> values;
+
+    private PathFragmentSetSequence(NestedSet<PathFragment> values) {
+      Preconditions.checkNotNull(values);
+      this.values = values;
+    }
+
+    @Override
+    public ImmutableList<VariableValue> getSequenceValue(String variableName) {
+      List<PathFragment> valuesList = values.toList();
+      ImmutableList.Builder<VariableValue> sequences =
+          ImmutableList.builderWithExpectedSize(valuesList.size());
+      for (PathFragment value : valuesList) {
+        sequences.add(new StringValue(value.getSafePathString()));
+      }
+      return sequences.build();
+    }
+
+    @Override
+    public String getVariableTypeName() {
+      return Sequence.SEQUENCE_VARIABLE_TYPE_NAME;
+    }
+
+    @Override
+    public boolean isTruthy() {
+      return !values.isEmpty();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) {
+        return true;
+      }
+      if (!(other instanceof PathFragmentSetSequence otherPathFragments)) {
+        return false;
+      }
+      return values.shallowEquals(otherPathFragments.values);
     }
 
     @Override
@@ -1407,6 +1458,19 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       checkVariableNotPresentAlready(name);
       Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
       variablesMap.put(name, StringSequence.of(values));
+      return this;
+    }
+
+    /**
+     * Add a sequence variable that expands {@code name} to {@link PathFragment} {@code values}.
+     *
+     * <p>Accepts values as NestedSet. Nested set is stored directly, not cloned, not flattened.
+     */
+    @CanIgnoreReturnValue
+    public Builder addPathFragmentSequenceVariable(String name, NestedSet<PathFragment> values) {
+      checkVariableNotPresentAlready(name);
+      Preconditions.checkNotNull(values, "Cannot set null as a value for variable '%s'", name);
+      variablesMap.put(name, new PathFragmentSetSequence(values));
       return this;
     }
 

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -193,10 +195,10 @@ public enum CompileBuildVariables {
         variablesExtensions,
         additionalBuildVariables,
         directModuleMaps,
-        getSafePathStrings(includeDirs),
-        getSafePathStrings(quoteIncludeDirs),
-        getSafePathStrings(systemIncludeDirs),
-        getSafePathStrings(frameworkIncludeDirs),
+        includeDirs,
+        quoteIncludeDirs,
+        systemIncludeDirs,
+        frameworkIncludeDirs,
         defines,
         localDefines);
   }
@@ -260,10 +262,10 @@ public enum CompileBuildVariables {
         variablesExtensions,
         additionalBuildVariables,
         directModuleMaps,
-        includeDirs,
-        quoteIncludeDirs,
-        systemIncludeDirs,
-        frameworkIncludeDirs,
+        asPathFragments(includeDirs),
+        asPathFragments(quoteIncludeDirs),
+        asPathFragments(systemIncludeDirs),
+        asPathFragments(frameworkIncludeDirs),
         defines,
         localDefines);
   }
@@ -292,10 +294,10 @@ public enum CompileBuildVariables {
       ImmutableList<VariablesExtension> variablesExtensions,
       ImmutableMap<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
-      NestedSet<String> includeDirs,
-      NestedSet<String> quoteIncludeDirs,
-      NestedSet<String> systemIncludeDirs,
-      NestedSet<String> frameworkIncludeDirs,
+      NestedSet<PathFragment> includeDirs,
+      NestedSet<PathFragment> quoteIncludeDirs,
+      NestedSet<PathFragment> systemIncludeDirs,
+      NestedSet<PathFragment> frameworkIncludeDirs,
       Iterable<String> defines,
       Iterable<String> localDefines) {
     CcToolchainVariables.Builder buildVariables = CcToolchainVariables.builder(parent);
@@ -466,10 +468,10 @@ public enum CompileBuildVariables {
       List<VariablesExtension> variablesExtensions,
       Map<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
-      List<PathFragment> includeDirs,
-      List<PathFragment> quoteIncludeDirs,
-      List<PathFragment> systemIncludeDirs,
-      List<PathFragment> frameworkIncludeDirs,
+      ImmutableList<PathFragment> includeDirs,
+      ImmutableList<PathFragment> quoteIncludeDirs,
+      ImmutableList<PathFragment> systemIncludeDirs,
+      ImmutableList<PathFragment> frameworkIncludeDirs,
       Iterable<String> defines,
       Iterable<String> localDefines) {
     setupCommonVariablesInternal(
@@ -482,10 +484,12 @@ public enum CompileBuildVariables {
         variablesExtensions,
         additionalBuildVariables,
         directModuleMaps,
-        getSafePathStrings(includeDirs),
-        getSafePathStrings(quoteIncludeDirs),
-        getSafePathStrings(systemIncludeDirs),
-        getSafePathStrings(frameworkIncludeDirs),
+        // Stable order NestedSets wrapping ImmutableLists are interned, otherwise this would be
+        // a clear waste of memory as the single caller ensure that there are no duplicates.
+        NestedSetBuilder.wrap(Order.STABLE_ORDER, includeDirs),
+        NestedSetBuilder.wrap(Order.STABLE_ORDER, quoteIncludeDirs),
+        NestedSetBuilder.wrap(Order.STABLE_ORDER, systemIncludeDirs),
+        NestedSetBuilder.wrap(Order.STABLE_ORDER, frameworkIncludeDirs),
         defines,
         localDefines);
   }
@@ -500,10 +504,10 @@ public enum CompileBuildVariables {
       List<VariablesExtension> variablesExtensions,
       Map<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
-      NestedSet<String> includeDirs,
-      NestedSet<String> quoteIncludeDirs,
-      NestedSet<String> systemIncludeDirs,
-      NestedSet<String> frameworkIncludeDirs,
+      NestedSet<PathFragment> includeDirs,
+      NestedSet<PathFragment> quoteIncludeDirs,
+      NestedSet<PathFragment> systemIncludeDirs,
+      NestedSet<PathFragment> frameworkIncludeDirs,
       Iterable<String> defines,
       Iterable<String> localDefines) {
     Preconditions.checkNotNull(directModuleMaps);
@@ -526,17 +530,17 @@ public enum CompileBuildVariables {
       // Module inputs will be set later when the action is executed.
       buildVariables.addStringSequenceVariable(MODULE_FILES.getVariableName(), ImmutableSet.of());
     }
-    buildVariables.addStringSequenceVariable(INCLUDE_PATHS.getVariableName(), includeDirs);
-    buildVariables.addStringSequenceVariable(
+    buildVariables.addPathFragmentSequenceVariable(INCLUDE_PATHS.getVariableName(), includeDirs);
+    buildVariables.addPathFragmentSequenceVariable(
         QUOTE_INCLUDE_PATHS.getVariableName(), quoteIncludeDirs);
-    buildVariables.addStringSequenceVariable(
+    buildVariables.addPathFragmentSequenceVariable(
         SYSTEM_INCLUDE_PATHS.getVariableName(), systemIncludeDirs);
 
     if (!includes.isEmpty()) {
       buildVariables.addStringSequenceVariable(INCLUDES.getVariableName(), includes);
     }
 
-    buildVariables.addStringSequenceVariable(
+    buildVariables.addPathFragmentSequenceVariable(
         FRAMEWORK_PATHS.getVariableName(), frameworkIncludeDirs);
 
     Iterable<String> allDefines;
@@ -563,17 +567,11 @@ public enum CompileBuildVariables {
     }
   }
 
-  /** Get the safe path strings for a list of paths to use in the build variables. */
-  private static NestedSet<String> getSafePathStrings(NestedSet<PathFragment> paths) {
-    return getSafePathStrings(paths.toList());
-  }
-
-  /** Get the safe path strings for a list of paths to use in the build variables. */
-  private static NestedSet<String> getSafePathStrings(List<PathFragment> paths) {
-    // Using ImmutableSet first to remove duplicates, then NestedSet for smaller memory footprint.
+  private static NestedSet<PathFragment> asPathFragments(NestedSet<String> paths) {
+    // Using ImmutableList as the final type to benefit from NestedSet interning.
     return NestedSetBuilder.wrap(
         Order.STABLE_ORDER,
-        Iterables.transform(ImmutableSet.copyOf(paths), PathFragment::getSafePathString));
+        paths.toList().stream().map(PathFragment::create).collect(toImmutableList()));
   }
 
   public String getVariableName() {
