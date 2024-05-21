@@ -81,21 +81,23 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
   }
 
   @Override
-  public StashContents filterInputsAndDirsToCreate(
+  public void filterInputsAndDirsToCreate(
       Set<PathFragment> inputsToCreate, Set<PathFragment> dirsToCreate)
       throws IOException, InterruptedException {
-    StashContents oldStashContents = null;
+    if (!SandboxStash.gotInstance()) {
+      return;
+    }
     StashContents stashContents =
         SandboxStash.takeStashedSandbox(
             sandboxPath, mnemonic, getEnvironment(), outputs, targetLabel);
     sandboxExecRoot.createDirectoryAndParents();
     if (stashContents != null) {
-      SandboxStash.statistics.putIfAbsent("reused_stashes", new AtomicInteger());
-      SandboxStash.statistics.get("reused_stashes").incrementAndGet();
-      SandboxStash.statistics.putIfAbsent("available_stashes", new AtomicInteger());
-      SandboxStash.statistics
-          .get("available_stashes")
-          .addAndGet(SandboxStash.instance.pathToContents.size());
+      // SandboxStash.statistics.putIfAbsent("reused_stashes", new AtomicInteger());
+      // SandboxStash.statistics.get("reused_stashes").incrementAndGet();
+      // SandboxStash.statistics.putIfAbsent("available_stashes", new AtomicInteger());
+      // SandboxStash.statistics
+      //     .get("available_stashes")
+      //     .addAndGet(SandboxStash.instance.pathToContents.size());
       // When reusing an old sandbox, we do a full traversal of the parent directory of
       // `sandboxExecRoot`. This will use what we computed above, delete anything unnecessary, and
       // update `inputsToCreate`/`dirsToCreate` if something can be left without changes (e.g., a,
@@ -110,11 +112,11 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
           sandboxExecRoot,
           treeDeleter,
           stashContents);
-      oldStashContents = stashContents;
     } else {
-      SandboxStash.statistics.putIfAbsent("stashes_from_scratch", new AtomicInteger());
-      SandboxStash.statistics.get("stashes_from_scratch").incrementAndGet();
+      // SandboxStash.statistics.putIfAbsent("stashes_from_scratch", new AtomicInteger());
+      // SandboxStash.statistics.get("stashes_from_scratch").incrementAndGet();
     }
+    // TODO: Remove repetition
     Map<PathFragment, StashContents> stashContentsMap = new HashMap<>();
     for (Map.Entry<PathFragment, Path> entry : inputs.getFiles().entrySet()) {
       if (entry.getValue() == null) {
@@ -123,21 +125,21 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
       PathFragment parent = entry.getKey().getParentDirectory();
       boolean parentWasPresent = true;
       if (!stashContentsMap.containsKey(parent)) {
-        stashContentsMap.put(parent, new StashContents());
+        stashContentsMap.put(parent, StashContents.create());
         parentWasPresent = false;
       }
       StashContents parentStashContents = stashContentsMap.get(parent);
-      parentStashContents.filesToRootedPath.put(entry.getKey().getBaseName(), entry.getValue());
+      parentStashContents.filesToPath().put(entry.getKey().getBaseName(), entry.getValue());
       while (!parentWasPresent && parent.getParentDirectory() != null) {
         PathFragment parentParent = parent.getParentDirectory();
         if (stashContentsMap.containsKey(parentParent)) {
           parentWasPresent = true;
         } else {
-          stashContentsMap.put(parentParent, new StashContents());
+          stashContentsMap.put(parentParent, StashContents.create());
         }
         StashContents parentParentStashContents = stashContentsMap.get(parentParent);
-        if (!parentParentStashContents.dirEntries.containsKey(parent.getBaseName())) {
-          parentParentStashContents.dirEntries.put(
+        if (!parentParentStashContents.dirEntries().containsKey(parent.getBaseName())) {
+          parentParentStashContents.dirEntries().put(
               parent.getBaseName(), stashContentsMap.get(parent));
         }
         parent = parentParent;
@@ -150,22 +152,22 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
       PathFragment parent = entry.getKey().getParentDirectory();
       boolean parentWasPresent = true;
       if (!stashContentsMap.containsKey(parent)) {
-        stashContentsMap.put(parent, new StashContents());
+        stashContentsMap.put(parent, StashContents.create());
         parentWasPresent = false;
       }
       StashContents parentStashContents = stashContentsMap.get(parent);
-      parentStashContents.symlinksToPathFragment.put(
+      parentStashContents.symlinksToPathFragment().put(
           entry.getKey().getBaseName(), entry.getValue());
       while (!parentWasPresent && parent.getParentDirectory() != null) {
         PathFragment parentParent = parent.getParentDirectory();
         if (stashContentsMap.containsKey(parentParent)) {
           parentWasPresent = true;
         } else {
-          stashContentsMap.put(parentParent, new StashContents());
+          stashContentsMap.put(parentParent, StashContents.create());
         }
         StashContents parentParentStashContents = stashContentsMap.get(parentParent);
-        if (!parentParentStashContents.dirEntries.containsKey(parent.getBaseName())) {
-          parentParentStashContents.dirEntries.put(
+        if (!parentParentStashContents.dirEntries().containsKey(parent.getBaseName())) {
+          parentParentStashContents.dirEntries().put(
               parent.getBaseName(), stashContentsMap.get(parent));
         }
         parent = parentParent;
@@ -181,7 +183,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
       PathFragment parent = outputDir;
       boolean parentWasPresent = true;
       if (!stashContentsMap.containsKey(parent)) {
-        stashContentsMap.put(parent, new StashContents());
+        stashContentsMap.put(parent, StashContents.create());
         parentWasPresent = false;
       }
       while (!parentWasPresent && parent.getParentDirectory() != null) {
@@ -189,22 +191,19 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
         if (stashContentsMap.containsKey(parentParent)) {
           parentWasPresent = true;
         } else {
-          stashContentsMap.put(parentParent, new StashContents());
+          stashContentsMap.put(parentParent, StashContents.create());
         }
         StashContents parentParentStashContents = stashContentsMap.get(parentParent);
-        if (!parentParentStashContents.dirEntries.containsKey(parent.getBaseName())) {
-          parentParentStashContents.dirEntries.put(
+        if (!parentParentStashContents.dirEntries().containsKey(parent.getBaseName())) {
+          parentParentStashContents.dirEntries().put(
               parent.getBaseName(), stashContentsMap.get(parent));
         }
         parent = parentParent;
       }
     }
-    StashContents main = new StashContents();
-    // TODO: Avoid having to do this "_main" thing
-    main.dirEntries.put("_main", stashContentsMap.get(PathFragment.EMPTY_FRAGMENT));
+    StashContents main = StashContents.create();
+    main.dirEntries().put(SandboxStash.getWorkspaceName(), stashContentsMap.get(PathFragment.EMPTY_FRAGMENT));
     SandboxStash.setPathContents(sandboxPath, main);
-    // TODO: delete return value, only for debugging
-    return oldStashContents;
   }
 
   @Override

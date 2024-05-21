@@ -209,73 +209,40 @@ public final class SandboxHelpers {
       throws IOException, InterruptedException {
     Path execroot = workDir.getParentDirectory();
     Preconditions.checkNotNull(stashContents);
-    for (var fileDirent : stashContents.filesToRootedPath.entrySet()) {
+    for (var fileDirent : stashContents.filesToPath().entrySet()) {
       if (Thread.interrupted()) {
         throw new InterruptedException();
       }
       Path absPath = root.getChild(fileDirent.getKey());
-      PathFragment pathRelativeToWorkDir;
-      if (absPath.startsWith(workDir)) {
-        // path is under workDir, i.e. execroot/<workspace name>. Simply get the relative path.
-        pathRelativeToWorkDir = absPath.relativeTo(workDir);
-      } else {
-        // path is not under workDir, which means it belongs to one of external repositories
-        // symlinked directly under execroot. Get the relative path based on there and prepend it
-        // with the designated prefix, '../', so that it's still a valid relative path to workDir.
-        pathRelativeToWorkDir =
-            LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
-                absPath.relativeTo(execroot));
-      }
+      PathFragment pathRelativeToWorkDir = getPathRelativeToWorkDir(absPath, workDir, execroot);
       Optional<Path> destination =
           getExpectedSymlinkDestinationForFiles(pathRelativeToWorkDir, inputs);
       if (destination.isPresent() && fileDirent.getValue().equals(destination.get())) {
-        inputsToCreate.remove(pathRelativeToWorkDir);
+        Preconditions.checkState(inputsToCreate.remove(pathRelativeToWorkDir));
       } else {
         absPath.delete();
       }
     }
-    for (var symlinkDirent : stashContents.symlinksToPathFragment.entrySet()) {
+    for (var symlinkDirent : stashContents.symlinksToPathFragment().entrySet()) {
       if (Thread.interrupted()) {
         throw new InterruptedException();
       }
       Path absPath = root.getChild(symlinkDirent.getKey());
-      PathFragment pathRelativeToWorkDir;
-      if (absPath.startsWith(workDir)) {
-        // path is under workDir, i.e. execroot/<workspace name>. Simply get the relative path.
-        pathRelativeToWorkDir = absPath.relativeTo(workDir);
-      } else {
-        // path is not under workDir, which means it belongs to one of external repositories
-        // symlinked directly under execroot. Get the relative path based on there and prepend it
-        // with the designated prefix, '../', so that it's still a valid relative path to workDir.
-        pathRelativeToWorkDir =
-            LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
-                absPath.relativeTo(execroot));
-      }
+      PathFragment pathRelativeToWorkDir = getPathRelativeToWorkDir(absPath, workDir, execroot);
       Optional<PathFragment> destination =
           getExpectedSymlinkDestinationForSymlinks(pathRelativeToWorkDir, inputs);
       if (destination.isPresent() && symlinkDirent.getValue().equals(destination.get())) {
-        inputsToCreate.remove(pathRelativeToWorkDir);
+        Preconditions.checkState(inputsToCreate.remove(pathRelativeToWorkDir));
       } else {
         absPath.delete();
       }
     }
-    for (var dirent : stashContents.dirEntries.entrySet()) {
+    for (var dirent : stashContents.dirEntries().entrySet()) {
       if (Thread.interrupted()) {
         throw new InterruptedException();
       }
       Path absPath = root.getChild(dirent.getKey());
-      PathFragment pathRelativeToWorkDir;
-      if (absPath.startsWith(workDir)) {
-        // path is under workDir, i.e. execroot/<workspace name>. Simply get the relative path.
-        pathRelativeToWorkDir = absPath.relativeTo(workDir);
-      } else {
-        // path is not under workDir, which means it belongs to one of external repositories
-        // symlinked directly under execroot. Get the relative path based on there and prepend it
-        // with the designated prefix, '../', so that it's still a valid relative path to workDir.
-        pathRelativeToWorkDir =
-            LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
-                absPath.relativeTo(execroot));
-      }
+      PathFragment pathRelativeToWorkDir = getPathRelativeToWorkDir(absPath, workDir, execroot);
       if (dirsToCreate.contains(pathRelativeToWorkDir)
           || prefixDirs.contains(pathRelativeToWorkDir)) {
         cleanRecursively(
@@ -296,6 +263,19 @@ public final class SandboxHelpers {
           treeDeleter.deleteTree(absPath);
         }
       }
+    }
+  }
+
+  private static PathFragment getPathRelativeToWorkDir(Path absPath, Path workDir, Path execroot)  {
+    if (absPath.startsWith(workDir)) {
+      // path is under workDir, i.e. execroot/<workspace name>. Simply get the relative path.
+      return absPath.relativeTo(workDir);
+    } else {
+      // path is not under workDir, which means it belongs to one of external repositories
+      // symlinked directly under execroot. Get the relative path based on there and prepend it
+      // with the designated prefix, '../', so that it's still a valid relative path to workDir.
+     return LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
+              absPath.relativeTo(execroot));
     }
   }
 
@@ -595,9 +575,14 @@ public final class SandboxHelpers {
         .contains("--wrapper_script_flag=--debug");
   }
 
-  public static class StashContents {
-    Map<String, Path> filesToRootedPath = new HashMap<>();
-    Map<String, PathFragment> symlinksToPathFragment = new HashMap<>();
-    Map<String, StashContents> dirEntries = new HashMap<>();
+  @AutoValue
+  public abstract static class StashContents {
+    public abstract Map<String, Path> filesToPath();
+    public abstract Map<String, PathFragment> symlinksToPathFragment();
+    public abstract Map<String, StashContents> dirEntries();
+
+    public static StashContents create() {
+      return new AutoValue_SandboxHelpers_StashContents(new HashMap<>(), new HashMap<>(), new HashMap<>());
+    }
   }
 }

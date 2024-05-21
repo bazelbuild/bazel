@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -129,32 +130,24 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
           outputs);
     }
 
-    StashContents oldStashContents = null;
     try (SilentCloseable c = Profiler.instance().profile("sandbox.filterInputsAndDirsToCreate")) {
       // Allow subclasses to filter out inputs and dirs that don't need to be created.
-      oldStashContents = filterInputsAndDirsToCreate(inputsToCreate, dirsToCreate);
+      filterInputsAndDirsToCreate(inputsToCreate, dirsToCreate);
     }
-    // TODO: problem is probably here, that we don't have the bazel-out directory in StashContents
-    // and the timestamp recording comes after.
 
     // Finally create what needs creating.
     try (SilentCloseable c = Profiler.instance().profile("sandbox.createDirectories")) {
       SandboxHelpers.createDirectories(dirsToCreate, sandboxExecRoot, /* strict= */ true);
     }
     try (SilentCloseable c = Profiler.instance().profile("sandbox.createInputs")) {
-      try {
-        createInputs(inputsToCreate, inputs);
-      } catch (Exception e) {
-        System.out.println("hi");
-      }
+      createInputs(inputsToCreate, inputs);
     }
     SandboxStash.setLastModified(sandboxPath, System.currentTimeMillis());
   }
 
-  protected StashContents filterInputsAndDirsToCreate(
+  protected void filterInputsAndDirsToCreate(
       Set<PathFragment> inputsToCreate, Set<PathFragment> dirsToCreate)
       throws IOException, InterruptedException {
-    return null;
   }
 
   /**

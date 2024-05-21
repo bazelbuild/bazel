@@ -571,9 +571,6 @@ public final class SandboxModule extends BlazeModule {
   @Override
   public void afterCommand() {
     checkNotNull(env, "env not initialized; was beforeCommand called?");
-    // for (var entry : SandboxStash.statistics.entrySet()) {
-    //   System.out.println(":" + entry.getKey() + " : " + entry.getValue());
-    // }
 
     SandboxOptions options = env.getOptions().getOptions(SandboxOptions.class);
     int asyncTreeDeleteThreads = options != null ? options.asyncTreeDeleteIdleThreads : 0;
@@ -625,6 +622,8 @@ public final class SandboxModule extends BlazeModule {
         treeDeleter = null; // Avoid potential reexecution if we crash.
       }
     }
+
+    SandboxStash.shutdown();
   }
 
   @Override
