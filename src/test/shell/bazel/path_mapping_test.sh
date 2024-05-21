@@ -286,4 +286,43 @@ EOF
   expect_log '2 remote[^ ]'
 }
 
+function test_path_stripping_disabled_with_tags() {
+  mkdir pkg
+  cat > pkg/defs.bzl <<'EOF'
+def _my_rule_impl(ctx):
+    out = ctx.actions.declare_file(ctx.attr.name)
+    args = ctx.actions.args()
+    args.add(out)
+    ctx.actions.run_shell(
+         outputs = [out],
+         command = "echo 'Hello, World!' > $1",
+         arguments = [args],
+         execution_requirements = {"supports-path-mapping": ""},
+    )
+    return [
+        DefaultInfo(files = depset([out])),
+    ]
+
+my_rule = rule(_my_rule_impl)
+EOF
+  cat > pkg/BUILD << 'EOF'
+load(":defs.bzl", "my_rule")
+
+my_rule(
+    name = "local_target",
+    tags = ["local"],
+)
+
+my_rule(
+    name = "implicitly_local_target",
+    tags = [
+        "no-sandbox",
+        "no-remote",
+    ],
+)
+EOF
+
+  bazel build --experimental_output_paths=strip //pkg:all &> $TEST_log || fail "build failed unexpectedly"
+}
+
 run_suite "path mapping tests"
