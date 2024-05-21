@@ -168,9 +168,10 @@ public class BazelLockFileModule extends BlazeModule {
         continue;
       }
       var newFactors = newExtensionInfo.extensionFactors();
-      var perFactorResultsToKeep =
-          ImmutableSortedMap.copyOf(
-              Maps.filterKeys(entry.getValue(), newFactors::hasSameDependenciesAs));
+      ImmutableSortedMap<ModuleExtensionEvalFactors, LockFileModuleExtension>
+          perFactorResultsToKeep =
+              ImmutableSortedMap.copyOf(
+                  Maps.filterKeys(entry.getValue(), newFactors::hasSameDependenciesAs));
       if (perFactorResultsToKeep.isEmpty()) {
         continue;
       }
