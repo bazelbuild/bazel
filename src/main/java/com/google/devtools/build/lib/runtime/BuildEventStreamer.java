@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.runtime.CountingArtifactGroupNamer.LatchedGroupName;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
@@ -504,9 +505,18 @@ public class BuildEventStreamer {
       buildEvent(freedEvent);
     }
 
+    // Special-case handling for subclasses of `BuildCompletingEvent`.
+    //
+    // For most commands, exactly one `BuildCompletingEvent` will be posted to the EventBus. If the
+    // command is "run" or "test", a non-crashing/catastrophic `BuildCompleteEvent` will be followed
+    // by a RunBuildCompleteEvent/TestingCompleteEvent.
     if (event instanceof BuildCompleteEvent buildCompleteEvent) {
       if (isCrash(buildCompleteEvent) || isCatastrophe(buildCompleteEvent)) {
-        addAbortReason(AbortReason.INTERNAL);
+        if (isOom(buildCompleteEvent)) {
+          addAbortReason(AbortReason.OUT_OF_MEMORY);
+        } else {
+          addAbortReason(AbortReason.INTERNAL);
+        }
       } else if (isIncomplete(buildCompleteEvent)) {
         addAbortReason(AbortReason.INCOMPLETE);
       }
@@ -528,7 +538,7 @@ public class BuildEventStreamer {
   }
 
   private static boolean isCrash(BuildCompleteEvent event) {
-    return event.getResult().getUnhandledThrowable() != null;
+    return event.getResult().getUnhandledThrowable() != null || isOom(event);
   }
 
   private static boolean isCatastrophe(BuildCompleteEvent event) {
@@ -539,6 +549,10 @@ public class BuildEventStreamer {
     return !event.getResult().getSuccess()
         && !event.getResult().wasCatastrophe()
         && event.getResult().getStopOnFirstFailure();
+  }
+
+  private static boolean isOom(BuildCompleteEvent event) {
+    return event.getResult().getDetailedExitCode().getExitCode().equals(ExitCode.OOM_ERROR);
   }
 
   /**
@@ -725,12 +739,12 @@ public class BuildEventStreamer {
       return RetentionDecision.DISCARD;
     }
 
-    if (isCommandToSkipBuildCompleteEvent && event instanceof BuildCompleteEvent) {
+    if (isCommandToSkipBuildCompleteEvent
+        && event instanceof BuildCompleteEvent buildCompleteEvent) {
       // In case of "bazel test" or "bazel run" ignore the BuildCompleteEvent, as it will be
-      // followed by a TestingCompleteEvent that contains the correct exit code.
-      return isCrash((BuildCompleteEvent) event)
-          ? RetentionDecision.POST
-          : RetentionDecision.DISCARD;
+      // followed by a TestingCompleteEvent (or RunBuildCompleteEvent) that contains the correct
+      // exit code.
+      return isCrash(buildCompleteEvent) ? RetentionDecision.POST : RetentionDecision.DISCARD;
     }
 
     if (event instanceof TargetParsingCompleteEvent) {

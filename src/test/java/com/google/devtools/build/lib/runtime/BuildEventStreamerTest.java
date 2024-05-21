@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.bugreport.BugReport.constructOomExitMessage;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -44,7 +46,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentRegistry;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceOptions.BesUploadMode;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
@@ -67,12 +68,15 @@ import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
+import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoAnalyzeEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
@@ -84,12 +88,15 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.Options;
+import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -1395,6 +1402,46 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
   }
 
   @Test
+  public void testBuildCatastropheOom_testCommand() {
+    BuildEventId abortedEventId =
+        BuildEventIdUtil.targetPatternExpanded(ImmutableList.of("//foo:bar"));
+    BuildEvent startEvent =
+        BuildStartingEvent.create(
+            "tmpfs",
+            true,
+            BuildRequest.builder()
+                .setCommandName("test")
+                .setRunTests(true)
+                .setTargets(ImmutableList.of("//foo:bar"))
+                .setOptions(createMockOptions())
+                .setId(UUID.randomUUID())
+                .setStartTimeMillis(10842L)
+                .build(),
+            null,
+            "/tmp/build");
+    BuildCompleteEvent buildCompleteEvent =
+        buildCompleteEvent(
+            DetailedExitCode.of(
+                FailureDetail.newBuilder()
+                    .setCrash(Crash.newBuilder().setCode(Crash.Code.CRASH_OOM))
+                    .build()),
+            true,
+            null,
+            true);
+
+    streamer.buildEvent(startEvent);
+    streamer.buildEvent(buildCompleteEvent);
+    streamer.close();
+
+    BuildEventStreamProtos.BuildEvent aborted = getBepEvent(abortedEventId);
+    assertThat(aborted).isNotNull();
+    assertThat(aborted.hasAborted()).isTrue();
+    assertThat(aborted.getAborted().getReason()).isEqualTo(AbortReason.OUT_OF_MEMORY);
+    assertThat(aborted.getAborted().getDescription())
+        .isEqualTo(constructOomExitMessage(OOM_MESSAGE));
+  }
+
+  @Test
   public void testStreamAbortedWithTimeout() {
     BuildEventId buildEventId = testId("abort_expected");
     BuildEvent startEvent =
@@ -1483,7 +1530,7 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
         .isEqualTo(
             Aborted.newBuilder()
                 .setReason(AbortReason.OUT_OF_MEMORY)
-                .setDescription(BugReport.constructOomExitMessage(OOM_MESSAGE))
+                .setDescription(constructOomExitMessage(OOM_MESSAGE))
                 .build());
   }
 
@@ -1578,6 +1625,18 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
                 .map(File::getUri)
                 .collect(ImmutableList.toImmutableList()))
         .containsExactly(testPath1.toString(), testPath2.toString());
+  }
+
+  private OptionsParsingResult createMockOptions() {
+    OptionsParsingResult options = mock(OptionsParsingResult.class);
+    when(options.getOptions(any()))
+        .thenAnswer(
+            inv -> {
+              Class<? extends OptionsBase> optionsClass = inv.getArgument(0);
+              return Options.getDefaults(optionsClass);
+            });
+    when(options.asCompleteListOfParsedOptions()).thenReturn(ImmutableList.of());
+    return options;
   }
 
   private static DetailedExitCode createGenericDetailedExitCode() {
