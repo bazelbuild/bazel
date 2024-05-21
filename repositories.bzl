@@ -27,7 +27,6 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     # keep sorted
     "abseil-cpp",
     "apple_support",
-    "bazel_features",
     "bazel_skylib",
     "blake3",
     "buildozer",
@@ -62,7 +61,7 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
 ]] + [
     # TODO(pcloudy): Remove after https://github.com/bazelbuild/rules_kotlin/issues/1106 is fixed
     get_canonical_repo_name("rules_kotlin") + "~rules_kotlin_extensions~com_github_jetbrains_kotlin",
-]
+] + ["bazel_features~"]
 
 ##################################################################################
 #

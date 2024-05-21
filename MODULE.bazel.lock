@@ -2939,7 +2939,7 @@
     },
     "//:extensions.bzl%bazel_build_deps": {
       "general": {
-        "bzlTransitiveDigest": "6RYb7Q/2mHqUR/z4DPKlzsBQmVLn4JKJ7Wt9dF9nzHc=",
+        "bzlTransitiveDigest": "iHLxWy9Kdma4o6vQG1U0vO82d7jPg9gng3gCoY4Dn88=",
         "recordedFileInputs": {
           "@@//MODULE.bazel": "c3718ce1b617d89d25e3b7e1423c2d65324a3e60bf17c071ce81e1c7ab1bbd08",
           "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "ee7c64e99b64962ca810a8657c3770fcc87bf9f1ab3c838311cd5df5d03d94b5"
@@ -3054,7 +3054,8 @@
                 "grpc~~grpc_repo_deps_ext~com_google_googleapis",
                 "grpc~~grpc_repo_deps_ext~envoy_api",
                 "grpc~~grpc_repo_deps_ext~rules_cc",
-                "rules_kotlin~~rules_kotlin_extensions~com_github_jetbrains_kotlin"
+                "rules_kotlin~~rules_kotlin_extensions~com_github_jetbrains_kotlin",
+                "bazel_features~"
               ],
               "dirname": "derived/repository_cache",
               "module_files": [
@@ -3331,7 +3332,7 @@
     },
     "//:extensions.bzl%bazel_test_deps": {
       "general": {
-        "bzlTransitiveDigest": "6RYb7Q/2mHqUR/z4DPKlzsBQmVLn4JKJ7Wt9dF9nzHc=",
+        "bzlTransitiveDigest": "iHLxWy9Kdma4o6vQG1U0vO82d7jPg9gng3gCoY4Dn88=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
