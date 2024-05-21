@@ -290,7 +290,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     assertThat(classMappingFilesList.get(0).getExecPathString())
         .containsMatch(
-            "/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin/java/com/google/dummy/test/proto/test.clsmap.properties");
+            "/darwin_x86_64-fastbuild/bin/java/com/google/dummy/test/proto/test.clsmap.properties");
   }
 
   @Test
@@ -318,15 +318,15 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         getArtifacts(j2ObjcMappingFileInfo, "class_mapping_files");
     assertThat(classMappingFilesList.get(0).getExecPathString())
         .containsMatch(
-            "/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin/x/test.clsmap.properties");
+            "/darwin_x86_64-fastbuild/bin/x/test.clsmap.properties");
 
     ObjcProvider objcProvider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     CcCompilationContext ccCompilationContext =
         target.get(CcInfo.PROVIDER).getCcCompilationContext();
     assertThat(ccCompilationContext.getDeclaredIncludeSrcs().toList().toString())
-        .containsMatch("/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin]x/test.j2objc.pb.h");
+        .containsMatch("/darwin_x86_64-fastbuild/bin]x/test.j2objc.pb.h");
     assertThat(objcProvider.get(ObjcProvider.SOURCE).toList().toString())
-        .containsMatch("/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin]x/test.j2objc.pb.m,");
+        .containsMatch("/darwin_x86_64-fastbuild/bin]x/test.j2objc.pb.m,");
   }
 
   @Test
@@ -368,7 +368,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     assertThat(classMappingFilesList.get(0).getExecPathString())
         .containsMatch(
-            "/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin/external/bla/foo/test.clsmap.properties");
+            "/darwin_x86_64-fastbuild/bin/external/bla/foo/test.clsmap.properties");
 
     ObjcProvider objcProvider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     CcCompilationContext ccCompilationContext =
@@ -376,10 +376,10 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     assertThat(ccCompilationContext.getDeclaredIncludeSrcs().toList().toString())
         .containsMatch(
-            "/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin]external/bla/foo/test.j2objc.pb.h");
+            "/darwin_x86_64-fastbuild/bin]external/bla/foo/test.j2objc.pb.h");
     assertThat(objcProvider.get(ObjcProvider.SOURCE).toList().toString())
         .containsMatch(
-            "/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin]external/bla/foo/test.j2objc.pb.m");
+            "/darwin_x86_64-fastbuild/bin]external/bla/foo/test.j2objc.pb.m");
     assertThat(ccCompilationContext.getIncludeDirs())
         .contains(
             getConfiguration(target)

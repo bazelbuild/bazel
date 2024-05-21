@@ -16,15 +16,15 @@
 Definition of j2objc_library rule.
 """
 
-load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/objc/attrs.bzl", "common_attrs")
-load(":common/objc/transitions.bzl", "apple_crosstool_transition")
-load(":common/cc/semantics.bzl", "semantics")
-load(":common/objc/providers.bzl", "J2ObjcEntryClassInfo", "J2ObjcMappingFileInfo")
-load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_common.bzl", "cc_common")
+load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/semantics.bzl", "semantics")
+load(":common/objc/attrs.bzl", "common_attrs")
 load(":common/objc/compilation_support.bzl", "compilation_support")
 load(":common/objc/j2objc_aspect.bzl", "j2objc_aspect")
+load(":common/objc/providers.bzl", "J2ObjcEntryClassInfo", "J2ObjcMappingFileInfo")
+load(":common/objc/semantics.bzl", objc_semantics = "semantics")
 
 _MIGRATION_TAG = "__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__"
 
@@ -109,7 +109,7 @@ j2objc_library = rule(
         J2OBJC_ATTRS,
         common_attrs.CC_TOOLCHAIN_RULE,
     ),
-    cfg = apple_crosstool_transition,
+    cfg = objc_semantics.apple_crosstool_transition,
     fragments = ["apple", "cpp", "j2objc", "objc"] + semantics.additional_fragments(),
     toolchains = cc_helper.use_cpp_toolchain(),
     provides = [CcInfo, J2ObjcEntryClassInfo, J2ObjcMappingFileInfo],

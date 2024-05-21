@@ -46,6 +46,3 @@ use_repo(remote_android_extensions, "android_gmaven_r8", "android_tools")
 # Used by bazel mod tidy (see BazelModTidyFunction).
 buildozer_binary = use_extension("@buildozer//:buildozer_binary.bzl", "buildozer_binary")
 use_repo(buildozer_binary, "buildozer_binary")
-
-# Platforms used by transitions in builtins
-bazel_dep(name = "apple_support", version = "1.5.0", repo_name = "build_bazel_apple_support")
