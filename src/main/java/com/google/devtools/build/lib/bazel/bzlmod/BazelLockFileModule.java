@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -35,7 +36,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import javax.annotation.Nullable;
 
 /**
  * Module collecting Bazel module and module extensions resolution results and updating the
@@ -148,21 +148,34 @@ public class BazelLockFileModule extends BlazeModule {
     Map<ModuleExtensionId, ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
         updatedExtensionMap = new HashMap<>();
 
-    // Keep old extensions if they are still valid.
+    // Keep those per factor extension results that are still used according to the static
+    // information given in the extension declaration (dependence on os and arch, reproducibility).
+    // Other information such as transitive .bzl hash and usages hash are *not* checked here.
     for (var entry : oldExtensionInfos.entrySet()) {
       var moduleExtensionId = entry.getKey();
-      var factorToLockedExtension = entry.getValue();
-      ModuleExtensionEvalFactors firstEntryFactors =
-          factorToLockedExtension.keySet().iterator().next();
-      // All entries for a single extension share the same usages digest, so it suffices to check
-      // the first entry.
-      if (shouldKeepExtension(
-          moduleExtensionId,
-          firstEntryFactors,
-          newExtensionInfos.get(moduleExtensionId),
-          depGraphValue)) {
-        updatedExtensionMap.put(moduleExtensionId, factorToLockedExtension);
+      if (!depGraphValue.getExtensionUsagesTable().containsRow(moduleExtensionId)) {
+        // Extensions without any usages are not needed anymore.
+        continue;
       }
+      var newExtensionInfo = newExtensionInfos.get(moduleExtensionId);
+      if (newExtensionInfo == null) {
+        // No information based on which we could invalidate old entries, keep all of them.
+        updatedExtensionMap.put(moduleExtensionId, entry.getValue());
+        continue;
+      }
+      if (!newExtensionInfo.moduleExtension().shouldLockExtension()) {
+        // Extension has become reproducible and should not be locked anymore.
+        continue;
+      }
+      var newFactors = newExtensionInfo.extensionFactors();
+      ImmutableSortedMap<ModuleExtensionEvalFactors, LockFileModuleExtension>
+          perFactorResultsToKeep =
+              ImmutableSortedMap.copyOf(
+                  Maps.filterKeys(entry.getValue(), newFactors::hasSameDependenciesAs));
+      if (perFactorResultsToKeep.isEmpty()) {
+        continue;
+      }
+      updatedExtensionMap.put(moduleExtensionId, perFactorResultsToKeep);
     }
 
     // Add the new resolved extensions
@@ -178,10 +191,11 @@ public class BazelLockFileModule extends BlazeModule {
       if (oldExtensionEntries != null) {
         // extension exists, add the new entry to the existing map
         extensionEntries =
-            new ImmutableMap.Builder<ModuleExtensionEvalFactors, LockFileModuleExtension>()
-                .putAll(oldExtensionEntries)
-                .put(factors, extension)
-                .buildKeepingLast();
+            ImmutableSortedMap.copyOf(
+                new ImmutableMap.Builder<ModuleExtensionEvalFactors, LockFileModuleExtension>()
+                    .putAll(oldExtensionEntries)
+                    .put(factors, extension)
+                    .buildKeepingLast());
       } else {
         // new extension
         extensionEntries = ImmutableMap.of(factors, extension);
@@ -194,49 +208,6 @@ public class BazelLockFileModule extends BlazeModule {
     // deterministic lockfile by sorting.
     return ImmutableSortedMap.copyOf(
         updatedExtensionMap, ModuleExtensionId.LEXICOGRAPHIC_COMPARATOR);
-  }
-
-  /**
-   * Keep an extension if and only if:
-   *
-   * <ol>
-   *   <li>it still has usages
-   *   <li>its dependency on os & arch didn't change
-   *   <li>it hasn't become reproducible
-   * </ol>
-   *
-   * We do not check for changes in the usage hash of the extension or e.g. hashes of files accessed
-   * during the evaluation. These values are checked in SingleExtensionEvalFunction.
-   *
-   * @param lockedExtensionKey object holding the old extension id and state of os and arch
-   * @param newExtensionInfo the in-memory lockfile entry produced by the most recent up-to-date
-   *     evaluation of this extension (if any)
-   * @param depGraphValue the dep graph value
-   * @return True if this extension should still be in lockfile, false otherwise
-   */
-  private boolean shouldKeepExtension(
-      ModuleExtensionId moduleExtensionId,
-      ModuleExtensionEvalFactors lockedExtensionKey,
-      @Nullable LockFileModuleExtension.WithFactors newExtensionInfo,
-      BazelDepGraphValue depGraphValue) {
-    if (!depGraphValue.getExtensionUsagesTable().containsRow(moduleExtensionId)) {
-      return false;
-    }
-
-    // If there is no new extension info, the properties of the existing extension entry can't have
-    // changed.
-    if (newExtensionInfo == null) {
-      return true;
-    }
-
-    boolean doNotLockExtension = !newExtensionInfo.moduleExtension().shouldLockExtension();
-    boolean dependencyOnOsChanged =
-        lockedExtensionKey.getOs().isEmpty()
-            != newExtensionInfo.extensionFactors().getOs().isEmpty();
-    boolean dependencyOnArchChanged =
-        lockedExtensionKey.getArch().isEmpty()
-            != newExtensionInfo.extensionFactors().getArch().isEmpty();
-    return !doNotLockExtension && !dependencyOnOsChanged && !dependencyOnArchChanged;
   }
 
   /**
