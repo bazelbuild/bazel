@@ -9081,7 +9081,7 @@
         ]
       },
       "os:osx,arch:x86_64": {
-        "bzlTransitiveDigest": "pS9mIyvNUVSqdRSfOUDB2R88coUdBuWtJZbYlBr85Dg=",
+        "bzlTransitiveDigest": "YfDUiCHVd2F1DB3Omrzlmd1LcmAcVMSJe3uOSnqEjOs=",
         "recordedFileInputs": {
           "@@//requirements.txt": "ff12967a755bb8e9b4c92524f6471a99e14c30474a3d428547c55745ec8f23a0"
         },
@@ -9252,7 +9252,7 @@
         ]
       },
       "os:windows,arch:amd64": {
-        "bzlTransitiveDigest": "HW/CmZXwB89vv8//ROSEFxjb/6eqFVrhxA9HelM9tN4=",
+        "bzlTransitiveDigest": "//zFJHSSCEOF1NGt1hkUmWWOq8obsnstDTxuti57bHQ=",
         "recordedFileInputs": {
           "@@//requirements.txt": "ff12967a755bb8e9b4c92524f6471a99e14c30474a3d428547c55745ec8f23a0"
         },

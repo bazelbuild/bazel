@@ -27,6 +27,7 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     # keep sorted
     "abseil-cpp",
     "apple_support",
+    "bazel_features",
     "bazel_skylib",
     "blake3",
     "buildozer",
