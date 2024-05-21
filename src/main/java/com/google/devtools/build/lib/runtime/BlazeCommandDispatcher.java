@@ -348,6 +348,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         workspace.initCommand(
             commandAnnotation,
             options,
+            invocationPolicy,
             commandEnvWarnings,
             waitTimeInMs,
             firstContactTime,

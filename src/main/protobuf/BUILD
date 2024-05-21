@@ -18,9 +18,9 @@ FILES = [
     "desugar_deps",
     "execution_statistics",
     "extra_actions_base",
-    "invocation_policy",
     "java_compilation",
     "memory_pressure",
+    "strategy_policy",
     "test_status",
     "worker_protocol",
     "execution_graph",
@@ -105,6 +105,22 @@ java_proto_library(
 java_library_srcs(
     name = "failure_details_java_proto_srcs",
     deps = [":failure_details_java_proto"],
+)
+
+proto_library(
+    name = "invocation_policy_proto",
+    srcs = ["invocation_policy.proto"],
+    deps = [":strategy_policy_proto"],
+)
+
+java_proto_library(
+    name = "invocation_policy_java_proto",
+    deps = [":invocation_policy_proto"],
+)
+
+java_library_srcs(
+    name = "invocation_policy_java_proto_srcs",
+    deps = [":invocation_policy_java_proto"],
 )
 
 proto_library(
@@ -384,6 +400,7 @@ filegroup(
         ":command_server_java_grpc_srcs",
         ":command_server_java_proto_srcs",
         ":failure_details_java_proto_srcs",
+        ":invocation_policy_java_proto_srcs",
         ":option_filters_java_proto_srcs",
         ":profile_java_proto_srcs",
         ":remote_execution_log_java_proto_srcs",

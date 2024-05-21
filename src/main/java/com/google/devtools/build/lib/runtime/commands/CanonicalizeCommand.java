@@ -62,9 +62,9 @@ import java.util.logging.Level;
     mustRunInWorkspace = false,
     shortDescription = "Canonicalizes a list of %{product} options.",
     help =
-        "This command canonicalizes a list of %{product} options. Don't forget to prepend "
-            + " '--' to end option parsing before the flags to canonicalize.\n"
-            + "%{options}")
+        "This command canonicalizes a list of %{product} options. Don't forget to prepend  '--' to"
+            + " end option parsing before the flags to canonicalize. This command doesn't support"
+            + " the strategy policies under --invocation_policy flag.\n%{options}")
 public final class CanonicalizeCommand implements BlazeCommand {
 
   public static class Options extends OptionsBase {

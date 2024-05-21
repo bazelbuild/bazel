@@ -196,6 +196,7 @@ public class BlazeRuntimeWrapper {
             .initCommand(
                 commandAnnotation,
                 optionsParser,
+                InvocationPolicy.getDefaultInstance(),
                 workspaceSetupWarnings,
                 /* waitTimeInMs= */ 0L,
                 /* commandStartTime= */ 0L,

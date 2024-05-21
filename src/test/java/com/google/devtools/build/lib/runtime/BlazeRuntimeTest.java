@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.runtime.commands.VersionCommand;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -105,6 +106,7 @@ public class BlazeRuntimeTest {
             commandThread,
             VersionCommand.class.getAnnotation(Command.class),
             options,
+            InvocationPolicy.getDefaultInstance(),
             SyscallCache.NO_CACHE,
             QuiescingExecutorsImpl.forTesting(),
             /* warnings= */ ImmutableList.of(),
@@ -161,6 +163,7 @@ public class BlazeRuntimeTest {
             Thread.currentThread(),
             VersionCommand.class.getAnnotation(Command.class),
             OptionsParser.builder().optionsClasses(COMMAND_ENV_REQUIRED_OPTIONS).build(),
+            InvocationPolicy.getDefaultInstance(),
             SyscallCache.NO_CACHE,
             QuiescingExecutorsImpl.forTesting(),
             /* warnings= */ ImmutableList.of(),

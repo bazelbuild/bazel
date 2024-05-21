@@ -36,6 +36,8 @@ import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.runtime.proto.MnemonicPolicy;
+import com.google.devtools.build.lib.runtime.proto.StrategyPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ExecutionOptions.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -60,6 +62,9 @@ import javax.annotation.Nullable;
 public final class SpawnStrategyRegistry
     implements DynamicStrategyRegistry, ActionContext, RemoteLocalFallbackRegistry {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  private static final SpawnStrategyPolicy ALLOW_ALL_STRATEGIES =
+      SpawnStrategyPolicy.create(MnemonicPolicy.getDefaultInstance());
 
   private final ImmutableListMultimap<String, SpawnStrategy> mnemonicToStrategies;
   private final ImmutableListMultimap<RegexFilter, SpawnStrategy> filterToStrategies;
@@ -232,8 +237,20 @@ public final class SpawnStrategyRegistry
   }
 
   /** Returns a new {@link Builder} suitable for creating instances of SpawnStrategyRegistry. */
+  @VisibleForTesting
   public static Builder builder() {
-    return new Builder();
+    return new Builder(
+        /* strategyPolicy= */ ALLOW_ALL_STRATEGIES,
+        /* dynamicRemotePolicy= */ ALLOW_ALL_STRATEGIES,
+        /* dynamicLocalPolicy= */ ALLOW_ALL_STRATEGIES);
+  }
+
+  /** Returns a new {@link Builder} suitable for creating instances of SpawnStrategyRegistry. */
+  public static Builder builder(StrategyPolicy strategyPolicyProto) {
+    return new Builder(
+        SpawnStrategyPolicy.create(strategyPolicyProto.getMnemonicPolicy()),
+        SpawnStrategyPolicy.create(strategyPolicyProto.getDynamicRemotePolicy()),
+        SpawnStrategyPolicy.create(strategyPolicyProto.getDynamicLocalPolicy()));
   }
 
   /**
@@ -257,6 +274,9 @@ public final class SpawnStrategyRegistry
 
     private ImmutableList<String> explicitDefaultStrategies = ImmutableList.of();
 
+    private final SpawnStrategyPolicy strategyPolicy;
+    private final SpawnStrategyPolicy dynamicRemotePolicy;
+    private final SpawnStrategyPolicy dynamicLocalPolicy;
     // TODO(schmitt): Using a list and autovalue so as to be able to reverse order while legacy sort
     //  is supported. Can be converted to same as mnemonics once legacy behavior is removed.
     private final List<FilterAndIdentifiers> filterAndIdentifiers = new ArrayList<>();
@@ -268,6 +288,15 @@ public final class SpawnStrategyRegistry
     private final HashMap<String, List<String>> mnemonicToLocalDynamicIdentifiers = new HashMap<>();
 
     @Nullable private String remoteLocalFallbackStrategyIdentifier;
+
+    private Builder(
+        SpawnStrategyPolicy strategyPolicy,
+        SpawnStrategyPolicy dynamicRemotePolicy,
+        SpawnStrategyPolicy dynamicLocalPolicy) {
+      this.strategyPolicy = strategyPolicy;
+      this.dynamicRemotePolicy = dynamicRemotePolicy;
+      this.dynamicLocalPolicy = dynamicLocalPolicy;
+    }
 
     /**
      * Adds a filter limiting any spawn whose {@linkplain
@@ -292,14 +321,42 @@ public final class SpawnStrategyRegistry
      * command-line identifiers, in order.
      *
      * <p>If the same mnemonic is registered multiple times the last such call will take precedence.
+     * Or in other words, last one wins.
      *
      * <p>Note that if a spawn matches a {@linkplain #addDescriptionFilter registered description
      * filter} that filter will take precedence over any mnemonic-based filters.
      */
-    // last one wins
     @CanIgnoreReturnValue
     public Builder addMnemonicFilter(String mnemonic, List<String> identifiers) {
       mnemonicToIdentifiers.put(mnemonic, identifiers);
+      return this;
+    }
+
+    /**
+     * Sets the strategy names to use in the remote branch of dynamic execution for a set of action
+     * mnemonics.
+     *
+     * <p>During execution, each strategy is {@linkplain SpawnStrategy#canExec(Spawn,
+     * ActionContextRegistry) asked} whether it can execute a given Spawn. The first strategy in the
+     * list that says so will get the job.
+     */
+    @CanIgnoreReturnValue
+    public Builder addDynamicRemoteStrategies(Map<String, List<String>> strategies) {
+      mnemonicToRemoteDynamicIdentifiers.putAll(strategies);
+      return this;
+    }
+
+    /**
+     * Sets the strategy names to use in the local branch of dynamic execution for a number of
+     * action mnemonics.
+     *
+     * <p>During execution, each strategy is {@linkplain SpawnStrategy#canExec(Spawn,
+     * ActionContextRegistry) asked} whether it can execute a given Spawn. The first strategy in the
+     * list that says so will get the job.
+     */
+    @CanIgnoreReturnValue
+    public Builder addDynamicLocalStrategies(Map<String, List<String>> strategies) {
+      mnemonicToLocalDynamicIdentifiers.putAll(strategies);
       return this;
     }
 
@@ -349,34 +406,6 @@ public final class SpawnStrategyRegistry
     }
 
     /**
-     * Sets the strategy names to use in the remote branch of dynamic execution for a set of action
-     * mnemonics.
-     *
-     * <p>During execution, each strategy is {@linkplain SpawnStrategy#canExec(Spawn,
-     * ActionContextRegistry) asked} whether it can execute a given Spawn. The first strategy in the
-     * list that says so will get the job.
-     */
-    @CanIgnoreReturnValue
-    public Builder addDynamicRemoteStrategies(Map<String, List<String>> strategies) {
-      mnemonicToRemoteDynamicIdentifiers.putAll(strategies);
-      return this;
-    }
-
-    /**
-     * Sets the strategy names to use in the local branch of dynamic execution for a number of
-     * action mnemonics.
-     *
-     * <p>During execution, each strategy is {@linkplain SpawnStrategy#canExec(Spawn,
-     * ActionContextRegistry) asked} whether it can execute a given Spawn. The first strategy in the
-     * list that says so will get the job.
-     */
-    @CanIgnoreReturnValue
-    public Builder addDynamicLocalStrategies(Map<String, List<String>> strategies) {
-      mnemonicToLocalDynamicIdentifiers.putAll(strategies);
-      return this;
-    }
-
-    /**
      * Sets the commandline identifier of the strategy to be used when falling back from remote to
      * local execution.
      *
@@ -412,24 +441,31 @@ public final class SpawnStrategyRegistry
       ImmutableListMultimap.Builder<String, SpawnStrategy> mnemonicToStrategies =
           new ImmutableListMultimap.Builder<>();
       for (Map.Entry<String, List<String>> entry : mnemonicToIdentifiers.entrySet()) {
+        String mnemonic = entry.getKey();
+        ImmutableList<String> sanitizedStrategies =
+            strategyPolicy.apply(mnemonic, entry.getValue());
         mnemonicToStrategies.putAll(
-            entry.getKey(), toStrategies(entry.getValue(), "mnemonic " + entry.getKey()));
+            mnemonic, toStrategies(sanitizedStrategies, "mnemonic " + mnemonic));
       }
 
       ImmutableListMultimap.Builder<String, SandboxedSpawnStrategy> mnemonicToLocalStrategies =
           new ImmutableListMultimap.Builder<>();
       for (Map.Entry<String, List<String>> entry : mnemonicToLocalDynamicIdentifiers.entrySet()) {
+        String mnemonic = entry.getKey();
+        ImmutableList<String> sanitizedStrategies =
+            dynamicLocalPolicy.apply(mnemonic, entry.getValue());
         mnemonicToLocalStrategies.putAll(
-            entry.getKey(),
-            toSandboxedStrategies(entry.getValue(), "local mnemonic " + entry.getKey()));
+            mnemonic, toSandboxedStrategies(sanitizedStrategies, "local mnemonic " + mnemonic));
       }
 
       ImmutableListMultimap.Builder<String, SandboxedSpawnStrategy> mnemonicToRemoteStrategies =
           new ImmutableListMultimap.Builder<>();
       for (Map.Entry<String, List<String>> entry : mnemonicToRemoteDynamicIdentifiers.entrySet()) {
+        String mnemonic = entry.getKey();
+        ImmutableList<String> sanitizedStrategies =
+            dynamicRemotePolicy.apply(mnemonic, entry.getValue());
         mnemonicToRemoteStrategies.putAll(
-            entry.getKey(),
-            toSandboxedStrategies(entry.getValue(), "remote mnemonic " + entry.getKey()));
+            mnemonic, toSandboxedStrategies(sanitizedStrategies, "remote mnemonic " + mnemonic));
       }
 
       AbstractSpawnStrategy remoteLocalFallbackStrategy = null;
@@ -513,10 +549,6 @@ public final class SpawnStrategyRegistry
           (Iterable<? extends SandboxedSpawnStrategy>) strategies;
       return sandboxedStrategies;
     }
-  }
-
-  public ImmutableListMultimap<String, SpawnStrategy> getMnemonicToStrategies() {
-    return mnemonicToStrategies;
   }
 
   private static AbruptExitException createExitException(String message, Code detailedCode) {

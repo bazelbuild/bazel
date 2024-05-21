@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommandLinePathFactory;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -172,6 +173,7 @@ public final class RemoteModuleTest {
     return workspace.initCommand(
         command,
         options,
+        InvocationPolicy.getDefaultInstance(),
         /* warnings= */ new ArrayList<>(),
         /* waitTimeInMs= */ 0,
         /* commandStartTime= */ 0,

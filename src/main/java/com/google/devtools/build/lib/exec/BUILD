@@ -338,17 +338,28 @@ java_library(
 )
 
 java_library(
+    name = "spawn_strategy_policy",
+    srcs = ["SpawnStrategyPolicy.java"],
+    deps = [
+        "//src/main/protobuf:strategy_policy_java_proto",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "spawn_strategy_registry",
     srcs = ["SpawnStrategyRegistry.java"],
     deps = [
         ":abstract_spawn_strategy",
         ":remote_local_fallback_registry",
+        ":spawn_strategy_policy",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/protobuf:failure_details_java_proto",
+        "//src/main/protobuf:strategy_policy_java_proto",
         "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",
