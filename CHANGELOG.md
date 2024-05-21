@@ -1,3 +1,16 @@
+## Release 8.0.0-pre.20240516.1 (2024-05-21)
+
+```
+Baseline: 9cf8dc6b65f59f954765b9e255810bee43464488
+
+Cherry picks:
+
+   + 8f55a57335e32be12c5d02933e7a6b97a7498664:
+     Update rules_java 7.6.0 / java_tools 13.6.0
+```
+
+Initial release.
+
 ## Release 7.1.2 (2024-05-08)
 
 ```
