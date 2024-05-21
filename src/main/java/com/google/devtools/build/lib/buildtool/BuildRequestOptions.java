@@ -434,31 +434,6 @@ public class BuildRequestOptions extends OptionsBase {
               + " machinery)")
   public String skyframeMemoryDump;
 
-  @Option(
-      name = "experimental_aquery_dump_after_build_format",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "Writes the state of Skyframe (which includes previous invocations on this blaze"
-              + " instance as well) to stdout after a build, in the same format as aquery's."
-              + " Possible formats: proto|textproto|jsonproto.")
-  @Nullable
-  public String aqueryDumpAfterBuildFormat;
-
-  @Option(
-      name = "experimental_aquery_dump_after_build_output_file",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      converter = OptionsUtils.PathFragmentConverter.class,
-      help =
-          "Specify the output file for the aquery dump after a build. Use in conjunction with"
-              + " --experimental_aquery_dump_after_build_format. The path provided is relative to"
-              + " Bazel's output base, unless it's an absolute path.")
-  @Nullable
-  public PathFragment aqueryDumpAfterBuildOutputFile;
-
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and
    * MAX_JOBS.
