@@ -87,18 +87,19 @@ public class TestPolicy {
       env.put(entry.getKey(), val);
     }
 
-    // Rule-specified test env.
-    testAction.getExtraTestEnv().resolve(env, clientEnv);
-
     // Overwrite with the environment common to all actions, see --action_env.
     testAction.getConfiguration().getActionEnvironment().resolve(env, clientEnv);
 
     // Overwrite with the environment common to all tests, see --test_env.
     testAction.getConfiguration().getTestActionEnvironment().resolve(env, clientEnv);
 
+    // Rule-specified test env.
+    testAction.getExtraTestEnv().resolve(env, clientEnv);
+
     // Setup any test-specific env variables; note that this does not overwrite existing values for
     // TEST_RANDOM_SEED or TEST_SIZE if they're already set.
     testAction.setupEnvVariables(env, timeout);
+
     return env;
   }
 }
