@@ -1171,7 +1171,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
   }
 
   /**
-   * The leaves in the variable sequence node tree are simple string values. Note that this should
+   * Most leaves in the variable sequence node tree are simple string values. Note that this should
    * never live outside of {@code expand}, as the object overhead is prohibitively expensive.
    */
   @Immutable
@@ -1247,6 +1247,53 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
   }
 
+  /**
+   * Represents leaves in the variable sequence node tree that are paths of artifacts. Note that
+   * this should never live outside of {@code expand}, as the object overhead is prohibitively
+   * expensive.
+   */
+  @Immutable
+  private static final class ArtifactValue extends VariableValueAdapter {
+    private static final String ARTIFACT_VARIABLE_TYPE_NAME = "artifact";
+
+    private final Artifact value;
+
+    ArtifactValue(Artifact value) {
+      this.value = value;
+    }
+
+    @Override
+    public String getStringValue(String variableName) {
+      return value.getExecPathString();
+    }
+
+    @Override
+    public String getVariableTypeName() {
+      return ARTIFACT_VARIABLE_TYPE_NAME;
+    }
+
+    @Override
+    public boolean isTruthy() {
+      return true;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) {
+        return true;
+      }
+      if (!(other instanceof ArtifactValue otherValue)) {
+        return false;
+      }
+      return value.equals(otherValue.value);
+    }
+
+    @Override
+    public int hashCode() {
+      return value.hashCode();
+    }
+  }
+
   public static Builder builder() {
     return new Builder(null);
   }
@@ -1280,6 +1327,34 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       Preconditions.checkNotNull(value, "Cannot set null as a value for variable '%s'", name);
       variablesMap.put(name, value);
       return this;
+    }
+
+    /** Add an artifact variable that expands {@code name} to {@code value}. */
+    @CanIgnoreReturnValue
+    public Builder addArtifactVariable(String name, Artifact value) {
+      checkVariableNotPresentAlready(name);
+      Preconditions.checkNotNull(value, "Cannot set null as a value for variable '%s'", name);
+      variablesMap.put(name, value);
+      return this;
+    }
+
+    /**
+     * Add an artifact or string variable that expands {@code name} to {@code value}.
+     *
+     * <p>Prefer {@link #addArtifactVariable} and {@link #addStringVariable}. This method is only
+     * meant to support string-based Starlark API.
+     */
+    @CanIgnoreReturnValue
+    public Builder addArtifactOrStringVariable(String name, Object value) {
+      return switch (value) {
+        case String s -> addStringVariable(name, s);
+        case Artifact artifact -> addArtifactVariable(name, artifact);
+        case null ->
+            throw new IllegalArgumentException(
+                "Cannot set null as a value for variable '" + name + "'");
+        default ->
+            throw new IllegalArgumentException("Unsupported value type: " + value.getClass());
+      };
     }
 
     /** Overrides a variable to expands {@code name} to {@code value} instead. */
@@ -1382,13 +1457,22 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     /** @return a new {@link CcToolchainVariables} object. */
     public CcToolchainVariables build() {
       if (variablesMap.size() == 1) {
-        Object o = variablesMap.values().iterator().next();
-        VariableValue variableValue =
-            o instanceof String ? new StringValue((String) o) : (VariableValue) o;
-        return new SingleVariables(parent, variablesMap.keySet().iterator().next(), variableValue);
+        return new SingleVariables(
+            parent,
+            variablesMap.keySet().iterator().next(),
+            asVariableValue(variablesMap.values().iterator().next()));
       }
       return new MapVariables(parent, variablesMap);
     }
+  }
+
+  /** Wraps a raw variablesMap value into an appropriate VariableValue if necessary. */
+  private static VariableValue asVariableValue(Object o) {
+    return switch (o) {
+      case String s -> new StringValue(s);
+      case Artifact artifact -> new ArtifactValue(artifact);
+      default -> (VariableValue) o;
+    };
   }
 
   /**
@@ -1450,11 +1534,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     @Override
     VariableValue getNonStructuredVariable(String name) {
       if (keyToIndex.containsKey(name)) {
-        Object o = values.get(keyToIndex.get(name));
-        if (o instanceof String string) {
-          return new StringValue(string);
-        }
-        return (VariableValue) o;
+        return CcToolchainVariables.asVariableValue(values.get(keyToIndex.get(name)));
       }
 
       if (parent != null) {
