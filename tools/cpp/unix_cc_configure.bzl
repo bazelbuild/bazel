@@ -534,7 +534,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         ["/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk"],
     )
 
-    generate_modulemap = is_clang
+    generate_modulemap = is_clang and not darwin
     if generate_modulemap:
         repository_ctx.file("module.modulemap", _generate_system_module_map(
             repository_ctx,

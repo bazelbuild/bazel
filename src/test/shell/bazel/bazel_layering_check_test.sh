@@ -144,6 +144,11 @@ EOF
 }
 
 function test_bazel_layering_check() {
+  if is_darwin; then
+    echo "This test doesn't run on Darwin. Skipping."
+    return
+  fi
+
   local -r clang_tool=$(which clang)
   if [[ ! -x ${clang_tool:-/usr/bin/clang_tool} ]]; then
     echo "clang not installed. Skipping test."
