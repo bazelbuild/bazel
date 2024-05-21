@@ -2783,7 +2783,7 @@
   "moduleExtensions": {
     "//:extensions.bzl%bazel_android_deps": {
       "general": {
-        "bzlTransitiveDigest": "6RYb7Q/2mHqUR/z4DPKlzsBQmVLn4JKJ7Wt9dF9nzHc=",
+        "bzlTransitiveDigest": "iHLxWy9Kdma4o6vQG1U0vO82d7jPg9gng3gCoY4Dn88=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
