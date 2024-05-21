@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -41,8 +42,8 @@ public final class SimpleSpawn implements Spawn {
   private final ImmutableList<ActionInput> outputs;
   // If null, all outputs are mandatory.
   @Nullable private final Set<? extends ActionInput> mandatoryOutputs;
-  private final LocalResourcesSupplier localResourcesSupplier;
-  private ResourceSet localResourcesCached;
+  // Always either a ResourceSet or a LocalResourcesSupplier.
+  private Object localResourcesOrSupplier;
 
   private SimpleSpawn(
       ActionExecutionMetadata owner,
@@ -70,13 +71,8 @@ public final class SimpleSpawn implements Spawn {
         "Exactly one must be null: %s %s",
         localResources,
         localResourcesSupplier);
-    if (localResources != null) {
-      this.localResourcesCached = localResources;
-      this.localResourcesSupplier = null;
-    } else {
-      this.localResourcesSupplier = localResourcesSupplier;
-      this.localResourcesCached = null;
-    }
+    this.localResourcesOrSupplier =
+        Objects.requireNonNullElse(localResources, localResourcesSupplier);
   }
 
   public SimpleSpawn(
@@ -219,11 +215,14 @@ public final class SimpleSpawn implements Spawn {
 
   @Override
   public ResourceSet getLocalResources() throws ExecException {
-    if (localResourcesCached == null) {
-      // Not expected to be called concurrently, and an idempotent computation if it is.
-      localResourcesCached = localResourcesSupplier.get();
+    Object localResourcesOrSupplier = this.localResourcesOrSupplier;
+    if (localResourcesOrSupplier instanceof ResourceSet) {
+      return (ResourceSet) localResourcesOrSupplier;
     }
-    return localResourcesCached;
+    // Not expected to be called concurrently, and an idempotent computation if it is.
+    ResourceSet resourceSet = ((LocalResourcesSupplier) localResourcesOrSupplier).get();
+    this.localResourcesOrSupplier = resourceSet;
+    return resourceSet;
   }
 
   @Override
