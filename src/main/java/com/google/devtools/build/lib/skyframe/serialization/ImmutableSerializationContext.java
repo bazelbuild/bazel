@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /**
  * An explicitly immutable implementation of {@link SerializationContext}.
@@ -57,8 +58,14 @@ final class ImmutableSerializationContext extends SerializationContext {
   }
 
   @Override
-  public <T> void serializeLeaf(T obj, LeafObjectCodec<T> codec, CodedOutputStream codedOut)
+  public <T> void serializeLeaf(
+      @Nullable T obj, LeafObjectCodec<T> codec, CodedOutputStream codedOut)
       throws SerializationException, IOException {
+    if (writeIfNullOrConstant(obj, codedOut)) {
+      return;
+    }
+    // It was not constant or null. Emits -1 to signal an immediate value and serializes the value.
+    codedOut.writeSInt32NoTag(-1);
     codec.serialize((LeafSerializationContext) this, obj, codedOut);
   }
 
