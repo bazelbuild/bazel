@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.shell.JavaSubprocessFactory;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.vfs.Path;
@@ -163,9 +162,7 @@ public final class CredentialHelper {
     Preconditions.checkNotNull(environment);
     Preconditions.checkNotNull(args);
 
-    // Force using JavaSubprocessFactory on Windows, because for some reasons,
-    // WindowsSubprocessFactory cannot redirect stdin to subprocess.
-    return new SubprocessBuilder(JavaSubprocessFactory.INSTANCE)
+    return new SubprocessBuilder()
         .setArgv(ImmutableList.<String>builder().add(path.getPathString()).add(args).build())
         .setWorkingDirectory(
             environment.getWorkspacePath() != null

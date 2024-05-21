@@ -60,6 +60,12 @@ def main(argv):
     }
   elif request["uri"] == "https://printnothing.example.com":
     return 0
+  elif request["uri"] == "https://hugepayload.example.com":
+    response = {
+        "headers": {
+            "huge": [63 * 1024 * "x"],
+        },
+    }
   elif request["uri"] == "https://cwd.example.com":
     response = {
         "headers": {
@@ -84,7 +90,7 @@ def main(argv):
   else:
     eprint("Unknown uri '{}'".format(request["uri"]))
     return 1
-  json.dump(response, sys.stdout)
+  sys.stdout.write(json.dumps(response))
   return 0
 
 

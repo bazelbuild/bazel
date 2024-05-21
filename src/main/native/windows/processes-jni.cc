@@ -33,6 +33,9 @@
 #include "src/main/native/windows/process.h"
 #include "src/main/native/windows/util.h"
 
+// Pipe buffer size, to match the Linux/MacOS default.
+#define PIPE_SIZE 65536
+
 template <typename T>
 static std::wstring ToString(const T& e) {
   std::wstringstream s;
@@ -242,7 +245,7 @@ class NativeProcess {
     // Set up childs stdin pipe.
     {
       HANDLE pipe_read_h, pipe_write_h;
-      if (!CreatePipe(&pipe_read_h, &pipe_write_h, &sa, 0)) {
+      if (!CreatePipe(&pipe_read_h, &pipe_write_h, &sa, PIPE_SIZE)) {
         DWORD err_code = GetLastError();
         error_ = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
@@ -290,7 +293,7 @@ class NativeProcess {
       }
     } else {
       HANDLE pipe_read_h, pipe_write_h;
-      if (!CreatePipe(&pipe_read_h, &pipe_write_h, &sa, 0)) {
+      if (!CreatePipe(&pipe_read_h, &pipe_write_h, &sa, PIPE_SIZE)) {
         DWORD err_code = GetLastError();
         error_ = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
@@ -351,7 +354,7 @@ class NativeProcess {
       }
     } else {
       HANDLE pipe_read_h, pipe_write_h;
-      if (!CreatePipe(&pipe_read_h, &pipe_write_h, &sa, 0)) {
+      if (!CreatePipe(&pipe_read_h, &pipe_write_h, &sa, PIPE_SIZE)) {
         DWORD err_code = GetLastError();
         error_ = bazel::windows::MakeErrorMessage(
             WSTR(__FILE__), __LINE__, L"nativeCreateProcess", wpath, err_code);
