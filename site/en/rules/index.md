@@ -28,6 +28,7 @@ Here is a selection of recommended rules:
 * [Package building](https://github.com/bazelbuild/rules_pkg){: .external}
 * [Protocol Buffers](https://github.com/bazelbuild/rules_proto#protobuf-rules-for-bazel){: .external}
 * [Python](https://github.com/bazelbuild/rules_python){: .external}
+* [Rust](https://github.com/bazelbuild/rules_rust){: .external}
 * [Scala](https://github.com/bazelbuild/rules_scala){: .external}
 * [Shell](/reference/be/shell)
 * [Webtesting](https://github.com/bazelbuild/rules_webtesting){: .external} (Webdriver)
