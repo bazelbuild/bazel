@@ -11,19 +11,18 @@ dependencies of software libraries or packages required by a project. It
 achieves this by storing the result of module resolution and extension
 evaluation. The lockfile promotes reproducible builds, ensuring consistent
 development environments. Additionally, it enhances build efficiency by allowing
-Bazel to skip the resolution process when there are no changes in project
-dependencies. Furthermore, the lockfile improves stability by preventing
-unexpected updates or breaking changes in external libraries, thereby reducing
-the risk of introducing bugs.
+Bazel to skip the parts of the resolution process that are unaffected by changes
+in project dependencies. Furthermore, the lockfile improves stability by
+preventing unexpected updates or breaking changes in external libraries, thereby
+reducing the risk of introducing bugs.
 
 ## Lockfile Generation {:#lockfile-generation}
 
 The lockfile is generated under the workspace root with the name
 `MODULE.bazel.lock`. It is created or updated during the build process,
-specifically after module resolution and extension evaluation. The lockfile
-captures the current state of the project, including the MODULE file, flags,
-overrides, and other relevant information. Importantly, it only includes
-dependencies that are included in the current invocation of the build.
+specifically after module resolution and extension evaluation. Importantly, it
+only includes dependencies that are included in the current invocation of the
+build.
 
 When changes occur in the project that affect its dependencies, the lockfile is
 automatically updated to reflect the new state. This ensures that the lockfile
@@ -38,16 +37,20 @@ The lockfile can be controlled by the flag
 customize the behavior of Bazel when the project state differs from the
 lockfile. The available modes are:
 
-*   `update` (Default): If the project state matches the lockfile, the
-    resolution result is immediately returned from the lockfile. Otherwise,
-    resolution is executed, and the lockfile is updated to reflect the current
-    state.
-*   `error`: If the project state matches the lockfile, the resolution result is
-    returned from the lockfile. Otherwise, Bazel throws an error indicating the
-    variations between the project and the lockfile. This mode is particularly
-    useful when you want to ensure that your project's dependencies remain
-    unchanged, and any differences are treated as errors.
-*   `off`: The lockfile is not checked at all.
+*   `update` (Default): Use the information that is present in the lockfile to
+    skip downloads of known registry files and to avoid re-evaluating extensions
+    whose results are still up-to-date. If information is missing, it will
+    be added to the lockfile. In this mode, Bazel also avoids refreshing
+    mutable information, such as yanked versions, for dependencies that haven't
+    changed.
+*   `refresh`: Like `update`, but mutable information is always refreshed when
+    switching to this mode and roughly every hour while in this mode.
+*   `error`: Like `update`, but if any information is missing or out-of-date,
+    Bazel will fail with an error. This mode never changes the lockfile or
+    performs network requests during resolution. Module extensions that marked
+    themselves as `reproducible` may still perform network requests, but are
+    expected to always produce the same result.
+*   `off`: The lockfile is neither checked nor updated.
 
 ## Lockfile Benefits {:#lockfile-benefits}
 
@@ -58,10 +61,10 @@ The lockfile offers several benefits and can be utilized in various ways:
     across different environments and over time. Developers can rely on
     consistent and predictable results when building their projects.
 
--   **Efficient resolution skipping.** The lockfile enables Bazel to skip the
-    resolution process if there are no changes in the project dependencies since
-    the last build. This significantly improves build efficiency, especially in
-    scenarios where resolution can be time-consuming.
+-   **Fast incremental resolutions.** The lockfile enables Bazel to avoid
+    downloading registry files that were already used in a previous build.
+    This significantly improves build efficiency, especially in scenarios where
+    resolution can be time-consuming.
 
 -   **Stability and risk reduction.** The lockfile helps maintain stability by
     preventing unexpected updates or breaking changes in external libraries. By
@@ -74,56 +77,64 @@ The lockfile contains all the necessary information to determine whether the
 project state has changed. It also includes the result of building the project
 in the current state. The lockfile consists of two main parts:
 
-1.  Inputs of the module resolution, such as `moduleFileHash`, `flags` and
-    `localOverrideHashes`, as well as the output of the resolution, which is
-    `moduleDepGraph`.
-2.  For each module extension, the lockfile includes inputs that affect it,
-    represented by `transitiveDigest`, and the output of running that extension
-    referred to as `generatedRepoSpecs`
+1.   Hashes of all remote files that are inputs to module resolution.
+2.   For each module extension, the lockfile includes inputs that affect it,
+     represented by `bzlTransitiveDigest`, `usagesDigest` and other fields, as
+     well as the output of running that extension, referred to as
+     `generatedRepoSpecs`
 
 Here is an example that demonstrates the structure of the lockfile, along with
 explanations for each section:
 
 ```json
 {
-  "lockFileVersion": 1,
-  "moduleFileHash": "b0f47b98a67ee15f9.......8dff8721c66b721e370",
-  "flags": {
-    "cmdRegistries": [
-      "https://bcr.bazel.build/"
-    ],
-    "cmdModuleOverrides": {},
-    "allowedYankedVersions": [],
-    "envVarAllowedYankedVersions": "",
-    "ignoreDevDependency": false,
-    "directDependenciesMode": "WARNING",
-    "compatibilityMode": "ERROR"
+  "lockFileVersion": 10,
+  "registryFileHashes": {
+    "https://bcr.bazel.build/bazel_registry.json": "8a28e4af...5d5b3497",
+    "https://bcr.bazel.build/modules/foo/1.0/MODULE.bazel": "7cd0312e...5c96ace2",
+    "https://bcr.bazel.build/modules/foo/2.0/MODULE.bazel": "70390338... 9fc57589",
+    "https://bcr.bazel.build/modules/foo/2.0/source.json": "7e3a9adf...170d94ad",
+    "https://registry.mycorp.com/modules/foo/1.0/MODULE.bazel": "not found",
+    ...
   },
-  "localOverrideHashes": {
-    "bazel_tools": "b5ae1fa37632140aff8.......15c6fe84a1231d6af9"
-  },
-  "moduleDepGraph": {
-    "<root>": {
-      "name": "",
-      "version": "",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [
-        {
-          "extensionBzlFile": "extension.bzl",
-          "extensionName": "lockfile_ext"
-        }
-      ],
-      ...
-    }
+  "selectedYankedVersions": {
+    "foo@2.0": "Yanked for demo purposes"
   },
   "moduleExtensions": {
     "//:extension.bzl%lockfile_ext": {
-      "transitiveDigest": "oWDzxG/aLnyY6Ubrfy....+Jp6maQvEPxn0pBM=",
-      "generatedRepoSpecs": {
-        "hello": {
-          "bzlFile": "@@//:extension.bzl",
-          ...
+      "general": {
+        "bzlTransitiveDigest": "oWDzxG/aLnyY6Ubrfy....+Jp6maQvEPxn0pBM=",
+        "usagesDigest": "aLmqbvowmHkkBPve05yyDNGN7oh7QE9kBADr3QIZTZs=",
+        ...,
+        "generatedRepoSpecs": {
+          "hello": {
+            "bzlFile": "@@//:extension.bzl",
+            ...
+          }
+        }
+      }
+    },
+    "//:extension.bzl%lockfile_ext2": {
+      "os:macos": {
+        "bzlTransitiveDigest": "oWDzxG/aLnyY6Ubrfy....+Jp6maQvEPxn0pBM=",
+        "usagesDigest": "aLmqbvowmHkkBPve05y....yDNGN7oh7r3QIZTZs=",
+        ...,
+        "generatedRepoSpecs": {
+          "hello": {
+            "bzlFile": "@@//:extension.bzl",
+            ...
+          }
+        }
+      },
+      "os:linux": {
+        "bzlTransitiveDigest": "eWDzxG/aLsyY3Ubrto....+Jp4maQvEPxn0pLK=",
+        "usagesDigest": "aLmqbvowmHkkBPve05y....yDNGN7oh7r3QIZTZs=",
+        ...,
+        "generatedRepoSpecs": {
+          "hello": {
+            "bzlFile": "@@//:extension.bzl",
+            ...
+          }
         }
       }
     }
@@ -131,26 +142,33 @@ explanations for each section:
 }
 ```
 
-### Module File Hash {:#module-file-hash}
+### Registry File Hashes {:#registry-file-hashes}
 
-The `moduleFileHash` represents the hash of the `MODULE.bazel` file contents. If
-any changes occur in this file, the hash value differs.
+The `registryFileHashes` section contains the hashes of all files from
+remote registries accessed during module resolution. Since the resolution
+algorithm is fully deterministic when given the same inputs and all remote
+inputs are hashed, this ensures a fully reproducible resolution result while
+avoiding excessive duplication of remote information in the lockfile. Note that
+this also requires recording when a particular registry didn't contain a certain
+module, but a registry with lower precedence did (see the "not found" entry in
+the example). This inherently mutable information can be updated via
+`bazel mod deps --lockfile_mode=refresh`.
 
-### Flags {:#flags}
+Bazel uses the hashes from the lockfile to look up registry files in the
+repository cache before downloading them, which speeds up subsequent
+resolutions.
 
-The `Flags` object stores all the flags that can affect the resolution result.
+### Selected Yanked Versions {:#selected-yanked-versions}
 
-### Local Override Hashes {:#local-override-hashes}
+The `selectedYankedVersions` section contains the yanked versions of modules
+that were selected by module resolution. Since this usually result in an error
+when trying to build, this section is only non-empty when yanked versions are
+explicitly allowed via `--allow_yanked_versions` or
+`BZLMOD_ALLOW_YANKED_VERSIONS`.
 
-If the root module includes `local_path_overrides`, this section stores the hash
-of the `MODULE.bazel` file in the local repository. It allows tracking changes
-to this dependency.
-
-### Module Dependency Graph {:#module-dep-graph}
-
-The `moduleDepGraph` represents the result of the resolution process using the
-inputs mentioned above. It forms the dependency graph of all the modules
-required to run the project.
+This field is needed since, compared to module files, yanked version information
+is inherently mutable and thus can't be referenced by a hash. This information
+can be updated via `bazel mod deps --lockfile_mode=refresh`.
 
 ### Module Extensions {:#module-extensions}
 
@@ -160,18 +178,32 @@ that are no longer utilized. In other words, if an extension is not being used
 anymore across the dependency graph, it is removed from the `moduleExtensions`
 map.
 
-Each entry in this map corresponds to a used extension and is identified by its
-containing file and name. The corresponding value for each entry contains the
-relevant information associated with that extension:
+If an extension is independent of the operating system or architecture type,
+this section features only a single "general" entry. Otherwise, multiple
+entries are included, named after the OS, architecture, or both, with each
+corresponding to the result of evaluating the extension on those specifics.
 
-1.  The `transitiveDigest` the digest of the extension implementation and its
-    transitive .bzl files.
-2.  The `generatedRepoSpecs` the result of running that extension with the
-    current input.
+Each entry in the extension map corresponds to a used extension and is
+identified by its containing file and name. The corresponding value for each
+entry contains the relevant information associated with that extension:
 
-An additional factor that can affect the extension results is their _usages_.
-Although not stored in the lockfile, the usages are considered when comparing
-the current state of the extension with the one in the lockfile.
+1. The `bzlTransitiveDigest` is the digest of the extension implementation
+   and the .bzl files transitively loaded by it.
+2. The `usagesDigest` is the digest of the _usages_ of the extension in the
+   dependency graph, which includes all tags.
+3. Further unspecified fields that track other inputs to the extension,
+   such as contents of files or directories it reads or environment
+   variables it uses.
+4. The `generatedRepoSpecs` encode the repositories created by the
+   extension with the current input.
+5. The optional `moduleExtensionMetadata` field contains metadata provided by
+   the extension such as whether certain repositories it created should be
+   imported via `use_repo` by the root module. This information powers the
+   `bazel mod tidy` command.
+
+Module extensions can opt out of being included in the lockfile by setting the
+returning metadata with `reproducible = True`. By doing so, they promise that
+they will always create the same repositories when given the same inputs.
 
 ## Best Practices {:#best-practices}
 
@@ -180,11 +212,20 @@ practices:
 
 *   Regularly update the lockfile to reflect changes in project dependencies or
     configuration. This ensures that subsequent builds are based on the most
-    up-to-date and accurate set of dependencies.
+    up-to-date and accurate set of dependencies. To lock down all extensions
+    at once, run `bazel mod deps --lockfile_mode=update`.
 
 *   Include the lockfile in version control to facilitate collaboration and
     ensure that all team members have access to the same lockfile, promoting
     consistent development environments across the project.
+
+*   Use [`bazelisk`](/install/bazelisk) to run Bazel, and include a
+    `.bazelversion` file in version control that specifies the Bazel version
+    corresponding to the lockfile. Because Bazel itself is a dependency of
+    your build, the lockfile is specific to the Bazel version, and will
+    change even between [backwards compatible](/release/backward-compatibility)
+    Bazel releases. Using `bazelisk` ensures that all developers are using
+    a Bazel version that matches the lockfile.
 
 By following these best practices, you can effectively utilize the lockfile
 feature in Bazel, leading to more efficient, reliable, and collaborative
