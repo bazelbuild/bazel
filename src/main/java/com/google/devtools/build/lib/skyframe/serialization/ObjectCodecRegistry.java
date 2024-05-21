@@ -170,7 +170,7 @@ public class ObjectCodecRegistry {
   }
 
   @Nullable
-  Integer maybeGetTagForConstant(Object object) {
+  public Integer maybeGetTagForConstant(Object object) {
     return referenceConstantsMap.get(object);
   }
 
