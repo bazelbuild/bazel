@@ -16,6 +16,7 @@ package com.google.devtools.common.options;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import java.lang.reflect.Constructor;
 import java.util.Arrays;
@@ -160,7 +161,7 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
    * appear ordered first by their options class (the order in which they were passed to {@link
    * #from(Collection, boolean)}, and then in alphabetic order within each options class.
    */
-  public Collection<Map.Entry<String, OptionDefinition>> getAllOptionDefinitions() {
+  public ImmutableSet<Map.Entry<String, OptionDefinition>> getAllOptionDefinitions() {
     return nameToField.entrySet();
   }
 
