@@ -564,7 +564,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         && !thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_RULE_EXTENSION_API)
         && !bzlFile.getRepository().getName().equals("_builtins")) {
       builder.addAllowlistChecker(EXTEND_RULE_API_ALLOWLIST_CHECKER);
-      if (!builder.contains("$allowlist_extend_rule")) {
+      if (!builder.contains("$allowlist_extend_rule_api")) {
         Attribute.Builder<Label> allowlistAttr =
             attr("$allowlist_extend_rule_api", LABEL)
                 .cfg(ExecutionTransitionFactory.createFactory())
