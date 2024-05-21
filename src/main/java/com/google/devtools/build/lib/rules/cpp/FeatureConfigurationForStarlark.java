@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.FeatureConfigurationApi;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Wrapper for {@link FeatureConfiguration}, {@link CppConfiguration}, and {@link BuildOptions}.
@@ -69,7 +70,7 @@ public class FeatureConfigurationForStarlark implements FeatureConfigurationApi 
   }
 
   @Override
-  public void debugPrint(Printer printer, StarlarkSemantics semantics) {
+  public void debugPrint(Printer printer, StarlarkThread thread) {
     printer.append("<FeatureConfiguration(");
     printer.append(Joiner.on(", ").join(featureConfiguration.getEnabledFeatureNames()));
     printer.append(")>");

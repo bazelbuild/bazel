@@ -31,18 +31,18 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFr
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputDirectoryNamingScheme;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.cmdline.BazelStarlarkContext;
+import com.google.devtools.build.lib.cmdline.BazelStarlarkContext.Phase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext.Phase;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.packages.SymbolGenerator;
+import com.google.devtools.build.lib.cmdline.SymbolGenerator;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -556,7 +556,8 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         // Create a new {@link BazelStarlarkContext} for the new thread. We need to
         // create a new context every time because {@link BazelStarlarkContext}s
         // should be confined to a single thread.
-        new BazelStarlarkContext(Phase.ANALYSIS, dummySymbolGenerator).storeInThread(thread);
+        new BazelStarlarkContext(Phase.ANALYSIS, dummySymbolGenerator, /* mainRepoMapping= */ null)
+            .storeInThread(thread);
 
         result =
             Starlark.fastcall(

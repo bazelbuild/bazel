@@ -378,7 +378,7 @@ public final class StarlarkEvaluationTest {
         useStarlarkThread = true)
     public String withArgsAndThread(
         StarlarkInt pos1, boolean pos2, boolean named, Sequence<?> args, StarlarkThread thread) {
-      String argsString = debugPrintArgs(args, thread.getSemantics());
+      String argsString = debugPrintArgs(args, thread);
       return "with_args_and_thread("
           + pos1
           + ", "
@@ -417,9 +417,11 @@ public final class StarlarkEvaluationTest {
           @Param(name = "foo", named = true, positional = true),
         },
         extraPositionals = @Param(name = "args"),
-        extraKeywords = @Param(name = "kwargs"))
-    public String withArgsAndKwargs(String foo, Tuple args, Dict<String, Object> kwargs) {
-      String argsString = debugPrintArgs(args, StarlarkSemantics.DEFAULT);
+        extraKeywords = @Param(name = "kwargs"),
+        useStarlarkThread = true)
+    public String withArgsAndKwargs(
+        String foo, Tuple args, Dict<String, Object> kwargs, StarlarkThread thread) {
+      String argsString = debugPrintArgs(args, thread);
       String kwargsString =
           "kwargs("
               + kwargs
@@ -437,12 +439,12 @@ public final class StarlarkEvaluationTest {
     }
   }
 
-  private static String debugPrintArgs(Iterable<?> args, StarlarkSemantics semantics) {
+  private static String debugPrintArgs(Iterable<?> args, StarlarkThread thread) {
     Printer p = new Printer();
     p.append("args(");
     String sep = "";
     for (Object arg : args) {
-      p.append(sep).debugPrint(arg, semantics);
+      p.append(sep).debugPrint(arg, thread);
       sep = ", ";
     }
     return p.append(")").toString();

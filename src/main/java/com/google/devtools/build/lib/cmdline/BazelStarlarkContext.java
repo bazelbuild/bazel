@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.packages;
-
+package com.google.devtools.build.lib.cmdline;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
@@ -103,6 +104,8 @@ public class BazelStarlarkContext implements StarlarkThread.UncheckedExceptionCo
   // TODO(b/236456122): Eliminate Phase, migrate analysisRuleLabel to a separate context class.
   private final Phase phase;
 
+  @Nullable private final InterruptibleSupplier<RepositoryMapping> mainRepoMappingSupplier;
+
   /**
    * @param phase the phase to which this Starlark thread belongs
    * @param symbolGenerator a {@link SymbolGenerator} to be used when creating objects to be
@@ -110,9 +113,13 @@ public class BazelStarlarkContext implements StarlarkThread.UncheckedExceptionCo
    */
   // TODO(b/236456122): Consider taking an owner in place of a SymbolGenerator, and constructing
   // the latter ourselves. Seems like we don't want to tempt anyone into sharing a SymbolGenerator.
-  public BazelStarlarkContext(Phase phase, SymbolGenerator<?> symbolGenerator) {
+  public BazelStarlarkContext(
+      Phase phase,
+      SymbolGenerator<?> symbolGenerator,
+      @Nullable InterruptibleSupplier<RepositoryMapping> mainRepoMappingSupplier) {
     this.phase = Preconditions.checkNotNull(phase);
     this.symbolGenerator = Preconditions.checkNotNull(symbolGenerator);
+    this.mainRepoMappingSupplier = mainRepoMappingSupplier;
   }
 
   /** Returns the phase associated with this context. */
@@ -122,6 +129,15 @@ public class BazelStarlarkContext implements StarlarkThread.UncheckedExceptionCo
 
   public SymbolGenerator<?> getSymbolGenerator() {
     return symbolGenerator;
+  }
+
+  /**
+   * The repository mapping applicable to the main repository. This is purely meant to support
+   * {@link Label#debugPrint}.
+   */
+  @Nullable
+  public RepositoryMapping getMainRepoMapping() throws InterruptedException {
+    return mainRepoMappingSupplier == null ? null : mainRepoMappingSupplier.get();
   }
 
   @Override

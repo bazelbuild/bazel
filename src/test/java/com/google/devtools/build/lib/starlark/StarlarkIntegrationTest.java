@@ -1568,7 +1568,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
     getConfiguredTarget("//test/starlark:cr");
     assertContainsEvent("output function cr");
-    assertContainsEvent("implementation @@//test/starlark:cr");
+    assertContainsEvent("implementation //test/starlark:cr");
   }
 
   @Test

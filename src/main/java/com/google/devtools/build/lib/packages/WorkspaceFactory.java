@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.SymbolGenerator;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -129,7 +131,9 @@ public class WorkspaceFactory {
       // repository mapping because calls to the Label constructor in the WORKSPACE file
       // are, by definition, not in an external repository and so they don't need the mapping
       new BazelStarlarkContext(
-              BazelStarlarkContext.Phase.WORKSPACE, new SymbolGenerator<>(workspaceFileKey))
+              BazelStarlarkContext.Phase.WORKSPACE,
+              new SymbolGenerator<>(workspaceFileKey),
+              /* mainRepoMappingSupplier= */ null)
           .storeInThread(thread);
 
       try {

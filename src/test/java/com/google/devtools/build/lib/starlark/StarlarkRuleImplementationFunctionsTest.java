@@ -76,6 +76,7 @@ import java.util.regex.Pattern;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -3546,7 +3547,11 @@ args.add_all(depset([Label("@@canonical1~//foo:bar"), Label("@@canonical2~//foo:
     setRuleContext(createRuleContext("//foo:foo"));
     ev.exec("args = ruleContext.actions.args()", "args.add_all(['--foo', '--bar'])");
     Args args = (Args) ev.eval("args");
-    assertThat(new Printer().debugPrint(args, getStarlarkSemantics()).toString())
+    assertThat(
+            new Printer()
+                .debugPrint(
+                    args, new StarlarkThread(Mutability.create("test"), getStarlarkSemantics()))
+                .toString())
         .isEqualTo("--foo --bar");
   }
 

@@ -29,7 +29,7 @@ import java.util.Optional;
  * graphs.
  */
 @AutoValue
-abstract class BazelModuleResolutionValue implements SkyValue {
+public abstract class BazelModuleResolutionValue implements SkyValue {
 
   @SerializationConstant
   public static final SkyKey KEY = () -> SkyFunctions.BAZEL_MODULE_RESOLUTION;

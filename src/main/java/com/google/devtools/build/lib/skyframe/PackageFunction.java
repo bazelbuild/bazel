@@ -1286,6 +1286,7 @@ public class PackageFunction implements SkyFunction {
     }
     String workspaceName = workspaceNameValue.getName();
     RepositoryMapping repositoryMapping = repositoryMappingValue.getRepositoryMapping();
+    RepositoryMapping mainRepositoryMapping = mainRepositoryMappingValue.getRepositoryMapping();
     ImmutableSet<PathFragment> repositoryIgnoredPatterns =
         repositoryIgnoredPackagePrefixes.getPatterns();
     Label preludeLabel = null;
@@ -1445,7 +1446,8 @@ public class PackageFunction implements SkyFunction {
             compiled.predeclared,
             loadedModules,
             starlarkBuiltinsValue.starlarkSemantics,
-            globber);
+            globber,
+            mainRepositoryMapping);
 
         globDepKeys = globber.getGlobDepsRequested();
 

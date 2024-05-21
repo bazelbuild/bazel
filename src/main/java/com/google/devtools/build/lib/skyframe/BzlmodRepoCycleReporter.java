@@ -20,8 +20,11 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
@@ -72,6 +75,15 @@ public class BzlmodRepoCycleReporter implements CyclesReporter.SingleCycleReport
   private static final Predicate<SkyKey> IS_WORKSPACE_FILE =
       SkyFunctions.isSkyFunction(WorkspaceFileValue.WORKSPACE_FILE);
 
+  private static final Predicate<SkyKey> IS_MODULE_RESOLUTION =
+      SkyFunctions.isSkyFunction(SkyFunctions.BAZEL_MODULE_RESOLUTION);
+
+  private static final Predicate<SkyKey> IS_DEP_GRAPH =
+      SkyFunctions.isSkyFunction(SkyFunctions.BAZEL_DEP_GRAPH);
+
+  private static final Predicate<SkyKey> IS_MODULE_FILE =
+      SkyFunctions.isSkyFunction(SkyFunctions.MODULE_FILE);
+
   private static void requestRepoDefinitions(
       ExtendedEventHandler eventHandler, Iterable<SkyKey> repos) {
     for (SkyKey repo : repos) {
@@ -117,7 +129,10 @@ public class BzlmodRepoCycleReporter implements CyclesReporter.SingleCycleReport
                 IS_MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
                 IS_PACKAGE,
                 IS_EXTERNAL_PACKAGE,
-                IS_WORKSPACE_FILE))
+                IS_WORKSPACE_FILE,
+                IS_MODULE_RESOLUTION,
+                IS_DEP_GRAPH,
+                IS_MODULE_FILE))
         && Iterables.any(cycle, Predicates.or(IS_REPO_RULE, IS_EXTENSION_IMPL))) {
       StringBuilder cycleMessage =
           new StringBuilder(
@@ -131,7 +146,10 @@ public class BzlmodRepoCycleReporter implements CyclesReporter.SingleCycleReport
                   IS_EXTENSION_IMPL,
                   IS_BZL_LOAD,
                   IS_REPO_MAPPING,
-                  IS_WORKSPACE_FILE));
+                  IS_WORKSPACE_FILE,
+                  IS_MODULE_RESOLUTION,
+                  IS_DEP_GRAPH,
+                  IS_MODULE_FILE));
       Function<Object, String> printer =
           rawInput -> {
             SkyKey input = (SkyKey) rawInput;
@@ -150,6 +168,12 @@ public class BzlmodRepoCycleReporter implements CyclesReporter.SingleCycleReport
               return String.format("repository mapping of %s", key.repoName());
             } else if (input.argument() instanceof WorkspaceFileValue.WorkspaceFileKey) {
               return "WORKSPACE file";
+            } else if (input.argument() == BazelModuleResolutionValue.KEY) {
+              return "module resolution";
+            } else if (input.argument() == BazelDepGraphValue.KEY) {
+              return "module dependency graph";
+            } else if (input.argument() instanceof ModuleFileValue.Key) {
+              return "module file of " + input.argument();
             } else {
               Preconditions.checkArgument(input.argument() instanceof BzlLoadValue.Key);
               return ((BzlLoadValue.Key) input.argument()).getLabel().toString();

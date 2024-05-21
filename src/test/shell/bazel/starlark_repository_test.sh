@@ -3269,4 +3269,45 @@ EOF
   true
 }
 
+function test_legacy_label_print() {
+    WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
+    cd "${WRKDIR}"
+    cat > WORKSPACE <<'EOF'
+load("//:my_repository_rule.bzl", "my_repository_rule")
+
+my_repository_rule(
+    name = "my_first_repo",
+)
+
+my_repository_rule(
+    name = "my_second_repo",
+)
+EOF
+    cat > my_repository_rule.bzl <<'EOF'
+def _my_repository_rule_impl(rctx):
+    print("main repo:", Label("@@//:foo"), str(Label("@@//:foo")))
+    print("my_first_repo:", Label("@my_first_repo//:foo"), str(Label("@my_first_repo//:foo")))
+    print("my_second_repo:", Label("@my_first_repo//:foo"), str(Label("@my_first_repo//:foo")))
+    rctx.file("WORKSPACE")
+    rctx.file("BUILD", "filegroup(name='foo',visibility=['//visibility:public'])")
+
+my_repository_rule = repository_rule(
+    implementation = _my_repository_rule_impl,
+)
+EOF
+    cat > BUILD <<'EOF'
+filegroup(
+    name = "foo",
+    srcs = [
+        "@my_first_repo//:foo",
+        "@my_second_repo//:foo",
+    ],
+)
+EOF
+    bazel build --noenable_bzlmod //:foo >& $TEST_log || fail "expected bazel to succeed"
+    expect_log "main repo: //:foo @//:foo"
+    expect_log "my_first_repo: @my_first_repo//:foo @my_first_repo//:foo"
+    expect_log "my_second_repo: @my_first_repo//:foo @my_first_repo//:foo"
+}
+
 run_suite "local repository tests"

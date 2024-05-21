@@ -22,9 +22,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.cmdline.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.SymbolGenerator;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -395,7 +397,8 @@ public final class PackageFactory {
       ImmutableMap<String, Object> predeclared,
       ImmutableMap<String, Module> loadedModules,
       StarlarkSemantics starlarkSemantics,
-      Globber globber)
+      Globber globber,
+      RepositoryMapping mainRepositoryMapping)
       throws InterruptedException {
     // Prefetch glob patterns asynchronously.
     if (maxDirectoriesToEagerlyVisitInGlobbing == -2) {
@@ -419,7 +422,13 @@ public final class PackageFactory {
         cpuSemaphore.acquire();
       }
       executeBuildFileImpl(
-          pkgBuilder, buildFileProgram, predeclared, loadedModules, starlarkSemantics, globber);
+          pkgBuilder,
+          buildFileProgram,
+          predeclared,
+          loadedModules,
+          starlarkSemantics,
+          globber,
+          mainRepositoryMapping);
     } catch (InterruptedException e) {
       globber.onInterrupt();
       throw e;
@@ -437,7 +446,8 @@ public final class PackageFactory {
       ImmutableMap<String, Object> predeclared,
       ImmutableMap<String, Module> loadedModules,
       StarlarkSemantics semantics,
-      Globber globber)
+      Globber globber,
+      RepositoryMapping mainRepositoryMapping)
       throws InterruptedException {
     pkgBuilder.setLoads(loadedModules.values());
 
@@ -452,7 +462,8 @@ public final class PackageFactory {
 
       new BazelStarlarkContext(
               BazelStarlarkContext.Phase.LOADING,
-              new SymbolGenerator<>(pkgBuilder.getPackageIdentifier()))
+              new SymbolGenerator<>(pkgBuilder.getPackageIdentifier()),
+              () -> mainRepositoryMapping)
           .storeInThread(thread);
 
       // TODO(adonovan): save this as a field in BazelStarlarkContext.

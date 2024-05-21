@@ -24,7 +24,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
-import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Structure;
 import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Location;
@@ -150,7 +150,7 @@ public class TypeCheckedTag implements Structure {
   }
 
   @Override
-  public void debugPrint(Printer printer, StarlarkSemantics semantics) {
+  public void debugPrint(Printer printer, StarlarkThread thread) {
     printer.append(String.format("'%s' tag at %s", tagClassName, location));
   }
 }
