@@ -652,18 +652,18 @@ public class ModuleFileGlobals {
       throws EvalException {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "use_repo_rule()");
     context.setNonModuleCalled();
-    // The builder for the singular "innate" extension of this module.
+    // Find or create the builder for the singular "innate" extension of this module.
+    for (ModuleExtensionUsageBuilder usageBuilder : context.getExtensionUsageBuilders()) {
+      if (usageBuilder.isForExtension("//:MODULE.bazel", ModuleExtensionId.INNATE_EXTENSION_NAME)) {
+        return new RepoRuleProxy(usageBuilder, bzlFile + '%' + ruleName);
+      }
+    }
     ModuleExtensionUsageBuilder newUsageBuilder =
         new ModuleExtensionUsageBuilder(
             context,
             "//:MODULE.bazel",
             ModuleExtensionId.INNATE_EXTENSION_NAME,
             /* isolate= */ false);
-    for (ModuleExtensionUsageBuilder usageBuilder : context.getExtensionUsageBuilders()) {
-      if (usageBuilder.isForExtension("//:MODULE.bazel", ModuleExtensionId.INNATE_EXTENSION_NAME)) {
-        return new RepoRuleProxy(usageBuilder, bzlFile + '%' + ruleName);
-      }
-    }
     context.getExtensionUsageBuilders().add(newUsageBuilder);
     return new RepoRuleProxy(newUsageBuilder, bzlFile + '%' + ruleName);
   }
