@@ -143,6 +143,8 @@ public abstract class AnalysisMock extends LoadingMock {
 
   public abstract MockCcSupport ccSupport();
 
+  public abstract AbstractMockJavaSupport javaSupport();
+
   public abstract MockPythonSupport pySupport();
 
   public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(BlazeDirectories directories) {
@@ -279,6 +281,11 @@ public abstract class AnalysisMock extends LoadingMock {
     @Override
     public MockCcSupport ccSupport() {
       return delegate.ccSupport();
+    }
+
+    @Override
+    public AbstractMockJavaSupport javaSupport() {
+      return delegate.javaSupport();
     }
 
     @Override
