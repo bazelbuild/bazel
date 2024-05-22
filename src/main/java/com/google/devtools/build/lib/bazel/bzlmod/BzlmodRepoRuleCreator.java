@@ -117,7 +117,8 @@ public final class BzlmodRepoRuleCreator {
         if (label.getRepository().isVisible()) {
           continue;
         }
-        String unprefixedRepoName = label.getName().substring(label.getName().lastIndexOf('~') + 1);
+        String unprefixedRepoName =
+            label.getRepository().getName().substring(label.getName().lastIndexOf('~') + 1);
         RepositoryName owningModuleRepoName = owningExtension.getBzlFileLabel().getRepository();
         String owningModule;
         if (owningModuleRepoName.isMain()) {

@@ -1405,9 +1405,9 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     assertContainsEvent(
         "Error in repository_rule: no repository visible as '@other_repo', but referenced by label"
-            + " '@other_repo//:foo' in attribute data of data_repo 'foo'. Only repositories visible"
-            + " to the module 'ext_module' can be referenced here, are you missing a bazel_dep or"
-            + " use_repo(..., \"foo\")?");
+            + " '@other_repo//:foo' in attribute data of data_repo 'other_repo'. Only repositories"
+            + " visible to the module 'ext_module' can be referenced here, are you missing a"
+            + " bazel_dep or use_repo(..., \"other_repo\")?");
   }
 
   @Test
@@ -1439,9 +1439,9 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     assertContainsEvent(
         "Error in repository_rule: no repository visible as '@other_repo', but referenced by label"
-            + " '@other_repo//:foo' in attribute data of data_repo 'foo'. Only repositories visible"
-            + " to the root module can be referenced here, are you missing a bazel_dep or"
-            + " use_repo(..., \"foo\")?");
+            + " '@other_repo//:foo' in attribute data of data_repo 'other_repo'. Only repositories"
+            + " visible to the root module can be referenced here, are you missing a bazel_dep or"
+            + " use_repo(..., \"other_repo\")?");
   }
 
   @Test
@@ -1473,9 +1473,9 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     assertContainsEvent(
         "Error in repository_rule: no repository visible as '@other_repo', but referenced by label"
-            + " '@other_repo//:foo' in attribute data of data_repo 'foo'. Only repositories visible"
-            + " to the root module can be referenced here, are you missing a bazel_dep or"
-            + " use_repo(..., \"foo\")?");
+            + " '@other_repo//:foo' in attribute data of data_repo 'other_repo'. Only repositories"
+            + " visible to the root module can be referenced here, are you missing a bazel_dep or"
+            + " use_repo(..., \"other_repo\")?");
   }
 
   @Test
@@ -1507,9 +1507,9 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     assertContainsEvent(
         "Error in repository_rule: no repository visible as '@other_repo', but referenced by label"
-            + " '@other_repo//:foo' in attribute data of data_repo 'foo'. Only repositories visible"
-            + " to the root module can be referenced here, are you missing a bazel_dep or"
-            + " use_repo(..., \"foo\")?");
+            + " '@other_repo//:foo' in attribute data of data_repo 'other_repo'. Only repositories"
+            + " visible to the root module can be referenced here, are you missing a bazel_dep or"
+            + " use_repo(..., \"other_repo\")?");
   }
 
   @Test
