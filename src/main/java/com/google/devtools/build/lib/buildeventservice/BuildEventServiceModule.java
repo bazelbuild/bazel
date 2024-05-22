@@ -91,7 +91,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -400,10 +399,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
       return;
     }
     if (bepTransports.isEmpty()) {
-      // Exit early if there are no transports to stream to. However, report that the set of
-      // transports has been determined so that interested parties always get this event if there
-      // was no error during setting up the transports.
-      reporter.post(new AnnounceBuildEventTransportsEvent(bepTransports));
+      // Exit early if there are no transports to stream to.
       return;
     }
 
@@ -540,9 +536,6 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
               "waiting for BES close for invocation " + this.invocationId)) {
         Uninterruptibles.getUninterruptibly(Futures.allAsList(transportFutures.values()));
       }
-    } catch (CancellationException e) {
-      // This is expected if the upload needs to be cancelled for some reason, e.g. an error
-      // interrupting the build.
     } catch (ExecutionException e) {
       // Futures.withTimeout wraps the TimeoutException in an ExecutionException when the future
       // times out.

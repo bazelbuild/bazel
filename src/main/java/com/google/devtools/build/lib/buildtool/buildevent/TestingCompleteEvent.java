@@ -34,9 +34,6 @@ public class TestingCompleteEvent extends BuildCompletingEvent {
    * @param finishTimeMillis the finish time in milliseconds since the epoch.
    */
   public TestingCompleteEvent(ExitCode exitCode, long finishTimeMillis) {
-    super(
-        exitCode,
-        finishTimeMillis,
-        ImmutableList.of(BuildEventIdUtil.buildToolLogs(), BuildEventIdUtil.buildMetrics()));
+    super(exitCode, finishTimeMillis, ImmutableList.of(BuildEventIdUtil.buildToolLogs()));
   }
 }
