@@ -15,7 +15,6 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableCollection;
@@ -470,7 +469,8 @@ public class ModuleFileGlobals {
     return new ModuleExtensionProxy(newUsageBuilder, proxyBuilder);
   }
 
-  private String normalizeLabelString(InterimModule.Builder module, String rawExtensionBzlFile) {
+  private String normalizeLabelString(InterimModule.Builder module, String rawExtensionBzlFile)
+      throws EvalException {
     // Normalize the label by parsing and stringifying it with a repo mapping that preserves the
     // apparent repository name, except that a reference to the main repository via the empty
     // repo name is translated to using the module repo name. This is necessary as
@@ -480,30 +480,27 @@ public class ModuleFileGlobals {
     // ownName can't change anymore as calling module() after this results in an error.
     String ownName = module.getRepoName().orElse(module.getName());
     RepositoryName ownRepoName = RepositoryName.createUnvalidated(ownName);
+    ImmutableMap<String, RepositoryName> repoMapping = ImmutableMap.of();
+    if (module.getKey().equals(ModuleKey.ROOT)) {
+      repoMapping = ImmutableMap.of("", ownRepoName);
+    }
+    Label label;
     try {
-      ImmutableMap<String, RepositoryName> repoMapping = ImmutableMap.of();
-      if (module.getKey().equals(ModuleKey.ROOT)) {
-        repoMapping = ImmutableMap.of("", ownRepoName);
-      }
-      Label label =
+      label =
           Label.parseWithPackageContext(
               rawExtensionBzlFile,
               Label.PackageContext.of(
                   PackageIdentifier.create(ownRepoName, PathFragment.EMPTY_FRAGMENT),
                   RepositoryMapping.createAllowingFallback(repoMapping)));
-      // Skip over the leading "@" of the unambiguous form.
-      return label.getUnambiguousCanonicalForm().substring(1);
-    } catch (LabelSyntaxException ignored) {
-      // Preserve backwards compatibility by not failing eagerly, rather keep the invalid label and
-      // let the extension fail when evaluated.
-      return rawExtensionBzlFile;
+    } catch (LabelSyntaxException e) {
+      throw Starlark.errorf("invalid label \"%s\": %s", rawExtensionBzlFile, e.getMessage());
     }
+    // Skip over the leading "@" of the unambiguous form.
+    return label.getUnambiguousCanonicalForm().substring(1);
   }
 
-  /**
-   * Returns a {@link Label} when the given string is a valid label, otherwise the string itself.
-   */
-  private Object parseOverrideLabelAttribute(InterimModule.Builder module, String rawLabel) {
+  private Label convertAndValidatePatchLabel(InterimModule.Builder module, String rawLabel)
+      throws EvalException {
     RepositoryMapping repoMapping =
         RepositoryMapping.create(
             ImmutableMap.<String, RepositoryName>builder()
@@ -511,14 +508,20 @@ public class ModuleFileGlobals {
                 .put(module.getRepoName().orElse(module.getName()), RepositoryName.MAIN)
                 .buildKeepingLast(),
             RepositoryName.MAIN);
+    Label label;
     try {
-      return Label.parseWithPackageContext(
-          rawLabel, Label.PackageContext.of(PackageIdentifier.EMPTY_PACKAGE_ID, repoMapping));
+      label =
+          Label.parseWithPackageContext(
+              rawLabel, Label.PackageContext.of(PackageIdentifier.EMPTY_PACKAGE_ID, repoMapping));
     } catch (LabelSyntaxException e) {
-      // Preserve backwards compatibility by not failing eagerly, rather keep the invalid label and
-      // let the module repo fail when fetched.
-      return rawLabel;
+      throw Starlark.errorf("invalid label \"%s\" in 'patches': %s", rawLabel, e.getMessage());
     }
+    if (!label.getRepository().isVisible()) {
+      throw Starlark.errorf(
+          "invalid label in 'patches': only patches in the main repository can be applied, not from '@%s'",
+          label.getRepository().getName());
+    }
+    return label;
   }
 
   @StarlarkBuiltin(name = "module_extension_proxy", documented = false)
@@ -811,16 +814,18 @@ public class ModuleFileGlobals {
     try {
       parsedVersion = Version.parse(version);
     } catch (ParseException e) {
-      throw new EvalException("Invalid version in single_version_override()", e);
+      throw Starlark.errorf("Invalid version in single_version_override(): %s", version);
+    }
+    ImmutableList.Builder<Label> patchesBuilder = ImmutableList.builder();
+    for (String patch : Sequence.cast(patches, String.class, "patches")) {
+      patchesBuilder.add(convertAndValidatePatchLabel(context.getModuleBuilder(), patch));
     }
     context.addOverride(
         moduleName,
         SingleVersionOverride.create(
             parsedVersion,
             registry,
-            Sequence.cast(patches, String.class, "patches").stream()
-                .map(l -> parseOverrideLabelAttribute(context.getModuleBuilder(), l))
-                .collect(toImmutableList()),
+            patchesBuilder.build(),
             Sequence.cast(patchCmds, String.class, "patchCmds").getImmutableList(),
             patchStrip.toInt("single_version_override.patch_strip")));
   }
@@ -961,13 +966,15 @@ public class ModuleFileGlobals {
         urls instanceof String string
             ? ImmutableList.of(string)
             : Sequence.cast(urls, String.class, "urls").getImmutableList();
+    ImmutableList.Builder<Label> patchesBuilder = ImmutableList.builder();
+    for (String patch : Sequence.cast(patches, String.class, "patches")) {
+      patchesBuilder.add(convertAndValidatePatchLabel(context.getModuleBuilder(), patch));
+    }
     context.addOverride(
         moduleName,
         ArchiveOverride.create(
             urlList,
-            Sequence.cast(patches, String.class, "patches").stream()
-                .map(l -> parseOverrideLabelAttribute(context.getModuleBuilder(), l))
-                .collect(toImmutableList()),
+            patchesBuilder.build(),
             Sequence.cast(patchCmds, String.class, "patchCmds").getImmutableList(),
             integrity,
             stripPrefix,
@@ -1053,14 +1060,16 @@ public class ModuleFileGlobals {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "git_override()");
     context.setNonModuleCalled();
     validateModuleName(moduleName);
+    ImmutableList.Builder<Label> patchesBuilder = ImmutableList.builder();
+    for (String patch : Sequence.cast(patches, String.class, "patches")) {
+      patchesBuilder.add(convertAndValidatePatchLabel(context.getModuleBuilder(), patch));
+    }
     context.addOverride(
         moduleName,
         GitOverride.create(
             remote,
             commit,
-            Sequence.cast(patches, String.class, "patches").stream()
-                .map(l -> parseOverrideLabelAttribute(context.getModuleBuilder(), l))
-                .collect(toImmutableList()),
+            patchesBuilder.build(),
             Sequence.cast(patchCmds, String.class, "patchCmds").getImmutableList(),
             patchStrip.toInt("git_override.patch_strip"),
             initSubmodules,

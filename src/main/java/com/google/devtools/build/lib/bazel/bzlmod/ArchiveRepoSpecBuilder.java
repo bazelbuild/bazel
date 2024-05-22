@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import net.starlark.java.eval.StarlarkInt;
 
@@ -54,7 +55,7 @@ public class ArchiveRepoSpecBuilder {
   }
 
   @CanIgnoreReturnValue
-  public ArchiveRepoSpecBuilder setPatches(ImmutableList<Object> patches) {
+  public ArchiveRepoSpecBuilder setPatches(ImmutableList<Label> patches) {
     attrBuilder.put("patches", patches);
     return this;
   }
