@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -55,9 +54,10 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * TransitionResolver resolves the dependencies of a {@link ConfiguredTarget}, reporting which
- * configurations its dependencies are actually needed in according to the transitions applied to
- * them. See {@link TransitionsOutputFormatterCallback}.
+ * TransitionResolver resolves the dependencies of a {@link
+ * com.google.devtools.build.lib.analysis.ConfiguredTarget}, reporting which configurations its
+ * dependencies are actually needed in according to the transitions applied to them. See {@link
+ * TransitionsOutputFormatterCallback}.
  */
 public class CqueryTransitionResolver {
 
@@ -187,15 +187,12 @@ public class CqueryTransitionResolver {
         Label label = labelEntry.getKey();
         Collection<ConfiguredTargetAndData> targets = labelEntry.getValue();
 
-        ConfigurationTransition noOrNullTransition =
-            getTransitionIfNoOrNull(configuration, targets);
-        if (noOrNullTransition != null) {
+        // The most common case, so short-circuit this.
+        String transitionName = usesNoTransition(configuration, targets);
+        if (transitionName != null) {
           resolved.add(
               ResolvedTransition.create(
-                  label,
-                  /* buildOptions= */ ImmutableList.of(),
-                  dependencyName,
-                  noOrNullTransition.getName()));
+                  label, /* buildOptions= */ ImmutableList.of(), dependencyName, transitionName));
           continue;
         }
 
@@ -224,15 +221,16 @@ public class CqueryTransitionResolver {
   }
 
   @Nullable
-  private static ConfigurationTransition getTransitionIfNoOrNull(
+  private static String usesNoTransition(
       BuildConfigurationValue fromConfiguration, Collection<ConfiguredTargetAndData> targets) {
     ConfiguredTargetAndData first = targets.iterator().next();
+    // Check whether the configuration changed.
     if (targets.size() == 1 && Objects.equals(fromConfiguration, first.getConfiguration())) {
-      return NoTransition.INSTANCE;
+      return NoTransition.INSTANCE.getName();
     }
     // If any target has a null configuration, they all do, so it's sufficient to check the first.
     if (first.getConfiguration() == null) {
-      return NullTransition.INSTANCE;
+      return "(null transition)";
     }
     return null;
   }

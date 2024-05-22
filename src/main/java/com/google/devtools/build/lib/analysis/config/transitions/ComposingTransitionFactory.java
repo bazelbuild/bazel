@@ -51,28 +51,15 @@ public abstract class ComposingTransitionFactory<T extends TransitionFactory.Dat
         !transitionFactory1.isSplit() || !transitionFactory2.isSplit(),
         "can't compose two split transition factories");
 
-    if (isFinal(transitionFactory1)) {
-      // Since no other transition can be composed with transitionFactory1, use it directly.
-      return transitionFactory1;
-    } else if (NoTransition.isInstance(transitionFactory1)) {
+    if (NoTransition.isInstance(transitionFactory1)) {
       // Since transitionFactory1 causes no changes, use transitionFactory2 directly.
       return transitionFactory2;
-    }
-
-    if (NoTransition.isInstance(transitionFactory2)) {
+    } else if (NoTransition.isInstance(transitionFactory2)) {
       // Since transitionFactory2 causes no changes, use transitionFactory1 directly.
       return transitionFactory1;
-    } else if (isFinal(transitionFactory2)) {
-      // When the second transition is null there's no need to compose.
-      return transitionFactory2;
     }
 
     return create(transitionFactory1, transitionFactory2);
-  }
-
-  private static <T extends TransitionFactory.Data> boolean isFinal(
-      TransitionFactory<T> transitionFactory) {
-    return NullTransition.isInstance(transitionFactory);
   }
 
   private static <T extends TransitionFactory.Data> TransitionFactory<T> create(

@@ -340,7 +340,7 @@ public class DownloadManager {
       throw new IOException(getRewriterBlockedAllUrlsMessage(originalUrls));
     }
 
-    for (int attempt = 0; attempt <= retries; ++attempt) {
+    for (int attempt = 0; ; ++attempt) {
       try {
         downloader.download(
             rewrittenUrls,
@@ -353,12 +353,12 @@ public class DownloadManager {
             clientEnv,
             type);
         break;
-      } catch (ContentLengthMismatchException e) {
-        if (attempt == retries) {
-          throw e;
-        }
       } catch (InterruptedIOException e) {
         throw new InterruptedException(e.getMessage());
+      } catch (IOException e) {
+        if (!shouldRetryDownload(e, attempt)) {
+          throw e;
+        }
       }
     }
 
@@ -370,6 +370,24 @@ public class DownloadManager {
     }
 
     return destination;
+  }
+
+  private boolean shouldRetryDownload(IOException e, int attempt) {
+    if (attempt >= retries) {
+      return false;
+    }
+
+    if (e instanceof ContentLengthMismatchException) {
+      return true;
+    }
+
+    for (var suppressed : e.getSuppressed()) {
+      if (suppressed instanceof ContentLengthMismatchException) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /**
@@ -447,8 +465,8 @@ public class DownloadManager {
     }
 
     HttpDownloader httpDownloader = new HttpDownloader();
-    byte[] content = null;
-    for (int attempt = 0; attempt <= retries; ++attempt) {
+    byte[] content;
+    for (int attempt = 0; ; ++attempt) {
       try {
         content =
             httpDownloader.downloadAndReadOneUrl(
@@ -458,12 +476,12 @@ public class DownloadManager {
                 eventHandler,
                 clientEnv);
         break;
-      } catch (ContentLengthMismatchException e) {
-        if (attempt == retries) {
-          throw e;
-        }
       } catch (InterruptedIOException e) {
         throw new InterruptedException(e.getMessage());
+      } catch (IOException e) {
+        if (!shouldRetryDownload(e, attempt)) {
+          throw e;
+        }
       }
     }
     if (content == null) {

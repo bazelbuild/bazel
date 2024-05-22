@@ -48,7 +48,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/composing_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/configuration_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/no_transition",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/null_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",

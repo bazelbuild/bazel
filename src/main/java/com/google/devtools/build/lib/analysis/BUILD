@@ -77,7 +77,6 @@ java_library(
         ":config/transitions/composing_transition_factory",
         ":config/transitions/configuration_transition",
         ":config/transitions/no_transition",
-        ":config/transitions/null_transition",
         ":config/transitions/patch_transition",
         ":config/transitions/split_transition",
         ":config/transitions/transition_factory",
@@ -2050,7 +2049,6 @@ java_library(
     deps = [
         ":config/transitions/configuration_transition",
         ":config/transitions/no_transition",
-        ":config/transitions/null_transition",
         ":config/transitions/split_transition",
         ":config/transitions/transition_factory",
         "//third_party:auto_value",
@@ -2119,7 +2117,6 @@ java_library(
         ":config/build_options",
         ":config/transitions/configuration_transition",
         ":config/transitions/no_transition",
-        ":config/transitions/null_transition",
         ":required_config_fragments_provider",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//third_party:guava",
@@ -2133,7 +2130,6 @@ java_library(
         ":config/transitions/composing_transition",
         ":config/transitions/configuration_transition",
         ":config/transitions/no_transition",
-        ":config/transitions/null_transition",
         ":config/transitions/transition_factory",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -2168,21 +2164,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config",
-        "//third_party:auto_value",
-    ],
-)
-
-java_library(
-    name = "config/transitions/null_transition",
-    srcs = ["config/transitions/NullTransition.java"],
-    deps = [
-        ":config/build_options",
-        ":config/transitions/configuration_transition",
-        ":config/transitions/patch_transition",
-        ":config/transitions/transition_factory",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//third_party:auto_value",
     ],
 )

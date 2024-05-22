@@ -157,28 +157,6 @@ public class ComposingTransitionFactoryTest {
     assertThat(composed).isEqualTo(patch);
   }
 
-  @Test
-  public void compose_nullTrans_first() {
-    StubPatch patch = new StubPatch(FLAG_1, "value");
-    TransitionFactory<StubData> composed =
-        ComposingTransitionFactory.of(
-            NullTransition.createFactory(), TransitionFactories.of(patch));
-
-    assertThat(composed).isNotNull();
-    assertThat(NullTransition.isInstance(composed)).isTrue();
-  }
-
-  @Test
-  public void compose_nullTrans_second() {
-    StubPatch patch = new StubPatch(FLAG_1, "value");
-    TransitionFactory<StubData> composed =
-        ComposingTransitionFactory.of(
-            TransitionFactories.of(patch), NullTransition.createFactory());
-
-    assertThat(composed).isNotNull();
-    assertThat(NullTransition.isInstance(composed)).isTrue();
-  }
-
   private static final class StubData implements TransitionFactory.Data {}
 
   // Helper methods and classes for the tests.

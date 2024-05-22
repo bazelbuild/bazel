@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -38,7 +37,6 @@ import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.buildeventservice.BazelBuildEventServiceModule.BackendConfig;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceModule.BuildEventOutputStreamFactory;
-import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted;
@@ -173,20 +171,6 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
             });
   }
 
-  private ImmutableSet<BuildEventTransport> bepTransports;
-
-  private class BepTransportLogger {
-    @Subscribe
-    @SuppressWarnings("unused")
-    public void transportsKnown(AnnounceBuildEventTransportsEvent event) {
-      bepTransports = besModule.getBepTransports();
-    }
-  }
-
-  private ImmutableSet<BuildEventTransport> getBepTransports() {
-    return bepTransports;
-  }
-
   private void runBuildWithOptions(String... options) throws Exception {
     addOptions(options);
     besModule = runtimeWrapper.getRuntime().getBlazeModule(BazelBuildEventServiceModule.class);
@@ -194,7 +178,6 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
       besModule.setBuildEventOutputStreamFactory(buildEventOutputStreamFactory);
     }
     runtimeWrapper.newCommand();
-    runtimeWrapper.getSkyframeExecutor().getEventBus().register(new BepTransportLogger());
     buildTarget();
   }
 
@@ -232,29 +215,33 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
   @Test
   public void testCreatesStreamerForTextFormatFileTransport() throws Exception {
     runBuildWithOptions("--build_event_text_file=" + tmpFolder.newFile().getAbsolutePath());
-    assertThat(getBepTransports()).hasSize(1);
-    assertThat(getBepTransports().asList().get(0)).isInstanceOf(TextFormatFileTransport.class);
+    assertThat(besModule.getBepTransports()).hasSize(1);
+    assertThat(besModule.getBepTransports().asList().get(0))
+        .isInstanceOf(TextFormatFileTransport.class);
   }
 
   @Test
   public void testCreatesStreamerForBinaryFormatFileTransport() throws Exception {
     runBuildWithOptions("--build_event_binary_file=" + tmpFolder.newFile().getAbsolutePath());
-    assertThat(getBepTransports()).hasSize(1);
-    assertThat(getBepTransports().asList().get(0)).isInstanceOf(BinaryFormatFileTransport.class);
+    assertThat(besModule.getBepTransports()).hasSize(1);
+    assertThat(besModule.getBepTransports().asList().get(0))
+        .isInstanceOf(BinaryFormatFileTransport.class);
   }
 
   @Test
   public void testCreatesStreamerForJsonFormatFileTransport() throws Exception {
     runBuildWithOptions("--build_event_json_file=" + tmpFolder.newFile().getAbsolutePath());
-    assertThat(getBepTransports()).hasSize(1);
-    assertThat(getBepTransports().asList().get(0)).isInstanceOf(JsonFormatFileTransport.class);
+    assertThat(besModule.getBepTransports()).hasSize(1);
+    assertThat(besModule.getBepTransports().asList().get(0))
+        .isInstanceOf(JsonFormatFileTransport.class);
   }
 
   @Test
   public void testCreatesStreamerForBesTransport() throws Exception {
     runBuildWithOptions("--bes_backend=does.not.exist:1234");
-    assertThat(getBepTransports()).hasSize(1);
-    assertThat(getBepTransports().asList().get(0)).isInstanceOf(BuildEventServiceTransport.class);
+    assertThat(besModule.getBepTransports()).hasSize(1);
+    assertThat(besModule.getBepTransports().asList().get(0))
+        .isInstanceOf(BuildEventServiceTransport.class);
   }
 
   @Test
@@ -280,10 +267,13 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
 
     connectivityModule = new FailingConnectivityStatusProvider();
     reinitializeAndPreserveOptions();
+
+    BazelBuildEventServiceModule besModule =
+        getRuntime().getBlazeModule(BazelBuildEventServiceModule.class);
     addOptions("--bes_backend=does.not.exist:1234");
     addOptions("--spawn_strategy=standalone");
-    runBuildWithOptions();
-    assertThat(getBepTransports()).isEmpty();
+    buildTarget();
+    assertThat(besModule.getBepTransports()).isEmpty();
   }
 
   @Test
@@ -293,8 +283,9 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
         "--bes_upload_mode=FULLY_ASYNC",
         "--bes_results_url=http://results-ui/");
 
-    assertThat(getBepTransports()).hasSize(1);
-    assertThat(getBepTransports().asList().get(0)).isInstanceOf(BuildEventServiceTransport.class);
+    assertThat(besModule.getBepTransports()).hasSize(1);
+    assertThat(besModule.getBepTransports().asList().get(0))
+        .isInstanceOf(BuildEventServiceTransport.class);
   }
 
   @Test
@@ -306,7 +297,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
                 runBuildWithOptions(
                     "--bes_backend=inprocess", "--runs_per_test=" + (RUNS_PER_TEST_LIMIT + 1)));
     assertThat(expected.getExitCode()).isEqualTo(ExitCode.COMMAND_LINE_ERROR);
-    assertThat(getBepTransports()).isEmpty();
+    assertThat(besModule.getBepTransports()).isEmpty();
     assertContainsError("The value of --runs_per_test");
   }
 
@@ -356,7 +347,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
         "--bes_backend=inprocess",
         "--bes_upload_mode=WAIT_FOR_UPLOAD_COMPLETE",
         "--bes_timeout=5s");
-    ImmutableSet<BuildEventTransport> bepTransports = getBepTransports();
+    ImmutableSet<BuildEventTransport> bepTransports = besModule.getBepTransports();
     assertThat(bepTransports).hasSize(1);
     afterBuildCommand();
     assertContainsError("The Build Event Protocol upload timed out");
@@ -581,7 +572,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
   @Test
   public void testAfterCommandStreamerIsClosedNoWarning() throws Exception {
     runBuildWithOptions("--build_event_text_file=" + tmpFolder.newFile().getAbsolutePath());
-    assertThat(getBepTransports()).hasSize(1);
+    assertThat(besModule.getBepTransports()).hasSize(1);
     afterBuildCommand();
     events.assertNoWarningsOrErrors();
   }
@@ -647,11 +638,15 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
         "--build_event_json_file=" + tmpFolder.newFile().getAbsolutePath(),
         "--bes_backend=does.not.exist:1234");
 
-    assertThat(getBepTransports()).hasSize(4);
-    assertThat(getBepTransports().asList().get(0)).isInstanceOf(TextFormatFileTransport.class);
-    assertThat(getBepTransports().asList().get(1)).isInstanceOf(BinaryFormatFileTransport.class);
-    assertThat(getBepTransports().asList().get(2)).isInstanceOf(JsonFormatFileTransport.class);
-    assertThat(getBepTransports().asList().get(3)).isInstanceOf(BuildEventServiceTransport.class);
+    assertThat(besModule.getBepTransports()).hasSize(4);
+    assertThat(besModule.getBepTransports().asList().get(0))
+        .isInstanceOf(TextFormatFileTransport.class);
+    assertThat(besModule.getBepTransports().asList().get(1))
+        .isInstanceOf(BinaryFormatFileTransport.class);
+    assertThat(besModule.getBepTransports().asList().get(2))
+        .isInstanceOf(JsonFormatFileTransport.class);
+    assertThat(besModule.getBepTransports().asList().get(3))
+        .isInstanceOf(BuildEventServiceTransport.class);
   }
 
   @Test
@@ -662,12 +657,12 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
         "--build_event_json_file=" + tmpFolder.newFile().getAbsolutePath(),
         "--bes_backend=does.not.exist:1234");
 
-    assertThat(getBepTransports()).hasSize(4);
+    assertThat(besModule.getBepTransports()).hasSize(4);
 
     BuildEventArtifactUploader uploader =
-        Iterables.getFirst(getBepTransports(), null).getUploader();
+        Iterables.getFirst(besModule.getBepTransports(), null).getUploader();
     assertThat(uploader).isNotNull();
-    for (BuildEventTransport transport : getBepTransports()) {
+    for (BuildEventTransport transport : besModule.getBepTransports()) {
       assertThat(uploader).isSameInstanceAs(transport.getUploader());
     }
   }
@@ -675,7 +670,7 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
   @Test
   public void testDoesNotCreatesStreamerWithoutTransports() throws Exception {
     runBuildWithOptions();
-    assertThat(getBepTransports()).isEmpty();
+    assertThat(besModule.getBepTransports()).isEmpty();
   }
 
   @Test

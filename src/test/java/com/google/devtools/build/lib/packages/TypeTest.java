@@ -37,9 +37,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Test of type-conversions using Type.
- */
+/** Test of type-conversions using Type. */
+// TODO: blaze-team - Rewrite to use TestParameterInjector
 @RunWith(JUnit4.class)
 public class TypeTest {
 
@@ -130,16 +129,20 @@ public class TypeTest {
             Type.ConversionException.class, () -> Type.BOOLEAN.convert("unexpected", null));
     assertThat(e)
         .hasMessageThat()
-        .isEqualTo("expected value of type 'int', but got \"unexpected\" (string)");
+        .isEqualTo("expected one of [False, True, 0, 1], but got \"unexpected\" (string)");
     // Integers other than [0, 1] should fail.
     e =
         assertThrows(
             Type.ConversionException.class, () -> Type.BOOLEAN.convert(StarlarkInt.of(2), null));
-    assertThat(e).hasMessageThat().isEqualTo("boolean is not one of [0, 1]");
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("expected one of [False, True, 0, 1], but got 2 (int)");
     e =
         assertThrows(
             Type.ConversionException.class, () -> Type.BOOLEAN.convert(StarlarkInt.of(-1), null));
-    assertThat(e).hasMessageThat().isEqualTo("boolean is not one of [0, 1]");
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("expected one of [False, True, 0, 1], but got -1 (int)");
   }
 
   @Test
