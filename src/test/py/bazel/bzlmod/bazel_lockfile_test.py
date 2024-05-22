@@ -18,7 +18,9 @@ import json
 import os
 import pathlib
 import tempfile
+
 from absl.testing import absltest
+
 from src.test.py.bazel import test_base
 from src.test.py.bazel.bzlmod.test_utils import BazelRegistry
 from src.test.py.bazel.bzlmod.test_utils import scratchFile
@@ -2475,6 +2477,102 @@ class BazelLockfileTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', '@hello//:all'])
     stderr = ''.join(stderr)
     self.assertIn('I am running the extension: 4.5.6', stderr)
+
+  def testModuleExtensionRerunsOnGetenvChanges(self):
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'module(name = "old_name", version = "1.2.3")',
+        'lockfile_ext = use_extension("//:extension.bzl", "lockfile_ext")',
+        'use_repo(lockfile_ext, "hello")',
+      ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+      'extension.bzl',
+      [
+        'def _repo_rule_impl(ctx):',
+        '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+        '',
+        'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+        '',
+        'def _module_ext_impl(ctx):',
+        '    print("UNDECLARED_KEY=%s" % ctx.os.environ.get("UNDECLARED_KEY"))',
+        '    print("PREDECLARED_KEY=%s" % ctx.os.environ.get("PREDECLARED_KEY"))',
+        '    print("LAZYEVAL_KEY=%s" % ctx.getenv("LAZYEVAL_KEY"))',
+        '    repo_rule(name="hello")',
+        '',
+        'lockfile_ext = module_extension(',
+        '    implementation=_module_ext_impl,',
+        '    environ = ["PREDECLARED_KEY"],',
+        ')',
+      ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'], env_add={'UNDECLARED_KEY': 'val1'})
+    stderr = '\n'.join(stderr)
+    self.assertIn('UNDECLARED_KEY=val1', stderr)
+
+    # No reevaluation if undeclared env var changes
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'], env_add={'UNDECLARED_KEY': 'val2'})
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('UNDECLARED_KEY', stderr)
+
+    # Reevaluation if predeclared env var is first set
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'], env_add={'PREDECLARED_KEY': 'val1'})
+    stderr = '\n'.join(stderr)
+    self.assertIn('PREDECLARED_KEY=val1', stderr)
+
+    # No reevaluation if predeclared env var does not change
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'], env_add={'PREDECLARED_KEY': 'val1'})
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('PREDECLARED_KEY', stderr)
+
+    # Reevaluation if predeclared env var changes
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'], env_add={'PREDECLARED_KEY': 'val2'})
+    stderr = '\n'.join(stderr)
+    self.assertIn('PREDECLARED_KEY=val2', stderr)
+
+    # Reevaluation if predeclared env var becomes unset
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('PREDECLARED_KEY=None', stderr)
+
+    # Reevaluation if lazily declared env var is first set
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'], env_add={'LAZYEVAL_KEY': 'val1'})
+    stderr = '\n'.join(stderr)
+    self.assertIn('LAZYEVAL_KEY=val1', stderr)
+
+    # No reevaluation if lazily declared env var does not change
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'], env_add={'LAZYEVAL_KEY': 'val1'})
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('LAZYEVAL_KEY', stderr)
+
+    # Reevaluation if lazily declared env var changes
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'], env_add={'LAZYEVAL_KEY': 'val2'})
+    stderr = '\n'.join(stderr)
+    self.assertIn('LAZYEVAL_KEY=val2', stderr)
+
+    # Reevaluation if lazily declared env var changes due to --repo_env.
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all', '--repo_env=LAZYEVAL_KEY=val3'],
+                                 env_add={'LAZYEVAL_KEY': 'val2'})
+    stderr = '\n'.join(stderr)
+    self.assertIn('LAZYEVAL_KEY=val3', stderr)
+
+    # Reevaluation if lazily declared env var becomes unset
+    self.RunBazel(['shutdown'])
+    _, _, stderr = self.RunBazel(['build', '@hello//:all'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('LAZYEVAL_KEY=None', stderr)
 
 
 if __name__ == '__main__':

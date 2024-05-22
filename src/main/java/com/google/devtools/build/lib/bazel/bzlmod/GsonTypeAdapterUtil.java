@@ -247,7 +247,10 @@ public final class GsonTypeAdapterUtil {
     public void write(JsonWriter jsonWriter, Optional<T> t) throws IOException {
       Preconditions.checkNotNull(t);
       if (t.isEmpty()) {
+        boolean oldSerializeNulls = jsonWriter.getSerializeNulls();
+        jsonWriter.setSerializeNulls(true);
         jsonWriter.nullValue();
+        jsonWriter.setSerializeNulls(oldSerializeNulls);
       } else {
         elementTypeAdapter.write(jsonWriter, t.get());
       }
@@ -358,6 +361,22 @@ public final class GsonTypeAdapterUtil {
             }
           };
 
+  private static final TypeAdapter<RepoRecordedInput.EnvVar>
+      REPO_RECORDED_INPUT_ENV_VAR_TYPE_ADAPTER =
+          new TypeAdapter<>() {
+            @Override
+            public void write(JsonWriter jsonWriter, RepoRecordedInput.EnvVar value)
+                throws IOException {
+              jsonWriter.value(value.toStringInternal());
+            }
+
+            @Override
+            public RepoRecordedInput.EnvVar read(JsonReader jsonReader) throws IOException {
+              return (RepoRecordedInput.EnvVar)
+                  RepoRecordedInput.EnvVar.PARSER.parse(jsonReader.nextString());
+            }
+          };
+
   // This can't reuse the existing type adapter factory for Optional as we need to explicitly
   // serialize null values but don't want to rely on GSON's serializeNulls.
   private static final class OptionalChecksumTypeAdapterFactory implements TypeAdapterFactory {
@@ -441,7 +460,9 @@ public final class GsonTypeAdapterUtil {
         .registerTypeAdapter(byte[].class, BYTE_ARRAY_TYPE_ADAPTER)
         .registerTypeAdapter(RepoRecordedInput.File.class, REPO_RECORDED_INPUT_FILE_TYPE_ADAPTER)
         .registerTypeAdapter(
-            RepoRecordedInput.Dirents.class, REPO_RECORDED_INPUT_DIRENTS_TYPE_ADAPTER);
+            RepoRecordedInput.Dirents.class, REPO_RECORDED_INPUT_DIRENTS_TYPE_ADAPTER)
+        .registerTypeAdapter(
+            RepoRecordedInput.EnvVar.class, REPO_RECORDED_INPUT_ENV_VAR_TYPE_ADAPTER);
   }
 
   private GsonTypeAdapterUtil() {}
