@@ -286,9 +286,9 @@ public abstract class Type<T> {
    * message.
    */
   public static class ConversionException extends EvalException {
-    private static String message(Type<?> type, Object value, @Nullable Object what) {
+    private static String message(String expected, Object value, @Nullable Object what) {
       Printer printer = new Printer();
-      printer.append("expected value of type '").append(type.toString()).append("'");
+      printer.append("expected ").append(expected);
       if (what != null) {
         printer.append(" for ").append(what.toString());
       }
@@ -298,9 +298,18 @@ public abstract class Type<T> {
       return printer.toString();
     }
 
-    /** Contructs a conversion error. Throws NullPointerException if value is null. */
+    /** Constructs a conversion error. Throws NullPointerException if value is null. */
+    ConversionException(String expected, Object value, @Nullable Object what) {
+      super(message(expected, Preconditions.checkNotNull(value), what));
+    }
+
+    /** Constructs a conversion error. Throws NullPointerException if value is null. */
     ConversionException(Type<?> type, Object value, @Nullable Object what) {
-      super(message(type, Preconditions.checkNotNull(value), what));
+      super(
+          message(
+              String.format("value of type '%s'", type.toString()),
+              Preconditions.checkNotNull(value),
+              what));
     }
 
     public ConversionException(String message) {
@@ -422,13 +431,19 @@ public abstract class Type<T> {
       if (x instanceof Boolean) {
         return (Boolean) x;
       }
-      int xAsInteger = INTEGER.convert(x, what, labelConverter).toIntUnchecked();
-      if (xAsInteger == 0) {
-        return false;
-      } else if (xAsInteger == 1) {
-        return true;
+      try {
+        int xAsInteger = INTEGER.convert(x, what, labelConverter).toIntUnchecked();
+        if (xAsInteger == 0) {
+          return false;
+        } else if (xAsInteger == 1) {
+          return true;
+        }
+      } catch (ConversionException unused) {
+        // Fall through to the `throw` below to display the correct type name.
+        // No need to keep the previous exception, the stack trace is less important than the actual
+        // error message showing allowed values for conversion.
       }
-      throw new ConversionException("boolean is not one of [0, 1]");
+      throw new ConversionException("one of [False, True, 0, 1]", x, what);
     }
 
     /** Booleans attributes are converted to tags based on their names. */
