@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
+import com.google.devtools.build.lib.cmdline.Label;
 
 /** Specifies that a module should be retrieved from an archive. */
 @AutoValue
@@ -25,7 +26,7 @@ public abstract class ArchiveOverride implements NonRegistryOverride {
 
   public static ArchiveOverride create(
       ImmutableList<String> urls,
-      ImmutableList<Object> patches,
+      ImmutableList<Label> patches,
       ImmutableList<String> patchCmds,
       String integrity,
       String stripPrefix,
@@ -38,7 +39,7 @@ public abstract class ArchiveOverride implements NonRegistryOverride {
   public abstract ImmutableList<String> getUrls();
 
   /** The labels of patches to apply after extracting the archive. */
-  public abstract ImmutableList<Object> getPatches();
+  public abstract ImmutableList<Label> getPatches();
 
   /** The patch commands to execute after extracting the archive. Should be a list of commands. */
   public abstract ImmutableList<String> getPatchCmds();
