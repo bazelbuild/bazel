@@ -44,7 +44,9 @@ import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import net.starlark.java.spelling.SpellChecker;
 
 /**
  * The implementation of the options parser. This is intentionally package private for full
@@ -790,9 +792,16 @@ class OptionsParserImpl {
       throw new OptionsParsingException("Invalid options syntax: " + arg, arg);
     }
 
+    // Do not recognize internal options, which are treated as if they did not exist.
     if (lookupResult == null || shouldIgnoreOption(lookupResult.definition)) {
-      // Do not recognize internal options, which are treated as if they did not exist.
-      throw new OptionsParsingException("Unrecognized option: " + arg, arg);
+      String suggestion;
+      // Do not offer suggestions for short-form options.
+      if (arg.startsWith("--")) {
+        suggestion = SpellChecker.didYouMean(arg, getAllValidArgs());
+      } else {
+        suggestion = "";
+      }
+      throw new OptionsParsingException("Unrecognized option: " + arg + suggestion, arg);
     }
 
     if (unconvertedValue == null) {
@@ -830,6 +839,22 @@ class OptionsParserImpl {
                     expandedFrom),
                 conversionContext)),
         Optional.empty());
+  }
+
+  private Iterable<String> getAllValidArgs() {
+    return () ->
+        optionsData.getAllOptionDefinitions().stream()
+            .filter(entry -> !shouldIgnoreOption(entry.getValue()))
+            .flatMap(
+                definition -> {
+                  Stream.Builder<String> builder = Stream.builder();
+                  builder.add("--" + definition.getKey());
+                  if (definition.getValue().usesBooleanValueSyntax()) {
+                    builder.add("--no" + definition.getKey());
+                  }
+                  return builder.build();
+                })
+            .iterator();
   }
 
   /**
