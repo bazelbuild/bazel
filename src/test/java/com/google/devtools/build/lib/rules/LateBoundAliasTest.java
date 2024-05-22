@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -94,5 +95,15 @@ public class LateBoundAliasTest extends BuildViewTestCase {
     ConfiguredTarget myFilegroup = getConfiguredTarget("//a:my_filegroup");
 
     assertThat(myFilegroup).isNotNull();
+  }
+
+  @Test
+  public void testNullTargetHasLateBoundAliasProvider() throws Exception {
+    scratch.file("a/BUILD", "test_rule_name(name='alias')");
+
+    ConfiguredTarget alias = getConfiguredTarget("//a:alias");
+
+    assertThat(alias).isNotNull();
+    assertThat(alias.getProvider(AliasProvider.LateBoundAliasProvider.class)).isNotNull();
   }
 }
