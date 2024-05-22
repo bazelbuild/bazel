@@ -1539,6 +1539,20 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   }
 
   @Test
+  public void testNoUsages() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa')",
+        "http_archive = use_repo_rule('@bazel_tools//tools/build_defs/repo:http.bzl',"
+            + " 'http_archive')");
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isFalse();
+  }
+
+  @Test
   public void testInvalidRepoInPatches() throws Exception {
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
