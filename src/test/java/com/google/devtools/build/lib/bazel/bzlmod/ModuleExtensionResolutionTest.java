@@ -1372,6 +1372,147 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
   }
 
   @Test
+  public void nonVisibleLabelInLabelAttr() throws Exception {
+    registry.addModule(
+        createModuleKey("ext_module", "1.0"), "module(name='ext_module',version='1.0')");
+    scratch.file(modulesRoot.getRelative("ext_module~v1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("ext_module~v1.0/BUILD").getPathString());
+    scratch.file(
+        modulesRoot.getRelative("ext_module~v1.0/defs.bzl").getPathString(),
+        "def _data_repo_impl(ctx):",
+        "  ctx.file('WORKSPACE')",
+        "  ctx.file('BUILD')",
+        "data_repo = repository_rule(",
+        "  implementation=_data_repo_impl,",
+        "  attrs={'data':attr.label()})",
+        "def _ext_impl(ctx):",
+        "  data_repo(name='other_repo')",
+        "  data_repo(name='ext',data='@other_repo//:foo')",
+        "ext = module_extension(implementation=_ext_impl)");
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name = 'ext_module', version = '1.0')",
+        "ext = use_extension('@ext_module//:defs.bzl','ext')",
+        "use_repo(ext,'ext')");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@ext//:data.bzl', ext_data='data')",
+        "data=ext_data");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    reporter.removeHandler(failFastHandler);
+    evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    assertContainsEvent(
+        "Error in repository_rule: no repository visible as '@other_repo', but referenced by label"
+            + " '@other_repo//:foo' in attribute data of data_repo 'foo'. Only repositories visible"
+            + " to the module 'ext_module' can be referenced here, are you missing a bazel_dep or"
+            + " use_repo(..., \"foo\")?");
+  }
+
+  @Test
+  public void nonVisibleLabelInLabelAttrInRootModule() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "ext = use_extension('//:defs.bzl','ext')",
+        "use_repo(ext,'ext')");
+    scratch.file(
+        workspaceRoot.getRelative("defs.bzl").getPathString(),
+        "def _data_repo_impl(ctx):",
+        "  ctx.file('WORKSPACE')",
+        "  ctx.file('BUILD')",
+        "data_repo = repository_rule(",
+        "  implementation=_data_repo_impl,",
+        "  attrs={'data':attr.label()})",
+        "def _ext_impl(ctx):",
+        "  data_repo(name='other_repo')",
+        "  data_repo(name='ext',data='@other_repo//:foo')",
+        "ext = module_extension(implementation=_ext_impl)");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@ext//:data.bzl', ext_data='data')",
+        "data=ext_data");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    reporter.removeHandler(failFastHandler);
+    evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    assertContainsEvent(
+        "Error in repository_rule: no repository visible as '@other_repo', but referenced by label"
+            + " '@other_repo//:foo' in attribute data of data_repo 'foo'. Only repositories visible"
+            + " to the root module can be referenced here, are you missing a bazel_dep or"
+            + " use_repo(..., \"foo\")?");
+  }
+
+  @Test
+  public void nonVisibleLabelInLabelListAttr() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "ext = use_extension('//:defs.bzl','ext')",
+        "use_repo(ext,'ext')");
+    scratch.file(
+        workspaceRoot.getRelative("defs.bzl").getPathString(),
+        "def _data_repo_impl(ctx):",
+        "  ctx.file('WORKSPACE')",
+        "  ctx.file('BUILD')",
+        "data_repo = repository_rule(",
+        "  implementation=_data_repo_impl,",
+        "  attrs={'data':attr.label_list()})",
+        "def _ext_impl(ctx):",
+        "  data_repo(name='other_repo')",
+        "  data_repo(name='ext',data=['@other_repo//:foo'])",
+        "ext = module_extension(implementation=_ext_impl)");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@ext//:data.bzl', ext_data='data')",
+        "data=ext_data");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    reporter.removeHandler(failFastHandler);
+    evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    assertContainsEvent(
+        "Error in repository_rule: no repository visible as '@other_repo', but referenced by label"
+            + " '@other_repo//:foo' in attribute data of data_repo 'foo'. Only repositories visible"
+            + " to the root module can be referenced here, are you missing a bazel_dep or"
+            + " use_repo(..., \"foo\")?");
+  }
+
+  @Test
+  public void nonVisibleLabelInLabelKeyedStringDictAttr() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "ext = use_extension('//:defs.bzl','ext')",
+        "use_repo(ext,'ext')");
+    scratch.file(
+        workspaceRoot.getRelative("defs.bzl").getPathString(),
+        "def _data_repo_impl(ctx):",
+        "  ctx.file('WORKSPACE')",
+        "  ctx.file('BUILD')",
+        "data_repo = repository_rule(",
+        "  implementation=_data_repo_impl,",
+        "  attrs={'data':attr.label_keyed_string_dict()})",
+        "def _ext_impl(ctx):",
+        "  data_repo(name='other_repo')",
+        "  data_repo(name='ext',data={'@other_repo//:foo':'bar'})",
+        "ext = module_extension(implementation=_ext_impl)");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@ext//:data.bzl', ext_data='data')",
+        "data=ext_data");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    reporter.removeHandler(failFastHandler);
+    evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    assertContainsEvent(
+        "Error in repository_rule: no repository visible as '@other_repo', but referenced by label"
+            + " '@other_repo//:foo' in attribute data of data_repo 'foo'. Only repositories visible"
+            + " to the root module can be referenced here, are you missing a bazel_dep or"
+            + " use_repo(..., \"foo\")?");
+  }
+
+  @Test
   public void nativeExistingRuleIsEmpty() throws Exception {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),

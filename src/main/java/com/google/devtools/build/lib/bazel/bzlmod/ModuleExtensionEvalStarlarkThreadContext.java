@@ -68,6 +68,7 @@ public final class ModuleExtensionEvalStarlarkThreadContext {
   private final RepositoryMapping repoMapping;
   private final BlazeDirectories directories;
   private final ExtendedEventHandler eventHandler;
+  private final ModuleExtensionId owningExtension;
   private final Map<String, RepoSpecAndLocation> generatedRepos = new HashMap<>();
 
   public ModuleExtensionEvalStarlarkThreadContext(
@@ -75,12 +76,14 @@ public final class ModuleExtensionEvalStarlarkThreadContext {
       PackageIdentifier basePackageId,
       RepositoryMapping repoMapping,
       BlazeDirectories directories,
-      ExtendedEventHandler eventHandler) {
+      ExtendedEventHandler eventHandler,
+      ModuleExtensionId owningExtension) {
     this.repoPrefix = repoPrefix;
     this.basePackageId = basePackageId;
     this.repoMapping = repoMapping;
     this.directories = directories;
     this.eventHandler = eventHandler;
+    this.owningExtension = owningExtension;
   }
 
   public void createRepo(StarlarkThread thread, Dict<String, Object> kwargs, RuleClass ruleClass)
@@ -109,6 +112,7 @@ public final class ModuleExtensionEvalStarlarkThreadContext {
               "RepositoryRuleFunction.createRule",
               ruleClass,
               Maps.transformEntries(kwargs, (k, v) -> k.equals("name") ? prefixedName : v));
+      BzlmodRepoRuleCreator.validateLabelAttrs(rule, owningExtension);
 
       Map<String, Object> attributes =
           Maps.filterKeys(

@@ -14,11 +14,15 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static java.util.Collections.singletonList;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
@@ -31,6 +35,8 @@ import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConfli
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -92,5 +98,52 @@ public final class BzlmodRepoRuleCreator {
       packageBuilder.getLocalEventHandler().replayOn(eventHandler);
     }
     return rule;
+  }
+
+  public static void validateLabelAttrs(Rule rule, ModuleExtensionId owningExtension)
+      throws EvalException {
+    for (var attribute : rule.getRuleClassObject().getAttributes()) {
+      Object value = rule.getAttr(attribute.getName());
+      Collection<?> toValidate =
+          switch (value) {
+            case List<?> list -> list;
+            case Map<?, ?> map -> map.keySet();
+            case null, default -> singletonList(value);
+          };
+      for (var item : toValidate) {
+        if (!(item instanceof Label label)) {
+          continue;
+        }
+        if (label.getRepository().isVisible()) {
+          continue;
+        }
+        String unprefixedRepoName = label.getName().substring(label.getName().lastIndexOf('~') + 1);
+        RepositoryName owningModuleRepoName = owningExtension.getBzlFileLabel().getRepository();
+        String owningModule;
+        if (owningModuleRepoName.isMain()) {
+          owningModule = "root module";
+        } else {
+          owningModule =
+              String.format(
+                  "module '%s'",
+                  owningModuleRepoName
+                      .getName()
+                      .substring(0, owningModuleRepoName.getName().indexOf('~')));
+        }
+        throw Starlark.errorf(
+            "no repository visible as '@%s', but referenced by label '@%s//%s:%s' in attribute %s"
+                + " of %s '%s'. Only repositories visible to the %s can be referenced"
+                + " here, are you missing a bazel_dep or use_repo(..., \"%s\")?.",
+            label.getRepository().getName(),
+            label.getRepository().getName(),
+            label.getPackageName(),
+            label.getName(),
+            attribute.getName(),
+            rule.getRuleClass(),
+            unprefixedRepoName,
+            owningModule,
+            unprefixedRepoName);
+      }
+    }
   }
 }
