@@ -6370,4 +6370,36 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             "'workspace_root' is not allowed on invalid Label @@[unknown repo '' requested from"
                 + " @@module~v1.2.3]//foo:bar");
   }
+
+  @Test
+  public void testPackageMetadataAttrOnAllRules() throws Exception {
+    scratch.file(
+        "p/b.bzl",
+        """
+        def _my_rule_impl(ctx):
+            license_file = ctx.attr.package_metadata[0][DefaultInfo].files.to_list()[0]
+            print("ctx.attr.package_metadata: %s" % license_file.path)
+
+        my_rule = rule(_my_rule_impl)
+        """);
+    scratch.file(
+        "p/BUILD",
+        """
+        load(":b.bzl", "my_rule")
+
+        filegroup(
+            name = "licenses",
+            srcs = ["LICENSE"],
+        )
+
+        my_rule(
+            name = "my_target",
+            package_metadata = [":licenses"],
+        )
+        """);
+
+    getConfiguredTarget("//p:my_target");
+
+    assertContainsEvent("ctx.attr.package_metadata: p/LICENSE");
+  }
 }
