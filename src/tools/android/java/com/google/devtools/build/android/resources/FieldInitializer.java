@@ -30,12 +30,8 @@ public interface FieldInitializer {
    */
   boolean writeFieldDefinition(ClassWriter cw, boolean isFinal, boolean annotateTransitiveFields);
 
-  /**
-   * Write the bytecode for the clinit portion of initializer.
-   *
-   * @return the number of stack slots needed for the code.
-   */
-  int writeCLInit(InstructionAdapter insts, String className);
+  /** Write the bytecode for the clinit portion of initializer. */
+  void writeCLInit(InstructionAdapter insts, String className);
 
   /** Write the source code for the initializer to the given writer. */
   void writeInitSource(Writer writer, boolean finalFields) throws IOException;

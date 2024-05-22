@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.android.resources;
 
-import static java.lang.Math.max;
 import static java.nio.file.StandardOpenOption.CREATE_NEW;
 
 import com.android.SdkConstants;
@@ -226,7 +225,8 @@ public class RClassGenerator {
     constructor.visitVarInsn(Opcodes.ALOAD, 0);
     constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, SUPER_CLASS, "<init>", "()V", false);
     constructor.visitInsn(Opcodes.RETURN);
-    constructor.visitMaxs(1, 1);
+    // Values are ignored because COMPUTE_MAXS is set above, but call still required.
+    constructor.visitMaxs(0, 0);
     constructor.visitEnd();
   }
 
@@ -244,7 +244,6 @@ public class RClassGenerator {
     ListIterator<FieldInitializer> iterator = deferredInitializers.listIterator();
     while (iterator.hasNext()) {
       int currentMethodSize = 0;
-      int stackSlotsNeeded = 0;
       // This first time around the method name is <clinit> and after that, the method name is
       // created in the previous iteration.
       MethodVisitor visitor =
@@ -267,7 +266,7 @@ public class RClassGenerator {
           iterator.previous();
           break;
         }
-        stackSlotsNeeded = max(stackSlotsNeeded, fieldInit.writeCLInit(insts, className));
+        fieldInit.writeCLInit(insts, className);
         currentMethodSize += fieldInit.getMaxBytecodeSize();
       }
       if (iterator.hasNext()) {
@@ -278,7 +277,8 @@ public class RClassGenerator {
         accessFlags = Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE | Opcodes.ACC_SYNTHETIC;
       }
       insts.areturn(Type.VOID_TYPE);
-      visitor.visitMaxs(stackSlotsNeeded, 0);
+      // Values are ignored because COMPUTE_MAXS is set above, but call still required.
+      visitor.visitMaxs(0, 0);
       visitor.visitEnd();
     }
   }

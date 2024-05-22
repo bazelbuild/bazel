@@ -231,7 +231,7 @@ public final class IntArrayFieldInitializer implements FieldInitializer {
   }
 
   @Override
-  public int writeCLInit(InstructionAdapter insts, String className) {
+  public void writeCLInit(InstructionAdapter insts, String className) {
     insts.iconst(values.size());
     insts.newarray(Type.INT_TYPE);
     int curIndex = 0;
@@ -243,9 +243,6 @@ public final class IntArrayFieldInitializer implements FieldInitializer {
       ++curIndex;
     }
     insts.putstatic(className, fieldName, DESC);
-    // Needs up to 4 stack slots for: the array ref for the putstatic, the dup of the array ref
-    // for the store, the index, and the value to store.
-    return 4;
   }
 
   @Override
