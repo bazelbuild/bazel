@@ -249,6 +249,10 @@ public class ModuleThreadContext {
     // Build module extension usages and the rest of the module.
     var extensionUsages = ImmutableList.<ModuleExtensionUsage>builder();
     for (var extensionUsageBuilder : extensionUsageBuilders) {
+      if (extensionUsageBuilder.proxyBuilders.isEmpty()) {
+        // This can happen for the special extension used for "use_repo_rule" calls.
+        continue;
+      }
       extensionUsages.add(extensionUsageBuilder.buildUsage());
     }
     return module
