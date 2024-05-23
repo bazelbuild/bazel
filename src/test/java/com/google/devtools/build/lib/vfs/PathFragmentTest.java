@@ -23,8 +23,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -619,7 +619,7 @@ public final class PathFragmentTest {
 
   private static void checkSerialization(String pathFragmentString) throws Exception {
     PathFragment a = create(pathFragmentString);
-    PathFragment a2 = TestUtils.roundTrip(a);
+    PathFragment a2 = RoundTripping.roundTrip(a);
     assertThat(a2).isEqualTo(a);
   }
 

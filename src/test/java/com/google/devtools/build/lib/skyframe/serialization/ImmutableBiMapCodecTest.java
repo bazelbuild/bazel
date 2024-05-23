@@ -19,9 +19,9 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableBiMap;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester.VerificationFunction;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -54,11 +54,11 @@ public class ImmutableBiMapCodecTest {
         assertThrows(
             SerializationException.class,
             () ->
-                TestUtils.toBytesMemoized(
+                RoundTripping.toBytesMemoized(
                     ImmutableBiMap.of("a", new Dummy()),
                     AutoRegistry.get()
                         .getBuilder()
-                        .add(new DummyThrowingCodec(/*throwsOnSerialization=*/ true))
+                        .add(new DummyThrowingCodec(/* throwsOnSerialization= */ true))
                         .build()));
     assertThat(expected)
         .hasMessageThat()

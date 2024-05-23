@@ -286,6 +286,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant-annotation",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:depsutils",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:round-tripping",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:no_matching_platform_data",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:platform_lookup_util",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:toolchain_context_key",
