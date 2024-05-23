@@ -430,7 +430,8 @@ public class ModuleFileGlobals {
     var proxyBuilder =
         ModuleExtensionUsage.Proxy.builder()
             .setLocation(thread.getCallerLocation())
-            .setDevDependency(devDependency);
+            .setDevDependency(devDependency)
+            .setContainingModuleFilePath(context.getCurrentModuleFilePath());
 
     String extensionBzlFile = normalizeLabelString(context.getModuleBuilder(), rawExtensionBzlFile);
     var newUsageBuilder =
@@ -692,7 +693,9 @@ public class ModuleFileGlobals {
               usageBuilder,
               ModuleExtensionUsage.Proxy.builder()
                   .setDevDependency(devDependency)
-                  .setLocation(thread.getCallerLocation()));
+                  .setLocation(thread.getCallerLocation())
+                  .setContainingModuleFilePath(
+                      usageBuilder.getContext().getCurrentModuleFilePath()));
       extensionProxy.getValue(tagName).call(kwargs, thread);
       extensionProxy.addImport(name, name, "by a repo rule", thread.getCallerLocation());
     }

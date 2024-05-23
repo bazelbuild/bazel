@@ -441,7 +441,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       Environment env)
       throws SingleExtensionEvalFunctionException {
     Optional<RootModuleFileFixup> fixup = Optional.empty();
-    if (moduleExtensionMetadata.isPresent()) {
+    if (moduleExtensionMetadata.isPresent()
+        && usagesValue.getExtensionUsages().containsKey(ModuleKey.ROOT)) {
       try {
         // TODO: ModuleExtensionMetadata#generateFixup should throw ExternalDepsException instead of
         // EvalException.
@@ -449,7 +450,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
             moduleExtensionMetadata
                 .get()
                 .generateFixup(
-                    usagesValue.getExtensionUsages().values(),
+                    usagesValue.getExtensionUsages().get(ModuleKey.ROOT),
                     generatedRepoSpecs.keySet(),
                     env.getListener());
       } catch (EvalException e) {

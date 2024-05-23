@@ -18,7 +18,6 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -83,12 +82,7 @@ public class BazelModTidyFunction implements SkyFunction {
     }
 
     ImmutableSet<SkyKey> extensionsUsedByRootModule =
-        depGraphValue
-            .getExtensionUsagesTable()
-            .columnMap()
-            .getOrDefault(ModuleKey.ROOT, ImmutableMap.of())
-            .keySet()
-            .stream()
+        depGraphValue.getExtensionUsagesTable().column(ModuleKey.ROOT).keySet().stream()
             // Use the eval-only key to avoid errors caused by incorrect imports - we can fix them.
             .map(SingleExtensionValue::evalKey)
             .collect(toImmutableSet());
@@ -108,8 +102,6 @@ public class BazelModTidyFunction implements SkyFunction {
     }
 
     return BazelModTidyValue.create(
-        fixups.build(),
-        buildozer.asPath(),
-        rootModuleFileValue.getIncludeLabelToCompiledModuleFile());
+        fixups.build(), buildozer.asPath(), rootModuleFileValue.getModuleFilePaths());
   }
 }

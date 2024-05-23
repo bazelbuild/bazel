@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFile
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -765,6 +766,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                 .setDevDependency(false)
                                 .setProxyName("myext1")
                                 .setImports(ImmutableBiMap.of("repo1", "repo1"))
+                                .setContainingModuleFilePath(
+                                    LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
                                 .build())
                         .addTag(
                             Tag.builder()
@@ -795,6 +798,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                 .setProxyName("myext2")
                                 .setImports(
                                     ImmutableBiMap.of("other_repo1", "repo1", "repo2", "repo2"))
+                                .setContainingModuleFilePath(
+                                    LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
                                 .build())
                         .addTag(
                             Tag.builder()
@@ -839,6 +844,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                 .setImports(
                                     ImmutableBiMap.of(
                                         "mvn", "maven", "junit", "junit", "guava", "guava"))
+                                .setContainingModuleFilePath(
+                                    LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
                                 .build())
                         .addTag(
                             Tag.builder()
@@ -912,6 +919,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                 .setDevDependency(true)
                                 .setProxyName("myext1")
                                 .addImport("alpha", "alpha")
+                                .setContainingModuleFilePath(
+                                    LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
                                 .build())
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
@@ -920,6 +929,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                 .setDevDependency(false)
                                 .setProxyName("myext2")
                                 .addImport("beta", "beta")
+                                .setContainingModuleFilePath(
+                                    LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
                                 .build())
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
@@ -928,6 +939,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                 .setDevDependency(true)
                                 .setProxyName("myext3")
                                 .addImport("gamma", "gamma")
+                                .setContainingModuleFilePath(
+                                    LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
                                 .build())
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
@@ -936,6 +949,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                 .setDevDependency(false)
                                 .setProxyName("myext4")
                                 .addImport("delta", "delta")
+                                .setContainingModuleFilePath(
+                                    LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
                                 .build())
                         .addTag(
                             Tag.builder()
@@ -1037,6 +1052,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                 .setDevDependency(false)
                                 .setProxyName("myext2")
                                 .addImport("beta", "beta")
+                                .setContainingModuleFilePath(
+                                    LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
                                 .build())
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
@@ -1046,6 +1063,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                 .setDevDependency(false)
                                 .setProxyName("myext4")
                                 .addImport("delta", "delta")
+                                .setContainingModuleFilePath(
+                                    LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
                                 .build())
                         .addTag(
                             Tag.builder()
@@ -1151,6 +1170,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                     Location.fromFileLineColumn("/workspace/MODULE.bazel", 2, 5))
                                 .setDevDependency(false)
                                 .addImport("repo_name", "repo_name")
+                                .setContainingModuleFilePath(
+                                    LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
                                 .build())
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
@@ -1158,6 +1179,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                     Location.fromFileLineColumn("/workspace/MODULE.bazel", 4, 13))
                                 .setDevDependency(false)
                                 .addImport("guava", "guava")
+                                .setContainingModuleFilePath(
+                                    LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
                                 .build())
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
@@ -1165,6 +1188,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                     Location.fromFileLineColumn("/workspace/MODULE.bazel", 5, 13))
                                 .setDevDependency(true)
                                 .addImport("vuaga", "vuaga")
+                                .setContainingModuleFilePath(
+                                    LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
                                 .build())
                         .addTag(
                             Tag.builder()
