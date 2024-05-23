@@ -76,20 +76,33 @@ Authentication is not supported.
 URLs are tried in order until one succeeds, so you should list local mirrors first.
 If all downloads fail, the rule will fail."""
 
-def _get_all_urls(ctx):
-    """Returns all urls provided via the url, urls and remote_patches attributes.
+def _get_source_urls(ctx):
+    """Returns source urls provided via the url, urls attributes.
 
     Also checks that at least one url is provided."""
     if not ctx.attr.url and not ctx.attr.urls:
         fail("At least one of url and urls must be provided")
 
-    all_urls = []
+    source_urls = []
     if ctx.attr.urls:
-        all_urls = ctx.attr.urls
+        source_urls = ctx.attr.urls
     if ctx.attr.url:
-        all_urls = [ctx.attr.url] + all_urls
+        source_urls = [ctx.attr.url] + source_urls
+    return source_urls
+
+def _get_all_urls(ctx):
+    """Returns all urls provided via the url, urls, remote_patches and remote_file_urls attributes.
+
+    Also checks that at least one url is provided."""
+    if not ctx.attr.url and not ctx.attr.urls:
+        fail("At least one of url and urls must be provided")
+
+    all_urls = _get_source_urls(ctx)
     if hasattr(ctx.attr, "remote_patches") and ctx.attr.remote_patches:
         all_urls = all_urls + ctx.attr.remote_patches.keys()
+
+    if hasattr(ctx.attr, "remote_file_urls") and ctx.attr.remote_file_urls:
+        all_urls = all_urls + ctx.attr.remote_patches.values()
 
     return all_urls
 
@@ -136,25 +149,21 @@ def _http_archive_impl(ctx):
     if ctx.attr.build_file and ctx.attr.build_file_content:
         fail("Only one of build_file and build_file_content can be provided.")
 
-    all_urls = _get_all_urls(ctx)
-    auth = get_auth(ctx, all_urls)
-
+    source_urls = _get_source_urls(ctx)
     download_info = ctx.download_and_extract(
-        # TODO(fzakaria): all_urls here has the remote_patch URL which is incorrect
-        # I believe this to be a file
-        all_urls,
+        source_urls,
         ctx.attr.add_prefix,
         ctx.attr.sha256,
         ctx.attr.type,
         ctx.attr.strip_prefix,
         canonical_id = ctx.attr.canonical_id or get_default_canonical_id(ctx, all_urls),
-        auth = auth,
+        auth = get_auth(ctx, source_urls),
         integrity = ctx.attr.integrity,
     )
     workspace_and_buildfile(ctx)
 
-    download_remote_files(ctx, auth = auth)
-    patch(ctx, auth = auth)
+    download_remote_files(ctx)
+    patch(ctx)
 
     return _update_integrity_attr(ctx, _http_archive_attrs, download_info)
 

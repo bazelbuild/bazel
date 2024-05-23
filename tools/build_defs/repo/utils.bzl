@@ -79,19 +79,19 @@ def _use_native_patch(patch_args):
             return False
     return True
 
-def _download_patch(ctx, patch_url, integrity, auth):
+def _download_patch(ctx, patch_url, integrity):
     name = patch_url.split("/")[-1]
     patch_path = ctx.path(_REMOTE_PATCH_DIR).get_child(name)
     ctx.download(
         patch_url,
         patch_path,
         canonical_id = ctx.attr.canonical_id,
-        auth = auth,
+        auth = get_auth(ctx, [patch_url]),
         integrity = integrity,
     )
     return patch_path
 
-def download_remote_files(ctx, auth = None):
+def download_remote_files(ctx):
     """Utility function for downloading remote files.
 
     This rule is intended to be used in the implementation function of
@@ -108,7 +108,7 @@ def download_remote_files(ctx, auth = None):
             remote_file_urls,
             path,
             canonical_id = ctx.attr.canonical_id,
-            auth = auth,
+            auth = get_auth(ctx, [remote_file_urls]),
             integrity = ctx.attr.remote_file_integrity.get(path, ""),
             block = False,
         )
@@ -119,7 +119,7 @@ def download_remote_files(ctx, auth = None):
     for p in pending:
         p.wait()
 
-def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_tool = None, patch_args = None, auth = None):
+def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_tool = None, patch_args = None):
     """Implementation of patching an already extracted repository.
 
     This rule is intended to be used in the implementation function of
@@ -140,7 +140,6 @@ def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_t
       patch_tool: Path of the patch tool to execute for applying
         patches. String.
       patch_args: Arguments to pass to the patch tool. List of strings.
-      auth: An optional dict specifying authentication information for some of the URLs.
 
     """
     bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
@@ -187,7 +186,7 @@ def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_t
     # Apply remote patches
     for patch_url in remote_patches:
         integrity = remote_patches[patch_url]
-        patchfile = _download_patch(ctx, patch_url, integrity, auth)
+        patchfile = _download_patch(ctx, patch_url, integrity)
         ctx.patch(patchfile, remote_patch_strip)
         ctx.delete(patchfile)
     ctx.delete(ctx.path(_REMOTE_PATCH_DIR))
