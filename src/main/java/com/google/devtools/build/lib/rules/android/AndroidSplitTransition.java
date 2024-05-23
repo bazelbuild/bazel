@@ -36,14 +36,15 @@ import java.util.List;
 import net.starlark.java.eval.Printer;
 
 /** Android Split configuration transition for properly handling native dependencies */
-public final class AndroidSplitTransition implements SplitTransition, AndroidSplitTransitionApi {
+public final class AndroidSplitTransition implements SplitTransition {
 
   public static final AndroidSplitTransition INSTANCE = new AndroidSplitTransition();
 
-  public static final TransitionFactory<AttributeTransitionData> FACTORY = new Factory();
+  public static final Factory FACTORY = new Factory();
 
   /** A {@link TransitionFactory} instance that returns the {@link AndroidSplitTransition}. */
-  static final class Factory implements TransitionFactory<AttributeTransitionData> {
+  static final class Factory
+      implements TransitionFactory<AttributeTransitionData>, AndroidSplitTransitionApi {
 
     @Override
     public ConfigurationTransition create(AttributeTransitionData unused) {
@@ -63,6 +64,16 @@ public final class AndroidSplitTransition implements SplitTransition, AndroidSpl
     @Override
     public boolean isSplit() {
       return true;
+    }
+
+    @Override
+    public boolean isImmutable() {
+      return true;
+    }
+
+    @Override
+    public void repr(Printer printer) {
+      printer.append("android_common.multi_cpu_configuration");
     }
   }
 
@@ -127,15 +138,5 @@ public final class AndroidSplitTransition implements SplitTransition, AndroidSpl
 
     newOptions.get(AndroidConfiguration.Options.class).configurationDistinguisher =
         ConfigurationDistinguisher.ANDROID;
-  }
-
-  @Override
-  public boolean isImmutable() {
-    return true;
-  }
-
-  @Override
-  public void repr(Printer printer) {
-    printer.append("android_common.multi_cpu_configuration");
   }
 }
