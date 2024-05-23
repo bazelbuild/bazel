@@ -785,7 +785,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
   @Override
   public void setupMockToolsRepository(MockToolsConfig config) throws IOException {
     config.create("embedded_tools/WORKSPACE", "workspace(name = 'bazel_tools')");
-    config.create("embedded_tools/MODULE.bazel", "module(name='bazel_tools')");
+    config.create(
+        "embedded_tools/MODULE.bazel",
+        "module(name ='bazel_tools')",
+        "bazel_dep(name = 'platforms', version = '0.0.9')");
     config.create("embedded_tools/tools/build_defs/repo/BUILD");
     config.create(
         "embedded_tools/tools/build_defs/build_info/bazel_cc_build_info.bzl",

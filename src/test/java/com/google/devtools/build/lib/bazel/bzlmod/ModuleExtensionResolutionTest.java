@@ -121,7 +121,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
   public void setup() throws Exception {
     workspaceRoot = scratch.dir("/ws");
     String bazelToolsPath = "/ws/embedded_tools";
-    scratch.file(bazelToolsPath + "/MODULE.bazel", "module(name = 'bazel_tools')");
+    scratch.file(
+        bazelToolsPath + "/MODULE.bazel",
+        "module(name = 'bazel_tools')",
+        "bazel_dep(name = 'platforms', version = '0.0.9')");
     scratch.file(bazelToolsPath + "/WORKSPACE");
     modulesRoot = scratch.dir("/modules");
     differencer = new SequencedRecordingDifferencer();
