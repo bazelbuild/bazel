@@ -14,8 +14,8 @@
     "https://bcr.bazel.build/modules/bazel_skylib/1.3.0/MODULE.bazel": "20228b92868bf5cfc41bda7afc8a8ba2a543201851de39d990ec957b513579c5",
     "https://bcr.bazel.build/modules/bazel_skylib/1.6.1/MODULE.bazel": "8fdee2dbaace6c252131c00e1de4b165dc65af02ea278476187765e1a617b917",
     "https://bcr.bazel.build/modules/bazel_skylib/1.6.1/source.json": "082ed5f9837901fada8c68c2f3ddc958bb22b6d654f71dd73f3df30d45d4b749",
-    "https://bcr.bazel.build/modules/buildozer/7.1.1.1/MODULE.bazel": "21c6a7d08e3171d3e13b003407caefe7ebe007693e217a053cc1f49f008ce010",
-    "https://bcr.bazel.build/modules/buildozer/7.1.1.1/source.json": "a9ced884dedcf1c45d11052d53d854e368b05aa8fbbf0f983037fbed4d3ea4c6",
+    "https://bcr.bazel.build/modules/buildozer/7.1.2/MODULE.bazel": "2e8dd40ede9c454042645fd8d8d0cd1527966aa5c919de86661e62953cd73d84",
+    "https://bcr.bazel.build/modules/buildozer/7.1.2/source.json": "c9028a501d2db85793a6996205c8de120944f50a0d570438fcae0457a5f9d1f8",
     "https://bcr.bazel.build/modules/googletest/1.11.0/MODULE.bazel": "3a83f095183f66345ca86aa13c58b59f9f94a2f81999c093d4eeaa2d262d12f4",
     "https://bcr.bazel.build/modules/googletest/1.11.0/source.json": "c73d9ef4268c91bd0c1cd88f1f9dfa08e814b1dbe89b5f594a9f08ba0244d206",
     "https://bcr.bazel.build/modules/platforms/0.0.4/MODULE.bazel": "9b328e31ee156f53f3c416a64f8491f7eb731742655a47c9eec4703a71644aee",
@@ -87,32 +87,6 @@
             "bazel_tools"
           ]
         ]
-      }
-    },
-    "@@buildozer~//:buildozer_binary.bzl%buildozer_binary": {
-      "general": {
-        "bzlTransitiveDigest": "EleDU/FQ1+e/RgkW3aIDmdaxZEthvoWQhsqFTxiSgMI=",
-        "usagesDigest": "hxw0DOI5uj9VGmLCZhN8VXkjHv/p+F6B1t1NyQTGnO8=",
-        "recordedFileInputs": {},
-        "recordedDirentsInputs": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "buildozer_binary": {
-            "bzlFile": "@@buildozer~//private:buildozer_binary.bzl",
-            "ruleClassName": "_buildozer_binary_repo",
-            "attributes": {
-              "sha256": {
-                "darwin-amd64": "6286bbbcb5314d675fcb4ede30edf397a68c611005412c937b2cc0c4bf4b714b",
-                "darwin-arm64": "0a2f70aa7b864de9bf71d1aac39659017b7a84169506e350d9ec77c609265212",
-                "linux-amd64": "9a7424aca7ca911c85cfedeadf065f0d95c492e80f0e29bd07ea98f6eb087259",
-                "linux-arm64": "07c8ed5ca3efea7e20756e9060660b7e658c781953c60650a1b99cd8bb857fcf",
-                "windows-amd64": "edad2e85cc691b064de9675db8e732b2c5a4ada0b32282ecdf4b18692cc8d3fe"
-              },
-              "version": "7.1.1"
-            }
-          }
-        },
-        "recordedRepoMappingEntries": []
       }
     },
     "@@platforms//host:extension.bzl%host_platform": {

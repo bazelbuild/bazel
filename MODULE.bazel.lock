@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "c35a4e0854b364ec6f6016becfded3d1ae6b6df3eeb4f02c900aaa012ffea643",
+  "moduleFileHash": "e6dc6d8e38926c6071c69d5c9d37de5491100ec7a1246a774e7a7bb4035b064f",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -632,7 +632,7 @@
         "rules_testing": "rules_testing@0.6.0",
         "com_google_googletest": "googletest@1.14.0",
         "with_cfg.bzl": "with_cfg.bzl@0.2.4",
-        "buildozer": "buildozer@7.1.1.1",
+        "buildozer": "buildozer@7.1.2",
         "remoteapis": "remoteapis@_",
         "googleapis": "googleapis@_",
         "apple_support": "apple_support@1.8.1",
@@ -1844,10 +1844,10 @@
         }
       }
     },
-    "buildozer@7.1.1.1": {
+    "buildozer@7.1.2": {
       "name": "buildozer",
-      "version": "7.1.1.1",
-      "key": "buildozer@7.1.1.1",
+      "version": "7.1.2",
+      "key": "buildozer@7.1.2",
       "repoName": "buildozer",
       "executionPlatformsToRegister": [],
       "toolchainsToRegister": [],
@@ -1855,10 +1855,10 @@
         {
           "extensionBzlFile": "@buildozer//:buildozer_binary.bzl",
           "extensionName": "buildozer_binary",
-          "usingModule": "buildozer@7.1.1.1",
+          "usingModule": "buildozer@7.1.2",
           "location": {
-            "file": "https://bcr.bazel.build/modules/buildozer/7.1.1.1/MODULE.bazel",
-            "line": 7,
+            "file": "https://bcr.bazel.build/modules/buildozer/7.1.2/MODULE.bazel",
+            "line": 9,
             "column": 33
           },
           "imports": {
@@ -1870,18 +1870,18 @@
               "tagName": "buildozer",
               "attributeValues": {
                 "sha256": {
-                  "darwin-amd64": "6286bbbcb5314d675fcb4ede30edf397a68c611005412c937b2cc0c4bf4b714b",
-                  "darwin-arm64": "0a2f70aa7b864de9bf71d1aac39659017b7a84169506e350d9ec77c609265212",
-                  "linux-amd64": "9a7424aca7ca911c85cfedeadf065f0d95c492e80f0e29bd07ea98f6eb087259",
-                  "linux-arm64": "07c8ed5ca3efea7e20756e9060660b7e658c781953c60650a1b99cd8bb857fcf",
-                  "windows-amd64": "edad2e85cc691b064de9675db8e732b2c5a4ada0b32282ecdf4b18692cc8d3fe"
+                  "darwin-amd64": "90da5cf4f7db73007977a8c6bec23fa7022265978187e1da8df5edc91daf6ee1",
+                  "darwin-arm64": "bedff301bc51f04da46d2c8900c1753032ea88485af375a9f1b7bed0915558e0",
+                  "linux-amd64": "8d5c459ab21b411b8be059a8bdf59f0d3eabf9dff943d5eccb80e36e525cc09d",
+                  "linux-arm64": "a00d1790e8c92c5022d83e345d6629506836d73c23c5338d5f777589bfaed02d",
+                  "windows-amd64": "3a650e10f07787760889d7e5694924d881265ae2384499fd59ada7c39c02366e"
                 },
-                "version": "7.1.1"
+                "version": "7.1.2"
               },
               "devDependency": false,
               "location": {
-                "file": "https://bcr.bazel.build/modules/buildozer/7.1.1.1/MODULE.bazel",
-                "line": 8,
+                "file": "https://bcr.bazel.build/modules/buildozer/7.1.2/MODULE.bazel",
+                "line": 10,
                 "column": 27
               }
             }
@@ -1891,6 +1891,7 @@
         }
       ],
       "deps": {
+        "bazel_features": "bazel_features@1.11.0",
         "bazel_tools": "bazel_tools@_",
         "local_config_platform": "local_config_platform@_"
       },
@@ -1899,12 +1900,12 @@
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
-            "https://github.com/fmeum/buildozer/releases/download/v7.1.1.1/buildozer-v7.1.1.1.tar.gz"
+            "https://github.com/fmeum/buildozer/releases/download/v7.1.2/buildozer-v7.1.2.tar.gz"
           ],
-          "integrity": "sha256-wjmMsVBR96yT+WOlwN8g1gZRkc/VSPPnTjckHmIs9m8=",
-          "strip_prefix": "buildozer-7.1.1.1",
+          "integrity": "sha256-/HfDfwjmdFCKV5jYSRiuUrO5UQGZ4KwBESo3iWfaQVg=",
+          "strip_prefix": "buildozer-7.1.2",
           "remote_patches": {
-            "https://bcr.bazel.build/modules/buildozer/7.1.1.1/patches/module_dot_bazel_version.patch": "sha256-dOIwFLCmsm5pLgHK9aPnVXTjEsvn3xC4aHTXpbyrR2o="
+            "https://bcr.bazel.build/modules/buildozer/7.1.2/patches/module_dot_bazel_version.patch": "sha256-nbMWB+h5mPmkLZWAFPslhFDwz615WFnN2VTEr7Fxhfo="
           },
           "remote_patch_strip": 1
         }
@@ -2506,7 +2507,7 @@
         "rules_license": "rules_license@0.0.7",
         "rules_proto": "rules_proto@5.3.0-21.7",
         "rules_python": "rules_python@0.26.0",
-        "buildozer": "buildozer@7.1.1.1",
+        "buildozer": "buildozer@7.1.2",
         "platforms": "platforms@0.0.9",
         "com_google_protobuf": "protobuf@21.7",
         "zlib": "zlib@1.3",
@@ -2917,8 +2918,8 @@
       "general": {
         "bzlTransitiveDigest": "kGK7vQSUnYTiX5+yCN3M8Mdy5PtT3d9zz8C7MpetGCk=",
         "recordedFileInputs": {
-          "@@//MODULE.bazel": "c35a4e0854b364ec6f6016becfded3d1ae6b6df3eeb4f02c900aaa012ffea643",
-          "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "2f81a792284cdd287d05079fe60aae79af61a2f728c7b49a03b2bfecae0d3457"
+          "@@//MODULE.bazel": "e6dc6d8e38926c6071c69d5c9d37de5491100ec7a1246a774e7a7bb4035b064f",
+          "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "a24c42ec0fd1b2b9186ebd26dde26e6242ad52eb547866c743f45084295d5248"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -3628,31 +3629,6 @@
               "urls": [
                 "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.6.zip"
               ]
-            }
-          }
-        },
-        "recordedRepoMappingEntries": []
-      }
-    },
-    "@@buildozer~//:buildozer_binary.bzl%buildozer_binary": {
-      "general": {
-        "bzlTransitiveDigest": "EleDU/FQ1+e/RgkW3aIDmdaxZEthvoWQhsqFTxiSgMI=",
-        "recordedFileInputs": {},
-        "recordedDirentsInputs": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "buildozer_binary": {
-            "bzlFile": "@@buildozer~//private:buildozer_binary.bzl",
-            "ruleClassName": "_buildozer_binary_repo",
-            "attributes": {
-              "sha256": {
-                "darwin-amd64": "6286bbbcb5314d675fcb4ede30edf397a68c611005412c937b2cc0c4bf4b714b",
-                "darwin-arm64": "0a2f70aa7b864de9bf71d1aac39659017b7a84169506e350d9ec77c609265212",
-                "linux-amd64": "9a7424aca7ca911c85cfedeadf065f0d95c492e80f0e29bd07ea98f6eb087259",
-                "linux-arm64": "07c8ed5ca3efea7e20756e9060660b7e658c781953c60650a1b99cd8bb857fcf",
-                "windows-amd64": "edad2e85cc691b064de9675db8e732b2c5a4ada0b32282ecdf4b18692cc8d3fe"
-              },
-              "version": "7.1.1"
             }
           }
         },
