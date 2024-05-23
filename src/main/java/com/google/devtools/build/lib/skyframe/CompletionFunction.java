@@ -390,8 +390,14 @@ public final class CompletionFunction<
         continue;
       }
 
+      // Metadata can be null during error bubbling, only download outputs that are already
+      // generated. b/342188273
       if (artifact.isTreeArtifact()) {
-        var treeMetadata = checkNotNull(inputMap.getTreeMetadata(artifact.getExecPath()));
+        var treeMetadata = inputMap.getTreeMetadata(artifact.getExecPath());
+        if (treeMetadata == null) {
+          continue;
+        }
+
         var filesToDownload = new ArrayList<ActionInput>(treeMetadata.getChildValues().size());
         for (var child : treeMetadata.getChildValues().entrySet()) {
           var treeFile = child.getKey();
@@ -411,7 +417,11 @@ public final class CompletionFunction<
           futures.add(future);
         }
       } else {
-        var metadata = checkNotNull(inputMap.getInputMetadata(artifact));
+        var metadata = inputMap.getInputMetadata(artifact);
+        if (metadata == null) {
+          continue;
+        }
+
         if (metadata.isRemote()
             && !remoteArtifactChecker.shouldTrustRemoteArtifact(
                 artifact, (RemoteFileArtifactValue) metadata)) {
