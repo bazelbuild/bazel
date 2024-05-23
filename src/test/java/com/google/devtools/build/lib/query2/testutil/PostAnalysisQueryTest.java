@@ -21,14 +21,17 @@ import static com.google.devtools.build.lib.testutil.TestConstants.PLATFORM_LABE
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
-import com.google.devtools.build.lib.analysis.config.TransitionFactories;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment.DummyTestOptions;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -36,6 +39,8 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
@@ -580,18 +585,66 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     super.testSet();
   }
 
+  /** Attribute transition factory on --foo */
+  protected static class FooPatchAttrTransitionFactory
+      implements TransitionFactory<AttributeTransitionData> {
+    String toOption;
+    String name;
+
+    public FooPatchAttrTransitionFactory(String toOption, String name) {
+      this.toOption = toOption;
+      this.name = name;
+    }
+
+    public FooPatchAttrTransitionFactory(String toOption) {
+      this(toOption, "FooPatchAttrTransitionFactory");
+    }
+
+    @Override
+    public ConfigurationTransition create(AttributeTransitionData unused) {
+      return new FooPatchTransition(this.toOption, this.name);
+    }
+
+    @Override
+    public TransitionType transitionType() {
+      return TransitionType.ATTRIBUTE;
+    }
+  }
+
+  /** Rule transition factory on --foo */
+  protected static class FooPatchRuleTransitionFactory
+      implements TransitionFactory<RuleTransitionData> {
+    String toOption;
+    String name;
+
+    public FooPatchRuleTransitionFactory(String toOption, String name) {
+      this.toOption = toOption;
+      this.name = name;
+    }
+
+    public FooPatchRuleTransitionFactory(String toOption) {
+      this(toOption, "FooPatchRuleTransitionFactory");
+    }
+
+    @Override
+    public ConfigurationTransition create(RuleTransitionData unused) {
+      return new FooPatchTransition(this.toOption, this.name);
+    }
+
+    @Override
+    public TransitionType transitionType() {
+      return TransitionType.RULE;
+    }
+  }
+
   /** PatchTransition on --foo */
-  public static class FooPatchTransition implements PatchTransition {
+  protected static class FooPatchTransition implements PatchTransition {
     String toOption;
     String name;
 
     public FooPatchTransition(String toOption, String name) {
       this.toOption = toOption;
       this.name = name;
-    }
-
-    public FooPatchTransition(String toOption) {
-      this(toOption, "FooPatchTransition");
     }
 
     @Override
@@ -612,6 +665,53 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     }
   }
 
+  /** Split transition factory on --foo */
+  protected static class FooSplitTransitionFactory
+      implements TransitionFactory<AttributeTransitionData> {
+    String toOption1;
+    String toOption2;
+
+    public FooSplitTransitionFactory(String toOption1, String toOptions2) {
+      this.toOption1 = toOption1;
+      this.toOption2 = toOptions2;
+    }
+
+    @Override
+    public ConfigurationTransition create(AttributeTransitionData data) {
+      return new SplitTransition() {
+        @Override
+        public String getName() {
+          return "FooSplitTransitionFactory";
+        }
+
+        @Override
+        public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+          return ImmutableSet.of(DummyTestOptions.class);
+        }
+
+        @Override
+        public ImmutableMap<String, BuildOptions> split(
+            BuildOptionsView options, EventHandler eventHandler) {
+          BuildOptionsView result1 = options.clone();
+          BuildOptionsView result2 = options.clone();
+          result1.get(DummyTestOptions.class).foo = toOption1;
+          result2.get(DummyTestOptions.class).foo = toOption2;
+          return ImmutableMap.of("result1", result1.underlying(), "result2", result2.underlying());
+        }
+      };
+    }
+
+    @Override
+    public TransitionType transitionType() {
+      return TransitionType.ATTRIBUTE;
+    }
+
+    @Override
+    public boolean isSplit() {
+      return true;
+    }
+  }
+
   @Test
   public void testMultipleTopLevelConfigurations() throws Exception {
     MockRule transitionedRule =
@@ -619,9 +719,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
             MockRule.define(
                 "transitioned_rule",
                 (builder, env) ->
-                    builder
-                        .cfg(TransitionFactories.of(new FooPatchTransition("SET BY PATCH")))
-                        .build());
+                    builder.cfg(new FooPatchRuleTransitionFactory("SET BY PATCH")).build());
 
     MockRule untransitionedRule = () -> MockRule.define("untransitioned_rule");
 
@@ -656,7 +754,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
                 "rule_with_transition_and_dep",
                 (builder, env) ->
                     builder
-                        .cfg(TransitionFactories.of(new FooPatchTransition("SET BY PATCH")))
+                        .cfg(new FooPatchRuleTransitionFactory("SET BY PATCH"))
                         .addAttribute(
                             attr("dep", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE).build())
                         .build());
