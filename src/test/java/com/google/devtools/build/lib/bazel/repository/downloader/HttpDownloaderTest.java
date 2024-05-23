@@ -713,4 +713,49 @@ public class HttpDownloaderTest {
     String content = new String(ByteStreams.toByteArray(result.getInputStream()), UTF_8);
     assertThat(content).isEqualTo("content");
   }
+
+  @Test
+  public void download_contentLengthMismatchWithOtherErrors_retries() throws Exception {
+    Downloader downloader = mock(Downloader.class);
+    int retires = 5;
+    DownloadManager downloadManager = new DownloadManager(repositoryCache, downloader);
+    downloadManager.setRetries(retires);
+    AtomicInteger times = new AtomicInteger(0);
+    byte[] data = "content".getBytes(UTF_8);
+    doAnswer(
+            (Answer<Void>)
+                invocationOnMock -> {
+                  if (times.getAndIncrement() < 3) {
+                    IOException e = new IOException();
+                    e.addSuppressed(new ContentLengthMismatchException(0, data.length));
+                    e.addSuppressed(new IOException());
+                    throw e;
+                  }
+                  Path output = invocationOnMock.getArgument(5, Path.class);
+                  try (OutputStream outputStream = output.getOutputStream()) {
+                    ByteStreams.copy(new ByteArrayInputStream(data), outputStream);
+                  }
+
+                  return null;
+                })
+        .when(downloader)
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
+
+    Path result =
+        downloadManager.download(
+            ImmutableList.of(new URL("http://localhost")),
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.empty(),
+            "testCanonicalId",
+            Optional.empty(),
+            fs.getPath(workingDir.newFile().getAbsolutePath()),
+            eventHandler,
+            ImmutableMap.of(),
+            "testRepo");
+
+    assertThat(times.get()).isEqualTo(4);
+    String content = new String(result.getInputStream().readAllBytes(), UTF_8);
+    assertThat(content).isEqualTo("content");
+  }
 }
