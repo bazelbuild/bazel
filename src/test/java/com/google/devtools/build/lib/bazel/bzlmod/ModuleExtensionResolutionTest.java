@@ -1372,6 +1372,40 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
   }
 
   @Test
+  public void nonVisibleLabelInLabelAttr() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "ext = use_extension('//:defs.bzl','ext')",
+        "use_repo(ext,'ext')");
+    scratch.file(
+        workspaceRoot.getRelative("defs.bzl").getPathString(),
+        "def _data_repo_impl(ctx):",
+        "  ctx.file('WORKSPACE')",
+        "  ctx.file('BUILD')",
+        "data_repo = repository_rule(",
+        "  implementation=_data_repo_impl,",
+        "  attrs={'data':attr.label()})",
+        "def _ext_impl(ctx):",
+        "  data_repo(name='other_repo')",
+        "  data_repo(name='ext',data='@other_repo//:foo')",
+        "ext = module_extension(implementation=_ext_impl)");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@ext//:data.bzl', ext_data='data')",
+        "data=ext_data");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    reporter.removeHandler(failFastHandler);
+    evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    assertContainsEvent(
+        "Error in repository_rule: no repository visible as '@other_repo', but referenced by label"
+            + " '@other_repo//:foo' in attribute data of data_repo 'ext'. Only repositories"
+            + " visible to the root module can be referenced here, are you missing a bazel_dep or"
+            + " use_repo(..., \"other_repo\")?");
+  }
+
+  @Test
   public void nonVisibleLabelInLabelAttrNonRootModule() throws Exception {
     registry.addModule(
         createModuleKey("ext_module", "1.0"), "module(name='ext_module',version='1.0')");
@@ -1411,10 +1445,11 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
   }
 
   @Test
-  public void nonVisibleLabelInLabelAttr() throws Exception {
+  public void nonVisibleLabelInLabelAttrForwardedFromTag() throws Exception {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
         "ext = use_extension('//:defs.bzl','ext')",
+        "ext.label(label = '@other_repo//:foo')",
         "use_repo(ext,'ext')");
     scratch.file(
         workspaceRoot.getRelative("defs.bzl").getPathString(),
@@ -1426,8 +1461,12 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "  attrs={'data':attr.label()})",
         "def _ext_impl(ctx):",
         "  data_repo(name='other_repo')",
-        "  data_repo(name='ext',data='@other_repo//:foo')",
-        "ext = module_extension(implementation=_ext_impl)");
+        "  data_repo(name='ext',data=ctx.modules[0].tags.label[0].label)",
+        "label=tag_class(attrs={'label':attr.label()})",
+        "ext = module_extension(",
+        "  implementation=_ext_impl,",
+        "  tag_classes={'label':label},",
+        ")");
     scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
     scratch.file(
         workspaceRoot.getRelative("data.bzl").getPathString(),
