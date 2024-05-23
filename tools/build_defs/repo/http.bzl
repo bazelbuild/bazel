@@ -90,22 +90,6 @@ def _get_source_urls(ctx):
         source_urls = [ctx.attr.url] + source_urls
     return source_urls
 
-def _get_all_urls(ctx):
-    """Returns all urls provided via the url, urls, remote_patches and remote_file_urls attributes.
-
-    Also checks that at least one url is provided."""
-    if not ctx.attr.url and not ctx.attr.urls:
-        fail("At least one of url and urls must be provided")
-
-    all_urls = _get_source_urls(ctx)
-    if hasattr(ctx.attr, "remote_patches") and ctx.attr.remote_patches:
-        all_urls = all_urls + ctx.attr.remote_patches.keys()
-
-    if hasattr(ctx.attr, "remote_file_urls") and ctx.attr.remote_file_urls:
-        all_urls = all_urls + ctx.attr.remote_patches.values()
-
-    return all_urls
-
 _AUTH_PATTERN_DOC = """An optional dict mapping host names to custom authorization patterns.
 
 If a URL's host name is present in this dict the value will be used as a pattern when
@@ -156,7 +140,7 @@ def _http_archive_impl(ctx):
         ctx.attr.sha256,
         ctx.attr.type,
         ctx.attr.strip_prefix,
-        canonical_id = ctx.attr.canonical_id or get_default_canonical_id(ctx, all_urls),
+        canonical_id = ctx.attr.canonical_id or get_default_canonical_id(ctx, source_urls),
         auth = get_auth(ctx, source_urls),
         integrity = ctx.attr.integrity,
     )
@@ -191,15 +175,14 @@ def _http_file_impl(ctx):
     download_path = ctx.path("file/" + downloaded_file_path)
     if download_path in forbidden_files or not str(download_path).startswith(str(repo_root)):
         fail("'%s' cannot be used as downloaded_file_path in http_file" % ctx.attr.downloaded_file_path)
-    all_urls = _get_all_urls(ctx)
-    auth = get_auth(ctx, all_urls)
+    source_urls = _get_source_urls(ctx)
     download_info = ctx.download(
-        all_urls,
+        source_urls,
         "file/" + downloaded_file_path,
         ctx.attr.sha256,
         ctx.attr.executable,
-        canonical_id = ctx.attr.canonical_id or get_default_canonical_id(ctx, all_urls),
-        auth = auth,
+        canonical_id = ctx.attr.canonical_id or get_default_canonical_id(ctx, source_urls),
+        auth = get_auth(ctx, source_urls),
         integrity = ctx.attr.integrity,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
@@ -226,15 +209,14 @@ filegroup(
 
 def _http_jar_impl(ctx):
     """Implementation of the http_jar rule."""
-    all_urls = _get_all_urls(ctx)
-    auth = get_auth(ctx, all_urls)
+    source_urls = _get_source_urls(ctx)
     downloaded_file_name = ctx.attr.downloaded_file_name
     download_info = ctx.download(
-        all_urls,
+        source_urls,
         "jar/" + downloaded_file_name,
         ctx.attr.sha256,
-        canonical_id = ctx.attr.canonical_id or get_default_canonical_id(ctx, all_urls),
-        auth = auth,
+        canonical_id = ctx.attr.canonical_id or get_default_canonical_id(ctx, source_urls),
+        auth = get_auth(ctx, source_urls),
         integrity = ctx.attr.integrity,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
