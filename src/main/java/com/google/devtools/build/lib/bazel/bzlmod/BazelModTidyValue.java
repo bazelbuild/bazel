@@ -17,10 +17,11 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.List;
@@ -37,13 +38,14 @@ public abstract class BazelModTidyValue implements SkyValue {
   /** The path of the buildozer binary provided by the "buildozer" module. */
   public abstract Path buildozer();
 
-  public abstract ImmutableMap<String, CompiledModuleFile> includeLabelToCompiledModuleFile();
+  /** The set of paths to the root MODULE.bazel file and all its includes. */
+  public abstract ImmutableSet<PathFragment> moduleFilePaths();
 
   static BazelModTidyValue create(
       List<RootModuleFileFixup> fixups,
       Path buildozer,
-      ImmutableMap<String, CompiledModuleFile> includeLabelToCompiledModuleFile) {
+      ImmutableSet<PathFragment> moduleFilePaths) {
     return new AutoValue_BazelModTidyValue(
-        ImmutableList.copyOf(fixups), buildozer, includeLabelToCompiledModuleFile);
+        ImmutableList.copyOf(fixups), buildozer, moduleFilePaths);
   }
 }
