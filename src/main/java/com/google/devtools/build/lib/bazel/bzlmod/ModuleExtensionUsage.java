@@ -17,8 +17,9 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import java.util.Optional;
@@ -63,6 +64,12 @@ public abstract class ModuleExtensionUsage {
      */
     public abstract String getProxyName();
 
+    /**
+     * The path to the MODULE.bazel file (or one of its includes) that contains this proxy object.
+     * This path should be relative to the workspace root.
+     */
+    public abstract PathFragment getContainingModuleFilePath();
+
     /** Whether {@code dev_dependency} is set to true. */
     public abstract boolean isDevDependency();
 
@@ -71,7 +78,7 @@ public abstract class ModuleExtensionUsage {
      * current module. The key is the local repo name (in the scope of the current module), and the
      * value is the name exported by the module extension.
      */
-    public abstract ImmutableMap<String, String> getImports();
+    public abstract ImmutableBiMap<String, String> getImports();
 
     public static Builder builder() {
       return new AutoValue_ModuleExtensionUsage_Proxy.Builder().setProxyName("");
@@ -86,11 +93,13 @@ public abstract class ModuleExtensionUsage {
 
       public abstract Builder setProxyName(String value);
 
+      public abstract Builder setContainingModuleFilePath(PathFragment value);
+
       public abstract boolean isDevDependency();
 
       public abstract Builder setDevDependency(boolean value);
 
-      abstract ImmutableMap.Builder<String, String> importsBuilder();
+      abstract ImmutableBiMap.Builder<String, String> importsBuilder();
 
       @CanIgnoreReturnValue
       public final Builder addImport(String key, String value) {
@@ -98,7 +107,7 @@ public abstract class ModuleExtensionUsage {
         return this;
       }
 
-      public abstract Builder setImports(ImmutableMap<String, String> value);
+      public abstract Builder setImports(ImmutableBiMap<String, String> value);
 
       public abstract Proxy build();
     }

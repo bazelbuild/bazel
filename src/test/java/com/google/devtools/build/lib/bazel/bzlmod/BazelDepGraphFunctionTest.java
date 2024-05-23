@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDir
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -224,6 +225,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                 .setDevDependency(false)
                 .setLocation(Location.BUILTIN)
                 .setImports(importsBuilder.buildOrThrow())
+                .setContainingModuleFilePath(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
                 .build())
         .setUsingModule(ModuleKey.ROOT)
         .build();

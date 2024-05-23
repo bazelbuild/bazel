@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.bazel.commands;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.Charset.UTF8;
@@ -24,10 +25,12 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
+import com.google.common.io.CharSource;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
@@ -71,6 +74,7 @@ import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.MaybeCompleteSet;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -83,14 +87,12 @@ import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /** Queries the Bzlmod external dependency graph. */
@@ -554,21 +556,29 @@ public final class ModCommand implements BlazeCommand {
   }
 
   private BlazeCommandResult runTidy(CommandEnvironment env, BazelModTidyValue modTidyValue) {
-    CommandBuilder buildozerCommand =
-        new CommandBuilder()
-            .setWorkingDir(env.getWorkspace())
-            .addArg(modTidyValue.buildozer().getPathString())
-            .addArgs(
-                Stream.concat(
-                        modTidyValue.fixups().stream()
-                            .map(RootModuleFileFixup::buildozerCommands)
-                            .flatMap(Collection::stream),
-                        Stream.of("format"))
-                    .collect(toImmutableList()))
-            .addArg("MODULE.bazel:all");
-    try {
-      buildozerCommand.build().execute();
-    } catch (InterruptedException | CommandException e) {
+    ImmutableListMultimap<PathFragment, String> allCommandsPerFile =
+        modTidyValue.fixups().stream()
+            .flatMap(fixup -> fixup.moduleFilePathToBuildozerCommands().entries().stream())
+            .collect(toImmutableListMultimap(Entry::getKey, Entry::getValue));
+    StringBuilder buildozerInput = new StringBuilder();
+    for (PathFragment moduleFilePath : modTidyValue.moduleFilePaths()) {
+      buildozerInput.append("//").append(moduleFilePath).append(":all|");
+      for (String command : allCommandsPerFile.get(moduleFilePath)) {
+        buildozerInput.append(command).append('|');
+      }
+      buildozerInput.append("format\n");
+    }
+
+    try (var stdin = CharSource.wrap(buildozerInput).asByteSource(UTF_8).openStream()) {
+      new CommandBuilder()
+          .setWorkingDir(env.getWorkspace())
+          .addArg(modTidyValue.buildozer().getPathString())
+          .addArg("-f")
+          .addArg("-")
+          .build()
+          .executeAsync(stdin, /* killSubprocessOnInterrupt= */ true)
+          .get();
+    } catch (InterruptedException | CommandException | IOException e) {
       String suffix = "";
       if (e instanceof AbnormalTerminationException abnormalTerminationException) {
         if (abnormalTerminationException.getResult().getTerminationStatus().getRawExitCode() == 3) {
