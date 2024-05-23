@@ -68,7 +68,6 @@ public final class ModuleExtensionEvalStarlarkThreadContext {
   private final RepositoryMapping repoMapping;
   private final BlazeDirectories directories;
   private final ExtendedEventHandler eventHandler;
-  private final ModuleExtensionId owningExtension;
   private final Map<String, RepoSpecAndLocation> generatedRepos = new HashMap<>();
 
   public ModuleExtensionEvalStarlarkThreadContext(
@@ -76,14 +75,12 @@ public final class ModuleExtensionEvalStarlarkThreadContext {
       PackageIdentifier basePackageId,
       RepositoryMapping repoMapping,
       BlazeDirectories directories,
-      ExtendedEventHandler eventHandler,
-      ModuleExtensionId owningExtension) {
+      ExtendedEventHandler eventHandler) {
     this.repoPrefix = repoPrefix;
     this.basePackageId = basePackageId;
     this.repoMapping = repoMapping;
     this.directories = directories;
     this.eventHandler = eventHandler;
-    this.owningExtension = owningExtension;
   }
 
   public void createRepo(StarlarkThread thread, Dict<String, Object> kwargs, RuleClass ruleClass)
@@ -118,8 +115,8 @@ public final class ModuleExtensionEvalStarlarkThreadContext {
               Maps.transformEntries(kwargs, (k, v) -> rule.getAttr(k)), k -> !k.equals("name"));
       String bzlFile = ruleClass.getRuleDefinitionEnvironmentLabel().getUnambiguousCanonicalForm();
       var attributesValue = AttributeValues.create(attributes);
-      BzlmodRepoRuleCreator.validateLabelAttrs(
-          attributesValue, owningExtension, String.format("%s '%s'", rule.getRuleClass(), name));
+      AttributeValues.validateAttrs(
+          attributesValue, String.format("%s '%s'", rule.getRuleClass(), name));
       RepoSpec repoSpec =
           RepoSpec.builder()
               .setBzlFile(bzlFile)

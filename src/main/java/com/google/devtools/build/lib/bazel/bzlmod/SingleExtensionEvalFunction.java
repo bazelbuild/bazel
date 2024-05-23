@@ -748,10 +748,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                   Maps.filterKeys(
                       Maps.transformEntries(kwargs, (k, v) -> ruleInstance.getAttr(k)),
                       k -> !k.equals("name")));
-          BzlmodRepoRuleCreator.validateLabelAttrs(
-              attributesValue,
-              extensionId,
-              String.format("%s '%s'", ruleInstance.getRuleClass(), name));
+          AttributeValues.validateAttrs(
+              attributesValue, String.format("%s '%s'", ruleInstance.getRuleClass(), name));
         } catch (InvalidRuleException | NoSuchPackageException | EvalException e) {
           throw new SingleExtensionEvalFunctionException(
               ExternalDepsException.withCauseAndMessage(
@@ -875,8 +873,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
               extensionId.getBzlFileLabel().getPackageIdentifier(),
               BazelModuleContext.of(bzlLoadValue.getModule()).repoMapping(),
               directories,
-              env.getListener(),
-              extensionId);
+              env.getListener());
       ModuleExtensionContext moduleContext;
       Optional<ModuleExtensionMetadata> moduleExtensionMetadata;
       var repoMappingRecorder = new Label.RepoMappingRecorder();
