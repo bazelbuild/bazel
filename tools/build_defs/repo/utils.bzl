@@ -101,7 +101,6 @@ def download_remote_files(ctx):
     Args:
       ctx: The repository context of the repository rule calling this utility
         function.
-      auth: An optional dict specifying authentication information for some of the URLs.
     """
     pending = [
         ctx.download(
