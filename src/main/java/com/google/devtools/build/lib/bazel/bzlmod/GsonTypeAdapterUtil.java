@@ -232,15 +232,21 @@ public final class GsonTypeAdapterUtil {
           if (elementTypeAdapter == null) {
             return null;
           }
-          return (TypeAdapter<T>) new OptionalTypeAdapter<>(elementTypeAdapter);
+          // Explicit nulls for Optional.empty are required for env variable tracking, but are too
+          // noisy and unnecessary for other types.
+          return (TypeAdapter<T>)
+              new OptionalTypeAdapter<>(
+                  elementTypeAdapter, /* serializeNulls= */ elementType.equals(String.class));
         }
       };
 
   private static final class OptionalTypeAdapter<T> extends TypeAdapter<Optional<T>> {
     private final TypeAdapter<T> elementTypeAdapter;
+    private final boolean serializeNulls;
 
-    public OptionalTypeAdapter(TypeAdapter<T> elementTypeAdapter) {
+    public OptionalTypeAdapter(TypeAdapter<T> elementTypeAdapter, boolean serializeNulls) {
       this.elementTypeAdapter = elementTypeAdapter;
+      this.serializeNulls = serializeNulls;
     }
 
     @Override
@@ -248,9 +254,12 @@ public final class GsonTypeAdapterUtil {
       Preconditions.checkNotNull(t);
       if (t.isEmpty()) {
         boolean oldSerializeNulls = jsonWriter.getSerializeNulls();
-        jsonWriter.setSerializeNulls(true);
-        jsonWriter.nullValue();
-        jsonWriter.setSerializeNulls(oldSerializeNulls);
+        jsonWriter.setSerializeNulls(serializeNulls);
+        try {
+          jsonWriter.nullValue();
+        } finally {
+          jsonWriter.setSerializeNulls(oldSerializeNulls);
+        }
       } else {
         elementTypeAdapter.write(jsonWriter, t.get());
       }
