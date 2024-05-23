@@ -108,7 +108,7 @@ def download_remote_files(ctx):
             remote_file_urls,
             path,
             canonical_id = ctx.attr.canonical_id,
-            auth = get_auth(ctx, [remote_file_urls]),
+            auth = get_auth(ctx, remote_file_urls),
             integrity = ctx.attr.remote_file_integrity.get(path, ""),
             block = False,
         )
