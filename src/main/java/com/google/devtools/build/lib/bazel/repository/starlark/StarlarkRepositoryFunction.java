@@ -153,69 +153,82 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       return fetchInternal(args);
     }
 
-    var state = env.getState(() ->
-        new RepoFetchingSkyKeyComputeState(rule.getName(),
-            s -> () -> fetchFromWorker(rule, outputDirectory, directories, key, s)));
+  StateLoop:
+    while (true) {
+      var state = env.getState(() ->
+          new RepoFetchingSkyKeyComputeState(rule.getName(),
+              s -> () -> fetchFromWorker(rule, outputDirectory, directories, key, s)));
 
-    try {
-      while (true) {
-        Packet<Request> requestPacket = state.getRequest();
-        switch (requestPacket.message()) {
-          case Request.GetEnvironment unused: {
-            // The worker thread wants the Environment. Send it over.
-            logMaybe(String.format("LOG %s/host: environment requested", rule.getName()));
-            SkyFunction.Environment workerEnv = new RepoFetchingWorkerSkyFunctionEnvironment(state, env);
-            state.sendResponse(requestPacket, new Response.Environment(workerEnv));
-            continue;
-          }
-
-          case Request.NewDependencies unused: {
-            // The worker thread discovered new dependencies. Restart and let Skyframe evaluate
-            // them.
-            logMaybe(String.format("LOG %s/host: restart requested", rule.getName()));
-            state.sendResponse(requestPacket, new Response.Restarting());
-            return null;
-          }
-
-          case Request.Success(RepositoryDirectoryValue.Builder result): {
-            if (!env.valuesMissing()) {
-              // Hooray, the worker thread succeeded.
-              logMaybe(String.format("LOG %s/host: true success", rule.getName()));
-              recordedInputValues.putAll(state.recordedInputValues);
-              // At this point, the main thread is committed to returning with success so let's not
-              // allow an interrupt interfere.
-              state.sendResponseUninterruptibly(requestPacket, new Response.RestartDecision(false));
-              state.join();
-              return result;
+      try {
+      EventLoop:
+        while (true) {
+          Packet<Request> requestPacket = state.getRequest();
+          switch (requestPacket.message()) {
+            case Request.GetEnvironment unused: {
+              // The worker thread wants the Environment. Send it over.
+              logMaybe(String.format("LOG %s/host: environment requested", rule.getName()));
+              SkyFunction.Environment workerEnv = new RepoFetchingWorkerSkyFunctionEnvironment(
+                  state, env);
+              state.sendResponse(requestPacket, new Response.Environment(workerEnv));
+              continue EventLoop;
             }
 
-            // This is a special case: RepoFetchingWorkerSkyFunctionEnvironment does not faithfully
-            // reproduce valuesMissing() in the SkyFunction.Environment it wraps, so it's possible that
-            // Skyframe thinks a restart is needed but RFWSFE does not. This is arguably a bug in the
-            // latter, but let's do the simple thing to recover and wipe the state clean.
-            //
-            // This case happens when --keep_going is in effect and when getValue() is called to learn
-            // the value requested by a previous getValuesAndExceptions() that turns out to be in error:
-            // in this case, SkyFunction.Environment sets valuesMissing to true and that's not reflected
-            // in RFWSFE.
-            logMaybe(String.format("LOG %s/host: false success", rule.getName()));
-            state.sendResponse(requestPacket, new Response.RestartDecision(true));
-            return null;
-          }
-          case Request.Failure(Throwable e): {
-            logMaybe(String.format("LOG %s/host: received failure %s", rule.getName(), e));
-            state.sendResponseUninterruptibly(requestPacket, new Response.FailureAcknowledged());
-            state.join();
-            Throwables.throwIfInstanceOf(e, RepositoryFunctionException.class);
-            Throwables.throwIfUnchecked(e);
-            throw new IllegalStateException("unexpected exception type: " + e.getClass(), e);
+            case Request.NewDependencies unused: {
+              // The worker thread discovered new dependencies. Restart and let Skyframe evaluate
+              // them.
+              logMaybe(String.format("LOG %s/host: restart requested", rule.getName()));
+              state.sendResponse(requestPacket, new Response.Restarting());
+              return null;
+            }
+
+            case Request.Success(RepositoryDirectoryValue.Builder result): {
+              if (!env.valuesMissing()) {
+                // Hooray, the worker thread succeeded.
+                logMaybe(String.format("LOG %s/host: true success", rule.getName()));
+                recordedInputValues.putAll(state.recordedInputValues);
+                // At this point, the main thread is committed to returning with success so let's not
+                // allow an interrupt interfere.
+                state.sendResponseUninterruptibly(requestPacket,
+                    new Response.RestartDecision(false));
+                state.join();
+                return result;
+              }
+
+              // This is a special case: RepoFetchingWorkerSkyFunctionEnvironment does not faithfully
+              // reproduce valuesMissing() in the SkyFunction.Environment it wraps, so it's possible that
+              // Skyframe thinks a restart is needed but RFWSFE does not. This is arguably a bug in the
+              // latter, but let's do the simple thing to recover and wipe the state clean.
+              //
+              // This case happens when --keep_going is in effect and when getValue() is called to learn
+              // the value requested by a previous getValuesAndExceptions() that turns out to be in error:
+              // in this case, SkyFunction.Environment sets valuesMissing to true and that's not reflected
+              // in RFWSFE.
+              logMaybe(String.format("LOG %s/host: false success", rule.getName()));
+              state.sendResponse(requestPacket, new Response.RestartDecision(true));
+              return null;
+            }
+            case Request.Failure(Throwable e): {
+              logMaybe(String.format("LOG %s/host: received failure %s", rule.getName(), e));
+              state.sendResponseUninterruptibly(requestPacket, new Response.FailureAcknowledged());
+              state.join();
+              if (e instanceof InterruptedException) {
+                // The worker got interrupted. If the main thread was not interrupted, the state
+                // must have been reclaimed due to memory pressure. In this case, try again with a
+                // new state.
+                break EventLoop;
+              }
+
+              Throwables.throwIfInstanceOf(e, RepositoryFunctionException.class);
+              Throwables.throwIfUnchecked(e);
+              throw new IllegalStateException("unexpected exception type: " + e.getClass(), e);
+            }
           }
         }
+      } catch (InterruptedException e) {
+        logMaybe(String.format("LOG %s/host: interrupt", rule.getName()));
+        state.close();
+        throw e;
       }
-    } catch (InterruptedException e) {
-      logMaybe(String.format("LOG %s/host: interrupt", rule.getName()));
-      state.close();
-      throw e;
     }
   }
 
