@@ -100,10 +100,11 @@ public final class BzlmodRepoRuleCreator {
     return rule;
   }
 
-  public static void validateLabelAttrs(Rule rule, ModuleExtensionId owningExtension)
+  public static void validateLabelAttrs(
+      AttributeValues attributes, ModuleExtensionId owningExtension, String what)
       throws EvalException {
-    for (var attribute : rule.getRuleClassObject().getAttributes()) {
-      Object value = rule.getAttr(attribute.getName());
+    for (var entry : attributes.attributes().entrySet()) {
+      Object value = entry.getValue();
       Collection<?> toValidate =
           switch (value) {
             case List<?> list -> list;
@@ -117,8 +118,7 @@ public final class BzlmodRepoRuleCreator {
         if (label.getRepository().isVisible()) {
           continue;
         }
-        String unprefixedRepoName =
-            label.getRepository().getName().substring(label.getName().lastIndexOf('~') + 1);
+        String repoName = label.getRepository().getName();
         RepositoryName owningModuleRepoName = owningExtension.getBzlFileLabel().getRepository();
         String owningModule;
         if (owningModuleRepoName.isMain()) {
@@ -133,17 +133,16 @@ public final class BzlmodRepoRuleCreator {
         }
         throw Starlark.errorf(
             "no repository visible as '@%s', but referenced by label '@%s//%s:%s' in attribute %s"
-                + " of %s '%s'. Only repositories visible to the %s can be referenced"
+                + " of %s. Only repositories visible to the %s can be referenced"
                 + " here, are you missing a bazel_dep or use_repo(..., \"%s\")?.",
-            label.getRepository().getName(),
-            label.getRepository().getName(),
+            repoName,
+            repoName,
             label.getPackageName(),
             label.getName(),
-            attribute.getName(),
-            rule.getRuleClass(),
-            unprefixedRepoName,
+            entry.getKey(),
+            what,
             owningModule,
-            unprefixedRepoName);
+            repoName);
       }
     }
   }

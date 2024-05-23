@@ -279,8 +279,9 @@ java_library(
     name = "repo_rule_creator",
     srcs = ["BzlmodRepoRuleCreator.java"],
     deps = [
+        ":common",
+        ":module_extension",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
-        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
