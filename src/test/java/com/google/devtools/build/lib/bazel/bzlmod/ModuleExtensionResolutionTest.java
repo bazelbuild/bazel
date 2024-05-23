@@ -292,6 +292,8 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     RepositoryDelegatorFunction.IS_VENDOR_COMMAND.set(differencer, false);
     RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());
 
+    registry.addModule(
+        createModuleKey("platforms", "0.0.9"), "module(name='platforms', version = '0.0.9')");
     // Set up a simple repo rule.
     registry.addModule(
         createModuleKey("data_repo", "1.0"), "module(name='data_repo',version='1.0')");
