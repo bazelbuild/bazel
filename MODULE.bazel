@@ -34,7 +34,7 @@ bazel_dep(name = "googletest", version = "1.14.0", repo_name = "com_google_googl
 bazel_dep(name = "with_cfg.bzl", version = "0.2.4")
 
 # TODO(fmeum): Remove the dependency on buildozer after Bazel is built with 7.2.0.
-bazel_dep(name = "buildozer", version = "7.1.1.1")
+bazel_dep(name = "buildozer", version = "7.1.2")
 
 # TODO(pcloudy): Add remoteapis and googleapis as Bazel modules in the BCR.
 bazel_dep(name = "remoteapis", version = "")
