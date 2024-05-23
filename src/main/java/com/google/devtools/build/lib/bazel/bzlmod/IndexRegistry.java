@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
@@ -222,6 +223,7 @@ public class IndexRegistry implements Registry {
     String integrity;
     String stripPrefix;
     Map<String, String> patches;
+    Map<String, String> overlay;
     int patchStrip;
     String archiveType;
   }
@@ -412,11 +414,31 @@ public class IndexRegistry implements Registry {
       }
     }
 
+    ImmutableMap<String, String> sourceJsonOverlay =
+        sourceJson.overlay != null ? ImmutableMap.copyOf(sourceJson.overlay) : ImmutableMap.of();
+    ImmutableMap<String, ArchiveRepoSpecBuilder.RemoteFile> overlay =
+        sourceJsonOverlay.entrySet().stream()
+            .collect(
+                toImmutableMap(
+                    entry -> entry.getKey(),
+                    entry ->
+                        new ArchiveRepoSpecBuilder.RemoteFile(
+                            entry.getValue(), // integrity
+                            // URLs in the registry itself are not mirrored.
+                            ImmutableList.of(
+                                constructUrl(
+                                    getUrl(),
+                                    "modules",
+                                    key.getName(),
+                                    key.getVersion().toString(),
+                                    entry.getKey())))));
+
     return new ArchiveRepoSpecBuilder()
         .setUrls(urls.build())
         .setIntegrity(sourceJson.integrity)
         .setStripPrefix(Strings.nullToEmpty(sourceJson.stripPrefix))
         .setRemotePatches(remotePatches.buildOrThrow())
+        .setOverlay(overlay)
         .setRemotePatchStrip(sourceJson.patchStrip)
         .setArchiveType(sourceJson.archiveType)
         .build();
