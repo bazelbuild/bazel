@@ -86,7 +86,6 @@ using the C/C++ compiler.
     ),
     "module_interfaces": attr.label_list(
         allow_files = True,
-        flags = ["DIRECT_COMPILE_TIME_INPUT"],
         doc = """
 The list of files are regarded as C++20 Modules Interface.
 
