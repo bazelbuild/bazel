@@ -169,15 +169,35 @@ bool WaitableProcess::Create(const std::wstring& argv0,
   }
 
   std::wstring argv0short;
-  error_msg = AsExecutablePathForCreateProcess(argv0, &argv0short);
+  error_msg = AsExecutablePathForCreateProcess(argv0, &argv0short, false);
   if (!error_msg.empty()) {
     *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
                               L"WaitableProcess::Create", argv0, error_msg);
     return false;
   }
 
+  /*
+    If the short form of the executable is still well above MAX_PATH, then we
+    cannot use it for CreateProcessW in any form.
+    Instead, output a wrapper file into a known location that ends up calling
+    the executable instead. This should side-step the MAX_PATH limitations.
+  */
   std::wstring commandline =
       argv_rest.empty() ? argv0short : (argv0short + L" " + argv_rest);
+  if (argv0short.length() >= MAX_PATH) {
+    std::wstring wrapper_file_path;
+    std::wstring error_msg(
+        CreateProcessWrapper(argv0short, commandline, wrapper_file_path));
+    if (!error_msg.empty()) {
+      *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                L"WaitableProcess::Create", argv0, error_msg);
+      return false;
+    }
+
+    // Redirect command line to call the wrapper instead
+    commandline = L"cmd /c " + wrapper_file_path;
+  }
+
   std::unique_ptr<WCHAR[]> mutable_commandline(
       new WCHAR[commandline.size() + 1]);
   wcsncpy(mutable_commandline.get(), commandline.c_str(),
