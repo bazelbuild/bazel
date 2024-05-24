@@ -840,8 +840,13 @@ public abstract class PathFragment
     }
   }
 
-  @SuppressWarnings("unused") // found by CLASSPATH-scanning magic
+  public static Codec pathFragmentCodec() {
+    return Codec.INSTANCE;
+  }
+
   private static class Codec extends LeafObjectCodec<PathFragment> {
+    private static final Codec INSTANCE = new Codec();
+
     @Override
     public Class<PathFragment> getEncodedClass() {
       return PathFragment.class;

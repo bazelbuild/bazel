@@ -14,16 +14,24 @@
 
 package com.google.devtools.build.lib.cmdline;
 
+import static com.google.devtools.build.lib.cmdline.RepositoryName.repositoryNameCodec;
+import static com.google.devtools.build.lib.vfs.PathFragment.pathFragmentCodec;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyKey.SkyKeyInterner;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -34,7 +42,6 @@ import javax.annotation.concurrent.Immutable;
  * <p>Used as a {@link SkyKey} to request a {@link
  * com.google.devtools.build.lib.skyframe.PackageValue}.
  */
-@AutoCodec
 @Immutable
 public final class PackageIdentifier implements SkyKey, Comparable<PackageIdentifier> {
   private static final SkyKeyInterner<PackageIdentifier> interner = SkyKey.newInterner();
@@ -46,12 +53,6 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
 
   public static PackageIdentifier create(RepositoryName repository, PathFragment pkgName) {
     return interner.intern(new PackageIdentifier(repository, pkgName));
-  }
-
-  @VisibleForSerialization
-  @AutoCodec.Interner
-  static PackageIdentifier intern(PackageIdentifier packageIdentifier) {
-    return interner.intern(packageIdentifier);
   }
 
   /** Creates {@code PackageIdentifier} from a known-valid string. */
@@ -290,5 +291,35 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
         .compare(repository.getName(), that.repository.getName())
         .compare(pkgName, that.pkgName)
         .result();
+  }
+
+  public static Codec packageIdentifierCodec() {
+    return Codec.INSTANCE;
+  }
+
+  private static class Codec extends LeafObjectCodec<PackageIdentifier> {
+    private static final Codec INSTANCE = new Codec();
+
+    @Override
+    public Class<PackageIdentifier> getEncodedClass() {
+      return PackageIdentifier.class;
+    }
+
+    @Override
+    public void serialize(
+        LeafSerializationContext context, PackageIdentifier obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serializeLeaf(obj.getRepository(), repositoryNameCodec(), codedOut);
+      context.serializeLeaf(obj.getPackageFragment(), pathFragmentCodec(), codedOut);
+    }
+
+    @Override
+    public PackageIdentifier deserialize(
+        LeafDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      RepositoryName repository = context.deserializeLeaf(codedIn, repositoryNameCodec());
+      PathFragment pkgName = context.deserializeLeaf(codedIn, pathFragmentCodec());
+      return create(repository, pkgName);
+    }
   }
 }
