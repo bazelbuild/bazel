@@ -20,6 +20,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -362,16 +363,14 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
         env.getListener().handle(Event.debug(defInfo));
       }
 
-      // Modify marker data to include the files/dirents used by the rule's implementation function.
+      // Modify marker data to include the files/dirents/env vars used by the rule's implementation
+      // function.
       recordedInputValues.putAll(starlarkRepositoryContext.getRecordedFileInputs());
       recordedInputValues.putAll(starlarkRepositoryContext.getRecordedDirentsInputs());
       recordedInputValues.putAll(starlarkRepositoryContext.getRecordedDirTreeInputs());
-
-      // Ditto for environment variables accessed via `getenv`.
-      for (String envKey : starlarkRepositoryContext.getAccumulatedEnvKeys()) {
-        recordedInputValues.put(
-            new RepoRecordedInput.EnvVar(envKey), clientEnvironment.get(envKey));
-      }
+      recordedInputValues.putAll(
+          Maps.transformValues(
+              starlarkRepositoryContext.getRecordedEnvVarInputs(), v -> v.orElse(null)));
 
       for (Table.Cell<RepositoryName, String, RepositoryName> repoMappings :
           repoMappingRecorder.recordedEntries().cellSet()) {
