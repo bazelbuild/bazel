@@ -107,6 +107,9 @@ public class CppRuleClasses {
    */
   public static final String MODULE_MAPS = "module_maps";
 
+  /**
+   * A string constant for the cpp20_module feature.
+   */
   public static final String CPP20_MODULE = "cpp20_module";
 
   /**
