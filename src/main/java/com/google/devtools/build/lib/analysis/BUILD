@@ -178,7 +178,6 @@ java_library(
         "ConfiguredTargetFactory.java",
         "DefaultInfo.java",
         "DependencyResolutionHelpers.java",
-        "EmptyConfiguredTarget.java",
         "EventHandlingErrorReporter.java",
         "Expander.java",
         "ExtraActionUtils.java",
