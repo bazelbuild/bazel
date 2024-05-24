@@ -661,10 +661,10 @@ public class BuildEventStreamer {
   //  ....
   //  biConsumer.accept(L(N-1), null);
   //  biConsumer.accept(LN, R1);
-  //  biConsumer.accept(R2, null);
+  //  biConsumer.accept(null, R2);
   //  ...
-  //  biConsumer.accept(R(M-1), null);
-  //  lastConsumer.accept(RM, null);
+  //  biConsumer.accept(null, R(M-1);
+  //  lastConsumer.accept(null, RM);
   //
   // The lastConsumer is always called exactly once, even if both Iterables are empty.
   @VisibleForTesting
