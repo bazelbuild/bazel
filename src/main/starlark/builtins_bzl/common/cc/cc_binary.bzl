@@ -510,7 +510,7 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
         public_hdrs = cc_helper.get_public_hdrs(ctx),
         copts_filter = cc_helper.copts_filter(ctx, additional_make_variable_substitutions),
         srcs = cc_helper.get_srcs(ctx),
-        module_interfaces = cc_helper.get_module_interfaces(ctx),
+        module_interfaces = cc_helper.get_cpp20module_interfaces(ctx),
         compilation_contexts = compilation_context_deps,
         code_coverage_enabled = cc_helper.is_code_coverage_enabled(ctx = ctx),
     )

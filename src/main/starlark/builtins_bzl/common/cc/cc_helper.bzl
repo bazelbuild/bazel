@@ -972,7 +972,7 @@ def _get_srcs(ctx):
 # Returns a list of (Artifact, Label) tuples. Each tuple represents an input source
 # file and the label of the rule that generates it (or the label of the source file itself if it
 # is an input file).
-def _get_module_interfaces(ctx):
+def _get_cpp20module_interfaces(ctx):
     if not hasattr(ctx.attr, "module_interfaces"):
         return []
     srcs_artifact_label_map = _calculate_artifact_label_map(ctx.attr.srcs, "srcs")
@@ -1261,7 +1261,7 @@ cc_helper = struct(
     get_local_defines_for_runfiles_lookup = _get_local_defines_for_runfiles_lookup,
     are_labels_equal = _are_labels_equal,
     get_srcs = _get_srcs,
-    get_module_interfaces = _get_module_interfaces,
+    get_cpp20module_interfaces = _get_cpp20module_interfaces,
     get_private_hdrs = _get_private_hdrs,
     get_public_hdrs = _get_public_hdrs,
     report_invalid_options = _report_invalid_options,
