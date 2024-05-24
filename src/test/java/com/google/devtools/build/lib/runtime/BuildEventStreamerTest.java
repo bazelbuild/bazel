@@ -1195,6 +1195,25 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
   }
 
   @Test
+  public void testEventAfterBuildCompleteEvent() {
+    BuildEventId lateId = testId("late");
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("initial"),
+            ImmutableSet.of(
+                ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventIdUtil.buildFinished()));
+    BuildEvent lateEvent = new GenericBuildEvent(lateId, ImmutableSet.of(testId("nonexistent")));
+    BuildEvent finishedEvent = new BuildCompleteEvent(new BuildResult(0), ImmutableList.of(lateId));
+
+    streamer.buildEvent(startEvent);
+    streamer.buildEvent(finishedEvent);
+    streamer.buildEvent(lateEvent);
+    assertThat(streamer.isClosed()).isTrue();
+    assertThat(transport.getEventProtos()).hasSize(4);
+    assertThat(transport.getEventProtos().get(3).getLastMessage()).isTrue();
+  }
+
+  @Test
   public void testFinalEventsLate() {
     // Verify that we correctly handle late events (i.e., events coming only after the
     // BuildCompleteEvent) that are sent to the streamer after the BuildCompleteEvent.
