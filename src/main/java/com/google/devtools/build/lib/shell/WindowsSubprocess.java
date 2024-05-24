@@ -48,7 +48,12 @@ public class WindowsSubprocess implements Subprocess {
 
     @Override
     public void write(byte[] b, int off, int len) throws IOException {
-      writeStream(b, off, len);
+      writeStdin(b, off, len);
+    }
+
+    @Override
+    public void close() {
+      closeStdin();
     }
   }
 
@@ -113,12 +118,6 @@ public class WindowsSubprocess implements Subprocess {
         nativeStream = WindowsProcesses.INVALID;
       }
     }
-
-    @Override
-    protected void finalize() throws Throwable {
-      close();
-      super.finalize();
-    }
   }
 
   private static final AtomicInteger THREAD_SEQUENCE_NUMBER = new AtomicInteger(1);
@@ -138,7 +137,7 @@ public class WindowsSubprocess implements Subprocess {
           });
 
   private volatile long nativeProcess;
-  private final OutputStream stdinStream;
+  private final ProcessOutputStream stdinStream;
   private final ProcessInputStream stdoutStream;
   private final ProcessInputStream stderrStream;
   private final Future<WaitResult> processFuture;
@@ -247,7 +246,10 @@ public class WindowsSubprocess implements Subprocess {
   @Override
   public synchronized void close() {
     if (nativeProcess != WindowsProcesses.INVALID) {
-      // stdoutStream and stderrStream are null if they are redirected to files.
+      // The streams are null when redirected from/to files.
+      if (stdinStream != null) {
+        stdinStream.close();
+      }
       if (stdoutStream != null) {
         stdoutStream.close();
       }
@@ -275,7 +277,7 @@ public class WindowsSubprocess implements Subprocess {
     return stderrStream;
   }
 
-  private synchronized void writeStream(byte[] b, int off, int len) throws IOException {
+  private synchronized void writeStdin(byte[] b, int off, int len) throws IOException {
     checkLiveness();
 
     int remaining = len;
@@ -291,6 +293,11 @@ public class WindowsSubprocess implements Subprocess {
       remaining -= written;
       currentOffset += written;
     }
+  }
+
+  private synchronized void closeStdin() {
+    checkLiveness();
+    WindowsProcesses.closeStdin(nativeProcess);
   }
 
   private void checkLiveness() {
