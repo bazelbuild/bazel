@@ -18,8 +18,16 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.collect.ImmutableSharedKeyMap;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.errorprone.annotations.Keep;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -27,16 +35,14 @@ import javax.annotation.Nullable;
  * Implementation of {@link TransitiveInfoProvider} that uses {@link ImmutableSharedKeyMap}. For
  * memory efficiency, inheritance is used instead of aggregation as an implementation detail.
  */
-@AutoCodec
 class TransitiveInfoProviderMapImpl extends ImmutableSharedKeyMap<Object, Object>
     implements TransitiveInfoProviderMap {
 
-  private static final TransitiveInfoProviderMapImpl EMPTY_TRANSITIVE_INFO_PROVIDER_MAP =
+  @SerializationConstant @VisibleForSerialization
+  static final TransitiveInfoProviderMapImpl EMPTY_TRANSITIVE_INFO_PROVIDER_MAP =
       new TransitiveInfoProviderMapImpl(new Object[0], new Object[0]);
 
-  @AutoCodec.Instantiator
-  @VisibleForSerialization
-  TransitiveInfoProviderMapImpl(Object[] keys, Object[] values) {
+  private TransitiveInfoProviderMapImpl(Object[] keys, Object[] values) {
     super(keys, values);
   }
 
@@ -91,5 +97,50 @@ class TransitiveInfoProviderMapImpl extends ImmutableSharedKeyMap<Object, Object
   @Override
   public Object getProviderInstanceAt(int i) {
     return valueAt(i);
+  }
+
+  @Keep // used reflectively
+  private static final class Codec extends DeferredObjectCodec<TransitiveInfoProviderMapImpl> {
+    @Override
+    public Class<TransitiveInfoProviderMapImpl> getEncodedClass() {
+      return TransitiveInfoProviderMapImpl.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, TransitiveInfoProviderMapImpl obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serialize(obj.getKeys(), codedOut);
+      context.serialize(obj.values, codedOut);
+    }
+
+    @Override
+    public DeferredValue<TransitiveInfoProviderMapImpl> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      var builder = new DeserializationBuilder();
+      context.deserialize(codedIn, builder, DeserializationBuilder::setKeys);
+      context.deserialize(codedIn, builder, DeserializationBuilder::setValues);
+      return builder;
+    }
+  }
+
+  private static final class DeserializationBuilder
+      implements DeferredObjectCodec.DeferredValue<TransitiveInfoProviderMapImpl> {
+    private Object[] keys;
+    private Object[] values;
+
+    @Override
+    public TransitiveInfoProviderMapImpl call() {
+      return new TransitiveInfoProviderMapImpl(keys, values);
+    }
+
+    private static void setKeys(DeserializationBuilder builder, Object value) {
+      builder.keys = (Object[]) value;
+    }
+
+    private static void setValues(DeserializationBuilder builder, Object value) {
+      builder.values = (Object[]) value;
+    }
   }
 }
