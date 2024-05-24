@@ -22,7 +22,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -39,6 +42,8 @@ import net.starlark.java.syntax.Location;
 public class ModuleThreadContext {
   private boolean moduleCalled = false;
   private boolean hadNonModuleCall = false;
+  private PathFragment currentModuleFilePath = LabelConstants.MODULE_DOT_BAZEL_FILE_NAME;
+
   private final boolean ignoreDevDeps;
   private final InterimModule.Builder module;
   private final ImmutableMap<String, NonRegistryOverride> builtinModules;
@@ -216,7 +221,14 @@ public class ModuleThreadContext {
       // compiled before evaluation started.
       throw Starlark.errorf("internal error; included file %s not compiled", includeLabel);
     }
+    PathFragment includer = currentModuleFilePath;
+    currentModuleFilePath = Label.parseCanonicalUnchecked(includeLabel).toPathFragment();
     compiledModuleFile.runOnThread(thread);
+    currentModuleFilePath = includer;
+  }
+
+  public PathFragment getCurrentModuleFilePath() {
+    return currentModuleFilePath;
   }
 
   public void addOverride(String moduleName, ModuleOverride override) throws EvalException {

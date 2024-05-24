@@ -70,6 +70,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -476,12 +477,18 @@ public class ModuleFileFunction implements SkyFunction {
                     name ->
                         ModuleKey.create(name, Version.EMPTY).getCanonicalRepoNameWithoutVersion(),
                     name -> name));
+    ImmutableSet<PathFragment> moduleFilePaths =
+        Stream.concat(
+                Stream.of(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME),
+                includeLabelToCompiledModuleFile.keySet().stream()
+                    .map(label -> Label.parseCanonicalUnchecked(label).toPathFragment()))
+            .collect(toImmutableSet());
     return RootModuleFileValue.create(
         module,
         moduleFileHash,
         overrides,
         nonRegistryOverrideCanonicalRepoNameLookup,
-        includeLabelToCompiledModuleFile);
+        moduleFilePaths);
   }
 
   private static ModuleThreadContext execModuleFile(
