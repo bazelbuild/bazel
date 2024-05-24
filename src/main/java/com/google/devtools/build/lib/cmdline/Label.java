@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.cmdline;
 
 import static com.google.devtools.build.lib.cmdline.LabelParser.validateAndProcessTargetName;
+import static com.google.devtools.build.lib.cmdline.PackageIdentifier.packageIdentifierCodec;
+import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
 import static java.util.Comparator.naturalOrder;
 
 import com.google.auto.value.AutoValue;
@@ -33,9 +35,17 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.errorprone.annotations.Keep;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.concurrent.locks.Lock;
@@ -756,6 +766,35 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
 
     public boolean enabled() {
       return globalPool != null;
+    }
+  }
+
+  public static Codec labelCodec() {
+    return Codec.INSTANCE;
+  }
+
+  @Keep
+  private static final class Codec extends LeafObjectCodec<Label> {
+    private static final Codec INSTANCE = new Codec();
+
+    @Override
+    public Class<Label> getEncodedClass() {
+      return Label.class;
+    }
+
+    @Override
+    public void serialize(LeafSerializationContext context, Label obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serializeLeaf(obj.getPackageIdentifier(), packageIdentifierCodec(), codedOut);
+      context.serializeLeaf(obj.getName(), stringCodec(), codedOut);
+    }
+
+    @Override
+    public Label deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      PackageIdentifier pkgId = context.deserializeLeaf(codedIn, packageIdentifierCodec());
+      String name = context.deserializeLeaf(codedIn, stringCodec());
+      return Label.createUnvalidated(pkgId, name);
     }
   }
 }
