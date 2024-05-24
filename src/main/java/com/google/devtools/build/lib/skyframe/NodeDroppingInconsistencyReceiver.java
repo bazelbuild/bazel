@@ -80,12 +80,7 @@ public final class NodeDroppingInconsistencyReceiver implements GraphInconsisten
    */
   public static boolean isExpectedInconsistency(
       SkyKey key, @Nullable Collection<SkyKey> otherKeys, Inconsistency inconsistency) {
-    return isExpectedInternal(
-        key,
-        otherKeys,
-        inconsistency,
-        EXPECTED_MISSING_CHILDREN,
-        /* isSkymeldInconsistency= */ false);
+    return isExpectedInternal(key, otherKeys, inconsistency, EXPECTED_MISSING_CHILDREN);
   }
 
   /**
@@ -94,26 +89,19 @@ public final class NodeDroppingInconsistencyReceiver implements GraphInconsisten
    */
   public static boolean isExpectedInconsistencySkymeld(
       SkyKey key, @Nullable Collection<SkyKey> otherKeys, Inconsistency inconsistency) {
-    return isExpectedInternal(
-        key,
-        otherKeys,
-        inconsistency,
-        SKYMELD_EXPECTED_MISSING_CHILDREN,
-        /* isSkymeldInconsistency= */ true);
+    return isExpectedInternal(key, otherKeys, inconsistency, SKYMELD_EXPECTED_MISSING_CHILDREN);
   }
 
   private static boolean isExpectedInternal(
       SkyKey key,
       @Nullable Collection<SkyKey> otherKeys,
       Inconsistency inconsistency,
-      ImmutableMap<SkyFunctionName, SkyFunctionName> expectedMissingChildTypes,
-      boolean isSkymeldInconsistency) {
+      ImmutableMap<SkyFunctionName, SkyFunctionName> expectedMissingChildTypes) {
     SkyFunctionName expectedMissingChildType = expectedMissingChildTypes.get(key.functionName());
     if (expectedMissingChildType == null) {
       return false;
     }
-    // Skymeld shouldn't cause any inconsistency of this type.
-    if (!isSkymeldInconsistency && inconsistency == Inconsistency.RESET_REQUESTED) {
+    if (inconsistency == Inconsistency.RESET_REQUESTED) {
       return otherKeys == null;
     }
     if (inconsistency == Inconsistency.ALREADY_DECLARED_CHILD_MISSING
