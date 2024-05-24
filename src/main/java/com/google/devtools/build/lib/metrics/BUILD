@@ -40,7 +40,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:analysis_graph_stats_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_complete_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_started_event",
-        "//src/main/java/com/google/devtools/build/lib/analysis:no_build_request_finished_event",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/clock",
