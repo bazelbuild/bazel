@@ -944,7 +944,6 @@ def _map_to_list(m):
         result.append((k, v))
     return result
 
-
 # "srcs" attribute is a LABEL_LIST in cc_rules, which might also contain files.
 def _calculate_artifact_label_map(srcs, attr):
     artifact_label_map = {}
@@ -960,6 +959,7 @@ def _calculate_artifact_label_map(srcs, attr):
                             attr = attr,
                         )
     return artifact_label_map
+
 # Returns a list of (Artifact, Label) tuples. Each tuple represents an input source
 # file and the label of the rule that generates it (or the label of the source file itself if it
 # is an input file).
@@ -1205,7 +1205,8 @@ def _should_use_pic(ctx, cc_toolchain, feature_configuration):
             cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "prefer_pic_for_opt_binaries")
         )
     )
-def _check_cpp20_module(ctx, feature_configuration):
+
+def _check_cpp20_modules(ctx, feature_configuration):
     if len(ctx.files.module_interfaces) > 0 and not cc_common.is_enabled(
         feature_configuration = feature_configuration,
         feature_name = "cpp20_modules",
@@ -1279,5 +1280,5 @@ cc_helper = struct(
     package_source_root = _package_source_root,
     tokenize = _tokenize,
     should_use_pic = _should_use_pic,
-    check_cpp20_module = _check_cpp20_module,
+    check_cpp20_modules = _check_cpp20_modules,
 )

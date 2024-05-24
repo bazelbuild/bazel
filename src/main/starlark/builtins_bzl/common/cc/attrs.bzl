@@ -97,6 +97,8 @@ C++ Standard has no restriction about module interface file extension
 <li>MSVC use ixx </li>
 </ul>
 </p>
+<p>For now usage is guarded by the flag
+<code>--experimental_cpp20_modules</code>.</p>
         """,
     ),
     "data": attr.label_list(

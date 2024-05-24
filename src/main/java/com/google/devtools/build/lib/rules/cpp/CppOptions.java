@@ -1039,6 +1039,19 @@ public class CppOptions extends FragmentOptions {
   public boolean experimentalCcImplementationDeps;
 
   @Option(
+      name = "experimental_cpp20_modules",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.CHANGES_INPUTS
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If enabled, cc_binary and cc_library targets can use attribute `module_interfaces`.")
+  public boolean experimentalCpp20Modules;
+
+  @Option(
       name = "experimental_link_static_libraries_once",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

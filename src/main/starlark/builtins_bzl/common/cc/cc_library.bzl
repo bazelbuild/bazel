@@ -37,7 +37,8 @@ def _cc_library_impl(ctx):
         unsupported_features = ctx.disabled_features,
     )
 
-    cc_helper.check_cpp20_module(ctx, feature_configuration)
+    semantics.check_can_module_interfaces(ctx)
+    cc_helper.check_cpp20_modules(ctx, feature_configuration)
 
     precompiled_files = cc_helper.build_precompiled_files(ctx = ctx)
 
