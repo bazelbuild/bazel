@@ -141,6 +141,7 @@ def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_t
         patches. String.
       patch_args: Arguments to pass to the patch tool. List of strings.
       auth: An optional dict specifying authentication information for some of the URLs.
+
     """
     bash_exe = ctx.os.environ["BAZEL_SH"] if "BAZEL_SH" in ctx.os.environ else "bash"
     powershell_exe = ctx.os.environ["BAZEL_POWERSHELL"] if "BAZEL_POWERSHELL" in ctx.os.environ else "powershell.exe"
