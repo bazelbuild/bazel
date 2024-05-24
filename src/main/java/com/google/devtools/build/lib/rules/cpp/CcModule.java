@@ -2023,7 +2023,6 @@ public abstract class CcModule
       FeatureConfigurationForStarlark starlarkFeatureConfiguration,
       Info starlarkCcToolchainProvider,
       Sequence<?> sourcesUnchecked, // <Artifact> expected
-      Sequence<?> moduleInterfacesUnchecked, // <Artifact> expected
       Sequence<?> publicHeadersUnchecked, // <Artifact> expected
       Sequence<?> privateHeadersUnchecked, // <Artifact> expected
       Object textualHeadersStarlarkObject,
@@ -2056,6 +2055,7 @@ public abstract class CcModule
       Object purposeObject,
       Object coptsFilterObject,
       Object separateModuleHeadersObject,
+      Sequence<?> moduleInterfacesUnchecked, // <Artifact> expected
       Object nonCompilationAdditionalInputsObject,
       StarlarkThread thread)
       throws EvalException, InterruptedException {

@@ -111,12 +111,6 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "[]"),
         @Param(
-            name = "module_interfaces",
-            doc = "The list of module interfaces source files to be compiled.",
-            positional = false,
-            named = true,
-            defaultValue = "[]"),
-        @Param(
             name = "public_hdrs",
             doc =
                 "List of headers needed for compilation of srcs and may be included by dependent "
@@ -367,6 +361,12 @@ public interface CcModuleApi<
             allowedTypes = {@ParamType(type = Sequence.class)},
             defaultValue = "unbound"),
         @Param(
+            name = "module_interfaces",
+            doc = "The list of module interfaces source files to be compiled.",
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
             name = "non_compilation_additional_inputs",
             positional = false,
             named = true,
@@ -379,7 +379,6 @@ public interface CcModuleApi<
       FeatureConfigurationT starlarkFeatureConfiguration,
       Info starlarkCcToolchainProvider,
       Sequence<?> sourcesUnchecked, // <Artifact> expected
-      Sequence<?> moduleInterfacesUnchecked, // <Artifact> expected
       Sequence<?> publicHeadersUnchecked, // <Artifact> expected
       Sequence<?> privateHeadersUnchecked, // <Artifact> expected
       Object textualHeadersStarlarkObject,
@@ -412,6 +411,7 @@ public interface CcModuleApi<
       Object purposeObject,
       Object coptsFilterObject,
       Object separateModuleHeadersObject,
+      Sequence<?> moduleInterfacesUnchecked, // <Artifact> expected
       Object nonCompilationAdditionalInputsObject,
       StarlarkThread thread)
       throws EvalException, InterruptedException;

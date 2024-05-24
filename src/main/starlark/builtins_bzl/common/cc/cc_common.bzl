@@ -657,7 +657,6 @@ def _compile(
         cc_toolchain,
         name,
         srcs = [],
-        module_interfaces = _UNBOUND,
         public_hdrs = [],
         private_hdrs = [],
         textual_hdrs = [],
@@ -688,6 +687,7 @@ def _compile(
         purpose = _UNBOUND,
         copts_filter = _UNBOUND,
         separate_module_headers = _UNBOUND,
+        module_interfaces = _UNBOUND,
         non_compilation_additional_inputs = _UNBOUND):
     if module_map != _UNBOUND or \
        additional_module_maps != _UNBOUND or \
