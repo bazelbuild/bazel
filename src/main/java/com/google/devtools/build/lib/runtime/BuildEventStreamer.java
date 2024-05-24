@@ -130,8 +130,8 @@ public class BuildEventStreamer {
   // After #buildComplete is called, contains the set of events that the streamer is expected to
   // process. The streamer will fully close after seeing them. This field is null until
   // #buildComplete is called.
-  // Thread-safety note: finalEventsToCome is only non-null in the final, sequential phase of the
-  // build (all final events are issued from the main thread).
+  // Thread-safety note: in the final, sequential phase of the build, we ignore any events that are
+  // announced by events posted after #buildComplete is called.
   private Set<BuildEventId> finalEventsToCome = null;
 
   // True, if we already closed the stream.
@@ -189,6 +189,24 @@ public class BuildEventStreamer {
     this.outErrProvider = outErrProvider;
   }
 
+  // This exists to nop out the announcement of new events after #buildComplete
+  private synchronized void maybeRegisterAnnouncedEvent(BuildEventId id) {
+    if (finalEventsToCome != null) {
+      return;
+    }
+
+    announcedEvents.add(id);
+  }
+
+  // This exists to nop out the announcement of new events after #buildComplete
+  private synchronized void maybeRegisterAnnouncedEvents(Collection<BuildEventId> ids) {
+    if (finalEventsToCome != null) {
+      return;
+    }
+
+    announcedEvents.addAll(ids);
+  }
+
   /**
    * Post a new event to all transports; simultaneously keep track of the events we announce to
    * still come.
@@ -211,15 +229,15 @@ public class BuildEventStreamer {
         // The very first event of a stream is implicitly announced by the convention that
         // a complete stream has to have at least one entry. In this way we keep the invariant
         // that the set of posted events is always a subset of the set of announced events.
-        announcedEvents.add(id);
+        maybeRegisterAnnouncedEvent(id);
         if (!event.getChildrenEvents().contains(ProgressEvent.INITIAL_PROGRESS_UPDATE)) {
           BuildEvent progress = ProgressEvent.progressChainIn(progressCount, event.getEventId());
           linkEvents = ImmutableList.of(progress);
           progressCount++;
-          announcedEvents.addAll(progress.getChildrenEvents());
+          maybeRegisterAnnouncedEvents(progress.getChildrenEvents());
           // the new first event in the stream, implicitly announced by the fact that complete
           // stream may not be empty.
-          announcedEvents.add(progress.getEventId());
+          maybeRegisterAnnouncedEvent(progress.getEventId());
           postedEvents.add(progress.getEventId());
         }
 
@@ -248,7 +266,7 @@ public class BuildEventStreamer {
                     ProgressEvent.progressChainIn(progressCount, id, out, err);
                 finalLinkEvents.add(progressEvent);
                 progressCount++;
-                announcedEvents.addAll(progressEvent.getChildrenEvents());
+                maybeRegisterAnnouncedEvents(progressEvent.getChildrenEvents());
                 postedEvents.add(progressEvent.getEventId());
               });
         }
@@ -263,7 +281,7 @@ public class BuildEventStreamer {
       }
 
       postedEvents.add(id);
-      announcedEvents.addAll(event.getChildrenEvents());
+      maybeRegisterAnnouncedEvents(event.getChildrenEvents());
       // We keep as an invariant that postedEvents is a subset of announced events, so this is a
       // cheaper test for equality
       if (announcedEvents.size() == postedEvents.size()) {
@@ -590,7 +608,7 @@ public class BuildEventStreamer {
   private synchronized BuildEvent flushStdoutStderrEvent(String out, String err) {
     BuildEvent updateEvent = ProgressEvent.progressUpdate(progressCount, out, err);
     progressCount++;
-    announcedEvents.addAll(updateEvent.getChildrenEvents());
+    maybeRegisterAnnouncedEvents(updateEvent.getChildrenEvents());
     postedEvents.add(updateEvent.getEventId());
     return updateEvent;
   }
