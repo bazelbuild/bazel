@@ -16,15 +16,23 @@ package com.google.devtools.build.lib.cmdline;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
 import java.util.regex.Pattern;
@@ -132,9 +140,9 @@ public final class RepositoryName {
    * not visible from the owner repository and should fail in {@code RepositoryDelegatorFunction}
    * when fetching the repository.
    */
-  private final RepositoryName ownerRepoIfNotVisible;
+  @Nullable private final RepositoryName ownerRepoIfNotVisible;
 
-  private RepositoryName(String name, RepositoryName ownerRepoIfNotVisible) {
+  private RepositoryName(String name, @Nullable RepositoryName ownerRepoIfNotVisible) {
     this.name = name;
     this.ownerRepoIfNotVisible = ownerRepoIfNotVisible;
   }
@@ -346,5 +354,33 @@ public final class RepositoryName {
   @Override
   public int hashCode() {
     return Objects.hash(OsPathPolicy.getFilePathOs().hash(name), ownerRepoIfNotVisible);
+  }
+
+  public static Codec repositoryNameCodec() {
+    return Codec.INSTANCE;
+  }
+
+  private static final class Codec extends LeafObjectCodec<RepositoryName> {
+    private static final Codec INSTANCE = new Codec();
+
+    @Override
+    public Class<RepositoryName> getEncodedClass() {
+      return RepositoryName.class;
+    }
+
+    @Override
+    public void serialize(
+        LeafSerializationContext context, RepositoryName obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serializeLeaf(obj.getName(), stringCodec(), codedOut);
+      context.serializeLeaf(obj.ownerRepoIfNotVisible, this, codedOut);
+    }
+
+    @Override
+    public RepositoryName deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      return new RepositoryName(
+          context.deserializeLeaf(codedIn, stringCodec()), context.deserializeLeaf(codedIn, this));
+    }
   }
 }

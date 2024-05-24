@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import net.starlark.java.eval.EvalException;
 import org.junit.Test;
@@ -121,5 +122,13 @@ public class RepositoryNameTest {
                 .toNonVisible(RepositoryName.create("owner"))
                 .getDisplayForm(null))
         .isEqualTo("@@[unknown repo 'canonical' requested from @@owner]");
+  }
+
+  @Test
+  public void testSerialization() throws Exception {
+    new SerializationTester(
+            RepositoryName.create("foo"),
+            RepositoryName.create("foo").toNonVisible(RepositoryName.create("owner")))
+        .runTests();
   }
 }
