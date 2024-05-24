@@ -209,6 +209,20 @@ public final class RepositoryName {
     }
   }
 
+  // Must only be called if isVisible() returns true.
+  public String getOwnerModuleDisplayString() {
+    Preconditions.checkNotNull(ownerRepoIfNotVisible);
+    if (ownerRepoIfNotVisible.isMain()) {
+      return "root module";
+    } else {
+      return String.format(
+          "module '%s'",
+          ownerRepoIfNotVisible
+              .getName()
+              .substring(0, ownerRepoIfNotVisible.getName().indexOf('~')));
+    }
+  }
+
   /** Returns if this is the main repository. */
   public boolean isMain() {
     return equals(MAIN);
