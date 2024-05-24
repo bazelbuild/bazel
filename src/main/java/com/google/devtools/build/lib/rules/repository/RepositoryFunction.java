@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.cmdline.LabelConstants.EXTERNAL_PACK
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -48,6 +49,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -257,21 +259,24 @@ public abstract class RepositoryFunction {
       return ImmutableMap.of();
     }
 
-    ImmutableMap<String, String> envDep = getEnvVarValues(env, keys);
-    if (envDep == null) {
+    ImmutableMap<String, Optional<String>> envDepOptionals = getEnvVarValues(env, keys);
+    if (envDepOptionals == null) {
       return null;
     }
-    // Add the dependencies to the marker file
-    for (String key : keys) {
-      recordedInputValues.put(new RepoRecordedInput.EnvVar(key), envDep.get(key));
-    }
-    return envDep;
+    // Add the dependencies to the marker file. The repository marker file supports null values.
+    recordedInputValues.putAll(
+        Maps.transformValues(RepoRecordedInput.EnvVar.wrap(envDepOptionals), v -> v.orElse(null)));
+    return Maps.transformValues(envDepOptionals, v -> v.orElse(null));
   }
 
+  /**
+   * Returns the values of the environment variables in the given set as an immutable map while
+   * registering them as dependencies.
+   */
   @Nullable
-  public static ImmutableMap<String, String> getEnvVarValues(Environment env, Set<String> keys)
-      throws InterruptedException {
-    ImmutableMap<String, String> environ = ActionEnvironmentFunction.getEnvironmentView(env, keys);
+  public static ImmutableMap<String, Optional<String>> getEnvVarValues(
+      Environment env, Set<String> keys) throws InterruptedException {
+    Map<String, Optional<String>> environ = ActionEnvironmentFunction.getEnvironmentView(env, keys);
     if (environ == null) {
       return null;
     }
@@ -280,13 +285,13 @@ public abstract class RepositoryFunction {
       return null;
     }
 
-    // Only depend on --repo_env values that are specified in the "environ" attribute.
-    ImmutableMap.Builder<String, String> repoEnv = ImmutableMap.builder();
+    // Only depend on --repo_env values that are specified in keys.
+    ImmutableMap.Builder<String, Optional<String>> repoEnv = ImmutableMap.builder();
     repoEnv.putAll(environ);
     for (String key : keys) {
       String value = repoEnvOverride.get(key);
       if (value != null) {
-        repoEnv.put(key, value);
+        repoEnv.put(key, Optional.of(value));
       }
     }
     return repoEnv.buildKeepingLast();
