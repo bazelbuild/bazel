@@ -98,6 +98,7 @@ public class TypeCheckedTag implements Structure {
     }
 
     // Check that all mandatory attributes have been specified, and fill in default values.
+    // Along the way, verify that labels in the attribute values refer to visible repos only.
     for (int i = 0; i < attrValues.length; i++) {
       Attribute attr = tagClass.getAttributes().get(i);
       if (attr.isMandatory() && attrValues[i] == null) {
@@ -109,6 +110,13 @@ public class TypeCheckedTag implements Structure {
       }
       if (attrValues[i] == null) {
         attrValues[i] = Attribute.valueToStarlark(attr.getDefaultValueUnchecked());
+      }
+      try {
+        AttributeValues.validateSingleAttr(
+            attr.getPublicName(), attrValues[i], String.format("tag '%s'", tag.getTagName()));
+      } catch (EvalException e) {
+        throw ExternalDepsException.withMessage(
+            Code.BAD_MODULE, "in tag at %s: %s", tag.getLocation(), e.getMessage());
       }
     }
     return new TypeCheckedTag(

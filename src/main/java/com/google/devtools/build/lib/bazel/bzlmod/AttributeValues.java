@@ -15,12 +15,18 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static java.util.Collections.singletonList;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 
 /** Wraps a dictionary of attribute names and values. Always uses a dict to represent them */
@@ -38,6 +44,49 @@ public abstract class AttributeValues {
   }
 
   public abstract Dict<String, Object> attributes();
+
+  public static void validateAttrs(AttributeValues attributes, String what) throws EvalException {
+    for (var entry : attributes.attributes().entrySet()) {
+      validateSingleAttr(entry.getKey(), entry.getValue(), what);
+    }
+  }
+
+  public static void validateSingleAttr(String attrName, Object attrValue, String what)
+      throws EvalException {
+    var maybeNonVisibleLabel = getFirstNonVisibleLabel(attrValue);
+    if (maybeNonVisibleLabel.isEmpty()) {
+      return;
+    }
+    Label label = maybeNonVisibleLabel.get();
+    String repoName = label.getRepository().getName();
+    throw Starlark.errorf(
+        "no repository visible as '@%s' to the %s, but referenced by label '@%s//%s:%s' in"
+            + " attribute '%s' of %s. Is the %s missing a bazel_dep or use_repo(..., \"%s\")?",
+        repoName,
+        label.getRepository().getOwnerRepoDisplayString(),
+        repoName,
+        label.getPackageName(),
+        label.getName(),
+        attrName,
+        what,
+        label.getRepository().getOwnerModuleDisplayString(),
+        repoName);
+  }
+
+  private static Optional<Label> getFirstNonVisibleLabel(Object nativeAttrValue) {
+    Collection<?> toValidate =
+        switch (nativeAttrValue) {
+          case List<?> list -> list;
+          case Map<?, ?> map -> map.keySet();
+          case null, default -> singletonList(nativeAttrValue);
+        };
+    for (var item : toValidate) {
+      if (item instanceof Label label && !label.getRepository().isVisible()) {
+        return Optional.of(label);
+      }
+    }
+    return Optional.empty();
+  }
 
   // TODO(salmasamy) this is a copy of Attribute::valueToStarlark, Maybe think of a better place?
   private static Object valueToStarlark(Object x) {

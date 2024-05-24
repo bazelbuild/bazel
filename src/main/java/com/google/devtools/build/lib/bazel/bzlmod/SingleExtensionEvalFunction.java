@@ -731,6 +731,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         String name = (String) kwargs.get("name");
         String prefixedName = usagesValue.getExtensionUniqueName() + "~" + name;
         Rule ruleInstance;
+        AttributeValues attributesValue;
         try {
           ruleInstance =
               BzlmodRepoRuleCreator.createRule(
@@ -742,6 +743,13 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                   "SingleExtensionEval.createInnateExtensionRepoRule",
                   repoRule.getRuleClass(),
                   Maps.transformEntries(kwargs, (k, v) -> k.equals("name") ? prefixedName : v));
+          attributesValue =
+              AttributeValues.create(
+                  Maps.filterKeys(
+                      Maps.transformEntries(kwargs, (k, v) -> ruleInstance.getAttr(k)),
+                      k -> !k.equals("name")));
+          AttributeValues.validateAttrs(
+              attributesValue, String.format("%s '%s'", ruleInstance.getRuleClass(), name));
         } catch (InvalidRuleException | NoSuchPackageException | EvalException e) {
           throw new SingleExtensionEvalFunctionException(
               ExternalDepsException.withCauseAndMessage(
@@ -760,11 +768,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                         .getRuleDefinitionEnvironmentLabel()
                         .getUnambiguousCanonicalForm())
                 .setRuleClassName(repoRule.getRuleClass().getName())
-                .setAttributes(
-                    AttributeValues.create(
-                        Maps.filterKeys(
-                            Maps.transformEntries(kwargs, (k, v) -> ruleInstance.getAttr(k)),
-                            k -> !k.equals("name"))))
+                .setAttributes(attributesValue)
                 .build();
         generatedRepoSpecs.put(name, repoSpec);
       }

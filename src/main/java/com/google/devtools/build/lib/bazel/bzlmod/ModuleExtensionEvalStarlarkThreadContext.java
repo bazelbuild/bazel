@@ -115,11 +115,14 @@ public final class ModuleExtensionEvalStarlarkThreadContext {
           Maps.filterKeys(
               Maps.transformEntries(kwargs, (k, v) -> rule.getAttr(k)), k -> !k.equals("name"));
       String bzlFile = ruleClass.getRuleDefinitionEnvironmentLabel().getUnambiguousCanonicalForm();
+      var attributesValue = AttributeValues.create(attributes);
+      AttributeValues.validateAttrs(
+          attributesValue, String.format("%s '%s'", rule.getRuleClass(), name));
       RepoSpec repoSpec =
           RepoSpec.builder()
               .setBzlFile(bzlFile)
               .setRuleClassName(ruleClass.getName())
-              .setAttributes(AttributeValues.create(attributes))
+              .setAttributes(attributesValue)
               .build();
 
       generatedRepos.put(name, RepoSpecAndLocation.create(repoSpec, thread.getCallerLocation()));
