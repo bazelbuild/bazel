@@ -1427,11 +1427,22 @@ def _impl(ctx):
         ],
     )
 
+    # Tell bazel we support C++20 Modules now
+    cpp20_modules_feature = feature(
+        name = "cpp20_modules",
+        # set default value to False
+        # to enable the feature
+        # use --features=cpp20_module
+        # or add cpp20_module to features attr
+        enabled = False,
+    )
+
     # TODO(#8303): Mac crosstool should also declare every feature.
     if is_linux:
         # Linux artifact name patterns are the default.
         artifact_name_patterns = []
         features = [
+            cpp20_modules_feature,
             dependency_file_feature,
             serialized_diagnostics_file_feature,
             random_seed_feature,
@@ -1499,6 +1510,7 @@ def _impl(ctx):
             ),
         ]
         features = [
+            cpp20_modules_feature,
             macos_minimum_os_feature,
             macos_default_link_flags_feature,
             libtool_feature,
