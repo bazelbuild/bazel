@@ -657,7 +657,7 @@ def _compile(
         cc_toolchain,
         name,
         srcs = [],
-        module_interfaces = [],
+        module_interfaces = _UNBOUND,
         public_hdrs = [],
         private_hdrs = [],
         textual_hdrs = [],
@@ -700,6 +700,7 @@ def _compile(
        implementation_compilation_contexts != _UNBOUND or \
        copts_filter != _UNBOUND or \
        separate_module_headers != _UNBOUND or \
+       module_interfaces != _UNBOUND or \
        non_compilation_additional_inputs != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
@@ -725,6 +726,8 @@ def _compile(
         copts_filter = None
     if separate_module_headers == _UNBOUND:
         separate_module_headers = []
+    if module_interfaces == _UNBOUND:
+        module_interfaces = []
     if non_compilation_additional_inputs == _UNBOUND:
         non_compilation_additional_inputs = []
 
