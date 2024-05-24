@@ -1208,9 +1208,9 @@ def _should_use_pic(ctx, cc_toolchain, feature_configuration):
 def _check_cpp20_module(ctx, feature_configuration):
     if len(ctx.files.module_interfaces) > 0 and not cc_common.is_enabled(
         feature_configuration = feature_configuration,
-        feature_name = "cpp20_module",
+        feature_name = "cpp20_modules",
     ):
-        fail("to use C++20 Modules, the feature cpp20_module must be enabled")
+        fail("to use C++20 Modules, the feature cpp20_modules must be enabled")
 
 cc_helper = struct(
     CPP_TOOLCHAIN_TYPE = _CPP_TOOLCHAIN_TYPE,
