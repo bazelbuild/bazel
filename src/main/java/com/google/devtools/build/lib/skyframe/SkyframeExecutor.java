@@ -4101,19 +4101,28 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     dumpSkyfocusKeys(dumpKeysOption, reporter, focusResult, graph, skyFunctionCountBefore);
 
-    reportReductions(
-        reporter,
-        "Node count",
-        beforeNodeCount,
-        memoizingEvaluator.getValues().size(),
-        Long::toString);
+    if (skyfocusState.options().dumpKeys != SkyfocusDumpOption.NONE) {
+      reportReductions(
+          reporter,
+          "Rdep edges",
+          focusResult.getRdepEdgesBefore(),
+          focusResult.getRdepEdgesAfter(),
+          Long::toString);
 
-    reportReductions(
-        reporter,
-        "Action cache count",
-        beforeActionCacheEntries,
-        actionCache.size(),
-        Long::toString);
+      reportReductions(
+          reporter,
+          "Node count",
+          beforeNodeCount,
+          memoizingEvaluator.getValues().size(),
+          Long::toString);
+
+      reportReductions(
+          reporter,
+          "Action cache count",
+          beforeActionCacheEntries,
+          actionCache.size(),
+          Long::toString);
+    }
 
     if (skyfocusState.options().dumpPostGcStats) {
       reportReductions(
@@ -4324,7 +4333,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     FocusResult focusResult;
 
     try (SilentCloseable c = Profiler.instance().profile("SkyframeFocuser")) {
-      focusResult = SkyframeFocuser.focus(graph, actionCache, eventHandler, roots, leafs);
+      focusResult = SkyframeFocuser.focus(graph, actionCache, roots, leafs);
     }
 
     skyfocusState = skyfocusState.withForcedRerun(false);
@@ -4383,19 +4392,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ImmutableMultiset<SkyFunctionName> skyFunctionNameCountsBefore) {
     if (dumpKeysOption == SkyfocusDumpOption.VERBOSE) {
       try (PrintStream pos = new PrintStream(reporter.getOutErr().getOutputStream())) {
-        pos.println("Roots kept:\n");
+        pos.println("Roots kept: " + focusResult.getRoots().size());
         focusResult.getRoots().forEach(k -> pos.println(k.getCanonicalName()));
 
-        pos.println("Leafs (including working set) kept:\n");
+        pos.println("Leafs (including working set) kept: " + focusResult.getLeafs().size());
         focusResult.getLeafs().forEach(k -> pos.println("leaf: " + k.getCanonicalName()));
 
-        pos.println("Rdeps kept:\n");
+        pos.println("Rdeps kept: " + focusResult.getRdeps().size());
         focusResult.getRdeps().forEach(k -> pos.println(k.getCanonicalName()));
 
-        pos.println("Deps kept:");
+        pos.println("Deps kept: " + focusResult.getDeps().size());
         focusResult.getDeps().forEach(k -> pos.println(k.getCanonicalName()));
 
-        pos.println("Verification set:");
+        pos.println("Verification set: " + focusResult.getVerificationSet().size());
         focusResult.getVerificationSet().forEach(k -> pos.println(k.getCanonicalName()));
       }
     } else if (dumpKeysOption == SkyfocusDumpOption.COUNT) {
@@ -4405,7 +4414,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       reporter.handle(Event.info(String.format("Deps kept: %d", focusResult.getDeps().size())));
       reporter.handle(
           Event.info(
-              String.format("Verification set size: %d", focusResult.getVerificationSet().size())));
+              String.format("Verification set: %d", focusResult.getVerificationSet().size())));
       ImmutableMultiset<SkyFunctionName> skyFunctionNameCountsAfter =
           getSkyFunctionNameCount(graph);
       skyFunctionNameCountsBefore.forEachEntry(

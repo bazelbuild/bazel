@@ -25,8 +25,6 @@ import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -57,10 +55,7 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
 
   private final ActionCache actionCache;
 
-  // Event handler to report stats during focusing
-  private final EventHandler eventHandler;
-
-  private SkyframeFocuser(InMemoryGraph graph, ActionCache actionCache, EventHandler eventHandler) {
+  private SkyframeFocuser(InMemoryGraph graph, ActionCache actionCache) {
     super(
         /* parallelism= */ Runtime.getRuntime().availableProcessors(),
         /* keepAliveTime= */ 2,
@@ -70,7 +65,6 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
         ErrorClassifier.DEFAULT);
     this.graph = graph;
     this.actionCache = actionCache;
-    this.eventHandler = eventHandler;
   }
 
   /**
@@ -87,7 +81,6 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
    * </ol>
    *
    * @param graph the in-memory graph to operate on
-   * @param eventHandler handler to report events during focusing
    * @param roots the SkyKeys of the roots to be kept, i.e. the top level keys.
    * @param leafs the SkyKeys of the leafs to be kept. This is the "working set".
    * @return the set of kept SkyKeys in the in-memory graph, categorized by deps and rdeps.
@@ -95,11 +88,10 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
   public static FocusResult focus(
       InMemoryGraph graph,
       ActionCache actionCache,
-      EventHandler eventHandler,
       Set<SkyKey> roots,
       Set<SkyKey> leafs)
       throws InterruptedException {
-    SkyframeFocuser focuser = new SkyframeFocuser(graph, actionCache, eventHandler);
+    SkyframeFocuser focuser = new SkyframeFocuser(graph, actionCache);
     return focuser.run(roots, leafs);
   }
 
@@ -115,7 +107,9 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
             ImmutableSet.of(),
             ImmutableSet.of(),
             ImmutableSet.of(),
-            ImmutableSet.of());
+            ImmutableSet.of(),
+            0L,
+            0L);
 
     private final ImmutableSet<SkyKey> roots;
 
@@ -126,17 +120,25 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
     private final ImmutableSet<SkyKey> deps;
     private final ImmutableSet<SkyKey> verificationSet;
 
+    private final long rdepEdgesBefore;
+
+    private final long rdepEdgesAfter;
+
     private FocusResult(
         ImmutableSet<SkyKey> roots,
         ImmutableSet<SkyKey> leafs,
         ImmutableSet<SkyKey> rdeps,
         ImmutableSet<SkyKey> deps,
-        ImmutableSet<SkyKey> verificationSet) {
+        ImmutableSet<SkyKey> verificationSet,
+        long rdepEdgesBefore,
+        long rdepEdgesAfter) {
       this.roots = roots;
       this.leafs = leafs;
       this.rdeps = rdeps;
       this.deps = deps;
       this.verificationSet = verificationSet;
+      this.rdepEdgesBefore = rdepEdgesBefore;
+      this.rdepEdgesAfter = rdepEdgesAfter;
     }
 
     public ImmutableSet<SkyKey> getRoots() {
@@ -169,6 +171,14 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
      */
     public ImmutableSet<SkyKey> getVerificationSet() {
       return verificationSet;
+    }
+
+    public long getRdepEdgesBefore() {
+      return rdepEdgesBefore;
+    }
+
+    public long getRdepEdgesAfter() {
+      return rdepEdgesAfter;
     }
   }
 
@@ -368,11 +378,6 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
     // Keep the rdeps transitive closure from leafs distinct from the deps.
     keptDeps.removeAll(keptRdeps);
 
-    eventHandler.handle(
-        Event.info("Nodes in reverse transitive closure from leafs: " + keptRdeps.size()));
-    eventHandler.handle(
-        Event.info("Nodes in direct deps of reverse transitive closure: " + keptDeps.size()));
-
     try (SilentCloseable c = Profiler.instance().profile("focus.sweep_nodes")) {
       graph.parallelForEach(
           inMemoryNodeEntry -> {
@@ -472,19 +477,13 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
       awaitQuiescence(true); // and shut down the ExecutorService.
     }
 
-    long rdepBefore = rdepEdgesBefore.get();
-    long rdepAfter = rdepEdgesAfter.get();
-    eventHandler.handle(
-        Event.info(
-            String.format(
-                "Rdep edges: %s -> %s (%.2f%% reduction)",
-                rdepBefore, rdepAfter, (double) (rdepBefore - rdepAfter) / rdepBefore * 100)));
-
     return new FocusResult(
         ImmutableSet.copyOf(roots),
         ImmutableSet.copyOf(leafs),
         ImmutableSet.copyOf(keptRdeps),
         ImmutableSet.copyOf(keptDeps),
-        ImmutableSet.copyOf(verificationSet));
+        ImmutableSet.copyOf(verificationSet),
+        rdepEdgesBefore.get(),
+        rdepEdgesAfter.get());
   }
 }

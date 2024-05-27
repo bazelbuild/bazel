@@ -86,12 +86,11 @@ EOF
 
   out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
   bazel build //${pkg}:g\
+    --experimental_skyfocus_dump_keys=count \
     --experimental_skyfocus_dump_post_gc_stats \
     --experimental_working_set=${pkg}/in.txt >$TEST_log 2>&1
 
   expect_log "Focusing on .\+ roots, .\+ leafs"
-  expect_log "Nodes in reverse transitive closure from leafs: .\+"
-  expect_log "Nodes in direct deps of reverse transitive closure: .\+"
   expect_log "Rdep edges: .\+ -> .\+"
   expect_log "Heap: .\+MB -> .\+MB (-.\+%)"
   expect_log "Node count: .\+ -> .\+ (-.\+%)"
