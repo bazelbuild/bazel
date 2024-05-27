@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters.BooleanConverter;
+import com.google.devtools.common.options.Converters.RegexPatternConverter;
 import com.google.devtools.common.options.Converters.TriStateConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -32,10 +34,12 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.RegexPatternOption;
 import com.google.devtools.common.options.TriState;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /** Options for sandboxed execution. */
 public class SandboxOptions extends OptionsBase {
@@ -368,6 +372,52 @@ public class SandboxOptions extends OptionsBase {
           "If > 0, each Linux sandbox will be limited to the given amount of memory (in MB)."
               + " Requires cgroups v1 or v2 and permissions for the users to the cgroups dir.")
   public int memoryLimitMb;
+
+  @Option(
+      name = "experimental_sandbox_limits",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      converter = ResourceConverter.AssignmentConverter.class,
+      allowMultiple = true,
+      help =
+          "If > 0, each Linux sandbox will be limited to the given amount"
+              + " for the specified resource. Requires --incompatible_use_new_cgroup_implementation"
+              + " and overrides --experimental_sandbox_memory_limit_mb."
+              + " Requires cgroups v1 or v2 and permissions for the users to the cgroups dir.")
+  public List<Map.Entry<String, Double>> limits;
+
+  public ImmutableMap<String, Double> getLimits() {
+    return ImmutableMap.<String, Double>builder()
+        .put("memory", (double) memoryLimitMb)
+        .putAll(limits)
+        .buildKeepingLast();
+  }
+
+  @Option(
+      name = "incompatible_use_new_cgroup_implementation",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      converter = BooleanConverter.class,
+      help =
+          "If true, use the new implementation for cgroups. The old implementation only supports"
+              + " the memory controller and ignores the value of --experimental_sandbox_limits.")
+  public boolean useNewCgroupImplementation;
+
+  @Option(
+      name = "experimental_sandbox_enforce_resources_regexp",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      converter = RegexPatternConverter.class,
+      help =
+          "If true, actions whose mnemonic matches the input regex will have their resources"
+              + " request enforced as limits, overriding the value of"
+              + " --experimental_sandbox_limits, if the resource type supports it. For example a"
+              + " test that declares cpu:3 and resources:memory:10, will run with at most 3 cpus"
+              + " and 10 megabytes of memory.")
+  public RegexPatternOption enforceResources;
 
   /** Converter for the number of threads used for asynchronous tree deletion. */
   public static final class AsyncTreeDeletesConverter extends ResourceConverter.IntegerConverter {

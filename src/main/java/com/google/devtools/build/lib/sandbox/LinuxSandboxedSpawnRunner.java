@@ -45,6 +45,8 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
+import com.google.devtools.build.lib.sandbox.cgroups.VirtualCgroup;
+import com.google.devtools.build.lib.sandbox.cgroups.VirtualCgroupFactory;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.OS;
@@ -134,6 +136,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final Path slashTmp;
   private final ImmutableSet<Path> knownPathsToMountUnderHermeticTmp;
   private String cgroupsDir;
+  private final VirtualCgroupFactory cgroupFactory;
 
   /**
    * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool.
@@ -154,6 +157,15 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       Duration timeoutKillDelay,
       TreeDeleter treeDeleter) {
     super(cmdEnv);
+    SandboxOptions sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
+    this.cgroupFactory =
+        sandboxOptions == null || !sandboxOptions.useNewCgroupImplementation
+            ? null
+            : new VirtualCgroupFactory(
+                "sandbox_",
+                VirtualCgroup.getInstance(),
+                getSandboxOptions().getLimits(),
+                /* alwaysCreate= */ false);
     this.helpers = helpers;
     this.fileSystem = cmdEnv.getRuntime().getFileSystem();
     this.execRoot = cmdEnv.getExecRoot();
@@ -310,7 +322,14 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       commandLineBuilder.setSandboxDebugPath(sandboxDebugPath.getPathString());
     }
 
-    if (sandboxOptions.memoryLimitMb > 0) {
+    if (cgroupFactory != null) {
+      ImmutableMap<String, Double> spawnResourceLimits = ImmutableMap.of();
+      if (sandboxOptions.enforceResources.regexPattern().matcher(spawn.getMnemonic()).matches()) {
+        spawnResourceLimits = spawn.getLocalResources().getResources();
+      }
+      VirtualCgroup cgroup = cgroupFactory.create(context.getId(), spawnResourceLimits);
+      commandLineBuilder.setCgroupsDirs(cgroup.paths());
+    } else if (sandboxOptions.memoryLimitMb > 0) {
       // We put the sandbox inside a unique subdirectory using the context's ID. This ID is
       // unique per spawn run by this spawn runner.
       CgroupsInfo sandboxCgroup =
@@ -318,7 +337,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
               .createIndividualSpawnCgroup(
                   "sandbox_" + context.getId(), sandboxOptions.memoryLimitMb);
       if (sandboxCgroup.exists()) {
-        commandLineBuilder.setCgroupsDir(sandboxCgroup.getCgroupDir().toString());
+        commandLineBuilder.setCgroupsDirs(ImmutableSet.of(sandboxCgroup.getCgroupDir().toPath()));
       }
     }
 
@@ -436,6 +455,13 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     if (getSandboxOptions().useHermetic) {
       checkForConcurrentModifications(context);
     }
+    // We cannot leave the cgroups around and delete them only when we delete the sandboxes
+    // because linux has a hard limit of 65535 memory controllers.
+    // Ref.
+    // https://github.com/torvalds/linux/blob/58d4e450a490d5f02183f6834c12550ba26d3b47/include/linux/memcontrol.h#L69
+    if (cgroupFactory != null) {
+      cgroupFactory.remove(context.getId());
+    }
   }
 
   private void checkForConcurrentModifications(SpawnExecutionContext context)
@@ -503,6 +529,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     if (cgroupsDir != null) {
       new File(cgroupsDir).delete();
     }
+    VirtualCgroup.deleteInstance();
     // Delete the inaccessible files synchronously, bypassing the treeDeleter. They are only a
     // couple of files that can be deleted fast, and ensuring they are gone at the end of every
     // build avoids annoying permission denied errors if the user happens to run "rm -rf" on the

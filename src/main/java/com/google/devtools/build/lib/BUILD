@@ -80,6 +80,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/runtime/events:srcs",
         "//src/main/java/com/google/devtools/build/lib/runtime/mobileinstall:srcs",
         "//src/main/java/com/google/devtools/build/lib/sandbox:srcs",
+        "//src/main/java/com/google/devtools/build/lib/sandbox/cgroups:srcs",
         "//src/main/java/com/google/devtools/build/lib/server:srcs",
         "//src/main/java/com/google/devtools/build/lib/shell:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe:srcs",
