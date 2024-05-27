@@ -27,8 +27,7 @@ import net.starlark.java.eval.StarlarkValue;
     name = "apple",
     doc = "A configuration fragment for Apple platforms.",
     category = DocCategory.CONFIGURATION_FRAGMENT)
-public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatformTypeApi>
-    extends StarlarkValue {
+public interface AppleConfigurationApi extends StarlarkValue {
 
   @StarlarkMethod(
       name = "single_arch_cpu",
@@ -62,7 +61,7 @@ public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfo
             named = false,
             doc = "The apple platform type.")
       })
-  ApplePlatformApi getMultiArchPlatform(ApplePlatformTypeApiT platformType);
+  ApplePlatformApi getMultiArchPlatform(String platformType);
 
   @Nullable
   @StarlarkMethod(

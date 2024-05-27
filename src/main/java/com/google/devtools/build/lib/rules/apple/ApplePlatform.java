@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.ApplePlatformApi;
-import com.google.devtools.build.lib.starlarkbuildapi.apple.ApplePlatformTypeApi;
 import java.util.HashMap;
 import java.util.Locale;
 import javax.annotation.Nullable;
@@ -70,11 +69,10 @@ public enum ApplePlatform implements ApplePlatformApi {
 
   private final String starlarkKey;
   private final String nameInPlist;
-  private final PlatformType platformType;
+  private final String platformType;
   private final boolean isDevice;
 
-  ApplePlatform(
-      String starlarkKey, String nameInPlist, PlatformType platformType, boolean isDevice) {
+  ApplePlatform(String starlarkKey, String nameInPlist, String platformType, boolean isDevice) {
     this.starlarkKey = starlarkKey;
     this.nameInPlist = Preconditions.checkNotNull(nameInPlist);
     this.platformType = platformType;
@@ -87,7 +85,7 @@ public enum ApplePlatform implements ApplePlatformApi {
   }
 
   @Override
-  public PlatformType getType() {
+  public String getType() {
     return platformType;
   }
 
@@ -109,9 +107,9 @@ public enum ApplePlatform implements ApplePlatformApi {
    */
   public String getTargetPlatform() {
     if (platformType == PlatformType.CATALYST) {
-      return PlatformType.IOS.starlarkKey;
+      return PlatformType.IOS;
     }
-    return platformType.starlarkKey;
+    return platformType;
   }
 
   /**
@@ -169,7 +167,7 @@ public enum ApplePlatform implements ApplePlatformApi {
    * @param platformType platform type that the given cpu value is implied for
    * @param arch architecture representation, such as 'arm64'
    */
-  public static boolean is32Bit(PlatformType platformType, String arch) {
+  public static boolean is32Bit(String platformType, String arch) {
     return BIT_32_TARGET_CPUS.contains(cpuStringForTarget(platformType, arch));
   }
 
@@ -179,9 +177,9 @@ public enum ApplePlatform implements ApplePlatformApi {
    * @param platformType platform type that the given cpu value is implied for
    * @param arch architecture representation, such as 'arm64'
    */
-  public static String cpuStringForTarget(PlatformType platformType, String arch) {
+  public static String cpuStringForTarget(String platformType, String arch) {
     switch (platformType) {
-      case MACOS:
+      case PlatformType.MACOS:
         return String.format("darwin_%s", arch);
       default:
         return String.format("%s_%s", platformType.toString(), arch);
@@ -195,7 +193,7 @@ public enum ApplePlatform implements ApplePlatformApi {
    * @param arch architecture representation, such as 'arm64'
    * @throws IllegalArgumentException if there is no valid apple platform for the given target cpu
    */
-  public static ApplePlatform forTarget(PlatformType platformType, String arch) {
+  public static ApplePlatform forTarget(String platformType, String arch) {
     return forTargetCpu(cpuStringForTarget(platformType, arch));
   }
 
@@ -244,68 +242,23 @@ public enum ApplePlatform implements ApplePlatformApi {
     }
   }
 
+  // LINT.IfChange
+  // TODO(b/331163027): Remove this duplicate of common/objc/apple_platform.PLATFORM_TYPE
   /**
-   * Value used to describe Apple platform "type". A {@link ApplePlatform} is implied from a
-   * platform type (for example, watchOS) together with a cpu value (for example, armv7).
+   * The former enum PlatformType is being migrated to a Starlark struct PLATFORM_TYPEin
+   * builtins_bzl/common/objc/apple_platform.bzl. During the migration, PlatformType has been
+   * converted to a static class hosting string constants as Java duplicates of
+   * apple_platform.PLATFORM_TYPE.
    */
-  // TODO(cparsons): Use these values in static retrieval methods in this class.
-  @Immutable
-  public enum PlatformType implements ApplePlatformTypeApi {
-    IOS("ios"),
-    VISIONOS("visionos"),
-    WATCHOS("watchos"),
-    TVOS("tvos"),
-    MACOS("macos"),
-    CATALYST("catalyst");
+  public static class PlatformType { // implements ApplePlatformTypeApi {
+    public static final String IOS = "ios";
+    public static final String VISIONOS = "visionos";
+    public static final String WATCHOS = "watchos";
+    public static final String TVOS = "tvos";
+    public static final String MACOS = "macos";
+    public static final String CATALYST = "catalyst";
 
-    /**
-     * The key used to access the enum value as a field in the Starlark apple_common.platform_type
-     * struct.
-     */
-    private final String starlarkKey;
-
-    PlatformType(String starlarkKey) {
-      this.starlarkKey = starlarkKey;
-    }
-
-    @Override
-    public boolean isImmutable() {
-      return true; // immutable and Starlark-hashable
-    }
-
-    @Override
-    public String toString() {
-      return name().toLowerCase(Locale.ROOT);
-    }
-
-    /**
-     * Returns the {@link PlatformType} with given name (case insensitive).
-     *
-     * @throws UnsupportedPlatformTypeException if the name does not match a valid platform type.
-     */
-    public static PlatformType fromString(String name) throws UnsupportedPlatformTypeException {
-      for (PlatformType platformType : PlatformType.values()) {
-        if (name.equalsIgnoreCase(platformType.toString())) {
-          return platformType;
-        }
-      }
-      throw new UnsupportedPlatformTypeException(
-          String.format("Unsupported platform type \"%s\"", name));
-    }
-
-    /** Returns a Starlark struct that contains the instances of this enum. */
-    public static StructImpl getStarlarkStruct() {
-      Provider constructor = new BuiltinProvider<StructImpl>("platform_types", StructImpl.class) {};
-      HashMap<String, Object> fields = new HashMap<>();
-      for (PlatformType type : values()) {
-        fields.put(type.starlarkKey, type);
-      }
-      return StarlarkInfo.create(constructor, fields, Location.BUILTIN);
-    }
-
-    @Override
-    public void repr(Printer printer) {
-      printer.append(toString());
-    }
+    private PlatformType() {}
   }
+  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/objc/apple_platform.bzl)
 }

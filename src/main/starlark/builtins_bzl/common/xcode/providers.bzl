@@ -14,6 +14,8 @@
 
 """Definitions of providers used by the Xcode rules and their clients."""
 
+load(":common/objc/apple_platform.bzl", "PLATFORM_TYPE")
+
 AvailableXcodesInfo = provider(
     doc = """\
 The available Xcode versions computed from the `available_xcodes` rule.
@@ -63,8 +65,9 @@ def _xcode_version_info_init(
                 execution_requirements["requires-xcode-label:{}".format(label)] = ""
 
     _apple_common = _builtins.internal.apple_common
+
     platform_struct = _apple_common.platform
-    platform_type_struct = _apple_common.platform_type
+    platform_type_struct = PLATFORM_TYPE
 
     # To preserve the original behavior (throwing an error if a version string
     # is not correctly formatted), we have to convert them to dotted versions
