@@ -362,7 +362,9 @@ public interface CcModuleApi<
             defaultValue = "unbound"),
         @Param(
             name = "module_interfaces",
-            doc = "The list of module interfaces source files to be compiled.",
+            doc =
+                "The list of module interfaces source files to be compiled."
+                    + "Note: this is an experimental feature, only enabled with --experimental_cpp20_modules",
             positional = false,
             named = true,
             defaultValue = "unbound"),
