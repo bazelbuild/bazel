@@ -1157,20 +1157,14 @@ public class RuleClass implements RuleClassData {
     }
 
     /**
-     * State that the rule class being built possibly supplies the specified provider to its direct
-     * dependencies.
+     * State that the rule class being built always supplies the specified provider.
      *
      * <p>When computing the set of aspects required for a rule, only the providers listed here are
-     * considered. The presence of a provider here does not mean that the rule <b>must</b> implement
-     * said provider, merely that it <b>can</b>. After the configured target is constructed from
-     * this rule, aspects will be filtered according to the set of actual providers.
+     * considered. The presence of a provider here means that the rule <b>must</b> implement said
+     * provider.
      *
      * <p>This is here so that we can do the loading phase overestimation required for "blaze
      * query", which does not have the configured targets available.
-     *
-     * <p>It's okay for the rule class eventually not to supply it (possibly based on analysis phase
-     * logic), but if a provider is not advertised but is supplied, aspects that require the it will
-     * not be evaluated for the rule.
      */
     @CanIgnoreReturnValue
     public Builder advertiseProvider(Class<?>... providers) {

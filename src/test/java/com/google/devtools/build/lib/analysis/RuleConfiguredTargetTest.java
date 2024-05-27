@@ -20,8 +20,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -34,6 +36,17 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
 
   private ConfiguredTarget configure(String ruleLabel) throws Exception {
     return getConfiguredTarget(ruleLabel);
+  }
+
+  @Override
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    builder.addConfigurationFragment(DummyTestFragment.class);
+    return builder
+        .addRuleDefinition(new TestRuleClassProvider.LiarRuleWithNativeProvider())
+        .addRuleDefinition(new TestRuleClassProvider.LiarRuleWithStarlarkProvider())
+        .build();
   }
 
   @Test
@@ -635,5 +648,41 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
         """);
 
     getTarget("//p:my_target");
+  }
+
+  @Test
+  public void testNativeRuleNotReturnNativeAdvertisedProviderFail() throws Exception {
+    scratch.file(
+        "p/BUILD",
+        """
+        liar_rule_with_native_provider(
+            name = "my_target",
+          )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    var unused = configure("//p:my_target");
+
+    assertContainsEvent(
+        "in liar_rule_with_native_provider rule //p:my_target: rule advertised the 'FooProvider'"
+            + " provider, but this provider was not among those returned");
+  }
+
+  @Test
+  public void testNativeRuleNotReturnStarlarkAdvertisedProviderFail() throws Exception {
+    scratch.file(
+        "p/BUILD",
+        """
+        liar_rule_with_starlark_provider(
+            name = "my_target",
+          )
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    var unused = configure("//p:my_target");
+
+    assertContainsEvent(
+        "in liar_rule_with_starlark_provider rule //p:my_target: rule advertised the 'STARLARK_P1'"
+            + " provider, but this provider was not among those returned");
   }
 }

@@ -964,18 +964,6 @@ public class TestAspects {
           attr("foo1", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE),
           attr("txt", STRING));
 
-  /** A rule that advertises a provider but doesn't implement it. */
-  public static final MockRule LIAR_RULE =
-      () ->
-          MockRule.ancestor(BASE_RULE.getClass())
-              .factory(DummyRuleFactory.class)
-              .define(
-                  "liar",
-                  (builder, env) ->
-                      builder
-                          .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
-                          .advertiseStarlarkProvider(
-                              StarlarkProviderIdentifier.forKey(REQUIRED_PROVIDER_KEY)));
 
   /** A rule that advertises a provider and implements it. */
   public static final MockRule HONEST_RULE =
