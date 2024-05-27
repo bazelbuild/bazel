@@ -7176,7 +7176,13 @@ def _impl(ctx):
     else:
         include_system_dirs_feature = None
 
+    cpp20_modules_feature = feature(
+        name = "cpp20_modules",
+        enabled = False,
+    )
+
     features = [
+        cpp20_modules_feature,
         default_compile_flags_feature,
         default_link_flags_feature,
         no_legacy_features_feature,
