@@ -497,7 +497,7 @@ public class CcStarlarkInternal implements StarlarkValue {
   @StarlarkMethod(
       name = "for_static_library",
       documented = false,
-      parameters = {@Param(name = "name"), @Param(name = "is_whole_archive")})
+      parameters = {@Param(name = "name"), @Param(name = "is_whole_archive", named = true)})
   public LibraryToLinkValue forStaticLibrary(String name, boolean isWholeArchive) {
     return LibraryToLinkValue.forStaticLibrary(name, isWholeArchive);
   }
@@ -505,7 +505,7 @@ public class CcStarlarkInternal implements StarlarkValue {
   @StarlarkMethod(
       name = "for_object_file_group",
       documented = false,
-      parameters = {@Param(name = "files"), @Param(name = "is_whole_archive")})
+      parameters = {@Param(name = "files"), @Param(name = "is_whole_archive", named = true)})
   public LibraryToLinkValue forObjectFileGroup(Sequence<?> files, boolean isWholeArchive)
       throws EvalException {
     return LibraryToLinkValue.forObjectFileGroup(
@@ -515,7 +515,7 @@ public class CcStarlarkInternal implements StarlarkValue {
   @StarlarkMethod(
       name = "for_object_file",
       documented = false,
-      parameters = {@Param(name = "name"), @Param(name = "is_whole_archive")})
+      parameters = {@Param(name = "name"), @Param(name = "is_whole_archive", named = true)})
   public LibraryToLinkValue forObjectFile(String name, boolean isWholeArchive) {
     return LibraryToLinkValue.forObjectFile(name, isWholeArchive);
   }

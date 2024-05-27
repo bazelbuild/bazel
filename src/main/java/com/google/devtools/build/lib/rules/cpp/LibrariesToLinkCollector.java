@@ -467,7 +467,7 @@ public class LibrariesToLinkCollector {
       ImmutableList<String> rpathRoots,
       Map<Artifact, Artifact> ltoMap,
       NestedSetBuilder<String> librarySearchDirectories,
-      ImmutableSet.Builder<String> rpathEntries,
+      ImmutableSet.Builder<String> rpathRootsForExplicitSoDeps,
       SequenceBuilder librariesToLink,
       NestedSetBuilder<LegacyLinkerInput> expandedLinkerInputsBuilder)
       throws EvalException {
@@ -515,7 +515,7 @@ public class LibrariesToLinkCollector {
             expandedLinkerInputsBuilder,
             librarySearchDirectories,
             rpathRoots,
-            rpathEntries);
+            rpathRootsForExplicitSoDeps);
       } else {
         addStaticInputLinkOptions(input, ltoMap, librariesToLink, expandedLinkerInputsBuilder);
       }

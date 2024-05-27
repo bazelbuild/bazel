@@ -95,7 +95,7 @@ def collect_libraries_to_link(
 
     # Collect LibrariesToLink
     library_search_directories = []
-    rpath_roots_for_explicit_so_deps = []
+    rpath_roots_for_explicit_so_deps = {}
     expanded_linker_inputs = []
 
     # List of command line parameters that need to be placed *outside* of
@@ -148,7 +148,7 @@ def collect_libraries_to_link(
         fail("Still have LTO objects left: %s" % lto_map)
 
     # Remove repetitions
-    rpath_roots_for_explicit_so_deps = depset(rpath_roots_for_explicit_so_deps).to_list()
+    rpath_roots_for_explicit_so_deps = rpath_roots_for_explicit_so_deps.keys()
 
     # rpath ordering matters for performance; first add the one where most libraries are found.
     direct_runtime_library_search_directories = []
@@ -196,7 +196,7 @@ def _add_linker_inputs(
         libraries_to_link,
         expanded_linker_inputs,
         library_search_directories,
-        rpath_entries):
+        rpath_roots_for_explicit_so_deps):
     """
     Goes over all linker_inputs transforming them and collecting rpath_roots.
 
@@ -213,7 +213,7 @@ def _add_linker_inputs(
         libraries_to_link: (list[LibraryToLinkValue]) Output collecting libraries to link.
         expanded_linker_inputs: (list[LegacyLinkerInput]) Output collecting expanded linker inputs.
         library_search_directories: (list[str]) Output collecting library search directories.
-        rpath_entries: (list[str]) Output collecting rpaths.
+        rpath_roots_for_explicit_so_deps: (dict[str, None]) Output collecting rpaths.
 
     Returns:
       (include_solib_dir: bool, include_toolchain_libraries_solib_dir: bool)
@@ -223,7 +223,7 @@ def _add_linker_inputs(
     linked_libraries_paths = {}  # :dict[str, str]
 
     # TODO(b/331164666): Remove CppHelper.getArchiveType
-    use_start_end_lib = (cc_toolchain._cpp_configuration.start_end_lib and
+    use_start_end_lib = (cc_toolchain._cpp_configuration.start_end_lib() and
                          feature_configuration.is_enabled("supports_start_end_lib"))
 
     for input in linker_inputs:
@@ -249,7 +249,7 @@ def _add_linker_inputs(
                 # The first fragment is bazel-out, and the second may contain a configuration mnemonic.
                 # We should always add the default solib dir because that's where libraries will be found
                 # e.g., in remote execution, so we ignore the first two fragments.
-                if lib_dir.split("/")[2] == solib_dir.split("/")[2]:
+                if lib_dir.split("/")[2:] == solib_dir.split("/")[2:]:
                     include_solib_dir = True
                 if lib_dir == toolchain_libraries_solib_dir:
                     include_toolchain_libraries_solib_dir = True
@@ -264,7 +264,7 @@ def _add_linker_inputs(
                 libraries_to_link,
                 expanded_linker_inputs,
                 library_search_directories,
-                rpath_entries,  # = rpath_roots_for_explicit_so_deps,
+                rpath_roots_for_explicit_so_deps,
             )
         else:
             _add_static_input_link_options(
@@ -316,7 +316,7 @@ def _add_dynamic_input_link_options(
         libraries_to_link:  (list[LibraryToLinkValue]) Output collecting libraries to link.
         expanded_linker_inputs:  (list[LegacyLinkerInput]) Output collecting expanded linker inputs.
         library_search_directories: (list[str]) Output collecting library search directories.
-        rpath_roots_for_explicit_so_deps: (list[str]) Output collecting rpaths.
+        rpath_roots_for_explicit_so_deps: (list[str, None]) Output collecting rpaths.
 
     Returns:
         None
@@ -332,7 +332,7 @@ def _add_dynamic_input_link_options(
         # On Windows, dynamic library (dll) cannot be linked directly when using toolchains that
         # support interface library (eg. MSVC). If the user is doing so, it is only to be referenced
         # in other places (such as copy_dynamic_libraries_to_binary); skip adding it.
-        if is_shared_library(input):
+        if is_shared_library(input.file):
             return
 
     input_file = input.file
@@ -354,16 +354,14 @@ def _add_dynamic_input_link_options(
         #  does not exist, even when followed by "../". We thus have to normalize the relative path.
         for rpath_root in rpath_roots:
             normalized_path_to_root = paths.normalize(rpath_root + dotdots + paths.relativize(lib_dir, common_parent))
-            rpath_roots_for_explicit_so_deps.append(normalized_path_to_root)
+            rpath_roots_for_explicit_so_deps[normalized_path_to_root] = None
 
         # Unless running locally, libraries will be available under the root relative path, so we
         # should add that to the rpath as well.
         if input_file.short_path.startswith("_solib_"):
             artifact_path_under_solib = input_file.short_path.split("/")[1]
             for rpath_root in rpath_roots:
-                rpath_roots_for_explicit_so_deps.append(
-                    rpath_root + artifact_path_under_solib,
-                )
+                rpath_roots_for_explicit_so_deps[rpath_root + artifact_path_under_solib] = None
 
     library_search_directories.append(lib_dir)
 
@@ -550,7 +548,7 @@ def _collect_toolchain_runtime_library_search_directories(
 
     runtime_library_search_directories = []
     toolchain_libraries_solib_name = paths.basename(toolchain_libraries_solib_dir)
-    if not (is_native_deps and cc_toolchain.cc_configuration.share_native_deps):
+    if not (is_native_deps and cc_toolchain.cc_configuration.share_native_deps()):
         for potential_exec_root in _find_toolchain_solib_parents(cc_toolchain, output, potential_solib_parents, toolchain_libraries_solib_dir, workspace_name):
             runtime_library_search_directories.append(potential_exec_root + toolchain_libraries_solib_name + "/")
 
@@ -560,7 +558,7 @@ def _collect_toolchain_runtime_library_search_directories(
 
     runtime_library_search_directories.append(toolchain_libraries_solib_name + "/")
 
-    return depset(runtime_library_search_directories)
+    return depset(runtime_library_search_directories, order = "topological")
 
 # TODO(b/338618120): converge back together _find_toolchain_solib_parents and _find_potential_solib_parents
 
@@ -650,7 +648,7 @@ def _find_potential_solib_parents(output, dynamic_library_solib_symlink_output, 
     return solib_parents
 
 def _find_toolchain_solib_parents(cc_toolchain, output, potential_solib_parents, toolchain_libraries_solib_dir, workspace_name):
-    uses_legacy_repository_layout = output.root.path.startswith("../external")
+    uses_legacy_repository_layout = not cc_toolchain._is_sibling_repository_layout
 
     # When -experimental_sibling_repository_layout is not enabled, the toolchain solib sits next to
     # the solib_<cpu> directory - so that it shares the same parents.
