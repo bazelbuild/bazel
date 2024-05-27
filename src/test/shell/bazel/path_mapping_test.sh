@@ -569,7 +569,12 @@ def _slow_write_impl(ctx):
     args = ctx.actions.args().add(out)
     ctx.actions.run_shell(
          outputs = [out],
-         command = "sleep 2 && echo 'echo \"Hello, World!\"' > $1",
+         command = """
+         sleep 3
+         echo "Hello, stdout!"
+         >&2 echo "Hello, stderr!"
+         echo 'echo "Hello, World!"' > $1
+         """,
          arguments = [args],
          execution_requirements = {"supports-path-mapping": ""},
     )
@@ -607,7 +612,14 @@ EOF
     //pkg:all &> $TEST_log || fail "build failed unexpectedly"
   # The first slow_write action plus two genrules.
   expect_log '3 \(linux\|darwin\|processwrapper\)-sandbox'
-  expect_log '1 concurrent execution cache hit'
+  expect_log '1 deduplicated'
+
+  # Even though the spawn is only executed once, its stdout/stderr should be
+  # printed as if it wasn't deduplicated.
+  expect_log_once 'INFO: From Action pkg/script:'
+  expect_log_once 'INFO: From Action pkg/script \[for tool\]:'
+  expect_log_n 'Hello, stderr!' 2
+  expect_log_n 'Hello, stdout!' 2
 }
 
 run_suite "path mapping tests"

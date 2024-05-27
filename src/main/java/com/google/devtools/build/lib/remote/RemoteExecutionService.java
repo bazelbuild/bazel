@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
@@ -62,6 +63,7 @@ import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
@@ -77,6 +79,7 @@ import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.exec.SpawnInputExpander.InputWalker;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
@@ -106,6 +109,7 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
+import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -146,6 +150,7 @@ import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.Semaphore;
@@ -863,14 +868,14 @@ public class RemoteExecutionService {
   }
 
   /**
-   * Copies moves the downloaded outputs from their download location to their declared location.
+   * Copies moves the locally created outputs from their temporary location to their declared
+   * location.
    */
   private void moveOutputsToFinalLocation(
-      List<FileMetadata> finishedDownloads, Map<Path, Path> realToTmpPath) throws IOException {
+      Iterable<Path> localOutputs, Map<Path, Path> realToTmpPath) throws IOException {
     // Move the output files from their temporary name to the actual output file name. Executable
     // bit is ignored since the file permission will be changed to 0555 after execution.
-    for (FileMetadata outputFile : finishedDownloads) {
-      Path realPath = outputFile.path();
+    for (Path realPath : localOutputs) {
       Path tmpPath = Preconditions.checkNotNull(realToTmpPath.get(realPath));
       realPath.getParentDirectory().createDirectoryAndParents();
       FileSystemUtils.moveFile(tmpPath, realPath);
@@ -1167,7 +1172,7 @@ public class RemoteExecutionService {
 
       var execPath = file.path.relativeTo(execRoot);
       var isInMemoryOutputFile = inMemoryOutput != null && execPath.equals(inMemoryOutputPath);
-      if (!isInMemoryOutputFile && shouldDownload(result, execPath)) {
+      if (!isInMemoryOutputFile && shouldDownload(result.getExitCode(), execPath)) {
         Path tmpPath = tempPathGenerator.generateTempPath();
         realToTmpPath.put(file.path, tmpPath);
         downloadsBuilder.add(
@@ -1204,7 +1209,7 @@ public class RemoteExecutionService {
         if (realToTmpPath.containsKey(file.path)) {
           continue;
         }
-        if (shouldDownload(result, file.path.relativeTo(execRoot))) {
+        if (shouldDownload(result.getExitCode(), file.path.relativeTo(execRoot))) {
           Path tmpPath = tempPathGenerator.generateTempPath();
           realToTmpPath.put(file.path, tmpPath);
           downloadsBuilder.add(
@@ -1269,7 +1274,8 @@ public class RemoteExecutionService {
       // TODO(chiwang): Stage directories directly
       ((BazelOutputService) outputService).stageArtifacts(finishedDownloads);
     } else {
-      moveOutputsToFinalLocation(finishedDownloads, realToTmpPath);
+      moveOutputsToFinalLocation(
+          Iterables.transform(finishedDownloads, FileMetadata::path), realToTmpPath);
     }
 
     List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();
@@ -1326,14 +1332,130 @@ public class RemoteExecutionService {
     return null;
   }
 
-  private boolean shouldDownload(RemoteActionResult result, PathFragment execPath) {
+  public DeduplicatedExecution createDeduplicatedExecution(RemoteAction action) {
+    if (action.getSpawn().getPathMapper().isNoop()) {
+      return new DeduplicatedExecution(null);
+    }
+    return new DeduplicatedExecution(action);
+  }
+
+  public final class DeduplicatedExecution {
+    @Nullable private final RemoteAction otherAction;
+    private final SettableFuture<SpawnResult> spawnResultFuture;
+
+    public DeduplicatedExecution(@Nullable RemoteAction otherAction) {
+      this.otherAction = otherAction;
+      this.spawnResultFuture = SettableFuture.create();
+    }
+
+    public boolean commitResult(RemoteAction action, SpawnResult result) {
+      if (SpawnResult.Status.SUCCESS.equals(result.status()) && result.exitCode() == 0) {
+        spawnResultFuture.set(result);
+        return true;
+      }
+      String cwd = execRoot.getPathString();
+      String resultMessage = result.getFailureMessage();
+      String message =
+          !Strings.isNullOrEmpty(resultMessage)
+              ? resultMessage
+              : CommandFailureUtils.describeCommandFailure(
+                  // TODO: Handle verbose
+                  false, cwd, action.getSpawn());
+      spawnResultFuture.setException(
+          new SpawnExecException(message, result, /* forciblyRunRemotely= */ false));
+      return false;
+    }
+
+    public void cancel() {
+      spawnResultFuture.cancel(true);
+    }
+
+    public boolean canBeReused() {
+      return otherAction != null;
+    }
+
+    private SpawnResult waitFor() throws InterruptedException, IOException, ExecException {
+      try {
+        return spawnResultFuture.get();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw e;
+      } catch (ExecutionException e) {
+        Throwable cause = e.getCause();
+        if (cause != null) {
+          Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
+          Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
+          Throwables.throwIfInstanceOf(e.getCause(), ExecException.class);
+        }
+        throw new IllegalStateException("Unexpected exception", e);
+      }
+    }
+  }
+
+  /**
+   * Reuses the outputs of a concurrent non-remote execution of the same RemoteAction in a different
+   * spawn.
+   *
+   * <p>Since each output file is generated by a unique action and action's generally take care to
+   * run a unique spawn for each output file, this method is only useful with path mapping enabled,
+   * which allows different spawns in a single build to generate the same RemoteAction.
+   */
+  public SpawnResult reuseOutputs(RemoteAction action, DeduplicatedExecution previousExecution)
+      throws InterruptedException, IOException, ExecException {
+    checkState(!shutdown.get(), "shutdown");
+
+    SpawnResult previousSpawnResult = previousExecution.waitFor();
+
+    Preconditions.checkNotNull(previousExecution.otherAction);
+    Preconditions.checkArgument(
+        action.getActionKey().equals(previousExecution.otherAction.getActionKey()));
+
+    Map<Path, ActionInput> previousOutputs =
+        previousExecution.otherAction.getSpawn().getOutputFiles().stream()
+            .collect(toImmutableMap(output -> execRoot.getRelative(output.getExecPath()), o -> o));
+    Map<Path, Path> realToTmpPath = new HashMap<>();
+    for (String output : action.getCommand().getOutputPathsList()) {
+      Path sourcePath =
+          previousExecution
+              .otherAction
+              .getRemotePathResolver()
+              .outputPathToLocalPath(encodeBytestringUtf8(output));
+      ActionInput outputArtifact = previousOutputs.get(sourcePath);
+      Path tmpPath = tempPathGenerator.generateTempPath();
+      tmpPath.getParentDirectory().createDirectoryAndParents();
+      // TODO: Is this the correct symlink handling?
+      if (outputArtifact.isDirectory()) {
+        FileSystemUtils.copyTreesBelow(sourcePath, tmpPath, Symlinks.NOFOLLOW);
+      } else {
+        FileSystemUtils.copyFile(sourcePath, tmpPath);
+      }
+
+      Path targetPath =
+          action.getRemotePathResolver().outputPathToLocalPath(encodeBytestringUtf8(output));
+      realToTmpPath.put(targetPath, tmpPath);
+    }
+
+    action
+        .getSpawnExecutionContext()
+        .lockOutputFiles(
+            previousSpawnResult.exitCode(),
+            previousSpawnResult.getFailureMessage(),
+            // TODO: handle outErr
+            null);
+    // All outputs are created locally.
+    moveOutputsToFinalLocation(realToTmpPath.keySet(), realToTmpPath);
+
+    return previousSpawnResult;
+  }
+
+  private boolean shouldDownload(int exitCode, PathFragment execPath) {
     if (outputService instanceof BazelOutputService) {
       return false;
     }
 
     // In case the action failed, download all outputs. It might be helpful for debugging and there
     // is no point in injecting output metadata of a failed action.
-    if (result.getExitCode() != 0) {
+    if (exitCode != 0) {
       return true;
     }
     return remoteOutputChecker.shouldDownloadOutput(execPath);

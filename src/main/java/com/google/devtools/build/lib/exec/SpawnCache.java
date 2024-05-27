@@ -18,7 +18,9 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import java.io.IOException;
 import java.util.NoSuchElementException;
 
@@ -48,9 +50,12 @@ public interface SpawnCache extends ActionContext {
         }
 
         @Override
-        public void store(SpawnResult result) throws InterruptedException, IOException {
+        public void store(SpawnResult result) {
           // Do nothing.
         }
+
+        @Override
+        public void close() {}
       };
 
   /**
@@ -74,9 +79,12 @@ public interface SpawnCache extends ActionContext {
       }
 
       @Override
-      public void store(SpawnResult result) throws InterruptedException, IOException {
+      public void store(SpawnResult result) {
         throw new IllegalStateException();
       }
+
+      @Override
+      public void close() {}
     };
   }
 
@@ -104,7 +112,7 @@ public interface SpawnCache extends ActionContext {
    * to the cache after successful execution. Otherwise, if {@link #willStore} returns false, then
    * {@link #store} throws an {@link IllegalStateException}.
    */
-  interface CacheHandle {
+  interface CacheHandle extends SilentCloseable {
     /** Returns whether the cache lookup was successful. */
     boolean hasResult();
 
