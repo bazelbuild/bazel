@@ -455,6 +455,50 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void workingSet_derivedWorkingSetBuildsForTargetThenRdep() throws Exception {
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt", "//hello/world:dep"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+    write("hello/world/y.txt", "y");
+    write(
+        "hello/world/BUILD",
+        """
+        genrule(
+            name = "dep",
+            srcs = ["y.txt"],
+            outs = ["dep.txt"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    buildTarget("//hello/world:dep");
+    assertContainsEvent("Focusing on");
+    assertThat(getSkyframeExecutor().getSkyfocusState().derivedWorkingSetStrings())
+        .containsExactly("hello/world", "hello/world/BUILD", "hello/world/y.txt");
+
+    events.collector().clear();
+
+    buildTarget("//hello:target");
+    assertContainsEvent("Focusing on");
+    assertThat(getSkyframeExecutor().getSkyfocusState().derivedWorkingSetStrings())
+        .containsExactly(
+            "hello/world",
+            "hello/world/BUILD",
+            "hello/world/y.txt",
+            "hello",
+            "hello/BUILD",
+            "hello/x.txt");
+  }
+
+  @Test
   public void workingSet_configChangesAreHandledWithDerivedWorkingSet() throws Exception {
     write("hello/x.txt", "x");
     write("hello/y.txt", "y");
