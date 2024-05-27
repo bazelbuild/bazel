@@ -92,15 +92,6 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
       return new AutoValue_RemoteCacheClient_CachedActionResult(actionResult, "disk");
     }
 
-    @Nullable
-    public static CachedActionResult concurrentExecution(ActionResult actionResult) {
-      if (actionResult == null) {
-        return null;
-      }
-      return new AutoValue_RemoteCacheClient_CachedActionResult(
-          actionResult, "concurrent execution");
-    }
-
     /** A actionResult can have a cache name ascribed to it. */
     public abstract ActionResult actionResult();
 
