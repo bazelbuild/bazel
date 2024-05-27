@@ -62,7 +62,6 @@ import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
@@ -1401,8 +1400,7 @@ public class RemoteExecutionService {
   }
 
   /** Upload outputs of a remote action which was executed locally to remote cache. */
-  public void uploadOutputs(
-      RemoteAction action, SpawnResult spawnResult, SettableFuture<RemoteActionResult> resultFuture)
+  public void uploadOutputs(RemoteAction action, SpawnResult spawnResult)
       throws InterruptedException, ExecException {
     checkState(!shutdown.get(), "shutdown");
     checkState(
@@ -1433,16 +1431,12 @@ public class RemoteExecutionService {
                 @Override
                 public void onSuccess(@NonNull ActionResult actionResult) {
                   backgroundTaskPhaser.arriveAndDeregister();
-                  resultFuture.set(
-                      RemoteActionResult.createFromCache(
-                          CachedActionResult.concurrentExecution(actionResult)));
                 }
 
                 @Override
                 public void onError(@NonNull Throwable e) {
                   backgroundTaskPhaser.arriveAndDeregister();
                   reportUploadError(e);
-                  resultFuture.setException(e);
                 }
               });
     } else {
@@ -1450,12 +1444,8 @@ public class RemoteExecutionService {
           Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
         UploadManifest manifest = buildUploadManifest(action, spawnResult);
         manifest.upload(action.getRemoteActionExecutionContext(), remoteCache, reporter);
-        resultFuture.set(
-            RemoteActionResult.createFromCache(
-                CachedActionResult.concurrentExecution(manifest.getActionResult())));
       } catch (IOException e) {
         reportUploadError(e);
-        resultFuture.setException(e);
       }
     }
   }

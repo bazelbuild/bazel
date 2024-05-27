@@ -33,7 +33,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -710,7 +709,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       }
     }
 
-    remoteExecutionService.uploadOutputs(action, result, SettableFuture.create());
+    remoteExecutionService.uploadOutputs(action, result);
     return result;
   }
 
