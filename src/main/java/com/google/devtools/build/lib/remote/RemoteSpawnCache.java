@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
@@ -35,9 +34,11 @@ import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.RemoteExecutionService.DeduplicatedExecution;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.NoSuchElementException;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** A remote {@link SpawnCache} implementation. */
 @ThreadSafe // If the RemoteActionCache implementation is thread-safe.
@@ -55,6 +57,8 @@ final class RemoteSpawnCache implements SpawnCache {
   private final RemoteExecutionService remoteExecutionService;
   private final DigestUtil digestUtil;
   private final boolean verboseFailures;
+  private final ConcurrentHashMap<RemoteCacheClient.ActionKey, DeduplicatedExecution>
+      inFlightExecutions = new ConcurrentHashMap<>();
 
   RemoteSpawnCache(
       Path execRoot,
@@ -96,6 +100,8 @@ final class RemoteSpawnCache implements SpawnCache {
     context.setDigest(digestUtil.asSpawnLogProto(action.getActionKey()));
 
     Profiler prof = Profiler.instance();
+    DeduplicatedExecution thisExecution =
+        remoteExecutionService.createDeduplicatedExecution(action);
     if (shouldAcceptCachedResult) {
       // Metadata will be available in context.current() until we detach.
       // This is done via a thread-local variable.
@@ -103,6 +109,34 @@ final class RemoteSpawnCache implements SpawnCache {
         RemoteActionResult result;
         try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
           result = remoteExecutionService.lookupCache(action);
+        }
+        if (result == null && shouldUploadLocalResults && thisExecution.canBeReused()) {
+          DeduplicatedExecution inFlightExecution =
+              inFlightExecutions.putIfAbsent(action.getActionKey(), thisExecution);
+          if (inFlightExecution != null) {
+            Stopwatch fetchTime = Stopwatch.createStarted();
+            SpawnResult previousResult;
+            try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "reuse outputs")) {
+              previousResult = remoteExecutionService.reuseOutputs(action, inFlightExecution);
+            }
+            spawnMetrics
+                .setFetchTimeInMs((int) fetchTime.elapsed().toMillis())
+                .setTotalTimeInMs((int) totalTime.elapsed().toMillis())
+                .setNetworkTimeInMs((int) action.getNetworkTime().getDuration().toMillis());
+            SpawnMetrics buildMetrics = spawnMetrics.build();
+            return SpawnCache.success(
+                new SpawnResult.DelegateSpawnResult(previousResult) {
+                  @Override
+                  public String getRunnerName() {
+                    return "deduplicated";
+                  }
+
+                  @Override
+                  public SpawnMetrics getMetrics() {
+                    return buildMetrics;
+                  }
+                });
+          }
         }
         // In case the remote cache returned a failed action (exit code != 0) we treat it as a
         // cache miss
@@ -167,8 +201,7 @@ final class RemoteSpawnCache implements SpawnCache {
 
         @Override
         public void store(SpawnResult result) throws ExecException, InterruptedException {
-          boolean uploadResults = Status.SUCCESS.equals(result.status()) && result.exitCode() == 0;
-          if (!uploadResults) {
+          if (!thisExecution.commitResult(action, result)) {
             return;
           }
 
@@ -200,6 +233,12 @@ final class RemoteSpawnCache implements SpawnCache {
               throw new IOException(path + " was modified during execution");
             }
           }
+        }
+
+        @Override
+        public void close() {
+          inFlightExecutions.remove(action.getActionKey());
+          thisExecution.cancel();
         }
       };
     } else {

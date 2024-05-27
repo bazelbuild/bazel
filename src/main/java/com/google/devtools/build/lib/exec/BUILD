@@ -230,6 +230,7 @@ java_library(
     deps = [
         ":spawn_runner",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
     ],
 )
 
