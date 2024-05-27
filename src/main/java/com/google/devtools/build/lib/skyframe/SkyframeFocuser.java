@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.IncrementalInMemoryNodeEntry;
+import com.google.devtools.build.skyframe.NodeEntry.LifecycleState;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collection;
 import java.util.Set;
@@ -107,6 +108,14 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
    * graph.
    */
   public static class FocusResult {
+
+    public static final FocusResult NO_RESULT =
+        new FocusResult(
+            ImmutableSet.of(),
+            ImmutableSet.of(),
+            ImmutableSet.of(),
+            ImmutableSet.of(),
+            ImmutableSet.of());
 
     private final ImmutableSet<SkyKey> roots;
 
@@ -218,6 +227,17 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
       }
 
       if (!nodeEntry.isDone()) {
+        if (nodeEntry.getLifecycleState().equals(LifecycleState.CHECK_DEPENDENCIES)) {
+          // When building a new top level target, the updated BUILD_ID precomputed value will
+          // invalidate all of its reverse dependencies, and depending on what's being built,
+          // some of them may remain in the CHECK_DEPENDENCIES state, and not done.
+          //
+          // For these, just ignore them and keep them in the graph, since they may be used for
+          // a subsequent build.
+          keptRdeps.remove(key);
+          return;
+        }
+
         // TODO: b/312819241 - handle this gracefully without throwing.
         throw new IllegalStateException("nodeEntry not done: " + key.getCanonicalName());
       }
@@ -374,6 +394,12 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
               return;
             }
 
+            if (!inMemoryNodeEntry.isDone()) {
+              // Don't remove undone nodes -- these are nodes that were already in the graph,
+              // but invalidated and not evaluated in this current invocation.
+              return;
+            }
+
             if (inMemoryNodeEntry.getValue() instanceof ActionLookupValue alv) {
               for (ActionAnalysisMetadata a : alv.getActions()) {
                 for (Artifact output : a.getOutputs()) {
@@ -413,7 +439,7 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
               // B is the root, and A is the only leaf. We can throw out the CD edge, even
               // though both C and D are still used by B. This is because no changes are expected to
               // C and D, so it's unnecessary to maintain the edges.
-              Preconditions.checkNotNull(nodeEntry);
+              Preconditions.checkNotNull(nodeEntry, key);
               nodeEntry.clearDirectDepsForSkyfocus();
 
               if (isVerificationSetKeyType(key)) {

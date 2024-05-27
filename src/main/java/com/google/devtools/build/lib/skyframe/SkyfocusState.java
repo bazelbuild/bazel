@@ -13,104 +13,177 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Skyfocus;
-import com.google.devtools.build.lib.server.FailureDetails.Skyfocus.Code;
-import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import javax.annotation.Nullable;
 
 /**
  * An immutable record of the state of Skyfocus. This is recorded as a member in {@link
  * SkyframeExecutor}.
+ *
+ * @param enabled If true, Skyfocus may run at the end of the build, depending on the state of the
+ *     graph and working set conditions.
+ * @param forcedRerun If true, Skyfocus will always run at the end of the build, regardless of the
+ *     state of working set or the graph.
+ * @param focusedTargetLabels The set of targets focused in this server instance
+ * @param userDefinedWorkingSet The user defined working set from the command line flag. Empty if
+ *     derived working set is used. Although the working set is represented as {@link FileStateKey},
+ *     the presence of a directory path's {@code FileStateKey} is sufficient to represent the
+ *     corresponding directory listing state node.
+ * @param derivedWorkingSet Automatically derived working set from the target being built. Empty if
+ *     user defined working set is used. Although the working set is represented as {@link
+ *     FileStateKey}, the presence of a directory path's {@code FileStateKey} is sufficient to
+ *     represent the corresponding directory listing state node.
+ * @param verificationSet The set of files/dirs that are not in the working set, but is in the
+ *     transitive closure of focusedTargetLabels.
+ * @param options The latest instance of {@link SkyfocusOptions}.
+ * @param buildConfiguration The latest top level build configuration.
  */
 public record SkyfocusState(
     boolean enabled,
-    ImmutableSet<String> workingSet,
+    boolean forcedRerun,
+    ImmutableSet<Label> focusedTargetLabels,
+    ImmutableSet<FileStateKey> userDefinedWorkingSet,
+    ImmutableSet<FileStateKey> derivedWorkingSet,
     ImmutableSet<SkyKey> verificationSet,
     @Nullable SkyfocusOptions options,
-    @Nullable BuildConfigurationValue buildConfiguration,
-    Request request) {
-
-  /** Determines how (or if) Skyfocus should run during this build. */
-  public enum Request {
-    /**
-     * Blaze has to reset the evaluator state and restart analysis before running Skyfocus. This is
-     * usually due to Skyfocus having dropped nodes in a prior invocation, and there's no way to
-     * recover from it. This can be expensive.
-     */
-    RERUN_ANALYSIS_THEN_RUN_FOCUS,
-
-    /** Trigger Skyfocus. */
-    RUN_FOCUS,
-
-    DO_NOTHING
-  }
+    @Nullable BuildConfigurationValue buildConfiguration) {
 
   /** The canonical state to completely disable Skyfocus in the build. */
   public static final SkyfocusState DISABLED =
       new SkyfocusState(
-          false, ImmutableSet.of(), ImmutableSet.of(), null, null, Request.DO_NOTHING);
+          false,
+          false,
+          ImmutableSet.of(),
+          ImmutableSet.of(),
+          ImmutableSet.of(),
+          ImmutableSet.of(),
+          null,
+          null);
+
+  public ImmutableSet<String> userDefinedWorkingSetStrings() {
+    return userDefinedWorkingSet.stream()
+        .map(fsk -> fsk.argument().getRootRelativePath().toString())
+        .collect(toImmutableSet());
+  }
+
+  public ImmutableSet<String> derivedWorkingSetStrings() {
+    return derivedWorkingSet.stream()
+        .map(fsk -> fsk.argument().getRootRelativePath().toString())
+        .collect(toImmutableSet());
+  }
 
   public SkyfocusState withEnabled(boolean val) {
     return new SkyfocusState(
-        val, workingSet, verificationSet, options, buildConfiguration, request);
+        val,
+        forcedRerun,
+        focusedTargetLabels,
+        userDefinedWorkingSet,
+        derivedWorkingSet,
+        verificationSet,
+        options,
+        buildConfiguration);
   }
 
-  public SkyfocusState withWorkingSet(ImmutableSet<String> val) {
-    return new SkyfocusState(enabled, val, verificationSet, options, buildConfiguration, request);
+  public SkyfocusState withForcedRerun(boolean val) {
+    return new SkyfocusState(
+        enabled,
+        val,
+        focusedTargetLabels,
+        userDefinedWorkingSet,
+        derivedWorkingSet,
+        verificationSet,
+        options,
+        buildConfiguration);
+  }
+
+  public SkyfocusState addFocusedTargetLabels(ImmutableSet<Label> val) {
+    return new SkyfocusState(
+        enabled,
+        forcedRerun,
+        ImmutableSet.<Label>builder().addAll(focusedTargetLabels).addAll(val).build(),
+        userDefinedWorkingSet,
+        derivedWorkingSet,
+        verificationSet,
+        options,
+        buildConfiguration);
+  }
+
+  public SkyfocusState withUserDefinedWorkingSet(ImmutableSet<FileStateKey> val) {
+    return new SkyfocusState(
+        enabled,
+        forcedRerun,
+        focusedTargetLabels,
+        val,
+        derivedWorkingSet,
+        verificationSet,
+        options,
+        buildConfiguration);
+  }
+
+  public SkyfocusState addDerivedWorkingSet(ImmutableSet<FileStateKey> val) {
+    return new SkyfocusState(
+        enabled,
+        forcedRerun,
+        focusedTargetLabels,
+        userDefinedWorkingSet,
+        ImmutableSet.<FileStateKey>builder().addAll(derivedWorkingSet).addAll(val).build(),
+        verificationSet,
+        options,
+        buildConfiguration);
+  }
+
+  public SkyfocusState withDerivedWorkingSet(ImmutableSet<FileStateKey> val) {
+    return new SkyfocusState(
+        enabled,
+        forcedRerun,
+        focusedTargetLabels,
+        userDefinedWorkingSet,
+        val,
+        verificationSet,
+        options,
+        buildConfiguration);
   }
 
   public SkyfocusState withVerificationSet(ImmutableSet<SkyKey> val) {
-    return new SkyfocusState(enabled, workingSet, val, options, buildConfiguration, request);
+    return new SkyfocusState(
+        enabled,
+        forcedRerun,
+        focusedTargetLabels,
+        userDefinedWorkingSet,
+        derivedWorkingSet,
+        val,
+        options,
+        buildConfiguration);
   }
 
   public SkyfocusState withOptions(SkyfocusOptions val) {
     return new SkyfocusState(
-        enabled, workingSet, verificationSet, val, buildConfiguration, request);
+        enabled,
+        forcedRerun,
+        focusedTargetLabels,
+        userDefinedWorkingSet,
+        derivedWorkingSet,
+        verificationSet,
+        val,
+        buildConfiguration);
   }
 
   public SkyfocusState withBuildConfiguration(BuildConfigurationValue val) {
-    return new SkyfocusState(enabled, workingSet, verificationSet, options, val, request);
-  }
-
-  public SkyfocusState withRequest(Request val) {
     return new SkyfocusState(
-        enabled, workingSet, verificationSet, options, buildConfiguration, val);
+        enabled,
+        forcedRerun,
+        focusedTargetLabels,
+        userDefinedWorkingSet,
+        derivedWorkingSet,
+        verificationSet,
+        options,
+        val);
   }
 
-  public Request checkBuildConfigChanges(
-      BuildConfigurationValue newConfig, Request originalRequest, EventHandler eventHandler)
-      throws AbruptExitException {
-    if (buildConfiguration() == null || buildConfiguration().equals(newConfig)) {
-      return originalRequest;
-    }
-
-    return switch (options.handlingStrategy) {
-      case WARN -> {
-        eventHandler.handle(
-            Event.warn(
-                "Skyfocus: detected changes to the build configuration, will be discarding the"
-                    + " analysis cache."));
-
-        yield Request.RUN_FOCUS;
-      }
-      case STRICT ->
-          throw new AbruptExitException(
-              DetailedExitCode.of(
-                  FailureDetail.newBuilder()
-                      .setMessage(
-                          "Skyfocus: detected changes to the build configuration. This is not"
-                              + " allowed in a focused build. Either clean to reset the build, or"
-                              + " set --experimental_skyfocus_handling_strategy=warn to perform a"
-                              + " full reanalysis instead of failing the build.")
-                      .setSkyfocus(Skyfocus.newBuilder().setCode(Code.CONFIGURATION_CHANGE).build())
-                      .build()));
-    };
-  }
 }

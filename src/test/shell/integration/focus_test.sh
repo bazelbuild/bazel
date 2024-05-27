@@ -225,19 +225,20 @@ EOF
   expect_log "${pkg}/in.txt"
   expect_log "${pkg}/in2.txt"
 
-  # Working set can be expanded to include files not in the downward transitive closure.
+  # Working set can be defined with files not in the downward transitive
+  # closure but `info working_set` will not report it.
   bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt,${pkg}/in2.txt,${pkg}/not.used
   bazel info working_set &> "$TEST_log"
   expect_log "${pkg}/in.txt"
   expect_log "${pkg}/in2.txt"
-  expect_log "${pkg}/not.used"
+  expect_not_log "${pkg}/not.used"
 
   # The active set is retained for subsequent builds that don't pass the flag.
   bazel build //${pkg}:g
   bazel info working_set &> "$TEST_log"
   expect_log "${pkg}/in.txt"
   expect_log "${pkg}/in2.txt"
-  expect_log "${pkg}/not.used"
+  expect_not_log "${pkg}/not.used"
 }
 
 function test_glob_inputs_change_with_dir_in_working_set() {

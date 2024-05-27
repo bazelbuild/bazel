@@ -72,6 +72,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Skyfocus;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns.Code;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
@@ -82,7 +83,6 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SkyfocusState;
-import com.google.devtools.build.lib.skyframe.SkyfocusState.Request;
 import com.google.devtools.build.lib.skyframe.SkyframeAnalysisAndExecutionResult;
 import com.google.devtools.build.lib.skyframe.SkyframeAnalysisResult;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
@@ -90,6 +90,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTe
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.Collection;
@@ -252,14 +253,41 @@ public class BuildView {
     // needed. This requires cleaning up the invalidation in SkyframeBuildView.setConfigurations.
     try (SilentCloseable c = Profiler.instance().profile("createConfigurations")) {
       topLevelConfig = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
-
       SkyfocusState skyfocusState = skyframeExecutor.getSkyfocusState();
       if (skyfocusState.enabled()) {
-        Request newRequest =
-            skyfocusState.checkBuildConfigChanges(
-                topLevelConfig, skyfocusState.request(), eventHandler);
+        boolean buildConfigChanged =
+            skyfocusState.buildConfiguration() != null
+                && !skyfocusState.buildConfiguration().equals(topLevelConfig);
+        if (buildConfigChanged) {
+          switch (skyfocusState.options().handlingStrategy) {
+            case WARN -> {
+              eventHandler.handle(
+                  Event.warn(
+                      "Skyfocus: detected changes to the build configuration, will be discarding"
+                          + " the analysis cache."));
+            }
+            case STRICT ->
+                throw new AbruptExitException(
+                    DetailedExitCode.of(
+                        FailureDetail.newBuilder()
+                            .setMessage(
+                                "Skyfocus: detected changes to the build configuration. This is not"
+                                    + " allowed in a focused build. Either clean to reset the"
+                                    + " build, or set"
+                                    + " --experimental_skyfocus_handling_strategy=warn to perform a"
+                                    + " full reanalysis instead of failing the build.")
+                            .setSkyfocus(
+                                Skyfocus.newBuilder()
+                                    .setCode(Skyfocus.Code.CONFIGURATION_CHANGE)
+                                    .build())
+                            .build()));
+          }
+        }
+
         skyframeExecutor.setSkyfocusState(
-            skyfocusState.withBuildConfiguration(topLevelConfig).withRequest(newRequest));
+            skyfocusState
+                .withBuildConfiguration(topLevelConfig)
+                .withForcedRerun(buildConfigChanged));
       }
       eventBus.post(new ConfigRequestedEvent(topLevelConfig, /* parentChecksum= */ null));
     }

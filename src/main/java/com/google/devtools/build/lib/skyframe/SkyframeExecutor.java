@@ -27,6 +27,7 @@ import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ACTI
 import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.NONE;
 import static com.google.devtools.build.lib.skyframe.ConflictCheckingMode.WITH_TRAVERSAL;
 import static com.google.devtools.build.lib.skyframe.SkyfocusState.DISABLED;
+import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 
 import com.github.benmanes.caffeine.cache.Cache;
@@ -142,6 +143,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
+import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -204,7 +206,6 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossReposit
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SkyfocusOptions.SkyfocusDumpOption;
 import com.google.devtools.build.lib.skyframe.SkyfocusOptions.SkyfocusHandlingStrategy;
-import com.google.devtools.build.lib.skyframe.SkyfocusState.Request;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
 import com.google.devtools.build.lib.skyframe.SkyframeFocuser.FocusResult;
@@ -294,6 +295,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
@@ -309,6 +311,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -4006,6 +4009,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       return;
     }
 
+    // Always reset top level evaluations for each invocation for an evaluator that supports
+    // Skyfocus.
+    memoizingEvaluator.cleanupLatestTopLevelEvaluations();
+
     if (!skyfocusOptions.skyfocusEnabled) {
       skyfocusState = DISABLED;
       return;
@@ -4023,68 +4030,27 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       reporter.handle(Event.warn("Changes outside of the working set will cause a build error."));
     }
 
-    ImmutableSet<String> newWorkingSet = ImmutableSet.copyOf(skyfocusOptions.workingSet);
-    Request newRequest = getSkyfocusRequest(skyfocusState.workingSet(), newWorkingSet);
+    ImmutableSet<String> newUserDefinedWorkingSet = ImmutableSet.copyOf(skyfocusOptions.workingSet);
+    ImmutableSet<FileStateKey> activeWorkingSet = skyfocusState.userDefinedWorkingSet();
 
-    switch (newRequest) {
-      case RERUN_ANALYSIS_THEN_RUN_FOCUS:
-        reporter.handle(
-            Event.warn(
-                "Working set changed to include new files, discarding analysis cache. This can"
-                    + " be expensive, so choose your working set carefully."));
-        resetEvaluator();
-        // fall through
-      case RUN_FOCUS:
-        reporter.handle(
-            Event.info(
-                "Updated working set successfully. Skyfocus will run at the end of the"
-                    + " build."));
-        // update to the new working set
-        skyfocusState =
-            skyfocusState
-                .withEnabled(true)
-                .withOptions(skyfocusOptions)
-                .withWorkingSet(newWorkingSet)
-                .withRequest(Request.RUN_FOCUS);
-        memoizingEvaluator.rememberTopLevelEvaluations(true);
-        break;
-      case DO_NOTHING:
-        skyfocusState =
-            skyfocusState
-                .withEnabled(true)
-                .withOptions(skyfocusOptions)
-                .withRequest(Request.DO_NOTHING);
-        break;
-    }
-  }
-
-  /** Compute the intended action using the active and new working set definitions. */
-  private static Request getSkyfocusRequest(
-      Set<String> activeWorkingSet, Set<String> newWorkingSet) {
-    // Skyfocus is not active.
-    if (activeWorkingSet.isEmpty()) {
-      if (newWorkingSet.isEmpty()) {
-        // No new working set is defined. Do nothing.
-        return Request.DO_NOTHING;
-      } else {
-        // New working set is defined. Run focus for the first time.
-        return Request.RUN_FOCUS;
+    if (!activeWorkingSet.isEmpty()) {
+      for (String s : newUserDefinedWorkingSet) {
+        FileStateKey key = toFileStateKey(s);
+        if (!activeWorkingSet.contains(key)) {
+          // New working set contains new files. Unfortunately, this is a suboptimal path, and we
+          // have to re-run full analysis.
+          reporter.handle(
+              Event.warn(
+                  "Working set changed to include new files, discarding analysis cache. This can"
+                      + " be expensive, so choose your working set carefully."));
+          resetEvaluator();
+          break;
+        }
       }
     }
 
-    // activeWorkingSet is not empty, so Skyfocus is active.
-    if (newWorkingSet.isEmpty() || newWorkingSet.equals(activeWorkingSet)) {
-      // Unchanged working set.
-      return Request.DO_NOTHING;
-    } else if (activeWorkingSet.containsAll(newWorkingSet)) {
-      // New working set is a subset of the current working set. Refocus on the new working set and
-      // minimize the memory footprint further.
-      return Request.RUN_FOCUS;
-    } else {
-      // New working set contains new files. Unfortunately, this is a suboptimal path, and we
-      // have to re-run full analysis.
-      return Request.RERUN_ANALYSIS_THEN_RUN_FOCUS;
-    }
+    memoizingEvaluator.rememberTopLevelEvaluations(true);
+    skyfocusState = skyfocusState.withEnabled(true).withOptions(skyfocusOptions);
   }
 
   /**
@@ -4094,9 +4060,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public final void runSkyfocus(Reporter reporter, ActionCache actionCache)
       throws InterruptedException, AbruptExitException {
     if (!skyfocusState.enabled()) {
-      return;
-    }
-    if (skyfocusState.request() != Request.RUN_FOCUS) {
       return;
     }
 
@@ -4120,14 +4083,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // Run Skyfocus!
     FocusResult focusResult = runSkyfocusInternal(reporter, actionCache);
 
+    if (focusResult.equals(FocusResult.NO_RESULT)) {
+      return;
+    }
+
     // Shouldn't result in an empty graph.
     checkState(!focusResult.getDeps().isEmpty());
     checkState(!focusResult.getRdeps().isEmpty());
 
-    skyfocusState =
-        skyfocusState
-            .withRequest(Request.DO_NOTHING)
-            .withVerificationSet(focusResult.getVerificationSet());
+    skyfocusState = skyfocusState.withVerificationSet(focusResult.getVerificationSet());
 
     // Now that the graph has dropped nodes, run a GC to reclaim some memory.
     System.gc();
@@ -4155,8 +4119,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       reportReductions(
           reporter, "Heap", beforeHeap, getHeapSize(), StringUtilities::prettyPrintBytes);
     }
-
-    memoizingEvaluator.cleanupLatestTopLevelEvaluations();
   }
 
   /**
@@ -4185,68 +4147,178 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // logic in the evaluator.
     checkState(roots != null && !roots.isEmpty(), "roots can't be null or empty");
 
-    // TODO: b/312819241 - For simplicity's sake, use the first --package_path as the root.
-    // This may be an issue with packages from a different package_path root.
-    Root packageRoot = pkgLocator.get().getPathEntries().get(0);
-    ImmutableSet<RootedPath> workingSetRootedPaths =
-        Stream.concat(
-                skyfocusState.workingSet().stream(),
-                // The Bzlmod lockfile can be created after a build without having existed before
-                // and must always be kept in the working set if it is used.
-                Stream.of("MODULE.bazel.lock"))
-            .map(f -> RootedPath.toRootedPath(packageRoot, PathFragment.create(f)))
-            .collect(toImmutableSet());
-
-    Set<SkyKey> leafs = Sets.newConcurrentHashSet();
-    graph.parallelForEach(
-        node -> {
-          SkyKey k = node.getKey();
-          if (k instanceof FileStateKey fileStateKey) {
-            RootedPath rootedPath = fileStateKey.argument();
-            if (workingSetRootedPaths.contains(rootedPath)) {
-              leafs.add(k);
-            }
-          }
-        });
-    if (leafs.isEmpty()) {
-      throw new AbruptExitException(
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setMessage(
-                      "Failed to construct working set because none of the files in the working set"
-                          + " are found in the transitive closure of the build.")
-                  .setSkyfocus(
-                      Skyfocus.newBuilder().setCode(Skyfocus.Code.INVALID_WORKING_SET).build())
-                  .build()));
-    }
-    int missingCount = workingSetRootedPaths.size() - leafs.size();
-    if (missingCount > 0) {
-      eventHandler.handle(
-          Event.warn(
-              missingCount
-                  + " files were not found in the transitive closure, and so they are not"
-                  + " included in the working set. They are: "
-                  + workingSetRootedPaths.stream()
-                      .filter(java.util.function.Predicate.not(leafs::contains))
-                      .map(r -> r.getRootRelativePath().toString())
-                      .collect(joining(", "))));
-    }
-
     // TODO: b/312819241 - this leaf is necessary for build correctness of volatile actions, like
     // stamping, but retains a lot of memory (100MB of retained heap for a 9+GB build).
-    leafs.add(PrecomputedValue.BUILD_ID.getKey()); // needed to invalidate linkstamped targets.
+    ImmutableSet.Builder<SkyKey> leafsBuilder =
+        ImmutableSet.<SkyKey>builder().add(PrecomputedValue.BUILD_ID.getKey());
 
     INCLUDE_KEYS_FOR_SKYFOCUS_IF_EXIST.forEach(
         k -> {
           if (graph.getIfPresent(k) != null) {
-            leafs.add(k);
+            leafsBuilder.add(k);
           }
         });
+
+    Function<SkyKey, Label> mapForTopLevelLabels =
+        isMergedSkyframeAnalysisExecution()
+            ? k -> k instanceof BuildDriverKey bdk ? bdk.getActionLookupKey().getLabel() : null
+            : k -> k instanceof ConfiguredTargetKey ctk ? ctk.getLabel() : null;
+
+    ImmutableSet<Label> topLevelTargetLabels =
+        roots.stream()
+            .map(mapForTopLevelLabels)
+            .filter(Objects::nonNull)
+            .collect(ImmutableSet.toImmutableSet());
+
+    if (topLevelTargetLabels.isEmpty()) {
+      return FocusResult.NO_RESULT;
+    }
+
+    Set<FileStateKey> newWorkingSet = Sets.newConcurrentHashSet();
+
+    if (skyfocusState.options().workingSet.isEmpty()
+        && skyfocusState.userDefinedWorkingSet().isEmpty()) {
+
+      try (SilentCloseable c = Profiler.instance().profile("Skyfocus derive working set")) {
+        // If the user hasn't defined a new working set from the command line and there
+        // isn't an active user-defined working set in use, automatically derive one using the
+        // targets
+        // being built.
+        eventHandler.handle(Event.info("Skyfocus: automatically deriving working set."));
+
+        ImmutableSet<PathFragment> topLevelTargetPackages =
+            topLevelTargetLabels.stream().map(Label::getPackageFragment).collect(toImmutableSet());
+
+        // For each FSK, add to the working set if the FSK's parent dir shares the same
+        // package as one of the top level targets.
+        graph.parallelForEach(
+            node -> {
+              if (node.getKey() instanceof FileStateKey fileStateKey) {
+                Preconditions.checkState(
+                    node.isDone(),
+                    "FileState node is not done. This is an internal inconsistency.");
+                if (node.getValue().equals(FileStateValue.NONEXISTENT_FILE_STATE_NODE)) {
+                  return;
+                }
+
+                PathFragment currPath = fileStateKey.argument().getRootRelativePath();
+                while (currPath != null) {
+                  try {
+                    if (packageManager.isPackage(
+                        eventHandler, PackageIdentifier.create(RepositoryName.MAIN, currPath))) {
+                      if (topLevelTargetPackages.contains(currPath)) {
+                        newWorkingSet.add(fileStateKey.argument());
+                      }
+                      break;
+                    }
+                  } catch (InconsistentFilesystemException e) {
+                    throw new IllegalStateException(e);
+                  } catch (InterruptedException e) {
+                    // Swallow interrupted exceptions at this level, since this is probably from the
+                    // main thread, and so there's not much else to do here.
+                    //
+                    // If this is a stray SIGINT, then we can't do much here either.
+                  }
+
+                  // traverse up the path until we find a valid package
+                  currPath = currPath.getParentDirectory();
+                }
+              }
+            });
+
+        if (!skyfocusState.forcedRerun()
+            && skyfocusState.derivedWorkingSet().containsAll(newWorkingSet)
+            && skyfocusState.focusedTargetLabels().containsAll(topLevelTargetLabels)) {
+          // Already focused on a superset of the working set, no need to do anything.
+          return FocusResult.NO_RESULT;
+        }
+
+        skyfocusState =
+            skyfocusState
+                .withUserDefinedWorkingSet(ImmutableSet.of())
+                .addDerivedWorkingSet(ImmutableSet.copyOf(newWorkingSet));
+
+        leafsBuilder.addAll(skyfocusState.derivedWorkingSet());
+      }
+    } else {
+      if (skyfocusState.options().workingSet.isEmpty() && !skyfocusState.forcedRerun()) {
+        // No command line request to update the working set; return early.
+        return FocusResult.NO_RESULT;
+      }
+
+      // User is setting a new explicit working set from the command line option.
+      // This will override any previously defined working set.
+
+      ImmutableSet<RootedPath> workingSetRootedPaths =
+          Stream.concat(
+                  skyfocusState.options().workingSet.stream(),
+                  // The Bzlmod lockfile can be created after a build without having existed before
+                  // and must always be kept in the working set if it is used.
+                  Stream.of("MODULE.bazel.lock"))
+              .map(this::toFileStateKey)
+              .collect(toImmutableSet());
+      graph.parallelForEach(
+          node -> {
+            if (node.getKey() instanceof FileStateKey fileStateKey) {
+              RootedPath rootedPath = fileStateKey.argument();
+              if (workingSetRootedPaths.contains(rootedPath)) {
+                newWorkingSet.add(fileStateKey);
+              }
+            }
+          });
+
+      int missingCount = workingSetRootedPaths.size() - newWorkingSet.size();
+      if (missingCount > 0) {
+        eventHandler.handle(
+            Event.warn(
+                missingCount
+                    + " files were not found in the transitive closure, and so they are not"
+                    + " included in the working set. They are: "
+                    + workingSetRootedPaths.stream()
+                        .filter(not(newWorkingSet::contains))
+                        .map(r -> r.getRootRelativePath().toString())
+                        .collect(joining(", "))));
+      }
+
+      if ((skyfocusState.options().workingSet.isEmpty()
+              || skyfocusState.userDefinedWorkingSet().equals(newWorkingSet))
+          && skyfocusState.focusedTargetLabels().containsAll(topLevelTargetLabels)) {
+        if (skyfocusState.forcedRerun()) {
+          newWorkingSet.addAll(skyfocusState.userDefinedWorkingSet());
+        } else {
+          return FocusResult.NO_RESULT;
+        }
+      }
+
+      skyfocusState =
+          skyfocusState
+              .withDerivedWorkingSet(ImmutableSet.of())
+              .withUserDefinedWorkingSet(ImmutableSet.copyOf(newWorkingSet));
+
+      leafsBuilder.addAll(skyfocusState.userDefinedWorkingSet());
+    }
+
+    if (skyfocusState.derivedWorkingSet().isEmpty()
+        == skyfocusState.userDefinedWorkingSet().isEmpty()) {
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage("Only one of the derived or user defined working sets can be empty.")
+                  .setSkyfocus(
+                      Skyfocus.newBuilder().setCode(Skyfocus.Code.INVALID_WORKING_SET).build())
+                  .build()));
+    }
+
+    ImmutableSet<SkyKey> leafs = leafsBuilder.build();
+
+    skyfocusState = skyfocusState.addFocusedTargetLabels(topLevelTargetLabels);
+    eventHandler.handle(Event.info("Updated working set successfully."));
 
     eventHandler.handle(
         Event.info(
             String.format(
-                "Focusing on %d roots, %d leafs... (use --dump_keys to show them)",
+                "Focusing on %d roots, %d leafs... (use --experimental_skyfocus_dump_keys to show"
+                    + " them)",
                 roots.size(), leafs.size())));
 
     FocusResult focusResult;
@@ -4255,7 +4327,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       focusResult = SkyframeFocuser.focus(graph, actionCache, eventHandler, roots, leafs);
     }
 
+    skyfocusState = skyfocusState.withForcedRerun(false);
+
     return focusResult;
+  }
+
+  /** Turns a root relative path string into a RootedPath object. */
+  private RootedPath toFileStateKey(String rootRelativePathFragment) {
+    // For simplicity's sake, use the first --package_path as the root. This
+    // may be an issue with packages from a different package_path root.
+    // <p>TODO: b/312819241 - handle multiple package_path roots.
+    Root packageRoot = pkgLocator.get().getPathEntries().get(0);
+    return RootedPath.toRootedPath(packageRoot, PathFragment.create(rootRelativePathFragment));
   }
 
   /**
