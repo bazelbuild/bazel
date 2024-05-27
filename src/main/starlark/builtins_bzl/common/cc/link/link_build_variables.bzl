@@ -98,6 +98,8 @@ LINK_BUILD_VARIABLES = struct(
 # be less duplication, for example on conditions checking if feature is enabled.
 
 # LINT.IfChange
+
+# IMPORTANT: This function is public API exposed on cc_common module!
 def create_link_variables(
         *,
         cc_toolchain,
@@ -231,8 +233,7 @@ def setup_common_linking_variables(
 
     vars[LINK_BUILD_VARIABLES.RUNTIME_LIBRARY_SEARCH_DIRECTORIES] = runtime_library_search_directories
 
-    if libraries_to_link:
-        vars[LINK_BUILD_VARIABLES.LIBRARIES_TO_LINK] = libraries_to_link
+    vars[LINK_BUILD_VARIABLES.LIBRARIES_TO_LINK] = libraries_to_link
 
     vars[LINK_BUILD_VARIABLES.LIBRARY_SEARCH_DIRECTORIES] = library_search_directories
 
