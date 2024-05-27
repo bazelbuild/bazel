@@ -510,6 +510,29 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void workingSet_configChangesAreHandledStrictly() throws Exception {
+    write("hello/x.txt", "x");
+    write("hello/y.txt", "y");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt", "y.txt"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    buildTarget("//hello/...");
+
+    addOptions("--compilation_mode=opt");
+    AbruptExitException e =
+        assertThrows(AbruptExitException.class, () -> buildTarget("//hello/..."));
+    assertThat(e).hasMessageThat().contains("detected changes to the build configuration");
+  }
+
+  @Test
   public void workingSet_withFiles_correctlyRebuilds() throws Exception {
     addOptions("--experimental_working_set=hello/x.txt");
     write("hello/x.txt", "x");
