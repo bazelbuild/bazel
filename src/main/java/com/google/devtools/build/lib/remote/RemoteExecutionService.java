@@ -109,7 +109,6 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
-import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -1348,30 +1347,24 @@ public class RemoteExecutionService {
       this.spawnResultFuture = SettableFuture.create();
     }
 
+    public boolean canBeReused() {
+      return otherAction != null;
+    }
+
     public boolean commitResult(RemoteAction action, SpawnResult result) {
       if (SpawnResult.Status.SUCCESS.equals(result.status()) && result.exitCode() == 0) {
         spawnResultFuture.set(result);
         return true;
+      } else {
+        spawnResultFuture.setException(
+            SpawnExecException.createForFailedSpawn(
+                action.getSpawn(), result, execRoot, verboseFailures));
+        return false;
       }
-      String cwd = execRoot.getPathString();
-      String resultMessage = result.getFailureMessage();
-      String message =
-          !Strings.isNullOrEmpty(resultMessage)
-              ? resultMessage
-              : CommandFailureUtils.describeCommandFailure(
-                  // TODO: Handle verbose
-                  false, cwd, action.getSpawn());
-      spawnResultFuture.setException(
-          new SpawnExecException(message, result, /* forciblyRunRemotely= */ false));
-      return false;
     }
 
     public void cancel() {
       spawnResultFuture.cancel(true);
-    }
-
-    public boolean canBeReused() {
-      return otherAction != null;
     }
 
     private SpawnResult waitFor() throws InterruptedException, IOException, ExecException {
