@@ -57,8 +57,8 @@ public interface StarlarkValue {
    *
    * @param printer a printer to be used for formatting nested values.
    */
-  default void debugPrint(Printer printer, StarlarkSemantics semantics) {
-    str(printer, semantics);
+  default void debugPrint(Printer printer, StarlarkThread thread) {
+    str(printer, thread.getSemantics());
   }
 
   /** Returns the truth-value of this Starlark value. */

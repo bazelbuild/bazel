@@ -72,14 +72,11 @@ public final class RewindableGraphInconsistencyReceiver implements GraphInconsis
       return;
     }
 
-    if (skymeldInconsistenciesExpected
-        && NodeDroppingInconsistencyReceiver.isExpectedInconsistencySkymeld(
-            key, otherKeys, inconsistency)) {
-      return;
-    }
-
+    // The following block categorizes inconsistencies that could happen because of rewinding or
+    // skymeld, or a combination of both.
     // RESET_REQUESTED and PARENT_FORCE_REBUILD_OF_CHILD may be the first inconsistencies seen with
     // rewinding. BUILDING_PARENT_FOUND_UNDONE_CHILD may also be seen, but it will not be the first.
+    // ALREADY_DECLARED_CHILD_MISSING is exclusively skymeld.
     switch (inconsistency) {
       case RESET_REQUESTED:
         checkState(
@@ -122,6 +119,15 @@ public final class RewindableGraphInconsistencyReceiver implements GraphInconsis
             otherKeys.stream()
                 .filter(Predicate.not(RewindingInconsistencyUtils::isRewindable))
                 .collect(toImmutableList());
+
+        // The children are not rewindable? Maybe it's a skymeld inconsistency.
+        // If it's not, it's an illegal state.
+        if (!unrewindableUndoneChildren.isEmpty()
+            && skymeldInconsistenciesExpected
+            && NodeDroppingInconsistencyReceiver.isExpectedInconsistencySkymeld(
+                key, otherKeys, inconsistency)) {
+          return;
+        }
         checkState(
             rewindingInitiated
                 && parentDependsOnRewindableNodes
@@ -140,13 +146,26 @@ public final class RewindableGraphInconsistencyReceiver implements GraphInconsis
               key, listChildren(otherKeys));
         }
         return;
-
+      case ALREADY_DECLARED_CHILD_MISSING:
+        // Only expected because of skymeld. This has nothing to do with rewinding.
+        if (skymeldInconsistenciesExpected
+            && NodeDroppingInconsistencyReceiver.isExpectedInconsistencySkymeld(
+                key, otherKeys, inconsistency)) {
+          return;
+        } else {
+          throw unexpectedInconsistency(key, otherKeys, inconsistency);
+        }
       default:
-        throw new IllegalStateException(
-            String.format(
-                "Unexpected inconsistency %s, key = %s, otherKeys = %s",
-                inconsistency, key, listChildren(otherKeys)));
+        throw unexpectedInconsistency(key, otherKeys, inconsistency);
     }
+  }
+
+  private static IllegalStateException unexpectedInconsistency(
+      SkyKey key, @Nullable Collection<SkyKey> otherKeys, Inconsistency inconsistency) {
+    return new IllegalStateException(
+        String.format(
+            "Unexpected inconsistency %s, key = %s, otherKeys = %s",
+            inconsistency, key, listChildren(otherKeys)));
   }
 
   /**

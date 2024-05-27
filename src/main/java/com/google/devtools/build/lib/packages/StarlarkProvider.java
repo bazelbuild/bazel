@@ -484,7 +484,8 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
         return depset.getSet();
       }
       Class<?> elementClass = depset.getElementClass();
-      if (depsetTypePredictor.compareAndExchange(index, null, elementClass) == elementClass) {
+      Class<?> witness = depsetTypePredictor.compareAndExchange(index, null, elementClass);
+      if (witness == elementClass || witness == null) {
         return depset.getSet();
       }
     }
@@ -502,7 +503,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
         // This matches empty depsets created in Starlark with `depset()`.
         return Depset.of(Object.class, nestedSet);
       }
-      @SuppressWarnings("unchecked") // can't parametrize Class literal by a non-raw type
+      @SuppressWarnings("unchecked") // can't parameterize Class literal by a non-raw type
       Depset depset = Depset.of((Class<Object>) depsetTypePredictor.get(index), nestedSet);
       return depset;
     }

@@ -16,7 +16,7 @@ package com.google.devtools.common.options;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.common.options.OptionDefinition.NotAnOptionException;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import java.lang.reflect.Constructor;
 import java.util.Arrays;
@@ -56,11 +56,12 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
    * instances, and must be used through the thread safe {@link
    * #getAllOptionDefinitionsForClass(Class)}
    */
-  private static final ConcurrentMap<Class<? extends OptionsBase>, ImmutableList<OptionDefinition>>
+  private static final ConcurrentMap<
+          Class<? extends OptionsBase>, ImmutableList<FieldOptionDefinition>>
       allOptionsFields = new ConcurrentHashMap<>();
 
   /** Returns all {@code optionDefinitions}, ordered by their option name (not their field name). */
-  public static ImmutableList<OptionDefinition> getAllOptionDefinitionsForClass(
+  public static ImmutableList<FieldOptionDefinition> getAllOptionDefinitionsForClass(
       Class<? extends OptionsBase> optionsClass) {
     return allOptionsFields.computeIfAbsent(
         optionsClass,
@@ -69,8 +70,8 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
                 .map(
                     field -> {
                       try {
-                        return OptionDefinition.extractOptionDefinition(field);
-                      } catch (NotAnOptionException e) {
+                        return FieldOptionDefinition.extractOptionDefinition(field);
+                      } catch (FieldOptionDefinition.NotAnOptionException e) {
                         // Ignore non-@Option annotated fields. Requiring all fields in the
                         // OptionsBase to be @Option-annotated requires a depot cleanup.
                         return null;
@@ -160,7 +161,7 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
    * appear ordered first by their options class (the order in which they were passed to {@link
    * #from(Collection, boolean)}, and then in alphabetic order within each options class.
    */
-  public Iterable<Map.Entry<String, OptionDefinition>> getAllOptionDefinitions() {
+  public ImmutableSet<Map.Entry<String, OptionDefinition>> getAllOptionDefinitions() {
     return nameToField.entrySet();
   }
 
@@ -276,7 +277,7 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
         throw new IllegalArgumentException(
             parsedOptionsClass + " lacks an accessible default constructor", e);
       }
-      ImmutableList<OptionDefinition> optionDefinitions =
+      ImmutableList<FieldOptionDefinition> optionDefinitions =
           getAllOptionDefinitionsForClass(parsedOptionsClass);
 
       for (OptionDefinition optionDefinition : optionDefinitions) {
@@ -351,7 +352,7 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
       boolean usesOnlyCoreTypes = parsedOptionsClass.isAnnotationPresent(UsesOnlyCoreTypes.class);
       if (usesOnlyCoreTypes) {
         // Validate that @UsesOnlyCoreTypes was used correctly.
-        for (OptionDefinition optionDefinition : optionDefinitions) {
+        for (FieldOptionDefinition optionDefinition : optionDefinitions) {
           // The classes in coreTypes are all final. But even if they weren't, we only want to check
           // for exact matches; subclasses would not be considered core types.
           if (!UsesOnlyCoreTypes.CORE_TYPES.contains(optionDefinition.getType())) {

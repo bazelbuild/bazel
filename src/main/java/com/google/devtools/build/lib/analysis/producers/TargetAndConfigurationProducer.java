@@ -300,7 +300,8 @@ public final class TargetAndConfigurationProducer
     // TODO: @aranguyen b/297077082
     public UnloadedToolchainContextsInputs getUnloadedToolchainContextsInputs(
         Target target, @Nullable Label parentExecutionPlatformLabel) throws InterruptedException {
-      if (!(target instanceof Rule rule)) {
+      Rule rule = target.getAssociatedRule();
+      if (rule == null) {
         return UnloadedToolchainContextsInputs.empty();
       }
 

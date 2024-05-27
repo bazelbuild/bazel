@@ -18,10 +18,12 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -82,12 +84,10 @@ public abstract class ModuleFileValue implements SkyValue {
         getNonRegistryOverrideCanonicalRepoNameLookup();
 
     /**
-     * TODO: This field is a hack. It's not needed by anything other than {@code ModCommand}, during
-     * the {@code bazel mod tidy} command. Doing it this way assumes that {@code bazel mod tidy}
-     * cannot touch any included segments. This is unsatisfactory; we should do it properly at some
-     * point, although that seems quite difficult.
+     * The set of relative paths to the root MODULE.bazel file itself and all its transitive
+     * includes.
      */
-    public abstract ImmutableMap<String, CompiledModuleFile> getIncludeLabelToCompiledModuleFile();
+    public abstract ImmutableSet<PathFragment> getModuleFilePaths();
 
     @Override
     public ImmutableMap<String, Optional<Checksum>> getRegistryFileHashes() {
@@ -100,13 +100,13 @@ public abstract class ModuleFileValue implements SkyValue {
         String moduleFileHash,
         ImmutableMap<String, ModuleOverride> overrides,
         ImmutableMap<RepositoryName, String> nonRegistryOverrideCanonicalRepoNameLookup,
-        ImmutableMap<String, CompiledModuleFile> includeLabelToCompiledModuleFile) {
+        ImmutableSet<PathFragment> moduleFilePaths) {
       return new AutoValue_ModuleFileValue_RootModuleFileValue(
           module,
           moduleFileHash,
           overrides,
           nonRegistryOverrideCanonicalRepoNameLookup,
-          includeLabelToCompiledModuleFile);
+          moduleFilePaths);
     }
   }
 
@@ -117,7 +117,7 @@ public abstract class ModuleFileValue implements SkyValue {
   /** {@link SkyKey} for {@link ModuleFileValue} computation. */
   @AutoCodec
   @AutoValue
-  abstract static class Key implements SkyKey {
+  public abstract static class Key implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     abstract ModuleKey getModuleKey();

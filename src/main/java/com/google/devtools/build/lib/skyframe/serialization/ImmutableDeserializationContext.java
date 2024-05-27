@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.protobuf.CodedInputStream;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /** An immutable deserialization context. */
 public final class ImmutableDeserializationContext extends DeserializationContext {
@@ -52,8 +53,17 @@ public final class ImmutableDeserializationContext extends DeserializationContex
   }
 
   @Override
+  @Nullable
   public <T> T deserializeLeaf(CodedInputStream codedIn, LeafObjectCodec<T> codec)
       throws SerializationException, IOException {
+    int tag = codedIn.readSInt32();
+    if (tag == 0) {
+      return null;
+    }
+    Object maybeConstant = codec.safeCast(maybeGetConstantByTag(tag));
+    if (maybeConstant != null) {
+      return codec.safeCast(maybeConstant);
+    }
     return codec.deserialize((LeafDeserializationContext) this, codedIn);
   }
 

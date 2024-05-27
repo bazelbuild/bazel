@@ -19,9 +19,16 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.sandbox.Cgroup;
 import com.google.devtools.build.lib.sandbox.CgroupsInfo;
+import com.google.devtools.build.lib.sandbox.cgroups.VirtualCgroup;
+import com.google.devtools.build.lib.sandbox.cgroups.controller.v2.UnifiedMemory;
+import com.google.devtools.build.lib.vfs.util.FsApparatus;
+import java.io.IOException;
+import java.nio.file.Path;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,8 +36,10 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class CgroupsInfoCollectorTest {
 
+  private final FsApparatus scratch = FsApparatus.newNative();
+
   @Test
-  public void testCollectResourceUsage_returnsValidCgroupMemoryUsage() {
+  public void testCollectResourceUsage_returnsValidCgroupInfoMemoryUsage() {
     Clock clock = BlazeClock.instance();
     CgroupsInfo cgroupsInfo1 = mock(CgroupsInfo.class);
     when(cgroupsInfo1.getMemoryUsageInKb()).thenReturn(1000);
@@ -46,6 +55,27 @@ public class CgroupsInfoCollectorTest {
         CgroupsInfoCollector.instance()
             .collectResourceUsage(
                 ImmutableMap.of(1L, cgroupsInfo1, 2L, cgroupsInfo2, 3L, cgroupsInfo3), clock);
+    assertThat(snapshot.getPidToMemoryInKb()).containsExactly(1L, 1000, 3L, 3000);
+  }
+
+  @Test
+  public void testCollectResourceUsage_returnsValidCgroupMemoryUsage() throws IOException {
+    Clock clock = BlazeClock.instance();
+    ImmutableMap.Builder<Long, Cgroup> pidToCgroups = ImmutableMap.builder();
+
+    for (int i = 1; i < 4; i++) {
+      UnifiedMemory memory = null;
+      if (i != 2) {
+        Path memoryPath = scratch.path("cgroup-" + i + "/memory").getPathFile().toPath();
+        scratch.file(memoryPath + "/memory.current", String.valueOf(i * 1000 * 1024));
+        memory = new UnifiedMemory(memoryPath);
+      }
+      VirtualCgroup cgroup = VirtualCgroup.create(/* cpu= */ null, memory, ImmutableSet.of());
+      pidToCgroups.put((long) i, cgroup);
+    }
+
+    ResourceSnapshot snapshot =
+        CgroupsInfoCollector.instance().collectResourceUsage(pidToCgroups.buildOrThrow(), clock);
 
     // Results from cgroups 2 should not be in the snapshot since it doesn't exist.
     assertThat(snapshot.getPidToMemoryInKb()).containsExactly(1L, 1000, 3L, 3000);

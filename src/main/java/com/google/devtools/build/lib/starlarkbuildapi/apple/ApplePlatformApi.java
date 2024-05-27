@@ -50,7 +50,7 @@ public interface ApplePlatformApi extends StarlarkValue {
       name = "platform_type",
       doc = "Returns the platform type of this platform.",
       structField = true)
-  ApplePlatformTypeApi getType();
+  String getType();
 
   /**
    * Returns true if this platform is a device platform, or false if this is a simulator platform.

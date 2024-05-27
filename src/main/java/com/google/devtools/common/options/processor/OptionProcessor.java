@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.FieldOptionDefinition;
 import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
@@ -475,7 +475,7 @@ public final class OptionProcessor extends AbstractProcessor {
   }
 
   private static boolean hasSpecialNullDefaultValue(Option annotation) {
-    return OptionDefinition.SPECIAL_NULL_DEFAULT_VALUE.equals(annotation.defaultValue());
+    return FieldOptionDefinition.SPECIAL_NULL_DEFAULT_VALUE.equals(annotation.defaultValue());
   }
 
   /**

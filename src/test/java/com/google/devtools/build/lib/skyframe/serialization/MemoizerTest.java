@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -96,7 +96,7 @@ public class MemoizerTest {
     DummyLinkedList c = new MutableDummy("C", null);
     DummyLinkedList b = new MutableDummy("B", c);
     DummyLinkedList a = new MutableDummy("A", b);
-    assertABC(TestUtils.roundTripMemoized(a));
+    assertABC(RoundTripping.roundTripMemoized(a));
   }
 
   @Test
@@ -104,7 +104,7 @@ public class MemoizerTest {
     DummyLinkedList c = new MutableDummy("C", null);
     DummyLinkedList b = new ImmutableDummy("B", c);
     DummyLinkedList a = new MutableDummy("A", b);
-    assertABC(TestUtils.roundTripMemoized(a));
+    assertABC(RoundTripping.roundTripMemoized(a));
   }
 
   @Test
@@ -112,7 +112,7 @@ public class MemoizerTest {
     MutableDummy b = new MutableDummy("B", null);
     DummyLinkedList a = new MutableDummy("A", b);
     b.setNext(a);
-    assertABcycle(TestUtils.roundTripMemoized(a));
+    assertABcycle(RoundTripping.roundTripMemoized(a));
   }
 
   @Test
@@ -120,7 +120,7 @@ public class MemoizerTest {
     MutableDummy a = new MutableDummy("A", null);
     DummyLinkedList b = new ImmutableDummy("B", a);
     a.setNext(b);
-    assertABcycle(TestUtils.roundTripMemoized(a));
+    assertABcycle(RoundTripping.roundTripMemoized(a));
   }
 
   @Test
@@ -128,7 +128,7 @@ public class MemoizerTest {
     MutableDummy b = new MutableDummy("B", null);
     DummyLinkedList a = new ImmutableDummy("A", b);
     b.setNext(a);
-    assertABcycle(TestUtils.roundTripMemoized(a));
+    assertABcycle(RoundTripping.roundTripMemoized(a));
   }
 
   // The following two tests verify that objects memoized using serialize can interoperate with
@@ -144,7 +144,7 @@ public class MemoizerTest {
     assertThat(((Wrapper) subject.get(0)).value).isNotSameInstanceAs(subject.get(1));
 
     ImmutableList<Object> deserialized =
-        TestUtils.roundTripMemoized(subject, new WrapperLeafCodec());
+        RoundTripping.roundTripMemoized(subject, new WrapperLeafCodec());
     assertThat(subject).isEqualTo(deserialized);
     // The "foo" instance memoized via serializeLeaf can be backreferenced by a codec that isn't
     // explicitly invoked via serializeLeaf.
@@ -161,7 +161,7 @@ public class MemoizerTest {
     assertThat(subject.get(0)).isNotSameInstanceAs(((Wrapper) subject.get(1)).value);
 
     ImmutableList<Object> deserialized =
-        TestUtils.roundTripMemoized(subject, new WrapperLeafCodec());
+        RoundTripping.roundTripMemoized(subject, new WrapperLeafCodec());
     assertThat(subject).isEqualTo(deserialized);
     // The "foo" instance memoized via serialize can be backreferenced by a codec that uses
     // serializeLeaf.

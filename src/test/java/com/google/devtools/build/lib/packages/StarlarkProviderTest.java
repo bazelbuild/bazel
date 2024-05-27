@@ -450,6 +450,29 @@ public final class StarlarkProviderTest {
   }
 
   @Test
+  public void schemafulProvider_optimizeField() {
+    StarlarkProvider provider =
+        StarlarkProvider.builder(Location.BUILTIN)
+            .setSchema(ImmutableList.of("field"))
+            .buildWithIdentityToken(generator.generate());
+
+    // The first set is unwrapped and the type String is registered in the predictor.
+    Depset depset1 = Depset.of(String.class, NestedSetBuilder.create(STABLE_ORDER, "a", "b", "c"));
+    assertThat(provider.optimizeField(0, depset1)).isSameInstanceAs(depset1.getSet());
+
+    // A set with Integer type does not match and cannot be optimized.
+    Depset depset2 =
+        Depset.of(
+            StarlarkInt.class,
+            NestedSetBuilder.create(STABLE_ORDER, StarlarkInt.of(1), StarlarkInt.of(2)));
+    assertThat(provider.optimizeField(0, depset2)).isSameInstanceAs(depset2);
+
+    // A third, matching Depset is unwrapped.
+    Depset depset3 = Depset.of(String.class, NestedSetBuilder.create(STABLE_ORDER, "d", "e"));
+    assertThat(provider.optimizeField(0, depset3)).isSameInstanceAs(depset3.getSet());
+  }
+
+  @Test
   public void schemafulProvider_mutable() throws Exception {
     StarlarkProvider.Key key =
         new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//foo:bar.bzl")), "prov");

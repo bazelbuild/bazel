@@ -141,49 +141,6 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   @Test
-  public void aspectIsNotCreatedIfAdvertisedProviderIsNotPresent() throws Exception {
-    setRulesAvailableInTests(TestAspects.BASE_RULE, TestAspects.LIAR_RULE,
-        TestAspects.ASPECT_REQUIRING_PROVIDER_RULE);
-
-    pkg("a",
-        "aspect_requiring_provider(name='a', foo=[':b'])",
-        "liar(name='b', foo=[])");
-
-    ConfiguredTarget a = getConfiguredTarget("//a:a");
-    assertThat(a.getProvider(RuleInfo.class).getData().toList()).containsExactly("rule //a:a");
-  }
-
-  @Test
-  public void aspectIsNotCreatedIfAdvertisedProviderIsNotPresentWithAlias() throws Exception {
-    setRulesAvailableInTests(TestAspects.BASE_RULE, TestAspects.LIAR_RULE,
-        TestAspects.ASPECT_REQUIRING_PROVIDER_RULE);
-
-    pkg("a",
-        "aspect_requiring_provider(name='a', foo=[':b'])",
-        "alias(name = 'b_alias', actual = ':b')",
-        "liar(name='b', foo=[])");
-
-    ConfiguredTarget a = getConfiguredTarget("//a:a");
-    assertThat(a.getProvider(RuleInfo.class).getData().toList()).containsExactly("rule //a:a");
-  }
-
-  @Test
-  public void aspectIsNotPropagatedThroughLiars() throws Exception {
-    setRulesAvailableInTests(TestAspects.BASE_RULE, TestAspects.LIAR_RULE,
-        TestAspects.HONEST_RULE, TestAspects.ASPECT_REQUIRING_PROVIDER_RULE);
-
-    pkg("a",
-        "aspect_requiring_provider(name='a', foo=[':b_alias'])",
-        "alias(name = 'b_alias', actual = ':b')",
-        "liar(name='b', foo=[':c'])",
-        "honest(name = 'c', foo = [])"
-    );
-
-    ConfiguredTarget a = getConfiguredTarget("//a:a");
-    assertThat(a.getProvider(RuleInfo.class).getData().toList()).containsExactly("rule //a:a");
-  }
-
-  @Test
   public void aspectPropagatedThroughAliasRule() throws Exception {
     setRulesAvailableInTests(TestAspects.BASE_RULE, TestAspects.HONEST_RULE,
         TestAspects.ASPECT_REQUIRING_PROVIDER_RULE);

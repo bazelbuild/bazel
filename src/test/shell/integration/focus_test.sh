@@ -86,12 +86,11 @@ EOF
 
   out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
   bazel build //${pkg}:g\
+    --experimental_skyfocus_dump_keys=count \
     --experimental_skyfocus_dump_post_gc_stats \
     --experimental_working_set=${pkg}/in.txt >$TEST_log 2>&1
 
   expect_log "Focusing on .\+ roots, .\+ leafs"
-  expect_log "Nodes in reverse transitive closure from leafs: .\+"
-  expect_log "Nodes in direct deps of reverse transitive closure: .\+"
   expect_log "Rdep edges: .\+ -> .\+"
   expect_log "Heap: .\+MB -> .\+MB (-.\+%)"
   expect_log "Node count: .\+ -> .\+ (-.\+%)"
@@ -225,19 +224,20 @@ EOF
   expect_log "${pkg}/in.txt"
   expect_log "${pkg}/in2.txt"
 
-  # Working set can be expanded to include files not in the downward transitive closure.
+  # Working set can be defined with files not in the downward transitive
+  # closure but `info working_set` will not report it.
   bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt,${pkg}/in2.txt,${pkg}/not.used
   bazel info working_set &> "$TEST_log"
   expect_log "${pkg}/in.txt"
   expect_log "${pkg}/in2.txt"
-  expect_log "${pkg}/not.used"
+  expect_not_log "${pkg}/not.used"
 
   # The active set is retained for subsequent builds that don't pass the flag.
   bazel build //${pkg}:g
   bazel info working_set &> "$TEST_log"
   expect_log "${pkg}/in.txt"
   expect_log "${pkg}/in2.txt"
-  expect_log "${pkg}/not.used"
+  expect_not_log "${pkg}/not.used"
 }
 
 function test_glob_inputs_change_with_dir_in_working_set() {
@@ -473,55 +473,6 @@ EOF
   echo "another change" >> ${pkg}/subdir/in.txt
   bazel build //${pkg}:g || fail "expected build to succeed"
   assert_contains "another change" ${out}
-}
-
-function test_skyfocus_sad_path_handling_strategy_strict() {
-  local -r pkg=${FUNCNAME[0]}
-  mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
-  mkdir -p ${pkg}
-  echo "input" > ${pkg}/in.txt
-  cat > ${pkg}/BUILD <<'EOF'
-genrule(
-  name = "g",
-  srcs = ["in.txt"],
-  outs = ["out.txt"],
-  cmd = "cp $< $@",
-)
-EOF
-
-  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt || fail "unexpected failure"
-  bazel build //${pkg}:g --experimental_skyfocus_handling_strategy=strict \
-    -c opt &>"$TEST_log" && fail "unexpected success"
-  local -r exit_code="$?"
-  # See failure_details.proto -> Skyfocus.Code.CONFIGURATION_CHANGE (exit_code: 2)
-  [[ "$exit_code" == 2 ]] || fail "Unexpected exit code: $exit_code"
-  expect_not_log "blaze crashed"
-  expect_log "Skyfocus: detected changes to the build configuration."
-  expect_log "not allowed in a focused build."
-}
-
-function test_skyfocus_sad_path_handling_strategy_warn() {
-  local -r pkg=${FUNCNAME[0]}
-  mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
-  mkdir -p ${pkg}
-  echo "input" > ${pkg}/in.txt
-  cat > ${pkg}/BUILD <<'EOF'
-genrule(
-  name = "g",
-  srcs = ["in.txt"],
-  outs = ["out.txt"],
-  cmd = "cp $< $@",
-)
-EOF
-
-  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt || fail "unexpected failure"
-  bazel build //${pkg}:g --experimental_skyfocus_handling_strategy=warn \
-    -c opt &>"$TEST_log" || fail "unexpected failure"
-  expect_log "Skyfocus: detected changes to the build configuration."
-  expect_log "will be discarding the analysis cache"
-  bazel build //${pkg}:g --experimental_skyfocus_handling_strategy=warn \
-    -c opt &>"$TEST_log" || fail "unexpected failure"
-  expect_not_log "Skyfocus: detected changes to the build configuration."
 }
 
 run_suite "Tests for Skyfocus"

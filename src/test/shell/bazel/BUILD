@@ -730,27 +730,6 @@ sh_test(
     tags = ["no_windows"],
 )
 
-genquery(
-    name = "stardoc_deps",
-    expression = "kind(\"^(?!package group$)\", deps(//src/main/java/com/google/devtools/build/skydoc:skydoc_lib))",
-    opts = [
-        "--notool_deps",
-        "--noimplicit_deps",
-    ],
-    scope = ["//src/main/java/com/google/devtools/build/skydoc:skydoc_lib"],
-)
-
-sh_test(
-    name = "stardoc_deps_test",
-    size = "medium",
-    srcs = ["stardoc_deps_test.sh"],
-    data = [
-        ":stardoc_deps",
-        ":test-deps",
-    ],
-    tags = ["no_windows"],
-)
-
 sh_test(
     name = "bazel_docgen_test",
     size = "large",

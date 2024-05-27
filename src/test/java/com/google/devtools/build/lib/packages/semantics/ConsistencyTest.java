@@ -19,7 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.skyframe.serialization.DynamicCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ImmutableDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import java.util.Arrays;
@@ -84,10 +84,10 @@ public class ConsistencyTest {
       StarlarkSemantics semantics = buildRandomSemantics(new Random(i));
       StarlarkSemantics deserialized =
           (StarlarkSemantics)
-              TestUtils.fromBytes(
+              RoundTripping.fromBytes(
                   new ImmutableDeserializationContext(),
                   codec,
-                  TestUtils.toBytes(
+                  RoundTripping.toBytes(
                       new ObjectCodecs().getSerializationContextForTesting(), codec, semantics));
       assertThat(deserialized).isEqualTo(semantics);
     }

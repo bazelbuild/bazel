@@ -81,11 +81,9 @@ public final class IntFieldInitializer implements FieldInitializer {
   }
 
   @Override
-  public int writeCLInit(InstructionAdapter insts, String className) {
+  public void writeCLInit(InstructionAdapter insts, String className) {
     insts.iconst(value);
     insts.putstatic(className, fieldName, DESC);
-    // Just needs one stack slot for the iconst.
-    return 1;
   }
 
   @Override

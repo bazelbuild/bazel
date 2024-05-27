@@ -56,7 +56,7 @@ public final class OptionInfo {
             .collect(toImmutableSet());
 
     for (Class<? extends FragmentOptions> optionClass : optionClasses) {
-      ImmutableList<OptionDefinition> optionDefinitions =
+      ImmutableList<? extends OptionDefinition> optionDefinitions =
           OptionsParser.getOptionDefinitions(optionClass);
       for (OptionDefinition def : optionDefinitions) {
         String optionName = def.getOptionName();

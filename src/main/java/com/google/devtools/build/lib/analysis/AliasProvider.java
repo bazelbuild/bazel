@@ -30,6 +30,10 @@ public final class AliasProvider implements TransitiveInfoProvider {
   // We don't expect long alias chains, so it's better to have a list instead of a nested set
   private final ImmutableList<Label> aliasChain;
 
+  /** Singleton instance of {@link LateBoundAliasProvider}. */
+  public static final LateBoundAliasProvider LATE_BOUND_ALIAS_PROVIDER =
+      new LateBoundAliasProvider();
+
   private AliasProvider(ImmutableList<Label> aliasChain) {
     this.aliasChain = aliasChain;
   }
@@ -156,6 +160,18 @@ public final class AliasProvider implements TransitiveInfoProvider {
     }
     AdvertisedProviderSet providerSet = rule.getRuleClassObject().getAdvertisedProviders();
     return providerSet.canHaveAnyProvider()
-        || providerSet.getBuiltinProviders().contains(AliasProvider.class);
+        || providerSet.getBuiltinProviders().contains(AliasProvider.class)
+        || providerSet.getBuiltinProviders().contains(LateBoundAliasProvider.class);
+  }
+
+  /**
+   * A provider to be advertised by {@link LateBoundAlias} rules.
+   *
+   * <p>This is a separate provider from {@link AliasProvider} because {@link LateBoundAlias} rules
+   * do not always create an {@link AliasProvider}.
+   */
+  @Immutable
+  public static final class LateBoundAliasProvider implements TransitiveInfoProvider {
+    private LateBoundAliasProvider() {}
   }
 }

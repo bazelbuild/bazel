@@ -39,7 +39,8 @@ import java.util.Map;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 
-/** Class that goes over linker inputs and produces {@link LibraryToLinkValue}s */
+// LINT.IfChange
+/** Class that goes over legacy linker inputs and produces {@link LibraryToLinkValue}s */
 public class LibrariesToLinkCollector {
 
   private static final OsPathPolicy OS = OsPathPolicy.getFilePathOs();
@@ -466,7 +467,7 @@ public class LibrariesToLinkCollector {
       ImmutableList<String> rpathRoots,
       Map<Artifact, Artifact> ltoMap,
       NestedSetBuilder<String> librarySearchDirectories,
-      ImmutableSet.Builder<String> rpathEntries,
+      ImmutableSet.Builder<String> rpathRootsForExplicitSoDeps,
       SequenceBuilder librariesToLink,
       NestedSetBuilder<LegacyLinkerInput> expandedLinkerInputsBuilder)
       throws EvalException {
@@ -514,7 +515,7 @@ public class LibrariesToLinkCollector {
             expandedLinkerInputsBuilder,
             librarySearchDirectories,
             rpathRoots,
-            rpathEntries);
+            rpathRootsForExplicitSoDeps);
       } else {
         addStaticInputLinkOptions(input, ltoMap, librariesToLink, expandedLinkerInputsBuilder);
       }
@@ -780,3 +781,4 @@ public class LibrariesToLinkCollector {
     return allowLtoIndexing && !a.getRootRelativePath().startsWith(sharedNonLtoObjRootPrefix);
   }
 }
+// LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/libraries_to_link_collector.bzl)

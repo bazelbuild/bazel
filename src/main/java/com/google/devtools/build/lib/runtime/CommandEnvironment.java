@@ -108,6 +108,7 @@ public class CommandEnvironment {
   private final Thread commandThread;
   private final Command command;
   private final OptionsParsingResult options;
+  private final InvocationPolicy invocationPolicy;
   private final PathPackageLocator packageLocator;
   private final Path workingDirectory;
   private final PathFragment relativeWorkingDirectory;
@@ -193,6 +194,7 @@ public class CommandEnvironment {
       Thread commandThread,
       Command command,
       OptionsParsingResult options,
+      InvocationPolicy invocationPolicy,
       SyscallCache syscallCache,
       QuiescingExecutors quiescingExecutors,
       List<String> warnings,
@@ -212,6 +214,7 @@ public class CommandEnvironment {
     this.commandThread = commandThread;
     this.command = command;
     this.options = options;
+    this.invocationPolicy = invocationPolicy;
     this.shutdownReasonConsumer = shutdownReasonConsumer;
     this.syscallCache = syscallCache;
     this.quiescingExecutors = quiescingExecutors;
@@ -446,6 +449,10 @@ public class CommandEnvironment {
 
   public OptionsParsingResult getOptions() {
     return options;
+  }
+
+  public InvocationPolicy getInvocationPolicy() {
+    return invocationPolicy;
   }
 
   public void setInvocationPolicyFlags(ImmutableList<OptionAndRawValue> invocationPolicyFlags) {

@@ -17,8 +17,10 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.skyframe.SkyfocusState.Request;
+import com.google.devtools.build.lib.skyframe.SkyfocusState.WorkingSetType;
+import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,8 +37,25 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void workingSet_canBeUsedWithBuildCommand() throws Exception {
-    addOptions("--experimental_working_set=hello/x.txt", "--experimental_skyfocus_dump_keys=count");
+  public void workingSet_canBeUsedWithBuildCommandAndNoTargets() throws Exception {
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt"],
+            outs = ["out"],
+            cmd = "cat $< > $@",
+        )
+        """);
+
+    buildTarget();
+  }
+
+  @Test
+  public void workingSet_canBeUsedWithBuildCommandWithTargets() throws Exception {
+    addOptions("--experimental_working_set=hello/x.txt");
     write("hello/x.txt", "x");
     write(
         "hello/BUILD",
@@ -50,11 +69,591 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
         """);
 
     buildTarget("//hello/...");
-    assertContainsEvent("Updated working set successfully.");
-    assertContainsEvent("Focusing on");
-    assertContainsEvent("Node count:");
+    assertThat(getSkyframeExecutor().getSkyfocusState().focusedTargetLabels())
+        .containsExactly(Label.parseCanonicalUnchecked("//hello:target"));
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("hello/x.txt");
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetType())
+        .isEqualTo(WorkingSetType.USER_DEFINED);
+  }
 
-    assertThat(getSkyframeExecutor().getSkyfocusState().workingSet()).hasSize(1);
+  @Test
+  public void workingSet_canBeAutomaticallyDerivedUsingTopLevelTargetPackage() throws Exception {
+    write("hello/x.txt", "x");
+    write("hello/world/y.txt", "y");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt", "world/y.txt"],
+            outs = ["out"],
+            cmd = "cat $(location x.txt) $(location world/y.txt) > $@",
+        )
+        """);
+
+    buildTarget("//hello/...");
+    assertContainsEvent("automatically deriving working set");
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("hello", "hello/BUILD", "hello/x.txt", "hello/world", "hello/world/y.txt");
+    assertThat(getSkyframeExecutor().getSkyfocusState().verificationSet()).isNotEmpty();
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetType())
+        .isEqualTo(WorkingSetType.DERIVED);
+  }
+
+  @Test
+  public void workingSet_skyfocusDoesNotRunIfDerivedWorkingSetIsUnchanged() throws Exception {
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    buildTarget("//hello:target");
+    assertContainsEvent("automatically deriving working set");
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("hello", "hello/BUILD", "hello/x.txt");
+    assertContainsEvent("Focusing on");
+
+    events.clear();
+
+    buildTarget("//hello:target");
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("hello", "hello/BUILD", "hello/x.txt");
+    assertDoesNotContainEvent("Focusing on");
+  }
+
+  @Test
+  public void workingSet_derivedWorkingSetCanBeOverwrittenByUserDefinedWorkingSet()
+      throws Exception {
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt"],
+            outs = ["out"],
+            cmd = "cat $< > $@",
+        )
+        """);
+
+    buildTarget("//hello/...");
+    assertThat(getSkyframeExecutor().getSkyfocusState().focusedTargetLabels())
+        .containsExactly(Label.parseCanonicalUnchecked("//hello:target"));
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("hello", "hello/BUILD", "hello/x.txt");
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetType())
+        .isEqualTo(WorkingSetType.DERIVED);
+
+    addOptions("--experimental_working_set=hello/x.txt");
+    buildTarget("//hello/...");
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("hello/x.txt");
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetType())
+        .isEqualTo(WorkingSetType.USER_DEFINED);
+
+    resetOptions();
+    setupOptions();
+    buildTarget("//hello/...");
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("hello/x.txt");
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetType())
+        .isEqualTo(WorkingSetType.USER_DEFINED);
+  }
+
+  @Test
+  public void workingSet_isRetainedAcrossInvocations() throws Exception {
+    addOptions("--experimental_working_set=hello/x.txt");
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt"],
+            outs = ["out"],
+            cmd = "cat $< > $@",
+        )
+        """);
+
+    buildTarget("//hello/...");
+    assertThat(getSkyframeExecutor().getSkyfocusState().focusedTargetLabels())
+        .containsExactly(Label.parseCanonicalUnchecked("//hello:target"));
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("hello/x.txt");
+
+    resetOptions();
+    setupOptions();
+
+    buildTarget("//hello/...");
+    assertThat(getSkyframeExecutor().getSkyfocusState().focusedTargetLabels())
+        .containsExactly(Label.parseCanonicalUnchecked("//hello:target"));
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("hello/x.txt");
+  }
+
+  @Test
+  public void workingSet_derivedWorkingSetChangesWhenTargetHasNewDependency() throws Exception {
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt"],
+            outs = ["out"],
+            cmd = "cat $< > $@",
+        )
+        """);
+
+    buildTarget("//hello:target");
+    assertContainsEvent("automatically deriving working set");
+
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("hello", "hello/BUILD", "hello/x.txt");
+
+    assertContents("x", "//hello:target");
+
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt", "y.txt"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+    write("hello/y.txt", "y");
+    buildTarget("//hello:target");
+
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("hello", "hello/BUILD", "hello/x.txt", "hello/y.txt");
+
+    assertContents("x\ny", "//hello:target");
+  }
+
+  @Test
+  public void workingSet_derivedWorkingSetChangesWhenTargetHasNewGlobDependency() throws Exception {
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = glob(["*.txt"]),
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    buildTarget("//hello:target");
+
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("hello", "hello/BUILD", "hello/x.txt");
+    assertContents("x", "//hello:target");
+
+    write("hello/y.txt", "y");
+    buildTarget("//hello:target");
+
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("hello", "hello/BUILD", "hello/x.txt", "hello/y.txt");
+    assertContents("x\ny", "//hello:target");
+  }
+
+  @Test
+  public void workingSet_derivedWorkingSetChangesWhenPackageHasANewTarget() throws Exception {
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt"],
+            outs = ["out"],
+            cmd = "cat $< > $@",
+        )
+        """);
+
+    buildTarget("//hello:all");
+
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("hello", "hello/BUILD", "hello/x.txt");
+    assertThat(getSkyframeExecutor().getSkyfocusState().focusedTargetLabels())
+        .containsExactly(Label.parseCanonicalUnchecked("//hello:target"));
+
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt"],
+            outs = ["out"],
+            cmd = "cat $< > $@",
+        )
+
+        genrule(
+            name = "target2",
+            srcs = ["y.txt"],
+            outs = ["out2"],
+            cmd = "cat $< > $@",
+        )
+        """);
+    write("hello/y.txt", "y");
+
+    buildTarget("//hello:all");
+
+    assertContainsEvent("automatically deriving working set");
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("hello", "hello/BUILD", "hello/x.txt", "hello/y.txt");
+    assertThat(getSkyframeExecutor().getSkyfocusState().focusedTargetLabels())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//hello:target"),
+            Label.parseCanonicalUnchecked("//hello:target2"));
+  }
+
+  @Test
+  public void workingSet_canBeAutomaticallyDerivedWithoutSkymeld() throws Exception {
+    addOptions("--noexperimental_merged_skyframe_analysis_execution");
+    write("hello/x.txt", "x");
+    write("hello/world/y.txt", "y");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt", "world/y.txt"],
+            outs = ["out"],
+            cmd = "cat $(location x.txt) $(location world/y.txt) > $@",
+        )
+        """);
+
+    buildTarget("//hello/...");
+    assertContainsEvent("automatically deriving working set");
+    assertThat(getSkyframeExecutor().getSkyfocusState().focusedTargetLabels())
+        .containsExactly(Label.parseCanonicalUnchecked("//hello:target"));
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("hello", "hello/BUILD", "hello/x.txt", "hello/world", "hello/world/y.txt");
+    assertThat(getSkyframeExecutor().getSkyfocusState().verificationSet()).isNotEmpty();
+  }
+
+  @Test
+  public void workingSet_derivationDoesNotIncludeFilesInSubpackage() throws Exception {
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt"],
+            outs = ["out"],
+            cmd = "cat $< > $@",
+        )
+        """);
+    write("hello/world/y.txt", "y");
+    write("hello/world/BUILD", "");
+
+    buildTarget("//hello:target");
+    assertContainsEvent("automatically deriving working set");
+
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("hello", "hello/BUILD", "hello/x.txt");
+  }
+
+  @Test
+  public void workingSet_canBeAutomaticallyDerivedUsingMultipleTopLevelTargetPackages()
+      throws Exception {
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt"],
+            outs = ["out"],
+            cmd = "cat $< > $@",
+        )
+        """);
+
+    write("hello/world/y.txt", "y");
+    write(
+        "hello/world/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["y.txt"],
+            outs = ["out"],
+            cmd = "cat $< > $@",
+        )
+        """);
+
+    buildTarget("//hello/...");
+    assertContainsEvent("automatically deriving working set");
+
+    assertThat(getSkyframeExecutor().getSkyfocusState().focusedTargetLabels())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//hello:target"),
+            Label.parseCanonicalUnchecked("//hello/world:target"));
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly(
+            "hello",
+            "hello/BUILD",
+            "hello/x.txt",
+            "hello/world",
+            "hello/world/BUILD",
+            "hello/world/y.txt");
+    assertThat(getSkyframeExecutor().getSkyfocusState().verificationSet()).isNotEmpty();
+  }
+
+  @Test
+  public void workingSet_shouldBeDerivedAndRetainedByTopLevelTarget() throws Exception {
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt"],
+            outs = ["out"],
+            cmd = "cat $< > $@",
+        )
+        """);
+
+    write("world/y.txt", "y");
+    write(
+        "world/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["y.txt"],
+            outs = ["out"],
+            cmd = "cat $< > $@",
+        )
+        """);
+
+    buildTarget("//hello/...");
+    assertThat(getSkyframeExecutor().getSkyfocusState().focusedTargetLabels())
+        .containsExactly(Label.parseCanonicalUnchecked("//hello:target"));
+
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("hello", "hello/BUILD", "hello/x.txt");
+
+    assertContainsEvent("automatically deriving working set");
+    assertContainsEvent("Focusing on");
+    assertThat(getSkyframeExecutor().getSkyfocusState().verificationSet()).isNotEmpty();
+
+    events.collector().clear();
+
+    buildTarget("//world/...");
+    assertThat(getSkyframeExecutor().getSkyfocusState().focusedTargetLabels())
+        .containsExactly(
+            Label.parseCanonicalUnchecked("//hello:target"),
+            Label.parseCanonicalUnchecked("//world:target"));
+    assertContainsEvent("automatically deriving working set");
+    assertContainsEvent("Focusing on");
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly(
+            "hello", "hello/BUILD", "hello/x.txt", "world", "world/BUILD", "world/y.txt");
+  }
+
+  @Test
+  public void workingSet_derivedWorkingSetBuildsForTargetThenRdep() throws Exception {
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt", "//hello/world:dep"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+    write("hello/world/y.txt", "y");
+    write(
+        "hello/world/BUILD",
+        """
+        genrule(
+            name = "dep",
+            srcs = ["y.txt"],
+            outs = ["dep.txt"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    buildTarget("//hello/world:dep");
+    assertContainsEvent("Focusing on");
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("hello/world", "hello/world/BUILD", "hello/world/y.txt");
+
+    events.collector().clear();
+
+    buildTarget("//hello:target");
+    assertContainsEvent("Focusing on");
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly(
+            "hello/world",
+            "hello/world/BUILD",
+            "hello/world/y.txt",
+            "hello",
+            "hello/BUILD",
+            "hello/x.txt");
+  }
+
+  @Test
+  public void workingSet_sharedDepBetweenTwoTopLevelTargetsIsKept() throws Exception {
+    // A -> C
+    // B -> C
+    // After building A, CT(C) will be dropped, but not CT(C/in.txt).
+    // After building B, A's nodes should not be affected.
+    write("A/in.txt", "A");
+    write(
+        "A/BUILD",
+        """
+        genrule(
+            name = "A",
+            srcs = ["in.txt", "//C:C.txt"],
+            outs = ["A"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+    write("B/in.txt", "B");
+    write(
+        "B/BUILD",
+        """
+        genrule(
+            name = "B",
+            srcs = ["in.txt", "//C:C.txt"],
+            outs = ["B"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+    write("C/in.txt", "C");
+    write(
+        "C/BUILD",
+        """
+        genrule(
+            name = "C",
+            srcs = ["in.txt"],
+            outs = ["C.txt"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    buildTarget("//A");
+
+    assertThat(getAllConfiguredTargets())
+        .containsAtLeast(
+            getConfiguredTarget("//A:in.txt"),
+            getConfiguredTarget("//A:A"),
+            getConfiguredTarget("//C:C.txt"));
+    assertThat(
+            SkyframeExecutorTestUtils.getExistingConfiguredTarget(
+                getSkyframeExecutor(), label("//C"), getTargetConfiguration()))
+        .isNull();
+
+    buildTarget("//B");
+
+    assertThat(getAllConfiguredTargets())
+        .containsAtLeast(
+            getConfiguredTarget("//A:in.txt"), // nodes from the previous build should still be kept
+            getConfiguredTarget("//A:A"),
+            getConfiguredTarget("//B:in.txt"),
+            getConfiguredTarget("//B:B"),
+            getConfiguredTarget("//C:C.txt"));
+
+    assertThat(
+            SkyframeExecutorTestUtils.getExistingConfiguredTarget(
+                getSkyframeExecutor(), label("//C"), getTargetConfiguration()))
+        .isNull();
+
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("A", "A/BUILD", "A/in.txt", "B", "B/BUILD", "B/in.txt");
+  }
+
+  @Test
+  public void workingSet_configChangesAreHandledWithDerivedWorkingSet() throws Exception {
+    write("hello/x.txt", "x");
+    write("hello/y.txt", "y");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt", "y.txt"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    buildTarget("//hello/...");
+    assertContents("x\ny", "//hello:target");
+
+    addOptions("--compilation_mode=opt", "--experimental_skyfocus_handling_strategy=warn");
+    buildTarget("//hello/...");
+    assertContainsEvent("detected changes to the build configuration");
+    assertContainsEvent("will be discarding the analysis cache");
+    assertContainsEvent("Focusing on");
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("hello", "hello/BUILD", "hello/x.txt", "hello/y.txt");
+  }
+
+  @Test
+  public void workingSet_configChangesAreHandledWithExplicitWorkingSet() throws Exception {
+    addOptions("--experimental_working_set=hello/x.txt");
+    write("hello/x.txt", "x");
+    write("hello/y.txt", "y");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt", "y.txt"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    buildTarget("//hello/...");
+    assertContents("x\ny", "//hello:target");
+
+    addOptions("--compilation_mode=opt", "--experimental_skyfocus_handling_strategy=warn");
+    buildTarget("//hello/...");
+    assertContainsEvent("detected changes to the build configuration");
+    assertContainsEvent("will be discarding the analysis cache");
+    assertContainsEvent("Focusing on");
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("hello/x.txt");
+  }
+
+  @Test
+  public void workingSet_configChangesAreHandledStrictly() throws Exception {
+    write("hello/x.txt", "x");
+    write("hello/y.txt", "y");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt", "y.txt"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    buildTarget("//hello/...");
+
+    addOptions("--compilation_mode=opt");
+    AbruptExitException e =
+        assertThrows(AbruptExitException.class, () -> buildTarget("//hello/..."));
+    assertThat(e).hasMessageThat().contains("detected changes to the build configuration");
   }
 
   @Test
@@ -224,7 +823,6 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     assertThat(e).hasMessageThat().contains("Package 'hello' contains errors");
 
     assertThat(getSkyframeExecutor().getSkyfocusState().enabled()).isTrue();
-    assertThat(getSkyframeExecutor().getSkyfocusState().request()).isNotEqualTo(Request.DO_NOTHING);
     assertThat(getSkyframeExecutor().getSkyfocusState().verificationSet()).isEmpty();
   }
 
@@ -439,4 +1037,5 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     assertContents("x2\ny", "//hello:target");
     assertThat(getSkyframeExecutor().getSkyfocusState().workingSet()).hasSize(2);
   }
+
 }

@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -274,7 +274,7 @@ public class RuleTest extends PackageLoadingTestCase {
   }
 
   private TargetData roundTrip(Target target) throws SerializationException, IOException {
-    return TestUtils.roundTrip(
+    return RoundTripping.roundTrip(
         target.reduceForSerialization(),
         ImmutableClassToInstanceMap.of(
             RuleClassProvider.class, skyframeExecutor.getRuleClassProviderForTesting()));

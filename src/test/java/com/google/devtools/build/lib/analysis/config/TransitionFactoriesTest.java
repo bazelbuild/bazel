@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import org.junit.Test;
@@ -34,15 +33,6 @@ public class TransitionFactoriesTest {
         TransitionFactories.of(NoTransition.INSTANCE);
     assertThat(factory).isNotNull();
     assertThat(NoTransition.isInstance(factory)).isTrue();
-    assertThat(factory.isSplit()).isFalse();
-  }
-
-  @Test
-  public void nullTransition() {
-    TransitionFactory<TransitionFactory.Data> factory =
-        TransitionFactories.of(NullTransition.INSTANCE);
-    assertThat(factory).isNotNull();
-    assertThat(NullTransition.isInstance(factory)).isTrue();
     assertThat(factory.isSplit()).isFalse();
   }
 

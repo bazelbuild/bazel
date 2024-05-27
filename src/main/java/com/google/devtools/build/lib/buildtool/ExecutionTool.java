@@ -162,7 +162,8 @@ public class ExecutionTool {
     ExecutorBuilder executorBuilder = new ExecutorBuilder();
     ModuleActionContextRegistry.Builder actionContextRegistryBuilder =
         ModuleActionContextRegistry.builder();
-    SpawnStrategyRegistry.Builder spawnStrategyRegistryBuilder = SpawnStrategyRegistry.builder();
+    SpawnStrategyRegistry.Builder spawnStrategyRegistryBuilder =
+        SpawnStrategyRegistry.builder(env.getInvocationPolicy().getStrategyPolicy());
     actionContextRegistryBuilder.register(SpawnStrategyResolver.class, new SpawnStrategyResolver());
     actionContextRegistryBuilder.register(
         ImportantOutputHandler.class, ImportantOutputHandler.NO_OP);

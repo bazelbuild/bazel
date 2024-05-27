@@ -417,7 +417,11 @@ public final class ConfiguredTargetFactory {
                       "No configured target factory for %s",
                       ruleClass)
                   .create(ruleContext);
-
+          if (target != null) {
+            // If a configured target is created, check that all advertised providers are returned.
+            validateRuleAdvertisedProviders(
+                ruleContext, target, ruleClass.getAdvertisedProviders());
+          }
         } finally {
           // close() is required if the native rule created StarlarkRuleContext to perform any
           // Starlark evaluation, i.e. using the @_builtins mechanism.
@@ -429,6 +433,35 @@ public final class ConfiguredTargetFactory {
       }
     } catch (RuleErrorException ruleErrorException) {
       return erroredConfiguredTarget(ruleContext, null);
+    }
+  }
+
+  /**
+   * Checks that all the rule advertised providers are returned in the configured target and add
+   * error to {@code ruleContext} if not.
+   */
+  private static void validateRuleAdvertisedProviders(
+      RuleContext ruleContext,
+      ConfiguredTarget configuredTarget,
+      AdvertisedProviderSet advertisedProviders) {
+    for (StarlarkProviderIdentifier providerId : advertisedProviders.getStarlarkProviders()) {
+      if (configuredTarget.get(providerId) == null) {
+        ruleContext.ruleError(
+            String.format(
+                "rule advertised the '%s' provider, but this provider was not among those"
+                    + " returned",
+                providerId));
+      }
+    }
+
+    for (Class<?> klass : advertisedProviders.getBuiltinProviders()) {
+      if (configuredTarget.getProvider(klass.asSubclass(TransitiveInfoProvider.class)) == null) {
+        ruleContext.ruleError(
+            String.format(
+                "rule advertised the '%s' provider, but this provider was not among those"
+                    + " returned",
+                klass.getSimpleName()));
+      }
     }
   }
 

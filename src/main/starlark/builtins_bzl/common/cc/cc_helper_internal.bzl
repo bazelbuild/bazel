@@ -42,3 +42,30 @@ artifact_category = struct(
 def should_create_per_object_debug_info(feature_configuration, cpp_configuration):
     return cpp_configuration.fission_active_for_current_compilation_mode() and \
            feature_configuration.is_enabled("per_object_debug_info")
+
+def is_versioned_shared_library_extension_valid(shared_library_name):
+    # validate against the regex "^.+\\.((so)|(dylib))(\\.\\d\\w*)+$",
+    # must match VERSIONED_SHARED_LIBRARY.
+    for ext in (".so.", ".dylib."):
+        name, _, version = shared_library_name.rpartition(ext)
+        if name and version:
+            version_parts = version.split(".")
+            for part in version_parts:
+                if not part[0].isdigit():
+                    return False
+                for c in part[1:].elems():
+                    if not (c.isalnum() or c == "_"):
+                        return False
+            return True
+    return False
+
+def is_shared_library(file):
+    return file.extension in ["so", "dylib", "dll", "pyd", "wasm", "tgt", "vpi"]
+
+def is_versioned_shared_library(file):
+    # Because regex matching can be slow, we first do a quick check for ".so." and ".dylib."
+    # substring before risking the full-on regex match. This should eliminate the performance
+    # hit on practically every non-qualifying file type.
+    if ".so." not in file.basename and ".dylib." not in file.basename:
+        return False
+    return is_versioned_shared_library_extension_valid(file.basename)

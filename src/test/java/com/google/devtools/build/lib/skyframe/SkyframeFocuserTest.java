@@ -57,11 +57,10 @@ public final class SkyframeFocuserTest extends BuildViewTestCase {
   public void testFocus_emptyInputsReturnsEmptyResult() throws InterruptedException {
     InMemoryGraph graph = skyframeExecutor.getEvaluator().getInMemoryGraph();
     FocusResult focusResult =
-        SkyframeFocuser.focus(
-            graph, mockActionCache, reporter, Sets.newHashSet(), Sets.newHashSet());
+        SkyframeFocuser.focus(graph, mockActionCache, Sets.newHashSet(), Sets.newHashSet());
 
-    assertThat(focusResult.getDeps()).isEmpty();
-    assertThat(focusResult.getRdeps()).isEmpty();
+    assertThat(focusResult.deps()).isEmpty();
+    assertThat(focusResult.rdeps()).isEmpty();
   }
 
   @Test
@@ -79,10 +78,10 @@ public final class SkyframeFocuserTest extends BuildViewTestCase {
     Set<SkyKey> roots = Sets.newHashSet();
     Set<SkyKey> leafs = Sets.newHashSet(cat, dog);
 
-    FocusResult focusResult = SkyframeFocuser.focus(graph, mockActionCache, reporter, roots, leafs);
+    FocusResult focusResult = SkyframeFocuser.focus(graph, mockActionCache, roots, leafs);
 
-    assertThat(focusResult.getDeps()).isEmpty();
-    assertThat(focusResult.getRdeps()).containsExactly(cat, dog);
+    assertThat(focusResult.deps()).isEmpty();
+    assertThat(focusResult.rdeps()).containsExactly(cat, dog);
     assertThat(graph.getValues().keySet()).containsExactly(cat, dog);
   }
 
@@ -101,10 +100,10 @@ public final class SkyframeFocuserTest extends BuildViewTestCase {
     Set<SkyKey> roots = Sets.newHashSet();
     Set<SkyKey> leafs = Sets.newHashSet(cat); // dog is unreachable
 
-    FocusResult focusResult = SkyframeFocuser.focus(graph, mockActionCache, reporter, roots, leafs);
+    FocusResult focusResult = SkyframeFocuser.focus(graph, mockActionCache, roots, leafs);
 
-    assertThat(focusResult.getDeps()).isEmpty();
-    assertThat(focusResult.getRdeps()).containsExactly(cat);
+    assertThat(focusResult.deps()).isEmpty();
+    assertThat(focusResult.rdeps()).containsExactly(cat);
     assertThat(graph.getValues().keySet()).containsExactly(cat);
   }
 
@@ -122,10 +121,10 @@ public final class SkyframeFocuserTest extends BuildViewTestCase {
     Set<SkyKey> roots = Sets.newHashSet();
     Set<SkyKey> leafs = Sets.newHashSet(cat); // dog is cat's rdep
 
-    FocusResult focusResult = SkyframeFocuser.focus(graph, mockActionCache, reporter, roots, leafs);
+    FocusResult focusResult = SkyframeFocuser.focus(graph, mockActionCache, roots, leafs);
 
-    assertThat(focusResult.getDeps()).isEmpty();
-    assertThat(focusResult.getRdeps()).containsExactly(cat, dog);
+    assertThat(focusResult.deps()).isEmpty();
+    assertThat(focusResult.rdeps()).containsExactly(cat, dog);
     assertThat(graph.getValues().keySet()).containsExactly(cat, dog);
   }
 
@@ -143,10 +142,10 @@ public final class SkyframeFocuserTest extends BuildViewTestCase {
     Set<SkyKey> roots = Sets.newHashSet(cat, dog);
     Set<SkyKey> leafs = Sets.newHashSet();
 
-    FocusResult focusResult = SkyframeFocuser.focus(graph, mockActionCache, reporter, roots, leafs);
+    FocusResult focusResult = SkyframeFocuser.focus(graph, mockActionCache, roots, leafs);
 
-    assertThat(focusResult.getDeps()).containsExactly(cat, dog);
-    assertThat(focusResult.getRdeps()).isEmpty();
+    assertThat(focusResult.deps()).containsExactly(cat, dog);
+    assertThat(focusResult.rdeps()).isEmpty();
     assertThat(graph.getValues().keySet()).containsExactly(cat, dog);
   }
 
@@ -164,10 +163,10 @@ public final class SkyframeFocuserTest extends BuildViewTestCase {
     Set<SkyKey> roots = Sets.newHashSet(cat);
     Set<SkyKey> leafs = Sets.newHashSet();
 
-    FocusResult focusResult = SkyframeFocuser.focus(graph, mockActionCache, reporter, roots, leafs);
+    FocusResult focusResult = SkyframeFocuser.focus(graph, mockActionCache, roots, leafs);
 
-    assertThat(focusResult.getDeps()).containsExactly(cat);
-    assertThat(focusResult.getRdeps()).isEmpty();
+    assertThat(focusResult.deps()).containsExactly(cat);
+    assertThat(focusResult.rdeps()).isEmpty();
     assertThat(graph.getValues().keySet()).containsExactly(cat);
   }
 
@@ -204,10 +203,10 @@ public final class SkyframeFocuserTest extends BuildViewTestCase {
     Set<SkyKey> roots = Sets.newHashSet(cat);
     Set<SkyKey> leafs = Sets.newHashSet(civet);
 
-    FocusResult focusResult = SkyframeFocuser.focus(graph, mockActionCache, reporter, roots, leafs);
+    FocusResult focusResult = SkyframeFocuser.focus(graph, mockActionCache, roots, leafs);
 
-    assertThat(focusResult.getDeps()).containsExactly(hamster, fish);
-    assertThat(focusResult.getRdeps()).containsExactly(civet, dog, cat);
+    assertThat(focusResult.deps()).containsExactly(hamster, fish);
+    assertThat(focusResult.rdeps()).containsExactly(civet, dog, cat);
 
     // no monkey (isolated) and bird (indirect dep)
     assertThat(graph.getValues().keySet()).containsExactly(hamster, fish, civet, dog, cat);
@@ -252,7 +251,7 @@ public final class SkyframeFocuserTest extends BuildViewTestCase {
     Set<SkyKey> roots = Sets.newHashSet(hamster);
     Set<SkyKey> leafs = Sets.newHashSet(dog);
 
-    FocusResult unused = SkyframeFocuser.focus(graph, mockActionCache, reporter, roots, leafs);
+    FocusResult unused = SkyframeFocuser.focus(graph, mockActionCache, roots, leafs);
 
     verify(mockActionCache).remove(catAction.getPrimaryOutput().getExecPathString());
     verify(mockActionCache, never()).remove(dogAction.getPrimaryOutput().getExecPathString());

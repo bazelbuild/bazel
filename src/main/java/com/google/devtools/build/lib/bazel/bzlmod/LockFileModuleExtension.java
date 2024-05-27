@@ -48,7 +48,7 @@ public abstract class LockFileModuleExtension implements Postable {
 
   public abstract ImmutableMap<RepoRecordedInput.Dirents, String> getRecordedDirentsInputs();
 
-  public abstract ImmutableMap<String, String> getEnvVariables();
+  public abstract ImmutableMap<RepoRecordedInput.EnvVar, Optional<String>> getEnvVariables();
 
   public abstract ImmutableMap<String, RepoSpec> getGeneratedRepoSpecs();
 
@@ -78,7 +78,8 @@ public abstract class LockFileModuleExtension implements Postable {
     public abstract Builder setRecordedDirentsInputs(
         ImmutableMap<RepoRecordedInput.Dirents, String> value);
 
-    public abstract Builder setEnvVariables(ImmutableMap<String, String> value);
+    public abstract Builder setEnvVariables(
+        ImmutableMap<RepoRecordedInput.EnvVar, Optional<String>> value);
 
     public abstract Builder setGeneratedRepoSpecs(ImmutableMap<String, RepoSpec> value);
 

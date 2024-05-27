@@ -55,7 +55,7 @@ public final class BuildOptionDetails {
       Iterable<? extends FragmentOptions> buildOptions, Map<Label, Object> starlarkOptions) {
     ImmutableMap.Builder<String, OptionDetails> map = ImmutableMap.builder();
     for (FragmentOptions options : buildOptions) {
-      ImmutableList<OptionDefinition> optionDefinitions =
+      ImmutableList<? extends OptionDefinition> optionDefinitions =
           OptionsParser.getOptionDefinitions(options.getClass());
 
       for (OptionDefinition optionDefinition : optionDefinitions) {

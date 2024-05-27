@@ -15,7 +15,12 @@
 """Utility functions for C++ rules."""
 
 load(":common/cc/cc_common.bzl", "cc_common")
-load(":common/cc/cc_helper_internal.bzl", "should_create_per_object_debug_info", _artifact_category = "artifact_category")
+load(
+    ":common/cc/cc_helper_internal.bzl",
+    "is_versioned_shared_library_extension_valid",
+    "should_create_per_object_debug_info",
+    _artifact_category = "artifact_category",
+)
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/objc/objc_common.bzl", "objc_common")
 load(":common/objc/semantics.bzl", objc_semantics = "semantics")
@@ -56,7 +61,7 @@ def _build_linking_context_from_libraries(ctx, libraries):
 
 def _check_file_extension(file, allowed_extensions, allow_versioned_shared_libraries):
     extension = "." + file.extension
-    if _matches_extension(extension, allowed_extensions) or (allow_versioned_shared_libraries and _is_versioned_shared_library_extension_valid(file.path)):
+    if _matches_extension(extension, allowed_extensions) or (allow_versioned_shared_libraries and is_versioned_shared_library_extension_valid(file.path)):
         return True
     return False
 
@@ -114,7 +119,7 @@ def _create_strip_action(ctx, cc_toolchain, cpp_config, input, output, feature_c
     ctx.actions.run(
         inputs = depset(
             direct = [input],
-            transitive = [cc_toolchain.all_files],
+            transitive = [cc_toolchain._strip_files],
         ),
         outputs = [output],
         use_default_shell_env = True,
@@ -507,22 +512,6 @@ def _build_precompiled_files(ctx):
         shared_libraries,
     )
 
-def _is_versioned_shared_library_extension_valid(shared_library_name):
-    # validate agains the regex "^.+\\.((so)|(dylib))(\\.\\d\\w*)+$",
-    # must match VERSIONED_SHARED_LIBRARY.
-    for ext in (".so.", ".dylib."):
-        name, _, version = shared_library_name.rpartition(ext)
-        if name and version:
-            version_parts = version.split(".")
-            for part in version_parts:
-                if not part[0].isdigit():
-                    return False
-                for c in part[1:].elems():
-                    if not (c.isalnum() or c == "_"):
-                        return False
-            return True
-    return False
-
 # NOTE: Prefer to use _is_valid_shared_library_artifact() instead of this method since
 # it has better performance (checking for extension in a short list rather than multiple
 # string.endswith() checks)
@@ -533,7 +522,7 @@ def _is_valid_shared_library_name(shared_library_name):
         shared_library_name.endswith(".wasm")):
         return True
 
-    return _is_versioned_shared_library_extension_valid(shared_library_name)
+    return is_versioned_shared_library_extension_valid(shared_library_name)
 
 _SHARED_LIBRARY_EXTENSIONS = ["so", "dll", "dylib", "wasm"]
 
@@ -541,7 +530,7 @@ def _is_valid_shared_library_artifact(shared_library):
     if (shared_library.extension in _SHARED_LIBRARY_EXTENSIONS):
         return True
 
-    return _is_versioned_shared_library_extension_valid(shared_library.basename)
+    return is_versioned_shared_library_extension_valid(shared_library.basename)
 
 def _get_providers(deps, provider):
     providers = []

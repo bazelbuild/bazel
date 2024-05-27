@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
-import com.google.devtools.build.lib.analysis.config.TransitionFactories;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.MockRule;
@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
@@ -96,32 +97,55 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
     }
   }
 
-  private static final class PathTransition implements PatchTransition {
+  private static final class PathAttributeTransitionFactory
+      implements TransitionFactory<AttributeTransitionData> {
     private final String newPath;
 
-    PathTransition(String newPath) {
+    PathAttributeTransitionFactory(String newPath) {
       this.newPath = newPath;
     }
 
     @Override
-    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
-      return ImmutableSet.of(PathTestOptions.class);
+    public ConfigurationTransition create(AttributeTransitionData data) {
+      return new PatchTransition() {
+        @Override
+        public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+          return ImmutableSet.of(PathTestOptions.class);
+        }
+
+        @Override
+        public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+          BuildOptionsView clone = options.clone();
+          clone.get(PathTestOptions.class).outputDirectoryName = newPath;
+          return clone.underlying();
+        }
+      };
     }
 
     @Override
-    public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
-      BuildOptionsView clone = options.clone();
-      clone.get(PathTestOptions.class).outputDirectoryName = newPath;
-      return clone.underlying();
+    public TransitionType transitionType() {
+      return TransitionType.ATTRIBUTE;
     }
   }
 
-  private static final class PathTransitionFactory
+  private static final class PathRuleTransitionFactory
       implements TransitionFactory<RuleTransitionData> {
     @Override
     public PatchTransition create(RuleTransitionData ruleData) {
-      return new PathTransition(
-          NonconfigurableAttributeMapper.of(ruleData.rule()).get("path", STRING));
+      String newPath = NonconfigurableAttributeMapper.of(ruleData.rule()).get("path", STRING);
+      return new PatchTransition() {
+        @Override
+        public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+          return ImmutableSet.of(PathTestOptions.class);
+        }
+
+        @Override
+        public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+          BuildOptionsView clone = options.clone();
+          clone.get(PathTestOptions.class).outputDirectoryName = newPath;
+          return clone.underlying();
+        }
+      };
     }
 
     @Override
@@ -202,7 +226,7 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
                           .add(attr("deps", LABEL_LIST).allowedFileTypes())
                           .setImplicitOutputsFunction(
                               ImplicitOutputsFunction.fromTemplates("%{name}.bin"))
-                          .cfg(new PathTransitionFactory()));
+                          .cfg(new PathRuleTransitionFactory()));
       MockRule incomingUnrelatedTransitionRule =
           () ->
               MockRule.define(
@@ -228,8 +252,8 @@ public final class ConvenienceSymlinkTest extends BuildIntegrationTestCase {
                               attr("deps", LABEL_LIST)
                                   .allowedFileTypes()
                                   .cfg(
-                                      TransitionFactories.of(
-                                          new PathTransition("set_by_outgoing_transition_rule"))))
+                                      new PathAttributeTransitionFactory(
+                                          "set_by_outgoing_transition_rule")))
                           .setImplicitOutputsFunction(
                               ImplicitOutputsFunction.fromTemplates("%{name}.bin")));
 

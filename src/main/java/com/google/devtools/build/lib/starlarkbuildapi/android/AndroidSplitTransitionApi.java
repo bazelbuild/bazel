@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.eval.StarlarkValue;
 
 /** Android configuration for properly handling native dependencies */
 @StarlarkBuiltin(
@@ -23,4 +23,4 @@ import net.starlark.java.eval.StarlarkValue;
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
             + "you will be broken when it is removed.",
     documented = false)
-public interface AndroidSplitTransitionApi extends StarlarkValue {}
+public interface AndroidSplitTransitionApi extends ConfigurationTransitionApi {}

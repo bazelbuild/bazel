@@ -16,7 +16,7 @@ package com.google.devtools.build.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -45,7 +45,7 @@ public final class SkyKeyTest {
     assertThat(hashCodeSpy.numberOfTimesHashCodeCalled).isEqualTo(1);
 
     // When that SkyKey is serialized and then deserialized,
-    SkyKey newKey = TestUtils.roundTrip(originalKey);
+    SkyKey newKey = RoundTripping.roundTrip(originalKey);
 
     // Then the new SkyKey recomputed its hashcode on deserialization.
     assertThat(newKey.hashCode()).isEqualTo(originalKey.hashCode());

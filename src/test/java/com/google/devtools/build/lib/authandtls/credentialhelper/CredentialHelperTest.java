@@ -103,6 +103,7 @@ public class CredentialHelperTest {
         assertThrows(
             CredentialHelperException.class,
             () -> getCredentialsFromHelper("https://unknown.example.com"));
+    assertThat(e).hasMessageThat().contains("Failed to get credentials");
     assertThat(e).hasMessageThat().contains("Unknown uri 'https://unknown.example.com'");
   }
 
@@ -112,6 +113,7 @@ public class CredentialHelperTest {
         assertThrows(
             CredentialHelperException.class,
             () -> getCredentialsFromHelper("https://printnothing.example.com"));
+    assertThat(e).hasMessageThat().contains("Failed to get credentials");
     assertThat(e).hasMessageThat().contains("exited without output");
   }
 
@@ -145,6 +147,7 @@ public class CredentialHelperTest {
         assertThrows(
             CredentialHelperException.class,
             () -> getCredentialsFromHelper("https://timeout.example.com"));
+    assertThat(e).hasMessageThat().contains("Failed to get credentials");
     assertThat(e).hasMessageThat().contains("process timed out");
   }
 
@@ -158,6 +161,23 @@ public class CredentialHelperTest {
                     OS.getCurrent() == OS.WINDOWS ? "C:/no/such/file" : "/no/such/file",
                     "https://timeout.example.com",
                     ImmutableMap.of()));
-    assertThat(e).hasMessageThat().contains("Cannot run program");
+    assertThat(e).hasMessageThat().contains("Failed to get credentials");
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            OS.getCurrent().equals(OS.WINDOWS)
+                ? "cannot find the file specified"
+                : "Cannot run program");
+  }
+
+  @Test
+  public void hugePayload() throws Exception {
+    // Bazel reads the credential helper stdout/stderr from a pipe, and doesn't start reading
+    // until the process terminates. Therefore, a response larger than the pipe buffer causes
+    // a deadlock and timeout. This verifies that the pipe is sufficiently large.
+    // See https://github.com/bazelbuild/bazel/issues/21287.
+    GetCredentialsResponse response = getCredentialsFromHelper("https://hugepayload.example.com");
+    assertThat(response.getHeaders())
+        .containsExactly("huge", ImmutableList.of("x".repeat(63 * 1024)));
   }
 }

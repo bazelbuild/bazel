@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputDepOwners;
 import com.google.devtools.build.lib.actions.ActionInputMap;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
@@ -41,6 +42,7 @@ import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.ImportantOutputException;
 import com.google.devtools.build.lib.actions.InputFileErrorException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.actions.TopLevelOutputException;
 import com.google.devtools.build.lib.analysis.ConfiguredObjectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -378,20 +380,34 @@ public final class CompletionFunction<
     }
 
     var outputService = skyframeActionExecutor.getOutputService();
+    if (outputService == null) {
+      return;
+    }
+
     var actionInputPrefetcher = skyframeActionExecutor.getActionInputPrefetcher();
-    if (outputService == null || actionInputPrefetcher == null) {
+    if (actionInputPrefetcher == null || actionInputPrefetcher == ActionInputPrefetcher.NONE) {
       return;
     }
 
     var remoteArtifactChecker = outputService.getRemoteArtifactChecker();
+    if (remoteArtifactChecker == RemoteArtifactChecker.TRUST_ALL) {
+      return;
+    }
+
     var futures = new ArrayList<ListenableFuture<Void>>();
     for (var artifact : artifacts) {
       if (!(artifact instanceof DerivedArtifact derivedArtifact)) {
         continue;
       }
 
+      // Metadata can be null during error bubbling, only download outputs that are already
+      // generated. b/342188273
       if (artifact.isTreeArtifact()) {
-        var treeMetadata = checkNotNull(inputMap.getTreeMetadata(artifact.getExecPath()));
+        var treeMetadata = inputMap.getTreeMetadata(artifact.getExecPath());
+        if (treeMetadata == null) {
+          continue;
+        }
+
         var filesToDownload = new ArrayList<ActionInput>(treeMetadata.getChildValues().size());
         for (var child : treeMetadata.getChildValues().entrySet()) {
           var treeFile = child.getKey();
@@ -411,7 +427,11 @@ public final class CompletionFunction<
           futures.add(future);
         }
       } else {
-        var metadata = checkNotNull(inputMap.getInputMetadata(artifact));
+        var metadata = inputMap.getInputMetadata(artifact);
+        if (metadata == null) {
+          continue;
+        }
+
         if (metadata.isRemote()
             && !remoteArtifactChecker.shouldTrustRemoteArtifact(
                 artifact, (RemoteFileArtifactValue) metadata)) {

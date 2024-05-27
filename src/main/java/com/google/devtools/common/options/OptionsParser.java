@@ -858,7 +858,7 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   /** Returns all options fields of the given options class, in alphabetic order. */
-  public static ImmutableList<OptionDefinition> getOptionDefinitions(
+  public static ImmutableList<? extends OptionDefinition> getOptionDefinitions(
       Class<? extends OptionsBase> optionsClass) {
     return OptionsData.getAllOptionDefinitionsForClass(optionsClass);
   }

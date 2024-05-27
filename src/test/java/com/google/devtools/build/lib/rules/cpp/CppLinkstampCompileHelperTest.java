@@ -45,6 +45,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
         .ccSupport()
         .setupCcToolchainConfig(
             mockToolsConfig, CcToolchainConfig.builder().withSysroot("/usr/local/custom-sysroot"));
+    setBuildLanguageOptions("--noincompatible_unambiguous_label_stringification");
     useConfiguration();
     scratch.file(
         "x/BUILD",
@@ -107,6 +108,7 @@ public class CppLinkstampCompileHelperTest extends BuildViewTestCase {
         .ccSupport()
         .setupCcToolchainConfig(
             mockToolsConfig, CcToolchainConfig.builder().withSysroot("/usr/local/custom-sysroot"));
+    setBuildLanguageOptions("--noincompatible_unambiguous_label_stringification");
     useConfiguration();
     scratch.file(
         "x/BUILD",

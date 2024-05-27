@@ -20,16 +20,19 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.cmdline.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -46,6 +49,7 @@ import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -242,6 +246,27 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       return null;
     }
 
+    boolean enableBzlmod = starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD);
+    @Nullable RepositoryMapping mainRepoMapping;
+    String ruleClass =
+        rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel().getUnambiguousCanonicalForm()
+            + "%"
+            + rule.getRuleClass();
+    if (NonRegistryOverride.BOOTSTRAP_RULE_CLASSES.contains(ruleClass)) {
+      // Avoid a cycle.
+      mainRepoMapping = null;
+    } else if (enableBzlmod || !isWorkspaceRepo(rule)) {
+      var mainRepoMappingValue =
+          (RepositoryMappingValue)
+              env.getValue(RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS);
+      if (mainRepoMappingValue == null) {
+        return null;
+      }
+      mainRepoMapping = mainRepoMappingValue.getRepositoryMapping();
+    } else {
+      mainRepoMapping = rule.getPackage().getRepositoryMapping();
+    }
+
     IgnoredPackagePrefixesValue ignoredPackagesValue =
         (IgnoredPackagePrefixesValue) env.getValue(IgnoredPackagePrefixesValue.key());
     if (env.valuesMissing()) {
@@ -264,7 +289,8 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
         thread.setThreadLocal(Label.RepoMappingRecorder.class, repoMappingRecorder);
       }
 
-      new BazelStarlarkContext(BazelStarlarkContext.Phase.LOADING).storeInThread(thread); // "fetch"
+      new BazelStarlarkContext(BazelStarlarkContext.Phase.LOADING, () -> mainRepoMapping)
+          .storeInThread(thread); // "fetch"
 
       StarlarkRepositoryContext starlarkRepositoryContext =
           new StarlarkRepositoryContext(
@@ -336,16 +362,14 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
         env.getListener().handle(Event.debug(defInfo));
       }
 
-      // Modify marker data to include the files/dirents used by the rule's implementation function.
+      // Modify marker data to include the files/dirents/env vars used by the rule's implementation
+      // function.
       recordedInputValues.putAll(starlarkRepositoryContext.getRecordedFileInputs());
       recordedInputValues.putAll(starlarkRepositoryContext.getRecordedDirentsInputs());
       recordedInputValues.putAll(starlarkRepositoryContext.getRecordedDirTreeInputs());
-
-      // Ditto for environment variables accessed via `getenv`.
-      for (String envKey : starlarkRepositoryContext.getAccumulatedEnvKeys()) {
-        recordedInputValues.put(
-            new RepoRecordedInput.EnvVar(envKey), clientEnvironment.get(envKey));
-      }
+      recordedInputValues.putAll(
+          Maps.transformValues(
+              starlarkRepositoryContext.getRecordedEnvVarInputs(), v -> v.orElse(null)));
 
       for (Table.Cell<RepositoryName, String, RepositoryName> repoMappings :
           repoMappingRecorder.recordedEntries().cellSet()) {

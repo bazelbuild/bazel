@@ -21,8 +21,8 @@ import java.lang.annotation.Target;
 /**
  * An interface for annotating fields in classes (derived from OptionsBase) that are options.
  *
- * <p>The fields of this annotation have matching getters in {@link OptionDefinition}. Please do not
- * access these fields directly, but instead go through that class.
+ * <p>The fields of this annotation have matching getters in {@link FieldOptionDefinition}. Please
+ * do not access these fields directly, but instead go through that class.
  *
  * <p>A number of checks are run on an Option's fields' values at compile time. See {@link
  * com.google.devtools.common.options.processor.OptionProcessor} for details.
@@ -61,9 +61,9 @@ public @interface Option {
    * annotation values must be compile-time constants.
    *
    * <p>If an option's defaultValue() is the string "null" (see {@link
-   * OptionDefinition#SPECIAL_NULL_DEFAULT_VALUE}), the option's converter will not be invoked to
-   * interpret it; an empty {@link java.util.List} (for {@code allowMultiple = true} options) or a
-   * null reference (for others) will be used instead. (It would be nice if defaultValue could
+   * FieldOptionDefinition#SPECIAL_NULL_DEFAULT_VALUE}), the option's converter will not be invoked
+   * to interpret it; an empty {@link java.util.List} (for {@code allowMultiple = true} options) or
+   * a null reference (for others) will be used instead. (It would be nice if defaultValue could
    * simply return null, but bizarrely, the Java Language Specification does not consider null to be
    * a compile-time constant.) This special interpretation of the string "null" is only applicable
    * when computing the default value; if specified on the command-line, this string will have its
@@ -71,7 +71,7 @@ public @interface Option {
    *
    * <p>Multiple options (e.g. with {@code allowMultiple = true}) are not allowed to have default
    * values (with only a small number of exceptions - see {@link OptionsProcessor}), thus should
-   * always use {@link OptionDefinition#SPECIAL_NULL_DEFAULT_VALUE}.
+   * always use {@link FieldOptionDefinition#SPECIAL_NULL_DEFAULT_VALUE}.
    */
   String defaultValue();
 

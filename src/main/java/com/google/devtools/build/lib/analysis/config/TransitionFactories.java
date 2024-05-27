@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 
@@ -33,8 +32,6 @@ public final class TransitionFactories {
       ConfigurationTransition transition) {
     if (transition instanceof NoTransition) {
       return NoTransition.createFactory();
-    } else if (transition instanceof NullTransition) {
-      return NullTransition.createFactory();
     } else if (transition instanceof SplitTransition splitTransition) {
       return split(splitTransition);
     }

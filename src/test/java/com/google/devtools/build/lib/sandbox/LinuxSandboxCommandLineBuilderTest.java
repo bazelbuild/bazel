@@ -133,7 +133,7 @@ public final class LinuxSandboxCommandLineBuilderTest {
             .put(bindMountTarget2, bindMountSource2)
             .buildOrThrow();
 
-    String cgroupsDir = "/sys/fs/cgroups/something";
+    Path cgroupsDir = fileSystem.getPath("/sys/fs/cgroups/something");
 
     ImmutableList<String> expectedCommandLine =
         ImmutableList.<String>builder()
@@ -158,7 +158,7 @@ public final class LinuxSandboxCommandLineBuilderTest {
             .add("-U")
             .add("-D", sandboxDebugPath.getPathString())
             .add("-p")
-            .add("-C", cgroupsDir)
+            .add("-C", cgroupsDir.toString())
             .add("--")
             .addAll(commandArguments)
             .build();
@@ -180,7 +180,7 @@ public final class LinuxSandboxCommandLineBuilderTest {
             .setUseFakeUsername(useFakeUsername)
             .setSandboxDebugPath(sandboxDebugPath.getPathString())
             .setPersistentProcess(true)
-            .setCgroupsDir(cgroupsDir)
+            .setCgroupsDirs(ImmutableSet.of(cgroupsDir.getPathFile().toPath()))
             .buildForCommand(commandArguments);
 
     assertThat(commandLine).containsExactlyElementsIn(expectedCommandLine).inOrder();

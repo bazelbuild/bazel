@@ -84,9 +84,14 @@ public class MockSubprocess {
         case 'I':
           char register = arg.charAt(1);
           int length = Integer.parseInt(arg.substring(2));
-          byte[] buf = new byte[length];
+          byte[] buf;
+          if (length > 0) {
+            buf = new byte[length];
+            System.in.read(buf, 0, length);
+          } else {
+            buf = System.in.readAllBytes();
+          }
           registers.put(register, buf);
-          System.in.read(buf, 0, length);
           break;
 
         case 'E':

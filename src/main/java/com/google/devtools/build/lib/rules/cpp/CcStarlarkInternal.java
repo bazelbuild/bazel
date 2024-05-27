@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
+import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
@@ -46,8 +47,11 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -278,7 +282,8 @@ public class CcStarlarkInternal implements StarlarkValue {
     return new CcLauncherInfo(ccInfo, compilationOutputs);
   }
 
-  private static final StarlarkProvider starlarkCcTestRunnerInfo =
+  @SerializationConstant @VisibleForSerialization
+  static final StarlarkProvider starlarkCcTestRunnerInfo =
       StarlarkProvider.builder(Location.BUILTIN)
           .buildExported(
               new StarlarkProvider.Key(
@@ -389,7 +394,8 @@ public class CcStarlarkInternal implements StarlarkValue {
             withoutExternDependencies));
   }
 
-  private static final StarlarkProvider buildSettingInfo =
+  @SerializationConstant @VisibleForSerialization
+  static final StarlarkProvider buildSettingInfo =
       StarlarkProvider.builder(Location.BUILTIN)
           .buildExported(
               new StarlarkProvider.Key(
@@ -486,6 +492,84 @@ public class CcStarlarkInternal implements StarlarkValue {
             output,
             progressMessage);
     ctx.getRuleContext().registerAction(action);
+  }
+
+  @StarlarkMethod(
+      name = "for_static_library",
+      documented = false,
+      parameters = {@Param(name = "name"), @Param(name = "is_whole_archive", named = true)})
+  public LibraryToLinkValue forStaticLibrary(String name, boolean isWholeArchive) {
+    return LibraryToLinkValue.forStaticLibrary(name, isWholeArchive);
+  }
+
+  @StarlarkMethod(
+      name = "for_object_file_group",
+      documented = false,
+      parameters = {@Param(name = "files"), @Param(name = "is_whole_archive", named = true)})
+  public LibraryToLinkValue forObjectFileGroup(Sequence<?> files, boolean isWholeArchive)
+      throws EvalException {
+    return LibraryToLinkValue.forObjectFileGroup(
+        ImmutableList.copyOf(Sequence.cast(files, Artifact.class, "files")), isWholeArchive);
+  }
+
+  @StarlarkMethod(
+      name = "for_object_file",
+      documented = false,
+      parameters = {@Param(name = "name"), @Param(name = "is_whole_archive", named = true)})
+  public LibraryToLinkValue forObjectFile(String name, boolean isWholeArchive) {
+    return LibraryToLinkValue.forObjectFile(name, isWholeArchive);
+  }
+
+  @StarlarkMethod(
+      name = "for_interface_library",
+      documented = false,
+      parameters = {@Param(name = "name")})
+  public LibraryToLinkValue forInterfaceLibrary(String name) throws EvalException {
+    return LibraryToLinkValue.forInterfaceLibrary(name);
+  }
+
+  @StarlarkMethod(
+      name = "for_dynamic_library",
+      documented = false,
+      parameters = {@Param(name = "name")})
+  public LibraryToLinkValue forDynamicLibrary(String name) throws EvalException {
+    return LibraryToLinkValue.forDynamicLibrary(name);
+  }
+
+  @StarlarkMethod(
+      name = "for_versioned_dynamic_library",
+      documented = false,
+      parameters = {@Param(name = "name"), @Param(name = "path")})
+  public LibraryToLinkValue forVersionedDynamicLibrary(String name, String path)
+      throws EvalException {
+    return LibraryToLinkValue.forVersionedDynamicLibrary(name, path);
+  }
+
+  @StarlarkMethod(
+      name = "simple_linker_input",
+      documented = false,
+      parameters = {
+        @Param(name = "input"),
+        @Param(name = "artifact_category", defaultValue = "'object_file'"),
+        @Param(name = "disable_whole_archive", defaultValue = "False")
+      })
+  public LegacyLinkerInput simpleLinkerInput(
+      Artifact input, String artifactCategory, boolean disableWholeArchive) {
+    return LegacyLinkerInputs.simpleLinkerInput(
+        input,
+        ArtifactCategory.valueOf(Ascii.toUpperCase(artifactCategory)),
+        /* disableWholeArchive= */ disableWholeArchive,
+        input.getRootRelativePathString());
+  }
+
+  @StarlarkMethod(
+      name = "linkstamp_linker_input",
+      documented = false,
+      parameters = {
+        @Param(name = "input"),
+      })
+  public LegacyLinkerInput linkstampLinkerInput(Artifact input) {
+    return LegacyLinkerInputs.linkstampLinkerInput(input);
   }
 
   @StarlarkMethod(

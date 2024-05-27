@@ -168,50 +168,15 @@ public final class GsonTypeAdapterUtil {
       MODULE_EXTENSION_FACTORS_TYPE_ADAPTER =
           new TypeAdapter<>() {
 
-            private static final String OS_KEY = "os:";
-            private static final String ARCH_KEY = "arch:";
-            // This is used when the module extension doesn't depend on os or arch, to indicate that
-            // its value is "general" and can be used with any platform
-            private static final String GENERAL_EXTENSION = "general";
-
             @Override
             public void write(JsonWriter jsonWriter, ModuleExtensionEvalFactors extFactors)
                 throws IOException {
-              if (extFactors.isEmpty()) {
-                jsonWriter.value(GENERAL_EXTENSION);
-              } else {
-                StringBuilder jsonBuilder = new StringBuilder();
-                if (!extFactors.getOs().isEmpty()) {
-                  jsonBuilder.append(OS_KEY).append(extFactors.getOs());
-                }
-                if (!extFactors.getArch().isEmpty()) {
-                  if (jsonBuilder.length() > 0) {
-                    jsonBuilder.append(",");
-                  }
-                  jsonBuilder.append(ARCH_KEY).append(extFactors.getArch());
-                }
-                jsonWriter.value(jsonBuilder.toString());
-              }
+              jsonWriter.value(extFactors.toString());
             }
 
             @Override
             public ModuleExtensionEvalFactors read(JsonReader jsonReader) throws IOException {
-              String jsonString = jsonReader.nextString();
-              if (jsonString.equals(GENERAL_EXTENSION)) {
-                return ModuleExtensionEvalFactors.create("", "");
-              }
-
-              String os = "";
-              String arch = "";
-              var extParts = Splitter.on(',').splitToList(jsonString);
-              for (String part : extParts) {
-                if (part.startsWith(OS_KEY)) {
-                  os = part.substring(OS_KEY.length());
-                } else if (part.startsWith(ARCH_KEY)) {
-                  arch = part.substring(ARCH_KEY.length());
-                }
-              }
-              return ModuleExtensionEvalFactors.create(os, arch);
+              return ModuleExtensionEvalFactors.parse(jsonReader.nextString());
             }
           };
 
@@ -267,22 +232,34 @@ public final class GsonTypeAdapterUtil {
           if (elementTypeAdapter == null) {
             return null;
           }
-          return (TypeAdapter<T>) new OptionalTypeAdapter<>(elementTypeAdapter);
+          // Explicit nulls for Optional.empty are required for env variable tracking, but are too
+          // noisy and unnecessary for other types.
+          return (TypeAdapter<T>)
+              new OptionalTypeAdapter<>(
+                  elementTypeAdapter, /* serializeNulls= */ elementType.equals(String.class));
         }
       };
 
   private static final class OptionalTypeAdapter<T> extends TypeAdapter<Optional<T>> {
     private final TypeAdapter<T> elementTypeAdapter;
+    private final boolean serializeNulls;
 
-    public OptionalTypeAdapter(TypeAdapter<T> elementTypeAdapter) {
+    public OptionalTypeAdapter(TypeAdapter<T> elementTypeAdapter, boolean serializeNulls) {
       this.elementTypeAdapter = elementTypeAdapter;
+      this.serializeNulls = serializeNulls;
     }
 
     @Override
     public void write(JsonWriter jsonWriter, Optional<T> t) throws IOException {
       Preconditions.checkNotNull(t);
       if (t.isEmpty()) {
-        jsonWriter.nullValue();
+        boolean oldSerializeNulls = jsonWriter.getSerializeNulls();
+        jsonWriter.setSerializeNulls(serializeNulls);
+        try {
+          jsonWriter.nullValue();
+        } finally {
+          jsonWriter.setSerializeNulls(oldSerializeNulls);
+        }
       } else {
         elementTypeAdapter.write(jsonWriter, t.get());
       }
@@ -393,6 +370,22 @@ public final class GsonTypeAdapterUtil {
             }
           };
 
+  private static final TypeAdapter<RepoRecordedInput.EnvVar>
+      REPO_RECORDED_INPUT_ENV_VAR_TYPE_ADAPTER =
+          new TypeAdapter<>() {
+            @Override
+            public void write(JsonWriter jsonWriter, RepoRecordedInput.EnvVar value)
+                throws IOException {
+              jsonWriter.value(value.toStringInternal());
+            }
+
+            @Override
+            public RepoRecordedInput.EnvVar read(JsonReader jsonReader) throws IOException {
+              return (RepoRecordedInput.EnvVar)
+                  RepoRecordedInput.EnvVar.PARSER.parse(jsonReader.nextString());
+            }
+          };
+
   // This can't reuse the existing type adapter factory for Optional as we need to explicitly
   // serialize null values but don't want to rely on GSON's serializeNulls.
   private static final class OptionalChecksumTypeAdapterFactory implements TypeAdapterFactory {
@@ -476,7 +469,9 @@ public final class GsonTypeAdapterUtil {
         .registerTypeAdapter(byte[].class, BYTE_ARRAY_TYPE_ADAPTER)
         .registerTypeAdapter(RepoRecordedInput.File.class, REPO_RECORDED_INPUT_FILE_TYPE_ADAPTER)
         .registerTypeAdapter(
-            RepoRecordedInput.Dirents.class, REPO_RECORDED_INPUT_DIRENTS_TYPE_ADAPTER);
+            RepoRecordedInput.Dirents.class, REPO_RECORDED_INPUT_DIRENTS_TYPE_ADAPTER)
+        .registerTypeAdapter(
+            RepoRecordedInput.EnvVar.class, REPO_RECORDED_INPUT_ENV_VAR_TYPE_ADAPTER);
   }
 
   private GsonTypeAdapterUtil() {}

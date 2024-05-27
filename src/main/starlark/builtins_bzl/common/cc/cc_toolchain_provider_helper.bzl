@@ -258,6 +258,7 @@ def get_cc_toolchain_provider(ctx, attributes):
         sysroot = sysroot,
         fdo_context = fdo_context,
         is_tool_configuration = ctx.configuration.is_tool_configuration(),
+        is_sibling_repository_layout = ctx.configuration.is_sibling_repository_layout(),
         tool_paths = tool_paths,
         default_sysroot = default_sysroot,
         # The runtime sysroot should really be set from --grte_top. However, currently libc has

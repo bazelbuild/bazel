@@ -27,25 +27,18 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
-import com.google.devtools.build.lib.analysis.config.TransitionFactories;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
-import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import net.starlark.java.eval.StarlarkInt;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -254,28 +247,10 @@ public final class AttributeTest {
   }
 
   @Test
-  public void testSplitTransition() {
-    TestSplitTransition splitTransition = new TestSplitTransition();
-    Attribute attr =
-        attr("foo", LABEL).cfg(TransitionFactories.of(splitTransition)).allowedFileTypes().build();
-    assertThat(attr.getTransitionFactory().isSplit()).isTrue();
-    ConfigurationTransition transition =
-        attr.getTransitionFactory()
-            .create(
-                AttributeTransitionData.builder().attributes(FakeAttributeMapper.empty()).build());
-    assertThat(transition).isEqualTo(splitTransition);
-  }
-
-  @Test
   public void testSplitTransitionProvider() {
     TestSplitTransitionProvider splitTransitionProvider = new TestSplitTransitionProvider();
     Attribute attr = attr("foo", LABEL).cfg(splitTransitionProvider).allowedFileTypes().build();
     assertThat(attr.getTransitionFactory().isSplit()).isTrue();
-    ConfigurationTransition transition =
-        attr.getTransitionFactory()
-            .create(
-                AttributeTransitionData.builder().attributes(FakeAttributeMapper.empty()).build());
-    assertThat(transition).isInstanceOf(TestSplitTransition.class);
   }
 
   @Test
@@ -289,20 +264,16 @@ public final class AttributeTest {
     assertThat(attr.getTransitionFactory().isSplit()).isFalse();
   }
 
-  private static class TestSplitTransition implements SplitTransition {
-    @Override
-    public Map<String, BuildOptions> split(
-        BuildOptionsView buildOptions, EventHandler eventHandler) {
-      return ImmutableMap.of(
-          "test0", buildOptions.clone().underlying(), "test1", buildOptions.clone().underlying());
-    }
-  }
-
   private static class TestSplitTransitionProvider
       implements TransitionFactory<AttributeTransitionData> {
     @Override
     public SplitTransition create(AttributeTransitionData data) {
-      return new TestSplitTransition();
+      return (buildOptions, eventHandler) ->
+          ImmutableMap.of(
+              "test0",
+              buildOptions.clone().underlying(),
+              "test1",
+              buildOptions.clone().underlying());
     }
 
     @Override

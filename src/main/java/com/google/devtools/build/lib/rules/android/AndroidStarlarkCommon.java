@@ -44,7 +44,7 @@ public class AndroidStarlarkCommon
 
   @Override
   public AndroidSplitTransitionApi getAndroidSplitTransition() {
-    return AndroidSplitTransition.INSTANCE;
+    return AndroidSplitTransition.FACTORY;
   }
 
   @Override

@@ -60,24 +60,20 @@ local_repository(
 )
 EOF
 
+  # Define the custom platforms repository. It needs all the contents of the
+  # regular version, plus our additions.
   mkdir -p override || fail "couldn't create override directory"
   touch override/WORKSPACE || fail "couldn't touch override/WORKSPACE"
-  cat > override/BUILD <<EOF
+
+  # Copy the existing platforms repo to our test dir.
+  bazel build @platforms//...
+  cp -r `bazel info output_base`/external/platforms/* override
+
+  # Add a custom target
+  cat >> override/BUILD <<EOF
 # Have to use a rule that doesn't require a target platform, or else there will
 # be a cycle.
 toolchain_type(name = 'yolo')
-EOF
-  mkdir override/host
-  cat > override/host/BUILD <<EOF
-# Have to define the host platform.
-platform(
-    name = 'host',
-    visibility = ['//visibility:public'],
-)
-EOF
-  cat > override/host/extension.bzl <<EOF
-def host_platform_repo(**kwargs):
-  pass
 EOF
 
   cd platforms_can_be_overridden || fail "couldn't cd into workspace"
@@ -115,7 +111,7 @@ platform(
 EOF
 
   bazel build --experimental_platforms_api=true :a &> $TEST_log || fail "Build failed"
-  expect_log 'The label is: @@//:my_platform'
+  expect_log 'The label is: //:my_platform'
 }
 
 run_suite "platform repo test"

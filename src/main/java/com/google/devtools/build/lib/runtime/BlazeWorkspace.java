@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -205,6 +206,7 @@ public final class BlazeWorkspace {
   public CommandEnvironment initCommand(
       Command command,
       OptionsParsingResult options,
+      InvocationPolicy invocationPolicy,
       List<String> warnings,
       long waitTimeInMs,
       long commandStartTime,
@@ -221,6 +223,7 @@ public final class BlazeWorkspace {
             Thread.currentThread(),
             command,
             options,
+            invocationPolicy,
             syscallCache,
             quiescingExecutors,
             warnings,

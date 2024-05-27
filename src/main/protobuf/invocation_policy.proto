@@ -13,7 +13,10 @@
 // limitations under the License.
 
 syntax = "proto2";
+
 package blaze.invocation_policy;
+
+import "src/main/protobuf/strategy_policy.proto";
 
 // option java_api_version = 2;
 option java_package = "com.google.devtools.build.lib.runtime.proto";
@@ -26,6 +29,8 @@ message InvocationPolicy {
   // requirements, only the final policy on a specific flag will be enforced
   // onto the user's command line.
   repeated FlagPolicy flag_policies = 1;
+
+  optional blaze.strategy_policy.StrategyPolicy strategy_policy = 2;
 }
 
 // A policy for controlling the value of a flag.

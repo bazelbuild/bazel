@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
+import com.google.devtools.build.lib.cmdline.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -66,7 +67,6 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
@@ -564,7 +564,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         && !thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_RULE_EXTENSION_API)
         && !bzlFile.getRepository().getName().equals("_builtins")) {
       builder.addAllowlistChecker(EXTEND_RULE_API_ALLOWLIST_CHECKER);
-      if (!builder.contains("$allowlist_extend_rule")) {
+      if (!builder.contains("$allowlist_extend_rule_api")) {
         Attribute.Builder<Label> allowlistAttr =
             attr("$allowlist_extend_rule_api", LABEL)
                 .cfg(ExecutionTransitionFactory.createFactory())

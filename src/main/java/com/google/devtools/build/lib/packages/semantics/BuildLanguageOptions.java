@@ -668,7 +668,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "Disable objc_library's custom transition and inherit "
-              + "from the top level target instead")
+              + "from the top level target instead (No-op in Bazel)")
   public boolean incompatibleDisableObjcLibraryTransition;
 
   // remove after Bazel LTS in Nov 2023

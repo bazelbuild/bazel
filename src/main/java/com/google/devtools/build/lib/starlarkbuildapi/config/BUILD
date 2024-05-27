@@ -20,6 +20,16 @@ filegroup(
 )
 
 java_library(
+    name = "configuration_transition_api",
+    srcs = ["ConfigurationTransitionApi.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/docgen/annot",
+        "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/net/starlark/java/eval",
+    ],
+)
+
+java_library(
     name = "starlark_toolchain_type_requirement",
     srcs = ["StarlarkToolchainTypeRequirement.java"],
     deps = [
@@ -34,9 +44,13 @@ java_library(
     name = "config",
     srcs = glob(
         ["*.java"],
-        exclude = ["StarlarkToolchainTypeRequirement.java"],
+        exclude = [
+            "ConfigurationTransitionApi.java",
+            "StarlarkToolchainTypeRequirement.java",
+        ],
     ),
     deps = [
+        ":configuration_transition_api",
         ":starlark_toolchain_type_requirement",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

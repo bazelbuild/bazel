@@ -22,7 +22,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.Futures;
@@ -214,9 +213,12 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     return ImmutableMap.copyOf(recordedDirentsInputs);
   }
 
-  /** Returns set of environment variable keys encountered so far. */
-  public ImmutableSet<String> getAccumulatedEnvKeys() {
-    return ImmutableSet.copyOf(accumulatedEnvKeys);
+  public ImmutableMap<RepoRecordedInput.EnvVar, Optional<String>> getRecordedEnvVarInputs()
+      throws InterruptedException {
+    // getEnvVarValues doesn't return null since the Skyframe dependencies have already been
+    // established by getenv calls.
+    return RepoRecordedInput.EnvVar.wrap(
+        ImmutableSortedMap.copyOf(RepositoryFunction.getEnvVarValues(env, accumulatedEnvKeys)));
   }
 
   protected void checkInOutputDirectory(String operation, StarlarkPath path)

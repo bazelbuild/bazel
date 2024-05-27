@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -140,20 +142,20 @@ public enum CompileBuildVariables {
   public static CcToolchainVariables setupVariablesOrReportRuleError(
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchainProvider,
-      String sourceFile,
-      String outputFile,
+      Artifact sourceFile,
+      Artifact outputFile,
       boolean isCodeCoverageEnabled,
-      String gcnoFile,
+      Artifact gcnoFile,
       boolean isUsingFission,
-      String dwoFile,
-      String ltoIndexingFile,
+      Artifact dwoFile,
+      Artifact ltoIndexingFile,
       ImmutableList<String> includes,
       Iterable<String> userCompileFlags,
       CppModuleMap cppModuleMap,
       boolean usePic,
       String fdoStamp,
-      String dotdFileExecPath,
-      String diagnosticsFileExecPath,
+      Artifact dotdFile,
+      Artifact diagnosticsFile,
       ImmutableList<VariablesExtension> variablesExtensions,
       ImmutableMap<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
@@ -188,15 +190,15 @@ public enum CompileBuildVariables {
         usePic,
         fdoStamp,
         ccToolchainProvider.getFdoContext().getMemProfProfileArtifact() != null,
-        dotdFileExecPath,
-        diagnosticsFileExecPath,
+        dotdFile,
+        diagnosticsFile,
         variablesExtensions,
         additionalBuildVariables,
         directModuleMaps,
-        getSafePathStrings(includeDirs),
-        getSafePathStrings(quoteIncludeDirs),
-        getSafePathStrings(systemIncludeDirs),
-        getSafePathStrings(frameworkIncludeDirs),
+        includeDirs,
+        quoteIncludeDirs,
+        systemIncludeDirs,
+        frameworkIncludeDirs,
         defines,
         localDefines);
   }
@@ -207,10 +209,10 @@ public enum CompileBuildVariables {
       String sourceFile,
       String outputFile,
       boolean isCodeCoverageEnabled,
-      String gcnoFile,
+      Artifact gcnoFile,
       boolean isUsingFission,
-      String dwoFile,
-      String ltoIndexingFile,
+      Artifact dwoFile,
+      Artifact ltoIndexingFile,
       String thinLtoIndex,
       String thinLtoInputBitcodeFile,
       String thinLtoOutputObjectFile,
@@ -219,8 +221,8 @@ public enum CompileBuildVariables {
       CppModuleMap cppModuleMap,
       boolean usePic,
       String fdoStamp,
-      String dotdFileExecPath,
-      String diagnosticsFileExecPath,
+      Artifact dotdFile,
+      Artifact diagnosticsFile,
       ImmutableList<VariablesExtension> variablesExtensions,
       ImmutableMap<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
@@ -255,15 +257,15 @@ public enum CompileBuildVariables {
         usePic,
         fdoStamp,
         ccToolchainProvider.getFdoContext().getMemProfProfileArtifact() != null,
-        dotdFileExecPath,
-        diagnosticsFileExecPath,
+        dotdFile,
+        diagnosticsFile,
         variablesExtensions,
         additionalBuildVariables,
         directModuleMaps,
-        includeDirs,
-        quoteIncludeDirs,
-        systemIncludeDirs,
-        frameworkIncludeDirs,
+        asPathFragments(includeDirs),
+        asPathFragments(quoteIncludeDirs),
+        asPathFragments(systemIncludeDirs),
+        asPathFragments(frameworkIncludeDirs),
         defines,
         localDefines);
   }
@@ -271,31 +273,31 @@ public enum CompileBuildVariables {
   private static CcToolchainVariables setupVariables(
       FeatureConfiguration featureConfiguration,
       CcToolchainVariables parent,
-      String sourceFile,
-      String outputFile,
+      Object sourceFile,
+      Object outputFile,
       boolean isCodeCoverageEnabled,
-      String gcnoFile,
+      Artifact gcnoFile,
       boolean isUsingFission,
-      String dwoFile,
-      String ltoIndexingFile,
-      String thinLtoIndex,
-      String thinLtoInputBitcodeFile,
-      String thinLtoOutputObjectFile,
+      Artifact dwoFile,
+      Artifact ltoIndexingFile,
+      Object thinLtoIndex,
+      Object thinLtoInputBitcodeFile,
+      Object thinLtoOutputObjectFile,
       ImmutableList<String> includes,
       Iterable<String> userCompileFlags,
       CppModuleMap cppModuleMap,
       boolean usePic,
       String fdoStamp,
       boolean isUsingMemProf,
-      String dotdFileExecPath,
-      String diagnosticsFileExecPath,
+      Artifact dotdFile,
+      Artifact diagnosticsFile,
       ImmutableList<VariablesExtension> variablesExtensions,
       ImmutableMap<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
-      NestedSet<String> includeDirs,
-      NestedSet<String> quoteIncludeDirs,
-      NestedSet<String> systemIncludeDirs,
-      NestedSet<String> frameworkIncludeDirs,
+      NestedSet<PathFragment> includeDirs,
+      NestedSet<PathFragment> quoteIncludeDirs,
+      NestedSet<PathFragment> systemIncludeDirs,
+      NestedSet<PathFragment> frameworkIncludeDirs,
       Iterable<String> defines,
       Iterable<String> localDefines) {
     CcToolchainVariables.Builder buildVariables = CcToolchainVariables.builder(parent);
@@ -328,8 +330,8 @@ public enum CompileBuildVariables {
         thinLtoInputBitcodeFile,
         thinLtoOutputObjectFile,
         userCompileFlags,
-        dotdFileExecPath,
-        diagnosticsFileExecPath,
+        dotdFile,
+        diagnosticsFile,
         usePic,
         ImmutableList.of(),
         ImmutableMap.of());
@@ -338,19 +340,54 @@ public enum CompileBuildVariables {
 
   public static void setupSpecificVariables(
       CcToolchainVariables.Builder buildVariables,
-      String sourceFile,
-      String outputFile,
+      Artifact sourceFile,
+      Artifact outputFile,
       boolean isCodeCoverageEnabled,
-      String gcnoFile,
-      String dwoFile,
+      Artifact gcnoFile,
+      Artifact dwoFile,
       boolean isUsingFission,
-      String ltoIndexingFile,
-      String thinLtoIndex,
-      String thinLtoInputBitcodeFile,
-      String thinLtoOutputObjectFile,
+      Artifact ltoIndexingFile,
       Iterable<String> userCompileFlags,
-      String dotdFileExecPath,
-      String diagnosticsFileExecPath,
+      Artifact dotdFile,
+      Artifact diagnosticsFile,
+      boolean usePic,
+      ImmutableList<PathFragment> externalIncludeDirs,
+      Map<String, String> additionalBuildVariables) {
+    setupSpecificVariables(
+        buildVariables,
+        sourceFile,
+        outputFile,
+        isCodeCoverageEnabled,
+        gcnoFile,
+        dwoFile,
+        isUsingFission,
+        ltoIndexingFile,
+        /* thinLtoIndex= */ null,
+        /* thinLtoInputBitcodeFile= */ null,
+        /* thinLtoOutputObjectFile= */ null,
+        userCompileFlags,
+        dotdFile,
+        diagnosticsFile,
+        usePic,
+        externalIncludeDirs,
+        additionalBuildVariables);
+  }
+
+  private static void setupSpecificVariables(
+      CcToolchainVariables.Builder buildVariables,
+      Object sourceFile,
+      Object outputFile,
+      boolean isCodeCoverageEnabled,
+      Artifact gcnoFile,
+      Artifact dwoFile,
+      boolean isUsingFission,
+      Artifact ltoIndexingFile,
+      Object thinLtoIndex,
+      Object thinLtoInputBitcodeFile,
+      Object thinLtoOutputObjectFile,
+      Iterable<String> userCompileFlags,
+      Artifact dotdFile,
+      Artifact diagnosticsFile,
       boolean usePic,
       ImmutableList<PathFragment> externalIncludeDirs,
       Map<String, String> additionalBuildVariables) {
@@ -358,26 +395,26 @@ public enum CompileBuildVariables {
         USER_COMPILE_FLAGS.getVariableName(), userCompileFlags);
 
     if (sourceFile != null) {
-      buildVariables.addStringVariable(SOURCE_FILE.getVariableName(), sourceFile);
+      buildVariables.addArtifactOrStringVariable(SOURCE_FILE.getVariableName(), sourceFile);
     }
 
     if (outputFile != null) {
-      buildVariables.addStringVariable(OUTPUT_FILE.getVariableName(), outputFile);
+      buildVariables.addArtifactOrStringVariable(OUTPUT_FILE.getVariableName(), outputFile);
     }
 
     // Set dependency_file to enable <object>.d file generation.
-    if (dotdFileExecPath != null) {
-      buildVariables.addStringVariable(DEPENDENCY_FILE.getVariableName(), dotdFileExecPath);
+    if (dotdFile != null) {
+      buildVariables.addArtifactVariable(DEPENDENCY_FILE.getVariableName(), dotdFile);
     }
 
     // Set diagnostics_file to enable <object>.dia file generation.
-    if (diagnosticsFileExecPath != null) {
-      buildVariables.addStringVariable(
-          SERIALIZED_DIAGNOSTICS_FILE.getVariableName(), diagnosticsFileExecPath);
+    if (diagnosticsFile != null) {
+      buildVariables.addArtifactVariable(
+          SERIALIZED_DIAGNOSTICS_FILE.getVariableName(), diagnosticsFile);
     }
 
     if (gcnoFile != null) {
-      buildVariables.addStringVariable(GCOV_GCNO_FILE.getVariableName(), gcnoFile);
+      buildVariables.addArtifactVariable(GCOV_GCNO_FILE.getVariableName(), gcnoFile);
     } else if (isCodeCoverageEnabled) {
       // TODO: Blaze currently uses `gcov_gcno_file` to detect if code coverage is enabled. It
       // should use a different signal.
@@ -385,7 +422,7 @@ public enum CompileBuildVariables {
     }
 
     if (dwoFile != null) {
-      buildVariables.addStringVariable(PER_OBJECT_DEBUG_INFO_FILE.getVariableName(), dwoFile);
+      buildVariables.addArtifactVariable(PER_OBJECT_DEBUG_INFO_FILE.getVariableName(), dwoFile);
     }
 
     if (isUsingFission) {
@@ -393,18 +430,18 @@ public enum CompileBuildVariables {
     }
 
     if (ltoIndexingFile != null) {
-      buildVariables.addStringVariable(
+      buildVariables.addArtifactVariable(
           LTO_INDEXING_BITCODE_FILE.getVariableName(), ltoIndexingFile);
     }
     if (thinLtoIndex != null) {
-      buildVariables.addStringVariable(THINLTO_INDEX.getVariableName(), thinLtoIndex);
+      buildVariables.addArtifactOrStringVariable(THINLTO_INDEX.getVariableName(), thinLtoIndex);
     }
     if (thinLtoInputBitcodeFile != null) {
-      buildVariables.addStringVariable(
+      buildVariables.addArtifactOrStringVariable(
           THINLTO_INPUT_BITCODE_FILE.getVariableName(), thinLtoInputBitcodeFile);
     }
     if (thinLtoOutputObjectFile != null) {
-      buildVariables.addStringVariable(
+      buildVariables.addArtifactOrStringVariable(
           THINLTO_OUTPUT_OBJECT_FILE.getVariableName(), thinLtoOutputObjectFile);
     }
 
@@ -431,10 +468,10 @@ public enum CompileBuildVariables {
       List<VariablesExtension> variablesExtensions,
       Map<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
-      List<PathFragment> includeDirs,
-      List<PathFragment> quoteIncludeDirs,
-      List<PathFragment> systemIncludeDirs,
-      List<PathFragment> frameworkIncludeDirs,
+      ImmutableList<PathFragment> includeDirs,
+      ImmutableList<PathFragment> quoteIncludeDirs,
+      ImmutableList<PathFragment> systemIncludeDirs,
+      ImmutableList<PathFragment> frameworkIncludeDirs,
       Iterable<String> defines,
       Iterable<String> localDefines) {
     setupCommonVariablesInternal(
@@ -447,10 +484,12 @@ public enum CompileBuildVariables {
         variablesExtensions,
         additionalBuildVariables,
         directModuleMaps,
-        getSafePathStrings(includeDirs),
-        getSafePathStrings(quoteIncludeDirs),
-        getSafePathStrings(systemIncludeDirs),
-        getSafePathStrings(frameworkIncludeDirs),
+        // Stable order NestedSets wrapping ImmutableLists are interned, otherwise this would be
+        // a clear waste of memory as the single caller ensure that there are no duplicates.
+        NestedSetBuilder.wrap(Order.STABLE_ORDER, includeDirs),
+        NestedSetBuilder.wrap(Order.STABLE_ORDER, quoteIncludeDirs),
+        NestedSetBuilder.wrap(Order.STABLE_ORDER, systemIncludeDirs),
+        NestedSetBuilder.wrap(Order.STABLE_ORDER, frameworkIncludeDirs),
         defines,
         localDefines);
   }
@@ -465,10 +504,10 @@ public enum CompileBuildVariables {
       List<VariablesExtension> variablesExtensions,
       Map<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
-      NestedSet<String> includeDirs,
-      NestedSet<String> quoteIncludeDirs,
-      NestedSet<String> systemIncludeDirs,
-      NestedSet<String> frameworkIncludeDirs,
+      NestedSet<PathFragment> includeDirs,
+      NestedSet<PathFragment> quoteIncludeDirs,
+      NestedSet<PathFragment> systemIncludeDirs,
+      NestedSet<PathFragment> frameworkIncludeDirs,
       Iterable<String> defines,
       Iterable<String> localDefines) {
     Preconditions.checkNotNull(directModuleMaps);
@@ -481,8 +520,8 @@ public enum CompileBuildVariables {
 
     if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS) && cppModuleMap != null) {
       buildVariables.addStringVariable(MODULE_NAME.getVariableName(), cppModuleMap.getName());
-      buildVariables.addStringVariable(
-          MODULE_MAP_FILE.getVariableName(), cppModuleMap.getArtifact().getExecPathString());
+      buildVariables.addArtifactVariable(
+          MODULE_MAP_FILE.getVariableName(), cppModuleMap.getArtifact());
       buildVariables.addStringSequenceVariable(
           DEPENDENT_MODULE_MAP_FILES.getVariableName(),
           Iterables.transform(directModuleMaps, Artifact::getExecPathString));
@@ -491,17 +530,17 @@ public enum CompileBuildVariables {
       // Module inputs will be set later when the action is executed.
       buildVariables.addStringSequenceVariable(MODULE_FILES.getVariableName(), ImmutableSet.of());
     }
-    buildVariables.addStringSequenceVariable(INCLUDE_PATHS.getVariableName(), includeDirs);
-    buildVariables.addStringSequenceVariable(
+    buildVariables.addPathFragmentSequenceVariable(INCLUDE_PATHS.getVariableName(), includeDirs);
+    buildVariables.addPathFragmentSequenceVariable(
         QUOTE_INCLUDE_PATHS.getVariableName(), quoteIncludeDirs);
-    buildVariables.addStringSequenceVariable(
+    buildVariables.addPathFragmentSequenceVariable(
         SYSTEM_INCLUDE_PATHS.getVariableName(), systemIncludeDirs);
 
     if (!includes.isEmpty()) {
       buildVariables.addStringSequenceVariable(INCLUDES.getVariableName(), includes);
     }
 
-    buildVariables.addStringSequenceVariable(
+    buildVariables.addPathFragmentSequenceVariable(
         FRAMEWORK_PATHS.getVariableName(), frameworkIncludeDirs);
 
     Iterable<String> allDefines;
@@ -528,17 +567,11 @@ public enum CompileBuildVariables {
     }
   }
 
-  /** Get the safe path strings for a list of paths to use in the build variables. */
-  private static NestedSet<String> getSafePathStrings(NestedSet<PathFragment> paths) {
-    return getSafePathStrings(paths.toList());
-  }
-
-  /** Get the safe path strings for a list of paths to use in the build variables. */
-  private static NestedSet<String> getSafePathStrings(List<PathFragment> paths) {
-    // Using ImmutableSet first to remove duplicates, then NestedSet for smaller memory footprint.
+  private static NestedSet<PathFragment> asPathFragments(NestedSet<String> paths) {
+    // Using ImmutableList as the final type to benefit from NestedSet interning.
     return NestedSetBuilder.wrap(
         Order.STABLE_ORDER,
-        Iterables.transform(ImmutableSet.copyOf(paths), PathFragment::getSafePathString));
+        paths.toList().stream().map(PathFragment::create).collect(toImmutableList()));
   }
 
   public String getVariableName() {

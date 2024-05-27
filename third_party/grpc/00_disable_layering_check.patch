@@ -1,0 +1,13 @@
+diff --git a/BUILD b/BUILD
+index 83e6a3f740..b27df5b71e 100644
+--- a/BUILD
++++ b/BUILD
+@@ -29,7 +29,7 @@ licenses(["reciprocal"])
+ package(
+     default_visibility = ["//visibility:public"],
+     features = [
+-        "layering_check",
++        "-layering_check",
+         "-parse_headers",
+     ],
+ )

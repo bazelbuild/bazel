@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.testutils.Fin
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.Fingerprinter.fingerprintString;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -216,6 +217,50 @@ public final class FingerprinterTest {
     private final String nullString = null;
     private final Class<?> classValue = Runnable.class;
     private final Class<?> nullClass = null;
+  }
+
+  @Test
+  public void singleReferenceConstant() {
+    String subject = "constant";
+    ObjectCodecRegistry registry =
+        ObjectCodecRegistry.newBuilder().addReferenceConstant(subject).build();
+    assertThat(Fingerprinter.computeFingerprint(subject, registry))
+        .isEqualTo("java.lang.String[SERIALIZATION_CONSTANT:1]");
+  }
+
+  @Test
+  public void singleReferenceConstant_defaultRegistry() {
+    String subject = "constant";
+    assertThat(Fingerprinter.computeFingerprint(subject, ObjectCodecRegistry.newBuilder().build()))
+        .isEqualTo("java.lang.String:constant");
+  }
+
+  @Test
+  public void singleReferenceConstant_nullRegistry() {
+    String subject = "constant";
+    assertThat(Fingerprinter.computeFingerprint(subject, /* registry= */ null))
+        .isEqualTo("java.lang.String:constant");
+  }
+
+  @Test
+  public void multipleReferenceConstants() {
+    String constant1 = "constant1";
+    Integer constant2 = 256;
+    ObjectCodecRegistry registry =
+        ObjectCodecRegistry.newBuilder()
+            .addReferenceConstant(constant1)
+            .addReferenceConstant(constant2)
+            .build();
+    var subject = ImmutableList.of(constant1, "a", constant2, constant1);
+    IdentityHashMap<Object, String> fingerprints = computeFingerprints(subject, registry);
+    assertThat(fingerprints)
+        .containsExactly(
+            subject,
+            fingerprintString(
+                "com.google.common.collect.RegularImmutableList:"
+                    + " [java.lang.String[SERIALIZATION_CONSTANT:1], java.lang.String:a,"
+                    + " java.lang.Integer[SERIALIZATION_CONSTANT:2],"
+                    + " java.lang.String[SERIALIZATION_CONSTANT:1]]"));
   }
 
   @Test

@@ -489,6 +489,12 @@ public final class CppConfiguration extends Fragment
     return cppOptions.useStartEndLib;
   }
 
+  @StarlarkMethod(name = "start_end_lib", documented = false, useStarlarkThread = true)
+  public boolean startEndLibIsRequestedForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return cppOptions.useStartEndLib;
+  }
+
   /** @return value from --compiler option, null if the option was not passed. */
   @Nullable
   public String getCompilerFromOptions() {

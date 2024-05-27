@@ -129,11 +129,11 @@ public class ObjectCodecTester<T> {
   }
 
   private T fromBytes(byte[] bytes) throws SerializationException, IOException {
-    return TestUtils.fromBytes(readContext, underTest, bytes);
+    return RoundTripping.fromBytes(readContext, underTest, bytes);
   }
 
   private byte[] toBytes(T subject) throws IOException, SerializationException {
-    return TestUtils.toBytes(writeContext, underTest, subject);
+    return RoundTripping.toBytes(writeContext, underTest, subject);
   }
 
   /** Builder for {@link ObjectCodecTester}. */

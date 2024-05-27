@@ -63,6 +63,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
             Optional.empty(),
             StarlarkSemantics.DEFAULT,
             /* repositoryMapping= */ RepositoryMapping.ALWAYS_FALLBACK,
+            /* mainRepositoryMapping= */ null,
             /* cpuBoundSemaphore= */ null,
             /* generatorMap= */ null,
             /* configSettingVisibilityPolicy= */ null,

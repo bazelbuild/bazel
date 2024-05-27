@@ -1001,7 +1001,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilationActionsForDebug() throws Exception {
-    checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.DBG, CodeCoverageMode.NONE);
+    checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.DBG);
   }
 
   @Test
@@ -1041,7 +1041,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testCompilationActionsForOptimized() throws Exception {
-    checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.OPT, CodeCoverageMode.NONE);
+    checkClangCoptsForCompilationMode(RULE_TYPE, CompilationMode.OPT);
   }
 
   @Test

@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
-import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.objc.AppleCommonApi;
@@ -40,7 +39,6 @@ public class AppleStarlarkCommon
   @VisibleForTesting
   public static final String NOT_SET_ERROR = "Value for key %s must be a set, instead found %s.";
 
-  @Nullable private StructImpl platformType;
   @Nullable private StructImpl platform;
 
   public AppleStarlarkCommon() {}
@@ -53,10 +51,8 @@ public class AppleStarlarkCommon
 
   @Override
   public StructImpl getPlatformTypeStruct() {
-    if (platformType == null) {
-      platformType = PlatformType.getStarlarkStruct();
-    }
-    return platformType;
+    // Implemented in builtin Starlark; this is just for docs.
+    throw new UnsupportedOperationException();
   }
 
   @Override
