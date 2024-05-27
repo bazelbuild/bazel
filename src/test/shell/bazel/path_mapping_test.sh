@@ -567,9 +567,9 @@ function test_path_stripping_cache_hit_for_parallel_action() {
 def _slow_rule_impl(ctx):
     out_file = ctx.actions.declare_file(ctx.attr.name + "_file")
     out_dir = ctx.actions.declare_directory(ctx.attr.name + "_dir")
-    out_symlink = ctx.actions.declare_file(ctx.attr.name + "_symlink")
+    out_symlink = ctx.actions.declare_symlink(ctx.attr.name + "_symlink")
     outs = [out_file, out_dir, out_symlink]
-    args = ctx.actions.args().add_all(outs)
+    args = ctx.actions.args().add_all(outs, expand_directories = False)
     ctx.actions.run_shell(
          outputs = outs,
          command = """
@@ -582,7 +582,7 @@ def _slow_rule_impl(ctx):
          echo 'echo "Hello, file!"' > $1
          chmod +x $1
          echo 'Hello, dir!' > $2/file
-         ln -s /hello/symlink $3
+         ln -s $(basename $2)/file $3
          """,
          arguments = [args],
          execution_requirements = {"supports-path-mapping": ""},
@@ -602,8 +602,9 @@ slow_rule(name = "my_rule")
 
 COMMAND = """
 function validate() {
-  local -r file=$$1
-  local -r dir=$$2
+  # Sorted by file name.
+  local -r dir=$$1
+  local -r file=$$2
   local -r symlink=$$3
 
   [[ $$($$file) == "Hello, file!" ]] || exit 1
@@ -612,9 +613,8 @@ function validate() {
   [[ $$(cat $$dir/file) == "Hello, dir!" ]] || exit 1
 
   [[ -L $$symlink ]] || exit 1
-  [[ $$(readlink $$symlink) == "/hello/symlink" ]] || exit 1
+  [[ $$(cat $$symlink) == "Hello, dir!" ]] || exit 1
 }
-
 validate $(execpaths :my_rule)
 touch $@
 """
@@ -645,8 +645,8 @@ EOF
 
   # Even though the spawn is only executed once, its stdout/stderr should be
   # printed as if it wasn't deduplicated.
-  expect_log_once 'INFO: From Action pkg/script:'
-  expect_log_once 'INFO: From Action pkg/script \[for tool\]:'
+  expect_log_once 'INFO: From Action pkg/my_rule_file:'
+  expect_log_once 'INFO: From Action pkg/my_rule_file \[for tool\]:'
   expect_log_n 'Hello, stderr!' 2
   expect_log_n 'Hello, stdout!' 2
 
