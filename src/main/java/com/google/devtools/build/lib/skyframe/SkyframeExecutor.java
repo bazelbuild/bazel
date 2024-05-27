@@ -175,7 +175,6 @@ import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.rules.genquery.GenQueryConfiguration.GenQueryOptions;
 import com.google.devtools.build.lib.rules.genquery.GenQueryDirectPackageProviderFactory;
-import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileFunction;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -505,16 +504,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * details.
    */
   private final boolean globUnderSingleDep;
-
-  // Leaf keys to be kept regardless of the working set.
-  private static final ImmutableSet<SkyKey> INCLUDE_KEYS_FOR_SKYFOCUS_IF_EXIST =
-      ImmutableSet.of(
-          // Necessary for build correctness of repos that are force-fetched between builds.
-          // Only found in the Bazel graph, not Blaze's.
-          //
-          // TODO: b/312819241 - is there a better way to keep external repos in the graph?
-          RepositoryDelegatorFunction.FORCE_FETCH.getKey(),
-          RepositoryDelegatorFunction.FORCE_FETCH_CONFIGURE.getKey());
 
   final class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
@@ -4156,18 +4145,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // logic in the evaluator.
     checkState(roots != null && !roots.isEmpty(), "roots can't be null or empty");
 
-    // TODO: b/312819241 - this leaf is necessary for build correctness of volatile actions, like
-    // stamping, but retains a lot of memory (100MB of retained heap for a 9+GB build).
-    ImmutableSet.Builder<SkyKey> leafsBuilder =
-        ImmutableSet.<SkyKey>builder().add(PrecomputedValue.BUILD_ID.getKey());
-
-    INCLUDE_KEYS_FOR_SKYFOCUS_IF_EXIST.forEach(
-        k -> {
-          if (graph.getIfPresent(k) != null) {
-            leafsBuilder.add(k);
-          }
-        });
-
     Function<SkyKey, Label> mapForTopLevelLabels =
         isMergedSkyframeAnalysisExecution()
             ? k -> k instanceof BuildDriverKey bdk ? bdk.getActionLookupKey().getLabel() : null
@@ -4295,8 +4272,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       skyfocusState = skyfocusState.withUserDefinedWorkingSet(ImmutableSet.copyOf(newWorkingSet));
     }
 
-    leafsBuilder.addAll(skyfocusState.workingSet());
-    ImmutableSet<SkyKey> leafs = leafsBuilder.build();
+    ImmutableSet<SkyKey> leafs =
+        ImmutableSet.<SkyKey>builder()
+            // TODO: b/312819241 - BUILD_ID is necessary for build correctness of volatile actions,
+            // like stamping, but retains a lot of memory (100MB of retained heap for a 9+GB build).
+            // Figure out a way to not include it.
+            .add(PrecomputedValue.BUILD_ID.getKey())
+            .addAll(skyfocusState.workingSet())
+            .build();
 
     skyfocusState = skyfocusState.addFocusedTargetLabels(topLevelTargetLabels);
     eventHandler.handle(Event.info("Updated working set successfully."));

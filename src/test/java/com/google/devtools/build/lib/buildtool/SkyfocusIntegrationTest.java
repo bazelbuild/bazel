@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.skyframe.SkyfocusState.WorkingSetType;
+import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -504,6 +505,77 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
             "hello",
             "hello/BUILD",
             "hello/x.txt");
+  }
+
+  @Test
+  public void workingSet_sharedDepBetweenTwoTopLevelTargetsIsKept() throws Exception {
+    // A -> C
+    // B -> C
+    // After building A, CT(C) will be dropped, but not CT(C/in.txt).
+    // After building B, A's nodes should not be affected.
+    write("A/in.txt", "A");
+    write(
+        "A/BUILD",
+        """
+        genrule(
+            name = "A",
+            srcs = ["in.txt", "//C:C.txt"],
+            outs = ["A"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+    write("B/in.txt", "B");
+    write(
+        "B/BUILD",
+        """
+        genrule(
+            name = "B",
+            srcs = ["in.txt", "//C:C.txt"],
+            outs = ["B"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+    write("C/in.txt", "C");
+    write(
+        "C/BUILD",
+        """
+        genrule(
+            name = "C",
+            srcs = ["in.txt"],
+            outs = ["C.txt"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    buildTarget("//A");
+
+    assertThat(getAllConfiguredTargets())
+        .containsAtLeast(
+            getConfiguredTarget("//A:in.txt"),
+            getConfiguredTarget("//A:A"),
+            getConfiguredTarget("//C:C.txt"));
+    assertThat(
+            SkyframeExecutorTestUtils.getExistingConfiguredTarget(
+                getSkyframeExecutor(), label("//C"), getTargetConfiguration()))
+        .isNull();
+
+    buildTarget("//B");
+
+    assertThat(getAllConfiguredTargets())
+        .containsAtLeast(
+            getConfiguredTarget("//A:in.txt"), // nodes from the previous build should still be kept
+            getConfiguredTarget("//A:A"),
+            getConfiguredTarget("//B:in.txt"),
+            getConfiguredTarget("//B:B"),
+            getConfiguredTarget("//C:C.txt"));
+
+    assertThat(
+            SkyframeExecutorTestUtils.getExistingConfiguredTarget(
+                getSkyframeExecutor(), label("//C"), getTargetConfiguration()))
+        .isNull();
+
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("A", "A/BUILD", "A/in.txt", "B", "B/BUILD", "B/in.txt");
   }
 
   @Test
