@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
+import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.vfs.Path;
@@ -26,6 +27,8 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.net.URISyntaxException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
+
 import javax.annotation.Nullable;
 
 /** A simple SkyFunction that creates a {@link Registry} with a given URL. */
@@ -56,6 +59,7 @@ public class RegistryFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, RegistryException {
     LockfileMode lockfileMode = BazelLockFileFunction.LOCKFILE_MODE.get(env);
+    Optional<Path> vendorDir = RepositoryDelegatorFunction.VENDOR_DIRECTORY.get(env);
 
     if (lockfileMode == LockfileMode.REFRESH) {
       RegistryFunction.LAST_INVALIDATION.get(env);
@@ -72,7 +76,8 @@ public class RegistryFunction implements SkyFunction {
           key.getUrl().replace("%workspace%", workspaceRoot.getPathString()),
           lockfileMode,
           lockfile.getRegistryFileHashes(),
-          lockfile.getSelectedYankedVersions());
+          lockfile.getSelectedYankedVersions(),
+          vendorDir);
     } catch (URISyntaxException e) {
       throw new RegistryException(
           ExternalDepsException.withCauseAndMessage(

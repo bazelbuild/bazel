@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.bazel.commands;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -22,9 +21,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelFetchAllValue;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionValue;
+import com.google.devtools.build.lib.bazel.bzlmod.VendorUtil;
 import com.google.devtools.build.lib.bazel.commands.RepositoryFetcher.RepositoryFetcherException;
 import com.google.devtools.build.lib.bazel.commands.TargetFetcher.TargetFetcherException;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
+import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -49,10 +52,8 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryGraph;
@@ -62,15 +63,22 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
+
 import java.io.IOException;
+import java.net.URL;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
+import java.util.function.Supplier;
+
 import javax.annotation.Nullable;
 
 /**
@@ -101,6 +109,14 @@ import javax.annotation.Nullable;
             + "--vendor_dir.")
 public final class VendorCommand implements BlazeCommand {
   public static final String NAME = "vendor";
+
+  private final DownloadManager downloadManager;
+  private final Supplier<Map<String, String>> clientEnvironmentSupplier;
+
+  public VendorCommand(DownloadManager downloadManager, Supplier<Map<String, String>> clientEnvironmentSupplier) {
+    this.downloadManager = downloadManager;
+    this.clientEnvironmentSupplier = clientEnvironmentSupplier;
+  }
 
   @Override
   public void editOptions(OptionsParser optionsParser) {
@@ -135,9 +151,10 @@ public final class VendorCommand implements BlazeCommand {
 
     BlazeCommandResult result;
     VendorOptions vendorOptions = options.getOptions(VendorOptions.class);
-    PathFragment vendorDirectory = options.getOptions(RepositoryOptions.class).vendorDirectory;
+    Path vendorDirectory = getVendorPath(env, options.getOptions(RepositoryOptions.class).vendorDirectory);
     LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
     try {
+      env.getReporter().handle(Event.info("Vendoring ..."));
       if (!options.getResidue().isEmpty()) {
         result = vendorTargets(env, options, options.getResidue(), vendorDirectory);
       } else if (!vendorOptions.repos.isEmpty()) {
@@ -181,7 +198,7 @@ public final class VendorCommand implements BlazeCommand {
   }
 
   private BlazeCommandResult vendorAll(
-      CommandEnvironment env, LoadingPhaseThreadsOption threadsOption, PathFragment vendorDirectory)
+      CommandEnvironment env, LoadingPhaseThreadsOption threadsOption, Path vendorDirectory)
       throws InterruptedException, IOException {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
@@ -209,7 +226,7 @@ public final class VendorCommand implements BlazeCommand {
       CommandEnvironment env,
       LoadingPhaseThreadsOption threadsOption,
       List<String> repos,
-      PathFragment vendorDirectory)
+      Path vendorDirectory)
       throws InterruptedException, IOException {
     ImmutableMap<RepositoryName, RepositoryDirectoryValue> repositoryNamesAndValues;
     try {
@@ -248,7 +265,7 @@ public final class VendorCommand implements BlazeCommand {
       CommandEnvironment env,
       OptionsParsingResult options,
       List<String> targets,
-      PathFragment vendorDirectory)
+      Path vendorDirectory)
       throws InterruptedException, IOException {
     // Call fetch which runs build to have the targets graph and configuration set
     BuildResult buildResult;
@@ -309,58 +326,71 @@ public final class VendorCommand implements BlazeCommand {
    */
   private void vendor(
       CommandEnvironment env,
-      PathFragment vendorDirectory,
+      Path vendorDirectory,
       ImmutableList<RepositoryName> reposToVendor)
-      throws IOException {
-    Path vendorPath =
-        vendorDirectory.isAbsolute()
-            ? env.getRuntime().getFileSystem().getPath(vendorDirectory)
-            : env.getWorkspace().getRelative(vendorDirectory);
+      throws IOException, InterruptedException {
+    VendorUtil vendorUtil = new VendorUtil(vendorDirectory);
+
+    // 1. Vendor registry files
+    BazelModuleResolutionValue moduleResolutionValue = (BazelModuleResolutionValue) env.getSkyframeExecutor().getEvaluator().getExistingValue(BazelModuleResolutionValue.KEY);
+    ImmutableMap<String, Optional<Checksum>> registryFiles = Objects.requireNonNull(
+        moduleResolutionValue).getRegistryFileHashes();
+
+    // vendorPathToURL is a map of
+    //  key: a vendor path string converted to lower case
+    //  value: a URL string
+    // This map is for detecting potential rare vendor path conflicts, such as:
+    //  http://foo.bar.com/BCR vs http://foo.bar.com/bcr => conflict vendor paths on case-insensitive system
+    //  http://foo.bar.com/bcr vs http://foo.bar.com:8081/bcr => conflict vendor path because port number is ignored in vendor path
+    // The user has to update the Bazel registries this if such conflicts occur.
+    Map<String, String> vendorPathToURL = new HashMap<>();
+    for (Entry<String, Optional<Checksum>> entry : registryFiles.entrySet()) {
+      URL url = new URL(entry.getKey());
+      if (url.getProtocol().equals("file")) {
+        continue;
+      }
+
+      String outputPath = vendorUtil.getVendorPathForURL(url).getPathString();
+      if (vendorPathToURL.containsKey(outputPath.toLowerCase())) {
+        String previousURL = vendorPathToURL.get(outputPath.toLowerCase());
+        throw new IOException(String.format(
+            "Vendor paths conflict detected for registry URLs:\n    %s => %s\n    %s => %s\nTheir output paths are either the same or only differ by case, which will cause conflict on case insensitive file systems, please fix by changing the registry URLs!",
+            previousURL,
+            vendorUtil.getVendorPathForURL(new URL(previousURL)).getPathString(),
+            entry.getKey(),
+            outputPath
+        ));
+      }
+
+      Optional<Checksum> checksum = entry.getValue();
+      if (!vendorUtil.isUrlVendored(url)
+          // Only vendor a registry URL when its checksum exists, otherwise the URL should be
+          // recorded as "not found" in moduleResolutionValue.getRegistryFileHashes()
+          && checksum.isPresent()) {
+        try {
+          vendorUtil.vendorRegistryURL(url, downloadManager.downloadAndReadOneUrlForBzlmod(url, env.getReporter(), clientEnvironmentSupplier.get(), checksum));
+        } catch (IOException e) {
+          throw new IOException(String.format("Failed to vendor registry URL %s at %s: %s", url, outputPath, e.getMessage()), e.getCause());
+        }
+      }
+
+      vendorPathToURL.put(outputPath.toLowerCase(), entry.getKey());
+    }
+
+    // 2. Vendor repos
     Path externalPath =
         env.getDirectories()
             .getOutputBase()
             .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
-
-    if (!vendorPath.exists()) {
-      vendorPath.createDirectory();
-    }
-
-    env.getReporter().handle(Event.info("Vendoring ..."));
-
-    // Update "out-of-date" repos under the vendor directory
-    for (RepositoryName repo : reposToVendor) {
-      if (!isRepoUpToDate(repo.getName(), vendorPath, externalPath)) {
-        Path repoUnderVendor = vendorPath.getRelative(repo.getName());
-        if (!repoUnderVendor.exists()) {
-          repoUnderVendor.createDirectory();
-        }
-        FileSystemUtils.copyTreesBelow(
-            externalPath.getRelative(repo.getName()), repoUnderVendor, Symlinks.NOFOLLOW);
-        FileSystemUtils.copyFile(
-            externalPath.getChild("@" + repo.getName() + ".marker"),
-            vendorPath.getChild("@" + repo.getName() + ".marker"));
-      }
-    }
+    vendorUtil.vendorRepos(externalPath, reposToVendor);
   }
 
-  /**
-   * Returns whether the repo under vendor needs to be updated by comparing its marker file with the
-   * one under /external
-   */
-  private boolean isRepoUpToDate(String repoName, Path vendorPath, Path externalPath)
-      throws IOException {
-    Path vendorMarkerFile = vendorPath.getChild("@" + repoName + ".marker");
-    if (!vendorMarkerFile.exists()) {
-      return false;
-    }
-
-    // Since this runs after fetching repos, its guaranteed that the marker files
-    // under $OUTPUT_BASE/external are up-to-date. We just need to compare it against the marker
-    // under vendor.
-    Path externalMarkerFile = externalPath.getChild("@" + repoName + ".marker");
-    String vendorMarkerContent = FileSystemUtils.readContent(vendorMarkerFile, UTF_8);
-    String externalMarkerContent = FileSystemUtils.readContent(externalMarkerFile, UTF_8);
-    return Objects.equals(vendorMarkerContent, externalMarkerContent);
+  private static Path getVendorPath(CommandEnvironment env, PathFragment vendorDirectory) {
+    Path vendorPath =
+        vendorDirectory.isAbsolute()
+            ? env.getRuntime().getFileSystem().getPath(vendorDirectory)
+            : env.getWorkspace().getRelative(vendorDirectory);
+    return vendorPath;
   }
 
   private static BlazeCommandResult createFailedBlazeCommandResult(

@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.Map;
@@ -136,7 +137,8 @@ public class FakeRegistry implements Registry {
         String url,
         LockfileMode lockfileMode,
         ImmutableMap<String, Optional<Checksum>> fileHashes,
-        ImmutableMap<ModuleKey, String> previouslySelectedYankedVersions) {
+        ImmutableMap<ModuleKey, String> previouslySelectedYankedVersions,
+        Optional<Path> vendorDir) {
       return Preconditions.checkNotNull(registries.get(url), "unknown registry url: %s", url);
     }
   }
