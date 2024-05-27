@@ -96,10 +96,31 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
   }
 
   /**
-   * The set of SkyKeys kept after focusing. The actual change is done in place with the in-memory
-   * graph.
+   * The result of running Skyfocus. The actual changes are done in place with the in-memory graph.
+   *
+   * @param roots the SkyKeys of the roots to be kept, i.e. the top level keys.
+   * @param leafs the SkyKeys of the leafs to be kept. This is the "working set".
+   * @param deps the SkyKeys that are in the dependencies of all roots, and rdeps from the leafs.
+   *     May contain transitive dependencies, in cases where certain functions use them without
+   *     establishing a Skyframe dependency.
+   * @param rdeps the SkyKeys that are in the reverse dependencies of the leafs.
+   * @param verificationSet the SkyKeys that are in the transitive closure of the roots, but not in
+   *     the working set. These SkyKeys are also retained in the graph, because {@link
+   *     FilesystemValueChecker} uses them to check for dirty keys to be invalidated on each new
+   *     build.
+   * @param rdepEdgesBefore The number of reverse edges in the visited nodes by Skyfocus (before
+   *     removal).
+   * @param rdepEdgesAfter The number of reverse edges in the visited nodes after Skyfocus completes
+   *     (after removal).
    */
-  public static class FocusResult {
+  public record FocusResult(
+      ImmutableSet<SkyKey> roots,
+      ImmutableSet<SkyKey> leafs,
+      ImmutableSet<SkyKey> rdeps,
+      ImmutableSet<SkyKey> deps,
+      ImmutableSet<SkyKey> verificationSet,
+      long rdepEdgesBefore,
+      long rdepEdgesAfter) {
 
     public static final FocusResult NO_RESULT =
         new FocusResult(
@@ -110,76 +131,6 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
             ImmutableSet.of(),
             0L,
             0L);
-
-    private final ImmutableSet<SkyKey> roots;
-
-    private final ImmutableSet<SkyKey> leafs;
-
-    private final ImmutableSet<SkyKey> rdeps;
-
-    private final ImmutableSet<SkyKey> deps;
-    private final ImmutableSet<SkyKey> verificationSet;
-
-    private final long rdepEdgesBefore;
-
-    private final long rdepEdgesAfter;
-
-    private FocusResult(
-        ImmutableSet<SkyKey> roots,
-        ImmutableSet<SkyKey> leafs,
-        ImmutableSet<SkyKey> rdeps,
-        ImmutableSet<SkyKey> deps,
-        ImmutableSet<SkyKey> verificationSet,
-        long rdepEdgesBefore,
-        long rdepEdgesAfter) {
-      this.roots = roots;
-      this.leafs = leafs;
-      this.rdeps = rdeps;
-      this.deps = deps;
-      this.verificationSet = verificationSet;
-      this.rdepEdgesBefore = rdepEdgesBefore;
-      this.rdepEdgesAfter = rdepEdgesAfter;
-    }
-
-    public ImmutableSet<SkyKey> getRoots() {
-      return roots;
-    }
-
-    public ImmutableSet<SkyKey> getLeafs() {
-      return leafs;
-    }
-
-    /**
-     * Returns the set of SkyKeys that are in the dependencies of all roots, and rdeps from the
-     * leafs. May contain transitive dependencies, in cases where certain functions use them without
-     * establishing a Skyframe dependency.
-     */
-    public ImmutableSet<SkyKey> getDeps() {
-      return deps;
-    }
-
-    /** Returns the set of SkyKeys that are in the reverse dependencies of the leafs. */
-    public ImmutableSet<SkyKey> getRdeps() {
-      return rdeps;
-    }
-
-    /**
-     * Returns the set of {@link SkyKey} that are in the transitive closure of the roots, but not in
-     * the working set. These SkyKeys are also retained in the graph, because {@link
-     * FilesystemValueChecker} uses them to check for dirty keys to be invalidated on each new
-     * build.
-     */
-    public ImmutableSet<SkyKey> getVerificationSet() {
-      return verificationSet;
-    }
-
-    public long getRdepEdgesBefore() {
-      return rdepEdgesBefore;
-    }
-
-    public long getRdepEdgesAfter() {
-      return rdepEdgesAfter;
-    }
   }
 
   /**

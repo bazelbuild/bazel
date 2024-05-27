@@ -4089,10 +4089,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
 
     // Shouldn't result in an empty graph.
-    checkState(!focusResult.getDeps().isEmpty());
-    checkState(!focusResult.getRdeps().isEmpty());
+    checkState(!focusResult.deps().isEmpty());
+    checkState(!focusResult.rdeps().isEmpty());
 
-    skyfocusState = skyfocusState.withVerificationSet(focusResult.getVerificationSet());
+    skyfocusState = skyfocusState.withVerificationSet(focusResult.verificationSet());
 
     // Now that the graph has dropped nodes, run a GC to reclaim some memory.
     System.gc();
@@ -4106,8 +4106,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       reportReductions(
           reporter,
           "Rdep edges",
-          focusResult.getRdepEdgesBefore(),
-          focusResult.getRdepEdgesAfter(),
+          focusResult.rdepEdgesBefore(),
+          focusResult.rdepEdgesAfter(),
           Long::toString);
 
       reportReductions(
@@ -4145,8 +4145,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   private FocusResult runSkyfocusInternal(
-      ExtendedEventHandler eventHandler, ActionCache actionCache)
-      throws InterruptedException, AbruptExitException {
+      ExtendedEventHandler eventHandler, ActionCache actionCache) throws InterruptedException {
     // TODO: b/312819241 - add support for SerializationCheckingGraph for use in tests.
     InMemoryMemoizingEvaluator evaluator = (InMemoryMemoizingEvaluator) memoizingEvaluator;
     InMemoryGraphImpl graph = (InMemoryGraphImpl) evaluator.getInMemoryGraph();
@@ -4371,29 +4370,28 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ImmutableMultiset<SkyFunctionName> skyFunctionNameCountsBefore) {
     if (dumpKeysOption == SkyfocusDumpOption.VERBOSE) {
       try (PrintStream pos = new PrintStream(reporter.getOutErr().getOutputStream())) {
-        pos.println("Roots kept: " + focusResult.getRoots().size());
-        focusResult.getRoots().forEach(k -> pos.println(k.getCanonicalName()));
+        pos.println("Roots kept: " + focusResult.roots().size());
+        focusResult.roots().forEach(k -> pos.println(k.getCanonicalName()));
 
-        pos.println("Leafs (including working set) kept: " + focusResult.getLeafs().size());
-        focusResult.getLeafs().forEach(k -> pos.println("leaf: " + k.getCanonicalName()));
+        pos.println("Leafs (including working set) kept: " + focusResult.leafs().size());
+        focusResult.leafs().forEach(k -> pos.println("leaf: " + k.getCanonicalName()));
 
-        pos.println("Rdeps kept: " + focusResult.getRdeps().size());
-        focusResult.getRdeps().forEach(k -> pos.println(k.getCanonicalName()));
+        pos.println("Rdeps kept: " + focusResult.rdeps().size());
+        focusResult.rdeps().forEach(k -> pos.println(k.getCanonicalName()));
 
-        pos.println("Deps kept: " + focusResult.getDeps().size());
-        focusResult.getDeps().forEach(k -> pos.println(k.getCanonicalName()));
+        pos.println("Deps kept: " + focusResult.deps().size());
+        focusResult.deps().forEach(k -> pos.println(k.getCanonicalName()));
 
-        pos.println("Verification set: " + focusResult.getVerificationSet().size());
-        focusResult.getVerificationSet().forEach(k -> pos.println(k.getCanonicalName()));
+        pos.println("Verification set: " + focusResult.verificationSet().size());
+        focusResult.verificationSet().forEach(k -> pos.println(k.getCanonicalName()));
       }
     } else if (dumpKeysOption == SkyfocusDumpOption.COUNT) {
-      reporter.handle(Event.info(String.format("Roots kept: %d", focusResult.getRoots().size())));
-      reporter.handle(Event.info(String.format("Leafs kept: %d", focusResult.getLeafs().size())));
-      reporter.handle(Event.info(String.format("Rdeps kept: %d", focusResult.getRdeps().size())));
-      reporter.handle(Event.info(String.format("Deps kept: %d", focusResult.getDeps().size())));
+      reporter.handle(Event.info(String.format("Roots kept: %d", focusResult.roots().size())));
+      reporter.handle(Event.info(String.format("Leafs kept: %d", focusResult.leafs().size())));
+      reporter.handle(Event.info(String.format("Rdeps kept: %d", focusResult.rdeps().size())));
+      reporter.handle(Event.info(String.format("Deps kept: %d", focusResult.deps().size())));
       reporter.handle(
-          Event.info(
-              String.format("Verification set: %d", focusResult.getVerificationSet().size())));
+          Event.info(String.format("Verification set: %d", focusResult.verificationSet().size())));
       ImmutableMultiset<SkyFunctionName> skyFunctionNameCountsAfter =
           getSkyFunctionNameCount(graph);
       skyFunctionNameCountsBefore.forEachEntry(
