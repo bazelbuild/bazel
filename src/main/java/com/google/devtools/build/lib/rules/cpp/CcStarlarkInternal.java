@@ -50,6 +50,8 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -280,7 +282,8 @@ public class CcStarlarkInternal implements StarlarkValue {
     return new CcLauncherInfo(ccInfo, compilationOutputs);
   }
 
-  private static final StarlarkProvider starlarkCcTestRunnerInfo =
+  @SerializationConstant @VisibleForSerialization
+  static final StarlarkProvider starlarkCcTestRunnerInfo =
       StarlarkProvider.builder(Location.BUILTIN)
           .buildExported(
               new StarlarkProvider.Key(
@@ -391,7 +394,8 @@ public class CcStarlarkInternal implements StarlarkValue {
             withoutExternDependencies));
   }
 
-  private static final StarlarkProvider buildSettingInfo =
+  @SerializationConstant @VisibleForSerialization
+  static final StarlarkProvider buildSettingInfo =
       StarlarkProvider.builder(Location.BUILTIN)
           .buildExported(
               new StarlarkProvider.Key(

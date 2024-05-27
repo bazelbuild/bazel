@@ -61,6 +61,8 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.io.Serializable;
 import java.util.List;
@@ -135,14 +137,16 @@ public class TestAspects {
    * A very simple provider used in tests that check whether the logic that attaches aspects
    * depending on whether a configured target has a provider works or not.
    */
-  private static final StarlarkProvider REQUIRED_PROVIDER =
+  @SerializationConstant @VisibleForSerialization
+  static final StarlarkProvider REQUIRED_PROVIDER =
       StarlarkProvider.builder(Location.BUILTIN).buildExported(REQUIRED_PROVIDER_KEY);
 
   /**
    * Another very simple provider used in tests that check whether the logic that attaches aspects
    * depending on whether a configured target has a provider works or not.
    */
-  private static final StarlarkProvider REQUIRED_PROVIDER2 =
+  @SerializationConstant @VisibleForSerialization
+  static final StarlarkProvider REQUIRED_PROVIDER2 =
       StarlarkProvider.builder(Location.BUILTIN).buildExported(REQUIRED_PROVIDER2_KEY);
 
   private static NestedSet<String> collectAspectData(String me, RuleContext ruleContext) {
@@ -375,6 +379,7 @@ public class TestAspects {
   public static class ExtraAttributeAspect extends BaseAspect {
 
     /** Test provider which includes the {@code dep} label. */
+    @SerializationConstant
     public static final StarlarkProvider PROVIDER =
         StarlarkProvider.builder(Location.BUILTIN)
             .buildExported(new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "Provider"));

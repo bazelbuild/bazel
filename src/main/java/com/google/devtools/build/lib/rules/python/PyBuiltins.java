@@ -41,6 +41,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -460,7 +462,8 @@ public abstract class PyBuiltins implements StarlarkValue {
         starlarkCtx.getRuleContext(), dependencyTransitivePythonSources);
   }
 
-  private static final StarlarkProvider starlarkVisibleForTestingInfo =
+  @SerializationConstant @VisibleForSerialization
+  static final StarlarkProvider starlarkVisibleForTestingInfo =
       StarlarkProvider.builder(Location.BUILTIN)
           .buildExported(
               new StarlarkProvider.Key(
