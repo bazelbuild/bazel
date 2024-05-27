@@ -564,51 +564,80 @@ function test_path_stripping_cache_hit_for_parallel_action() {
   mkdir rules
   touch rules/BUILD
   cat > rules/defs.bzl <<'EOF'
-def _slow_write_impl(ctx):
-    out = ctx.actions.declare_file(ctx.attr.name)
-    args = ctx.actions.args().add(out)
+def _slow_rule_impl(ctx):
+    out_file = ctx.actions.declare_file(ctx.attr.name + "_file")
+    out_dir = ctx.actions.declare_directory(ctx.attr.name + "_dir")
+    out_symlink = ctx.actions.declare_file(ctx.attr.name + "_symlink")
+    outs = [out_file, out_dir, out_symlink]
+    args = ctx.actions.args().add_all(outs)
     ctx.actions.run_shell(
-         outputs = [out],
+         outputs = outs,
          command = """
+         # Sleep to ensure that two actions are scheduled in parallel.
          sleep 3
+
          echo "Hello, stdout!"
          >&2 echo "Hello, stderr!"
-         echo 'echo "Hello, World!"' > $1
+
+         echo 'echo "Hello, file!"' > $1
+         chmod +x $1
+         echo 'Hello, dir!' > $2/file
+         ln -s /hello/symlink $3
          """,
          arguments = [args],
          execution_requirements = {"supports-path-mapping": ""},
     )
     return [
-        DefaultInfo(executable = out),
+        DefaultInfo(files = depset(outs)),
     ]
 
-slow_write = rule(_slow_write_impl)
+slow_rule = rule(_slow_rule_impl)
 EOF
 
   mkdir -p pkg
   cat > pkg/BUILD <<'EOF'
-load("//rules:defs.bzl", "slow_write")
+load("//rules:defs.bzl", "slow_rule")
 
-slow_write(name = "script")
+slow_rule(name = "my_rule")
+
+COMMAND = """
+function validate() {
+  local -r file=$$1
+  local -r dir=$$2
+  local -r symlink=$$3
+
+  [[ $$($$file) == "Hello, file!" ]] || exit 1
+
+  [[ -d $$dir ]] || exit 1
+  [[ $$(cat $$dir/file) == "Hello, dir!" ]] || exit 1
+
+  [[ -L $$symlink ]] || exit 1
+  [[ $$(readlink $$symlink) == "/hello/symlink" ]] || exit 1
+}
+
+validate $(execpaths :my_rule)
+touch $@
+"""
 
 genrule(
     name = "gen_exec",
     outs = ["out_exec"],
-    cmd = "$(location :script) > $@",
-    tools = [":script"],
+    cmd = COMMAND,
+    tools = [":my_rule"],
 )
 
 genrule(
     name = "gen_target",
     outs = ["out_target"],
-    cmd = "$(location :script) > $@",
-    srcs = [":script"],
+    cmd = COMMAND,
+    srcs = [":my_rule"],
 )
 EOF
 
   bazel build \
     --experimental_output_paths=strip \
     --remote_cache=grpc://localhost:${worker_port} \
+    --verbose_failures \
     //pkg:all &> $TEST_log || fail "build failed unexpectedly"
   # The first slow_write action plus two genrules.
   expect_log '3 \(linux\|darwin\|processwrapper\)-sandbox'
@@ -625,6 +654,7 @@ EOF
   bazel build \
     --experimental_output_paths=strip \
     --remote_cache=grpc://localhost:${worker_port} \
+    --verbose_failures \
     //pkg:all &> $TEST_log || fail "build failed unexpectedly"
   # The cache is checked before deduplication.
   expect_log '4 remote cache hit'
