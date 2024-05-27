@@ -1171,7 +1171,7 @@ public class RemoteExecutionService {
 
       var execPath = file.path.relativeTo(execRoot);
       var isInMemoryOutputFile = inMemoryOutput != null && execPath.equals(inMemoryOutputPath);
-      if (!isInMemoryOutputFile && shouldDownload(result.getExitCode(), execPath)) {
+      if (!isInMemoryOutputFile && shouldDownload(result, execPath)) {
         Path tmpPath = tempPathGenerator.generateTempPath();
         realToTmpPath.put(file.path, tmpPath);
         downloadsBuilder.add(
@@ -1208,7 +1208,7 @@ public class RemoteExecutionService {
         if (realToTmpPath.containsKey(file.path)) {
           continue;
         }
-        if (shouldDownload(result.getExitCode(), file.path.relativeTo(execRoot))) {
+        if (shouldDownload(result, file.path.relativeTo(execRoot))) {
           Path tmpPath = tempPathGenerator.generateTempPath();
           realToTmpPath.put(file.path, tmpPath);
           downloadsBuilder.add(
@@ -1331,43 +1331,49 @@ public class RemoteExecutionService {
     return null;
   }
 
-  public DeduplicatedExecution createDeduplicatedExecution(RemoteAction action) {
-    if (action.getSpawn().getPathMapper().isNoop()) {
-      return new DeduplicatedExecution(null);
+  /**
+   * @return Whether the spawn result should be uploaded to the cache.
+   */
+  public boolean shouldUpload(
+      RemoteAction action, SpawnResult result, @Nullable InFlightExecution execution) {
+    if (SpawnResult.Status.SUCCESS.equals(result.status()) && result.exitCode() == 0) {
+      if (execution != null) {
+        execution.spawnResultFuture.set(result);
+      }
+      return true;
+    } else {
+      if (execution != null) {
+        execution.spawnResultFuture.setException(
+            SpawnExecException.createForFailedSpawn(
+                action.getSpawn(), result, execRoot, verboseFailures));
+      }
+      return false;
     }
-    return new DeduplicatedExecution(action);
   }
 
-  public final class DeduplicatedExecution {
-    @Nullable private final RemoteAction otherAction;
+  public static final class InFlightExecution {
+    private final RemoteAction action;
     private final SettableFuture<SpawnResult> spawnResultFuture;
 
-    public DeduplicatedExecution(@Nullable RemoteAction otherAction) {
-      this.otherAction = otherAction;
+    private InFlightExecution(RemoteAction action) {
+      this.action = action;
       this.spawnResultFuture = SettableFuture.create();
     }
 
-    public boolean canBeReused() {
-      return otherAction != null;
-    }
-
-    public boolean commitResult(RemoteAction action, SpawnResult result) {
-      if (SpawnResult.Status.SUCCESS.equals(result.status()) && result.exitCode() == 0) {
-        spawnResultFuture.set(result);
-        return true;
-      } else {
-        spawnResultFuture.setException(
-            SpawnExecException.createForFailedSpawn(
-                action.getSpawn(), result, execRoot, verboseFailures));
-        return false;
+    @Nullable
+    public static InFlightExecution createIfDeduplicatable(RemoteAction action) {
+      if (action.getSpawn().getPathMapper().isNoop()) {
+        return null;
       }
+      return new InFlightExecution(action);
     }
 
-    public void cancel() {
-      spawnResultFuture.cancel(true);
+    public void reportExecutionException(Throwable e) {
+      spawnResultFuture.setException(e);
     }
 
-    private SpawnResult waitFor() throws InterruptedException, IOException, ExecException {
+    private SpawnResult waitFor()
+        throws InterruptedException, IOException, ExecException, ForbiddenActionInputException {
       try {
         return spawnResultFuture.get();
       } catch (InterruptedException e) {
@@ -1379,6 +1385,7 @@ public class RemoteExecutionService {
           Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
           Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
           Throwables.throwIfInstanceOf(e.getCause(), ExecException.class);
+          Throwables.throwIfInstanceOf(e.getCause(), ForbiddenActionInputException.class);
         }
         throw new IllegalStateException("Unexpected exception", e);
       }
@@ -1393,31 +1400,30 @@ public class RemoteExecutionService {
    * run a unique spawn for each output file, this method is only useful with path mapping enabled,
    * which allows different spawns in a single build to generate the same RemoteAction.
    */
-  public SpawnResult reuseOutputs(RemoteAction action, DeduplicatedExecution previousExecution)
-      throws InterruptedException, IOException, ExecException {
+  public SpawnResult reuseOutputs(RemoteAction action, InFlightExecution previousExecution)
+      throws InterruptedException, IOException, ExecException, ForbiddenActionInputException {
     checkState(!shutdown.get(), "shutdown");
 
     SpawnResult previousSpawnResult = previousExecution.waitFor();
 
-    Preconditions.checkNotNull(previousExecution.otherAction);
     Preconditions.checkArgument(
-        action.getActionKey().equals(previousExecution.otherAction.getActionKey()));
+        action.getActionKey().equals(previousExecution.action.getActionKey()));
 
     Map<Path, ActionInput> previousOutputs =
-        previousExecution.otherAction.getSpawn().getOutputFiles().stream()
+        previousExecution.action.getSpawn().getOutputFiles().stream()
             .collect(toImmutableMap(output -> execRoot.getRelative(output.getExecPath()), o -> o));
     Map<Path, Path> realToTmpPath = new HashMap<>();
     for (String output : action.getCommand().getOutputPathsList()) {
       Path sourcePath =
           previousExecution
-              .otherAction
+              .action
               .getRemotePathResolver()
               .outputPathToLocalPath(encodeBytestringUtf8(output));
       ActionInput outputArtifact = previousOutputs.get(sourcePath);
       Path tmpPath = tempPathGenerator.generateTempPath();
       tmpPath.getParentDirectory().createDirectoryAndParents();
-      // TODO: Is this the correct symlink handling?
       if (outputArtifact.isDirectory()) {
+        // TODO: Is this the correct symlink handling?
         FileSystemUtils.copyTreesBelow(sourcePath, tmpPath, Symlinks.NOFOLLOW);
       } else {
         FileSystemUtils.copyFile(sourcePath, tmpPath);
@@ -1428,27 +1434,30 @@ public class RemoteExecutionService {
       realToTmpPath.put(targetPath, tmpPath);
     }
 
+    FileOutErr.dump(
+        previousExecution.action.getSpawnExecutionContext().getFileOutErr(),
+        action.getSpawnExecutionContext().getFileOutErr());
+
     action
         .getSpawnExecutionContext()
         .lockOutputFiles(
             previousSpawnResult.exitCode(),
             previousSpawnResult.getFailureMessage(),
-            // TODO: handle outErr
-            null);
+            action.getSpawnExecutionContext().getFileOutErr());
     // All outputs are created locally.
     moveOutputsToFinalLocation(realToTmpPath.keySet(), realToTmpPath);
 
     return previousSpawnResult;
   }
 
-  private boolean shouldDownload(int exitCode, PathFragment execPath) {
+  private boolean shouldDownload(RemoteActionResult result, PathFragment execPath) {
     if (outputService instanceof BazelOutputService) {
       return false;
     }
 
     // In case the action failed, download all outputs. It might be helpful for debugging and there
     // is no point in injecting output metadata of a failed action.
-    if (exitCode != 0) {
+    if (result.getExitCode() != 0) {
       return true;
     }
     return remoteOutputChecker.shouldDownloadOutput(execPath);
@@ -1515,7 +1524,7 @@ public class RemoteExecutionService {
   }
 
   /** Upload outputs of a remote action which was executed locally to remote cache. */
-  public void uploadOutputs(RemoteAction action, SpawnResult spawnResult)
+  public void uploadOutputs(RemoteAction action, SpawnResult spawnResult, Runnable onUploadComplete)
       throws InterruptedException, ExecException {
     checkState(!shutdown.get(), "shutdown");
     checkState(
@@ -1546,12 +1555,14 @@ public class RemoteExecutionService {
                 @Override
                 public void onSuccess(@NonNull ActionResult actionResult) {
                   backgroundTaskPhaser.arriveAndDeregister();
+                  onUploadComplete.run();
                 }
 
                 @Override
                 public void onError(@NonNull Throwable e) {
                   backgroundTaskPhaser.arriveAndDeregister();
                   reportUploadError(e);
+                  onUploadComplete.run();
                 }
               });
     } else {
@@ -1561,6 +1572,8 @@ public class RemoteExecutionService {
         manifest.upload(action.getRemoteActionExecutionContext(), remoteCache, reporter);
       } catch (IOException e) {
         reportUploadError(e);
+      } finally {
+        onUploadComplete.run();
       }
     }
   }

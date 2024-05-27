@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.remote.RemoteExecutionService.DeduplicatedExecution;
+import com.google.devtools.build.lib.remote.RemoteExecutionService.InFlightExecution;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
@@ -57,7 +57,7 @@ final class RemoteSpawnCache implements SpawnCache {
   private final RemoteExecutionService remoteExecutionService;
   private final DigestUtil digestUtil;
   private final boolean verboseFailures;
-  private final ConcurrentHashMap<RemoteCacheClient.ActionKey, DeduplicatedExecution>
+  private final ConcurrentHashMap<RemoteCacheClient.ActionKey, InFlightExecution>
       inFlightExecutions = new ConcurrentHashMap<>();
 
   RemoteSpawnCache(
@@ -100,43 +100,19 @@ final class RemoteSpawnCache implements SpawnCache {
     context.setDigest(digestUtil.asSpawnLogProto(action.getActionKey()));
 
     Profiler prof = Profiler.instance();
-    DeduplicatedExecution thisExecution =
-        remoteExecutionService.createDeduplicatedExecution(action);
+    InFlightExecution thisExecution = null;
     if (shouldAcceptCachedResult) {
+      InFlightExecution firstExecution = null;
+      thisExecution = InFlightExecution.createIfDeduplicatable(action);
+      if (shouldUploadLocalResults && thisExecution != null) {
+        firstExecution = inFlightExecutions.putIfAbsent(action.getActionKey(), thisExecution);
+      }
       // Metadata will be available in context.current() until we detach.
       // This is done via a thread-local variable.
       try {
         RemoteActionResult result;
         try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
           result = remoteExecutionService.lookupCache(action);
-        }
-        if (result == null && shouldUploadLocalResults && thisExecution.canBeReused()) {
-          DeduplicatedExecution inFlightExecution =
-              inFlightExecutions.putIfAbsent(action.getActionKey(), thisExecution);
-          if (inFlightExecution != null) {
-            Stopwatch fetchTime = Stopwatch.createStarted();
-            SpawnResult previousResult;
-            try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "reuse outputs")) {
-              previousResult = remoteExecutionService.reuseOutputs(action, inFlightExecution);
-            }
-            spawnMetrics
-                .setFetchTimeInMs((int) fetchTime.elapsed().toMillis())
-                .setTotalTimeInMs((int) totalTime.elapsed().toMillis())
-                .setNetworkTimeInMs((int) action.getNetworkTime().getDuration().toMillis());
-            SpawnMetrics buildMetrics = spawnMetrics.build();
-            return SpawnCache.success(
-                new SpawnResult.DelegateSpawnResult(previousResult) {
-                  @Override
-                  public String getRunnerName() {
-                    return "deduplicated";
-                  }
-
-                  @Override
-                  public SpawnMetrics getMetrics() {
-                    return buildMetrics;
-                  }
-                });
-          }
         }
         // In case the remote cache returned a failed action (exit code != 0) we treat it as a
         // cache miss
@@ -180,9 +156,34 @@ final class RemoteSpawnCache implements SpawnCache {
           remoteExecutionService.report(Event.warn(errorMessage));
         }
       }
+      if (firstExecution != null) {
+        Stopwatch fetchTime = Stopwatch.createStarted();
+        SpawnResult previousResult;
+        try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "reuse outputs")) {
+          previousResult = remoteExecutionService.reuseOutputs(action, firstExecution);
+        }
+        spawnMetrics
+            .setFetchTimeInMs((int) fetchTime.elapsed().toMillis())
+            .setTotalTimeInMs((int) totalTime.elapsed().toMillis())
+            .setNetworkTimeInMs((int) action.getNetworkTime().getDuration().toMillis());
+        SpawnMetrics buildMetrics = spawnMetrics.build();
+        return SpawnCache.success(
+            new SpawnResult.DelegateSpawnResult(previousResult) {
+              @Override
+              public String getRunnerName() {
+                return "deduplicated";
+              }
+
+              @Override
+              public SpawnMetrics getMetrics() {
+                return buildMetrics;
+              }
+            });
+      }
     }
 
     if (shouldUploadLocalResults) {
+      final InFlightExecution thisExecutionFinal = thisExecution;
       return new CacheHandle() {
         @Override
         public boolean hasResult() {
@@ -201,7 +202,7 @@ final class RemoteSpawnCache implements SpawnCache {
 
         @Override
         public void store(SpawnResult result) throws ExecException, InterruptedException {
-          if (!thisExecution.commitResult(action, result)) {
+          if (!remoteExecutionService.shouldUpload(action, result, thisExecutionFinal)) {
             return;
           }
 
@@ -218,7 +219,8 @@ final class RemoteSpawnCache implements SpawnCache {
             }
           }
 
-          remoteExecutionService.uploadOutputs(action, result);
+          remoteExecutionService.uploadOutputs(
+              action, result, () -> inFlightExecutions.remove(action.getActionKey()));
         }
 
         private void checkForConcurrentModifications()
@@ -230,15 +232,16 @@ final class RemoteSpawnCache implements SpawnCache {
             FileArtifactValue metadata = context.getInputMetadataProvider().getInputMetadata(input);
             Path path = execRoot.getRelative(input.getExecPath());
             if (metadata.wasModifiedSinceDigest(path)) {
-              throw new IOException(path + " was modified during execution");
+              throw new IOException(path + " was modified during thisExecution");
             }
           }
         }
 
         @Override
-        public void close() {
-          inFlightExecutions.remove(action.getActionKey());
-          thisExecution.cancel();
+        public void reportException(Throwable e) {
+          if (thisExecutionFinal != null) {
+            thisExecutionFinal.reportExecutionException(e);
+          }
         }
       };
     } else {
