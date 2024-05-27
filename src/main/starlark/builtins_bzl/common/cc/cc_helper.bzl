@@ -975,25 +975,7 @@ def _get_srcs(ctx):
 def _get_cpp20module_interfaces(ctx):
     if not hasattr(ctx.attr, "module_interfaces"):
         return []
-    srcs_artifact_label_map = _calculate_artifact_label_map(ctx.attr.srcs, "srcs")
-
-    artifact_label_map = {}
-    for src in ctx.attr.module_interfaces:
-        if DefaultInfo in src:
-            for artifact in src[DefaultInfo].files.to_list():
-                old_label = artifact_label_map.get(artifact, None)
-                artifact_label_map[artifact] = src.label
-                if old_label != None and not _are_labels_equal(old_label, src.label):
-                    fail(
-                        "Artifact '{}' is duplicated (through '{}' and '{}')".format(artifact.path, old_label, src),
-                        attr = "module_interfaces",
-                    )
-                label_from_srcs = srcs_artifact_label_map.get(artifact, None)
-                if label_from_srcs != None:
-                    fail(
-                        "Artifact '{}' is duplicated (through '{}' and '{}')".format(artifact.path, label_from_srcs, src),
-                        attr = "module_interfaces",
-                    )
+    artifact_label_map = _calculate_artifact_label_map(ctx.attr.module_interfaces, "module_interfaces")
     return _map_to_list(artifact_label_map)
 
 # Returns a list of (Artifact, Label) tuples. Each tuple represents an input source
