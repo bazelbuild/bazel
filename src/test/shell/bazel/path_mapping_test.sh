@@ -620,6 +620,14 @@ EOF
   expect_log_once 'INFO: From Action pkg/script \[for tool\]:'
   expect_log_n 'Hello, stderr!' 2
   expect_log_n 'Hello, stdout!' 2
+
+  bazel clean || fail "clean failed unexpectedly"
+  bazel build \
+    --experimental_output_paths=strip \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //pkg:all &> $TEST_log || fail "build failed unexpectedly"
+  # The cache is checked before deduplication.
+  expect_log '4 remote cache hit'
 }
 
 run_suite "path mapping tests"
