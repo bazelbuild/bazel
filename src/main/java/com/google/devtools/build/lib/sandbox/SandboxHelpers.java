@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.devtools.build.lib.vfs.Dirent.Type.DIRECTORY;
+import static com.google.devtools.build.lib.vfs.Dirent.Type.SYMLINK;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
@@ -36,11 +38,13 @@ import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils.MoveResult;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
@@ -182,22 +186,33 @@ public final class SandboxHelpers {
         parent = parent.getParentDirectory();
       }
     }
-    cleanRecursively(
-        root,
-        inputs,
-        inputsToCreate,
-        dirsToCreate,
-        workDir,
-        prefixDirs,
-        treeDeleter,
-        stashContents);
+    if (stashContents == null) {
+      cleanRecursively(
+          root,
+          inputs,
+          inputsToCreate,
+          dirsToCreate,
+          workDir,
+          prefixDirs,
+          treeDeleter);
+    } else {
+      cleanRecursivelyWithInMemoryStashes(
+          root,
+          inputs,
+          inputsToCreate,
+          dirsToCreate,
+          workDir,
+          prefixDirs,
+          treeDeleter,
+          stashContents);
+    }
   }
 
   /**
    * Deletes unnecessary files/directories and updates the sets if something on disk is already
    * correct and doesn't need any changes.
    */
-  private static void cleanRecursively(
+  private static void cleanRecursivelyWithInMemoryStashes(
       Path root,
       SandboxInputs inputs,
       Set<PathFragment> inputsToCreate,
@@ -205,7 +220,7 @@ public final class SandboxHelpers {
       Path workDir,
       Set<PathFragment> prefixDirs,
       @Nullable TreeDeleter treeDeleter,
-      @Nullable StashContents stashContents)
+      StashContents stashContents)
       throws IOException, InterruptedException {
     Path execroot = workDir.getParentDirectory();
     Preconditions.checkNotNull(stashContents);
@@ -245,7 +260,7 @@ public final class SandboxHelpers {
       PathFragment pathRelativeToWorkDir = getPathRelativeToWorkDir(absPath, workDir, execroot);
       if (dirsToCreate.contains(pathRelativeToWorkDir)
           || prefixDirs.contains(pathRelativeToWorkDir)) {
-        cleanRecursively(
+        cleanRecursivelyWithInMemoryStashes(
             absPath,
             inputs,
             inputsToCreate,
@@ -262,6 +277,73 @@ public final class SandboxHelpers {
         } else {
           treeDeleter.deleteTree(absPath);
         }
+      }
+    }
+  }
+
+  /**
+   * Deletes unnecessary files/directories and updates the sets if something on disk is already
+   * correct and doesn't need any changes.
+   */
+  private static void cleanRecursively(
+      Path root,
+      SandboxInputs inputs,
+      Set<PathFragment> inputsToCreate,
+      Set<PathFragment> dirsToCreate,
+      Path workDir,
+      Set<PathFragment> prefixDirs,
+      @Nullable TreeDeleter treeDeleter)
+      throws IOException, InterruptedException {
+    Path execroot = workDir.getParentDirectory();
+    for (Dirent dirent : root.readdir(Symlinks.NOFOLLOW)) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
+      Path absPath = root.getChild(dirent.getName());
+      PathFragment pathRelativeToWorkDir;
+      if (absPath.startsWith(workDir)) {
+        // path is under workDir, i.e. execroot/<workspace name>. Simply get the relative path.
+        pathRelativeToWorkDir = absPath.relativeTo(workDir);
+      } else {
+        // path is not under workDir, which means it belongs to one of external repositories
+        // symlinked directly under execroot. Get the relative path based on there and prepend it
+        // with the designated prefix, '../', so that it's still a valid relative path to workDir.
+        pathRelativeToWorkDir =
+            LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
+                absPath.relativeTo(execroot));
+      }
+      Optional<PathFragment> destination =
+          getExpectedSymlinkDestination(pathRelativeToWorkDir, inputs);
+      if (destination.isPresent()) {
+        if (SYMLINK.equals(dirent.getType())
+            && absPath.readSymbolicLink().equals(destination.get())) {
+          inputsToCreate.remove(pathRelativeToWorkDir);
+        } else if (absPath.isDirectory()) {
+          if (treeDeleter == null) {
+            // TODO(bazel-team): Use async tree deleter for workers too
+            absPath.deleteTree();
+          } else {
+            treeDeleter.deleteTree(absPath);
+          }
+        } else {
+          absPath.delete();
+        }
+      } else if (DIRECTORY.equals(dirent.getType())) {
+        if (dirsToCreate.contains(pathRelativeToWorkDir)
+            || prefixDirs.contains(pathRelativeToWorkDir)) {
+          cleanRecursively(
+              absPath, inputs, inputsToCreate, dirsToCreate, workDir, prefixDirs, treeDeleter);
+          dirsToCreate.remove(pathRelativeToWorkDir);
+        } else {
+          if (treeDeleter == null) {
+            // TODO(bazel-team): Use async tree deleter for workers too
+            absPath.deleteTree();
+          } else {
+            treeDeleter.deleteTree(absPath);
+          }
+        }
+      } else if (!inputsToCreate.contains(pathRelativeToWorkDir)) {
+        absPath.delete();
       }
     }
   }
@@ -283,15 +365,15 @@ public final class SandboxHelpers {
    * Returns what the destination of the symlink {@code file} should be, according to {@code
    * inputs}.
    */
-  static Optional<Path> getExpectedSymlinkDestinationForFiles(
+  static Optional<PathFragment> getExpectedSymlinkDestination(
       PathFragment fragment, SandboxInputs inputs) {
-    return Optional.ofNullable(inputs.getFiles().get(fragment));
-  }
-
-  static Optional<PathFragment> getExpectedSymlinkDestinationForSymlinks(
-      PathFragment fragment, SandboxInputs inputs) {
+    Path file = inputs.getFiles().get(fragment);
+    if (file != null) {
+      return Optional.of(file.asFragment());
+    }
     return Optional.ofNullable(inputs.getSymlinks().get(fragment));
   }
+
 
   /** Populates the provided sets with the inputs and directories that need to be created. */
   public static void populateInputsAndDirsToCreate(
@@ -556,6 +638,16 @@ public final class SandboxHelpers {
       }
     }
     return SandboxOutputs.create(files.build(), dirs.build());
+  }
+
+  private static Optional<Path> getExpectedSymlinkDestinationForFiles(
+      PathFragment fragment, SandboxInputs inputs) {
+    return Optional.ofNullable(inputs.getFiles().get(fragment));
+  }
+
+  private static Optional<PathFragment> getExpectedSymlinkDestinationForSymlinks(
+      PathFragment fragment, SandboxInputs inputs) {
+    return Optional.ofNullable(inputs.getSymlinks().get(fragment));
   }
 
   /**

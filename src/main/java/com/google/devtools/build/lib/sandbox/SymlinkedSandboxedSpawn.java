@@ -87,129 +87,110 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
     if (!SandboxStash.gotInstance()) {
       return;
     }
-    StashContents stashContents =
+    Optional<StashContents> stashContents =
         SandboxStash.takeStashedSandbox(
             sandboxPath, mnemonic, getEnvironment(), outputs, targetLabel);
     sandboxExecRoot.createDirectoryAndParents();
+
     if (stashContents != null) {
-      // SandboxStash.statistics.putIfAbsent("reused_stashes", new AtomicInteger());
-      // SandboxStash.statistics.get("reused_stashes").incrementAndGet();
-      // SandboxStash.statistics.putIfAbsent("available_stashes", new AtomicInteger());
-      // SandboxStash.statistics
-      //     .get("available_stashes")
-      //     .addAndGet(SandboxStash.instance.pathToContents.size());
-      // When reusing an old sandbox, we do a full traversal of the parent directory of
-      // `sandboxExecRoot`. This will use what we computed above, delete anything unnecessary, and
-      // update `inputsToCreate`/`dirsToCreate` if something can be left without changes (e.g., a,
-      // symlink that already points to the right destination). We're traversing from
-      // sandboxExecRoot's parent directory because external repositories can now be symlinked as
-      // siblings of sandboxExecRoot when --experimental_sibling_repository_layout is set.
-      SandboxHelpers.cleanExisting(
-          sandboxExecRoot.getParentDirectory(),
-          inputs,
-          inputsToCreate,
-          dirsToCreate,
-          sandboxExecRoot,
-          treeDeleter,
-          stashContents);
-    } else {
-      // SandboxStash.statistics.putIfAbsent("stashes_from_scratch", new AtomicInteger());
-      // SandboxStash.statistics.get("stashes_from_scratch").incrementAndGet();
-    }
-    // TODO: Remove repetition
-    Map<PathFragment, StashContents> stashContentsMap = new HashMap<>();
-    for (Map.Entry<PathFragment, Path> entry : inputs.getFiles().entrySet()) {
-      if (entry.getValue() == null) {
-        continue;
-      }
-      PathFragment parent = entry.getKey().getParentDirectory();
-      boolean parentWasPresent = true;
-      if (!stashContentsMap.containsKey(parent)) {
-        stashContentsMap.put(parent, StashContents.create());
-        parentWasPresent = false;
-      }
-      StashContents parentStashContents = stashContentsMap.get(parent);
-      parentStashContents.filesToPath().put(entry.getKey().getBaseName(), entry.getValue());
-      while (!parentWasPresent && parent.getParentDirectory() != null) {
-        PathFragment parentParent = parent.getParentDirectory();
-        if (stashContentsMap.containsKey(parentParent)) {
-          parentWasPresent = true;
-        } else {
-          stashContentsMap.put(parentParent, StashContents.create());
-        }
-        StashContents parentParentStashContents = stashContentsMap.get(parentParent);
-        if (!parentParentStashContents.dirEntries().containsKey(parent.getBaseName())) {
-          parentParentStashContents.dirEntries().put(
-              parent.getBaseName(), stashContentsMap.get(parent));
-        }
-        parent = parentParent;
-      }
-    }
-    for (Map.Entry<PathFragment, PathFragment> entry : inputs.getSymlinks().entrySet()) {
-      if (entry.getValue() == null) {
-        continue;
-      }
-      PathFragment parent = entry.getKey().getParentDirectory();
-      boolean parentWasPresent = true;
-      if (!stashContentsMap.containsKey(parent)) {
-        stashContentsMap.put(parent, StashContents.create());
-        parentWasPresent = false;
-      }
-      StashContents parentStashContents = stashContentsMap.get(parent);
-      parentStashContents.symlinksToPathFragment().put(
-          entry.getKey().getBaseName(), entry.getValue());
-      while (!parentWasPresent && parent.getParentDirectory() != null) {
-        PathFragment parentParent = parent.getParentDirectory();
-        if (stashContentsMap.containsKey(parentParent)) {
-          parentWasPresent = true;
-        } else {
-          stashContentsMap.put(parentParent, StashContents.create());
-        }
-        StashContents parentParentStashContents = stashContentsMap.get(parentParent);
-        if (!parentParentStashContents.dirEntries().containsKey(parent.getBaseName())) {
-          parentParentStashContents.dirEntries().put(
-              parent.getBaseName(), stashContentsMap.get(parent));
-        }
-        parent = parentParent;
+      if (stashContents.isPresent()) {
+        SandboxHelpers.cleanExisting(
+            sandboxExecRoot.getParentDirectory(),
+            inputs,
+            inputsToCreate,
+            dirsToCreate,
+            sandboxExecRoot,
+            treeDeleter,
+            stashContents.get());
+      } else {
+        // No in-memory stashes enabled but there is a stash.
+        // When reusing an old sandbox, we do a full traversal of the parent directory of
+        // `sandboxExecRoot`. This will use what we computed above, delete anything unnecessary, and
+        // update `inputsToCreate`/`dirsToCreate` if something can be left without changes (e.g., a,
+        // symlink that already points to the right destination). We're traversing from
+        // sandboxExecRoot's parent directory because external repositories can now be symlinked as
+        // siblings of sandboxExecRoot when --experimental_sibling_repository_layout is set.
+        SandboxHelpers.cleanExisting(
+            sandboxExecRoot.getParentDirectory(),
+            inputs,
+            inputsToCreate,
+            dirsToCreate,
+            sandboxExecRoot,
+            treeDeleter);
+        return;
       }
     }
 
-    for (var outputDir :
-        Iterables.concat(
-            outputs.files().values().stream()
-                .map(PathFragment::getParentDirectory)
-                .collect(ImmutableList.toImmutableList()),
-            outputs.dirs().values())) {
-      PathFragment parent = outputDir;
-      boolean parentWasPresent = true;
-      if (!stashContentsMap.containsKey(parent)) {
-        stashContentsMap.put(parent, StashContents.create());
-        parentWasPresent = false;
-      }
-      while (!parentWasPresent && parent.getParentDirectory() != null) {
-        PathFragment parentParent = parent.getParentDirectory();
-        if (stashContentsMap.containsKey(parentParent)) {
-          parentWasPresent = true;
-        } else {
-          stashContentsMap.put(parentParent, StashContents.create());
+    if (SandboxStash.useInMemoryStashes()) {
+      Map<PathFragment, StashContents> stashContentsMap = new HashMap<>();
+      for (Map.Entry<PathFragment, Path> entry : inputs.getFiles().entrySet()) {
+        if (entry.getValue() == null) {
+          continue;
         }
-        StashContents parentParentStashContents = stashContentsMap.get(parentParent);
-        if (!parentParentStashContents.dirEntries().containsKey(parent.getBaseName())) {
-          parentParentStashContents.dirEntries().put(
-              parent.getBaseName(), stashContentsMap.get(parent));
-        }
-        parent = parentParent;
+        PathFragment parent = entry.getKey().getParentDirectory();
+        boolean parentWasPresent = !addParent(stashContentsMap, parent);
+        stashContentsMap.get(parent).filesToPath()
+            .put(entry.getKey().getBaseName(), entry.getValue());
+        addAllParents(stashContentsMap, parentWasPresent, parent);
       }
+      for (Map.Entry<PathFragment, PathFragment> entry : inputs.getSymlinks().entrySet()) {
+        if (entry.getValue() == null) {
+          continue;
+        }
+        PathFragment parent = entry.getKey().getParentDirectory();
+        boolean parentWasPresent = !addParent(stashContentsMap, parent);
+        stashContentsMap.get(parent).symlinksToPathFragment().put(
+            entry.getKey().getBaseName(), entry.getValue());
+        addAllParents(stashContentsMap, parentWasPresent, parent);
+      }
+
+      for (var outputDir :
+          Iterables.concat(
+              outputs.files().values().stream()
+                  .map(PathFragment::getParentDirectory)
+                  .collect(ImmutableList.toImmutableList()),
+              outputs.dirs().values())) {
+        PathFragment parent = outputDir;
+        boolean parentWasPresent = !addParent(stashContentsMap, parent);
+        addAllParents(stashContentsMap, parentWasPresent, parent);
+      }
+      StashContents main = StashContents.create();
+      main.dirEntries()
+          .put(SandboxStash.getWorkspaceName(), stashContentsMap.get(PathFragment.EMPTY_FRAGMENT));
+      SandboxStash.setPathContents(sandboxPath, main);
     }
-    StashContents main = StashContents.create();
-    main.dirEntries().put(SandboxStash.getWorkspaceName(), stashContentsMap.get(PathFragment.EMPTY_FRAGMENT));
-    SandboxStash.setPathContents(sandboxPath, main);
+  }
+
+  private static boolean addParent(Map<PathFragment, StashContents> stashContentsMap,
+      PathFragment parent) {
+    boolean parentWasPresent = true;
+    if (!stashContentsMap.containsKey(parent)) {
+      stashContentsMap.put(parent, StashContents.create());
+      parentWasPresent = false;
+    }
+    return !parentWasPresent;
+  }
+
+  private static void addAllParents(Map<PathFragment, StashContents> stashContentsMap,
+      boolean parentWasPresent, PathFragment parent) {
+    while (!parentWasPresent && parent.getParentDirectory() != null) {
+      PathFragment parentParent = parent.getParentDirectory();
+      if (stashContentsMap.containsKey(parentParent)) {
+        parentWasPresent = true;
+      } else {
+        stashContentsMap.put(parentParent, StashContents.create());
+      }
+      StashContents parentParentStashContents = stashContentsMap.get(parentParent);
+      if (!parentParentStashContents.dirEntries().containsKey(parent.getBaseName())) {
+        parentParentStashContents.dirEntries().put(
+            parent.getBaseName(), stashContentsMap.get(parent));
+      }
+      parent = parentParent;
+    }
   }
 
   @Override
   protected void copyFile(Path source, Path target) throws IOException {
-    // SandboxStash.statistics.putIfAbsent("symlinks", new AtomicInteger());
-    // SandboxStash.statistics.get("symlinks").incrementAndGet();
     target.createSymbolicLink(source);
   }
 
