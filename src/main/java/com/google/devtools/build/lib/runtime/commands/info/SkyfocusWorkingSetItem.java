@@ -37,9 +37,7 @@ public class SkyfocusWorkingSetItem extends InfoItem {
       throws AbruptExitException, InterruptedException {
 
     ImmutableSet<String> workingSet =
-        env.getSkyframeExecutor().getSkyfocusState().userDefinedWorkingSet().isEmpty()
-            ? env.getSkyframeExecutor().getSkyfocusState().derivedWorkingSetStrings()
-            : env.getSkyframeExecutor().getSkyfocusState().userDefinedWorkingSetStrings();
+        env.getSkyframeExecutor().getSkyfocusState().workingSetStrings();
 
     if (workingSet.isEmpty()) {
       return print("No working set found.");

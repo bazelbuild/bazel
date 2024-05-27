@@ -206,6 +206,7 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossReposit
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SkyfocusOptions.SkyfocusDumpOption;
 import com.google.devtools.build.lib.skyframe.SkyfocusOptions.SkyfocusHandlingStrategy;
+import com.google.devtools.build.lib.skyframe.SkyfocusState.WorkingSetType;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
 import com.google.devtools.build.lib.skyframe.SkyframeFocuser.FocusResult;
@@ -4031,7 +4032,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
 
     ImmutableSet<String> newUserDefinedWorkingSet = ImmutableSet.copyOf(skyfocusOptions.workingSet);
-    ImmutableSet<FileStateKey> activeWorkingSet = skyfocusState.userDefinedWorkingSet();
+    ImmutableSet<FileStateKey> activeWorkingSet = skyfocusState.workingSet();
 
     if (!activeWorkingSet.isEmpty()) {
       for (String s : newUserDefinedWorkingSet) {
@@ -4186,13 +4187,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     Set<FileStateKey> newWorkingSet = Sets.newConcurrentHashSet();
 
     if (skyfocusState.options().workingSet.isEmpty()
-        && skyfocusState.userDefinedWorkingSet().isEmpty()) {
-
+        && skyfocusState.workingSetType().equals(WorkingSetType.DERIVED)) {
+      // If the user hasn't defined a new working set from the command line and there
+      // isn't an active user-defined working set in use, automatically derive one using the
+      // targets being built.
       try (SilentCloseable c = Profiler.instance().profile("Skyfocus derive working set")) {
-        // If the user hasn't defined a new working set from the command line and there
-        // isn't an active user-defined working set in use, automatically derive one using the
-        // targets
-        // being built.
         eventHandler.handle(Event.info("Skyfocus: automatically deriving working set."));
 
         ImmutableSet<PathFragment> topLevelTargetPackages =
@@ -4236,18 +4235,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             });
 
         if (!skyfocusState.forcedRerun()
-            && skyfocusState.derivedWorkingSet().containsAll(newWorkingSet)
+            && skyfocusState.workingSet().containsAll(newWorkingSet)
             && skyfocusState.focusedTargetLabels().containsAll(topLevelTargetLabels)) {
           // Already focused on a superset of the working set, no need to do anything.
           return FocusResult.NO_RESULT;
         }
 
-        skyfocusState =
-            skyfocusState
-                .withUserDefinedWorkingSet(ImmutableSet.of())
-                .addDerivedWorkingSet(ImmutableSet.copyOf(newWorkingSet));
-
-        leafsBuilder.addAll(skyfocusState.derivedWorkingSet());
+        skyfocusState = skyfocusState.addDerivedWorkingSet(ImmutableSet.copyOf(newWorkingSet));
       }
     } else {
       if (skyfocusState.options().workingSet.isEmpty() && !skyfocusState.forcedRerun()) {
@@ -4290,34 +4284,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       }
 
       if ((skyfocusState.options().workingSet.isEmpty()
-              || skyfocusState.userDefinedWorkingSet().equals(newWorkingSet))
+              || skyfocusState.workingSet().equals(newWorkingSet))
           && skyfocusState.focusedTargetLabels().containsAll(topLevelTargetLabels)) {
         if (skyfocusState.forcedRerun()) {
-          newWorkingSet.addAll(skyfocusState.userDefinedWorkingSet());
+          newWorkingSet.addAll(skyfocusState.workingSet());
         } else {
           return FocusResult.NO_RESULT;
         }
       }
 
-      skyfocusState =
-          skyfocusState
-              .withDerivedWorkingSet(ImmutableSet.of())
-              .withUserDefinedWorkingSet(ImmutableSet.copyOf(newWorkingSet));
-
-      leafsBuilder.addAll(skyfocusState.userDefinedWorkingSet());
+      skyfocusState = skyfocusState.withUserDefinedWorkingSet(ImmutableSet.copyOf(newWorkingSet));
     }
 
-    if (skyfocusState.derivedWorkingSet().isEmpty()
-        == skyfocusState.userDefinedWorkingSet().isEmpty()) {
-      throw new AbruptExitException(
-          DetailedExitCode.of(
-              FailureDetail.newBuilder()
-                  .setMessage("Only one of the derived or user defined working sets can be empty.")
-                  .setSkyfocus(
-                      Skyfocus.newBuilder().setCode(Skyfocus.Code.INVALID_WORKING_SET).build())
-                  .build()));
-    }
-
+    leafsBuilder.addAll(skyfocusState.workingSet());
     ImmutableSet<SkyKey> leafs = leafsBuilder.build();
 
     skyfocusState = skyfocusState.addFocusedTargetLabels(topLevelTargetLabels);

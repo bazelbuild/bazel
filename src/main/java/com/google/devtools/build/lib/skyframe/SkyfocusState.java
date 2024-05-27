@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -31,12 +32,8 @@ import javax.annotation.Nullable;
  * @param forcedRerun If true, Skyfocus will always run at the end of the build, regardless of the
  *     state of working set or the graph.
  * @param focusedTargetLabels The set of targets focused in this server instance
- * @param userDefinedWorkingSet The user defined working set from the command line flag. Empty if
- *     derived working set is used. Although the working set is represented as {@link FileStateKey},
- *     the presence of a directory path's {@code FileStateKey} is sufficient to represent the
- *     corresponding directory listing state node.
- * @param derivedWorkingSet Automatically derived working set from the target being built. Empty if
- *     user defined working set is used. Although the working set is represented as {@link
+ * @param workingSet Files/dirs representing the working set. Can be empty, specified by the command
+ *     line flag, or automatically derived. Although the working set is represented as {@link
  *     FileStateKey}, the presence of a directory path's {@code FileStateKey} is sufficient to
  *     represent the corresponding directory listing state node.
  * @param verificationSet The set of files/dirs that are not in the working set, but is in the
@@ -48,11 +45,20 @@ public record SkyfocusState(
     boolean enabled,
     boolean forcedRerun,
     ImmutableSet<Label> focusedTargetLabels,
-    ImmutableSet<FileStateKey> userDefinedWorkingSet,
-    ImmutableSet<FileStateKey> derivedWorkingSet,
+    WorkingSetType workingSetType,
+    ImmutableSet<FileStateKey> workingSet,
     ImmutableSet<SkyKey> verificationSet,
     @Nullable SkyfocusOptions options,
     @Nullable BuildConfigurationValue buildConfiguration) {
+
+  /** Describes how the working set was constructed. */
+  public enum WorkingSetType {
+    /** Automatically derived by the source state and the command line (e.g. focused targets) */
+    DERIVED,
+
+    /** The value of --experimental_working_set. Will override derived sets if used. */
+    USER_DEFINED
+  }
 
   /** The canonical state to completely disable Skyfocus in the build. */
   public static final SkyfocusState DISABLED =
@@ -60,20 +66,14 @@ public record SkyfocusState(
           false,
           false,
           ImmutableSet.of(),
-          ImmutableSet.of(),
+          WorkingSetType.DERIVED,
           ImmutableSet.of(),
           ImmutableSet.of(),
           null,
           null);
 
-  public ImmutableSet<String> userDefinedWorkingSetStrings() {
-    return userDefinedWorkingSet.stream()
-        .map(fsk -> fsk.argument().getRootRelativePath().toString())
-        .collect(toImmutableSet());
-  }
-
-  public ImmutableSet<String> derivedWorkingSetStrings() {
-    return derivedWorkingSet.stream()
+  public ImmutableSet<String> workingSetStrings() {
+    return workingSet.stream()
         .map(fsk -> fsk.argument().getRootRelativePath().toString())
         .collect(toImmutableSet());
   }
@@ -83,8 +83,8 @@ public record SkyfocusState(
         val,
         forcedRerun,
         focusedTargetLabels,
-        userDefinedWorkingSet,
-        derivedWorkingSet,
+        workingSetType,
+        workingSet,
         verificationSet,
         options,
         buildConfiguration);
@@ -95,8 +95,8 @@ public record SkyfocusState(
         enabled,
         val,
         focusedTargetLabels,
-        userDefinedWorkingSet,
-        derivedWorkingSet,
+        workingSetType,
+        workingSet,
         verificationSet,
         options,
         buildConfiguration);
@@ -107,8 +107,8 @@ public record SkyfocusState(
         enabled,
         forcedRerun,
         ImmutableSet.<Label>builder().addAll(focusedTargetLabels).addAll(val).build(),
-        userDefinedWorkingSet,
-        derivedWorkingSet,
+        workingSetType,
+        workingSet,
         verificationSet,
         options,
         buildConfiguration);
@@ -119,32 +119,23 @@ public record SkyfocusState(
         enabled,
         forcedRerun,
         focusedTargetLabels,
+        WorkingSetType.USER_DEFINED,
         val,
-        derivedWorkingSet,
         verificationSet,
         options,
         buildConfiguration);
   }
 
   public SkyfocusState addDerivedWorkingSet(ImmutableSet<FileStateKey> val) {
-    return new SkyfocusState(
-        enabled,
-        forcedRerun,
-        focusedTargetLabels,
-        userDefinedWorkingSet,
-        ImmutableSet.<FileStateKey>builder().addAll(derivedWorkingSet).addAll(val).build(),
-        verificationSet,
-        options,
-        buildConfiguration);
-  }
+    Preconditions.checkState(
+        workingSetType == WorkingSetType.DERIVED, "Cannot add to a non-derived working set.");
 
-  public SkyfocusState withDerivedWorkingSet(ImmutableSet<FileStateKey> val) {
     return new SkyfocusState(
         enabled,
         forcedRerun,
         focusedTargetLabels,
-        userDefinedWorkingSet,
-        val,
+        WorkingSetType.DERIVED,
+        ImmutableSet.<FileStateKey>builder().addAll(workingSet).addAll(val).build(),
         verificationSet,
         options,
         buildConfiguration);
@@ -155,8 +146,8 @@ public record SkyfocusState(
         enabled,
         forcedRerun,
         focusedTargetLabels,
-        userDefinedWorkingSet,
-        derivedWorkingSet,
+        workingSetType,
+        workingSet,
         val,
         options,
         buildConfiguration);
@@ -167,8 +158,8 @@ public record SkyfocusState(
         enabled,
         forcedRerun,
         focusedTargetLabels,
-        userDefinedWorkingSet,
-        derivedWorkingSet,
+        workingSetType,
+        workingSet,
         verificationSet,
         val,
         buildConfiguration);
@@ -179,8 +170,8 @@ public record SkyfocusState(
         enabled,
         forcedRerun,
         focusedTargetLabels,
-        userDefinedWorkingSet,
-        derivedWorkingSet,
+        workingSetType,
+        workingSet,
         verificationSet,
         options,
         val);
