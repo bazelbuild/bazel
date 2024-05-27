@@ -20,7 +20,6 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -55,7 +54,6 @@ import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
-import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -219,14 +217,11 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
 
     if (spawnResult.status() != Status.SUCCESS) {
-      String cwd = actionExecutionContext.getExecRoot().getPathString();
-      String resultMessage = spawnResult.getFailureMessage();
-      String message =
-          !Strings.isNullOrEmpty(resultMessage)
-              ? resultMessage
-              : CommandFailureUtils.describeCommandFailure(
-                  executionOptions.verboseFailures, cwd, spawn);
-      throw new SpawnExecException(message, spawnResult, /*forciblyRunRemotely=*/ false);
+      throw SpawnExecException.createForFailedSpawn(
+          spawn,
+          spawnResult,
+          actionExecutionContext.getExecRoot(),
+          executionOptions.verboseFailures);
     }
     return ImmutableList.of(spawnResult);
   }
