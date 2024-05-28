@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.remote.RemoteExecutionService.InFlightExecution;
+import com.google.devtools.build.lib.remote.RemoteExecutionService.LocalExecution;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
@@ -57,8 +57,8 @@ final class RemoteSpawnCache implements SpawnCache {
   private final RemoteExecutionService remoteExecutionService;
   private final DigestUtil digestUtil;
   private final boolean verboseFailures;
-  private final ConcurrentHashMap<RemoteCacheClient.ActionKey, InFlightExecution>
-      inFlightExecutions = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<RemoteCacheClient.ActionKey, LocalExecution> inFlightExecutions =
+      new ConcurrentHashMap<>();
 
   RemoteSpawnCache(
       Path execRoot,
@@ -100,10 +100,16 @@ final class RemoteSpawnCache implements SpawnCache {
     context.setDigest(digestUtil.asSpawnLogProto(action.getActionKey()));
 
     Profiler prof = Profiler.instance();
-    InFlightExecution thisExecution = null;
+    LocalExecution thisExecution = null;
     if (shouldAcceptCachedResult) {
-      InFlightExecution firstExecution = null;
-      thisExecution = InFlightExecution.createIfDeduplicatable(action);
+      // With path mapping enabled, different Spawns in a single build can have the same ActionKey.
+      // When their result isn't in the cache and two of them are scheduled concurrently, neither
+      // will result in a cache hit before the other finishes and uploads its result, which results
+      // in unnecessary work. To avoid this, we keep track of in-flight executions as long as their
+      // results haven't been uploaded to the cache yet and deduplicate all of them against the
+      // first one.
+      LocalExecution firstExecution = null;
+      thisExecution = LocalExecution.createIfDeduplicatable(action);
       if (shouldUploadLocalResults && thisExecution != null) {
         firstExecution = inFlightExecutions.putIfAbsent(action.getActionKey(), thisExecution);
       }
@@ -190,7 +196,7 @@ final class RemoteSpawnCache implements SpawnCache {
     }
 
     if (shouldUploadLocalResults) {
-      final InFlightExecution thisExecutionFinal = thisExecution;
+      final LocalExecution thisExecutionFinal = thisExecution;
       return new CacheHandle() {
         @Override
         public boolean hasResult() {
@@ -209,7 +215,7 @@ final class RemoteSpawnCache implements SpawnCache {
 
         @Override
         public void store(SpawnResult result) throws ExecException, InterruptedException {
-          if (!remoteExecutionService.shouldUpload(result, thisExecutionFinal)) {
+          if (!remoteExecutionService.shouldStore(result, thisExecutionFinal)) {
             return;
           }
 
@@ -226,6 +232,10 @@ final class RemoteSpawnCache implements SpawnCache {
             }
           }
 
+          // As soon as the result is in the cache, actions can get the result from it instead of
+          // from the first in-flight execution. Not keeping in-flight executions around
+          // indefinitely is important to avoid excessive memory pressure - Spawns can be very
+          // large.
           remoteExecutionService.uploadOutputs(
               action, result, () -> inFlightExecutions.remove(action.getActionKey()));
         }
@@ -239,7 +249,7 @@ final class RemoteSpawnCache implements SpawnCache {
             FileArtifactValue metadata = context.getInputMetadataProvider().getInputMetadata(input);
             Path path = execRoot.getRelative(input.getExecPath());
             if (metadata.wasModifiedSinceDigest(path)) {
-              throw new IOException(path + " was modified during thisExecution");
+              throw new IOException(path + " was modified during execution");
             }
           }
         }
