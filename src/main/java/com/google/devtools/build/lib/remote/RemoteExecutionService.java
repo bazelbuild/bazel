@@ -1424,7 +1424,6 @@ public class RemoteExecutionService {
       tmpPath.getParentDirectory().createDirectoryAndParents();
       if (outputArtifact.isDirectory()) {
         tmpPath.createDirectory();
-        // TODO: Is this the correct symlink handling?
         FileSystemUtils.copyTreesBelow(sourcePath, tmpPath, Symlinks.NOFOLLOW);
       } else if (outputArtifact.isSymlink()) {
         FileSystemUtils.ensureSymbolicLink(tmpPath, sourcePath.readSymbolicLink());
