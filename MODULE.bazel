@@ -56,6 +56,14 @@ local_path_override(
     path = "./third_party/googleapis",
 )
 
+single_version_override(
+    module_name = "grpc",
+    patch_strip = 1,
+    patches = [
+        "//third_party/grpc:00_disable_layering_check.patch",
+    ],
+)
+
 # The following Bazel modules are not direct dependencies for building Bazel,
 # but are required for visibility from DIST_ARCHIVE_REPOS in repositories.bzl
 bazel_dep(name = "apple_support", version = "1.8.1")
