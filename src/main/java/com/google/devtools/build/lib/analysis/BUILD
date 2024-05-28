@@ -72,7 +72,6 @@ java_library(
         ":config/run_under",
         ":config/run_under_converter",
         ":config/starlark_defined_config_transition",
-        ":config/transition_factories",
         ":config/transitions/composing_transition",
         ":config/transitions/composing_transition_factory",
         ":config/transitions/configuration_transition",
@@ -2020,7 +2019,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config:configuration_transition_api",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -2042,18 +2040,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config:starlark_toolchain_type_requirement",
         "//third_party:auto_value",
         "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "config/transition_factories",
-    srcs = ["config/TransitionFactories.java"],
-    deps = [
-        ":config/transitions/configuration_transition",
-        ":config/transitions/no_transition",
-        ":config/transitions/split_transition",
-        ":config/transitions/transition_factory",
-        "//third_party:auto_value",
     ],
 )
 
@@ -2165,7 +2151,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config:configuration_transition_api",
         "//third_party:auto_value",
     ],
