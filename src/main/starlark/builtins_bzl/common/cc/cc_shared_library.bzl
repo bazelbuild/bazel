@@ -749,10 +749,7 @@ def _cc_shared_library_impl(ctx):
         # precompiled_dynamic_library.dynamic_library could be None if the library to link just contains
         # an interface library which is valid if the actual library is obtained from the system.
         if precompiled_dynamic_library.dynamic_library != None:
-            if precompiled_dynamic_library.resolved_symlink_dynamic_library != None:
-                precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.resolved_symlink_dynamic_library)
-            else:
-                precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.dynamic_library)
+            precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.dynamic_library)
 
     runfiles = runfiles.merge(ctx.runfiles(files = precompiled_only_dynamic_libraries_runfiles))
 
