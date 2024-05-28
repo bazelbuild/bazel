@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.MachineLoadProvider;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
@@ -165,8 +164,6 @@ public class ExecutionTool {
     SpawnStrategyRegistry.Builder spawnStrategyRegistryBuilder =
         SpawnStrategyRegistry.builder(env.getInvocationPolicy().getStrategyPolicy());
     actionContextRegistryBuilder.register(SpawnStrategyResolver.class, new SpawnStrategyResolver());
-    actionContextRegistryBuilder.register(
-        ImportantOutputHandler.class, ImportantOutputHandler.NO_OP);
 
     for (BlazeModule module : runtime.getBlazeModules()) {
       try (SilentCloseable ignored = Profiler.instance().profile(module + ".executorInit")) {
