@@ -402,7 +402,8 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       env.getListener()
           .handle(Event.info(RepositoryResolvedEvent.getRuleDefinitionInformation(rule)));
 
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      throw new RepositoryFunctionException(
+          new AlreadyReportedRepositoryAccessException(e), Transience.TRANSIENT);
     }
 
     if (!outputDirectory.isDirectory()) {

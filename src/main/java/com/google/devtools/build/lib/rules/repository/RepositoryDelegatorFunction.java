@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.NoRepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.AlreadyReportedRepositoryAccessException;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
+import com.google.devtools.build.lib.skyframe.AlreadyReportedException;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -423,6 +424,10 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       // Upon an exceptional exit, the fetching of that repository is over as well.
       env.getListener().post(RepositoryFetchProgress.finished(repoName));
       env.getListener().post(new RepositoryFailedEvent(repoName, e.getMessage()));
+
+      if (e.getCause() instanceof AlreadyReportedException) {
+        throw e;
+      }
       env.getListener()
           .handle(
               Event.error(
