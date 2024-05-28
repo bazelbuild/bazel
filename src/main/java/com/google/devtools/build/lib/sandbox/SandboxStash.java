@@ -557,28 +557,34 @@ public class SandboxStash {
 
   private void updateStashContentsAfterRunfilesMove(String stashedRunfiles, String currentRunfiles, StashContents stashContents) {
     List<String> stashedRunfilesSegments = ImmutableList.copyOf(PathFragment.create(stashedRunfiles).segments());
-    List<String> currentRunfilesSegments = ImmutableList.copyOf(PathFragment.create(currentRunfiles).segments());
-    Preconditions.checkState(stashedRunfilesSegments.size() == currentRunfilesSegments.size(),
-        stashedRunfiles + " : " + currentRunfiles);
-    updateStashContentsAfterRunfilesMoveRecursive(stashedRunfilesSegments,
-        currentRunfilesSegments,
+    StashContents runfilesStashContents = getStashedRunfilesStashContents(stashedRunfilesSegments,
         0,
         stashContents);
+    List<String> currentRunfilesSegments = ImmutableList.copyOf(PathFragment.create(currentRunfiles).segments());
+    putStashedRunfilesStashContents(currentRunfilesSegments, 0, stashContents, runfilesStashContents);
   }
 
-  private void updateStashContentsAfterRunfilesMoveRecursive(List<String> stashedRunfiles, List<String> currentRunfiles, int i, StashContents stashContents) {
+  private StashContents getStashedRunfilesStashContents(List<String> stashedRunfiles, int i, StashContents stashContents) {
     Preconditions.checkState(i < stashedRunfiles.size());
-    String stashedSegment = stashedRunfiles.get(i);
+    String segment = stashedRunfiles.get(i);
+    Preconditions.checkState(stashContents.dirEntries().containsKey(segment));
     if (i < stashedRunfiles.size() - 1) {
-      Preconditions.checkState(stashedSegment.equals(currentRunfiles.get(i)));
-      Preconditions.checkState(stashContents.dirEntries().containsKey(stashedSegment));
-      updateStashContentsAfterRunfilesMoveRecursive(stashedRunfiles, currentRunfiles, i + 1, stashContents.dirEntries().get(stashedSegment));
+      return getStashedRunfilesStashContents(stashedRunfiles, i + 1, stashContents.dirEntries().get(segment));
     } else {
-      Preconditions.checkState(stashContents.dirEntries().containsKey(stashedSegment));
-      stashContents.dirEntries().put(currentRunfiles.get(i), stashContents.dirEntries().get(stashedSegment));
-      if (!currentRunfiles.get(i).equals(stashedSegment)) {
-        stashContents.dirEntries().remove(stashedSegment);
+      return stashContents.dirEntries().remove(segment);
+    }
+  }
+
+  private void putStashedRunfilesStashContents(List<String> currentRunfiles, int i, StashContents stashContents, StashContents runfilesStashContents) {
+    Preconditions.checkState(i < currentRunfiles.size());
+    String segment = currentRunfiles.get(i);
+    if (i < currentRunfiles.size() - 1) {
+      if (!stashContents.dirEntries().containsKey(segment)) {
+        stashContents.dirEntries().put(segment, StashContents.create());
       }
+      putStashedRunfilesStashContents(currentRunfiles, i + 1, stashContents.dirEntries().get(segment), runfilesStashContents);
+    } else {
+      stashContents.dirEntries().put(segment, runfilesStashContents);
     }
   }
 }
