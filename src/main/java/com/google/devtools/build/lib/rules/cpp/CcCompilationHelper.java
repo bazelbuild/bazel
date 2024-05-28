@@ -1271,14 +1271,6 @@ public final class CcCompilationHelper {
       ImmutableMap<String, String> additionalBuildVariables)
       throws RuleErrorException, InterruptedException {
     Artifact sourceFile = builder.getSourceFile();
-    String dotdFileExecPath = null;
-    if (builder.getDotdFile() != null) {
-      dotdFileExecPath = builder.getDotdFile().getExecPathString();
-    }
-    String diagnosticsFileExecPath = null;
-    if (builder.getDiagnosticsFile() != null) {
-      diagnosticsFileExecPath = builder.getDiagnosticsFile().getExecPathString();
-    }
     if (needsFdoBuildVariables && fdoContext.hasArtifacts(cppConfiguration)) {
       // This modifies the passed-in builder, which is a surprising side-effect, and makes it unsafe
       // to call this method multiple times for the same builder.
@@ -1348,28 +1340,20 @@ public final class CcCompilationHelper {
 
     CompileBuildVariables.setupSpecificVariables(
         buildVariables,
-        toPathString(sourceFile),
-        toPathString(builder.getOutputFile()),
+        sourceFile,
+        builder.getOutputFile(),
         enableCoverage,
-        toPathString(gcnoFile),
-        toPathString(dwoFile),
+        gcnoFile,
+        dwoFile,
         isUsingFission,
-        toPathString(ltoIndexingFile),
-        /* thinLtoIndex= */ null,
-        /* thinLtoInputBitcodeFile= */ null,
-        /* thinLtoOutputObjectFile= */ null,
+        ltoIndexingFile,
         getCopts(builder.getSourceFile(), sourceLabel),
-        dotdFileExecPath,
-        diagnosticsFileExecPath,
+        builder.getDotdFile(),
+        builder.getDiagnosticsFile(),
         usePic,
         ccCompilationContext.getExternalIncludeDirs(),
         additionalBuildVariables);
     return buildVariables.build();
-  }
-
-  @Nullable
-  private static String toPathString(Artifact a) {
-    return a == null ? null : a.getExecPathString();
   }
 
   /**
