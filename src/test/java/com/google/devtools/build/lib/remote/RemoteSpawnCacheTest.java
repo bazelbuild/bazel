@@ -370,7 +370,7 @@ public class RemoteSpawnCacheTest {
             .setStatus(Status.SUCCESS)
             .setRunnerName("test")
             .build();
-    doNothing().when(service).uploadOutputs(any(), any(), () -> {});
+    doNothing().when(service).uploadOutputs(any(), any(), any());
     entry.store(result);
     verify(service).uploadOutputs(any(), any(), any());
   }
