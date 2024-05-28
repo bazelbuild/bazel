@@ -558,7 +558,8 @@ public class SandboxStash {
   private void updateStashContentsAfterRunfilesMove(String stashedRunfiles, String currentRunfiles, StashContents stashContents) {
     List<String> stashedRunfilesSegments = ImmutableList.copyOf(PathFragment.create(stashedRunfiles).segments());
     List<String> currentRunfilesSegments = ImmutableList.copyOf(PathFragment.create(currentRunfiles).segments());
-    Preconditions.checkState(stashedRunfilesSegments.size() == currentRunfilesSegments.size());
+    Preconditions.checkState(stashedRunfilesSegments.size() == currentRunfilesSegments.size(),
+        stashedRunfiles + " : " + currentRunfiles);
     updateStashContentsAfterRunfilesMoveRecursive(stashedRunfilesSegments,
         currentRunfilesSegments,
         0,
