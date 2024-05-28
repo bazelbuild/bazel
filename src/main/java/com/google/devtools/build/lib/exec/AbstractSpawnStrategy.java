@@ -146,7 +146,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
     SpawnResult spawnResult;
     ExecException ex = null;
-    CacheHandle cacheHandle = null;
+    CacheHandle cacheHandle = SpawnCache.NO_RESULT_NO_STORE;
     try {
       cacheHandle = cache.lookup(spawn, context);
       if (cacheHandle.hasResult()) {
@@ -169,14 +169,10 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
         }
       }
     } catch (InterruptedIOException e) {
-      if (cacheHandle != null) {
-        cacheHandle.reportException(e);
-      }
+      cacheHandle.reportException(e);
       throw new InterruptedException(e.getMessage());
     } catch (IOException e) {
-      if (cacheHandle != null) {
-        cacheHandle.reportException(e);
-      }
+      cacheHandle.reportException(e);
       throw new EnvironmentalExecException(
           e,
           FailureDetail.newBuilder()
@@ -184,27 +180,18 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
               .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.EXEC_IO_EXCEPTION))
               .build());
     } catch (SpawnExecException e) {
-      if (cacheHandle != null) {
-        cacheHandle.reportException(e);
-      }
+      cacheHandle.reportException(e);
       ex = e;
       spawnResult = e.getSpawnResult();
       // Log the Spawn and re-throw.
     } catch (ForbiddenActionInputException e) {
-      if (cacheHandle != null) {
-        cacheHandle.reportException(e);
-      }
+      cacheHandle.reportException(e);
       throw new UserExecException(
           e,
           FailureDetail.newBuilder()
               .setMessage("Exec failed due to forbidden input")
               .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.FORBIDDEN_INPUT))
               .build());
-    } catch (Throwable t) {
-      if (cacheHandle != null) {
-        cacheHandle.reportException(t);
-      }
-      throw t;
     }
 
     SpawnLogContext spawnLogContext = actionExecutionContext.getContext(SpawnLogContext.class);
