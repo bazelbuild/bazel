@@ -1605,7 +1605,7 @@ public final class CcCompilationHelper {
 
       // Create no-PIC compile actions
       Artifact gcnoFile =
-          isCodeCoverageEnabled && !cppConfiguration.useLLVMCoverageMapFormat()
+          enableCoverage && !cppConfiguration.useLLVMCoverageMapFormat()
               ? CppHelper.getCompileOutputArtifact(
                   actionConstructionContext, label, gcnoFileName, configuration)
               : null;
@@ -1620,7 +1620,7 @@ public final class CcCompilationHelper {
               /* usePic= */ false,
               /* needsFdoBuildVariables= */ ccRelativeName != null,
               cppModuleMap,
-              isCodeCoverageEnabled,
+              enableCoverage,
               gcnoFile,
               generateDwo,
               noPicDwoFile,
