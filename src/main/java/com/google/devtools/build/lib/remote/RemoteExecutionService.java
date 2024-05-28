@@ -131,6 +131,7 @@ import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.core.SingleObserver;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -1422,13 +1423,21 @@ public class RemoteExecutionService {
       ActionInput outputArtifact = previousOutputs.get(sourcePath);
       Path tmpPath = tempPathGenerator.generateTempPath();
       tmpPath.getParentDirectory().createDirectoryAndParents();
-      if (outputArtifact.isDirectory()) {
-        tmpPath.createDirectory();
-        FileSystemUtils.copyTreesBelow(sourcePath, tmpPath, Symlinks.NOFOLLOW);
-      } else if (outputArtifact.isSymlink()) {
-        FileSystemUtils.ensureSymbolicLink(tmpPath, sourcePath.readSymbolicLink());
-      } else {
-        FileSystemUtils.copyFile(sourcePath, tmpPath);
+      try {
+        if (outputArtifact.isDirectory()) {
+          tmpPath.createDirectory();
+          FileSystemUtils.copyTreesBelow(sourcePath, tmpPath, Symlinks.NOFOLLOW);
+        } else if (outputArtifact.isSymlink()) {
+          FileSystemUtils.ensureSymbolicLink(tmpPath, sourcePath.readSymbolicLink());
+        } else {
+          FileSystemUtils.copyFile(sourcePath, tmpPath);
+        }
+      } catch (FileNotFoundException e) {
+        throw new IOException(
+            "Expected output "
+                + prettyPrint(outputArtifact)
+                + " was not created by deduplicated action.",
+            e);
       }
 
       Path targetPath =
