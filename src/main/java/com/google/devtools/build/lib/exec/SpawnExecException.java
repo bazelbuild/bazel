@@ -17,17 +17,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionExecutionException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.vfs.Path;
 
 /**
  * A specialization of {@link ExecException} that indicates something went wrong when trying to
@@ -38,7 +34,6 @@ public class SpawnExecException extends ExecException {
   protected final SpawnResult result;
   protected final boolean forciblyRunRemotely;
 
-  @VisibleForTesting
   public SpawnExecException(String message, SpawnResult result, boolean forciblyRunRemotely) {
     super(message, result.isCatastrophe());
     checkArgument(
@@ -54,18 +49,6 @@ public class SpawnExecException extends ExecException {
     super(message, catastrophe);
     this.result = checkNotNull(result);
     this.forciblyRunRemotely = forciblyRunRemotely;
-  }
-
-  public static SpawnExecException createForFailedSpawn(
-      Spawn spawn, SpawnResult result, Path execRoot, boolean verboseFailures) {
-    checkArgument(result.status() != Status.SUCCESS);
-    String resultMessage = result.getFailureMessage();
-    String message =
-        !Strings.isNullOrEmpty(resultMessage)
-            ? resultMessage
-            : CommandFailureUtils.describeCommandFailure(
-                verboseFailures, execRoot.getPathString(), spawn);
-    return new SpawnExecException(message, result, /* forciblyRunRemotely= */ false);
   }
 
   /** Returns the spawn result. */

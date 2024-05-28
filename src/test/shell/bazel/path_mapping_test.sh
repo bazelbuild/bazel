@@ -723,21 +723,20 @@ EOF
     --remote_cache=grpc://localhost:${worker_port} \
     --keep_going \
     //pkg:all &> $TEST_log && fail "build succeeded unexpectedly"
-  # One action runs into an error, the other is deduplicated but doesn't complete.
-  expect_log '1 \(linux\|darwin\|processwrapper\)-sandbox'
-  expect_not_log '1 deduplicated'
+  # The second action runs normally after discovering that the first one failed
+  # to create the output file.
+  expect_log '2 \(linux\|darwin\|processwrapper\)-sandbox'
+  expect_not_log '[0-9] deduplicated'
 
   expect_log 'Action pkg/my_rule_file failed:'
   expect_log 'Action pkg/my_rule_file \[for tool\] failed:'
   # Remote cache warning.
   expect_log 'Expected output pkg/my_rule_file was not created locally.'
-  # Deduplication warning.
-  expect_log 'Expected output pkg/my_rule_file was not created by deduplicated action.'
 
-  # The first execution emits stdout/stderr, the second doesn't as it fails due to the missing output.
-  expect_log_once 'INFO: From Action pkg/my_rule_file'
-  expect_log_once 'Hello, stderr!'
-  expect_log_once 'Hello, stdout!'
+  expect_log_once 'INFO: From Action pkg/my_rule_file:'
+  expect_log_once 'INFO: From Action pkg/my_rule_file \[for tool\]:'
+  expect_log_n 'Hello, stderr!' 2
+  expect_log_n 'Hello, stdout!' 2
 }
 
 function test_path_stripping_deduplicated_action_non_zero_exit_code() {
@@ -807,9 +806,8 @@ EOF
     --remote_cache=grpc://localhost:${worker_port} \
     --keep_going \
     //pkg:all &> $TEST_log && fail "build succeeded unexpectedly"
-  # The deduplicated action fails with exit code 1.
-  expect_not_log ' \(linux\|darwin\|processwrapper\)-sandbox'
-  expect_not_log '1 deduplicated'
+  # Failing actions are not deduplicated.
+  expect_not_log '[0-9] deduplicated'
 
   expect_log 'Action pkg/my_rule_file failed:'
   expect_log 'Action pkg/my_rule_file \[for tool\] failed:'
@@ -818,8 +816,8 @@ EOF
   # stdout/stderr are emitted as part of the failing action error, not as an
   # info.
   expect_not_log 'INFO: From Action pkg/my_rule_file'
-  expect_log_once 'Hello, stderr!'
-  expect_log_once 'Hello, stdout!'
+  expect_log_n 'Hello, stderr!' 2
+  expect_log_n 'Hello, stdout!' 2
 }
 
 run_suite "path mapping tests"

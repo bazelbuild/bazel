@@ -20,6 +20,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -54,6 +55,7 @@ import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
+import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -146,9 +148,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
     SpawnResult spawnResult;
     ExecException ex = null;
-    CacheHandle cacheHandle = SpawnCache.NO_RESULT_NO_STORE;
-    try {
-      cacheHandle = cache.lookup(spawn, context);
+    try (CacheHandle cacheHandle = cache.lookup(spawn, context)) {
       if (cacheHandle.hasResult()) {
         spawnResult = Preconditions.checkNotNull(cacheHandle.getResult());
       } else {
@@ -169,10 +169,8 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
         }
       }
     } catch (InterruptedIOException e) {
-      cacheHandle.reportException(e);
       throw new InterruptedException(e.getMessage());
     } catch (IOException e) {
-      cacheHandle.reportException(e);
       throw new EnvironmentalExecException(
           e,
           FailureDetail.newBuilder()
@@ -180,12 +178,10 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
               .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.EXEC_IO_EXCEPTION))
               .build());
     } catch (SpawnExecException e) {
-      cacheHandle.reportException(e);
       ex = e;
       spawnResult = e.getSpawnResult();
       // Log the Spawn and re-throw.
     } catch (ForbiddenActionInputException e) {
-      cacheHandle.reportException(e);
       throw new UserExecException(
           e,
           FailureDetail.newBuilder()
@@ -223,11 +219,15 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
 
     if (spawnResult.status() != Status.SUCCESS) {
-      throw SpawnExecException.createForFailedSpawn(
-          spawn,
-          spawnResult,
-          actionExecutionContext.getExecRoot(),
-          executionOptions.verboseFailures);
+      Path execRoot = actionExecutionContext.getExecRoot();
+      checkArgument(spawnResult.status() != Status.SUCCESS);
+      String resultMessage = spawnResult.getFailureMessage();
+      String message =
+          !Strings.isNullOrEmpty(resultMessage)
+              ? resultMessage
+              : CommandFailureUtils.describeCommandFailure(
+                  executionOptions.verboseFailures, execRoot.getPathString(), spawn);
+      throw new SpawnExecException(message, spawnResult, /* forciblyRunRemotely= */ false);
     }
     return ImmutableList.of(spawnResult);
   }
