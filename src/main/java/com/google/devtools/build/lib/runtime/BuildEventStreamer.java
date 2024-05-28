@@ -629,7 +629,11 @@ public class BuildEventStreamer {
         // Nothing to flush; avoid generating an unneeded progress event.
         return;
       }
-      if (announcedEvents != null) {
+      if (finalEventsToCome != null) {
+        // If we've already announced the final events, we cannot add more progress events. Stdout
+        // and stderr are truncated from the event log.
+        consumeAsPairsofStrings(allOut, allErr, (s1, s2) -> {});
+      } else if (announcedEvents != null) {
         updateEvents = new ArrayList<>();
         List<BuildEvent> finalUpdateEvents = updateEvents;
         consumeAsPairsofStrings(
@@ -728,7 +732,7 @@ public class BuildEventStreamer {
         allOut,
         allErr,
         (s1, s2) -> post(flushStdoutStderrEvent(s1, s2)),
-        (s1, s2) -> post(ProgressEvent.finalProgressUpdate(progressCount, s1, s2)));
+        (s1, s2) -> post(ProgressEvent.finalProgressUpdate(progressCount++, s1, s2)));
     clearAnnouncedEvents(event == null ? ImmutableList.of() : event.getChildrenEvents());
   }
 
