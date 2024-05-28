@@ -15,11 +15,13 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -494,7 +496,7 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
 
   /** Represents an environment variable accessed during the repo fetch. */
   public static final class EnvVar extends RepoRecordedInput {
-    static final Parser PARSER =
+    public static final Parser PARSER =
         new Parser() {
           @Override
           public String getPrefix() {
@@ -509,7 +511,13 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
 
     final String name;
 
-    public EnvVar(String name) {
+    public static ImmutableMap<EnvVar, Optional<String>> wrap(
+        Map<String, Optional<String>> envVars) {
+      return envVars.entrySet().stream()
+          .collect(toImmutableMap(e -> new EnvVar(e.getKey()), Map.Entry::getValue));
+    }
+
+    private EnvVar(String name) {
       this.name = name;
     }
 

@@ -25,6 +25,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -230,6 +231,15 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     // result is taken from the lockfile, we can already populate the lockfile info. This is
     // necessary to prevent the extension from rerunning when only the imports change.
     if (lockfileMode == LockfileMode.UPDATE || lockfileMode == LockfileMode.REFRESH) {
+      var envVariables =
+          ImmutableMap.<RepoRecordedInput.EnvVar, Optional<String>>builder()
+              // The environment variable dependencies statically declared via the 'environ'
+              // attribute.
+              .putAll(RepoRecordedInput.EnvVar.wrap(extension.getStaticEnvVars()))
+              // The environment variable dependencies dynamically declared via the 'getenv' method.
+              .putAll(moduleExtensionResult.getRecordedEnvVarInputs())
+              .buildKeepingLast();
+
       lockFileInfo =
           Optional.of(
               new LockFileModuleExtension.WithFactors(
@@ -241,7 +251,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                               GsonTypeAdapterUtil.SINGLE_EXTENSION_USAGES_VALUE_GSON, usagesValue))
                       .setRecordedFileInputs(moduleExtensionResult.getRecordedFileInputs())
                       .setRecordedDirentsInputs(moduleExtensionResult.getRecordedDirentsInputs())
-                      .setEnvVariables(extension.getEnvVars())
+                      .setEnvVariables(ImmutableSortedMap.copyOf(envVariables))
                       .setGeneratedRepoSpecs(generatedRepoSpecs)
                       .setModuleExtensionMetadata(moduleExtensionMetadata)
                       .setRecordedRepoMappingEntries(
@@ -284,7 +294,11 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                 + extensionId
                 + "' or one of its transitive .bzl files has changed");
       }
-      if (!extension.getEnvVars().equals(lockedExtension.getEnvVariables())) {
+      if (didRecordedInputsChange(
+          env,
+          directories,
+          // didRecordedInputsChange expects possibly null String values.
+          Maps.transformValues(lockedExtension.getEnvVariables(), v -> v.orElse(null)))) {
         diffRecorder.record(
             "The environment variables the extension '"
                 + extensionId
@@ -415,7 +429,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
   private static boolean didRecordedInputsChange(
       Environment env,
       BlazeDirectories directories,
-      ImmutableMap<? extends RepoRecordedInput, String> recordedInputs)
+      Map<? extends RepoRecordedInput, String> recordedInputs)
       throws InterruptedException, NeedsSkyframeRestartException {
     boolean upToDate = RepoRecordedInput.areAllValuesUpToDate(env, directories, recordedInputs);
     if (env.valuesMissing()) {
@@ -523,15 +537,15 @@ public class SingleExtensionEvalFunction implements SkyFunction {
    * <p>The general idiom is to "load" such a {@link RunnableExtension} object by getting as much
    * information about it as needed to determine whether it can be reused from the lockfile (hence
    * methods such as {@link #getEvalFactors()}, {@link #getBzlTransitiveDigest()}, {@link
-   * #getEnvVars()}). Then the {@link #run} method can be called if it's determined that we can't
-   * reuse the cached results in the lockfile and have to re-run this extension.
+   * #getStaticEnvVars()}). Then the {@link #run} method can be called if it's determined that we
+   * can't reuse the cached results in the lockfile and have to re-run this extension.
    */
   private interface RunnableExtension {
     ModuleExtensionEvalFactors getEvalFactors();
 
     byte[] getBzlTransitiveDigest();
 
-    ImmutableMap<String, String> getEnvVars();
+    ImmutableMap<String, Optional<String>> getStaticEnvVars();
 
     @Nullable
     RunModuleExtensionResult run(
@@ -682,7 +696,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     }
 
     @Override
-    public ImmutableMap<String, String> getEnvVars() {
+    public ImmutableMap<String, Optional<String>> getStaticEnvVars() {
       return ImmutableMap.of();
     }
 
@@ -776,6 +790,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       return RunModuleExtensionResult.create(
           ImmutableMap.of(),
           ImmutableMap.of(),
+          ImmutableMap.of(),
           generatedRepoSpecs.buildOrThrow(),
           Optional.of(ModuleExtensionMetadata.REPRODUCIBLE),
           ImmutableTable.of());
@@ -821,7 +836,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     }
 
     ModuleExtension extension = (ModuleExtension) exported;
-    ImmutableMap<String, String> envVars =
+    ImmutableMap<String, Optional<String>> envVars =
         RepositoryFunction.getEnvVarValues(env, ImmutableSet.copyOf(extension.getEnvVariables()));
     if (envVars == null) {
       return null;
@@ -832,15 +847,15 @@ public class SingleExtensionEvalFunction implements SkyFunction {
   private final class RegularRunnableExtension implements RunnableExtension {
     private final BzlLoadValue bzlLoadValue;
     private final ModuleExtension extension;
-    private final ImmutableMap<String, String> envVars;
+    private final ImmutableMap<String, Optional<String>> staticEnvVars;
 
     RegularRunnableExtension(
         BzlLoadValue bzlLoadValue,
         ModuleExtension extension,
-        ImmutableMap<String, String> envVars) {
+        ImmutableMap<String, Optional<String>> staticEnvVars) {
       this.bzlLoadValue = bzlLoadValue;
       this.extension = extension;
-      this.envVars = envVars;
+      this.staticEnvVars = staticEnvVars;
     }
 
     @Override
@@ -851,8 +866,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     }
 
     @Override
-    public ImmutableMap<String, String> getEnvVars() {
-      return envVars;
+    public ImmutableMap<String, Optional<String>> getStaticEnvVars() {
+      return staticEnvVars;
     }
 
     @Override
@@ -952,6 +967,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       return RunModuleExtensionResult.create(
           moduleContext.getRecordedFileInputs(),
           moduleContext.getRecordedDirentsInputs(),
+          moduleContext.getRecordedEnvVarInputs(),
           threadContext.getGeneratedRepoSpecs(),
           moduleExtensionMetadata,
           repoMappingRecorder.recordedEntries());
@@ -1016,6 +1032,8 @@ public class SingleExtensionEvalFunction implements SkyFunction {
 
     abstract ImmutableMap<RepoRecordedInput.Dirents, String> getRecordedDirentsInputs();
 
+    abstract ImmutableMap<RepoRecordedInput.EnvVar, Optional<String>> getRecordedEnvVarInputs();
+
     abstract ImmutableMap<String, RepoSpec> getGeneratedRepoSpecs();
 
     abstract Optional<ModuleExtensionMetadata> getModuleExtensionMetadata();
@@ -1025,12 +1043,14 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     static RunModuleExtensionResult create(
         ImmutableMap<RepoRecordedInput.File, String> recordedFileInputs,
         ImmutableMap<RepoRecordedInput.Dirents, String> recordedDirentsInputs,
+        ImmutableMap<RepoRecordedInput.EnvVar, Optional<String>> recordedEnvVarInputs,
         ImmutableMap<String, RepoSpec> generatedRepoSpecs,
         Optional<ModuleExtensionMetadata> moduleExtensionMetadata,
         ImmutableTable<RepositoryName, String, RepositoryName> recordedRepoMappingEntries) {
       return new AutoValue_SingleExtensionEvalFunction_RunModuleExtensionResult(
           recordedFileInputs,
           recordedDirentsInputs,
+          recordedEnvVarInputs,
           generatedRepoSpecs,
           moduleExtensionMetadata,
           recordedRepoMappingEntries);

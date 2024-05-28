@@ -232,22 +232,34 @@ public final class GsonTypeAdapterUtil {
           if (elementTypeAdapter == null) {
             return null;
           }
-          return (TypeAdapter<T>) new OptionalTypeAdapter<>(elementTypeAdapter);
+          // Explicit nulls for Optional.empty are required for env variable tracking, but are too
+          // noisy and unnecessary for other types.
+          return (TypeAdapter<T>)
+              new OptionalTypeAdapter<>(
+                  elementTypeAdapter, /* serializeNulls= */ elementType.equals(String.class));
         }
       };
 
   private static final class OptionalTypeAdapter<T> extends TypeAdapter<Optional<T>> {
     private final TypeAdapter<T> elementTypeAdapter;
+    private final boolean serializeNulls;
 
-    public OptionalTypeAdapter(TypeAdapter<T> elementTypeAdapter) {
+    public OptionalTypeAdapter(TypeAdapter<T> elementTypeAdapter, boolean serializeNulls) {
       this.elementTypeAdapter = elementTypeAdapter;
+      this.serializeNulls = serializeNulls;
     }
 
     @Override
     public void write(JsonWriter jsonWriter, Optional<T> t) throws IOException {
       Preconditions.checkNotNull(t);
       if (t.isEmpty()) {
-        jsonWriter.nullValue();
+        boolean oldSerializeNulls = jsonWriter.getSerializeNulls();
+        jsonWriter.setSerializeNulls(serializeNulls);
+        try {
+          jsonWriter.nullValue();
+        } finally {
+          jsonWriter.setSerializeNulls(oldSerializeNulls);
+        }
       } else {
         elementTypeAdapter.write(jsonWriter, t.get());
       }
@@ -358,6 +370,22 @@ public final class GsonTypeAdapterUtil {
             }
           };
 
+  private static final TypeAdapter<RepoRecordedInput.EnvVar>
+      REPO_RECORDED_INPUT_ENV_VAR_TYPE_ADAPTER =
+          new TypeAdapter<>() {
+            @Override
+            public void write(JsonWriter jsonWriter, RepoRecordedInput.EnvVar value)
+                throws IOException {
+              jsonWriter.value(value.toStringInternal());
+            }
+
+            @Override
+            public RepoRecordedInput.EnvVar read(JsonReader jsonReader) throws IOException {
+              return (RepoRecordedInput.EnvVar)
+                  RepoRecordedInput.EnvVar.PARSER.parse(jsonReader.nextString());
+            }
+          };
+
   // This can't reuse the existing type adapter factory for Optional as we need to explicitly
   // serialize null values but don't want to rely on GSON's serializeNulls.
   private static final class OptionalChecksumTypeAdapterFactory implements TypeAdapterFactory {
@@ -441,7 +469,9 @@ public final class GsonTypeAdapterUtil {
         .registerTypeAdapter(byte[].class, BYTE_ARRAY_TYPE_ADAPTER)
         .registerTypeAdapter(RepoRecordedInput.File.class, REPO_RECORDED_INPUT_FILE_TYPE_ADAPTER)
         .registerTypeAdapter(
-            RepoRecordedInput.Dirents.class, REPO_RECORDED_INPUT_DIRENTS_TYPE_ADAPTER);
+            RepoRecordedInput.Dirents.class, REPO_RECORDED_INPUT_DIRENTS_TYPE_ADAPTER)
+        .registerTypeAdapter(
+            RepoRecordedInput.EnvVar.class, REPO_RECORDED_INPUT_ENV_VAR_TYPE_ADAPTER);
   }
 
   private GsonTypeAdapterUtil() {}

@@ -27,6 +27,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -83,15 +84,16 @@ public final class ActionEnvironmentFunction implements SkyFunction {
    * if and only if some dependencies from Skyframe still need to be resolved.
    */
   @Nullable
-  public static ImmutableMap<String, String> getEnvironmentView(Environment env, Set<String> keys)
-      throws InterruptedException {
+  public static ImmutableMap<String, Optional<String>> getEnvironmentView(
+      Environment env, Set<String> keys) throws InterruptedException {
     var skyframeKeys = keys.stream().map(ActionEnvironmentFunction::key).collect(toImmutableSet());
     SkyframeLookupResult values = env.getValuesAndExceptions(skyframeKeys);
     if (env.valuesMissing()) {
       return null;
     }
 
-    ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
+    ImmutableMap.Builder<String, Optional<String>> result =
+        ImmutableMap.builderWithExpectedSize(skyframeKeys.size());
     for (SkyKey key : skyframeKeys) {
       ClientEnvironmentValue value = (ClientEnvironmentValue) values.get(key);
       if (value == null) {
@@ -100,9 +102,7 @@ public final class ActionEnvironmentFunction implements SkyFunction {
                 "ClientEnvironmentValue " + key + " was missing, this should never happen"));
         return null;
       }
-      if (value.getValue() != null) {
-        result.put(key.argument().toString(), value.getValue());
-      }
+      result.put(key.argument().toString(), Optional.ofNullable(value.getValue()));
     }
     return result.buildOrThrow();
   }
