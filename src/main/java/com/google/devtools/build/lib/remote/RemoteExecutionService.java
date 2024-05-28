@@ -79,7 +79,6 @@ import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.exec.SpawnInputExpander.InputWalker;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
@@ -147,6 +146,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -1332,26 +1332,6 @@ public class RemoteExecutionService {
     return null;
   }
 
-  /**
-   * @return Whether the spawn result should be uploaded to the cache.
-   */
-  public boolean shouldUpload(
-      RemoteAction action, SpawnResult result, @Nullable InFlightExecution execution) {
-    if (SpawnResult.Status.SUCCESS.equals(result.status()) && result.exitCode() == 0) {
-      if (execution != null) {
-        execution.spawnResultFuture.set(result);
-      }
-      return true;
-    } else {
-      if (execution != null) {
-        execution.spawnResultFuture.setException(
-            SpawnExecException.createForFailedSpawn(
-                action.getSpawn(), result, execRoot, verboseFailures));
-      }
-      return false;
-    }
-  }
-
   public static final class InFlightExecution {
     private final RemoteAction action;
     private final SettableFuture<SpawnResult> spawnResultFuture;
@@ -1369,27 +1349,25 @@ public class RemoteExecutionService {
       return new InFlightExecution(action);
     }
 
-    public void reportExecutionException(Throwable e) {
-      spawnResultFuture.setException(e);
+    public void cancel() {
+      spawnResultFuture.cancel(true);
     }
+  }
 
-    private SpawnResult waitFor()
-        throws InterruptedException, IOException, ExecException, ForbiddenActionInputException {
-      try {
-        return spawnResultFuture.get();
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        throw e;
-      } catch (ExecutionException e) {
-        Throwable cause = e.getCause();
-        if (cause != null) {
-          Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
-          Throwables.throwIfInstanceOf(e.getCause(), IOException.class);
-          Throwables.throwIfInstanceOf(e.getCause(), ExecException.class);
-          Throwables.throwIfInstanceOf(e.getCause(), ForbiddenActionInputException.class);
-        }
-        throw new IllegalStateException("Unexpected exception", e);
+  /**
+   * @return Whether the spawn result should be uploaded to the cache.
+   */
+  public boolean shouldUpload(SpawnResult result, @Nullable InFlightExecution execution) {
+    if (SpawnResult.Status.SUCCESS.equals(result.status()) && result.exitCode() == 0) {
+      if (execution != null) {
+        execution.spawnResultFuture.set(result);
       }
+      return true;
+    } else {
+      if (execution != null) {
+        execution.spawnResultFuture.cancel(true);
+      }
+      return false;
     }
   }
 
@@ -1401,11 +1379,19 @@ public class RemoteExecutionService {
    * run a unique spawn for each output file, this method is only useful with path mapping enabled,
    * which allows different spawns in a single build to generate the same RemoteAction.
    */
-  public SpawnResult reuseOutputs(RemoteAction action, InFlightExecution previousExecution)
-      throws InterruptedException, IOException, ExecException, ForbiddenActionInputException {
+  @Nullable
+  public SpawnResult waitForAndReuseOutputs(
+      RemoteAction action, InFlightExecution previousExecution)
+      throws InterruptedException, IOException {
     checkState(!shutdown.get(), "shutdown");
 
-    SpawnResult previousSpawnResult = previousExecution.waitFor();
+    SpawnResult previousSpawnResult;
+    try {
+      previousSpawnResult = previousExecution.spawnResultFuture.get();
+    } catch (CancellationException | ExecutionException e) {
+      Throwables.propagateIfPossible(e.getCause(), InterruptedException.class);
+      return null;
+    }
 
     Preconditions.checkArgument(
         action.getActionKey().equals(previousExecution.action.getActionKey()));
@@ -1433,11 +1419,7 @@ public class RemoteExecutionService {
           FileSystemUtils.copyFile(sourcePath, tmpPath);
         }
       } catch (FileNotFoundException e) {
-        throw new IOException(
-            "Expected output "
-                + prettyPrint(outputArtifact)
-                + " was not created by deduplicated action.",
-            e);
+        return null;
       }
 
       Path targetPath =

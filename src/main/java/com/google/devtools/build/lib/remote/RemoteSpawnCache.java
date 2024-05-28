@@ -160,25 +160,32 @@ final class RemoteSpawnCache implements SpawnCache {
         Stopwatch fetchTime = Stopwatch.createStarted();
         SpawnResult previousResult;
         try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "reuse outputs")) {
-          previousResult = remoteExecutionService.reuseOutputs(action, firstExecution);
+          previousResult = remoteExecutionService.waitForAndReuseOutputs(action, firstExecution);
         }
-        spawnMetrics
-            .setFetchTimeInMs((int) fetchTime.elapsed().toMillis())
-            .setTotalTimeInMs((int) totalTime.elapsed().toMillis())
-            .setNetworkTimeInMs((int) action.getNetworkTime().getDuration().toMillis());
-        SpawnMetrics buildMetrics = spawnMetrics.build();
-        return SpawnCache.success(
-            new SpawnResult.DelegateSpawnResult(previousResult) {
-              @Override
-              public String getRunnerName() {
-                return "deduplicated";
-              }
+        if (previousResult != null) {
+          spawnMetrics
+              .setFetchTimeInMs((int) fetchTime.elapsed().toMillis())
+              .setTotalTimeInMs((int) totalTime.elapsed().toMillis())
+              .setNetworkTimeInMs((int) action.getNetworkTime().getDuration().toMillis());
+          SpawnMetrics buildMetrics = spawnMetrics.build();
+          return SpawnCache.success(
+              new SpawnResult.DelegateSpawnResult(previousResult) {
+                @Override
+                public String getRunnerName() {
+                  return "deduplicated";
+                }
 
-              @Override
-              public SpawnMetrics getMetrics() {
-                return buildMetrics;
-              }
-            });
+                @Override
+                public SpawnMetrics getMetrics() {
+                  return buildMetrics;
+                }
+              });
+        }
+        // If we reach here, the previous execution was not successful (it encountered an exception
+        // or the spawn had an exit code != 0). Since it isn't possible to accurately recreate the
+        // failure without rerunning the action, we fall back to running the action locally. This
+        // means that we have introduced an unnecessary wait, but that can only happen in the case
+        // of a failing build with --keep_going.
       }
     }
 
@@ -202,7 +209,7 @@ final class RemoteSpawnCache implements SpawnCache {
 
         @Override
         public void store(SpawnResult result) throws ExecException, InterruptedException {
-          if (!remoteExecutionService.shouldUpload(action, result, thisExecutionFinal)) {
+          if (!remoteExecutionService.shouldUpload(result, thisExecutionFinal)) {
             return;
           }
 
@@ -238,9 +245,9 @@ final class RemoteSpawnCache implements SpawnCache {
         }
 
         @Override
-        public void reportException(Throwable e) {
+        public void close() {
           if (thisExecutionFinal != null) {
-            thisExecutionFinal.reportExecutionException(e);
+            thisExecutionFinal.cancel();
           }
         }
       };
