@@ -266,7 +266,8 @@ public class ObjectCodecs {
   // between these two, however, so introducing an extra layer of indirection to store a (codec
   // registry, dependencies) tuple doesn't appear to be worth it.
 
-  private ObjectCodecRegistry getCodecRegistry() {
+  @VisibleForTesting // private
+  public ObjectCodecRegistry getCodecRegistry() {
     return serializationContext.getCodecRegistry();
   }
 
