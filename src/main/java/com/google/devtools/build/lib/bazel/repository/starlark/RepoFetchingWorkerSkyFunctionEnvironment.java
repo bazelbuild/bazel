@@ -44,10 +44,10 @@ class RepoFetchingWorkerSkyFunctionEnvironment
   private final RepoFetchingSkyKeyComputeState state;
   private SkyFunction.Environment delegate;
 
-  RepoFetchingWorkerSkyFunctionEnvironment(
-      RepoFetchingSkyKeyComputeState state, SkyFunction.Environment delegate) {
+  RepoFetchingWorkerSkyFunctionEnvironment(RepoFetchingSkyKeyComputeState state)
+      throws InterruptedException {
     this.state = state;
-    this.delegate = delegate;
+    this.delegate = state.delegateEnvQueue.take();
   }
 
   @Override

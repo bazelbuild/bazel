@@ -31,6 +31,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * Captures state that persists across different invocations of {@link
@@ -66,16 +67,16 @@ class RepoFetchingSkyKeyComputeState implements SkyKeyComputeState {
    * This future holds on to the worker thread in order to cancel it when necessary; it also serves
    * to tell whether a worker thread is already running.
    */
-  // This is volatile since we set it to null to indicate the worker thread isn't running, and this
-  // could happen on multiple threads. Canceling a future multiple times is safe, though, so we
-  // only need to worry about nullness. Using a mutex/synchronization is an alternative but it means
-  // we might block in `close()`, which is potentially bad (see its javadoc).
-  @Nullable volatile ListenableFuture<RepositoryDirectoryValue.Builder> workerFuture = null;
+  @GuardedBy("this")
+  @Nullable
+  private ListenableFuture<RepositoryDirectoryValue.Builder> workerFuture = null;
 
   /** The executor service that manages the worker thread. */
   // We hold on to this alongside `workerFuture` because it offers a convenient mechanism to make
   // sure the worker thread has shut down (with its blocking `close()` method).
-  ListeningExecutorService workerExecutorService;
+  @GuardedBy("this")
+  @Nullable
+  private ListeningExecutorService workerExecutorService = null;
 
   private final String repoName;
 
@@ -89,19 +90,6 @@ class RepoFetchingSkyKeyComputeState implements SkyKeyComputeState {
 
   RepoFetchingSkyKeyComputeState(String repoName) {
     this.repoName = repoName;
-    reset();
-  }
-
-  // This may only be called from the host Skyframe thread, *and* only when no worker thread is
-  // running.
-  private void reset() {
-    workerExecutorService =
-        MoreExecutors.listeningDecorator(
-            Executors.newThreadPerTaskExecutor(
-                Thread.ofVirtual().name("starlark-repository-" + repoName).factory()));
-    signalSemaphore.drainPermits();
-    delegateEnvQueue.clear();
-    recordedInputValues.clear();
   }
 
   /**
@@ -114,44 +102,48 @@ class RepoFetchingSkyKeyComputeState implements SkyKeyComputeState {
   }
 
   /**
-   * Starts a worker thread running the given callable. This sets the {@code workerFuture} field,
-   * and makes sure to release a permit on the {@code signalSemaphore} when the worker finishes,
-   * successfully or otherwise. Returns the worker future. This may only be called from the host
+   * Returns the worker future, or if a worker is not already running, starts a worker thread
+   * running the given callable. This makes sure to release a permit on the {@code signalSemaphore}
+   * when the worker finishes, successfully or otherwise. This may only be called from the host
    * Skyframe thread.
    */
-  ListenableFuture<RepositoryDirectoryValue.Builder> startWorker(
+  synchronized ListenableFuture<RepositoryDirectoryValue.Builder> getOrStartWorker(
       Callable<RepositoryDirectoryValue.Builder> c) {
-    var workerFuture = workerExecutorService.submit(c);
-    this.workerFuture = workerFuture;
+    if (workerFuture != null) {
+      return workerFuture;
+    }
+    // We reset the state object back to its very initial state, since the host SkyFunction may have
+    // been re-entered (for example b/330892334 and
+    // https://github.com/bazelbuild/bazel/issues/21238), and/or the previous worker thread may have
+    // been interrupted while the host SkyFunction was inactive.
+    workerExecutorService =
+        MoreExecutors.listeningDecorator(
+            Executors.newThreadPerTaskExecutor(
+                Thread.ofVirtual().name("starlark-repository-" + repoName).factory()));
+    signalSemaphore.drainPermits();
+    delegateEnvQueue.clear();
+    recordedInputValues.clear();
+
+    // Start the worker.
+    workerFuture = workerExecutorService.submit(c);
     workerFuture.addListener(signalSemaphore::release, directExecutor());
     return workerFuture;
   }
 
+  /**
+   * Closes the state object, and blocks until all pending async work is finished. The state object
+   * will reset to a clean slate after this method finishes.
+   */
   // This may be called from any thread, including the host Skyframe thread and the
   // high-memory-pressure listener thread.
   @Override
-  public void close() {
-    var myWorkerFuture = workerFuture;
-    workerFuture = null;
-    if (myWorkerFuture != null) {
-      myWorkerFuture.cancel(true);
+  public synchronized void close() {
+    if (workerFuture != null) {
+      workerFuture.cancel(true);
     }
-    workerExecutorService.shutdownNow();
-  }
-
-  /**
-   * Closes the state object, and blocks until all pending async work is finished. The state object
-   * will reset to a clean slate after this method finishes. This may only be called from the host
-   * Skyframe thread.
-   */
-  public void closeAndWaitForTermination() throws InterruptedException {
-    close();
-    workerExecutorService.close(); // This blocks
-    // We reset the state object back to its very initial state, since the host SkyFunction may be
-    // re-entered (for example b/330892334 and  https://github.com/bazelbuild/bazel/issues/21238).
-    reset();
-    if (Thread.interrupted()) {
-      throw new InterruptedException();
+    workerFuture = null;
+    if (workerExecutorService != null) {
+      workerExecutorService.close(); // This blocks
     }
   }
 }
