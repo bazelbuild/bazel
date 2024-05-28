@@ -103,6 +103,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.FormatMethod;
@@ -847,12 +848,18 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       // defined in Starlark via, cfg = transition
       return new StarlarkRuleTransitionProvider(starlarkDefinedConfigTransition);
     }
-    if (cfg instanceof TransitionFactory<?> tf) {
-      if (tf.transitionType().isCompatibleWith(TransitionType.RULE)) {
-        @SuppressWarnings("unchecked")
-        TransitionFactory<RuleTransitionData> ruleTransition =
-            (TransitionFactory<RuleTransitionData>) tf;
-        return ruleTransition;
+    if (cfg instanceof ConfigurationTransitionApi cta) {
+      // Every ConfigurationTransitionApi must be a TransitionFactory instance to be usable.
+      if (cta instanceof TransitionFactory<?> tf) {
+        if (tf.transitionType().isCompatibleWith(TransitionType.RULE)) {
+          @SuppressWarnings("unchecked")
+          TransitionFactory<RuleTransitionData> ruleTransition =
+              (TransitionFactory<RuleTransitionData>) tf;
+          return ruleTransition;
+        }
+      } else {
+        throw new IllegalStateException(
+            "Every ConfigurationTransitionApi must be a TransitionFactory instance");
       }
     }
     throw Starlark.errorf(

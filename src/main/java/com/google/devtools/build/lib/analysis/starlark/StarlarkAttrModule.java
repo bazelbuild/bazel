@@ -21,9 +21,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
-import com.google.devtools.build.lib.analysis.config.TransitionFactories;
-import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionType;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.ImmutableAttributeFactory;
@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAttrModuleApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
@@ -282,57 +283,28 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
     if (containsNonNoneKey(arguments, CONFIGURATION_ARG)) {
       Object trans = arguments.get(CONFIGURATION_ARG);
-      boolean isSplit = false;
-      if (trans instanceof SplitTransition || trans instanceof StarlarkDefinedConfigTransition) {
-        isSplit = true;
-      } else if (trans instanceof TransitionFactory<?> tf) {
-        if (tf.isSplit()) {
-          isSplit = true;
-        }
-      }
+      TransitionFactory<AttributeTransitionData> transitionFactory = convertCfg(thread, trans);
+
+      // Check whether something is attempting an invalid late bound transition.
+      boolean isSplit = transitionFactory.isSplit();
       if (isSplit && defaultValue instanceof StarlarkLateBoundDefault) {
         throw Starlark.errorf(
             "late-bound attributes must not have a split configuration transition");
       }
-      // TODO(b/203203933): remove after removing --incompatible_disable_starlark_host_transitions.
-      if (trans.equals("host")) {
-        boolean disableStarlarkHostTransitions =
-            thread
-                .getSemantics()
-                .getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS);
-        if (disableStarlarkHostTransitions) {
-          throw new EvalException(
-              "'cfg = \"host\"' is deprecated and should no longer be used. Please use "
-                  + "'cfg = \"exec\"' instead.");
-        }
-        builder.cfg(ExecutionTransitionFactory.createFactory());
-      } else if (trans.equals("exec")) {
-        builder.cfg(ExecutionTransitionFactory.createFactory());
-      } else if (trans instanceof ExecutionTransitionFactory executionTransitionFactory) {
-        builder.cfg(executionTransitionFactory);
-      } else if (trans instanceof SplitTransition) {
-        // TODO(jcater): remove TransitionFactories usage.
-        builder.cfg(TransitionFactories.of((SplitTransition) trans));
-      } else if (trans instanceof TransitionFactory) {
-        @SuppressWarnings("unchecked")
-        TransitionFactory<AttributeTransitionData> transitionFactory =
-            (TransitionFactory<AttributeTransitionData>) trans;
-        builder.cfg(transitionFactory);
-      } else if (trans instanceof StarlarkDefinedConfigTransition starlarkDefinedTransition) {
-        if (starlarkDefinedTransition.isForAnalysisTesting()) {
-          builder.hasAnalysisTestTransition();
-        } else {
-          builder.hasStarlarkDefinedTransition();
-        }
-        builder.cfg(new StarlarkAttributeTransitionProvider(starlarkDefinedTransition));
-      } else if (!trans.equals("target")) {
-        // We don't actively advertise the hard-coded but exposed transitions like
-        // android_split_transition because users of those transitions should already know about
-        // them.
-        throw Starlark.errorf(
-            "cfg must be either 'target', 'exec' or a starlark defined transition defined by the "
-                + "exec() or transition() functions.");
-      }
+
+      // Check if this transition includes an analysis test or a Starlark transition.
+      transitionFactory.visit(
+          factory -> {
+            if (factory instanceof StarlarkAttributeTransitionProvider satp) {
+              if (satp.getStarlarkDefinedConfigTransitionForTesting().isForAnalysisTesting()) {
+                builder.hasAnalysisTestTransition();
+              } else {
+                builder.hasStarlarkDefinedTransition();
+              }
+            }
+          });
+
+      builder.cfg(transitionFactory);
     }
 
     if (containsNonNoneKey(arguments, ASPECTS_ARG)) {
@@ -343,6 +315,54 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     }
 
     return builder;
+  }
+
+  private static TransitionFactory<AttributeTransitionData> convertCfg(
+      StarlarkThread thread, @Nullable Object trans) throws EvalException {
+    // The most common case is no transition.
+    if (trans.equals("target") || trans.equals(Starlark.NONE)) {
+      return NoTransition.createFactory();
+    }
+    // TODO(b/203203933): remove after removing --incompatible_disable_starlark_host_transitions.
+    if (trans.equals("host")) {
+      boolean disableStarlarkHostTransitions =
+          thread
+              .getSemantics()
+              .getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS);
+      if (disableStarlarkHostTransitions) {
+        throw new EvalException(
+            "'cfg = \"host\"' is deprecated and should no longer be used. Please use "
+                + "'cfg = \"exec\"' instead.");
+      }
+      return ExecutionTransitionFactory.createFactory();
+    }
+    if (trans.equals("exec")) {
+      return ExecutionTransitionFactory.createFactory();
+    }
+    if (trans instanceof StarlarkDefinedConfigTransition starlarkDefinedTransition) {
+      return new StarlarkAttributeTransitionProvider(starlarkDefinedTransition);
+    }
+    if (trans instanceof ConfigurationTransitionApi cta) {
+      // Every ConfigurationTransitionApi must be a TransitionFactory instance to be usable.
+      if (cta instanceof TransitionFactory<?> tf) {
+        if (tf.transitionType().isCompatibleWith(TransitionType.ATTRIBUTE)) {
+          @SuppressWarnings("unchecked")
+          TransitionFactory<AttributeTransitionData> attrTransition =
+              (TransitionFactory<AttributeTransitionData>) tf;
+          return attrTransition;
+        }
+      } else {
+        throw new IllegalStateException(
+            "Every ConfigurationTransitionApi must be a TransitionFactory instance");
+      }
+    }
+
+    // We don't actively advertise the hard-coded but exposed transitions like
+    // android_split_transition because users of those transitions should already know about
+    // them.
+    throw Starlark.errorf(
+        "cfg must be either 'target', 'exec' or a starlark defined transition defined by the "
+            + "exec() or transition() functions.");
   }
 
   /**
