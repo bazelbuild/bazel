@@ -313,7 +313,7 @@ public class CommonCommandOptions extends OptionsBase {
 
   @Option(
       name = "experimental_collect_system_network_usage",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "If enabled, the profiler collects the system's network usage.")
