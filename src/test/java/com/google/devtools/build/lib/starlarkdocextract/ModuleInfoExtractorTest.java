@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlarkdocextract;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -64,6 +65,7 @@ public final class ModuleInfoExtractorTest {
     ev.setSemantics(options.toArray(new String[0]));
     Module module = ev.getModule();
     Label fakeLabel = BazelModuleContext.of(module).label();
+    ev.setThreadOwner(keyForBuild(fakeLabel));
     fakeLabelString = fakeLabel.getCanonicalForm();
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, FileOptions.DEFAULT);

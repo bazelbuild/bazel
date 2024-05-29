@@ -607,6 +607,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   public void testSymbolicMacro_macroFunctionApi() throws Exception {
     ev.setSemantics("--experimental_enable_first_class_macros");
+    ev.setThreadOwner(keyForBuild(FAKE_LABEL));
 
     evalAndExport(
         ev,

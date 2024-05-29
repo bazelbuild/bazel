@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.starlark;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.RUN_UNDER;
@@ -32,6 +33,7 @@ import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -100,6 +102,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
@@ -123,6 +126,7 @@ import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator.Symbol;
 import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.Identifier;
 import net.starlark.java.syntax.Location;
@@ -351,8 +355,19 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Attribute attr = descriptor.build(attrName);
       builder.addAttribute(attr);
     }
+
+    Symbol<?> untypedToken = thread.getNextIdentityToken();
+    checkState(
+        untypedToken.getOwner() instanceof BzlLoadValue.Key,
+        "Macros may only be owned by .bzl files (owner=%s)",
+        untypedToken);
+    @SuppressWarnings("unchecked")
+    var typedToken = (Symbol<BzlLoadValue.Key>) untypedToken;
+
     return new MacroFunction(
-        builder, Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString));
+        builder,
+        Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString),
+        typedToken);
   }
 
   // TODO(bazel-team): implement attribute copy and other rule properties
@@ -836,7 +851,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     return new StarlarkRuleFunction(
         builder,
         thread.getCallerLocation(),
-        Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString));
+        Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString),
+        thread.getNextIdentityToken());
   }
 
   private static TransitionFactory<RuleTransitionData> convertConfig(@Nullable Object cfg)
@@ -1119,14 +1135,18 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     // Initially null, then non-null once exported.
     @Nullable private MacroClass macroClass = null;
 
-    // Initially null, then non-null once exported.
-    @Nullable private Label starlarkLabel;
+    /** A token used for equality that may be mutated by {@link #export}. */
+    private Symbol<BzlLoadValue.Key> identityToken;
 
     @Nullable private final String documentation;
 
-    public MacroFunction(MacroClass.Builder builder, Optional<String> documentation) {
+    public MacroFunction(
+        MacroClass.Builder builder,
+        Optional<String> documentation,
+        Symbol<BzlLoadValue.Key> identityToken) {
       this.builder = builder;
       this.documentation = documentation.orElse(null);
+      this.identityToken = identityToken;
     }
 
     @Override
@@ -1148,7 +1168,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
      */
     @Nullable
     public Label getExtensionLabel() {
-      return starlarkLabel;
+      if (identityToken.isGlobal()) {
+        return identityToken.getOwner().getLabel();
+      }
+      return null;
     }
 
     // TODO(#19922): Define getDocumentation() and interaction with ModuleInfoExtractor, analogous
@@ -1197,7 +1220,13 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       builder.setName(exportedName);
       this.macroClass = builder.build();
       this.builder = null;
-      this.starlarkLabel = starlarkLabel;
+      checkArgument(
+          identityToken.getOwner().getLabel().equals(starlarkLabel),
+          "created by %s, exporting as %s:%s",
+          identityToken.getOwner(),
+          starlarkLabel,
+          exportedName);
+      this.identityToken = identityToken.exportAs(exportedName);
     }
 
     /**
@@ -1221,6 +1250,19 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       } else {
         printer.append("<macro>");
       }
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj instanceof MacroFunction that) {
+        return identityToken.equals(that.identityToken);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return identityToken.hashCode();
     }
 
     @Override
@@ -1253,8 +1295,17 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     private final Location definitionLocation;
     @Nullable private final String documentation;
 
-    // Set upon export.
-    @Nullable private Label starlarkLabel;
+    /**
+     * A token representing the identity of this function.
+     *
+     * <p>This can be either a {@link Symbol} or a {@link AnalysisTestKey}. It's a {@link Symbol} if
+     * it's unexported or a normal rule and a {@link AnalysisTestKey} if it's an exported
+     * analysis_test. See comments at {@link AnalysisTestKey} for more details about the special
+     * case.
+     *
+     * <p>Mutated by {@link #export}.
+     */
+    private Object identityToken;
 
     // TODO(adonovan): merge {Starlark,Builtin}RuleFunction and RuleClass,
     // making the latter a callable, StarlarkExportable value.
@@ -1266,10 +1317,14 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     // principle evaluate a BUILD file without loading and digesting .bzls that are only used by the
     // implementation function.]
     public StarlarkRuleFunction(
-        RuleClass.Builder builder, Location definitionLocation, Optional<String> documentation) {
+        RuleClass.Builder builder,
+        Location definitionLocation,
+        Optional<String> documentation,
+        Symbol<?> identityToken) {
       this.builder = builder;
       this.definitionLocation = definitionLocation;
       this.documentation = documentation.orElse(null);
+      this.identityToken = identityToken;
     }
 
     @Override
@@ -1291,7 +1346,13 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
      */
     @Nullable
     public Label getExtensionLabel() {
-      return starlarkLabel;
+      if (identityToken instanceof Symbol<?> symbol) {
+        if (!symbol.isGlobal()) {
+          return null; // not yet exported
+        }
+        return ((BzlLoadValue.Key) symbol.getOwner()).getLabel();
+      }
+      return ((AnalysisTestKey) identityToken).getLabel();
     }
 
     @Override
@@ -1451,7 +1512,20 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     @Override
     public void export(EventHandler handler, Label starlarkLabel, String ruleClassName) {
       checkState(ruleClass == null && builder != null);
-      this.starlarkLabel = starlarkLabel;
+      var symbolToken = (Symbol<?>) identityToken; // always a Symbol before export
+      this.identityToken =
+          switch (symbolToken.getOwner()) {
+            case BzlLoadValue.Key bzlKey -> {
+              checkArgument(
+                  bzlKey.getLabel().equals(starlarkLabel),
+                  "Exporting rule as (%s, %s) but doesn't match owner %s",
+                  starlarkLabel,
+                  ruleClassName,
+                  bzlKey);
+              yield symbolToken.exportAs(ruleClassName);
+            }
+            default -> AnalysisTestKey.create(starlarkLabel, ruleClassName);
+          };
       if (builder.getType() == RuleClassType.TEST != TargetUtils.isTestRuleName(ruleClassName)) {
         errorf(
             handler,
@@ -1513,7 +1587,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     @Override
     public boolean isExported() {
-      return starlarkLabel != null;
+      if (identityToken instanceof Symbol<?> symbol) {
+        return symbol.isGlobal();
+      }
+      return true; // it's an AnalysisTestKey
     }
 
     @Override
@@ -1526,6 +1603,19 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     }
 
     @Override
+    public boolean equals(Object obj) {
+      if (obj instanceof StarlarkRuleFunction that) {
+        return identityToken.equals(that.identityToken);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return identityToken.hashCode();
+    }
+
+    @Override
     public String toString() {
       return "rule(...)";
     }
@@ -1535,6 +1625,24 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       // TODO(bazel-team): It shouldn't be immutable until it's exported, no?
       return true;
     }
+  }
+
+  /**
+   * Special case exported {@link StarlarkRuleFunction#identityToken} for analysis_test.
+   *
+   * <p>{@link com.google.devtools.build.lib.rules.test.StarlarkTestingModule#analysisTest} is a
+   * special case where a rule is instantiated in a BUILD file instead of a .bzl file.
+   */
+  @AutoValue
+  abstract static class AnalysisTestKey {
+    private static AnalysisTestKey create(Label label, String name) {
+      return new AutoValue_StarlarkRuleClassFunctions_AnalysisTestKey(label, name);
+    }
+
+    /** Label of the BUILD file exporting the analysis_test. */
+    abstract Label getLabel();
+
+    abstract String getName();
   }
 
   @SerializationConstant
