@@ -356,18 +356,22 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       builder.addAttribute(attr);
     }
 
-    Symbol<?> untypedToken = thread.getNextIdentityToken();
-    checkState(
-        untypedToken.getOwner() instanceof BzlLoadValue.Key,
-        "Macros may only be owned by .bzl files (owner=%s)",
-        untypedToken);
-    @SuppressWarnings("unchecked")
-    var typedToken = (Symbol<BzlLoadValue.Key>) untypedToken;
-
     return new MacroFunction(
         builder,
         Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString),
-        typedToken);
+        getBzlKeyToken(thread, "Macros"));
+  }
+
+  private static Symbol<BzlLoadValue.Key> getBzlKeyToken(StarlarkThread thread, String onBehalfOf) {
+    Symbol<?> untypedToken = thread.getNextIdentityToken();
+    checkState(
+        untypedToken.getOwner() instanceof BzlLoadValue.Key,
+        "%s may only be owned by .bzl files (owner=%s)",
+        onBehalfOf,
+        untypedToken);
+    @SuppressWarnings("unchecked")
+    var typedToken = (Symbol<BzlLoadValue.Key>) untypedToken;
+    return typedToken;
   }
 
   // TODO(bazel-team): implement attribute copy and other rule properties
@@ -1103,7 +1107,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         applyToGeneratingRules,
         execCompatibleWith,
         execGroups,
-        ImmutableSet.copyOf(subrules));
+        ImmutableSet.copyOf(subrules),
+        getBzlKeyToken(thread, "Aspects"));
   }
 
   private static ImmutableSet<String> getLegacyAnyTypeAttrs(RuleClass ruleClass) {
