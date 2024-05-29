@@ -17,6 +17,9 @@ package com.google.devtools.build.lib.starlarkdocextract;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_KWARGS;
+import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_ORDINARY;
+import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_VARARGS;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -301,16 +304,23 @@ public final class ModuleInfoExtractorTest {
         .containsExactly(
             FunctionParamInfo.newBuilder()
                 .setName("documented")
+                .setRole(PARAM_ROLE_ORDINARY)
                 .setDocString("Documented param")
                 .setMandatory(true)
                 .build(),
-            FunctionParamInfo.newBuilder().setName("undocumented").setMandatory(true).build(),
+            FunctionParamInfo.newBuilder()
+                .setName("undocumented")
+                .setRole(PARAM_ROLE_ORDINARY)
+                .setMandatory(true)
+                .build(),
             FunctionParamInfo.newBuilder()
                 .setName("has_default")
+                .setRole(PARAM_ROLE_ORDINARY)
                 .setDefaultValue("{\"foo\": \"bar\"}")
                 .build(),
-            FunctionParamInfo.newBuilder().setName("args").build(),
-            FunctionParamInfo.newBuilder().setName("kwargs").build());
+            FunctionParamInfo.newBuilder().setName("args").setRole(PARAM_ROLE_VARARGS).build(),
+            FunctionParamInfo.newBuilder().setName("kwargs").setRole(PARAM_ROLE_KWARGS).build())
+        .inOrder();
   }
 
   @Test
@@ -394,7 +404,11 @@ public final class ModuleInfoExtractorTest {
                 // Note that origin key name is unset
                 .setOriginKey(OriginKey.newBuilder().setFile(fakeLabelString))
                 .setFunctionName("s.lambda_function")
-                .addParameter(FunctionParamInfo.newBuilder().setName("x").setMandatory(true))
+                .addParameter(
+                    FunctionParamInfo.newBuilder()
+                        .setName("x")
+                        .setRole(PARAM_ROLE_ORDINARY)
+                        .setMandatory(true))
                 .build());
   }
 
@@ -421,7 +435,11 @@ public final class ModuleInfoExtractorTest {
                 .setOriginKey(OriginKey.newBuilder().setFile(fakeLabelString))
                 .setFunctionName("s.generated")
                 .setDocString("Multiplies x by constant y")
-                .addParameter(FunctionParamInfo.newBuilder().setName("x").setMandatory(true))
+                .addParameter(
+                    FunctionParamInfo.newBuilder()
+                        .setName("x")
+                        .setRole(PARAM_ROLE_ORDINARY)
+                        .setMandatory(true))
                 .build());
   }
 
@@ -515,12 +533,14 @@ public final class ModuleInfoExtractorTest {
                         .addParameter(
                             FunctionParamInfo.newBuilder()
                                 .setName("x_value")
+                                .setRole(PARAM_ROLE_ORDINARY)
                                 .setDocString("my x value")
                                 .setMandatory(true)
                                 .build())
                         .addParameter(
                             FunctionParamInfo.newBuilder()
                                 .setName("y_value")
+                                .setRole(PARAM_ROLE_ORDINARY)
                                 .setDocString("my y value")
                                 .setDefaultValue("0")
                                 .build())

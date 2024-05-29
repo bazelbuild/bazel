@@ -14,13 +14,19 @@
 
 package com.google.devtools.build.lib.starlarkdocextract;
 
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_KEYWORD_ONLY;
+import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_KWARGS;
+import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_ORDINARY;
+import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_VARARGS;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionDeprecationInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionReturnInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.OriginKey;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.StarlarkFunctionInfo;
@@ -98,8 +104,12 @@ public final class StarlarkFunctionInfoExtractor {
   }
 
   private FunctionParamInfo forParam(
-      String name, Optional<String> docString, @Nullable Object defaultValue) {
-    FunctionParamInfo.Builder paramBuilder = FunctionParamInfo.newBuilder().setName(name);
+      String name,
+      Optional<String> docString,
+      @Nullable Object defaultValue,
+      FunctionParamRole role) {
+    FunctionParamInfo.Builder paramBuilder =
+        FunctionParamInfo.newBuilder().setName(name).setRole(role);
     docString.ifPresent(paramBuilder::setDocString);
     if (defaultValue == null) {
       paramBuilder.setMandatory(true);
@@ -110,21 +120,23 @@ public final class StarlarkFunctionInfoExtractor {
   }
 
   /** Constructor to be used for *args or **kwargs. */
-  public static FunctionParamInfo forSpecialParam(String name, String docString) {
-    return FunctionParamInfo.newBuilder()
-        .setName(name)
-        .setDocString(docString)
-        .setMandatory(false)
-        .build();
+  private static FunctionParamInfo forSpecialParam(
+      String name, Optional<String> docString, FunctionParamRole role) {
+    FunctionParamInfo.Builder paramBuilder =
+        FunctionParamInfo.newBuilder().setName(name).setRole(role).setMandatory(false);
+    docString.ifPresent(paramBuilder::setDocString);
+    return paramBuilder.build();
   }
 
   private ImmutableList<FunctionParamInfo> parameterInfos(
       StarlarkFunction fn, Map<String, String> parameterDoc) {
-    List<String> names = fn.getParameterNames();
-    int nparams = names.size();
-    int kwargsIndex = fn.hasKwargs() ? --nparams : -1;
-    int varargsIndex = fn.hasVarargs() ? --nparams : -1;
-    // Inv: nparams is number of regular parameters.
+    ImmutableList<String> names = fn.getParameterNames();
+    int numOrdinaryParams = fn.getNumOrdinaryParameters();
+    int numKeywordOnlyParams = fn.getNumKeywordOnlyParameters();
+    int varargsIndex = fn.hasVarargs() ? numOrdinaryParams + numKeywordOnlyParams : -1;
+    int kwargsIndex = fn.hasKwargs() ? names.size() - 1 : -1;
+    checkState(varargsIndex == -1 || varargsIndex < names.size());
+    checkState(kwargsIndex == -1 || varargsIndex == -1 || kwargsIndex == varargsIndex + 1);
 
     ImmutableList.Builder<FunctionParamInfo> infos = ImmutableList.builder();
     for (int i = 0; i < names.size(); i++) {
@@ -132,16 +144,21 @@ public final class StarlarkFunctionInfoExtractor {
       FunctionParamInfo info;
       if (i == varargsIndex) {
         // *args
-        String doc = parameterDoc.getOrDefault("*" + name, "");
-        info = forSpecialParam(name, doc);
+        Optional<String> doc = Optional.ofNullable(parameterDoc.get("*" + name));
+        info = forSpecialParam(name, doc, PARAM_ROLE_VARARGS);
       } else if (i == kwargsIndex) {
         // **kwargs
-        String doc = parameterDoc.getOrDefault("**" + name, "");
-        info = forSpecialParam(name, doc);
+        Optional<String> doc = Optional.ofNullable(parameterDoc.get("**" + name));
+        info = forSpecialParam(name, doc, PARAM_ROLE_KWARGS);
       } else {
         // regular parameter
         Optional<String> doc = Optional.ofNullable(parameterDoc.get(name));
-        info = forParam(name, doc, fn.getDefaultValue(i));
+        info =
+            forParam(
+                name,
+                doc,
+                fn.getDefaultValue(i),
+                i < numOrdinaryParams ? PARAM_ROLE_ORDINARY : PARAM_ROLE_KEYWORD_ONLY);
       }
       infos.add(info);
     }

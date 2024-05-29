@@ -114,11 +114,28 @@ public final class StarlarkFunction implements StarlarkCallable {
   }
 
   /**
-   * Returns the names of this function's parameters. The residual {@code *args} and {@code
-   * **kwargs} parameters, if any, are always last.
+   * Returns the names of this function's parameters.
+   *
+   * <p>The first {@code getNumOrdinaryParameters()} parameters in the returned list are ordinary
+   * (non-residual, non-keyword-only); the following {@code getNumKeywordOnlyParameters()} are
+   * keyword-only; and the residual {@code *args} and {@code **kwargs} parameters, if any, are
+   * always last.
    */
   public ImmutableList<String> getParameterNames() {
     return rfn.getParameterNames();
+  }
+
+  /** Returns the number of ordinary (non-residual, non-keyword-only) parameters. */
+  public int getNumOrdinaryParameters() {
+    return rfn.getParameters().size()
+        - (rfn.hasKwargs() ? 1 : 0)
+        - (rfn.hasVarargs() ? 1 : 0)
+        - rfn.numKeywordOnlyParams();
+  }
+
+  /** Returns the number of non-residual keyword-only parameters. */
+  public int getNumKeywordOnlyParameters() {
+    return rfn.numKeywordOnlyParams();
   }
 
   /**
@@ -247,27 +264,26 @@ public final class StarlarkFunction implements StarlarkCallable {
 
     Object[] locals = new Object[rfn.getLocals().size()];
 
-    // nparams is the number of ordinary parameters.
-    int nparams =
-        rfn.getParameters().size() - (rfn.hasKwargs() ? 1 : 0) - (rfn.hasVarargs() ? 1 : 0);
+    // numOrdinaryParams is the number of ordinary (non-residual, non-kwonly) parameters.
+    int numOrdinaryParams = getNumOrdinaryParameters();
 
-    // numPositionalParams is the number of non-kwonly parameters.
-    int numPositionalParams = nparams - rfn.numKeywordOnlyParams();
+    // nparams is the number of all non-residual parameters.
+    int nparams = numOrdinaryParams + getNumKeywordOnlyParameters();
 
     // Too many positional args?
     int n = positional.length;
-    if (n > numPositionalParams) {
+    if (n > numOrdinaryParams) {
       if (!rfn.hasVarargs()) {
-        if (numPositionalParams > 0) {
+        if (numOrdinaryParams > 0) {
           throw Starlark.errorf(
               "%s() accepts no more than %d positional argument%s but got %d",
-              getName(), numPositionalParams, plural(numPositionalParams), n);
+              getName(), numOrdinaryParams, plural(numOrdinaryParams), n);
         } else {
           throw Starlark.errorf(
               "%s() does not accept positional arguments, but got %d", getName(), n);
         }
       }
-      n = numPositionalParams;
+      n = numOrdinaryParams;
     }
     // Inv: n is number of positional arguments that are not surplus.
 
@@ -353,7 +369,7 @@ public final class StarlarkFunction implements StarlarkCallable {
       }
 
       // missing
-      if (i < numPositionalParams) {
+      if (i < numOrdinaryParams) {
         if (missingPositional == null) {
           missingPositional = new ArrayList<>();
         }
