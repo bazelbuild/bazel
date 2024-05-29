@@ -793,7 +793,7 @@ sh_test(
 
 sh_test(
     name = "external_remote_file_test",
-    size = "small",
+    size = "medium",
     srcs = ["external_remote_file_test.sh"],
     data = [
         ":test-deps",
