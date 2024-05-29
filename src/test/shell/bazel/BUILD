@@ -436,6 +436,7 @@ sh_test(
     tags = [
         "no-sandbox",
         "no_windows",
+        "requires-network",  # For Bzlmod
     ],
 )
 
