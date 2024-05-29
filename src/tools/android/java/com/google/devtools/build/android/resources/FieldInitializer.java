@@ -28,10 +28,15 @@ public interface FieldInitializer {
    *
    * @return true if the initializer is deferred to clinit code.
    */
-  boolean writeFieldDefinition(ClassWriter cw, boolean isFinal, boolean annotateTransitiveFields);
+  boolean writeFieldDefinition(
+      ClassWriter cw, boolean isFinal, boolean annotateTransitiveFields, RPackageId rPackageId);
 
-  /** Write the bytecode for the clinit portion of initializer. */
-  void writeCLInit(InstructionAdapter insts, String className);
+  /**
+   * Write the bytecode for the clinit portion of initializer.
+   *
+   * <p>When RPackage used for generation, packageId could be retrieved using ILOAD(1).
+   */
+  void writeCLInit(InstructionAdapter insts, String className, RPackageId rPackageId);
 
   /** Write the source code for the initializer to the given writer. */
   void writeInitSource(Writer writer, boolean finalFields) throws IOException;
@@ -39,5 +44,5 @@ public interface FieldInitializer {
   String getFieldName();
 
   /** Returns the maximum size in bytes from generating code for this initializer. */
-  int getMaxBytecodeSize();
+  int getMaxBytecodeSize(boolean withRPackage);
 }

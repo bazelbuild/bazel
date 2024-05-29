@@ -21,6 +21,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.android.Converters.DependencySymbolFileProviderConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
+import com.google.devtools.build.android.resources.RPackageId;
 import com.google.devtools.build.android.resources.ResourceSymbols;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -137,6 +138,16 @@ public class RClassGeneratorAction {
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "A string to add to the output jar's manifest as 'Injecting-Rule-Kind'")
     public String injectingRuleKind;
+
+    @Option(
+        name = "useRPackage",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "A boolean to control whether fields should be generated with an RPackage"
+                + " class, defaults to false. Used for privacy sandbox.")
+    public boolean useRPackage;
   }
 
   public static void main(String[] args) throws Exception {
@@ -175,9 +186,11 @@ public class RClassGeneratorAction {
                 options.libraries, appPackageName, options.primaryRTxt, libSymbolMap);
         logger.fine(
             String.format("Load symbols finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+        final RPackageId rPackageId =
+            options.useRPackage ? RPackageId.createFor(appPackageName) : null;
         // For now, assuming not used for libraries and setting final access for fields.
         fullSymbolValues.writeClassesTo(
-            libSymbolMap, appPackageName, classOutPath, options.finalFields);
+            libSymbolMap, appPackageName, classOutPath, options.finalFields, rPackageId);
         logger.fine(
             String.format("Finished R.class at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
       } else if (!options.libraries.isEmpty()) {
@@ -187,7 +200,8 @@ public class RClassGeneratorAction {
         logger.fine(
             String.format("Load symbols finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
         // For now, assuming not used for libraries and setting final access for fields.
-        fullSymbolValues.writeClassesTo(libSymbolMap, null, classOutPath, true);
+        fullSymbolValues.writeClassesTo(
+            libSymbolMap, null, classOutPath, true, /* rPackageId= */ null);
         logger.fine(
             String.format("Finished R.class at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
       } else {
