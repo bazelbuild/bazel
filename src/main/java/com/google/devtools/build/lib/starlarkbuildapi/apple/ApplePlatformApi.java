@@ -45,6 +45,13 @@ import net.starlark.java.eval.StarlarkValue;
             + "</pre>")
 public interface ApplePlatformApi extends StarlarkValue {
 
+  /** Returns the name aka starlarkKey of this platform. */
+  @StarlarkMethod(
+      name = "name",
+      doc = "Returns the name aka starlarkKey of this platform.",
+      structField = true)
+  String getName();
+
   /** Returns the platform type of this platform. */
   @StarlarkMethod(
       name = "platform_type",

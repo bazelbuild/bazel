@@ -367,7 +367,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     assertThat(env).containsEntry("APPLE_SDK_VERSION_OVERRIDE", "8.4");
     assertThat(sdkVersion).isEqualTo("8.4");
     assertThat(myInfo.getValue("xcode_version")).isEqualTo("7.3");
-    assertThat(myInfo.getValue("single_arch_platform")).isEqualTo("IOS_SIMULATOR");
+    assertThat(myInfo.getValue("single_arch_platform")).isEqualTo("ios_simulator");
     assertThat(myInfo.getValue("single_arch_cpu")).isEqualTo("i386");
     assertThat(myInfo.getValue("platform_type")).isEqualTo("ios");
     assertThat(myInfo.getValue("dead_code_report")).isEqualTo("None");
@@ -1108,9 +1108,9 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     Object watchosPlatform = myInfo.getValue("watchos_platform");
     Object tvosPlatform = myInfo.getValue("tvos_platform");
 
-    assertThat(iosPlatform).isEqualTo("IOS_DEVICE");
-    assertThat(watchosPlatform).isEqualTo("WATCHOS_DEVICE");
-    assertThat(tvosPlatform).isEqualTo("TVOS_DEVICE");
+    assertThat(iosPlatform).isEqualTo("ios_device");
+    assertThat(watchosPlatform).isEqualTo("watchos_device");
+    assertThat(tvosPlatform).isEqualTo("tvos_device");
   }
 
   @Test
