@@ -374,7 +374,6 @@ public final class SandboxHelpers {
     return Optional.ofNullable(inputs.getSymlinks().get(fragment));
   }
 
-
   /** Populates the provided sets with the inputs and directories that need to be created. */
   public static void populateInputsAndDirsToCreate(
       Set<PathFragment> writableDirs,

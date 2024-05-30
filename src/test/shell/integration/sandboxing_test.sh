@@ -1060,7 +1060,6 @@ EOF
   dir_inode_a=$(awk '/The directory inode is/ {print $5}' ${test_output})
   file_inode_a=$(awk '/The file inode is/ {print $5}' ${test_output})
 
-
   local output_base="$(bazel info output_base)"
   local stashed_test_dir="${output_base}/sandbox/sandbox_stash/TestRunner/6/execroot/$WORKSPACE_NAME"
   touch "$stashed_test_dir/$out_directory/k8-fastbuild/bin/pkg/a.sh.runfiles/$WORKSPACE_NAME/pkg/file4.txt"
@@ -1121,7 +1120,6 @@ EOF
   bazel clean
   bazel build --sandbox_base=/dev/shm //pkg:a \
     || fail "Expected build to succeed"
-
 }
 
 function test_bad_state_linux_sandboxing() {

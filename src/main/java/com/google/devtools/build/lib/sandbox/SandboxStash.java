@@ -77,7 +77,7 @@ public class SandboxStash {
    */
   static boolean reuseSandboxDirectories;
 
-  public static SandboxStash instance;
+  private static SandboxStash instance;
   private final String workspaceName;
   private final Path sandboxBase;
 
@@ -118,7 +118,6 @@ public class SandboxStash {
       Map<String, String> environment,
       SandboxOutputs outputs,
       Label target) {
-    Preconditions.checkNotNull(target);
     try {
       Path sandboxes = getSandboxStashDir(mnemonic, sandboxPath.getFileSystem());
       if (sandboxes == null || isTestXmlGenerationOrCoverageSpawn(mnemonic, outputs)) {
@@ -236,7 +235,9 @@ public class SandboxStash {
             }
             setPathContents(stashPath, stashContents);
             temporaryStash.renameTo(stashPathExecroot);
-            sandboxToTarget.put(stashPath, target);
+            if (target != null) {
+              sandboxToTarget.put(stashPath, target);
+            }
           } catch (InterruptedException e) {
           } catch (IOException e) {
             // TODO(bazel-team): Are we sure we don't want to surface this error?
@@ -268,14 +269,15 @@ public class SandboxStash {
         stashPathToRunfilesDir.put(stashPathExecroot, getCurrentRunfilesDir(environment));
       }
       path.getChild("execroot").renameTo(stashPathExecroot);
-      sandboxToTarget.put(stashPath, target);
+      if (target != null) {
+        sandboxToTarget.put(stashPath, target);
+      }
     } catch (IOException e) {
       // Since stash names are unique, this IOException indicates some other problem with stashing,
       // so we turn it off.
       turnOffReuse("Error stashing sandbox at %s: %s", stashPath, e);
     }
   }
-
 
   /**
    * Returns the sandbox stashing directory appropriate for this mnemonic. In order to maximize
@@ -526,6 +528,9 @@ public class SandboxStash {
 
   private Collection<Path> sortStashesByMatchingTargetSegments(
       Label target, Collection<Path> stashes) {
+    if (target == null) {
+      return stashes;
+    }
     List<Path> sortedStashes = new ArrayList<>(stashes);
     Map<Path, Integer> countMap = new HashMap<>();
     String[] targetStr = target.getPackageName().split("/");
