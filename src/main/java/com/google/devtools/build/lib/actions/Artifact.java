@@ -24,7 +24,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
@@ -53,7 +52,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Set;
 import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -99,8 +97,7 @@ import net.starlark.java.eval.StarlarkSemantics;
  *   <li>A directory of unknown contents, but not a TreeArtifact. This is a legacy facility and
  *       should not be used by any new rule implementations. In particular, the file system cache
  *       integrity checks fail for directories.
- *   <li>A middleman special Artifact, which may be expanded using a {@link ArtifactExpander} at
- *       Action execution time. This is used by a handful of rules to save memory.
+ *   <li>A middleman special Artifact.
  *   <li>A 'constant metadata' special Artifact. These represent real files, changes to which are
  *       ignored by the build system. They are useful for files which change frequently but do not
  *       affect the result of a build, such as timestamp files.
@@ -213,52 +210,6 @@ public abstract class Artifact
   @Override
   public int compareTo(Artifact o) {
     return EXEC_PATH_COMPARATOR.compare(this, o);
-  }
-
-  /** Expands tree artifacts and filesets. */
-  public interface ArtifactExpander {
-
-    /**
-     * Returns the expansion of the given {@linkplain SpecialArtifactType#TREE tree artifact}.
-     *
-     * <p>If this expander does not have data for the given tree artifact, returns an empty set.
-     */
-    ImmutableSortedSet<TreeFileArtifact> expandTreeArtifact(Artifact treeArtifact);
-
-    /**
-     * Returns the expansion of the given {@linkplain SpecialArtifactType#FILESET fileset artifact}.
-     *
-     * @param artifact {@code artifact.isFileset()} must be true.
-     * @throws MissingExpansionException if the expander is missing data needed to expand provided
-     *     fileset.
-     */
-    default ImmutableList<FilesetOutputSymlink> expandFileset(Artifact fileset)
-        throws MissingExpansionException {
-      throw new MissingExpansionException("Cannot expand fileset " + fileset);
-    }
-
-    /**
-     * Returns an {@link ArchivedTreeArtifact} for a provided {@linkplain SpecialArtifactType#TREE
-     * tree artifact} if one is available.
-     *
-     * <p>The {@linkplain ArchivedTreeArtifact archived tree artifact} can be used instead of the
-     * tree artifact expansion.
-     */
-    @Nullable
-    default ArchivedTreeArtifact getArchivedTreeArtifact(Artifact treeArtifact) {
-      return null;
-    }
-  }
-
-  /**
-   * Exception thrown when attempting to {@linkplain ArtifactExpander expand} an artifact for which
-   * we do not have the necessary data.
-   */
-  public static final class MissingExpansionException extends Exception {
-
-    public MissingExpansionException(String message) {
-      super(message);
-    }
   }
 
   /** A Predicate that evaluates to true if the Artifact is not a middleman artifact. */
@@ -1338,38 +1289,6 @@ public abstract class Artifact
    */
   public static String joinRootRelativePaths(String delimiter, Iterable<Artifact> artifacts) {
     return Joiner.on(delimiter).join(toRootRelativePaths(artifacts));
-  }
-
-  /**
-   * Adds an artifact to a collection, expanding it once if it's a middleman or tree artifact.
-   *
-   * <p>The middleman or tree artifact is never added to the output collection. If a tree artifact
-   * expands into zero file artifacts, it is added to emptyTreeArtifacts.
-   */
-  static void addExpandedArtifact(
-      Artifact artifact,
-      List<? super Artifact> output,
-      ArtifactExpander artifactExpander,
-      Set<Artifact> emptyTreeArtifacts,
-      boolean keepMiddlemanArtifacts) {
-    if (artifact.isMiddlemanArtifact()) {
-      if (keepMiddlemanArtifacts) {
-        output.add(artifact);
-      }
-      return;
-    }
-
-    if (artifact.isTreeArtifact()) {
-      ImmutableSortedSet<TreeFileArtifact> children = artifactExpander.expandTreeArtifact(artifact);
-      if (children.isEmpty()) {
-        emptyTreeArtifacts.add(artifact);
-      } else {
-        output.addAll(children);
-      }
-      return;
-    }
-
-    output.add(artifact);
   }
 
   /**

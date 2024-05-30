@@ -15,8 +15,9 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -130,14 +131,25 @@ public final class ActionInputHelper {
     Set<Artifact> emptyTreeArtifacts = new TreeSet<>();
     Set<Artifact> treeFileArtifactParents = new HashSet<>();
     for (ActionInput input : inputs.toList()) {
-      if (input instanceof Artifact inputArtifact) {
-        Artifact.addExpandedArtifact(
-            inputArtifact, result, artifactExpander, emptyTreeArtifacts, keepMiddlemanArtifacts);
-        if (inputArtifact.isChildOfDeclaredDirectory()) {
-          treeFileArtifactParents.add(inputArtifact.getParent());
+      if (!(input instanceof Artifact artifact)) {
+        result.add(input);
+      } else if (artifact.isMiddlemanArtifact()) {
+        if (keepMiddlemanArtifacts) {
+          result.add(artifact);
+        }
+      } else if (artifact.isTreeArtifact()) {
+        ImmutableSortedSet<TreeFileArtifact> children =
+            artifactExpander.expandTreeArtifact(artifact);
+        if (children.isEmpty()) {
+          emptyTreeArtifacts.add(artifact);
+        } else {
+          result.addAll(children);
         }
       } else {
-        result.add(input);
+        result.add(artifact);
+        if (artifact.isChildOfDeclaredDirectory()) {
+          treeFileArtifactParents.add(artifact.getParent());
+        }
       }
     }
 
