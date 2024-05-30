@@ -991,7 +991,7 @@ def _reused_runfiles_test_impl(ctx):
     echo "The directory inode is $dir_inode_number"
     file_inode_number=$(ls -i $TEST_SRCDIR/_main/pkg/file1.txt | cut -f1 -d" ")
     echo "The file inode is $file_inode_number"
-    tree $TEST_SRCDIR
+    find -L $TEST_SRCDIR -type f
     """
 
     ctx.actions.run_shell(
