@@ -1017,6 +1017,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testLabelListWithAspectsError() throws Exception {
+    ev.setThreadOwner(keyForBuild(FAKE_LABEL));
     ev.checkEvalErrorContains(
         "at index 1 of aspects, got element of type int, want Aspect",
         "def _impl(target, ctx):",
@@ -1617,6 +1618,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   private static void evalAndExport(BazelEvaluationTestCase ev, String... lines) throws Exception {
+    ev.setThreadOwner(keyForBuild(FAKE_LABEL));
     ev.execAndExport(FAKE_LABEL, lines);
   }
 
@@ -2905,7 +2907,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(p.getKey()).isEqualTo(new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "p"));
     assertThat(p1.getPrintableName()).isEqualTo("p1");
     assertThat(p1.getKey()).isEqualTo(new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "p1"));
-    assertThat(a.getAspectClass()).isEqualTo(new StarlarkAspectClass(FAKE_LABEL, "a"));
+    assertThat(a.getAspectClass()).isEqualTo(new StarlarkAspectClass(keyForBuild(FAKE_LABEL), "a"));
   }
 
   @Test

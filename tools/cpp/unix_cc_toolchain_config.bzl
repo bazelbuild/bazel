@@ -36,7 +36,7 @@ def _target_os_version(ctx):
     xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
     return xcode_config.minimum_os_for_platform_type(platform_type)
 
-def layering_check_features(compiler):
+def layering_check_features(compiler, is_macos):
     if compiler != "clang":
         return []
     return [
@@ -53,8 +53,10 @@ def layering_check_features(compiler):
                     ],
                     flag_groups = [
                         flag_group(
-                            flags = [
+                            # macOS requires -Xclang because of a bug in Apple Clang
+                            flags = (["-Xclang"] if is_macos else []) + [
                                 "-fmodule-name=%{module_name}",
+                            ] + (["-Xclang"] if is_macos else []) + [
                                 "-fmodule-map-file=%{module_map_file}",
                             ],
                         ),
@@ -86,7 +88,7 @@ def layering_check_features(compiler):
                         ]),
                         flag_group(
                             iterate_over = "dependent_module_map_files",
-                            flags = [
+                            flags = (["-Xclang"] if is_macos else []) + [
                                 "-fmodule-map-file=%{dependent_module_map_files}",
                             ],
                         ),
@@ -1487,7 +1489,7 @@ def _impl(ctx):
             unfiltered_compile_flags_feature,
             treat_warnings_as_errors_feature,
             archive_param_file_feature,
-        ] + layering_check_features(ctx.attr.compiler)
+        ] + layering_check_features(ctx.attr.compiler, is_macos = False)
     else:
         # macOS artifact name patterns differ from the defaults only for dynamic
         # libraries.
@@ -1528,7 +1530,7 @@ def _impl(ctx):
             treat_warnings_as_errors_feature,
             archive_param_file_feature,
             generate_linkmap_feature,
-        ]
+        ] + layering_check_features(ctx.attr.compiler, is_macos = True)
 
     parse_headers_action_configs, parse_headers_features = parse_headers_support(
         parse_headers_tool_path = ctx.attr.tool_paths.get("parse_headers"),

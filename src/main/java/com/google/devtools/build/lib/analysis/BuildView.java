@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -515,7 +516,8 @@ public class BuildView {
               e);
         }
         String starlarkFunctionName = aspect.substring(delimiterPosition + 1);
-        aspectClassesBuilder.add(new StarlarkAspectClass(starlarkFileLabel, starlarkFunctionName));
+        aspectClassesBuilder.add(
+            new StarlarkAspectClass(keyForBuild(starlarkFileLabel), starlarkFunctionName));
       } else {
         final NativeAspectClass aspectFactoryClass =
             ruleClassProvider.getNativeAspectClassMap().get(aspect);

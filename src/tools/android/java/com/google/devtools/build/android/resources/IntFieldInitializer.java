@@ -22,6 +22,7 @@ import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
 
 /** Models an int field initializer. */
@@ -58,7 +59,7 @@ public final class IntFieldInitializer implements FieldInitializer {
 
   @Override
   public boolean writeFieldDefinition(
-      ClassWriter cw, boolean isFinal, boolean annotateTransitiveFields) {
+      ClassWriter cw, boolean isFinal, boolean annotateTransitiveFields, RPackageId rPackageId) {
     int accessLevel = Opcodes.ACC_STATIC;
     if (visibility != Visibility.PRIVATE) {
       accessLevel |= Opcodes.ACC_PUBLIC;
@@ -67,7 +68,8 @@ public final class IntFieldInitializer implements FieldInitializer {
       accessLevel |= Opcodes.ACC_FINAL;
     }
 
-    FieldVisitor fv = cw.visitField(accessLevel, fieldName, DESC, null, isFinal ? value : null);
+    boolean deffered = !isFinal || (rPackageId != null && rPackageId.owns(value));
+    FieldVisitor fv = cw.visitField(accessLevel, fieldName, DESC, null, deffered ? null : value);
     if (annotateTransitiveFields
         && dependencyInfo.dependencyType() == DependencyInfo.DependencyType.TRANSITIVE) {
       AnnotationVisitor av =
@@ -77,12 +79,18 @@ public final class IntFieldInitializer implements FieldInitializer {
       av.visitEnd();
     }
     fv.visitEnd();
-    return !isFinal;
+    return deffered;
   }
 
   @Override
-  public void writeCLInit(InstructionAdapter insts, String className) {
-    insts.iconst(value);
+  public void writeCLInit(InstructionAdapter insts, String className, RPackageId rPackageId) {
+    if (rPackageId != null && rPackageId.owns(value)) {
+      insts.iconst(value - rPackageId.getPackageId());
+      insts.load(1, Type.INT_TYPE);
+      insts.add(Type.INT_TYPE);
+    } else {
+      insts.iconst(value);
+    }
     insts.putstatic(className, fieldName, DESC);
   }
 
@@ -103,10 +111,18 @@ public final class IntFieldInitializer implements FieldInitializer {
   }
 
   @Override
-  public int getMaxBytecodeSize() {
-    // LDC_W(3)
-    // PUTSTATIC(3)
-    return 6;
+  public int getMaxBytecodeSize(boolean withRPackage) {
+    if (withRPackage) {
+      // LDC_W(3)
+      // ILOAD_1(1)
+      // IADD(1)
+      // PUTSTATIC(3)
+      return 8;
+    } else {
+      // LDC_W(3)
+      // PUTSTATIC(3)
+      return 6;
+    }
   }
 
   @Override

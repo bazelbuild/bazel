@@ -174,7 +174,6 @@ tasks:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
-      - "//src/main/java/..."
     test_flags:
       - "--config=ci-macos"
       # Fine tune the number of test jobs running in parallel to avoid timeout
@@ -215,7 +214,6 @@ tasks:
       # To run any of the following test in presubmit, just comment out the corresponding line.
       # TODO(pcloudy): Disable the android tests after enabling them on Apple Silicon platform.
       - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
-      - "-//src/test/shell/bazel:bazel_bootstrap_distfile_tar_test"
       # - "-//src/test/shell/bazel/android:android_integration_test"
       # - "-//src/test/shell/bazel/android:android_integration_test_with_head_android_tools"
       - "-//src/test/shell/bazel:bazel_proto_library_test"
@@ -277,7 +275,6 @@ tasks:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
-      - "//src/main/java/..."
     test_flags:
       - "--config=ci-macos"
     test_targets:

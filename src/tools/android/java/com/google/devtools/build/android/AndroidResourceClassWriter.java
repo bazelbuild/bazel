@@ -130,7 +130,12 @@ public class AndroidResourceClassWriter extends AndroidResourceSymbolSink {
 
   private void writeAsClass(FieldInitializers initializers) throws IOException {
     RClassGenerator.with(
-            label, outputBasePath, initializers, /* finalFields= */ false, annotateTransitiveFields)
+            label,
+            outputBasePath,
+            initializers,
+            /* finalFields= */ false,
+            annotateTransitiveFields,
+            /* rPackageId= */ null)
         .write(packageName);
   }
 }

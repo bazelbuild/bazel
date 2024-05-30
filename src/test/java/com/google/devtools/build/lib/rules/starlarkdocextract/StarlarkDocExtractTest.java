@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.starlarkdocextract;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
+import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_ORDINARY;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.Action;
@@ -525,14 +526,22 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
             StarlarkFunctionInfo.newBuilder()
                 .setFunctionName("exported_nested")
                 .setDocString("My nested function")
-                .addParameter(FunctionParamInfo.newBuilder().setName("x").setMandatory(true))
+                .addParameter(
+                    FunctionParamInfo.newBuilder()
+                        .setName("x")
+                        .setRole(PARAM_ROLE_ORDINARY)
+                        .setMandatory(true))
                 .setOriginKey(
                     // OriginKey.name for nested functions is explicitly unset
                     OriginKey.newBuilder().setFile("//:origin.bzl"))
                 .build(),
             StarlarkFunctionInfo.newBuilder()
                 .setFunctionName("exported_lambda")
-                .addParameter(FunctionParamInfo.newBuilder().setName("y").setMandatory(true))
+                .addParameter(
+                    FunctionParamInfo.newBuilder()
+                        .setName("y")
+                        .setRole(PARAM_ROLE_ORDINARY)
+                        .setMandatory(true))
                 .setOriginKey(
                     // OriginKey.name for lambdas is explicitly unset
                     OriginKey.newBuilder().setFile("//:origin.bzl"))

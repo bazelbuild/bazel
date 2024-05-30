@@ -629,7 +629,11 @@ public class BuildEventStreamer {
         // Nothing to flush; avoid generating an unneeded progress event.
         return;
       }
-      if (announcedEvents != null) {
+      if (finalEventsToCome != null) {
+        // If we've already announced the final events, we cannot add more progress events. Stdout
+        // and stderr are truncated from the event log.
+        consumeAsPairsofStrings(allOut, allErr, (s1, s2) -> {});
+      } else if (announcedEvents != null) {
         updateEvents = new ArrayList<>();
         List<BuildEvent> finalUpdateEvents = updateEvents;
         consumeAsPairsofStrings(
@@ -728,7 +732,7 @@ public class BuildEventStreamer {
         allOut,
         allErr,
         (s1, s2) -> post(flushStdoutStderrEvent(s1, s2)),
-        (s1, s2) -> post(ProgressEvent.finalProgressUpdate(progressCount, s1, s2)));
+        (s1, s2) -> post(ProgressEvent.finalProgressUpdate(progressCount++, s1, s2)));
     clearAnnouncedEvents(event == null ? ImmutableList.of() : event.getChildrenEvents());
   }
 
@@ -765,15 +769,15 @@ public class BuildEventStreamer {
       return isCrash(buildCompleteEvent) ? RetentionDecision.POST : RetentionDecision.DISCARD;
     }
 
-    if (event instanceof TargetParsingCompleteEvent) {
+    if (event instanceof TargetParsingCompleteEvent parsingCompleteEvent) {
       // If there is only one pattern and we have one failed pattern, then we already posted a
       // pattern expanded error, so we don't post the completion event.
       // TODO(b/109727414): This is brittle. It would be better to always post one PatternExpanded
       // event for each pattern given on the command line instead of one event for all of them
       // combined.
       boolean discard =
-          ((TargetParsingCompleteEvent) event).getOriginalTargetPattern().size() == 1
-              && !((TargetParsingCompleteEvent) event).getFailedTargetPatterns().isEmpty();
+          parsingCompleteEvent.getOriginalTargetPattern().size() == 1
+              && !parsingCompleteEvent.getFailedTargetPatterns().isEmpty();
       return discard ? RetentionDecision.DISCARD : RetentionDecision.POST;
     }
 
@@ -797,11 +801,11 @@ public class BuildEventStreamer {
   }
 
   private synchronized boolean bufferUntilPrerequisitesReceived(BuildEvent event) {
-    if (!(event instanceof BuildEventWithOrderConstraint)) {
+    if (!(event instanceof BuildEventWithOrderConstraint buildEventWithOrderConstraint)) {
       return false;
     }
     // Check if all prerequisite events are posted already.
-    for (BuildEventId prerequisiteId : ((BuildEventWithOrderConstraint) event).postedAfter()) {
+    for (BuildEventId prerequisiteId : buildEventWithOrderConstraint.postedAfter()) {
       if (!postedEvents.contains(prerequisiteId)) {
         pendingEvents.put(prerequisiteId, event);
         return true;
@@ -812,7 +816,7 @@ public class BuildEventStreamer {
 
   /** Return true if the test summary contains no actual test runs. */
   private static boolean isVacuousTestSummary(BuildEvent event) {
-    return event instanceof TestSummary && ((TestSummary) event).totalRuns() == 0;
+    return event instanceof TestSummary testSummary && testSummary.totalRuns() == 0;
   }
 
   /**

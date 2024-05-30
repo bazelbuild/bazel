@@ -19,6 +19,23 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+# Less network flakiness without bzlmod
+disable_bzlmod
+
+function strip_lines_from_bazel_cc() {
+  # sed can't redirect back to its input file (it'll only generate an empty
+  # file). In newer versions of gnu sed there is a -i option to edit in place.
+
+  # Ignore common warnings caused by the environment on our CI workers.
+  clean_log=$(\
+    sed \
+    -e '/^WARNING: ignoring JAVA_TOOL_OPTIONS in environment.$/d' \
+    -e '/^WARNING: The following rc files are no longer being read, please transfer their contents or import their path into one of the standard rc files:$/d' \
+    -e '/^\/etc\/bazel.bazelrc$/d' \
+    $TEST_log)
+
+  echo "$clean_log" > $TEST_log
+}
 
 #### TESTS #############################################################
 
@@ -422,19 +439,31 @@ function test_client_is_quiet_by_default() {
 
   bazel info server_pid > stdout 2> stderr || fail "bazel info failed"
   cp stderr $TEST_log || fail "cp failed"
+
+  strip_lines_from_bazel_cc
+
   assert_equals 2 $(cat $TEST_log | wc -l)
   expect_log "^\$TEST_TMPDIR defined: output root default"
   expect_log "^Starting local $capitalized_product_name server and connecting to it...$"
   cp stdout $TEST_log || fail "cp failed"
+
+  strip_lines_from_bazel_cc
+
   assert_equals 1 $(cat $TEST_log | wc -l)
   expect_log "^[0-9]\+$"
 
   rm stderr stdout || fail "rm failed"
   bazel info server_pid > stdout 2> stderr || fail "bazel info failed"
   cp stderr $TEST_log || fail "cp failed"
+
+  strip_lines_from_bazel_cc
+
   assert_equals 1 $(cat $TEST_log | wc -l)
   expect_log "^\$TEST_TMPDIR defined: output root default"
   cp stdout $TEST_log || fail "cp failed"
+
+  strip_lines_from_bazel_cc
+
   assert_equals 1 $(cat $TEST_log | wc -l)
   expect_log "^[0-9]\+$"
 }

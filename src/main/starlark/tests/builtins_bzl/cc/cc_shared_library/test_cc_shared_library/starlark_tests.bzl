@@ -194,13 +194,13 @@ def _runfiles_test_impl(env, target):
     env.expect.that_collection(runfiles).contains_exactly_predicates([
         matching.str_endswith(path_suffix + "/libfoo_so.so"),
         matching.str_endswith(path_suffix + "/libbar_so.so"),
-        matching.str_endswith(path_suffix + "/libdirect_so_file.so"),
         matching.str_endswith(path_suffix + "/libprivate_lib_so.so"),
-        matching.str_endswith(path_suffix + "/renamed_so_file_copy.so"),
         matching.str_endswith(path_suffix + "3/libdiff_pkg_so.so"),
         matching.str_endswith("Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/libbar_so.so"),
+        matching.str_endswith("Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/libdirect_so_file.so"),
         matching.str_endswith("Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/libfoo_so.so"),
         matching.str_endswith("Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/libprivate_lib_so.so"),
+        matching.str_endswith("Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/renamed_so_file_copy.so"),
         matching.str_endswith("Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary3/libdiff_pkg_so.so"),
     ])
 

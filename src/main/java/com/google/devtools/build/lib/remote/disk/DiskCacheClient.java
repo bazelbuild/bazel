@@ -68,27 +68,46 @@ public class DiskCacheClient implements RemoteCacheClient {
   private static final String AC_DIR = "ac";
   private static final String CAS_DIR = "cas";
   private static final String TMP_DIR = "tmp";
+  private static final String GC_DIR = "gc";
+
+  // Subdirectories excluded from garbage collection.
+  private static final ImmutableSet<String> EXCLUDED_DIRS = ImmutableSet.of(TMP_DIR, GC_DIR);
 
   private static final SpawnCheckingCacheEvent SPAWN_CHECKING_CACHE_EVENT =
       SpawnCheckingCacheEvent.create("disk-cache");
 
   private final ImmutableMap<Store, Path> storeRootMap;
   private final Path tmpRoot;
-
   private final ListeningExecutorService executorService;
   private final boolean verifyDownloads;
   private final DigestUtil digestUtil;
+
+  @Nullable private final GarbageCollector gc;
+
+  private boolean closed = false;
 
   /**
    * @param verifyDownloads whether verify the digest of downloaded content are the same as the
    *     digest used to index that file.
    */
   public DiskCacheClient(
-      Path root, DigestUtil digestUtil, ExecutorService executorService, boolean verifyDownloads)
+      Path root,
+      long maxSizeBytes,
+      DigestUtil digestUtil,
+      ExecutorService executorService,
+      boolean verifyDownloads)
       throws IOException {
     this.digestUtil = digestUtil;
     this.executorService = MoreExecutors.listeningDecorator(executorService);
     this.verifyDownloads = verifyDownloads;
+
+    Path gcRoot = root.getChild(GC_DIR);
+    if (maxSizeBytes > 0) {
+      gcRoot.createDirectoryAndParents();
+      this.gc = new GarbageCollector(root, GC_DIR, EXCLUDED_DIRS, executorService);
+    } else {
+      this.gc = null;
+    }
 
     Path fnRoot =
         isOldStyleDigestFunction(digestUtil.getDigestFunction())
@@ -136,6 +155,7 @@ public class DiskCacheClient implements RemoteCacheClient {
     Path target = toPath(digest, store);
     target.getParentDirectory().createDirectoryAndParents();
     src.renameTo(target);
+    var unused = refresh(target);
   }
 
   private ListenableFuture<Void> download(Digest digest, OutputStream out, Store store) {
@@ -284,7 +304,14 @@ public class DiskCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public void close() {}
+  public void close() {
+    if (!closed) {
+      if (gc != null) {
+        gc.close();
+      }
+      closed = true;
+    }
+  }
 
   @Override
   public ListenableFuture<Void> uploadFile(

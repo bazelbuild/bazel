@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionType;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -44,6 +45,7 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import net.starlark.java.eval.BuiltinFunction;
@@ -706,21 +708,26 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
         ")");
   }
 
+  /**
+   * A test-only transition used to test native transitions on subrules. Must implement {@link
+   * ConfigurationTransitionApi} so that it is allowed by {@code rule}.
+   */
+  private static final class NativeTransition
+      implements TransitionFactory<AttributeTransitionData>, ConfigurationTransitionApi {
+    @Override
+    public ConfigurationTransition create(AttributeTransitionData data) {
+      return null;
+    }
+
+    @Override
+    public TransitionType transitionType() {
+      return TransitionType.ATTRIBUTE;
+    }
+  }
+
   @Test
   public void testSubruleAttrs_cannotHaveNativeTransitions() throws Exception {
-    ev.update(
-        "native_transition",
-        new TransitionFactory<AttributeTransitionData>() {
-          @Override
-          public ConfigurationTransition create(AttributeTransitionData data) {
-            return null;
-          }
-
-          @Override
-          public TransitionType transitionType() {
-            return TransitionType.ATTRIBUTE;
-          }
-        });
+    ev.update("native_transition", new NativeTransition());
     ev.checkEvalErrorContains(
         "bad cfg for attribute '_foo': subrules may only have target/exec attributes.",
         "_my_subrule = subrule(",

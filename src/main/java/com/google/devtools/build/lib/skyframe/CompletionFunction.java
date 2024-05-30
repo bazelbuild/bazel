@@ -523,8 +523,8 @@ public final class CompletionFunction<
       throws CompletionFunctionException, InterruptedException {
     var importantOutputHandler =
         skyframeActionExecutor.getActionContextRegistry().getContext(ImportantOutputHandler.class);
-    if (importantOutputHandler == ImportantOutputHandler.NO_OP) {
-      return null; // Avoid expanding artifacts if the default no-op handler is installed.
+    if (importantOutputHandler == null) {
+      return null;
     }
 
     Label label = key.actionLookupKey().getLabel();

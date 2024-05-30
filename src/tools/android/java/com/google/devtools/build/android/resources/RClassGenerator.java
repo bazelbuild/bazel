@@ -57,6 +57,10 @@ public class RClassGenerator {
   private final FieldInitializers initializers;
   private final boolean finalFields;
   private final boolean annotateTransitiveFields;
+
+  private final RPackageId rPackageId;
+  private boolean rPackageWritten = false;
+
   private static final Splitter PACKAGE_SPLITTER = Splitter.on('.');
 
   /**
@@ -68,25 +72,34 @@ public class RClassGenerator {
    * @param finalFields true if the fields should be marked final
    * @param annotateTransitiveFields whether the R class and fields from transitive dependencies
    *     should be annotated.
+   * @param rPackageId if provided fields values will be generated using RPackage class.
    */
   public static RClassGenerator with(
       String label,
       Path outFolder,
       FieldInitializers initializers,
       boolean finalFields,
-      boolean annotateTransitiveFields) {
+      boolean annotateTransitiveFields,
+      RPackageId rPackageId) {
     return new RClassGenerator(
-        label, outFolder, initializers, finalFields, annotateTransitiveFields);
+        label, outFolder, initializers, finalFields, annotateTransitiveFields, rPackageId);
   }
 
   @VisibleForTesting
   static RClassGenerator with(Path outFolder, FieldInitializers initializers, boolean finalFields) {
+    return with(outFolder, initializers, finalFields, /* rPackageId= */ null);
+  }
+
+  @VisibleForTesting
+  static RClassGenerator with(
+      Path outFolder, FieldInitializers initializers, boolean finalFields, RPackageId rPackageId) {
     return new RClassGenerator(
         /* label= */ null,
         outFolder,
         initializers,
         finalFields,
-        /*annotateTransitiveFields=*/ false);
+        /* annotateTransitiveFields= */ false,
+        rPackageId);
   }
 
   private RClassGenerator(
@@ -94,12 +107,14 @@ public class RClassGenerator {
       Path outFolder,
       FieldInitializers initializers,
       boolean finalFields,
-      boolean annotateTransitiveFields) {
+      boolean annotateTransitiveFields,
+      RPackageId rPackageId) {
     this.label = label;
     this.outFolder = outFolder;
     this.initializers = initializers;
     this.finalFields = finalFields;
     this.annotateTransitiveFields = annotateTransitiveFields;
+    this.rPackageId = rPackageId;
   }
 
   /**
@@ -168,6 +183,7 @@ public class RClassGenerator {
     for (Map.Entry<ResourceType, Collection<FieldInitializer>> entry : initializersToWrite) {
       writeInnerClass(entry.getValue(), packageDir, rClassName, entry.getKey().toString());
     }
+    writeRPackageClassIfNeeded();
   }
 
   private void writeInnerClass(
@@ -184,7 +200,8 @@ public class RClassGenerator {
     for (FieldInitializer init : initializers) {
       JavaIdentifierValidator.validate(
           init.getFieldName(), "in class:", fullyQualifiedInnerClass, "and package:", packageDir);
-      if (init.writeFieldDefinition(innerClassWriter, finalFields, annotateTransitiveFields)) {
+      if (init.writeFieldDefinition(
+          innerClassWriter, finalFields, annotateTransitiveFields, rPackageId)) {
         deferredInitializers.add(init);
       }
     }
@@ -251,12 +268,18 @@ public class RClassGenerator {
               accessFlags, methodName, "()V", null, /* signature */ null /* exceptions */);
       visitor.visitCode();
       InstructionAdapter insts = new InstructionAdapter(visitor);
+      if (rPackageId != null) {
+        // Store packageId value from static field into local variable.
+        String rPackageClassInternalName = rPackageId.getRPackageClassName().replace('.', '/');
+        insts.visitFieldInsn(Opcodes.GETSTATIC, rPackageClassInternalName, "packageId", "I");
+        insts.store(1, Type.INT_TYPE);
+        // GETSTATIC(3) + ISTORE_1(1)
+        currentMethodSize += 4;
+      }
       while (iterator.hasNext()) {
         FieldInitializer fieldInit = iterator.next();
-        // Only limit fields per method if fields are non-final since otherwise fields have to be
-        // initialized in clinit.
-        if (!finalFields
-            && currentMethodSize + fieldInit.getMaxBytecodeSize() > maxBytesBeforeInvokeAndReturn) {
+        int fieldMaxBytecodeSize = fieldInit.getMaxBytecodeSize(rPackageId != null);
+        if (currentMethodSize + fieldMaxBytecodeSize > maxBytesBeforeInvokeAndReturn) {
           Preconditions.checkState(
               currentMethodSize != 0,
               "Field %s.%s is too big to initialize.",
@@ -266,8 +289,8 @@ public class RClassGenerator {
           iterator.previous();
           break;
         }
-        fieldInit.writeCLInit(insts, className);
-        currentMethodSize += fieldInit.getMaxBytecodeSize();
+        fieldInit.writeCLInit(insts, className, rPackageId);
+        currentMethodSize += fieldMaxBytecodeSize;
       }
       if (iterator.hasNext()) {
         // If there are more fields, delegate to new method that will contain their initializations.
@@ -281,5 +304,38 @@ public class RClassGenerator {
       visitor.visitMaxs(0, 0);
       visitor.visitEnd();
     }
+  }
+
+  private void writeRPackageClassIfNeeded() throws IOException {
+    if (rPackageId == null || rPackageWritten) {
+      return;
+    }
+
+    final String rPackageClassName = rPackageId.getRPackageClassName();
+    final String internalClassname = rPackageClassName.replace('.', '/');
+    final Path outputPath = outFolder.resolve(internalClassname + ".class");
+    Files.createDirectories(outputPath.getParent());
+
+    ClassWriter classWriter = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+    classWriter.visit(
+        JAVA_VERSION,
+        Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL | Opcodes.ACC_SUPER,
+        internalClassname,
+        /* signature= */ null,
+        /* superName= */ "java/lang/Object",
+        /* interfaces= */ null);
+
+    classWriter.visitField(
+        // Field must be non-final - will be updated in runtime.
+        Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC,
+        "packageId",
+        "I",
+        /* signature= */ null,
+        rPackageId.getPackageId());
+
+    classWriter.visitEnd();
+    Files.write(outputPath, classWriter.toByteArray(), CREATE_NEW);
+
+    rPackageWritten = true;
   }
 }

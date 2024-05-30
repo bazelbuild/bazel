@@ -1268,6 +1268,123 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
   }
 
   @Test
+  public void testProgressAfterFinalEvents() throws InterruptedException {
+    BuildEventStreamer.OutErrProvider outErr = mock(BuildEventStreamer.OutErrProvider.class);
+    String earlyStdout = "Stdout before finishing.";
+    String earlyStderr = "Stderr before finishing.";
+    String middleStdout = "Stdout *while* finishing.";
+    String middleStderr = "Stderr *while* finishing.";
+    String lateStdout = "Stdout after finishing.";
+    String lateStderr = "Stderr after finishing.";
+    when(outErr.getOut())
+        .thenReturn(ImmutableList.of(earlyStdout))
+        .thenReturn(ImmutableList.of(middleStdout))
+        .thenReturn(ImmutableList.of(lateStdout));
+    when(outErr.getErr())
+        .thenReturn(ImmutableList.of(earlyStderr))
+        .thenReturn(ImmutableList.of(middleStderr))
+        .thenReturn(ImmutableList.of(lateStderr));
+    streamer.registerOutErrProvider(outErr);
+
+    // Verify that we correctly handle progress events that are sent to the streamer after the
+    // BuildCompleteEvent.
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"),
+            ImmutableSet.of(
+                ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventIdUtil.buildFinished()));
+    BuildEventId lateId = testId("late event");
+    BuildEvent finishedEvent =
+        buildCompleteEvent(
+            DetailedExitCode.success(),
+            /* stopOnFailure= */ false,
+            /* crash= */ null,
+            /* catastrophe= */ false,
+            ImmutableList.of(lateId));
+
+    streamer.buildEvent(startEvent);
+    streamer.flush();
+    streamer.buildEvent(finishedEvent);
+    // Flushing after the finished event should discard stdout/stderr, not post progress events.
+    streamer.flush();
+    assertThat(streamer.isClosed()).isFalse();
+    streamer.buildEvent(new GenericBuildEvent(lateId, ImmutableSet.of()));
+    assertThat(streamer.isClosed()).isTrue();
+
+    List<BuildEvent> eventsSeen = transport.getEvents();
+    var formatter = getTestBuildEventContext(artifactGroupNamer);
+    // Verify that the event IDs are as expected.
+    assertThat(eventsSeen).hasSize(5);
+    assertThat(eventsSeen.get(0).getEventId()).isEqualTo(startEvent.getEventId());
+    assertThat(eventsSeen.get(1).getEventId()).isEqualTo(ProgressEvent.INITIAL_PROGRESS_UPDATE);
+    assertThat(eventsSeen.get(2).getEventId()).isEqualTo(BuildEventIdUtil.buildFinished());
+    assertThat(eventsSeen.get(3).getEventId())
+        .isEqualTo(ProgressEvent.progressUpdate(1).getEventId());
+    // Progress events received after the build is finished do not have an incremented progress ID.
+    assertThat(eventsSeen.get(4).getEventId()).isEqualTo(lateId);
+
+    // Verify that the progress events have the correct stdout/stderr and that the last event has
+    // the "last_message" bit set true.
+    var earlyProgressProto = eventsSeen.get(1).asStreamProto(formatter).getProgress();
+    assertThat(earlyProgressProto.getStdout()).isEqualTo(earlyStdout);
+    assertThat(earlyProgressProto.getStderr()).isEqualTo(earlyStderr);
+    var middleProgressProto = eventsSeen.get(3).asStreamProto(formatter).getProgress();
+    assertThat(middleProgressProto.getStdout()).isEqualTo(middleStdout);
+    assertThat(middleProgressProto.getStderr()).isEqualTo(middleStderr);
+    assertThat(eventsSeen.get(4).asStreamProto(formatter).getLastMessage()).isTrue();
+  }
+
+  @Test
+  public void testLotsOfProgressAfterFinalEvents() throws InterruptedException {
+    BuildEventStreamer.OutErrProvider outErr = mock(BuildEventStreamer.OutErrProvider.class);
+    String earlyStdout = "Stdout before finishing.";
+    String earlyStderr = "Stderr before finishing.";
+    String middleStdout = "Stdout *while* finishing.";
+    String middleStderr = "Stderr *while* finishing.";
+    String lateStdout = "DoneStdout";
+    String lateStderr = "DoneStderr";
+    when(outErr.getOut())
+        .thenReturn(ImmutableList.of(earlyStdout))
+        .thenReturn(ImmutableList.of(middleStdout))
+        .thenReturn(ImmutableList.of(lateStdout + 1, lateStdout + 2, lateStdout + 3));
+    when(outErr.getErr())
+        .thenReturn(ImmutableList.of(earlyStderr))
+        .thenReturn(ImmutableList.of(middleStderr))
+        .thenReturn(ImmutableList.of(lateStderr + 1, lateStderr + 2, lateStderr + 3));
+    streamer.registerOutErrProvider(outErr);
+
+    // Verify that we correctly handle progress events that are sent to the streamer after the
+    // BuildCompleteEvent.
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"),
+            ImmutableSet.of(
+                ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventIdUtil.buildFinished()));
+    BuildEventId lateId = testId("late event");
+    BuildEvent finishedEvent =
+        buildCompleteEvent(
+            DetailedExitCode.success(),
+            /* stopOnFailure= */ false,
+            /* crash= */ null,
+            /* catastrophe= */ false,
+            ImmutableList.of(lateId));
+
+    streamer.buildEvent(startEvent);
+    streamer.flush();
+    streamer.buildEvent(finishedEvent);
+    streamer.flush();
+    assertThat(streamer.isClosed()).isFalse();
+    streamer.buildEvent(new GenericBuildEvent(lateId, ImmutableSet.of()));
+    assertThat(streamer.isClosed()).isTrue();
+
+    List<BuildEvent> eventsSeen = transport.getEvents();
+    var formatter = getTestBuildEventContext(artifactGroupNamer);
+    // Verify that the last event has the "last_message" bit set true.
+    assertThat(eventsSeen.get(eventsSeen.size() - 1).asStreamProto(formatter).getLastMessage())
+        .isTrue();
+  }
+
+  @Test
   public void testSuccessfulActionsAreNotPublishedByDefault() {
     EventBusHandler handler = new EventBusHandler();
     eventBus.register(handler);
@@ -1566,6 +1683,16 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
       boolean stopOnFailure,
       Throwable crash,
       boolean catastrophe) {
+    return buildCompleteEvent(
+        detailedExitCode, stopOnFailure, crash, catastrophe, ImmutableList.of());
+  }
+
+  private static BuildCompleteEvent buildCompleteEvent(
+      DetailedExitCode detailedExitCode,
+      boolean stopOnFailure,
+      Throwable crash,
+      boolean catastrophe,
+      Collection<BuildEventId> childrenEvents) {
     BuildResult result = new BuildResult(0);
     result.setDetailedExitCode(detailedExitCode);
     result.setStopOnFirstFailure(stopOnFailure);
@@ -1575,7 +1702,10 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
     if (crash != null) {
       result.setUnhandledThrowable(crash);
     }
-    return new BuildCompleteEvent(result);
+    if (childrenEvents.isEmpty()) {
+      return new BuildCompleteEvent(result);
+    }
+    return new BuildCompleteEvent(result, childrenEvents);
   }
 
   private static ActionExecutedEvent createActionExecutedEventWithLogs(

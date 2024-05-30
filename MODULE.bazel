@@ -57,6 +57,14 @@ local_path_override(
     path = "./third_party/googleapis",
 )
 
+single_version_override(
+    module_name = "grpc",
+    patch_strip = 1,
+    patches = [
+        "//third_party/grpc:00_disable_layering_check.patch",
+    ],
+)
+
 # The following Bazel modules are not direct dependencies for building Bazel,
 # but are required for visibility from DIST_ARCHIVE_REPOS in repositories.bzl
 bazel_dep(name = "apple_support", version = "1.8.1")
@@ -94,7 +102,7 @@ maven.install(
         "com.google.auto.value:auto-value:1.10.4",
         "com.google.auto.value:auto-value-annotations:1.10.4",
         "com.google.code.findbugs:jsr305:3.0.2",
-        "com.google.code.gson:gson:2.9.0",
+        "com.google.code.gson:gson:2.10.1",
         "com.google.code.java-allocation-instrumenter:java-allocation-instrumenter:3.3.0",
         "com.google.errorprone:error_prone_annotation:2.23.0",
         "com.google.errorprone:error_prone_annotations:2.23.0",

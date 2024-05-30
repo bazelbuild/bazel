@@ -35,8 +35,6 @@ public interface ImportantOutputHandler extends ActionContext {
       ImmutableCollection<ActionInput> outputs, InputMetadataProvider metadataProvider)
       throws ImportantOutputException, InterruptedException;
 
-  ImportantOutputHandler NO_OP = (outputs, metadataProvider) -> ImmutableMap.of();
-
   /** Represents an exception encountered during {@link #processAndGetLostArtifacts}. */
   final class ImportantOutputException extends Exception implements DetailedException {
     private final FailureDetail failureDetail;

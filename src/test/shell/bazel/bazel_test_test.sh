@@ -174,8 +174,16 @@ sh_test(
 )
 EOF
 
+ # The next line ensures that the test passes in IPv6-only networks on macOS.
+  if is_darwin; then
+    export JAVA_TOOL_OPTIONS="-Djava.net.preferIPv6Addresses=true"
+    export STARTUP_OPTS="--host_jvm_args=-Djava.net.preferIPv6Addresses=true"
+  else
+    export STARTUP_OPTS=""
+  fi
+
   # Test BAR is set from --action_env
-  BAZ=fromaction bazel --ignore_all_rc_files test --test_output=all \
+  BAZ=fromaction bazel --ignore_all_rc_files $STARTUP_OPTS test --test_output=all \
     --action_env=BAR=fromcli --action_env=BAZ \
     //foo &> $TEST_log || fail "Test failed"
   expect_log "foo: frombuild"
@@ -187,7 +195,7 @@ EOF
   # Test FOO from the BUILD file wins
   # Test BAR is set from --test_env
   # Test BAZ is set from --test_env
-  BAZ=fromtest bazel --ignore_all_rc_files test --test_output=all \
+  BAZ=fromtest bazel --ignore_all_rc_files $STARTUP_OPTS test --test_output=all \
     --action_env=FOO=fromcli --test_env=FOO=fromcli --test_env=BAR=fromcli \
     --test_env=BAZ //foo &> $TEST_log || fail "Test failed"
   expect_log "foo: frombuild"

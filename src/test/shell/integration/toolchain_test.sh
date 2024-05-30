@@ -676,8 +676,23 @@ function test_toolchain_debug_messages {
   mkdir -p "${pkg}/demo"
   cat > "${pkg}/demo/BUILD" <<EOF
 load('//${pkg}/toolchain:rule_use_toolchain.bzl', 'use_toolchain')
+load('//${pkg}/toolchain:toolchain_test_toolchain.bzl', 'test_toolchain')
 
 package(default_visibility = ["//visibility:public"])
+
+# Define a toolchain that can't be used due to the target_settings
+test_toolchain(
+    name = 'toolchain_impl_invalid',
+)
+config_setting(
+    name = "optimised",
+    values = {"compilation_mode": "opt"}
+)
+toolchain(
+    name = 'toolchain_invalid',
+    toolchain_type = '//${pkg}/toolchain:test_toolchain',
+    target_settings = [":optimised"],
+    toolchain = ':toolchain_impl_invalid')
 
 # Use the toolchain.
 use_toolchain(
@@ -686,10 +701,12 @@ use_toolchain(
 EOF
 
   bazel build \
+    --extra_toolchains="//${pkg}/demo:toolchain_invalid" \
     --toolchain_resolution_debug=toolchain:test_toolchain \
     --platform_mappings= \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
   expect_log "Performing resolution of //${pkg}/toolchain:test_toolchain for target platform ${default_host_platform}"
+  expect_log "Rejected toolchain //${pkg}/demo:toolchain_impl_invalid; mismatching config settings: optimised"
   expect_log "Toolchain //register/${pkg}:test_toolchain_impl_1 is compatible with target platform, searching for execution platforms:"
   expect_log "Compatible execution platform ${default_host_platform_alias}"
   expect_log "Recap of selected //${pkg}/toolchain:test_toolchain toolchains for target platform ${default_host_platform}:"
