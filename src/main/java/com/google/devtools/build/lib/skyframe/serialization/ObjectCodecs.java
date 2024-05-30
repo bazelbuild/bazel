@@ -90,6 +90,15 @@ public class ObjectCodecs {
   }
 
   @VisibleForTesting // private
+  public ObjectCodecs withCodecOverridesForTesting(ObjectCodec<?>... codecs) {
+    ObjectCodecRegistry.Builder registryBuilder = getCodecRegistry().getBuilder();
+    for (ObjectCodec<?> codec : codecs) {
+      registryBuilder.add(codec);
+    }
+    return new ObjectCodecs(registryBuilder.build(), getDependencies());
+  }
+
+  @VisibleForTesting // private
   public ImmutableDeserializationContext getDeserializationContextForTesting() {
     return deserializationContext;
   }

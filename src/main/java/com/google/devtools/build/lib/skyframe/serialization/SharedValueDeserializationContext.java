@@ -143,7 +143,10 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
       ByteString bytes)
       throws SerializationException {
     CodedInputStream codedIn = bytes.newCodedInput();
-    codedIn.enableAliasing(true);
+    // Enabling aliasing of `codedIn` here might be better for performance but causes deserialized
+    // values to differ subtly from the input values, complicating testing.
+    //
+    // TODO: b/335901349 - re-enable aliasing
     var lookupCollector = new SkyframeLookupCollector();
     var context =
         new SharedValueDeserializationContext(
