@@ -52,7 +52,10 @@ java_library(
     srcs = ["RoundTripping.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
     ],
 )
