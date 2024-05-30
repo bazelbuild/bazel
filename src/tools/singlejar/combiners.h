@@ -18,7 +18,6 @@
 #include <map>
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 #include "src/tools/singlejar/transient_bytes.h"

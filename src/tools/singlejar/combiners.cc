@@ -17,8 +17,6 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
-#include <fstream>
-#include <iomanip>
 #include <iostream>
 #include <iterator>
 #include <map>
@@ -26,12 +24,6 @@
 #include <sstream>
 #include <string>
 #include <vector>
-
-#ifdef _WIN32
-#include <winsock2.h>  // for htonl, htons, ntohl, ntohs
-#else
-#include <arpa/inet.h>  // for htonl, htons, ntohl, ntohs
-#endif
 
 #include "src/tools/singlejar/diag.h"
 
@@ -304,6 +296,16 @@ void *ManifestCombiner::OutputEntry(bool compress) {
   return concatenator_->OutputEntry(compress);
 }
 
+template<typename T>
+inline static T swapByteOrder(const T& val) {
+  int totalBytes = sizeof(val);
+  T swapped = (T) 0;
+  for (int i = 0; i < totalBytes; ++i) {
+    swapped |= (val >> (8*(totalBytes-i-1)) & 0xFF) << (8*i);
+  }
+  return swapped;
+}
+
 bool readBool(std::istringstream &stream) {
   bool value;
   stream.read(reinterpret_cast<char *>(&value), sizeof(value));
@@ -313,13 +315,13 @@ bool readBool(std::istringstream &stream) {
 uint32_t readInt(std::istringstream &stream) {
   uint32_t values;
   stream.read(reinterpret_cast<char *>(&values), sizeof(values));
-  return ntohl(values);
+  return swapByteOrder(values);
 }
 
 std::string readUTFString(std::istringstream &stream) {
   uint16_t length;
   stream.read(reinterpret_cast<char *>(&length), sizeof(length));
-  length = ntohs(length); // Convert to host byte order
+  length = swapByteOrder(length); // Convert to host byte order
   std::string result(length, '\0');
   stream.read(&result[0], length);
   return result;
@@ -331,14 +333,14 @@ void writeBoolean(TransientBytes &buffer, bool value) {
 }
 
 void writeInt(TransientBytes &buffer, int value) {
-  value = htonl(value);
+  value = swapByteOrder(value);
   uint8_t data[sizeof(value)];
   std::memcpy(data, &value, sizeof(value));
   buffer.Append(data, sizeof(value));
 }
 
 void writeUTFString(TransientBytes &buffer, const std::string &str) {
-  uint16_t length = htons(static_cast<uint16_t>(str.size()));
+  uint16_t length = swapByteOrder(static_cast<uint16_t>(str.size()));
   buffer.Append(reinterpret_cast<const uint8_t *>(&length), sizeof(length));
   buffer.Append(reinterpret_cast<const uint8_t *>(str.data()), str.size());
 }
