@@ -962,21 +962,36 @@ EOF
 }
 
 function test_runfiles_from_tests_get_reused_and_tmp_clean() {
+  do_test_runfiles_from_tests_get_reused_and_tmp_clean \
+    "--noexperimental_inmemory_sandbox_stashes"
+}
+
+function test_runfiles_from_tests_get_reused_and_tmp_clean_in_mem_stashes() {
+  do_test_runfiles_from_tests_get_reused_and_tmp_clean \
+    "--experimental_inmemory_sandbox_stashes"
+}
+
+function do_test_runfiles_from_tests_get_reused_and_tmp_clean() {
+  local -r in_memory_stashes="$1"
   mkdir pkg
-  touch pkg/file.txt
+  mkdir pkg/b
+  touch pkg/file1.txt
+  touch pkg/file2.txt
+  touch pkg/file3.txt
   cat >pkg/reusing_test.bzl <<'EOF'
 def _reused_runfiles_test_impl(ctx):
     output = ctx.actions.declare_file(ctx.label.name + ".sh")
 
-    runfiles = ctx.runfiles(files = ctx.files.file)
+    runfiles = ctx.runfiles(files = ctx.files.files)
     runfiles = runfiles.merge(runfiles)
 
     test_code = """
     #!/bin/bash
     dir_inode_number=$(ls -di $TEST_SRCDIR | cut -f1 -d" ")
     echo "The directory inode is $dir_inode_number"
-    file_inode_number=$(ls -i $TEST_SRCDIR/_main/pkg/file.txt | cut -f1 -d" ")
+    file_inode_number=$(ls -i $TEST_SRCDIR/_main/pkg/file1.txt | cut -f1 -d" ")
     echo "The file inode is $file_inode_number"
+    tree $TEST_SRCDIR
     """
 
     ctx.actions.run_shell(
@@ -995,18 +1010,34 @@ reused_runfiles_test = rule(
     implementation = _reused_runfiles_test_impl,
     test = True,
     attrs = {
-        "file" : attr.label(allow_files=True,default="//pkg:file.txt"),
+        "files" : attr.label_list(allow_files=True),
     }
 )
 EOF
 
   cat >pkg/BUILD <<'EOF'
 load(":reusing_test.bzl", "reused_runfiles_test")
+exports_files([
+  "file1.txt",
+  "file2.txt",
+  "file3.txt",
+])
 reused_runfiles_test(
     name = "a",
+    files = [
+      "file1.txt",
+      "file2.txt",
+    ],
 )
+EOF
+  cat >pkg/b/BUILD <<'EOF'
+load("//pkg:reusing_test.bzl", "reused_runfiles_test")
 reused_runfiles_test(
     name = "b",
+    files = [
+      "//pkg:file1.txt",
+      "//pkg:file3.txt",
+    ],
 )
 EOF
 
@@ -1014,34 +1045,54 @@ EOF
   local out_directory
   if is_bazel; then
     bazel coverage --test_output=streamed \
-      --experimental_split_coverage_postprocessing=1 \
+      "$in_memory_stashes" --experimental_split_coverage_postprocessing=1 \
       --experimental_fetch_all_coverage_outputs //pkg:a > ${test_output} \
       || fail "Expected build to succeed"
     out_directory="bazel-out"
   else
-    bazel test --test_output=streamed //pkg:a > ${test_output} \
-      || fail "Expected build to succeed"
+    bazel test "$in_memory_stashes" --test_output=streamed \
+     //pkg:a > ${test_output} || fail "Expected build to succeed"
     out_directory="blaze-out"
   fi
+  grep -q "file1.txt" ${test_output} || fail "Missing file1.txt"
+  grep -q "file2.txt" ${test_output} || fail "Missing file2.txt"
+
   dir_inode_a=$(awk '/The directory inode is/ {print $5}' ${test_output})
   file_inode_a=$(awk '/The file inode is/ {print $5}' ${test_output})
 
+
   local output_base="$(bazel info output_base)"
   local stashed_test_dir="${output_base}/sandbox/sandbox_stash/TestRunner/6/execroot/$WORKSPACE_NAME"
+  touch "$stashed_test_dir/$out_directory/k8-fastbuild/bin/pkg/a.sh.runfiles/$WORKSPACE_NAME/pkg/file4.txt"
+
   [[ -d "${stashed_test_dir}/$out_directory" ]] \
     || fail "${stashed_test_dir}/$out_directory directory not present"
   [[ -d "${stashed_test_dir}/_tmp" ]] \
       && fail "${stashed_test_dir}/_tmp directory is present"
 
   if is_bazel; then
-    bazel coverage --test_output=streamed //pkg:b \
-      --experimental_split_coverage_postprocessing=1 \
+    bazel coverage --test_output=streamed //pkg/b:b  \
+      "$in_memory_stashes" --experimental_split_coverage_postprocessing=1 \
       --experimental_fetch_all_coverage_outputs > ${test_output} \
       || fail "Expected build to succeed"
   else
-    bazel test --test_output=streamed //pkg:b > ${test_output} \
-      || fail "Expected build to succeed"
+    bazel test "$in_memory_stashes" --test_output=streamed \
+      //pkg/b:b > ${test_output} || fail "Expected build to succeed"
   fi
+  grep -q "file1.txt" ${test_output} || fail "Missing file1.txt"
+  grep -q "file3.txt" ${test_output} || fail "Missing file3.txt"
+  grep -q "file2.txt" ${test_output} && fail "Present file2.txt"
+
+  if [[ "$in_memory_stashes" =~ ^"--no" ]]; then
+    grep -q "file4.txt" ${test_output} \
+      && fail "Present file4.txt which was added artificially and should" \
+          " have been cleaned up with disk clean-up stashes"
+  else
+    grep -q "file4.txt" ${test_output} \
+      || fail "Missing file4.txt which was added artificially and shouldn't" \
+          " have been cleaned up with in-memory stashes"
+  fi
+
   dir_inode_b=$(awk '/The directory inode is/ {print $5}' ${test_output})
   file_inode_b=$(awk '/The file inode is/ {print $5}' ${test_output})
 
@@ -1070,6 +1121,7 @@ EOF
   bazel clean
   bazel build --sandbox_base=/dev/shm //pkg:a \
     || fail "Expected build to succeed"
+
 }
 
 function test_bad_state_linux_sandboxing() {
