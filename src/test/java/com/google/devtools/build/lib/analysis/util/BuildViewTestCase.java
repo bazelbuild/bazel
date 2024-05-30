@@ -340,8 +340,15 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .build();
     if (usesInliningBzlLoadFunction()) {
       injectInliningBzlLoadFunction(skyframeExecutor, ruleClassProvider, directories);
+    } else {
+      // As of 05/21/2024, SerializationCheckingGraph does not deserialize analysis phase objects
+      // from inline bzl correctly.
+      //
+      // The SerializationCheckingGraph assumes that objects that are exported from a given .bzl
+      // file can be looked up later as a global symbol in the corresponding BzlLoadValue and that
+      // the BzlLoadValue is present in Skyframe. This isn't true when .bzl inlining is used.
+      SkyframeExecutorTestHelper.process(skyframeExecutor);
     }
-    SkyframeExecutorTestHelper.process(skyframeExecutor);
     skyframeExecutor.injectExtraPrecomputedValues(extraPrecomputedValues);
     packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
     packageOptions.showLoadingProgress = true;

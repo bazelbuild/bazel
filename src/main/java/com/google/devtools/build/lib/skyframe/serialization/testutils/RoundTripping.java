@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationResult;
 import com.google.devtools.build.lib.skyframe.serialization.SkyframeDependencyException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyframeLookupContinuation;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -104,6 +105,22 @@ public class RoundTripping {
     return new ObjectCodecs(registry).deserializeMemoized(bytes);
   }
 
+  public static ByteString toBytesMemoizedAndBlocking(
+      ObjectCodecs codecs, FingerprintValueService fingerprintValueService, Object subject)
+      throws SerializationException {
+    SerializationResult<ByteString> result =
+        codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject);
+    ListenableFuture<Void> futureToBlockWritesOn = result.getFutureToBlockWritesOn();
+    if (futureToBlockWritesOn != null) {
+      try {
+        Void unusedNull = getUninterruptibly(futureToBlockWritesOn);
+      } catch (ExecutionException e) {
+        throw new SerializationException("waiting for futureToBlockWritesOn", e.getCause());
+      }
+    }
+    return result.getObject();
+  }
+
   public static Object fromBytesWithSkyframe(
       ObjectCodecs codecs,
       FingerprintValueService fingerprintValueService,
@@ -163,6 +180,23 @@ public class RoundTripping {
       builder.add(codec);
     }
     return roundTripMemoized(original, builder.build());
+  }
+
+  public static Object roundTripWithSkyframe(
+      ObjectCodecs codecs,
+      FingerprintValueService fingerprintValueService,
+      EnvironmentForUtilities.ResultProvider resultProvider,
+      Object subject)
+      throws SerializationException, SkyframeDependencyException, MissingResultException {
+    ByteString bytes = toBytesMemoizedAndBlocking(codecs, fingerprintValueService, subject);
+    return fromBytesWithSkyframe(codecs, fingerprintValueService, resultProvider, bytes);
+  }
+
+  public static Object roundTripWithSkyframe(
+      EnvironmentForUtilities.ResultProvider resultProvider, Object subject)
+      throws SerializationException, SkyframeDependencyException, MissingResultException {
+    return roundTripWithSkyframe(
+        new ObjectCodecs(), FingerprintValueService.createForTesting(), resultProvider, subject);
   }
 
   private static class KeyRecordingResultProvider

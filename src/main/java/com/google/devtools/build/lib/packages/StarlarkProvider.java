@@ -524,7 +524,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
    */
   // TODO: b/335901349 - this is identical to SymbolGenerator.GlobalSymbol<BzlLoadValue.Key> and
   // serves essentially the same purpose. Consider unifying these types.
-  public static class Key extends Provider.Key {
+  public static final class Key extends Provider.Key {
     private final BzlLoadValue.Key key;
     private final String exportedName;
 
@@ -537,8 +537,12 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
       return key.getLabel();
     }
 
-    public final String getExportedName() {
+    public String getExportedName() {
       return exportedName;
+    }
+
+    BzlLoadValue.Key getBzlLoadKey() {
+      return key;
     }
 
     @Override
@@ -561,7 +565,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     }
 
     @Override
-    final void fingerprint(Fingerprint fp) {
+    void fingerprint(Fingerprint fp) {
       // False => Not native.
       fp.addBoolean(false);
       fp.addString(getExtensionLabel().getCanonicalForm());
