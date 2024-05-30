@@ -419,12 +419,14 @@ bool Log4J2PluginDatCombiner::Merge(const CDH *cdh, const LH *lh) {
     auto newCategoryId = newCategoryPair.first;
     auto newPlugins = newCategoryPair.second;
 
-    if (auto existingCategoryPair = categories_.find(newCategoryId); existingCategoryPair != categories_.end()) {
+    auto existingCategoryPair = categories_.find(newCategoryId);
+    if (existingCategoryPair != categories_.end()) {
       for (const auto &pluginPair : newPlugins) {
         auto newPluginKey = pluginPair.first;
         auto newPlugin = pluginPair.second;
 
-        if (auto existingPluginKey = categories_[newCategoryId].find(newPluginKey); existingPluginKey != categories_[newCategoryId].end() && no_duplicates_) {
+        auto existingPluginKey = categories_[newCategoryId].find(newPluginKey);
+        if (existingPluginKey != categories_[newCategoryId].end() && no_duplicates_) {
           diag_errx(1, "%s:%d: Log4J2 plugin %s.%s is present in multiple jars", __FILE__, __LINE__, newCategoryId.c_str(), newPluginKey.c_str());
         }
 
