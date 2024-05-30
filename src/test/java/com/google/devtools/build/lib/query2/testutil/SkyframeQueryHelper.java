@@ -112,7 +112,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
 
   private PackageManager pkgManager;
   private TargetPatternPreloader targetParser;
-  private boolean blockUniverseEvaluationErrors;
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   private final PathFragment ignoredPackagePrefixesFile = PathFragment.create("ignored");
@@ -178,14 +177,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     return ignoredPackagePrefixesFile;
   }
 
-  @Override
-  public void setBlockUniverseEvaluationErrors(boolean blockUniverseEvaluationErrors) {
-    if (this.blockUniverseEvaluationErrors == blockUniverseEvaluationErrors) {
-      return;
-    }
-    this.blockUniverseEvaluationErrors = blockUniverseEvaluationErrors;
-  }
-
   @ForOverride
   protected QueryEnvironmentFactory makeQueryEnvironmentFactory() {
     return new QueryEnvironmentFactory();
@@ -246,7 +237,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
         this.settings,
         getExtraQueryFunctions(),
         pkgManager.getPackagePath(),
-        blockUniverseEvaluationErrors,
         /* useGraphlessQuery= */ false,
         LabelPrinter.legacy());
   }

@@ -327,7 +327,6 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               settings,
               /* extraFunctions= */ ImmutableList.of(),
               /* packagePath= */ null,
-              /* blockUniverseEvaluationErrors= */ false,
               /* useGraphlessQuery= */ graphlessQuery,
               LabelPrinter.legacy());
       QueryExpression expr = QueryExpression.parse(query, queryEnvironment);
