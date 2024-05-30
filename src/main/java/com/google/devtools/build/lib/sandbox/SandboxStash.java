@@ -492,7 +492,7 @@ public class SandboxStash {
           throw new InterruptedException();
         }
         Path absPath = root.getChild(dirent.getName());
-        if (Objects.equals(dirent.getType(), SYMLINK)) {
+        if (dirent.getType().equals(SYMLINK)) {
           if ((stashContents.filesToPath().containsKey(dirent.getName())
                   || stashContents.symlinksToPathFragment().containsKey(dirent.getName()))
               && absPath.stat().getLastChangeTime() <= timestamp) {
@@ -500,7 +500,7 @@ public class SandboxStash {
           } else {
             absPath.delete();
           }
-        } else if (Objects.equals(dirent.getType(), DIRECTORY)) {
+        } else if (dirent.getType().equals(DIRECTORY)) {
           if (stashContents.dirEntries().containsKey(dirent.getName())) {
             dirsToKeep.add(dirent.getName());
             listContentsRecursively(
