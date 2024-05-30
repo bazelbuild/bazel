@@ -33,7 +33,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
 /**
@@ -129,7 +128,9 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
         }
         PathFragment parent = entry.getKey().getParentDirectory();
         boolean parentWasPresent = !addParent(stashContentsMap, parent);
-        stashContentsMap.get(parent).filesToPath()
+        stashContentsMap
+            .get(parent)
+            .filesToPath()
             .put(entry.getKey().getBaseName(), entry.getValue());
         addAllParents(stashContentsMap, parentWasPresent, parent);
       }
@@ -139,8 +140,10 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
         }
         PathFragment parent = entry.getKey().getParentDirectory();
         boolean parentWasPresent = !addParent(stashContentsMap, parent);
-        stashContentsMap.get(parent).symlinksToPathFragment().put(
-            entry.getKey().getBaseName(), entry.getValue());
+        stashContentsMap
+            .get(parent)
+            .symlinksToPathFragment()
+            .put(entry.getKey().getBaseName(), entry.getValue());
         addAllParents(stashContentsMap, parentWasPresent, parent);
       }
 
@@ -161,8 +164,8 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
     }
   }
 
-  private static boolean addParent(Map<PathFragment, StashContents> stashContentsMap,
-      PathFragment parent) {
+  private static boolean addParent(
+      Map<PathFragment, StashContents> stashContentsMap, PathFragment parent) {
     boolean parentWasPresent = true;
     if (!stashContentsMap.containsKey(parent)) {
       stashContentsMap.put(parent, StashContents.create());
@@ -171,8 +174,10 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
     return !parentWasPresent;
   }
 
-  private static void addAllParents(Map<PathFragment, StashContents> stashContentsMap,
-      boolean parentWasPresent, PathFragment parent) {
+  private static void addAllParents(
+      Map<PathFragment, StashContents> stashContentsMap,
+      boolean parentWasPresent,
+      PathFragment parent) {
     while (!parentWasPresent && parent.getParentDirectory() != null) {
       PathFragment parentParent = parent.getParentDirectory();
       if (stashContentsMap.containsKey(parentParent)) {
@@ -182,8 +187,9 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
       }
       StashContents parentParentStashContents = stashContentsMap.get(parentParent);
       if (!parentParentStashContents.dirEntries().containsKey(parent.getBaseName())) {
-        parentParentStashContents.dirEntries().put(
-            parent.getBaseName(), stashContentsMap.get(parent));
+        parentParentStashContents
+            .dirEntries()
+            .put(parent.getBaseName(), stashContentsMap.get(parent));
       }
       parent = parentParent;
     }

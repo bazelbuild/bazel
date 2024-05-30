@@ -100,6 +100,8 @@ public class SandboxStash {
     this.inMemoryStashes = inMemoryStashes;
   }
 
+  @Nullable
+  @SuppressWarnings("NullableOptional")
   static Optional<StashContents> takeStashedSandbox(
       Path sandboxPath,
       String mnemonic,
@@ -112,6 +114,8 @@ public class SandboxStash {
     return instance.takeStashedSandboxInternal(sandboxPath, mnemonic, environment, outputs, target);
   }
 
+  @Nullable
+  @SuppressWarnings("NullableOptional")
   private Optional<StashContents> takeStashedSandboxInternal(
       Path sandboxPath,
       String mnemonic,
@@ -149,15 +153,19 @@ public class SandboxStash {
             stashedRunfilesDir.renameTo(currentRunfiles);
             stashPathToRunfilesDir.remove(stashExecroot);
             if (useInMemoryStashes() && pathToContents.containsKey(stash)) {
-              updateStashContentsAfterRunfilesMove(relativeStashedRunfilesDir,
-                  relativeCurrentRunfilesDir, pathToContents.get(stash));
+              updateStashContentsAfterRunfilesMove(
+                  relativeStashedRunfilesDir,
+                  relativeCurrentRunfilesDir,
+                  pathToContents.get(stash));
             }
           }
           sandboxToTarget.remove(stash);
           // If we switched the flag experimental_inmemory_sandbox_stashes from false to true
           // without restarting the Bazel server, we may have a stash but not its contents in
           // memory.
-          return useInMemoryStashes() && pathToContents.containsKey(stash) ? Optional.of(pathToContents.remove(stash)) : Optional.empty();
+          return useInMemoryStashes() && pathToContents.containsKey(stash)
+              ? Optional.of(pathToContents.remove(stash))
+              : Optional.empty();
         } catch (FileNotFoundException e) {
           // Try the next one, somebody else took this one.
         } catch (IOException e) {
@@ -186,15 +194,18 @@ public class SandboxStash {
 
     Path sandboxes = instance.getSandboxStashDir(mnemonic, path.getFileSystem());
     if (sandboxes == null
-        || isTestXmlGenerationOrCoverageSpawn(mnemonic, outputs) || !path.exists()) {
+        || isTestXmlGenerationOrCoverageSpawn(mnemonic, outputs)
+        || !path.exists()) {
       return;
     }
     String stashName = Integer.toString(stash.incrementAndGet());
 
     if (useInMemoryStashes()) {
-      instance.stashSandboxInternalWithInMemoryStashes(stashName, sandboxes, path, mnemonic, environment, treeDeleter, target);
+      instance.stashSandboxInternalWithInMemoryStashes(
+          stashName, sandboxes, path, mnemonic, environment, treeDeleter, target);
     } else {
-      instance.stashSandboxInternal(stashName, sandboxes, path, mnemonic, environment, treeDeleter, target);
+      instance.stashSandboxInternal(
+          stashName, sandboxes, path, mnemonic, environment, treeDeleter, target);
     }
   }
 
@@ -239,6 +250,7 @@ public class SandboxStash {
               sandboxToTarget.put(stashPath, target);
             }
           } catch (InterruptedException e) {
+            // Finish the job without stashing the sandbox
           } catch (IOException e) {
             // TODO(bazel-team): Are we sure we don't want to surface this error?
             turnOffReuse("Error stashing sandbox at %s: %s", stashPath, e);
@@ -349,7 +361,9 @@ public class SandboxStash {
   public static void initialize(String workspaceName, Path sandboxBase, SandboxOptions options) {
     if (options.reuseSandboxDirectories) {
       if (instance == null) {
-        instance = new SandboxStash(workspaceName, sandboxBase, options.experimentalInMemorySandboxStashes);
+        instance =
+            new SandboxStash(
+                workspaceName, sandboxBase, options.experimentalInMemorySandboxStashes);
       } else {
         if (!Objects.equals(workspaceName, instance.workspaceName)) {
           Path stashBase = getStashBase(instance.sandboxBase);
@@ -361,8 +375,9 @@ public class SandboxStash {
             instance.turnOffReuse(
                 "Unable to clear old sandbox stash %s: %s\n", stashBase, e.getMessage());
           }
-          instance = new SandboxStash(workspaceName, sandboxBase,
-              options.experimentalInMemorySandboxStashes);
+          instance =
+              new SandboxStash(
+                  workspaceName, sandboxBase, options.experimentalInMemorySandboxStashes);
         }
         instance.inMemoryStashes = options.experimentalInMemorySandboxStashes;
       }
@@ -477,7 +492,7 @@ public class SandboxStash {
           throw new InterruptedException();
         }
         Path absPath = root.getChild(dirent.getName());
-        if (SYMLINK.equals(dirent.getType())) {
+        if (Objects.equals(dirent.getType(), SYMLINK)) {
           if ((stashContents.filesToPath().containsKey(dirent.getName())
                   || stashContents.symlinksToPathFragment().containsKey(dirent.getName()))
               && absPath.stat().getLastChangeTime() <= timestamp) {
@@ -485,7 +500,7 @@ public class SandboxStash {
           } else {
             absPath.delete();
           }
-        } else if (DIRECTORY.equals(dirent.getType())) {
+        } else if (Objects.equals(dirent.getType(), DIRECTORY)) {
           if (stashContents.dirEntries().containsKey(dirent.getName())) {
             dirsToKeep.add(dirent.getName());
             listContentsRecursively(
@@ -499,15 +514,21 @@ public class SandboxStash {
         }
       }
 
-      for (String entry : getStringsToRemove(stashContents.dirEntries().keySet(), dirsToKeep)) {
-        stashContents.dirEntries().remove(entry);
-      }
-      for (String entry : getStringsToRemove(stashContents.filesToPath().keySet(), filesAndSymlinksToKeep)) {
-        stashContents.filesToPath().remove(entry);
-      }
-      for (String entry : getStringsToRemove(stashContents.symlinksToPathFragment().keySet(), filesAndSymlinksToKeep)) {
-        stashContents.symlinksToPathFragment().remove(entry);
-      }
+      stashContents
+          .dirEntries()
+          .keySet()
+          .removeAll(getStringsToRemove(stashContents.dirEntries().keySet(), dirsToKeep));
+      stashContents
+          .filesToPath()
+          .keySet()
+          .removeAll(
+              getStringsToRemove(stashContents.filesToPath().keySet(), filesAndSymlinksToKeep));
+      stashContents
+          .symlinksToPathFragment()
+          .keySet()
+          .removeAll(
+              getStringsToRemove(
+                  stashContents.symlinksToPathFragment().keySet(), filesAndSymlinksToKeep));
     } else {
       for (var entry : stashContents.dirEntries().entrySet()) {
         Path absPath = root.getChild(entry.getKey());
@@ -543,9 +564,8 @@ public class SandboxStash {
       int count = getMatchingSegmentsCount(targetStr, stashTarget.getPackageName().split("/"));
       countMap.put(stash, count);
     }
-    return sortedStashes.stream()
-        .sorted(Comparator.comparingInt(countMap::get).reversed())
-        .collect(ImmutableList.toImmutableList());
+    return ImmutableList.sortedCopyOf(
+        Comparator.comparingInt(countMap::get).reversed(), sortedStashes);
   }
 
   private int getMatchingSegmentsCount(String[] target, String[] oldTarget) {
@@ -560,34 +580,42 @@ public class SandboxStash {
     return count;
   }
 
-  private void updateStashContentsAfterRunfilesMove(String stashedRunfiles, String currentRunfiles, StashContents stashContents) {
-    List<String> stashedRunfilesSegments = ImmutableList.copyOf(PathFragment.create(stashedRunfiles).segments());
-    StashContents runfilesStashContents = getStashedRunfilesStashContents(stashedRunfilesSegments,
-        0,
-        stashContents);
-    List<String> currentRunfilesSegments = ImmutableList.copyOf(PathFragment.create(currentRunfiles).segments());
-    putStashedRunfilesStashContents(currentRunfilesSegments, 0, stashContents, runfilesStashContents);
+  private void updateStashContentsAfterRunfilesMove(
+      String stashedRunfiles, String currentRunfiles, StashContents stashContents) {
+    ImmutableList<String> stashedRunfilesSegments =
+        ImmutableList.copyOf(PathFragment.create(stashedRunfiles).segments());
+    StashContents runfilesStashContents =
+        getStashedRunfilesStashContents(stashedRunfilesSegments, 0, stashContents);
+    ImmutableList<String> currentRunfilesSegments =
+        ImmutableList.copyOf(PathFragment.create(currentRunfiles).segments());
+    putStashedRunfilesStashContents(
+        currentRunfilesSegments, 0, stashContents, runfilesStashContents);
   }
 
-  private StashContents getStashedRunfilesStashContents(List<String> stashedRunfiles, int i, StashContents stashContents) {
+  private StashContents getStashedRunfilesStashContents(
+      List<String> stashedRunfiles, int i, StashContents stashContents) {
     Preconditions.checkState(i < stashedRunfiles.size());
     String segment = stashedRunfiles.get(i);
     Preconditions.checkState(stashContents.dirEntries().containsKey(segment));
     if (i < stashedRunfiles.size() - 1) {
-      return getStashedRunfilesStashContents(stashedRunfiles, i + 1, stashContents.dirEntries().get(segment));
+      return getStashedRunfilesStashContents(
+          stashedRunfiles, i + 1, stashContents.dirEntries().get(segment));
     } else {
       return stashContents.dirEntries().remove(segment);
     }
   }
 
-  private void putStashedRunfilesStashContents(List<String> currentRunfiles, int i, StashContents stashContents, StashContents runfilesStashContents) {
+  private void putStashedRunfilesStashContents(
+      List<String> currentRunfiles,
+      int i,
+      StashContents stashContents,
+      StashContents runfilesStashContents) {
     Preconditions.checkState(i < currentRunfiles.size());
     String segment = currentRunfiles.get(i);
     if (i < currentRunfiles.size() - 1) {
-      if (!stashContents.dirEntries().containsKey(segment)) {
-        stashContents.dirEntries().put(segment, StashContents.create());
-      }
-      putStashedRunfilesStashContents(currentRunfiles, i + 1, stashContents.dirEntries().get(segment), runfilesStashContents);
+      stashContents.dirEntries().putIfAbsent(segment, StashContents.create());
+      putStashedRunfilesStashContents(
+          currentRunfiles, i + 1, stashContents.dirEntries().get(segment), runfilesStashContents);
     } else {
       stashContents.dirEntries().put(segment, runfilesStashContents);
     }

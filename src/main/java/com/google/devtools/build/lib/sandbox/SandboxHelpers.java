@@ -188,13 +188,7 @@ public final class SandboxHelpers {
     }
     if (stashContents == null) {
       cleanRecursively(
-          root,
-          inputs,
-          inputsToCreate,
-          dirsToCreate,
-          workDir,
-          prefixDirs,
-          treeDeleter);
+          root, inputs, inputsToCreate, dirsToCreate, workDir, prefixDirs, treeDeleter);
     } else {
       cleanRecursivelyWithInMemoryStashes(
           root,
@@ -348,7 +342,7 @@ public final class SandboxHelpers {
     }
   }
 
-  private static PathFragment getPathRelativeToWorkDir(Path absPath, Path workDir, Path execroot)  {
+  private static PathFragment getPathRelativeToWorkDir(Path absPath, Path workDir, Path execroot) {
     if (absPath.startsWith(workDir)) {
       // path is under workDir, i.e. execroot/<workspace name>. Simply get the relative path.
       return absPath.relativeTo(workDir);
@@ -356,8 +350,8 @@ public final class SandboxHelpers {
       // path is not under workDir, which means it belongs to one of external repositories
       // symlinked directly under execroot. Get the relative path based on there and prepend it
       // with the designated prefix, '../', so that it's still a valid relative path to workDir.
-     return LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
-              absPath.relativeTo(execroot));
+      return LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
+          absPath.relativeTo(execroot));
     }
   }
 
@@ -666,14 +660,21 @@ public final class SandboxHelpers {
         .contains("--wrapper_script_flag=--debug");
   }
 
+  /** Used to store sandbox stashes in-memory. */
   @AutoValue
   public abstract static class StashContents {
+    @SuppressWarnings("AutoValueImmutableFields")
     public abstract Map<String, Path> filesToPath();
+
+    @SuppressWarnings("AutoValueImmutableFields")
     public abstract Map<String, PathFragment> symlinksToPathFragment();
+
+    @SuppressWarnings("AutoValueImmutableFields")
     public abstract Map<String, StashContents> dirEntries();
 
     public static StashContents create() {
-      return new AutoValue_SandboxHelpers_StashContents(new HashMap<>(), new HashMap<>(), new HashMap<>());
+      return new AutoValue_SandboxHelpers_StashContents(
+          new HashMap<>(), new HashMap<>(), new HashMap<>());
     }
   }
 }
