@@ -15,7 +15,6 @@
 #include "src/tools/singlejar/combiners.h"
 
 #include <algorithm>
-#include <arpa/inet.h>
 #include <cctype>
 #include <cstring>
 #include <fstream>
@@ -27,6 +26,12 @@
 #include <sstream>
 #include <string>
 #include <vector>
+
+#ifdef _WIN32
+#include <winsock2.h>  // for htonl, htons, ntohl, ntohs
+#else
+#include <arpa/inet.h>  // for htonl, htons, ntohl, ntohs
+#endif
 
 #include "src/tools/singlejar/diag.h"
 
@@ -326,6 +331,7 @@ void writeBoolean(TransientBytes &buffer, bool value) {
 }
 
 void writeInt(TransientBytes &buffer, int value) {
+  value = htonl(value);
   uint8_t data[sizeof(value)];
   std::memcpy(data, &value, sizeof(value));
   buffer.Append(data, sizeof(value));
@@ -344,10 +350,10 @@ void writeUTFString(TransientBytes &buffer, const std::string &str) {
 std::unique_ptr<TransientBytes> writeLog4j2PluginCacheFile(std::map<std::string, std::map<std::string, PluginEntry>> categories) {
   std::unique_ptr<TransientBytes> buffer;
   buffer.reset(new TransientBytes());
-  writeInt(*buffer, htonl(static_cast<int>(categories.size())));
+  writeInt(*buffer, static_cast<int>(categories.size()));
   for (const auto &categoryPair : categories) {
     writeUTFString(*buffer, categoryPair.first);
-    writeInt(*buffer, htonl(static_cast<int>(categoryPair.second.size())));
+    writeInt(*buffer, static_cast<int>(categoryPair.second.size()));
     for (const auto &pluginPair : categoryPair.second) {
       const PluginEntry &plugin = pluginPair.second;
       writeUTFString(*buffer, plugin.key);
