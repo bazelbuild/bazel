@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import java.util.Optional;
 import org.junit.Test;
@@ -56,8 +55,9 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
             ruleClassProvider.getFragmentRegistry().getOptionsClasses());
-    PathFragment projectFile = PathFragment.createAlreadyNormalized("//test/PROJECT.scl");
-    FlagSetValue.Key key = FlagSetValue.Key.create(projectFile, "test_config", buildOptions);
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            Label.parseCanonical("//test:PROJECT.scl"), "test_config", buildOptions);
     FlagSetValue flagSetsValue = executeFunction(key);
 
     // expects the modified BuildOptions
@@ -77,8 +77,9 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
             ruleClassProvider.getFragmentRegistry().getOptionsClasses());
-    PathFragment projectFile = PathFragment.createAlreadyNormalized("//test/PROJECT.scl");
-    FlagSetValue.Key key = FlagSetValue.Key.create(projectFile, "unknown_config", buildOptions);
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            Label.parseCanonical("//test:PROJECT.scl"), "unknown_config", buildOptions);
     FlagSetValue flagSetsValue = executeFunction(key);
 
     // expects the original BuildOptions
@@ -91,8 +92,8 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(
             ruleClassProvider.getFragmentRegistry().getOptionsClasses());
-    PathFragment projectFile = PathFragment.create("test/PROJECT.scl");
-    FlagSetValue.Key key = FlagSetValue.Key.create(projectFile, "", buildOptions);
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(Label.parseCanonical("//test:PROJECT.scl"), "", buildOptions);
     FlagSetValue flagSetsValue = executeFunction(key);
 
     // expects the original BuildOptions

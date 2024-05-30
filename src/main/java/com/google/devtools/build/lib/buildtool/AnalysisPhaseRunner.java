@@ -63,7 +63,6 @@ import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
 import java.util.List;
@@ -105,7 +104,7 @@ public final class AnalysisPhaseRunner {
     BuildOptions postFlagsetsBuildOptions;
     String sclConfig = buildOptionsBeforeFlagSets.get(CoreOptions.class).sclConfig;
     if (sclConfig != null && !sclConfig.isEmpty()) {
-      PathFragment projectFile =
+      Label projectFile =
           BuildTool.getProjectFile(
               loadingResult.getTargetLabels(), env.getSkyframeExecutor(), env.getReporter());
       if (projectFile != null) {

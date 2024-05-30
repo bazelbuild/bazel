@@ -635,6 +635,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             buildFilesByPriority,
             externalPackageHelper));
     map.put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction());
+    map.put(SkyFunctions.PROJECT_FILES_LOOKUP, new ProjectFilesLookupFunction());
     map.put(
         SkyFunctions.BZL_COMPILE, // TODO rename
         new BzlCompileFunction(
