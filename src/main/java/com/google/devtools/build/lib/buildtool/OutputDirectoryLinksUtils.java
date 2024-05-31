@@ -103,7 +103,6 @@ public final class OutputDirectoryLinksUtils {
       String productName) {
     Path execRoot = directories.getExecRoot(workspaceName);
     Path outputPath = directories.getOutputPath(workspaceName);
-    Path outputBase = directories.getOutputBase();
     String symlinkPrefix = buildRequestOptions.getSymlinkPrefix(productName);
     ConvenienceSymlinksMode mode = buildRequestOptions.experimentalConvenienceSymlinks;
     if (NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {
@@ -141,7 +140,8 @@ public final class OutputDirectoryLinksUtils {
           createLink(
               workspace,
               linkName,
-              outputBase,
+              execRoot,
+              directories,
               Iterables.getOnlyElement(candidatePaths),
               failures,
               convenienceSymlinksBuilder,
@@ -224,7 +224,8 @@ public final class OutputDirectoryLinksUtils {
    * as needed; it points to {@code target}. Any filesystem errors are appended to {@code failures}.
    *
    * <p>A {@code ConvenienceSymlink} entry is added to {@code symlinksBuilder} describing the
-   * symlink. {@code outputBase} is used to determine the relative target path for this entry.
+   * symlink. {@code execRoot} and {@code directories} are used to determine the relative target
+   * path for this entry.
    *
    * <p>If {@code logOnly} is true, the {@code ConvenienceSymlink} entry is added but no actual
    * filesystem operations are performed.
@@ -232,25 +233,28 @@ public final class OutputDirectoryLinksUtils {
   private static void createLink(
       Path base,
       String name,
-      Path outputBase,
+      Path execRoot,
+      BlazeDirectories directories,
       Path target,
       List<String> failures,
       ImmutableList.Builder<ConvenienceSymlink> symlinksBuilder,
       ImmutableMap.Builder<PathFragment, PathFragment> createdSymlinksBuilder,
       boolean logOnly) {
-    // Usually the symlink target falls under the output base, and the path in the BEP event should
-    // be relative to that output base. In rare cases where the symlink points elsewhere, use the
-    // absolute path as a fallback.
-    String targetForEvent =
+    // The BEP event needs to report a target path relative to the output base. Usually the target
+    // is already under the output base, but if the execroot is virtual (only happens in internal
+    // blaze, see ModuleFileSystem), we need to rewrite the path using the real execroot.
+    Path outputBase = directories.getOutputBase();
+    Path targetForEvent =
         target.startsWith(outputBase)
-            ? target.relativeTo(outputBase).getPathString()
-            : target.getPathString();
+            ? target
+            : directories.getBlazeExecRoot().getRelative(target.relativeTo(execRoot));
     symlinksBuilder.add(
         ConvenienceSymlink.newBuilder()
             .setPath(name)
-            .setTarget(targetForEvent)
+            .setTarget(targetForEvent.relativeTo(outputBase).getPathString())
             .setAction(Action.CREATE)
             .build());
+
     PathFragment nameFragment = PathFragment.create(name);
     if (logOnly) {
       // Still report as created - log-only implies we want to pretend it exists.
