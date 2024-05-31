@@ -670,4 +670,29 @@ public class CcStarlarkInternal implements StarlarkValue {
             shareableArtifacts);
     return new WrappedStarlarkActionFactory(actions, construction);
   }
+
+  @StarlarkMethod(
+      name = "actions2ctx_cheat",
+      documented = false,
+      parameters = {
+        @Param(name = "actions"),
+      })
+  public StarlarkRuleContext getLabel(StarlarkActionFactory actions) {
+    return actions.getRuleContext().getStarlarkRuleContext();
+  }
+
+  @StarlarkMethod(
+      name = "rule_kind_cheat",
+      documented = false,
+      parameters = {
+        @Param(name = "actions"),
+      })
+  public String getTargetKind(StarlarkActionFactory actions) {
+    return actions
+        .getRuleContext()
+        .getStarlarkRuleContext()
+        .getRuleContext()
+        .getRule()
+        .getTargetKind();
+  }
 }

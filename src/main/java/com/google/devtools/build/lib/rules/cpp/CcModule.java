@@ -1825,20 +1825,22 @@ public abstract class CcModule
     return object != Starlark.NONE ? type.cast(object) : null;
   }
 
+  // LINT.IfChange
   @Override
   public Tuple createLinkingContextFromCompilationOutputs(
       StarlarkActionFactory starlarkActionFactoryApi,
+      String name,
       FeatureConfigurationForStarlark starlarkFeatureConfiguration,
       Info starlarkCcToolchainProvider,
-      CcCompilationOutputs compilationOutputs,
-      Sequence<?> userLinkFlags, // <String> expected
-      Sequence<?> linkingContextsObjects, // <CcLinkingContext> expected
-      String name,
       String language,
-      boolean alwayslink,
-      Sequence<?> additionalInputs, // <Artifact> expected
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
+      CcCompilationOutputs compilationOutputs,
+      Sequence<?> linkingContextsObjects,
+      Sequence<?> userLinkFlags, // <String> expected
+      // <CcLinkingContext> expected
+      boolean alwayslink,
+      Sequence<?> additionalInputs, // <Artifact> expected
       Object variablesExtension,
       Object stamp,
       Object linkedDllNameSuffix,
@@ -1917,6 +1919,8 @@ public abstract class CcModule
       throw Starlark.errorf("%s", e.getMessage());
     }
   }
+
+  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/create_linking_context_from_compilation_outputs.bzl)
 
   @Override
   public CcDebugInfoContext createCcDebugInfoFromStarlark(

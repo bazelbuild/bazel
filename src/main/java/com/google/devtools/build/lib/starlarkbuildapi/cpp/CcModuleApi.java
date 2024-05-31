@@ -1962,7 +1962,7 @@ public interface CcModuleApi<
       doc =
           "Should be used for creating library rules that can propagate information downstream in"
               + " order to be linked later by a top level rule that does transitive linking to"
-              + " create an executable or dynamic library. Returns tuple of "
+              + " create an executable or a dynamic library. Returns tuple of "
               + "(<code>CcLinkingContext</code>, <code>CcLinkingOutputs</code>).",
       useStarlarkThread = true,
       parameters = {
@@ -1971,6 +1971,13 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             doc = "<code>actions</code> object."),
+        @Param(
+            name = "name",
+            doc =
+                "This is used for naming the output artifacts of actions created by this "
+                    + "method.",
+            positional = false,
+            named = true),
         @Param(
             name = "feature_configuration",
             doc = "<code>feature_configuration</code> to be queried.",
@@ -1982,49 +1989,11 @@ public interface CcModuleApi<
             positional = false,
             named = true),
         @Param(
-            name = "compilation_outputs",
-            doc = "Compilation outputs containing object files to link.",
-            positional = false,
-            named = true),
-        @Param(
-            name = "user_link_flags",
-            doc = "Additional list of linking options.",
-            positional = false,
-            named = true,
-            defaultValue = "[]"),
-        @Param(
-            name = "linking_contexts",
-            doc =
-                "Libraries from dependencies. These libraries will be linked into the output "
-                    + "artifact of the link() call, be it a binary or a library.",
-            positional = false,
-            named = true,
-            defaultValue = "[]"),
-        @Param(
-            name = "name",
-            doc =
-                "This is used for naming the output artifacts of actions created by this "
-                    + "method.",
-            positional = false,
-            named = true),
-        @Param(
             name = "language",
             doc = "Only C++ supported for now. Do not use this parameter.",
             positional = false,
             named = true,
             defaultValue = "'c++'"),
-        @Param(
-            name = "alwayslink",
-            doc = "Whether this library should always be linked.",
-            positional = false,
-            named = true,
-            defaultValue = "False"),
-        @Param(
-            name = "additional_inputs",
-            doc = "For additional inputs to the linking action, e.g.: linking scripts.",
-            positional = false,
-            named = true,
-            defaultValue = "[]"),
         @Param(
             name = "disallow_static_libraries",
             doc = "Whether static libraries should be created.",
@@ -2038,10 +2007,43 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "False"),
         @Param(
-            name = "variables_extension",
+            name = "compilation_outputs",
+            doc = "Compilation outputs containing object files to link.",
+            positional = false,
+            named = true),
+        @Param(
+            name = "linking_contexts",
+            doc =
+                "Libraries from dependencies. These libraries will be linked into the output "
+                    + "artifact of the link() call, be it a binary or a library.",
             positional = false,
             named = true,
-            documented = false,
+            defaultValue = "[]"),
+        @Param(
+            name = "user_link_flags",
+            doc = "Additional list of linking options.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "alwayslink",
+            doc = "Whether this library should always be linked.",
+            positional = false,
+            named = true,
+            defaultValue = "False"),
+        @Param(
+            name = "additional_inputs",
+            doc = "For additional inputs to the linking action, e.g.: linking scripts.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "variables_extension",
+            doc =
+                "Additional variables to pass to the toolchain configuration when creating link"
+                    + " command line.",
+            positional = false,
+            named = true,
             allowedTypes = {@ParamType(type = Dict.class)},
             defaultValue = "unbound"),
         @Param(
@@ -2066,17 +2068,17 @@ public interface CcModuleApi<
       })
   Tuple createLinkingContextFromCompilationOutputs(
       StarlarkActionFactoryT starlarkActionFactoryApi,
+      String name,
       FeatureConfigurationT starlarkFeatureConfiguration,
       Info starlarkCcToolchainProvider,
-      CompilationOutputsT compilationOutputs,
-      Sequence<?> userLinkFlags, // <String> expected
-      Sequence<?> linkingContexts, // <LinkingContextT> expected
-      String name,
       String language,
-      boolean alwayslink,
-      Sequence<?> additionalInputs, // <FileT> expected
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
+      CompilationOutputsT compilationOutputs,
+      Sequence<?> linkingContexts, // <LinkingContextT> expected
+      Sequence<?> userLinkFlags, // <String> expected
+      boolean alwayslink,
+      Sequence<?> additionalInputs, // <FileT> expected
       Object variablesExtension,
       Object stamp,
       Object linkedDllNameSuffix,
