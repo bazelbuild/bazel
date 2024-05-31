@@ -292,6 +292,13 @@ public class CppRuleClasses {
   /** A string constant for enabling fsafdo for AutoFDO implicitly. */
   public static final String ENABLE_FSAFDO = "enable_fsafdo";
 
+  /** A string constant for enabling memprof_optimize for AutoFDO implicitly. */
+  public static final String ENABLE_AUTOFDO_MEMPROF_OPTIMIZE = "enable_autofdo_memprof_optimize";
+
+  /** A string constant for allowing memprof_optimize for AutoFDO implicitly. */
+  public static final String AUTOFDO_IMPLICIT_MEMPROF_OPTIMIZE =
+      "autofdo_implicit_memprof_optimize";
+
   /**
    * A string constant for allowing use of shared LTO backend actions for linkstatic tests building
    * with ThinLTO.
