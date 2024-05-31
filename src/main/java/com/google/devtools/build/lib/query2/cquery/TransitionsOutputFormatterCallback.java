@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
@@ -144,7 +143,9 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
     return factory
         .create(
             RuleTransitionData.create(
-                target.getAssociatedRule(), null, ct.getConfigurationKey().getOptionsChecksum()))
+                target.getAssociatedRule(),
+                /* configConditions= */ null,
+                ct.getConfigurationKey().getOptionsChecksum()))
         .getName()
         .concat(" -> ");
   }

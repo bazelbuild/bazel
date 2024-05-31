@@ -98,7 +98,9 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
   }
 
   private FunctionPatchTransition createTransition(
-      Rule rule, ImmutableMap<Label, ConfigMatchingProvider> configConditions, String configHash) {
+      Rule rule,
+      @Nullable ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      String configHash) {
     LinkedHashMap<String, Object> attributes = new LinkedHashMap<>();
     RawAttributeMapper attributeMapper = RawAttributeMapper.of(rule);
     ConfiguredAttributeMapper configuredAttributeMapper =
@@ -151,13 +153,13 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
   }
 
   private Result handleConfiguredAttribute(
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      @Nullable ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       ConfiguredAttributeMapper configuredAttributeMapper,
       ImmutableList<String> transitionOutputs,
       Attribute attribute,
       SelectorList<?> val) {
     // If there are no configConditions then nothing is resolvable.
-    if (configConditions.isEmpty()) {
+    if (configConditions == null || configConditions.isEmpty()) {
       return Result.failure();
     }
 
