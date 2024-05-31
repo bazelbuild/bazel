@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChec
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
@@ -248,12 +249,12 @@ public class CqueryTransitionResolver {
 
   @Nullable
   private ConfigurationTransition getRuleTransition(CqueryNode configuredTarget) {
-    if (configuredTarget instanceof RuleConfiguredTarget) {
-      return computeTransition(
-          accessor.getTarget(configuredTarget).getAssociatedRule(),
-          ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory());
+    Rule rule = accessor.getTarget(configuredTarget).getAssociatedRule();
+    if (rule == null) {
+      return null;
     }
-    return null;
+    return computeTransition(
+        rule, ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory());
   }
 
   private static String getTransitionName(
