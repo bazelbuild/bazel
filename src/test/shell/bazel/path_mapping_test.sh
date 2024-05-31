@@ -524,6 +524,7 @@ EOF
     --experimental_output_paths=strip \
     --modify_execution_info=CppCompile=+supports-path-mapping \
     --remote_executor=grpc://localhost:${worker_port} \
+    --features=-module_maps \
     "//$pkg:main" &>"$TEST_log" || fail "Expected success"
 
   expect_log 'Hello, lib1!'
@@ -535,6 +536,7 @@ EOF
     --experimental_output_paths=strip \
     --modify_execution_info=CppCompile=+supports-path-mapping \
     --remote_executor=grpc://localhost:${worker_port} \
+    --features=-module_maps \
     "//$pkg:transitioned_main" &>"$TEST_log" || fail "Expected success"
 
   expect_log 'Hi there, lib1!'
