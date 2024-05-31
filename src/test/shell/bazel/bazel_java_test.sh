@@ -88,6 +88,7 @@ fi
 export TESTENV_DONT_BAZEL_CLEAN=1
 
 function tear_down() {
+  bazel shutdown
   rm -rf "$(bazel info bazel-bin)/java"
 }
 
