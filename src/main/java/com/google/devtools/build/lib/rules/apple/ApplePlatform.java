@@ -116,7 +116,7 @@ public enum ApplePlatform implements ApplePlatformApi {
    * its own value.
    */
   public String getTargetPlatform() {
-    if (platformType == PlatformType.CATALYST) {
+    if (platformType.equals(PlatformType.CATALYST)) {
       return PlatformType.IOS;
     }
     return platformType;
@@ -130,7 +130,7 @@ public enum ApplePlatform implements ApplePlatformApi {
    * represented in this enumerated type.
    */
   public String getTargetEnvironment() {
-    if (platformType == PlatformType.CATALYST) {
+    if (platformType.equals(PlatformType.CATALYST)) {
       return "macabi";
     }
     return isDevice ? "device" : "simulator";
