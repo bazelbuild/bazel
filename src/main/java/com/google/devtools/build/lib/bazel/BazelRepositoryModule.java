@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.RepoSpecFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionUsagesFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.VendorFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.commands.FetchCommand;
@@ -278,6 +279,9 @@ public class BazelRepositoryModule extends BlazeModule {
                 directories.getWorkspace()))
         .addSkyFunction(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
         .addSkyFunction(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
+        .addSkyFunction(
+            SkyFunctions.VENDOR_FILE,
+            new VendorFileFunction(runtime.getRuleClassProvider().getBazelStarlarkEnvironment()))
         .addSkyFunction(
             SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
             new ModuleExtensionRepoMappingEntriesFunction());
@@ -610,6 +614,7 @@ public class BazelRepositoryModule extends BlazeModule {
         PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, bazelLockfileMode),
         PrecomputedValue.injected(RepositoryDelegatorFunction.IS_VENDOR_COMMAND, false),
         PrecomputedValue.injected(RepositoryDelegatorFunction.VENDOR_DIRECTORY, vendorDirectory),
+        PrecomputedValue.injected(VendorFileFunction.VENDOR_DIRECTORY, vendorDirectory),
         PrecomputedValue.injected(
             YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, allowedYankedVersions),
         PrecomputedValue.injected(

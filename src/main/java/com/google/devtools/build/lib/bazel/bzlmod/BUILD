@@ -146,6 +146,7 @@ java_library(
         "SingleExtensionUsagesValue.java",
         "SingleExtensionValue.java",
         "SingleVersionOverride.java",
+        "VendorFileValue.java",
         "YankedVersionsValue.java",
     ],
     deps = [
@@ -204,6 +205,7 @@ java_library(
         "SingleExtensionUsagesFunction.java",
         "StarlarkBazelModule.java",
         "TypeCheckedTag.java",
+        "VendorFileFunction.java",
         "YankedVersionsFunction.java",
         "YankedVersionsUtil.java",
     ],
