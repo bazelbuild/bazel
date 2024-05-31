@@ -15,12 +15,14 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -70,6 +72,34 @@ public abstract class ConfigMatchingProvider implements TransitiveInfoProvider {
       }
       return andWith ? MATCH : NOMATCH;
     }
+  }
+
+  /** Result of accumulating match results: contains any errors or non-matching labels. */
+  public record AccumulateResults(
+      ImmutableList<Label> nonMatching, ImmutableMap<Label, String> errors) {
+    public boolean success() {
+      return nonMatching.isEmpty() && errors.isEmpty();
+    }
+  }
+
+  /**
+   * Combine the results from the given {@link ConfigMatchingProvider} instances, returning any
+   * errors and non-matching providers.
+   */
+  public static AccumulateResults accumulateMatchResults(List<ConfigMatchingProvider> providers) {
+    ImmutableList.Builder<Label> nonMatching = new ImmutableList.Builder<>();
+    ImmutableMap.Builder<Label, String> errors = new ImmutableMap.Builder<>();
+    for (ConfigMatchingProvider configProvider : providers) {
+      ConfigMatchingProvider.MatchResult matchResult = configProvider.result();
+      if (matchResult.getError() != null) {
+        String message = matchResult.getError();
+        errors.put(configProvider.label(), message);
+      } else if (matchResult.equals(ConfigMatchingProvider.MatchResult.NOMATCH)) {
+        nonMatching.add(configProvider.label());
+      }
+    }
+
+    return new AccumulateResults(nonMatching.build(), errors.buildKeepingLast());
   }
 
   /**

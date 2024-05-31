@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider.AccumulateResults;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
@@ -167,39 +168,39 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
 
     for (DeclaredToolchainInfo toolchain : filteredToolchains) {
       // Make sure the target setting matches but watch out for resolution errors.
-      ArrayList<String> nonmatchingSettings = new ArrayList<>();
-      ArrayList<String> errors = new ArrayList<>();
-
-      // TODO(blaze-configurability-team): If this pattern comes up more often, add a central
-      //   facility for merging multiple MatchResult
-      for (ConfigMatchingProvider configProvider : toolchain.targetSettings()) {
-        ConfigMatchingProvider.MatchResult matchResult = configProvider.result();
-        if (matchResult.getError() != null) {
-          String message = matchResult.getError();
-          errors.add("For config_setting " + configProvider.label().getName() + ", " + message);
-        } else if (matchResult.equals(ConfigMatchingProvider.MatchResult.NOMATCH)) {
-          nonmatchingSettings.add(configProvider.label().getName());
-        }
-      }
-      if (!errors.isEmpty()) {
+      AccumulateResults accumulateResults =
+          ConfigMatchingProvider.accumulateMatchResults(toolchain.targetSettings());
+      if (!accumulateResults.errors().isEmpty()) {
         // TODO(blaze-configurability-team): This should only be due to feature flag trimming. So,
         // would be better to just ensure toolchain resolution isn't transitively dependent on
         // feature flags at all.
+        String message =
+            accumulateResults.errors().entrySet().stream()
+                .map(
+                    entry ->
+                        String.format(
+                            "For config_setting %s, %s",
+                            entry.getKey().getName(), entry.getValue()))
+                .collect(joining("; "));
         throw new ToolchainResolutionFunctionException(
             new InvalidConfigurationDuringToolchainResolutionException(
                 new InvalidConfigurationException(
                     "Unrecoverable errors resolving config_setting associated with "
                         + toolchain.toolchainLabel()
                         + ": "
-                        + String.join("; ", errors))));
+                        + message)));
       }
-      if (!nonmatchingSettings.isEmpty()) {
+      if (!accumulateResults.nonMatching().isEmpty()) {
+        String message =
+            accumulateResults.nonMatching().stream().map(Label::getName).collect(joining(", "));
         debugMessage(
             resolutionTrace,
             IndentLevel.TOOLCHAIN_LEVEL,
             "Rejected toolchain %s; mismatching config settings: %s",
             toolchain.toolchainLabel(),
-            String.join(", ", nonmatchingSettings));
+            message);
+      }
+      if (!accumulateResults.success()) {
         continue;
       }
 
