@@ -45,7 +45,7 @@ public final class MemoryPressureOptions extends OptionsBase {
 
   @Option(
       name = "skyframe_high_water_mark_minor_gc_drops_per_invocation",
-      defaultValue = "" + Integer.MAX_VALUE,
+      defaultValue = "10",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       converter = NonNegativeIntegerConverter.class,
@@ -54,15 +54,14 @@ public final class MemoryPressureOptions extends OptionsBase {
               + " its retained heap percentage usage exceeds the threshold set by"
               + " --skyframe_high_water_mark_threshold, when a minor GC event occurs, it will drop"
               + " unnecessary temporary Skyframe state, up to this many times per invocation."
-              + " Defaults to Integer.MAX_VALUE; effectively unlimited. Zero means that minor GC"
-              + " events will never trigger drops. If the limit is reached, Skyframe state will no"
-              + " longer be dropped when a minor GC event occurs and that retained heap percentage"
-              + " threshold is exceeded.")
+              + " Defaults to 10. Zero means that minor GC events will never trigger drops. If the"
+              + " limit is reached, Skyframe state will no longer be dropped when a minor GC event"
+              + " occurs and that retained heap percentage threshold is exceeded.")
   public int skyframeHighWaterMarkMinorGcDropsPerInvocation;
 
   @Option(
       name = "skyframe_high_water_mark_full_gc_drops_per_invocation",
-      defaultValue = "" + Integer.MAX_VALUE,
+      defaultValue = "10",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       converter = NonNegativeIntegerConverter.class,
@@ -71,10 +70,9 @@ public final class MemoryPressureOptions extends OptionsBase {
               + " its retained heap percentage usage exceeds the threshold set by"
               + " --skyframe_high_water_mark_threshold, when a full GC event occurs, it will drop"
               + " unnecessary temporary Skyframe state, up to this many times per invocation."
-              + " Defaults to Integer.MAX_VALUE; effectively unlimited. Zero means that full GC"
-              + " events will never trigger drops. If the limit is reached, Skyframe state will no"
-              + " longer be dropped when a full GC event occurs and that retained heap percentage"
-              + " threshold is exceeded.")
+              + " Defaults to 10. Zero means that full GC events will never trigger drops. If the"
+              + " limit is reached, Skyframe state will no longer be dropped when a full GC event"
+              + " occurs and that retained heap percentage threshold is exceeded.")
   public int skyframeHighWaterMarkFullGcDropsPerInvocation;
 
   @Option(

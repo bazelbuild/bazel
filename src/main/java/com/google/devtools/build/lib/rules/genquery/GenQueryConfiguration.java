@@ -30,7 +30,7 @@ public class GenQueryConfiguration extends Fragment {
   public static class GenQueryOptions extends FragmentOptions {
     @Option(
         name = "experimental_skip_ttvs_for_genquery",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
         help =
