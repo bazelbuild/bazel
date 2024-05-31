@@ -275,7 +275,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
    */
   public List<String> getMultiArchitectures(String platformType) {
     if (!Strings.isNullOrEmpty(appleCpus.appleSplitCpu())) {
-      if (applePlatformType != platformType) {
+      if (!applePlatformType.equals(platformType)) {
         throw new IllegalArgumentException(
             String.format("Expected post-split-transition platform type %s to match input %s ",
                 applePlatformType, platformType));
