@@ -339,8 +339,8 @@ public abstract class CcModule
                     /* cppModuleMap= */ null,
                     usePic,
                     /* fdoStamp= */ null,
-                    /* dotdFileExecPath= */ null,
-                    /* diagnosticsFileExecPath= */ null,
+                    /* dotdFile= */ null,
+                    /* diagnosticsFile= */ null,
                     variablesExtensions,
                     /* additionalBuildVariables= */ ImmutableMap.of(),
                     /* directModuleMaps= */ ImmutableList.of(),
@@ -1948,7 +1948,10 @@ public abstract class CcModule
 
   protected static void isCalledFromStarlarkCcCommon(StarlarkThread thread) throws EvalException {
     Label label = BazelModuleContext.ofInnermostBzlOrThrow(thread).label();
-    if (!label.getCanonicalForm().endsWith("_builtins//:common/cc/cc_common.bzl")) {
+    // Allow direct access to cc_common.bzl and to C++ linking code that can't use cc_common.bzl
+    // directly without creating a cycle.
+    if (!label.getCanonicalForm().endsWith("_builtins//:common/cc/cc_common.bzl")
+        && !label.getCanonicalForm().contains("_builtins//:common/cc/link")) {
       throw Starlark.errorf(
           "cc_common_internal can only be used by cc_common.bzl in builtins, "
               + "please use cc_common instead.");
@@ -2262,32 +2265,33 @@ public abstract class CcModule
         additionalIncludeScanningRoots, Artifact.class, "additional_include_scanning_roots");
   }
 
+  // LINT.IfChange
   @Override
   public CcLinkingOutputs link(
       StarlarkActionFactory actions,
+      String name,
       FeatureConfigurationForStarlark starlarkFeatureConfiguration,
       Info starlarkCcToolchainProvider,
-      Object compilationOutputsObject,
-      Sequence<?> userLinkFlags,
-      Sequence<?> linkingContexts,
-      String name,
       String languageString,
       String outputType,
       boolean linkDepsStatically,
+      Object compilationOutputsObject,
+      Sequence<?> linkingContexts,
+      Sequence<?> userLinkFlags,
       StarlarkInt stamp,
       Object additionalInputs,
-      Object linkedArtifactNameSuffixObject,
-      Object neverLinkObject,
-      Object alwaysLinkObject,
-      Object testOnlyTargetObject,
+      Object linkerOutputsObject,
       Object variablesExtension,
+      Object useTestOnlyFlags,
+      Object neverLinkObject,
+      Object testOnlyTargetObject,
       Object nativeDepsObject,
       Object wholeArchiveObject,
       Object additionalLinkstampDefines,
+      Object alwaysLinkObject,
       Object onlyForDynamicLibsObject,
+      Object linkedArtifactNameSuffixObject,
       Object mainOutputObject,
-      Object linkerOutputsObject,
-      Object useTestOnlyFlags,
       Object useShareableArtifactFactory,
       Object buildConfig,
       StarlarkThread thread)
@@ -2398,6 +2402,8 @@ public abstract class CcModule
       throw Starlark.errorf("%s", e.getMessage());
     }
   }
+
+  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/link.bzl)
 
   @Override
   @SuppressWarnings("unchecked")

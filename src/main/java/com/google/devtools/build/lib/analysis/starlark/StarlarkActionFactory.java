@@ -121,6 +121,10 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     this.context = context;
   }
 
+  protected StarlarkActionFactory(StarlarkActionFactory parent) {
+    this.context = parent.context;
+  }
+
   private ArtifactRoot newFileRoot() {
     return context.newFileRoot();
   }
