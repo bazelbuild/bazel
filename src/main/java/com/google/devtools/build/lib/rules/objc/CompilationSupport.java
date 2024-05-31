@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Support for rules that compile sources. Provides ways to determine files that should be output,
@@ -36,7 +35,7 @@ import net.starlark.java.eval.StarlarkValue;
  *
  * <p>Methods on this class can be called in any order without impacting the result.
  */
-public class CompilationSupport implements StarlarkValue {
+public class CompilationSupport {
   @VisibleForTesting static final String OBJC_MODULE_CACHE_DIR_NAME = "_objc_module_cache";
 
   @VisibleForTesting
