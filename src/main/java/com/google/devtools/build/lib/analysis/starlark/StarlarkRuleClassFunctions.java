@@ -862,7 +862,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   private static TransitionFactory<RuleTransitionData> convertConfig(@Nullable Object cfg)
       throws EvalException {
     if (cfg.equals(Starlark.NONE)) {
-      return NoTransition.createFactory();
+      return NoTransition.getFactory();
     }
     if (cfg instanceof StarlarkDefinedConfigTransition starlarkDefinedConfigTransition) {
       // defined in Starlark via, cfg = transition

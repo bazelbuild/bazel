@@ -395,7 +395,7 @@ public final class Attribute implements Comparable<Attribute> {
     private final String name;
     private final Type<TYPE> type;
     private TransitionFactory<AttributeTransitionData> transitionFactory =
-        NoTransition.createFactory();
+        NoTransition.getFactory();
     private RuleClassNamePredicate allowedRuleClassesForLabels = ANY_RULE;
     private RuleClassNamePredicate allowedRuleClassesForLabelsWarning = NO_RULE;
     private FileTypeSet allowedFileTypesForLabels;

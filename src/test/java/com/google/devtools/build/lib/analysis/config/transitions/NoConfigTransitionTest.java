@@ -32,7 +32,7 @@ public class NoConfigTransitionTest extends BuildViewTestCase {
   private static final MockRule NO_CONFIG_RULE =
       () ->
           MockRule.define(
-              "no_config_rule", (builder, env) -> builder.cfg(NoConfigTransition.createFactory()));
+              "no_config_rule", (builder, env) -> builder.cfg(NoConfigTransition.getFactory()));
 
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {

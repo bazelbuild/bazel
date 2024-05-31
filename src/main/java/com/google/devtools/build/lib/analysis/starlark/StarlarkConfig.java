@@ -63,7 +63,7 @@ public class StarlarkConfig implements StarlarkConfigApi {
 
   @Override
   public ConfigurationTransitionApi target() {
-    return (ConfigurationTransitionApi) NoTransition.createFactory();
+    return (ConfigurationTransitionApi) NoTransition.getFactory();
   }
 
   @Override

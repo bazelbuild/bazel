@@ -321,7 +321,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       StarlarkThread thread, @Nullable Object trans) throws EvalException {
     // The most common case is no transition.
     if (trans.equals("target") || trans.equals(Starlark.NONE)) {
-      return NoTransition.createFactory();
+      return NoTransition.getFactory();
     }
     // TODO(b/203203933): remove after removing --incompatible_disable_starlark_host_transitions.
     if (trans.equals("host")) {
