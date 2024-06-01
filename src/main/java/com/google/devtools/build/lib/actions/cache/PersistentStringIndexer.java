@@ -56,7 +56,14 @@ final class PersistentStringIndexer implements StringIndexer {
 
     var intToString = new AtomicReferenceArray<String>(capacity);
     for (Map.Entry<String, Integer> entry : stringToInt.entrySet()) {
-      if (intToString.getAndSet(entry.getValue(), entry.getKey()) != null) {
+      int index = entry.getValue();
+      if (index < 0 || index >= capacity) {
+        throw new IOException(
+            String.format(
+                "Corrupted filename index %d out of bounds for length %d (map size %d)",
+                index, capacity, stringToInt.size()));
+      }
+      if (intToString.getAndSet(index, entry.getKey()) != null) {
         throw new IOException("Corrupted filename index has duplicate entry: " + entry.getKey());
       }
     }
