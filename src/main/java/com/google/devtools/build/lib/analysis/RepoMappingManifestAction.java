@@ -105,8 +105,7 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction
       NestedSet<SymlinkEntry> runfilesSymlinks,
       NestedSet<SymlinkEntry> runfilesRootSymlinks,
       String workspaceName) {
-    super(
-        owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), output, /* makeExecutable= */ false);
+    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), output);
     this.transitivePackages = transitivePackages;
     this.runfilesArtifacts = runfilesArtifacts;
     this.hasRunfilesSymlinks = !runfilesSymlinks.isEmpty();

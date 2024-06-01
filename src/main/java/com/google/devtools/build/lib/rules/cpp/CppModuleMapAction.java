@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -85,12 +84,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
             .addAll(Iterables.filter(privateHeaders, Artifact::isTreeArtifact))
             .addAll(Iterables.filter(publicHeaders, Artifact::isTreeArtifact))
             .build(),
-        cppModuleMap.getArtifact(),
-        // In theory, module maps should not be executable but, in practice, we don't care. As
-        // 'executable' is the default (see
-        // ActionOutputMetadataStore.setPathReadOnlyAndExecutable()),
-        // we want to avoid the extra file operation of making this file non-executable.
-        /* makeExecutable= */ true);
+        cppModuleMap.getArtifact());
     this.cppModuleMap = cppModuleMap;
     this.moduleMapHomeIsCwd = moduleMapHomeIsCwd;
     this.privateHeaders = ImmutableList.copyOf(privateHeaders);
@@ -104,117 +98,122 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)  {
+  public boolean makeExecutable() {
+    // In theory, module maps should not be executable but, in practice, we don't care. As
+    // 'executable' is the default (see ActionOutputMetadataStore.setPathReadOnlyAndExecutable()),
+    // we want to avoid the extra file operation of making this file non-executable.
+    return true;
+  }
+
+  @Override
+  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
     final ArtifactExpander artifactExpander = ctx.getArtifactExpander();
-    return new DeterministicWriter() {
-      @Override
-      public void writeOutputFile(OutputStream out) throws IOException {
-        OutputStreamWriter content = new OutputStreamWriter(out, StandardCharsets.ISO_8859_1);
-        PathFragment fragment = cppModuleMap.getArtifact().getExecPath();
-        int segmentsToExecPath = fragment.segmentCount() - 1;
-        Optional<Artifact> umbrellaHeader = cppModuleMap.getUmbrellaHeader();
-        String leadingPeriods = moduleMapHomeIsCwd ? "" : "../".repeat(segmentsToExecPath);
+    return out -> {
+      OutputStreamWriter content = new OutputStreamWriter(out, StandardCharsets.ISO_8859_1);
+      PathFragment fragment = cppModuleMap.getArtifact().getExecPath();
+      int segmentsToExecPath = fragment.segmentCount() - 1;
+      Optional<Artifact> umbrellaHeader = cppModuleMap.getUmbrellaHeader();
+      String leadingPeriods = moduleMapHomeIsCwd ? "" : "../".repeat(segmentsToExecPath);
 
-        Iterable<Artifact> separateModuleHdrs =
-            expandedHeaders(artifactExpander, separateModuleHeaders);
+      Iterable<Artifact> separateModuleHdrs =
+          expandedHeaders(artifactExpander, separateModuleHeaders);
 
-        // For details about the different header types, see:
-        // http://clang.llvm.org/docs/Modules.html#header-declaration
-        content.append("module \"").append(cppModuleMap.getName()).append("\" {\n");
-        content.append("  export *\n");
+      // For details about the different header types, see:
+      // http://clang.llvm.org/docs/Modules.html#header-declaration
+      content.append("module \"").append(cppModuleMap.getName()).append("\" {\n");
+      content.append("  export *\n");
 
-        HashSet<PathFragment> deduper = new HashSet<>();
-        if (umbrellaHeader.isPresent()) {
+      HashSet<PathFragment> deduper = new HashSet<>();
+      if (umbrellaHeader.isPresent()) {
+        appendHeader(
+            content,
+            "",
+            umbrellaHeader.get().getExecPath(),
+            leadingPeriods,
+            /* canCompile= */ false,
+            deduper,
+            /*isUmbrellaHeader*/ true);
+      } else {
+        for (Artifact artifact : expandedHeaders(artifactExpander, publicHeaders)) {
           appendHeader(
               content,
               "",
-              umbrellaHeader.get().getExecPath(),
+              artifact.getExecPath(),
               leadingPeriods,
-              /*canCompile=*/ false,
+              /* canCompile= */ true,
               deduper,
-              /*isUmbrellaHeader*/ true);
-        } else {
-          for (Artifact artifact : expandedHeaders(artifactExpander, publicHeaders)) {
-            appendHeader(
-                content,
-                "",
-                artifact.getExecPath(),
-                leadingPeriods,
-                /*canCompile=*/ true,
-                deduper,
-                /*isUmbrellaHeader*/ false);
-          }
-          for (Artifact artifact : expandedHeaders(artifactExpander, privateHeaders)) {
-            appendHeader(
-                content,
-                "private",
-                artifact.getExecPath(),
-                leadingPeriods,
-                /*canCompile=*/ true,
-                deduper,
-                /*isUmbrellaHeader*/ false);
-          }
-          for (Artifact artifact : separateModuleHdrs) {
-            appendHeader(
-                content,
-                "",
-                artifact.getExecPath(),
-                leadingPeriods,
-                /*canCompile=*/ false,
-                deduper,
-                /*isUmbrellaHeader*/ false);
-          }
-          for (PathFragment additionalExportedHeader : additionalExportedHeaders) {
-            appendHeader(
-                content,
-                "",
-                additionalExportedHeader,
-                leadingPeriods,
-                /*canCompile*/ false,
-                deduper,
-                /*isUmbrellaHeader*/ false);
-          }
+              /*isUmbrellaHeader*/ false);
+        }
+        for (Artifact artifact : expandedHeaders(artifactExpander, privateHeaders)) {
+          appendHeader(
+              content,
+              "private",
+              artifact.getExecPath(),
+              leadingPeriods,
+              /* canCompile= */ true,
+              deduper,
+              /*isUmbrellaHeader*/ false);
+        }
+        for (Artifact artifact : separateModuleHdrs) {
+          appendHeader(
+              content,
+              "",
+              artifact.getExecPath(),
+              leadingPeriods,
+              /* canCompile= */ false,
+              deduper,
+              /*isUmbrellaHeader*/ false);
+        }
+        for (PathFragment additionalExportedHeader : additionalExportedHeaders) {
+          appendHeader(
+              content,
+              "",
+              additionalExportedHeader,
+              leadingPeriods,
+              /*canCompile*/ false,
+              deduper,
+              /*isUmbrellaHeader*/ false);
+        }
+      }
+      for (CppModuleMap dep : dependencies) {
+        content.append("  use \"").append(dep.getName()).append("\"\n");
+      }
+
+      if (!Iterables.isEmpty(separateModuleHdrs)) {
+        String separateName = cppModuleMap.getName() + CppModuleMap.SEPARATE_MODULE_SUFFIX;
+        content.append("  use \"").append(separateName).append("\"\n");
+        content.append("}\n");
+        content.append("module \"").append(separateName).append("\" {\n");
+        content.append("  export *\n");
+        deduper = new HashSet<>();
+        for (Artifact artifact : separateModuleHdrs) {
+          appendHeader(
+              content,
+              "",
+              artifact.getExecPath(),
+              leadingPeriods,
+              /* canCompile= */ true,
+              deduper,
+              /*isUmbrellaHeader*/ false);
         }
         for (CppModuleMap dep : dependencies) {
           content.append("  use \"").append(dep.getName()).append("\"\n");
         }
-
-        if (!Iterables.isEmpty(separateModuleHdrs)) {
-          String separateName = cppModuleMap.getName() + CppModuleMap.SEPARATE_MODULE_SUFFIX;
-          content.append("  use \"").append(separateName).append("\"\n");
-          content.append("}\n");
-          content.append("module \"").append(separateName).append("\" {\n");
-          content.append("  export *\n");
-          deduper = new HashSet<>();
-          for (Artifact artifact : separateModuleHdrs) {
-            appendHeader(
-                content,
-                "",
-                artifact.getExecPath(),
-                leadingPeriods,
-                /*canCompile=*/ true,
-                deduper,
-                /*isUmbrellaHeader*/ false);
-          }
-          for (CppModuleMap dep : dependencies) {
-            content.append("  use \"").append(dep.getName()).append("\"\n");
-          }
-        }
-        content.append("}");
-
-        if (externDependencies) {
-          for (CppModuleMap dep : dependencies) {
-            content
-                .append("\nextern module \"")
-                .append(dep.getName())
-                .append("\" \"")
-                .append(leadingPeriods)
-                .append(dep.getArtifact().getExecPathString())
-                .append("\"");
-          }
-        }
-        content.flush();
       }
+      content.append("}");
+
+      if (externDependencies) {
+        for (CppModuleMap dep : dependencies) {
+          content
+              .append("\nextern module \"")
+              .append(dep.getName())
+              .append("\" \"")
+              .append(leadingPeriods)
+              .append(dep.getArtifact().getExecPathString())
+              .append("\"");
+        }
+      }
+      content.flush();
     };
   }
 

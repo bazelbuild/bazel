@@ -34,26 +34,20 @@ import javax.annotation.Nullable;
  * Abstract Action to write to a file.
  */
 public abstract class AbstractFileWriteAction extends AbstractAction {
-
-  protected final boolean makeExecutable;
-
   /**
    * Creates a new AbstractFileWriteAction instance.
    *
    * @param owner the action owner.
    * @param inputs the Artifacts that this Action depends on
    * @param output the Artifact that will be created by executing this Action.
-   * @param makeExecutable iff true will change the output file to be executable.
    */
-  public AbstractFileWriteAction(
-      ActionOwner owner, NestedSet<Artifact> inputs, Artifact output, boolean makeExecutable) {
+  public AbstractFileWriteAction(ActionOwner owner, NestedSet<Artifact> inputs, Artifact output) {
     // There is only one output, and it is primary.
     super(owner, inputs, ImmutableSet.of(output));
-    this.makeExecutable = makeExecutable;
   }
 
   public boolean makeExecutable() {
-    return makeExecutable;
+    return false;
   }
 
   @Override
@@ -65,7 +59,7 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
           actionExecutionContext.getContext(FileWriteActionContext.class);
       ImmutableList<SpawnResult> result =
           context.writeOutputToFile(
-              this, actionExecutionContext, deterministicWriter, makeExecutable, isRemotable());
+              this, actionExecutionContext, deterministicWriter, makeExecutable(), isRemotable());
       afterWrite(actionExecutionContext);
       return ActionResult.create(result);
     } catch (ExecException e) {
@@ -96,7 +90,7 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
 
   @Override
   protected String getRawProgressMessage() {
-    return (makeExecutable ? "Writing script " : "Writing file ")
+    return (makeExecutable() ? "Writing script " : "Writing file ")
         + Iterables.getOnlyElement(getOutputs()).prettyPrint();
   }
 
