@@ -69,13 +69,15 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
     testCaseRoot.createDirectoryAndParents();
     testCaseIgnoredDir = testCaseRoot.getChild("ignored-dir");
     testCaseIgnoredDir.createDirectoryAndParents();
-    localDiff =
-        (LocalDiffAwareness)
-            factory.maybeCreate(Root.fromPath(testCaseRoot), ImmutableSet.of(testCaseIgnoredDir));
-
     LocalDiffAwareness.Options localDiffOptions = new LocalDiffAwareness.Options();
     localDiffOptions.watchFS = true;
     watchFsEnabledProvider = FakeOptions.of(localDiffOptions);
+    localDiff =
+        (LocalDiffAwareness)
+            factory.maybeCreate(
+                Root.fromPath(testCaseRoot),
+                ImmutableSet.of(testCaseIgnoredDir),
+                watchFsEnabledProvider);
 
     // Ignore test failures when run on a Mac.
     //
@@ -99,7 +101,7 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
   }
 
   private void captureFirstView(OptionsProvider options) throws BrokenDiffAwarenessException {
-    oldView = localDiff.getCurrentView(options);
+    oldView = localDiff.getCurrentView(options, event -> {});
     Preconditions.checkNotNull(localDiff);
   }
 
@@ -277,7 +279,7 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
 
     assertThrows(
         BrokenDiffAwarenessException.class,
-        () -> localDiff.getCurrentView(watchFsDisabledProvider));
+        () -> localDiff.getCurrentView(watchFsDisabledProvider, event -> {}));
   }
 
   @Test
@@ -335,7 +337,7 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
       // after a change to pick up a list of changed files. Trying a few times to make sure.
       for (int i = 0; i < MAX_RETRY_COUNT; i++) {
         Thread.sleep(150);
-        DiffAwareness.View newView = localDiff.getCurrentView(watchFsEnabledProvider);
+        DiffAwareness.View newView = localDiff.getCurrentView(watchFsEnabledProvider, event -> {});
         ModifiedFileSet modifiedFileSet = localDiff.getDiff(oldView, newView);
         oldView = newView;
         assertThat(modifiedFileSet.treatEverythingAsModified()).isFalse();
@@ -350,7 +352,7 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
     }
 
     public void checkEverythingModified(OptionsProvider options) throws Exception {
-      DiffAwareness.View newView = localDiff.getCurrentView(options);
+      DiffAwareness.View newView = localDiff.getCurrentView(options, event -> {});
       ModifiedFileSet modifiedFileSet = localDiff.getDiff(oldView, newView);
       oldView = newView;
       assertThat(modifiedFileSet.treatEverythingAsModified()).isTrue();

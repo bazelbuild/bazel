@@ -92,6 +92,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -449,10 +450,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   }
 
   private static DiffAwareness.Factory nothingChangedDiffAwarenessFactory() {
-    return (pathEntry, ignoredPaths) ->
+    return (pathEntry, ignoredPaths, options) ->
         new DiffAwareness() {
           @Override
-          public View getCurrentView(OptionsProvider options) {
+          public View getCurrentView(OptionsProvider options, EventHandler eventHandler) {
             return new View() {};
           }
 
