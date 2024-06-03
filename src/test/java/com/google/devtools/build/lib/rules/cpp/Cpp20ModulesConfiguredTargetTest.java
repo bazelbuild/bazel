@@ -59,16 +59,19 @@ public class Cpp20ModulesConfiguredTargetTest extends BuildViewTestCase {
     {
       reporter.removeHandler(failFastHandler);
       getConfiguredTarget("//foo:lib");
+      assertDoesNotContainEvent("requires --experimental_cpp20_modules");
       assertContainsEvent("the feature cpp20_modules must be enabled");
     }
     {
       reporter.removeHandler(failFastHandler);
       getConfiguredTarget("//foo:bin");
+      assertDoesNotContainEvent("requires --experimental_cpp20_modules");
       assertContainsEvent("the feature cpp20_modules must be enabled");
     }
     {
       reporter.removeHandler(failFastHandler);
       getConfiguredTarget("//foo:test");
+      assertDoesNotContainEvent("requires --experimental_cpp20_modules");
       assertContainsEvent("the feature cpp20_modules must be enabled");
     }
   }
@@ -85,14 +88,20 @@ public class Cpp20ModulesConfiguredTargetTest extends BuildViewTestCase {
     {
       ImmutableSet<String> features = getRuleContext(getConfiguredTarget("//foo:lib")).getFeatures();
       assertThat(features).contains("cpp20_modules");
+      assertDoesNotContainEvent("requires --experimental_cpp20_modules");
+      assertDoesNotContainEvent("the feature cpp20_modules must be enabled");
     }
     {
       ImmutableSet<String> features = getRuleContext(getConfiguredTarget("//foo:bin")).getFeatures();
       assertThat(features).contains("cpp20_modules");
+      assertDoesNotContainEvent("requires --experimental_cpp20_modules");
+      assertDoesNotContainEvent("the feature cpp20_modules must be enabled");
     }
     {
       ImmutableSet<String> features = getRuleContext(getConfiguredTarget("//foo:test")).getFeatures();
       assertThat(features).contains("cpp20_modules");
+      assertDoesNotContainEvent("requires --experimental_cpp20_modules");
+      assertDoesNotContainEvent("the feature cpp20_modules must be enabled");
     }
   }
 }
