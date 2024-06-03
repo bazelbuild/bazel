@@ -103,6 +103,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import com.google.devtools.build.lib.skyframe.serialization.AbstractExportedStarlarkSymbolCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
@@ -110,6 +111,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransi
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.Keep;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -126,6 +128,7 @@ import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.SymbolGenerator.GlobalSymbol;
 import net.starlark.java.eval.SymbolGenerator.Symbol;
 import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.Identifier;
@@ -1845,6 +1848,28 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     @Override
     public void visit(TransitionFactory<RuleTransitionData> factory) {
       this.hasStarlarkDefinedTransition |= factory instanceof StarlarkRuleTransitionProvider;
+    }
+  }
+
+  @Keep // used reflectively
+  private static class Codec extends AbstractExportedStarlarkSymbolCodec<StarlarkRuleFunction> {
+
+    @Override
+    public Class<StarlarkRuleFunction> getEncodedClass() {
+      return StarlarkRuleFunction.class;
+    }
+
+    @Override
+    protected BzlLoadValue.Key getBzlLoadKey(StarlarkRuleFunction obj) {
+      // TODO: b/326588519 - this does not support AnalysisTestKey but that type does not seem to
+      // appear in action lookup values. Make this more robust if necessary.
+      var symbol = (GlobalSymbol<?>) obj.identityToken;
+      return (BzlLoadValue.Key) symbol.getOwner();
+    }
+
+    @Override
+    protected String getExportedName(StarlarkRuleFunction obj) {
+      return ((GlobalSymbol<?>) obj.identityToken).getName();
     }
   }
 }

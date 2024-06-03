@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.starlark;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.ExecGroupSubject.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.RuleClassSubject.assertThat;
@@ -76,12 +77,17 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.InMemoryNodeEntry;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -6403,5 +6409,51 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     getConfiguredTarget("//p:my_target");
 
     assertContainsEvent("ctx.attr.package_metadata: p/LICENSE");
+  }
+
+  @Test
+  public void starlarkRuleFunctionCodec() throws Exception {
+    scratch.file("lib/BUILD");
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name, xyz):
+            print("xyz is %s" % xyz)
+        my_rule = rule(
+            implementation=_impl,
+            attrs = {
+              "xyz": attr.string(),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_rule")
+        my_rule(
+            name = "abc",
+            xyz = "value",
+        )
+        """);
+
+    // Evaluates pkg to populate my_rule in Skyframe.
+    assertThat(getPackage("pkg")).isNotNull();
+
+    // Pulls my_rule's value out of Skyframe from its BzlLoadValue.
+    BzlLoadValue.Key bzlLoadKey = keyForBuild(Label.parseCanonical("//pkg:foo.bzl"));
+    var fooBzl = (BzlLoadValue) getDoneValue(bzlLoadKey);
+    var myRule = (StarlarkRuleFunction) checkNotNull(fooBzl.getModule().getGlobal("my_rule"));
+
+    var deserialized = RoundTripping.roundTripWithSkyframe(this::getDoneValue, myRule);
+    assertThat(myRule).isSameInstanceAs(deserialized);
+  }
+
+  private SkyValue getDoneValue(SkyKey key) {
+    InMemoryNodeEntry node =
+        checkNotNull(
+            skyframeExecutor.getEvaluator().getInMemoryGraph().getIfPresent(key),
+            "no entry for %s",
+            key);
+    return checkNotNull(node.getValue(), "no value for %s", key);
   }
 }
