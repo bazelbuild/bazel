@@ -1,11 +1,11 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.util.Crosstool;
 import org.junit.Before;
 import org.junit.Test;
@@ -36,34 +36,40 @@ public class Cpp20ModulesConfiguredTargetTest extends BuildViewTestCase {
         """);
   }
   @Test
-  public void testCpp20ModulesConfigurationNoFlags() {
+  public void testCpp20ModulesConfigurationNoFlags() throws LabelSyntaxException {
     {
-      AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:lib"));
-      assertThat(e).hasMessageThat().contains("requires --experimental_cpp20_modules");
+      reporter.removeHandler(failFastHandler);
+      getConfiguredTarget("//foo:lib");
+      assertContainsEvent("requires --experimental_cpp20_modules");
     }
     {
-      AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:bin"));
-      assertThat(e).hasMessageThat().contains("requires --experimental_cpp20_modules");
+      reporter.removeHandler(failFastHandler);
+      getConfiguredTarget("//foo:bin");
+      assertContainsEvent("requires --experimental_cpp20_modules");
     }
     {
-      AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:test"));
-      assertThat(e).hasMessageThat().contains("requires --experimental_cpp20_modules");
+      reporter.removeHandler(failFastHandler);
+      getConfiguredTarget("//foo:test");
+      assertContainsEvent("requires --experimental_cpp20_modules");
     }
   }
   @Test
   public void testCpp20ModulesConfigurationNoFeatures() throws Exception {
     useConfiguration("--experimental_cpp20_modules");
     {
-      AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:lib"));
-      assertThat(e).hasMessageThat().contains("the feature cpp20_modules must be enabled");
+      reporter.removeHandler(failFastHandler);
+      getConfiguredTarget("//foo:lib");
+      assertContainsEvent("the feature cpp20_modules must be enabled");
     }
     {
-      AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:bin"));
-      assertThat(e).hasMessageThat().contains("the feature cpp20_modules must be enabled");
+      reporter.removeHandler(failFastHandler);
+      getConfiguredTarget("//foo:bin");
+      assertContainsEvent("the feature cpp20_modules must be enabled");
     }
     {
-      AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:test"));
-      assertThat(e).hasMessageThat().contains("the feature cpp20_modules must be enabled");
+      reporter.removeHandler(failFastHandler);
+      getConfiguredTarget("//foo:test");
+      assertContainsEvent("the feature cpp20_modules must be enabled");
     }
   }
   @Test
