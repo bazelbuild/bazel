@@ -17,7 +17,7 @@ landing_page:
     items_across: 2
     items:
     # Item 1
-    - image_path: /community/images/aspect-logo.png
+    - image_path: /community/images/aspect-logo-2.png
       heading: Aspect Build
       description: >
         Leveraging the insights we gathered from helping over 50 companies to navigate Bazel, we developed Aspect Workflows, our Developer Platform for Bazel Monorepos.
