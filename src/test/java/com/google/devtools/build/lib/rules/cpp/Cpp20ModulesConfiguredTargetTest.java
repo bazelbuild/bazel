@@ -20,21 +20,21 @@ public class Cpp20ModulesConfiguredTargetTest extends BuildViewTestCase {
   @Before
   public void setupBasicRulesWithModules() throws IOException {
     scratch.file(
-            "foo/BUILD",
-            """
-                    cc_library(
-                        name = 'lib',
-                        module_interfaces = ["foo.cppm"],
-                    )
-                    cc_binary(
-                        name = 'bin',
-                        module_interfaces = ["foo.cppm"],
-                    )
-                    cc_test(
-                        name = 'test',
-                        module_interfaces = ["foo.cppm"],
-                    )
-                    """);
+        "foo/BUILD",
+        """
+        cc_library(
+            name = 'lib',
+            module_interfaces = ["foo.cppm"],
+        )
+        cc_binary(
+            name = 'bin',
+            module_interfaces = ["foo.cppm"],
+        )
+        cc_test(
+            name = 'test',
+            module_interfaces = ["foo.cppm"],
+        )
+        """);
   }
   @Test
   public void testCpp20ModulesConfigurationNoFlags() throws Exception {
