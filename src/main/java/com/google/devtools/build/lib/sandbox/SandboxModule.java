@@ -229,7 +229,7 @@ public final class SandboxModule extends BlazeModule {
         firstBuild = true;
       }
     }
-    SandboxStash.initialize(env.getWorkspaceName(), sandboxBase, options);
+    SandboxStash.initialize(env.getWorkspaceName(), sandboxBase, options, treeDeleter);
 
     // SpawnExecutionPolicy#getId returns unique base directories for each sandboxed action during
     // the life of a Bazel server instance so we don't need to worry about stale directories from

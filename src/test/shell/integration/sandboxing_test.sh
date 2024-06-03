@@ -1062,7 +1062,7 @@ EOF
 
   local output_base="$(bazel info output_base)"
   local stashed_test_dir="${output_base}/sandbox/sandbox_stash/TestRunner/6/execroot/$WORKSPACE_NAME"
-  touch "$stashed_test_dir/$out_directory/k8-fastbuild/bin/pkg/a.sh.runfiles/$WORKSPACE_NAME/pkg/file4.txt"
+  touch $(find "$stashed_test_dir/$out_directory/" -name a.sh.runfiles -type d)"/$WORKSPACE_NAME/pkg/file4.txt"
 
   [[ -d "${stashed_test_dir}/$out_directory" ]] \
     || fail "${stashed_test_dir}/$out_directory directory not present"

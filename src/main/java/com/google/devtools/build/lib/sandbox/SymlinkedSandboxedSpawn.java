@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
@@ -33,6 +34,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -92,6 +94,11 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
     sandboxExecRoot.createDirectoryAndParents();
 
     if (stashContents != null) {
+      // Delete anything unnecessary, and update `inputsToCreate`/`dirsToCreate` if something can
+      // be left without changes (e.g., a, symlink that already points to the right destination).
+      // We're traversing from sandboxExecRoot's parent directory because external repositories can
+      // now be symlinked as siblings of sandboxExecRoot when
+      // --experimental_sibling_repository_layout is set.
       if (stashContents.isPresent()) {
         SandboxHelpers.cleanExisting(
             sandboxExecRoot.getParentDirectory(),
@@ -104,11 +111,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
       } else {
         // No in-memory stashes enabled but there is a stash.
         // When reusing an old sandbox, we do a full traversal of the parent directory of
-        // `sandboxExecRoot`. This will use what we computed above, delete anything unnecessary, and
-        // update `inputsToCreate`/`dirsToCreate` if something can be left without changes (e.g., a,
-        // symlink that already points to the right destination). We're traversing from
-        // sandboxExecRoot's parent directory because external repositories can now be symlinked as
-        // siblings of sandboxExecRoot when --experimental_sibling_repository_layout is set.
+        // `sandboxExecRoot`.
         SandboxHelpers.cleanExisting(
             sandboxExecRoot.getParentDirectory(),
             inputs,
@@ -121,7 +124,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
     }
 
     if (SandboxStash.useInMemoryStashes()) {
-      Map<PathFragment, StashContents> stashContentsMap = new HashMap<>();
+      Map<PathFragment, StashContents> stashContentsMap = CompactHashMap.create();
       for (Map.Entry<PathFragment, Path> entry : inputs.getFiles().entrySet()) {
         if (entry.getValue() == null) {
           continue;
@@ -148,16 +151,15 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
       }
 
       for (var outputDir :
-          Iterables.concat(
+          Stream.concat(
               outputs.files().values().stream()
-                  .map(PathFragment::getParentDirectory)
-                  .collect(ImmutableList.toImmutableList()),
-              outputs.dirs().values())) {
+                  .map(PathFragment::getParentDirectory),
+              outputs.dirs().values().stream()).distinct().collect(ImmutableList.toImmutableList())) {
         PathFragment parent = outputDir;
         boolean parentWasPresent = !addParent(stashContentsMap, parent);
         addAllParents(stashContentsMap, parentWasPresent, parent);
       }
-      StashContents main = StashContents.create();
+      StashContents main = new StashContents();
       main.dirEntries()
           .put(SandboxStash.getWorkspaceName(), stashContentsMap.get(PathFragment.EMPTY_FRAGMENT));
       SandboxStash.setPathContents(sandboxPath, main);
@@ -168,7 +170,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
       Map<PathFragment, StashContents> stashContentsMap, PathFragment parent) {
     boolean parentWasPresent = true;
     if (!stashContentsMap.containsKey(parent)) {
-      stashContentsMap.put(parent, StashContents.create());
+      stashContentsMap.put(parent, new StashContents());
       parentWasPresent = false;
     }
     return !parentWasPresent;
@@ -178,14 +180,15 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
       Map<PathFragment, StashContents> stashContentsMap,
       boolean parentWasPresent,
       PathFragment parent) {
-    while (!parentWasPresent && parent.getParentDirectory() != null) {
-      PathFragment parentParent = parent.getParentDirectory();
-      if (stashContentsMap.containsKey(parentParent)) {
+    PathFragment parentParent;
+    while (!parentWasPresent && (parentParent = parent.getParentDirectory()) != null) {
+      StashContents parentParentStashContents = stashContentsMap.get(parentParent);
+      if (parentParentStashContents != null) {
         parentWasPresent = true;
       } else {
-        stashContentsMap.put(parentParent, StashContents.create());
+        parentParentStashContents = new StashContents();
+        stashContentsMap.put(parentParent, parentParentStashContents);
       }
-      StashContents parentParentStashContents = stashContentsMap.get(parentParent);
       if (!parentParentStashContents.dirEntries().containsKey(parent.getBaseName())) {
         parentParentStashContents
             .dirEntries()

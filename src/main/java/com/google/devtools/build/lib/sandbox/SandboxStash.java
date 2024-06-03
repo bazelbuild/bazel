@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -358,7 +359,8 @@ public class SandboxStash {
     }
   }
 
-  public static void initialize(String workspaceName, Path sandboxBase, SandboxOptions options) {
+  public static void initialize(String workspaceName, Path sandboxBase, SandboxOptions options,
+      TreeDeleter treeDeleter) {
     if (options.reuseSandboxDirectories) {
       if (instance == null) {
         instance =
@@ -369,7 +371,7 @@ public class SandboxStash {
           Path stashBase = getStashBase(instance.sandboxBase);
           try {
             for (Path directoryEntry : stashBase.getDirectoryEntries()) {
-              directoryEntry.deleteTree();
+              treeDeleter.deleteTree(directoryEntry);
             }
           } catch (IOException e) {
             instance.turnOffReuse(
@@ -481,6 +483,12 @@ public class SandboxStash {
     return environment.get("TEST_WORKSPACE") + "/" + environment.get(TEST_SRCDIR);
   }
 
+  /**
+   *  Before this function is called, stashContents will contain the inputs that were set up for
+   *  the action before executing it but the action might have written undeclared files into the
+   *  sandbox or deleted existing ones, therefore we need to crawl through all directories to see
+   *  what's in them and update stashContents.
+   */
   private static void listContentsRecursively(
       Path root, Long timestamp, StashContents stashContents)
       throws IOException, InterruptedException {
@@ -517,18 +525,15 @@ public class SandboxStash {
       stashContents
           .dirEntries()
           .keySet()
-          .removeAll(getStringsToRemove(stashContents.dirEntries().keySet(), dirsToKeep));
+          .retainAll(dirsToKeep);
       stashContents
           .filesToPath()
           .keySet()
-          .removeAll(
-              getStringsToRemove(stashContents.filesToPath().keySet(), filesAndSymlinksToKeep));
+          .retainAll(filesAndSymlinksToKeep);
       stashContents
           .symlinksToPathFragment()
           .keySet()
-          .removeAll(
-              getStringsToRemove(
-                  stashContents.symlinksToPathFragment().keySet(), filesAndSymlinksToKeep));
+          .retainAll(filesAndSymlinksToKeep);
     } else {
       for (var entry : stashContents.dirEntries().entrySet()) {
         Path absPath = root.getChild(entry.getKey());
@@ -537,88 +542,45 @@ public class SandboxStash {
     }
   }
 
-  private static List<String> getStringsToRemove(Set<String> stringSet, Set<String> stringsToKeep) {
-    List<String> stringsToRemove = new ArrayList<>();
-    for (String entry : stringSet) {
-      if (!stringsToKeep.contains(entry)) {
-        stringsToRemove.add(entry);
-      }
-    }
-    return stringsToRemove;
-  }
-
   private Collection<Path> sortStashesByMatchingTargetSegments(
       Label target, Collection<Path> stashes) {
-    if (target == null) {
-      return stashes;
-    }
     List<Path> sortedStashes = new ArrayList<>(stashes);
     Map<Path, Integer> countMap = new HashMap<>();
-    String[] targetStr = target.getPackageName().split("/");
+    String[] targetStr = null;
+    if (target != null) {
+      targetStr = target.getPackageName().split("/");
+    }
     for (Path stash : stashes) {
       Label stashTarget = sandboxToTarget.getOrDefault(stash, /* defaultValue= */ null);
-      if (stashTarget == null) {
-        sortedStashes.remove(stash);
-        continue;
+      if (target == null) {
+        countMap.put(stash, stashTarget == null ? 1 : 0);
+      } else {
+        countMap.put(stash, stashTarget == null ? 0 : Arrays.mismatch(targetStr, stashTarget.getPackageName().split("/")));
       }
-      int count = getMatchingSegmentsCount(targetStr, stashTarget.getPackageName().split("/"));
-      countMap.put(stash, count);
     }
     return ImmutableList.sortedCopyOf(
         Comparator.comparingInt(countMap::get).reversed(), sortedStashes);
-  }
-
-  private int getMatchingSegmentsCount(String[] target, String[] oldTarget) {
-    int count = 0;
-    for (int i = 0; i < target.length; i++) {
-      if (i < oldTarget.length && target[i].equals(oldTarget[i])) {
-        count++;
-      } else {
-        return count;
-      }
-    }
-    return count;
   }
 
   private void updateStashContentsAfterRunfilesMove(
       String stashedRunfiles, String currentRunfiles, StashContents stashContents) {
     ImmutableList<String> stashedRunfilesSegments =
         ImmutableList.copyOf(PathFragment.create(stashedRunfiles).segments());
-    StashContents runfilesStashContents =
-        getStashedRunfilesStashContents(stashedRunfilesSegments, 0, stashContents);
+    StashContents runfilesStashContents = stashContents;
+    for (int i = 0; i < stashedRunfilesSegments.size() - 1; i++) {
+      runfilesStashContents = Preconditions.checkNotNull(runfilesStashContents.dirEntries().get(stashedRunfilesSegments.get(i)));
+    }
+    runfilesStashContents = runfilesStashContents.dirEntries().remove(stashedRunfilesSegments.getLast());
+
     ImmutableList<String> currentRunfilesSegments =
         ImmutableList.copyOf(PathFragment.create(currentRunfiles).segments());
-    putStashedRunfilesStashContents(
-        currentRunfilesSegments, 0, stashContents, runfilesStashContents);
-  }
-
-  private StashContents getStashedRunfilesStashContents(
-      List<String> stashedRunfiles, int i, StashContents stashContents) {
-    Preconditions.checkState(i < stashedRunfiles.size());
-    String segment = stashedRunfiles.get(i);
-    Preconditions.checkState(stashContents.dirEntries().containsKey(segment));
-    if (i < stashedRunfiles.size() - 1) {
-      return getStashedRunfilesStashContents(
-          stashedRunfiles, i + 1, stashContents.dirEntries().get(segment));
-    } else {
-      return stashContents.dirEntries().remove(segment);
+    StashContents currentStashContents = stashContents;
+    for (int i = 0; i < currentRunfilesSegments.size() - 1; i++) {
+      String segment = currentRunfilesSegments.get(i);
+      currentStashContents.dirEntries().putIfAbsent(segment, new StashContents());
+      currentStashContents = currentStashContents.dirEntries().get(segment);
     }
-  }
-
-  private void putStashedRunfilesStashContents(
-      List<String> currentRunfiles,
-      int i,
-      StashContents stashContents,
-      StashContents runfilesStashContents) {
-    Preconditions.checkState(i < currentRunfiles.size());
-    String segment = currentRunfiles.get(i);
-    if (i < currentRunfiles.size() - 1) {
-      stashContents.dirEntries().putIfAbsent(segment, StashContents.create());
-      putStashedRunfilesStashContents(
-          currentRunfiles, i + 1, stashContents.dirEntries().get(segment), runfilesStashContents);
-    } else {
-      stashContents.dirEntries().put(segment, runfilesStashContents);
-    }
+    currentStashContents.dirEntries().put(currentRunfilesSegments.getLast(), runfilesStashContents);
   }
 }
 

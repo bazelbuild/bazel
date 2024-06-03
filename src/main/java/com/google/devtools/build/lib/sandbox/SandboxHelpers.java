@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox;
@@ -660,21 +661,18 @@ public final class SandboxHelpers {
         .contains("--wrapper_script_flag=--debug");
   }
 
-  /** Used to store sandbox stashes in-memory. */
-  @AutoValue
-  public abstract static class StashContents {
-    @SuppressWarnings("AutoValueImmutableFields")
-    public abstract Map<String, Path> filesToPath();
-
-    @SuppressWarnings("AutoValueImmutableFields")
-    public abstract Map<String, PathFragment> symlinksToPathFragment();
-
-    @SuppressWarnings("AutoValueImmutableFields")
-    public abstract Map<String, StashContents> dirEntries();
-
-    public static StashContents create() {
-      return new AutoValue_SandboxHelpers_StashContents(
-          new HashMap<>(), new HashMap<>(), new HashMap<>());
-    }
+  /**
+   * Used to store sandbox stashes in-memory.
+   *
+   * The String keys in the maps are individual path segments.
+   */
+  public record StashContents(
+      Map<String, Path> filesToPath,
+      Map<String, PathFragment> symlinksToPathFragment,
+      Map<String, StashContents> dirEntries) {
+   public StashContents() {
+     this(CompactHashMap.create(), CompactHashMap.create(), CompactHashMap.create());
+   }
   }
+
 }
