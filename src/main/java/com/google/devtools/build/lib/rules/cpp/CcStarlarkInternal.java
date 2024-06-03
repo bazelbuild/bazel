@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
@@ -628,6 +629,70 @@ public class CcStarlarkInternal implements StarlarkValue {
   public LegacyLinkerInput solibLinkerInput(
       Artifact solibSymlink, Artifact original, String libraryIdentifier) throws EvalException {
     return LegacyLinkerInputs.solibLibraryInput(solibSymlink, original, libraryIdentifier);
+  }
+
+  @StarlarkMethod(
+      name = "create_library_to_link",
+      documented = false,
+      parameters = {@Param(name = "library_to_link")})
+  @SuppressWarnings("CheckReturnValue")
+  public LibraryToLink createLibraryToLink(StructImpl libraryToLink) throws EvalException {
+    LibraryToLink.Builder builder = LibraryToLink.builder();
+    builder.setLibraryIdentifier(
+        libraryToLink.getNoneableValue("library_identifier", String.class));
+    builder.setDynamicLibrary(libraryToLink.getNoneableValue("dynamic_library", Artifact.class));
+    builder.setResolvedSymlinkDynamicLibrary(
+        libraryToLink.getNoneableValue("resolved_symlink_dynamic_library", Artifact.class));
+    builder.setInterfaceLibrary(
+        libraryToLink.getNoneableValue("interface_library", Artifact.class));
+    builder.setResolvedSymlinkInterfaceLibrary(
+        libraryToLink.getNoneableValue("resolve_symlink_interface_library", Artifact.class));
+    builder.setStaticLibrary(libraryToLink.getNoneableValue("static_library", Artifact.class));
+    builder.setPicStaticLibrary(
+        libraryToLink.getNoneableValue("pic_static_library", Artifact.class));
+    if (libraryToLink.getFieldNames().contains("object_files")) {
+      Object value = libraryToLink.getValue("object_files");
+      if (value != null && value != Starlark.NONE) {
+        builder.setObjectFiles(
+            Sequence.cast(value, Artifact.class, "object_files").getImmutableList());
+      }
+    }
+    if (libraryToLink.getFieldNames().contains("pic_object_files")) {
+      Object value = libraryToLink.getValue("pic_object_files");
+      if (value != null && value != Starlark.NONE) {
+        builder.setPicObjectFiles(
+            Sequence.cast(value, Artifact.class, "pic_object_files").getImmutableList());
+      }
+    }
+    builder.setLtoCompilationContext(
+        libraryToLink.getNoneableValue("lto_compilation_context", LtoCompilationContext.class));
+    builder.setPicLtoCompilationContext(
+        libraryToLink.getNoneableValue("pic_lto_compilation_context", LtoCompilationContext.class));
+    builder.setSharedNonLtoBackends(
+        ImmutableMap.copyOf(
+            Dict.noneableCast(
+                libraryToLink.getValue("shared_non_lto_backends"),
+                Artifact.class,
+                LtoBackendArtifacts.class,
+                "shared_non_lto_backends")));
+    builder.setPicSharedNonLtoBackends(
+        ImmutableMap.copyOf(
+            Dict.noneableCast(
+                libraryToLink.getValue("pic_shared_non_lto_backends"),
+                Artifact.class,
+                LtoBackendArtifacts.class,
+                "shared_non_lto_backends")));
+    if (libraryToLink.getFieldNames().contains("disable_whole_archive")) {
+      builder.setDisableWholeArchive(
+          libraryToLink.getValue("disable_whole_archive", Boolean.class));
+    }
+    if (libraryToLink.getFieldNames().contains("alwayslink")) {
+      builder.setAlwayslink(libraryToLink.getValue("alwayslink", Boolean.class));
+    }
+    if (libraryToLink.getFieldNames().contains("must_keep_debug")) {
+      builder.setMustKeepDebug(libraryToLink.getValue("must_keep_debug", Boolean.class));
+    }
+    return builder.build();
   }
 
   @StarlarkMethod(name = "empty_compilation_outputs", documented = false)
