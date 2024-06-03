@@ -24,8 +24,9 @@ java_library(
     srcs = glob(
         ["**/*.java"],
         exclude = [
-            "SerializationConstants.java",
+            "AbstractExportedStarlarkSymbolCodec.java",
             "CodecScanningConstants.java",
+            "SerializationConstants.java",
             "VisibleForSerialization.java",
         ],
     ),
@@ -65,4 +66,16 @@ java_library(
 java_library(
     name = "visible-for-serialization",
     srcs = ["VisibleForSerialization.java"],
+)
+
+java_library(
+    name = "abstract-exported-starlark-symbol-codec",
+    srcs = ["AbstractExportedStarlarkSymbolCodec.java"],
+    deps = [
+        ":serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
+        "//third_party/protobuf:protobuf_java",
+    ],
 )
