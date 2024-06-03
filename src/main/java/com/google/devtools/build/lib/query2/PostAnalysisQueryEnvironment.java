@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -254,6 +256,8 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
         ((ConfiguredTargetValue) getConfiguredTargetValue(key)).getConfiguredTarget());
   }
 
+  protected abstract boolean isAliasConfiguredTarget(T target);
+
   public InterruptibleSupplier<ImmutableSet<PathFragment>> getIgnoredPackagePrefixesPathFragments(
       RepositoryName repositoryName) {
     return () -> {
@@ -473,15 +477,18 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       }
     }
     if (settings.contains(Setting.NO_IMPLICIT_DEPS)) {
-      RuleConfiguredTarget ruleConfiguredTarget = getRuleConfiguredTarget(target);
-      if (ruleConfiguredTarget != null) {
         deps = deps.stream().filter(dep -> !dep.implicit).collect(Collectors.toList());
-      }
     }
     return getDependencies(deps);
   }
 
   protected abstract RuleConfiguredTarget getRuleConfiguredTarget(T target);
+
+  /**
+   * If {@code target} is an {@link OutputFileConfiguredTarget}, return the rule that produces it.
+   * Else returns null.
+   */
+  protected abstract RuleConfiguredTarget getOwningRuleforOutputConfiguredTarget(T target);
 
   /**
    * Returns targetified dependencies wrapped as {@link ClassifiedDependency} objects which include
@@ -547,17 +554,33 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
                 + " configurability team.",
             key);
 
-        boolean implicitConfiguredTarget =
-            // Check both the original guess key and the second correct key. In the case of the
-            // target platform, Util.findImplicitDeps also uses the original guess key.
-            implicitDeps == null
-                || implicitDeps.contains(key)
-                || implicitDeps.contains(getConfiguredTargetKey(dependency));
+        boolean implicitDep;
+        if (!(key.argument() instanceof ConfiguredTargetKey)) {
+          // All non-configured target deps are implicit.
+          implicitDep = true;
+        } else if (parent != null && isAliasConfiguredTarget(parent)) {
+          // Aliases have only one configured target dep: the ":actual" parameter.
+          implicitDep = false;
+        } else if (parent != null && getOwningRuleforOutputConfiguredTarget(parent) != null) {
+          // An output file's generating target is an explicit dep.
+          implicitDep =
+              getRuleConfiguredTarget(dependency) != null
+                  && !getRuleConfiguredTarget(dependency)
+                      .equals(getOwningRuleforOutputConfiguredTarget(parent));
+        } else if (implicitDeps == null) {
+          // No set of implicit deps available. Assume they're all implicit. This implies the parent
+          // isn't a rule configured target.
+          Verify.verify(!(parent instanceof RuleConfiguredTarget));
+          implicitDep = true;
+        } else {
+          // Check both the original guess key and the second correct key. In the case of the
+          // target platform, Util.findImplicitDeps also uses the original guess key.
+          implicitDep =
+              implicitDeps.contains(key)
+                  || implicitDeps.contains(getConfiguredTargetKey(dependency));
+        }
 
-        boolean implicit =
-            !(key.argument() instanceof ConfiguredTargetKey) || implicitConfiguredTarget;
-
-        values.add(new ClassifiedDependency<>(dependency, implicit));
+        values.add(new ClassifiedDependency<>(dependency, implicitDep));
         knownCtDeps.add(key);
       } else if (settings.contains(Setting.INCLUDE_ASPECTS)
           && key.functionName().equals(SkyFunctions.ASPECT)) {

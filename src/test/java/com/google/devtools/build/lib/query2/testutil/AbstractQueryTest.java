@@ -2394,25 +2394,6 @@ public abstract class AbstractQueryTest<T> {
     assertThat(evalToString("visible(//bar:bar, //foo:foo)")).isEmpty();
   }
 
-  // Regression test for default visibility of output file targets being traversed even with
-  // --noimplicit_deps is set.
-  @Test
-  public void testDefaultVisibilityOfOutputTarget_noImplicitDeps() throws Exception {
-    writeFile(
-        "foo/BUILD",
-        """
-        package(default_visibility = [':pg'])
-        genrule(name = 'gen', srcs = ['in'], outs = ['out'], cmd = 'doesntmatter')
-        package_group(name = 'pg', includes = [':other-pg'])
-        package_group(name = 'other-pg')
-        """);
-    assertEqualsFiltered(
-        "deps(//foo:gen) + //foo:out + //foo:pg + //foo:other-pg"
-            + getDependencyCorrectionWithGen(),
-        "deps(//foo:out)" + getDependencyCorrectionWithGen(),
-        Setting.NO_IMPLICIT_DEPS);
-  }
-
   @Test
   public void testDeepNestedLet() throws Exception {
     writeFile("foo/BUILD", "sh_library(name = 'foo')");

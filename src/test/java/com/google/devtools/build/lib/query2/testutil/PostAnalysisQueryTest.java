@@ -233,6 +233,90 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
   }
 
   @Test
+  public void testNoImplicitDepsOnOutputFile() throws Exception {
+    writeFile(
+        "test/BUILD",
+        """
+load(":defs.bzl", "my_dep", "my_rule")
+my_rule(
+    name = "buildme",
+    explicit_deps = [":explicit_dep"],
+    output = "foo.out",
+)
+my_dep(name = "explicit_dep")
+my_dep(name = "implicit_dep")
+""");
+
+    writeFile(
+        "test/defs.bzl",
+        """
+my_dep = rule(
+    implementation = lambda ctx: [],
+    attrs = {},
+)
+
+def _impl(ctx):
+    ctx.actions.write(ctx.outputs.output, "hello!")
+
+my_rule = rule(
+    implementation = _impl,
+    attrs = {
+        "output": attr.output(),
+        "explicit_deps": attr.label_list(),
+        "_implicit_deps": attr.label_list(default = ["//test:implicit_dep"]),
+    },
+)
+""");
+
+    helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
+    assertThat(evalToListOfStrings("deps(//test:foo.out)"))
+        .containsAtLeast("//test:foo.out", "//test:buildme", "//test:explicit_dep");
+    assertThat(evalToListOfStrings("deps(//test:foo.out)")).doesNotContain("//test:implicit_dep");
+  }
+
+  @Test
+  public void testImplicitDepsOnOutputFile() throws Exception {
+    writeFile(
+        "test/BUILD",
+        """
+load(":defs.bzl", "my_dep", "my_rule")
+my_rule(
+    name = "buildme",
+    explicit_deps = [":explicit_dep"],
+    output = "foo.out",
+)
+my_dep(name = "explicit_dep")
+my_dep(name = "implicit_dep")
+""");
+
+    writeFile(
+        "test/defs.bzl",
+        """
+my_dep = rule(
+    implementation = lambda ctx: [],
+    attrs = {},
+)
+
+def _impl(ctx):
+    ctx.actions.write(ctx.outputs.output, "hello!")
+
+my_rule = rule(
+    implementation = _impl,
+    attrs = {
+        "output": attr.output(),
+        "explicit_deps": attr.label_list(),
+        "_implicit_deps": attr.label_list(default = ["//test:implicit_dep"]),
+    },
+)
+""");
+
+    helper.setQuerySettings();
+    assertThat(evalToListOfStrings("deps(//test:foo.out)"))
+        .containsAtLeast(
+            "//test:foo.out", "//test:buildme", "//test:explicit_dep", "//test:implicit_dep");
+  }
+
+  @Test
   public void testNoImplicitDeps_toolchains() throws Exception {
     MockRule ruleWithImplicitDeps =
         () ->

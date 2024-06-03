@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -494,6 +495,21 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
       return ruleConfiguredTarget;
     }
     return null;
+  }
+
+  @Nullable
+  @Override
+  protected RuleConfiguredTarget getOwningRuleforOutputConfiguredTarget(
+      CqueryNode configuredTarget) {
+    if (configuredTarget instanceof OutputFileConfiguredTarget outputFileTarget) {
+      return outputFileTarget.getGeneratingRule();
+    }
+    return null;
+  }
+
+  @Override
+  protected boolean isAliasConfiguredTarget(CqueryNode configuredTarget) {
+    return configuredTarget instanceof AliasConfiguredTarget;
   }
 
   @Nullable
