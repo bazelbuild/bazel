@@ -241,15 +241,6 @@ public abstract class FileSystemTest {
   }
 
   /**
-   * Indirection to setReadOnly(false) on FileSystems that do not
-   * support setReadOnly(false).  For example, JavaFileSystemTest overrides this
-   * method and makes the Path writable with an alternate FileSystem.
-   */
-  protected void makeWritable(Path target) throws IOException {
-    target.setWritable(true);
-  }
-
-  /**
    * Indirection to {@link Path#setExecutable(boolean)} on FileSystems that do
    * not support setExecutable.  For example, JavaFileSystemTest overrides this
    * method and makes the Path executable with an alternate FileSystem.
