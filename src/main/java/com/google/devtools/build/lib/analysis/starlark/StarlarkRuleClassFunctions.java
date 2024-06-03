@@ -779,7 +779,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
             exposed.addToRuleFromStarlark(ruleDefinitionEnvironment, builder);
           }
         });
-    if (parent != null && parent.getTransitionFactory() != null) {
+    if (parent != null) {
       transitionFactory =
           ComposingTransitionFactory.of(transitionFactory, parent.getTransitionFactory());
     }

@@ -35,6 +35,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionType;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -721,7 +722,7 @@ public class RuleClass implements RuleClassData {
         ImmutableList.builder();
     private boolean ignoreLicenses = false;
     private ImplicitOutputsFunction implicitOutputsFunction = SafeImplicitOutputsFunction.NONE;
-    @Nullable private TransitionFactory<RuleTransitionData> transitionFactory;
+    private TransitionFactory<RuleTransitionData> transitionFactory = NoTransition.getFactory();
     private ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory = null;
     private final AdvertisedProviderSet.Builder advertisedProviders =
         AdvertisedProviderSet.builder();
@@ -1141,7 +1142,8 @@ public class RuleClass implements RuleClassData {
           type != RuleClassType.ABSTRACT,
           "Setting not inherited property (cfg) of abstract rule class '%s'",
           name);
-      Preconditions.checkState(this.transitionFactory == null, "Property cfg has already been set");
+      Preconditions.checkState(
+          NoTransition.isInstance(this.transitionFactory), "Property cfg has already been set");
       Preconditions.checkNotNull(transitionFactory);
       Preconditions.checkArgument(
           transitionFactory.transitionType().isCompatibleWith(TransitionType.RULE));
@@ -1674,7 +1676,7 @@ public class RuleClass implements RuleClassData {
    * A factory which will produce a configuration transition that should be applied on any edge of
    * the configured target graph that leads into a target of this rule class.
    */
-  @Nullable private final TransitionFactory<RuleTransitionData> transitionFactory;
+  private final TransitionFactory<RuleTransitionData> transitionFactory;
 
   /** The factory that creates configured targets from this rule. */
   private final ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory;
@@ -1782,7 +1784,7 @@ public class RuleClass implements RuleClassData {
       ImmutableList<AllowlistChecker> allowlistCheckers,
       boolean ignoreLicenses,
       ImplicitOutputsFunction implicitOutputsFunction,
-      @Nullable TransitionFactory<RuleTransitionData> transitionFactory,
+      TransitionFactory<RuleTransitionData> transitionFactory,
       ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory,
       AdvertisedProviderSet advertisedProviders,
       @Nullable StarlarkCallable configuredTargetFunction,
@@ -1892,7 +1894,6 @@ public class RuleClass implements RuleClassData {
     return implicitOutputsFunction;
   }
 
-  @Nullable
   public TransitionFactory<RuleTransitionData> getTransitionFactory() {
     return transitionFactory;
   }

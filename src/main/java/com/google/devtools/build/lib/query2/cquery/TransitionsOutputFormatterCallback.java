@@ -137,9 +137,6 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
 
     TransitionFactory<RuleTransitionData> factory =
         rule.getRuleClassObject().getTransitionFactory();
-    if (factory == null) {
-      return "";
-    }
     return factory
         .create(
             RuleTransitionData.create(

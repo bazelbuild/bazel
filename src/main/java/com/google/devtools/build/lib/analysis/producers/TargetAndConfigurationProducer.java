@@ -466,13 +466,9 @@ public final class TargetAndConfigurationProducer
               configConditions.asProviders(),
               preRuleTransitionKey.getConfigurationKey().getOptionsChecksum());
 
-      ConfigurationTransition transition = null;
-
       TransitionFactory<RuleTransitionData> transitionFactory =
           target.getAssociatedRule().getRuleClassObject().getTransitionFactory();
-      if (transitionFactory != null) {
-        transition = transitionFactory.create(transitionData);
-      }
+      ConfigurationTransition transition = transitionFactory.create(transitionData);
 
       if (trimmingTransitionFactory != null) {
         var trimmingTransition = trimmingTransitionFactory.create(transitionData);
@@ -481,11 +477,6 @@ public final class TargetAndConfigurationProducer
         } else {
           transition = trimmingTransition;
         }
-      }
-
-      if (transition == null) {
-        lookUpConfigurationValue(tasks);
-        return DONE;
       }
 
       this.ruleTransition = transition;
@@ -695,18 +686,13 @@ public final class TargetAndConfigurationProducer
 
   // Public for Cquery.
   // TODO: @aranguyen keep cquery in sync with ConfiguredTargetFunction
-  @Nullable
   public static ConfigurationTransition computeTransition(
       Rule rule, @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory) {
     var transitionData = RuleTransitionData.create(rule, /* configConditions= */ null, "");
 
-    ConfigurationTransition transition = null;
-
     TransitionFactory<RuleTransitionData> transitionFactory =
         rule.getRuleClassObject().getTransitionFactory();
-    if (transitionFactory != null) {
-      transition = transitionFactory.create(transitionData);
-    }
+    ConfigurationTransition transition = transitionFactory.create(transitionData);
     boolean isAlias = rule.getAssociatedRule().getName().equals("alias");
     if (trimmingTransitionFactory != null && !isAlias) {
       var trimmingTransition = trimmingTransitionFactory.create(transitionData);
