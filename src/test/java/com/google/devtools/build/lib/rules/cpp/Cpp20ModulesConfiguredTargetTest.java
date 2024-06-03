@@ -3,7 +3,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -37,25 +36,38 @@ public class Cpp20ModulesConfiguredTargetTest extends BuildViewTestCase {
         """);
   }
   @Test
-  public void testCpp20ModulesConfigurationNoFlags() throws Exception {
-    ImmutableList<String> targetList = ImmutableList.of("//foo:lib", "//foo:bin", "//foo:test");
-    for(String targetName: targetList) {
-      AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget(targetName));
+  public void testCpp20ModulesConfigurationNoFlags() {
+    {
+      AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:lib"));
+      assertThat(e).hasMessageThat().contains("requires --experimental_cpp20_modules");
+    }
+    {
+      AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:bin"));
+      assertThat(e).hasMessageThat().contains("requires --experimental_cpp20_modules");
+    }
+    {
+      AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:test"));
       assertThat(e).hasMessageThat().contains("requires --experimental_cpp20_modules");
     }
   }
   @Test
   public void testCpp20ModulesConfigurationNoFeatures() throws Exception {
-    ImmutableList<String> targetList = ImmutableList.of("//foo:lib", "//foo:bin", "//foo:test");
     useConfiguration("--experimental_cpp20_modules");
-    for(String targetName: targetList) {
-      AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget(targetName));
+    {
+      AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:lib"));
+      assertThat(e).hasMessageThat().contains("the feature cpp20_modules must be enabled");
+    }
+    {
+      AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:bin"));
+      assertThat(e).hasMessageThat().contains("the feature cpp20_modules must be enabled");
+    }
+    {
+      AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:test"));
       assertThat(e).hasMessageThat().contains("the feature cpp20_modules must be enabled");
     }
   }
   @Test
   public void testCpp20ModulesConfigurationWithFeatures() throws Exception {
-    ImmutableList<String> targetList = ImmutableList.of("//foo:lib", "//foo:bin", "//foo:test");
     AnalysisMock.get()
             .ccSupport()
             .setupCcToolchainConfig(
@@ -64,8 +76,16 @@ public class Cpp20ModulesConfiguredTargetTest extends BuildViewTestCase {
                             .withFeatures(
                                     CppRuleClasses.CPP20_MODULES));
     useConfiguration("--experimental_cpp20_modules", "--features=cpp20_modules");
-    for(String targetName: targetList) {
-      ImmutableSet<String> features = getRuleContext(getConfiguredTarget(targetName)).getFeatures();
+    {
+      ImmutableSet<String> features = getRuleContext(getConfiguredTarget("//foo:lib")).getFeatures();
+      assertThat(features).contains("cpp20_modules");
+    }
+    {
+      ImmutableSet<String> features = getRuleContext(getConfiguredTarget("//foo:bin")).getFeatures();
+      assertThat(features).contains("cpp20_modules");
+    }
+    {
+      ImmutableSet<String> features = getRuleContext(getConfiguredTarget("//foo:test")).getFeatures();
       assertThat(features).contains("cpp20_modules");
     }
   }
