@@ -60,7 +60,6 @@ java_library(
         "BootClassPathInfo.java",
         "ClasspathConfiguredFragment.java",
         "DeployArchiveBuilder.java",
-        "ImportDepsCheckActionBuilder.java",
         "JavaCcInfoProvider.java",
         "JavaCommon.java",
         "JavaCompilationArgsProvider.java",
