@@ -33,7 +33,7 @@ import javax.annotation.Nullable;
 public interface DiffAwareness extends Closeable {
 
   /** Factory for creating {@link DiffAwareness} instances. */
-  public interface Factory {
+  interface Factory {
     /**
      * Returns a {@link DiffAwareness} instance suitable for managing changes to files under the
      * given package path entry, or {@code null} if this factory cannot create such an instance. The
