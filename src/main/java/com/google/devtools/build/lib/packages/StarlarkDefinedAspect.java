@@ -28,7 +28,9 @@ import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import com.google.devtools.build.lib.skyframe.serialization.AbstractExportedStarlarkSymbolCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
+import com.google.errorprone.annotations.Keep;
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.Optional;
@@ -440,5 +442,23 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
         fragments,
         toolchainTypes,
         aspectClassOrIdentityToken);
+  }
+
+  @Keep // used reflectively
+  private static class Codec extends AbstractExportedStarlarkSymbolCodec<StarlarkDefinedAspect> {
+    @Override
+    public Class<StarlarkDefinedAspect> getEncodedClass() {
+      return StarlarkDefinedAspect.class;
+    }
+
+    @Override
+    protected BzlLoadValue.Key getBzlLoadKey(StarlarkDefinedAspect obj) {
+      return obj.getAspectClass().getExtensionKey();
+    }
+
+    @Override
+    protected String getExportedName(StarlarkDefinedAspect obj) {
+      return obj.getAspectClass().getExportedName();
+    }
   }
 }

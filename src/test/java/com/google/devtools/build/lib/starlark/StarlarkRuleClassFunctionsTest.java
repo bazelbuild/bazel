@@ -78,6 +78,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -85,7 +86,6 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -6449,11 +6449,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   private SkyValue getDoneValue(SkyKey key) {
-    InMemoryNodeEntry node =
-        checkNotNull(
-            skyframeExecutor.getEvaluator().getInMemoryGraph().getIfPresent(key),
-            "no entry for %s",
-            key);
-    return checkNotNull(node.getValue(), "no value for %s", key);
+    try {
+      return skyframeExecutor.getDoneSkyValueForIntrospection(key);
+    } catch (SkyframeExecutor.FailureToRetrieveIntrospectedValueException e) {
+      throw new AssertionError(e);
+    }
   }
 }

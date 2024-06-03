@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlark;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
@@ -44,6 +45,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
+import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -53,10 +55,15 @@ import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -9612,6 +9619,40 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
     builder.addRuleDefinition(TestAspects.BASE_RULE);
     builder.addRuleDefinition(TestAspects.HONEST_RULE);
     useRuleClassProvider(builder.build());
+  }
+
+  @Test
+  public void starlarkDefinedAspectCodec() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        """
+        def _impl(target, ctx):
+           print('This aspect does nothing')
+           return []
+        MyAspect = aspect(implementation=_impl)
+        """);
+    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+
+    // Runs a basic analysis to prime test/aspect.bzl in Skyframe.
+    AnalysisResult unusedAnalysisResult =
+        update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+
+    // Pulls MyAspect's value out of Skyframe from its BzlLoadValue.
+    var aspectBzl =
+        (BzlLoadValue) getDoneValue(keyForBuild(Label.parseCanonical("//test:aspect.bzl")));
+    var myAspect =
+        (StarlarkDefinedAspect) checkNotNull(aspectBzl.getModule().getGlobal("MyAspect"));
+
+    var deserialized = RoundTripping.roundTripWithSkyframe(this::getDoneValue, myAspect);
+    assertThat(myAspect).isSameInstanceAs(deserialized);
+  }
+
+  private SkyValue getDoneValue(SkyKey key) {
+    try {
+      return skyframeExecutor.getDoneSkyValueForIntrospection(key);
+    } catch (SkyframeExecutor.FailureToRetrieveIntrospectedValueException e) {
+      throw new AssertionError(e);
+    }
   }
 
   /** StarlarkAspectTest with "keep going" flag */
