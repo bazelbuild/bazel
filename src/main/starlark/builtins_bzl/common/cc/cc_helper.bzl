@@ -1189,7 +1189,11 @@ def _should_use_pic(ctx, cc_toolchain, feature_configuration):
     )
 
 def _check_cpp20_modules(ctx, feature_configuration):
-    if len(ctx.files.module_interfaces) > 0 and not cc_common.is_enabled(
+    if len(ctx.files.module_interfaces) == 0:
+        return
+    if not ctx.fragments.cpp.experimental_cpp20_modules():
+        fail("requires --experimental_cpp20_modules", attr = "module_interfaces")
+    if not cc_common.is_enabled(
         feature_configuration = feature_configuration,
         feature_name = "cpp20_modules",
     ):

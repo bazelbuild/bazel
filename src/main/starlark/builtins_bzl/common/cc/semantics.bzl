@@ -117,11 +117,6 @@ def _check_can_use_implementation_deps(ctx):
     if (not experimental_cc_implementation_deps and ctx.attr.implementation_deps):
         fail("requires --experimental_cc_implementation_deps", attr = "implementation_deps")
 
-def _check_can_module_interfaces(ctx):
-    experimental_cpp20_modules = ctx.fragments.cpp.experimental_cpp20_modules()
-    if (not experimental_cpp20_modules and ctx.attr.module_interfaces):
-        fail("requires --experimental_cpp20_modules", attr = "module_interfaces")
-
 _WINDOWS_PLATFORM = Label("@platforms//os:windows")  # Resolve the label within builtins context
 
 def _get_linkstatic_default_for_test():
@@ -166,7 +161,6 @@ semantics = struct(
     get_grep_includes = _get_grep_includes,
     get_implementation_deps_allowed_attr = _get_implementation_deps_allowed_attr,
     check_can_use_implementation_deps = _check_can_use_implementation_deps,
-    check_can_module_interfaces = _check_can_module_interfaces,
     get_linkstatic_default_for_test = _get_linkstatic_default_for_test,
     get_runtimes_toolchain = _get_runtimes_toolchain,
     get_test_malloc_attr = _get_test_malloc_attr,
