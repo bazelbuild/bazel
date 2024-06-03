@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.CompletionContext.ArtifactReceiver;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts.ReportedArtifacts;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
@@ -60,6 +61,7 @@ import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase.Rec
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
@@ -77,6 +79,7 @@ import com.google.devtools.build.lib.testutil.SpawnController.SpawnShim;
 import com.google.devtools.build.lib.testutil.SpawnInputUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.NotifyingHelper;
@@ -3288,12 +3291,24 @@ public class RewindingTestsHelper {
     }
     PathFragment execRoot =
         testCase.getRuntimeWrapper().getCommandEnvironment().getExecRoot().asFragment();
-    assertThat(
-            reported.artifacts.stream()
-                .flatMap(set -> reported.completionContext.expand(set.toList()).stream())
-                .map(ActionInput::getExecPath)
-                .map(path -> path.isAbsolute() ? path.relativeTo(execRoot) : path))
-        .containsExactlyElementsIn(expectedExecPaths);
+    List<PathFragment> execPaths = new ArrayList<>();
+    for (NestedSet<Artifact> set : reported.artifacts) {
+      reported.completionContext.visitArtifacts(
+          set.toList(),
+          new ArtifactReceiver() {
+            @Override
+            public void accept(Artifact artifact) {
+              execPaths.add(artifact.getExecPath());
+            }
+
+            @Override
+            public void acceptFilesetMapping(
+                Artifact fileset, PathFragment relName, Path targetFile) {
+              execPaths.add(targetFile.asFragment().relativeTo(execRoot));
+            }
+          });
+    }
+    assertThat(execPaths).containsExactlyElementsIn(expectedExecPaths);
   }
 
   static boolean isActionExecutionKey(Object key, Label label) {

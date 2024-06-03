@@ -528,7 +528,6 @@ public final class CompletionFunction<
     }
 
     Label label = key.actionLookupKey().getLabel();
-    ImmutableList<ActionInput> expandedArtifacts = ctx.expand(importantArtifacts);
     InputMetadataProvider metadataProvider =
         new ActionInputMetadataProvider(
             skyframeActionExecutor.getExecRoot().asFragment(),
@@ -541,7 +540,12 @@ public final class CompletionFunction<
               "Informing important output handler of top-level outputs for " + label,
               IMPORTANT_OUTPUT_HANDLER_LOGGING_THRESHOLD)) {
         lostOutputs =
-            importantOutputHandler.processAndGetLostArtifacts(expandedArtifacts, metadataProvider);
+            importantOutputHandler.processAndGetLostArtifacts(
+                key.topLevelArtifactContext().expandFilesets()
+                    ? importantArtifacts
+                    : Iterables.filter(importantArtifacts, artifact -> !artifact.isFileset()),
+                ctx,
+                metadataProvider);
       }
       if (lostOutputs.isEmpty()) {
         return null;

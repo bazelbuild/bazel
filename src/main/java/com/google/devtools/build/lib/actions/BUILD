@@ -465,6 +465,7 @@ java_library(
     srcs = ["ImportantOutputHandler.java"],
     deps = [
         ":actions",
+        ":artifact_expander",
         ":artifacts",
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
