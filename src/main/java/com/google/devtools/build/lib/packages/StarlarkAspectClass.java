@@ -14,24 +14,31 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.devtools.build.lib.util.HashCodes.hashObjects;
+
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 
 /** {@link AspectClass} for aspects defined in Starlark. */
 @Immutable
 public final class StarlarkAspectClass implements AspectClass {
-  private final Label extensionLabel;
+  private final BzlLoadValue.Key extensionKey;
   private final String exportedName;
   private final String name;
 
-  public StarlarkAspectClass(Label extensionLabel, String exportedName) {
-    this.extensionLabel = extensionLabel;
+  public StarlarkAspectClass(BzlLoadValue.Key extensionKey, String exportedName) {
+    this.extensionKey = extensionKey;
     this.exportedName = exportedName;
-    this.name = extensionLabel + "%" + exportedName;
+    this.name = extensionKey.getLabel() + "%" + exportedName;
+  }
+
+  BzlLoadValue.Key getExtensionKey() {
+    return extensionKey;
   }
 
   public Label getExtensionLabel() {
-    return extensionLabel;
+    return extensionKey.getLabel();
   }
 
   public String getExportedName() {
@@ -54,15 +61,12 @@ public final class StarlarkAspectClass implements AspectClass {
     }
 
     StarlarkAspectClass that = (StarlarkAspectClass) o;
-
-    return extensionLabel.equals(that.extensionLabel)
-        && exportedName.equals(that.exportedName);
+    return extensionKey.equals(that.extensionKey) && exportedName.equals(that.exportedName);
   }
 
   @Override
   public int hashCode() {
-    // Inlines the implementation of Objects.hashCode to avoid generating garbage.
-    return 31 * extensionLabel.hashCode() + exportedName.hashCode();
+    return hashObjects(extensionKey, exportedName);
   }
 
   @Override

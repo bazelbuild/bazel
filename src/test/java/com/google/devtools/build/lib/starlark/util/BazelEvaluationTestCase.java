@@ -78,6 +78,8 @@ public final class BazelEvaluationTestCase {
 
   private ImmutableMap<String, Class<?>> fragmentNameToClass = ImmutableMap.of();
 
+  private Object threadOwner = "test";
+
   public BazelEvaluationTestCase() {
     this(DEFAULT_LABEL);
   }
@@ -195,11 +197,16 @@ public final class BazelEvaluationTestCase {
         /* bzlTransitiveDigest= */ new byte[0]);
   }
 
+  /** Sets a thread owner, for cases where the default value of {@code "test"} doesn't work. */
+  public void setThreadOwner(Object owner) {
+    this.threadOwner = owner;
+  }
+
   public StarlarkThread getStarlarkThread() {
     if (this.thread == null) {
       Mutability mu = Mutability.create("test");
       StarlarkThread thread =
-          StarlarkThread.create(mu, semantics, "test", SymbolGenerator.create("test"));
+          StarlarkThread.create(mu, semantics, "test", SymbolGenerator.create(threadOwner));
       thread.setPrintHandler(Event.makeDebugPrintHandler(getEventHandler()));
       newThread(thread);
       this.thread = thread;

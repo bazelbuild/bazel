@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.apple;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -28,7 +29,14 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.syntax.Location;
 
-/** An enum that can be used to distinguish between various apple platforms. */
+// LINT.IfChange
+// TODO(b/331163027): Remove this duplicate of common/objc/apple_platform.PLATFORM_TYPE
+/**
+ * An enum that can be used to distinguish between various apple platforms.
+ *
+ * <p>The enum Platform is being migrated to a Starlark struct PLATFORM in
+ * builtins_bzl/common/objc/apple_platform.bzl.
+ */
 @Immutable
 public enum ApplePlatform implements ApplePlatformApi {
   IOS_DEVICE("ios_device", "iPhoneOS", PlatformType.IOS, true),
@@ -64,9 +72,6 @@ public enum ApplePlatform implements ApplePlatformApi {
   private static final ImmutableSet<String> MACOS_TARGET_CPUS =
       ImmutableSet.of("darwin_x86_64", "darwin_arm64", "darwin_arm64e");
 
-  private static final ImmutableSet<String> BIT_32_TARGET_CPUS =
-      ImmutableSet.of("ios_i386", "ios_armv7", "ios_armv7s", "watchos_i386", "watchos_armv7k");
-
   private final String starlarkKey;
   private final String nameInPlist;
   private final String platformType;
@@ -82,6 +87,11 @@ public enum ApplePlatform implements ApplePlatformApi {
   @Override
   public boolean isImmutable() {
     return true; // immutable and Starlark-hashable
+  }
+
+  @Override
+  public String getName() {
+    return starlarkKey;
   }
 
   @Override
@@ -106,7 +116,7 @@ public enum ApplePlatform implements ApplePlatformApi {
    * its own value.
    */
   public String getTargetPlatform() {
-    if (platformType == PlatformType.CATALYST) {
+    if (platformType.equals(PlatformType.CATALYST)) {
       return PlatformType.IOS;
     }
     return platformType;
@@ -120,7 +130,7 @@ public enum ApplePlatform implements ApplePlatformApi {
    * represented in this enumerated type.
    */
   public String getTargetEnvironment() {
-    if (platformType == PlatformType.CATALYST) {
+    if (platformType.equals(PlatformType.CATALYST)) {
       return "macabi";
     }
     return isDevice ? "device" : "simulator";
@@ -161,23 +171,12 @@ public enum ApplePlatform implements ApplePlatformApi {
   }
 
   /**
-   * Returns true if the platform for the given target cpu and platform type is a known 32-bit
-   * architecture.
-   *
-   * @param platformType platform type that the given cpu value is implied for
-   * @param arch architecture representation, such as 'arm64'
-   */
-  public static boolean is32Bit(String platformType, String arch) {
-    return BIT_32_TARGET_CPUS.contains(cpuStringForTarget(platformType, arch));
-  }
-
-  /**
    * Returns the platform cpu string for the given target cpu and platform type.
    *
    * @param platformType platform type that the given cpu value is implied for
    * @param arch architecture representation, such as 'arm64'
    */
-  public static String cpuStringForTarget(String platformType, String arch) {
+  private static String cpuStringForTarget(String platformType, String arch) {
     switch (platformType) {
       case PlatformType.MACOS:
         return String.format("darwin_%s", arch);
@@ -213,13 +212,6 @@ public enum ApplePlatform implements ApplePlatformApi {
     }
   }
 
-  /**
-   * Returns true if the given target cpu is an apple platform.
-   */
-  public static boolean isApplePlatform(String targetCpu) {
-    return forTargetCpuNullable(targetCpu) != null;
-  }
-
   /** Returns a Starlark struct that contains the instances of this enum. */
   public static StructImpl getStarlarkStruct() {
     Provider constructor = new BuiltinProvider<StructImpl>("platforms", StructImpl.class) {};
@@ -232,7 +224,7 @@ public enum ApplePlatform implements ApplePlatformApi {
 
   @Override
   public void repr(Printer printer) {
-    printer.append(toString());
+    printer.append(Ascii.toLowerCase(toString()));
   }
 
   /** Exception indicating an unknown or unsupported Apple platform type. */
@@ -242,10 +234,9 @@ public enum ApplePlatform implements ApplePlatformApi {
     }
   }
 
-  // LINT.IfChange
   // TODO(b/331163027): Remove this duplicate of common/objc/apple_platform.PLATFORM_TYPE
   /**
-   * The former enum PlatformType is being migrated to a Starlark struct PLATFORM_TYPEin
+   * The former enum PlatformType is being migrated to a Starlark struct PLATFORM_TYPE in
    * builtins_bzl/common/objc/apple_platform.bzl. During the migration, PlatformType has been
    * converted to a static class hosting string constants as Java duplicates of
    * apple_platform.PLATFORM_TYPE.

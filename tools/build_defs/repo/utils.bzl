@@ -79,14 +79,14 @@ def _use_native_patch(patch_args):
             return False
     return True
 
-def _download_patch(ctx, patch_url, integrity, auth):
+def _download_patch(ctx, patch_url, integrity, auth = None):
     name = patch_url.split("/")[-1]
     patch_path = ctx.path(_REMOTE_PATCH_DIR).get_child(name)
     ctx.download(
         patch_url,
         patch_path,
         canonical_id = ctx.attr.canonical_id,
-        auth = auth,
+        auth = get_auth(ctx, [patch_url]) if auth == None else auth,
         integrity = integrity,
     )
     return patch_path
@@ -108,7 +108,7 @@ def download_remote_files(ctx, auth = None):
             remote_file_urls,
             path,
             canonical_id = ctx.attr.canonical_id,
-            auth = auth,
+            auth = get_auth(ctx, remote_file_urls) if auth == None else auth,
             integrity = ctx.attr.remote_file_integrity.get(path, ""),
             block = False,
         )

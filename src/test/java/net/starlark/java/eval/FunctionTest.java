@@ -31,27 +31,32 @@ public final class FunctionTest {
 
   @Test
   public void testDef() throws Exception {
-    ev.exec("def f(a, b=1, *args, c, d=2, **kwargs): pass");
+    ev.exec("def f(a, b=1, *args, c, d=2, e=3, **kwargs): pass");
     StarlarkFunction f = (StarlarkFunction) ev.lookup("f");
     assertThat(f).isNotNull();
     assertThat(f.getName()).isEqualTo("f");
     assertThat(f.getParameterNames())
-        .containsExactly("a", "b", "c", "d", "args", "kwargs")
+        .containsExactly("a", "b", "c", "d", "e", "args", "kwargs")
         .inOrder();
+    assertThat(f.getNumOrdinaryParameters()).isEqualTo(2); // a, b
+    assertThat(f.getNumKeywordOnlyParameters()).isEqualTo(3); // c, d, e
     assertThat(f.hasVarargs()).isTrue();
     assertThat(f.hasKwargs()).isTrue();
     assertThat(getDefaults(f))
-        .containsExactly(null, StarlarkInt.of(1), null, StarlarkInt.of(2), null, null)
+        .containsExactly(
+            null, StarlarkInt.of(1), null, StarlarkInt.of(2), StarlarkInt.of(3), null, null)
         .inOrder();
 
     // same, sans varargs
-    ev.exec("def g(a, b=1, *, c, d=2, **kwargs): pass");
+    ev.exec("def g(a, b=1, *, c, d=2, e=3, **kwargs): pass");
     StarlarkFunction g = (StarlarkFunction) ev.lookup("g");
-    assertThat(g.getParameterNames()).containsExactly("a", "b", "c", "d", "kwargs").inOrder();
+    assertThat(g.getParameterNames()).containsExactly("a", "b", "c", "d", "e", "kwargs").inOrder();
+    assertThat(g.getNumOrdinaryParameters()).isEqualTo(2); // a, b
+    assertThat(g.getNumKeywordOnlyParameters()).isEqualTo(3); // c, d, e
     assertThat(g.hasVarargs()).isFalse();
     assertThat(g.hasKwargs()).isTrue();
     assertThat(getDefaults(g))
-        .containsExactly(null, StarlarkInt.of(1), null, StarlarkInt.of(2), null)
+        .containsExactly(null, StarlarkInt.of(1), null, StarlarkInt.of(2), StarlarkInt.of(3), null)
         .inOrder();
   }
 

@@ -133,9 +133,6 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
   }
 
   @Override
-  public void setBlockUniverseEvaluationErrors(boolean blockUniverseEvaluationErrors) {}
-
-  @Override
   public Path getRootDirectory() {
     return analysisHelper.getRootDirectory();
   }

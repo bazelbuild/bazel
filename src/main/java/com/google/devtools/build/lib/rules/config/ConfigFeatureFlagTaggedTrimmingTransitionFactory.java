@@ -137,10 +137,8 @@ public class ConfigFeatureFlagTaggedTrimmingTransitionFactory
         requiredLabelsBuilder.add(entry);
       }
     }
-    if (ruleClass.getTransitionFactory() instanceof ConfigFeatureFlagTransitionFactory) {
-      String settingAttribute =
-          ((ConfigFeatureFlagTransitionFactory) ruleClass.getTransitionFactory())
-              .getAttributeName();
+    if (ruleClass.getTransitionFactory() instanceof ConfigFeatureFlagTransitionFactory cfft) {
+      String settingAttribute = cfft.getAttributeName();
       // Because the process of setting a flag also creates a dependency on that flag, we need to
       // include all the set flags, even if they aren't actually declared as used by this rule.
       requiredLabelsBuilder.addAll(attrs.get(settingAttribute, LABEL_KEYED_STRING_DICT).keySet());

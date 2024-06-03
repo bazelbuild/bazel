@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.skyframe.PackageLookupFunction.PROJECT_FILE_NAME;
+import static com.google.devtools.build.lib.skyframe.ProjectFilesLookupFunction.PROJECT_FILE_NAME;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -28,12 +28,10 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.common.options.Options;
 import java.util.UUID;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -46,8 +44,6 @@ import org.junit.runners.JUnit4;
  * projects, use {@link ProjectTest}.
  */
 @RunWith(JUnit4.class)
-// TODO b/331316530: Temporarily removed to avoid build memory regressions. Re-enable as opt in.
-@Ignore
 public class ProjectResolutionTest extends BuildIntegrationTestCase {
   @Before
   public void setupSkyframePackageSemantics() {
@@ -87,7 +83,7 @@ public class ProjectResolutionTest extends BuildIntegrationTestCase {
                 ImmutableList.of(Label.parseCanonical("//pkg:f")),
                 getSkyframeExecutor(),
                 events.reporter()))
-        .isEqualTo(PathFragment.create("pkg/" + PROJECT_FILE_NAME));
+        .isEqualTo(Label.parseCanonical("//pkg:" + PROJECT_FILE_NAME));
   }
 
   @Test
@@ -109,7 +105,7 @@ public class ProjectResolutionTest extends BuildIntegrationTestCase {
         .hasMessageThat()
         .contains(
             String.format(
-                "Multiple project files found: [foo/%s, foo/bar/%s]",
+                "Multiple project files found: [//foo/bar:%s, //foo:%s]",
                 PROJECT_FILE_NAME, PROJECT_FILE_NAME));
   }
 
@@ -125,7 +121,7 @@ public class ProjectResolutionTest extends BuildIntegrationTestCase {
                     Label.parseCanonical("//foo:parent"), Label.parseCanonical("//foo/bar:child")),
                 getSkyframeExecutor(),
                 events.reporter()))
-        .isEqualTo(PathFragment.create("foo/" + PROJECT_FILE_NAME));
+        .isEqualTo(Label.parseCanonical("//foo:" + PROJECT_FILE_NAME));
   }
 
   @Test
@@ -149,7 +145,23 @@ public class ProjectResolutionTest extends BuildIntegrationTestCase {
         .contains(
             String.format(
                 "Targets have different project settings. "
-                    + "For example:  [foo/%s]: //foo:f [bar/%s]: //bar:g",
+                    + "For example:  [//foo:%s]: //foo:f [//bar:%s]: //bar:g",
                 PROJECT_FILE_NAME, PROJECT_FILE_NAME));
+  }
+
+  @Test
+  public void innermostPackageIsAParentDirectory() throws Exception {
+    write("pkg/BUILD", "genrule(name='f', cmd = '', srcs=[], outs=['a.out'])");
+    write("pkg/" + PROJECT_FILE_NAME);
+    write("pkg/subdir/not_a_build_file");
+    // Doesn't count because it's not colocated with a BUILD file:
+    write("pkg/subdir" + PROJECT_FILE_NAME);
+
+    assertThat(
+            BuildTool.getProjectFile(
+                ImmutableList.of(Label.parseCanonical("//pkg/subdir:fake_target")),
+                getSkyframeExecutor(),
+                events.reporter()))
+        .isEqualTo(Label.parseCanonical("//pkg:" + PROJECT_FILE_NAME));
   }
 }

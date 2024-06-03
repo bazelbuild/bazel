@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerializat
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.OptionDefinition;
+import com.google.devtools.common.options.OptionValueDescription;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -275,54 +276,43 @@ public final class BuildOptions implements Cloneable {
    * @return the new options after applying the parsing result to the original options
    */
   public BuildOptions applyParsingResult(OptionsParsingResult parsingResult) {
-    Map<Class<? extends FragmentOptions>, FragmentOptions> modifiedFragments =
-        toModifiedFragments(parsingResult);
+    BuildOptions.Builder builder = this.toBuilder();
 
-    BuildOptions.Builder builder = builder();
-    for (Map.Entry<Class<? extends FragmentOptions>, FragmentOptions> classAndFragment :
-        fragmentOptionsMap.entrySet()) {
-      Class<? extends FragmentOptions> fragmentClass = classAndFragment.getKey();
-      if (modifiedFragments.containsKey(fragmentClass)) {
-        builder.addFragmentOptions(modifiedFragments.get(fragmentClass));
-      } else {
-        builder.addFragmentOptions(classAndFragment.getValue());
-      }
-    }
-
-    Map<Label, Object> starlarkOptions = new HashMap<>(starlarkOptionsMap);
-    Map<Label, Object> parsedStarlarkOptions =
-        labelizeStarlarkOptions(parsingResult.getStarlarkOptions());
-    for (Map.Entry<Label, Object> starlarkOption : parsedStarlarkOptions.entrySet()) {
-      starlarkOptions.put(starlarkOption.getKey(), starlarkOption.getValue());
-    }
-    builder.addStarlarkOptions(starlarkOptions);
-    return builder.build();
-  }
-
-  private Map<Class<? extends FragmentOptions>, FragmentOptions> toModifiedFragments(
-      OptionsParsingResult parsingResult) {
-    Map<Class<? extends FragmentOptions>, FragmentOptions> replacedOptions = new HashMap<>();
-    for (ParsedOptionDescription parsedOption : parsingResult.asListOfExplicitOptions()) {
-      OptionDefinition optionDefinition = parsedOption.getOptionDefinition();
-
+    // Handle native options.
+    for (OptionValueDescription optionValue : parsingResult.allOptionValues()) {
+      OptionDefinition optionDefinition = optionValue.getOptionDefinition();
       // All options obtained from an options parser are guaranteed to have been defined in an
       // FragmentOptions class.
       Class<? extends FragmentOptions> fragmentOptionClass =
           optionDefinition.getDeclaringClass(FragmentOptions.class);
 
-      FragmentOptions originalFragment = fragmentOptionsMap.get(fragmentOptionClass);
-      if (originalFragment == null) {
+      FragmentOptions fragment = builder.getFragmentOptions(fragmentOptionClass);
+      if (fragment == null) {
         // Preserve trimming by ignoring fragments not present in the original options.
         continue;
       }
-      FragmentOptions newOptions =
-          replacedOptions.computeIfAbsent(fragmentOptionClass, unused -> originalFragment.clone());
-      Object value =
-          parsingResult.getOptionValueDescription(optionDefinition.getOptionName()).getValue();
-      optionDefinition.setValue(newOptions, value);
+      updateOptionValue(fragment, optionDefinition, optionValue);
     }
 
-    return replacedOptions;
+    // Also copy Starlark options
+    Map<Label, Object> parsedStarlarkOptions =
+        labelizeStarlarkOptions(parsingResult.getStarlarkOptions());
+    for (Map.Entry<Label, Object> starlarkOption : parsedStarlarkOptions.entrySet()) {
+      builder.addStarlarkOption(starlarkOption.getKey(), starlarkOption.getValue());
+    }
+
+    return builder.build();
+  }
+
+  private static void updateOptionValue(
+      FragmentOptions fragment,
+      OptionDefinition optionDefinition,
+      OptionValueDescription optionValue) {
+    // TODO: https://github.com/bazelbuild/bazel/issues/22453 - This will completely overwrite
+    // accumulating flags, which is almost certainly not what users want. Instead this should
+    // intelligently merge options.
+    Object value = optionValue.getValue();
+    optionDefinition.setValue(fragment, value);
   }
 
   /**
@@ -418,6 +408,23 @@ public final class BuildOptions implements Cloneable {
     }
 
     /**
+     * Returns the {@link FragmentOptions} for the given class, or {@code null} if that fragment is
+     * not present.
+     */
+    @Nullable
+    @SuppressWarnings("unchecked")
+    public <T extends FragmentOptions> T getFragmentOptions(Class<T> key) {
+      return (T) fragmentOptions.get(key);
+    }
+
+    /** Removes the value for the {@link FragmentOptions} with the given FragmentOptions class. */
+    @CanIgnoreReturnValue
+    public Builder removeFragmentOptions(Class<? extends FragmentOptions> key) {
+      fragmentOptions.remove(key);
+      return this;
+    }
+
+    /**
      * Adds multiple Starlark options to the builder. Overrides previous instances of the same key.
      */
     @CanIgnoreReturnValue
@@ -430,13 +437,6 @@ public final class BuildOptions implements Cloneable {
     @CanIgnoreReturnValue
     public Builder addStarlarkOption(Label key, Object value) {
       starlarkOptions.put(key, value);
-      return this;
-    }
-
-    /** Removes the value for the {@link FragmentOptions} with the given FragmentOptions class. */
-    @CanIgnoreReturnValue
-    public Builder removeFragmentOptions(Class<? extends FragmentOptions> key) {
-      fragmentOptions.remove(key);
       return this;
     }
 

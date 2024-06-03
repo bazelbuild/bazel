@@ -217,7 +217,8 @@ public class ResourceSymbols {
       Multimap<String, ResourceSymbols> libMap,
       String appPackageName,
       Path classesOut,
-      boolean finalFields)
+      boolean finalFields,
+      RPackageId rPackageId)
       throws IOException {
     RClassGenerator classWriter =
         RClassGenerator.with(
@@ -225,7 +226,8 @@ public class ResourceSymbols {
             classesOut,
             values,
             finalFields,
-            /* annotateTransitiveFields= */ false);
+            /* annotateTransitiveFields= */ false,
+            rPackageId);
     for (String packageName : libMap.keySet()) {
       classWriter.write(packageName, ResourceSymbols.merge(libMap.get(packageName)).values);
     }

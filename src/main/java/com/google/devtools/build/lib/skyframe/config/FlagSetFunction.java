@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
@@ -61,11 +60,7 @@ public class FlagSetFunction implements SkyFunction {
       return FlagSetValue.create(key.getTargetOptions());
     }
 
-    String parentDirectoryString = key.getProjectFile().getParentDirectory().getPathString();
-    String baseName = key.getProjectFile().getBaseName();
-    String projectFileLabelString = parentDirectoryString + ":" + baseName;
-
-    BzlLoadValue sclLoadValue = loadSclFile(projectFileLabelString, env);
+    BzlLoadValue sclLoadValue = loadSclFile(key.getProjectFile(), env);
 
     if (sclLoadValue == null) {
       return null;
@@ -119,16 +114,15 @@ public class FlagSetFunction implements SkyFunction {
     return FlagSetValue.create(adjustedBuildOptions);
   }
 
-  private BzlLoadValue loadSclFile(String sclFile, Environment env)
+  private BzlLoadValue loadSclFile(Label sclFileLabel, Environment env)
       throws FlagSetFunctionException, InterruptedException {
     BzlLoadValue bzlLoadValue;
     try {
-      Label sclFileLabel = Label.parseCanonical(sclFile);
       bzlLoadValue =
           (BzlLoadValue)
               env.getValueOrThrow(
                   BzlLoadValue.keyForBuild(sclFileLabel), BzlLoadFailedException.class);
-    } catch (BzlLoadFailedException | LabelSyntaxException e) {
+    } catch (BzlLoadFailedException e) {
       throw new FlagSetFunctionException(e, Transience.PERSISTENT);
     }
     return bzlLoadValue;

@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransi
 public final class NoTransition implements PatchTransition {
 
   @SerializationConstant public static final NoTransition INSTANCE = new NoTransition();
+  private static final TransitionFactory<? extends TransitionFactory.Data> FACTORY_INSTANCE =
+      new AutoValue_NoTransition_Factory<>();
 
   private NoTransition() {}
 
@@ -33,8 +35,10 @@ public final class NoTransition implements PatchTransition {
   }
 
   /** Returns a {@link TransitionFactory} instance that generates the no transition. */
-  public static <T extends TransitionFactory.Data> TransitionFactory<T> createFactory() {
-    return new AutoValue_NoTransition_Factory<>();
+  public static <T extends TransitionFactory.Data> TransitionFactory<T> getFactory() {
+    @SuppressWarnings("unchecked")
+    TransitionFactory<T> castFactory = (TransitionFactory<T>) FACTORY_INSTANCE;
+    return castFactory;
   }
 
   /**

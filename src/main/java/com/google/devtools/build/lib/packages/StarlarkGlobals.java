@@ -70,4 +70,7 @@ public interface StarlarkGlobals {
 
   /** Returns the top-levels for REPO.bazel files. */
   ImmutableMap<String, Object> getRepoToplevels();
+
+  /** Returns the top-levels for VENDOR.bazel files. */
+  ImmutableMap<String, Object> getVendorToplevels();
 }

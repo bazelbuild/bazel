@@ -1365,9 +1365,8 @@ message ConvenienceSymlink {
   // The operation we are performing on the symlink.
   Action action = 2;
 
-  // If action is CREATE, this is the target path that the symlink should point
-  // to. If the path points underneath the output base, it is relative to the
-  // output base; otherwise it is absolute.
+  // If action is CREATE, this is the target path (relative to the output base)
+  // that the symlink should point to.
   //
   // If action is DELETE, this field is not set.
   string target = 3;

@@ -76,7 +76,6 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.RegexPatternOption;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -308,7 +307,7 @@ public class BuildTool {
     BuildOptions postFlagSetsBuildOptions;
     String sclConfig = buildOptionsBeforeFlagSets.get(CoreOptions.class).sclConfig;
     if (sclConfig != null && !sclConfig.isEmpty()) {
-      PathFragment projectFile =
+      Label projectFile =
           getProjectFile(loadingResult.getTargetLabels(), env.getSkyframeExecutor(), getReporter());
       if (projectFile != null) {
         postFlagSetsBuildOptions =
@@ -744,31 +743,30 @@ public class BuildTool {
   // TODO: b/324127375 - Support hierarchical project files: [foo/project.scl, foo/bar/project.scl].
   @Nullable
   @VisibleForTesting
-  static PathFragment getProjectFile(
+  static Label getProjectFile(
       Collection<Label> topLevelTargets,
       SkyframeExecutor skyframeExecutor,
       ExtendedEventHandler eventHandler)
       throws LoadingFailedException {
-    ImmutableMultimap<Label, PathFragment> projectFiles;
+    ImmutableMultimap<Label, Label> projectFiles;
     try {
       projectFiles = Project.findProjectFiles(topLevelTargets, skyframeExecutor, eventHandler);
     } catch (ProjectParseException e) {
       throw new LoadingFailedException(
-          "Error finding project files: " + e.getMessage(),
+          "Error finding project files: " + e.getCause().getMessage(),
           DetailedExitCode.of(ExitCode.PARSING_FAILURE, FailureDetail.getDefaultInstance()));
     }
 
-    ImmutableSet<PathFragment> distinct = ImmutableSet.copyOf(projectFiles.values());
+    ImmutableSet<Label> distinct = ImmutableSet.copyOf(projectFiles.values());
     if (distinct.size() == 1) {
-      PathFragment projectFile = Iterables.getOnlyElement(distinct);
+      Label projectFile = Iterables.getOnlyElement(distinct);
       eventHandler.handle(
           Event.info(String.format("Reading project settings from %s.", projectFile)));
       return projectFile;
     } else if (distinct.isEmpty()) {
       return null;
     } else {
-      ListMultimap<Collection<PathFragment>, Label> projectFilesToTargets =
-          LinkedListMultimap.create();
+      ListMultimap<Collection<Label>, Label> projectFilesToTargets = LinkedListMultimap.create();
       Multimaps.invertFrom(Multimaps.forMap(projectFiles.asMap()), projectFilesToTargets);
       StringBuilder msgBuilder =
           new StringBuilder("This build doesn't support automatic project resolution. ");
@@ -797,7 +795,7 @@ public class BuildTool {
   /** Creates a BuildOptions class for the given options taken from an {@link OptionsProvider}. */
   public static BuildOptions applySclConfigs(
       BuildOptions buildOptionsBeforeFlagSets,
-      PathFragment projectFile,
+      Label projectFile,
       SkyframeExecutor skyframeExecutor,
       ExtendedEventHandler eventHandler)
       throws InvalidConfigurationException {

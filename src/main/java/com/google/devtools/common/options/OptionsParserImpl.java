@@ -14,6 +14,7 @@
 
 package com.google.devtools.common.options;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.common.options.OptionPriority.PriorityCategory.INVOCATION_POLICY;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toCollection;
@@ -282,7 +283,7 @@ class OptionsParserImpl {
   List<String> asCanonicalizedList() {
     return asCanonicalizedListOfParsedOptions().stream()
         .map(ParsedOptionDescription::getDeprecatedCanonicalForm)
-        .collect(ImmutableList.toImmutableList());
+        .collect(toImmutableList());
   }
 
   /** Implements {@link OptionsParser#canonicalize}. */
@@ -293,7 +294,7 @@ class OptionsParserImpl {
         .flatMap(Collection::stream)
         // Return the effective (canonical) options in the order they were applied.
         .sorted(comparing(ParsedOptionDescription::getPriority))
-        .collect(ImmutableList.toImmutableList());
+        .collect(toImmutableList());
   }
 
   /** Implements {@link OptionsParser#asListOfOptionValues()}. */
@@ -310,6 +311,14 @@ class OptionsParserImpl {
       }
     }
     return result;
+  }
+
+  List<OptionValueDescription> allOptionValues() {
+    return optionsData.getAllOptionDefinitions().stream()
+        .map(Map.Entry::getValue)
+        .map(optionValues::get)
+        .filter(optionValue -> optionValue != null)
+        .collect(toImmutableList());
   }
 
   private void maybeAddDeprecationWarning(

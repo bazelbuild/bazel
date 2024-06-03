@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.skyframe.config;
 
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -34,22 +34,21 @@ public class FlagSetValue implements SkyValue {
   public static final class Key implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
     // private final String sclFile;
-    private final PathFragment projectFile;
+    private final Label projectFile;
     private final String sclConfig;
     private final BuildOptions targetOptions;
 
-    public Key(PathFragment projectFile, String sclConfig, BuildOptions targetOptions) {
+    public Key(Label projectFile, String sclConfig, BuildOptions targetOptions) {
       this.projectFile = projectFile;
       this.sclConfig = sclConfig;
       this.targetOptions = targetOptions;
     }
 
-    public static Key create(
-        PathFragment projectFile, String sclConfig, BuildOptions targetOptions) {
+    public static Key create(Label projectFile, String sclConfig, BuildOptions targetOptions) {
       return interner.intern(new Key(projectFile, sclConfig, targetOptions));
     }
 
-    public PathFragment getProjectFile() {
+    public Label getProjectFile() {
       return projectFile;
     }
 

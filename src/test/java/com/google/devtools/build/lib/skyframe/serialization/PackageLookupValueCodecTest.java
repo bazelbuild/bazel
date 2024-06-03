@@ -35,10 +35,6 @@ public class PackageLookupValueCodecTest {
                 Root.fromPath(FsUtils.TEST_FILESYSTEM.getPath("/success")), BuildFileName.BUILD),
             PackageLookupValue.success(
                 Root.fromPath(FsUtils.TEST_FILESYSTEM.getPath("/success")),
-                BuildFileName.BUILD,
-                /* hasProjectFile= */ true),
-            PackageLookupValue.success(
-                Root.fromPath(FsUtils.TEST_FILESYSTEM.getPath("/success")),
                 BuildFileName.WORKSPACE),
             PackageLookupValue.invalidPackageName("junkjunkjunk"),
             PackageLookupValue.NO_BUILD_FILE_VALUE,

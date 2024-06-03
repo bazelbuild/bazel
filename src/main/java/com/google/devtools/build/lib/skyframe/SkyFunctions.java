@@ -38,6 +38,8 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("PACKAGE_LOOKUP");
   public static final SkyFunctionName CONTAINING_PACKAGE_LOOKUP =
       SkyFunctionName.createHermetic("CONTAINING_PACKAGE_LOOKUP");
+  public static final SkyFunctionName PROJECT_FILES_LOOKUP =
+      SkyFunctionName.createHermetic("PROJECT_FILES_LOOKUP");
   public static final SkyFunctionName BZL_COMPILE = SkyFunctionName.createHermetic("BZL_COMPILE");
   public static final SkyFunctionName STARLARK_BUILTINS =
       SkyFunctionName.createHermetic("STARLARK_BUILTINS");
@@ -169,6 +171,8 @@ public final class SkyFunctions {
 
   public static final SkyFunctionName MODULE_EXTENSION_REPO_MAPPING_ENTRIES =
       SkyFunctionName.createHermetic("MODULE_EXTENSION_REPO_MAPPING_ENTRIES");
+  public static final SkyFunctionName VENDOR_FILE = SkyFunctionName.createHermetic("VENDOR_FILE");
+  ;
 
   public static final SkyFunctionName FLAG_SET = SkyFunctionName.createHermetic("FLAG_SET");
 

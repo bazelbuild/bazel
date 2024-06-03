@@ -43,9 +43,9 @@ import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -340,8 +340,15 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .build();
     if (usesInliningBzlLoadFunction()) {
       injectInliningBzlLoadFunction(skyframeExecutor, ruleClassProvider, directories);
+    } else {
+      // As of 05/21/2024, SerializationCheckingGraph does not deserialize analysis phase objects
+      // from inline bzl correctly.
+      //
+      // The SerializationCheckingGraph assumes that objects that are exported from a given .bzl
+      // file can be looked up later as a global symbol in the corresponding BzlLoadValue and that
+      // the BzlLoadValue is present in Skyframe. This isn't true when .bzl inlining is used.
+      SkyframeExecutorTestHelper.process(skyframeExecutor);
     }
-    SkyframeExecutorTestHelper.process(skyframeExecutor);
     skyframeExecutor.injectExtraPrecomputedValues(extraPrecomputedValues);
     packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
     packageOptions.showLoadingProgress = true;

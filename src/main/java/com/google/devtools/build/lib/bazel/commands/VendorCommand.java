@@ -73,7 +73,16 @@ import java.util.Queue;
 import java.util.Set;
 import javax.annotation.Nullable;
 
-/** Fetches external repositories into a specified directory. */
+/**
+ * Fetches external repositories into a specified directory.
+ *
+ * <p>This command is used to fetch external repositories into a specified directory. It can be used
+ * to fetch all external repositories, a specific list of repositories or the repositories needed to
+ * build a specific list of targets.
+ *
+ * <p>The command is used to create a vendor directory that can be used to build the project
+ * offline.
+ */
 @Command(
     name = VendorCommand.NAME,
     builds = true,
@@ -92,9 +101,6 @@ import javax.annotation.Nullable;
             + "--vendor_dir.")
 public final class VendorCommand implements BlazeCommand {
   public static final String NAME = "vendor";
-
-  // TODO(salmasamy) decide on name and format
-  private static final String VENDOR_IGNORE = ".vendorignore";
 
   @Override
   public void editOptions(OptionsParser optionsParser) {
@@ -270,7 +276,7 @@ public final class VendorCommand implements BlazeCommand {
     env.getReporter()
         .handle(
             Event.info(
-                "All External dependencies for the requested targets vendored successfully."));
+                "All external dependencies for the requested targets vendored successfully."));
     return BlazeCommandResult.success();
   }
 
@@ -314,22 +320,9 @@ public final class VendorCommand implements BlazeCommand {
         env.getDirectories()
             .getOutputBase()
             .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
-    Path vendorIgnore = vendorPath.getRelative(VENDOR_IGNORE);
 
     if (!vendorPath.exists()) {
       vendorPath.createDirectory();
-    }
-
-    // exclude any ignored repo under .vendorignore
-    if (vendorIgnore.exists()) {
-      ImmutableSet<String> ignoredRepos =
-          ImmutableSet.copyOf(FileSystemUtils.readLines(vendorIgnore, UTF_8));
-      reposToVendor =
-          reposToVendor.stream()
-              .filter(repo -> !ignoredRepos.contains(repo.getName()))
-              .collect(toImmutableList());
-    } else {
-      FileSystemUtils.createEmptyFile(vendorIgnore);
     }
 
     env.getReporter().handle(Event.info("Vendoring ..."));
@@ -361,7 +354,7 @@ public final class VendorCommand implements BlazeCommand {
       return false;
     }
 
-    // Since this runs after BazelFetchAllFunction, its guaranteed that the marker files
+    // Since this runs after fetching repos, its guaranteed that the marker files
     // under $OUTPUT_BASE/external are up-to-date. We just need to compare it against the marker
     // under vendor.
     Path externalMarkerFile = externalPath.getChild("@" + repoName + ".marker");

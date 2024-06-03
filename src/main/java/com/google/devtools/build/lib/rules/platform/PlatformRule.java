@@ -46,7 +46,7 @@ public class PlatformRule implements RuleDefinition {
     <!-- #END_BLAZE_RULE.NAME --> */
     return builder
         .advertiseStarlarkProvider(PlatformInfo.PROVIDER.id())
-        .cfg(NoConfigTransition.createFactory())
+        .cfg(NoConfigTransition.getFactory())
         .exemptFromConstraintChecking("this rule helps *define* a constraint")
         .useToolchainResolution(ToolchainResolutionMode.DISABLED)
         .removeAttribute(":action_listener")

@@ -30,6 +30,7 @@ import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
@@ -40,20 +41,24 @@ import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
+import com.google.devtools.build.lib.remote.disk.Sqlite.Connection;
+import com.google.devtools.build.lib.remote.disk.Sqlite.Result;
+import com.google.devtools.build.lib.remote.disk.Sqlite.Statement;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.bazel.BazelHashFunctions;
-import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import javax.annotation.Nullable;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -67,19 +72,28 @@ public class DiskCacheClientTest {
   private static final ExecutorService executorService =
       MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(1));
 
-  private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
-  private final Path root = fs.getPath("/disk_cache");
+  private Path tmpDir;
+  private Path root;
   private DiskCacheClient client;
   private RemoteActionExecutionContext context;
 
   @Before
   public void setUp() throws Exception {
-    client = new DiskCacheClient(root, DIGEST_UTIL, executorService, /* verifyDownloads= */ true);
+    tmpDir = TestUtils.createUniqueTmpDir(null);
+    root = tmpDir.getChild("disk_cache");
+    client =
+        new DiskCacheClient(
+            root, /* maxSizeBytes= */ 0, DIGEST_UTIL, executorService, /* verifyDownloads= */ true);
     context =
         RemoteActionExecutionContext.create(
             mock(Spawn.class),
             mock(SpawnExecutionContext.class),
             RequestMetadata.getDefaultInstance());
+  }
+
+  @After
+  public void tearDown() throws Exception {
+    client.close();
   }
 
   @Test
@@ -127,6 +141,7 @@ public class DiskCacheClientTest {
     DiskCacheClient client =
         new DiskCacheClient(
             root,
+            /* maxSizeBytes= */ 0,
             new DigestUtil(SyscallCache.NO_CACHE, BazelHashFunctions.BLAKE3),
             executorService,
             /* verifyDownloads= */ true);
@@ -143,6 +158,7 @@ public class DiskCacheClientTest {
     DiskCacheClient client =
         new DiskCacheClient(
             root,
+            /* maxSizeBytes= */ 0,
             new DigestUtil(SyscallCache.NO_CACHE, BazelHashFunctions.BLAKE3),
             executorService,
             /* verifyDownloads= */ true);
@@ -155,7 +171,7 @@ public class DiskCacheClientTest {
   @Test
   public void uploadFile_whenMissing_populatesCas() throws Exception {
     assertThat(root.exists()).isTrue();
-    Path file = fs.getPath("/file");
+    Path file = tmpDir.getChild("file");
     FileSystemUtils.writeContent(file, UTF_8, "contents");
     Digest digest = getDigest("contents");
 
@@ -166,7 +182,7 @@ public class DiskCacheClientTest {
 
   @Test
   public void uploadFile_whenPresent_updatesMtime() throws Exception {
-    Path file = fs.getPath("/file");
+    Path file = tmpDir.getChild("file");
     FileSystemUtils.writeContent(file, UTF_8, "contents");
     Digest digest = getDigest("contents");
 
@@ -237,7 +253,7 @@ public class DiskCacheClientTest {
   public void downloadBlob_whenPresent_returnsContents() throws Exception {
     Digest digest = getDigest("contents");
     populateCas(digest, "contents");
-    Path out = fs.getPath("/out");
+    Path out = tmpDir.getChild("out");
 
     var unused = getFromFuture(client.downloadBlob(context, digest, out.getOutputStream()));
 
@@ -246,7 +262,7 @@ public class DiskCacheClientTest {
 
   @Test
   public void downloadBlob_whenMissing_throwsCacheNotFoundException() throws Exception {
-    Path out = fs.getPath("/out");
+    Path out = tmpDir.getChild("out");
 
     assertThrows(
         CacheNotFoundException.class,
@@ -259,7 +275,7 @@ public class DiskCacheClientTest {
   public void downloadBlob_whenCorrupted_throwsOutputDigestMismatchException() throws Exception {
     Digest digest = getDigest("contents");
     populateCas(digest, "corrupted contents");
-    Path out = fs.getPath("/out");
+    Path out = tmpDir.getChild("out");
 
     assertThrows(
         OutputDigestMismatchException.class,
@@ -384,6 +400,56 @@ public class DiskCacheClientTest {
     assertThat(result).isNull();
   }
 
+  @Test
+  public void ctor_withGcDisabled_withDbEmptyAndDirNonEmpty_doesNotCreateDb() throws Exception {
+    writeFile(root.getRelative("cas/01/012345678"), "x".repeat(10), 123);
+    writeFile(root.getRelative("ac/98/9876543210"), "x".repeat(20), 456);
+
+    DiskCacheClient client =
+        new DiskCacheClient(
+            root, /* maxSizeBytes= */ 0, DIGEST_UTIL, executorService, /* verifyDownloads= */ true);
+
+    client.close();
+
+    assertThat(dumpDb()).isNull();
+  }
+
+  @Test
+  public void ctor_withGcEnabled_withDbEmptyAndDirEmpty_createsDb() throws Exception {
+    DiskCacheClient client =
+        new DiskCacheClient(
+            root,
+            /* maxSizeBytes= */ 1024,
+            DIGEST_UTIL,
+            executorService,
+            /* verifyDownloads= */ true);
+
+    client.close();
+
+    assertThat(dumpDb()).isEmpty();
+  }
+
+  @Test
+  public void ctor_withGcEnabled_withDbEmptyAndDirNonEmpty_createsDb() throws Exception {
+    writeFile(root.getRelative("cas/01/012345678"), "x".repeat(10), 123);
+    writeFile(root.getRelative("ac/98/9876543210"), "x".repeat(20), 456);
+    writeFile(root.getRelative("tmp/foo"), "", 789);
+
+    DiskCacheClient client =
+        new DiskCacheClient(
+            root,
+            /* maxSizeBytes= */ 1024,
+            DIGEST_UTIL,
+            executorService,
+            /* verifyDownloads= */ true);
+
+    client.close();
+
+    assertThat(dumpDb())
+        .containsExactly(
+            new DbEntry("cas/01/012345678", 10, 123), new DbEntry("ac/98/9876543210", 20, 456));
+  }
+
   private Tree getTreeWithFile(Digest fileDigest) {
     return Tree.newBuilder()
         .addChildren(Directory.newBuilder().addFiles(FileNode.newBuilder().setDigest(fileDigest)))
@@ -406,9 +472,7 @@ public class DiskCacheClientTest {
 
   private Path populateCas(Digest digest, byte[] contents) throws IOException {
     Path path = getCasPath(digest);
-    path.getParentDirectory().createDirectoryAndParents();
-    FileSystemUtils.writeContent(path, contents);
-    path.setLastModifiedTime(0);
+    writeFile(path, contents);
     return path;
   }
 
@@ -419,10 +483,22 @@ public class DiskCacheClientTest {
   @CanIgnoreReturnValue
   private Path populateAc(ActionKey actionKey, ActionResult actionResult) throws IOException {
     Path path = getAcPath(actionKey);
-    path.getParentDirectory().createDirectoryAndParents();
-    FileSystemUtils.writeContent(path, actionResult.toByteArray());
-    path.setLastModifiedTime(0);
+    writeFile(path, actionResult.toByteArray());
     return path;
+  }
+
+  private void writeFile(Path path, byte[] contents) throws IOException {
+    writeFile(path, contents, 0);
+  }
+
+  private void writeFile(Path path, String contents, long mtime) throws IOException {
+    writeFile(path, contents.getBytes(UTF_8), mtime);
+  }
+
+  private void writeFile(Path path, byte[] contents, long mtime) throws IOException {
+    path.getParentDirectory().createDirectoryAndParents();
+    FileSystemUtils.writeContent(path, contents);
+    path.setLastModifiedTime(mtime);
   }
 
   private Digest getDigest(String contents) {
@@ -431,5 +507,24 @@ public class DiskCacheClientTest {
 
   private Digest getDigest(Message m) {
     return DIGEST_UTIL.compute(m.toByteArray());
+  }
+
+  private record DbEntry(String name, long size, long mtime) {}
+
+  @Nullable
+  private ImmutableSet<DbEntry> dumpDb() throws IOException {
+    Path dbPath = root.getRelative("gc/db.sqlite");
+    if (!dbPath.exists()) {
+      return null;
+    }
+    ImmutableSet.Builder<DbEntry> builder = ImmutableSet.builder();
+    try (Connection conn = Sqlite.newConnection(dbPath);
+        Statement stmt = conn.newStatement("SELECT path, size, mtime FROM entries");
+        Result r = stmt.executeQuery()) {
+      while (r.next()) {
+        builder.add(new DbEntry(r.getString(0), r.getLong(1), r.getLong(2)));
+      }
+    }
+    return builder.build();
   }
 }

@@ -137,7 +137,7 @@ public class ComposingTransitionFactoryTest {
   public void compose_noTrans_first() {
     TransitionFactory<StubData> patch = new StubPatchFactory(FLAG_1, "value");
     TransitionFactory<StubData> composed =
-        ComposingTransitionFactory.of(NoTransition.createFactory(), patch);
+        ComposingTransitionFactory.of(NoTransition.getFactory(), patch);
 
     assertThat(composed).isNotNull();
     assertThat(composed).isEqualTo(patch);
@@ -147,7 +147,7 @@ public class ComposingTransitionFactoryTest {
   public void compose_noTrans_second() {
     TransitionFactory<StubData> patch = new StubPatchFactory(FLAG_1, "value");
     TransitionFactory<StubData> composed =
-        ComposingTransitionFactory.of(patch, NoTransition.createFactory());
+        ComposingTransitionFactory.of(patch, NoTransition.getFactory());
 
     assertThat(composed).isNotNull();
     assertThat(composed).isEqualTo(patch);

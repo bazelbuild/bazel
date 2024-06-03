@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.StarlarkActionContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
@@ -50,8 +51,10 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
+import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -64,6 +67,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
@@ -624,5 +628,71 @@ public class CcStarlarkInternal implements StarlarkValue {
   public LegacyLinkerInput solibLinkerInput(
       Artifact solibSymlink, Artifact original, String libraryIdentifier) throws EvalException {
     return LegacyLinkerInputs.solibLibraryInput(solibSymlink, original, libraryIdentifier);
+  }
+
+  @StarlarkMethod(name = "empty_compilation_outputs", documented = false)
+  public CcCompilationOutputs getEmpty() {
+    return CcCompilationOutputs.EMPTY;
+  }
+
+  private static class WrappedStarlarkActionFactory extends StarlarkActionFactory {
+    private final LinkActionConstruction construction;
+
+    public WrappedStarlarkActionFactory(
+        StarlarkActionFactory parent, LinkActionConstruction construction) {
+      super(parent);
+      this.construction = construction;
+    }
+
+    @Override
+    public FileApi createShareableArtifact(
+        String path, Object artifactRoot, StarlarkThread thread) {
+      return construction.create(PathFragment.create(path));
+    }
+  }
+
+  @StarlarkMethod(
+      name = "wrap_link_actions",
+      documented = false,
+      parameters = {
+        @Param(name = "actions"),
+        @Param(name = "build_configuration", defaultValue = "None"),
+        @Param(name = "sharable_artifacts", defaultValue = "False")
+      })
+  public WrappedStarlarkActionFactory wrapLinkActions(
+      StarlarkActionFactory actions, Object config, boolean shareableArtifacts) {
+    LinkActionConstruction construction =
+        CppLinkActionBuilder.newActionConstruction(
+            actions.getRuleContext(),
+            config instanceof BuildConfigurationValue
+                ? (BuildConfigurationValue) config
+                : actions.getRuleContext().getConfiguration(),
+            shareableArtifacts);
+    return new WrappedStarlarkActionFactory(actions, construction);
+  }
+
+  @StarlarkMethod(
+      name = "actions2ctx_cheat",
+      documented = false,
+      parameters = {
+        @Param(name = "actions"),
+      })
+  public StarlarkRuleContext getLabel(StarlarkActionFactory actions) {
+    return actions.getRuleContext().getStarlarkRuleContext();
+  }
+
+  @StarlarkMethod(
+      name = "rule_kind_cheat",
+      documented = false,
+      parameters = {
+        @Param(name = "actions"),
+      })
+  public String getTargetKind(StarlarkActionFactory actions) {
+    return actions
+        .getRuleContext()
+        .getStarlarkRuleContext()
+        .getRuleContext()
+        .getRule()
+        .getTargetKind();
   }
 }

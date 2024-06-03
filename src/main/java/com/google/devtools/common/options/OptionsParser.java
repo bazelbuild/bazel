@@ -853,6 +853,11 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   @Override
+  public List<OptionValueDescription> allOptionValues() {
+    return impl.allOptionValues();
+  }
+
+  @Override
   public List<String> canonicalize() {
     return impl.asCanonicalizedList();
   }

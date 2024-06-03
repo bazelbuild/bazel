@@ -1510,9 +1510,9 @@ public abstract class AbstractQueryTest<T> {
     writeFile("x/BUILD", "cc_library(name='x', srcs=['a.cc', 'a.cc'])");
     String expectedError = "Label '//x:a.cc' is duplicated in the 'srcs' attribute of rule 'x'";
     if (helper.isKeepGoing()) {
-      assertThat(evalThrows("//x", false).getMessage()).isEqualTo(expectedError);
+      assertThat(evalThrows("//x:all", false).getMessage()).contains(expectedError);
     } else {
-      evalThrows("//x", false);
+      evalThrows("//x:all", false);
       assertContainsEvent(expectedError);
     }
   }
@@ -2690,7 +2690,9 @@ public abstract class AbstractQueryTest<T> {
 
     void setUniverseScope(String universeScope);
 
-    void setBlockUniverseEvaluationErrors(boolean blockUniverseEvaluationErrors);
+    default boolean reportsUniverseEvaluationErrors() {
+      return true;
+    }
 
     /** Re-initializes the query environment with the given settings. */
     void setQuerySettings(Setting... settings);

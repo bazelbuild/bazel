@@ -41,8 +41,6 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
   /** Returns whether there is a containing package. */
   public abstract boolean hasContainingPackage();
 
-  public abstract boolean hasProjectFile();
-
   /** If there is a containing package, returns its name. */
   public abstract PackageIdentifier getContainingPackageName();
 
@@ -137,9 +135,8 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
     }
   }
 
-  public static ContainingPackage withContainingPackage(
-      PackageIdentifier pkgId, Root root, boolean hasProjectFile) {
-    return new ContainingPackage(pkgId, root, hasProjectFile);
+  public static ContainingPackage withContainingPackage(PackageIdentifier pkgId, Root root) {
+    return new ContainingPackage(pkgId, root);
   }
 
   static ContainingPackageLookupValue noContainingPackage(String reason) {
@@ -160,11 +157,6 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
 
     @Override
     public boolean hasContainingPackage() {
-      return false;
-    }
-
-    @Override
-    public boolean hasProjectFile() {
       return false;
     }
 
@@ -195,23 +187,14 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
     private final PackageIdentifier containingPackage;
     private final Root containingPackageRoot;
 
-    private final boolean hasProjectFile;
-
-    private ContainingPackage(
-        PackageIdentifier containingPackage, Root containingPackageRoot, boolean hasProjectFile) {
+    private ContainingPackage(PackageIdentifier containingPackage, Root containingPackageRoot) {
       this.containingPackage = containingPackage;
       this.containingPackageRoot = containingPackageRoot;
-      this.hasProjectFile = hasProjectFile;
     }
 
     @Override
     public boolean hasContainingPackage() {
       return true;
-    }
-
-    @Override
-    public boolean hasProjectFile() {
-      return hasProjectFile;
     }
 
     @Override
@@ -233,8 +216,7 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
         return false;
       }
       return containingPackage.equals(other.containingPackage)
-          && containingPackageRoot.equals(other.containingPackageRoot)
-          && hasProjectFile == other.hasProjectFile;
+          && containingPackageRoot.equals(other.containingPackageRoot);
     }
 
     @Override
@@ -247,7 +229,6 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
       return MoreObjects.toStringHelper(this)
           .add("containingPackage", containingPackage)
           .add("containingPackageRoot", containingPackageRoot)
-          .add("hasProjectFile", hasProjectFile)
           .toString();
     }
   }

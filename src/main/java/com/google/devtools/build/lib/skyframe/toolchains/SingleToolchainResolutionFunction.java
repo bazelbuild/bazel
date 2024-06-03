@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
@@ -67,13 +66,20 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       return null;
     }
 
+    // Check if we are debugging the target or the toolchain type.
+    boolean debug =
+        key.debugTarget()
+            || configuration
+                .getFragment(PlatformConfiguration.class)
+                .debugToolchainResolution(key.toolchainType().toolchainType());
+
     // Get all toolchains.
     RegisteredToolchainsValue toolchains;
     try {
       toolchains =
           (RegisteredToolchainsValue)
               env.getValueOrThrow(
-                  RegisteredToolchainsValue.key(key.configurationKey()),
+                  RegisteredToolchainsValue.key(key.configurationKey(), debug),
                   InvalidToolchainLabelException.class);
       if (toolchains == null) {
         return null;
@@ -82,15 +88,25 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
       throw new ToolchainResolutionFunctionException(e);
     }
 
-    // Check if we are debugging the target or the toolchain type.
-    boolean debug =
-        key.debugTarget()
-            || configuration
-                .getFragment(PlatformConfiguration.class)
-                .debugToolchainResolution(key.toolchainType().toolchainType());
+    List<String> resolutionTrace = debug ? new ArrayList<>() : null;
+
+    // If debugging, describe rejected toolchains.
+    if (debug
+        && toolchains.rejectedToolchains() != null
+        && !toolchains.rejectedToolchains().isEmpty()) {
+      for (Map.Entry<Label, String> entry : toolchains.rejectedToolchains().entrySet()) {
+        Label toolchainLabel = entry.getKey();
+        String message = entry.getValue();
+        debugMessage(
+            resolutionTrace,
+            IndentLevel.TOOLCHAIN_LEVEL,
+            "Rejected toolchain %s; %s",
+            toolchainLabel,
+            message);
+      }
+    }
 
     // Find the right one.
-    List<String> resolutionTrace = debug ? new ArrayList<>() : null;
     SingleToolchainResolutionValue toolchainResolution =
         resolveConstraints(
             key.toolchainType(),
@@ -166,43 +182,6 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
         targetPlatform.label());
 
     for (DeclaredToolchainInfo toolchain : filteredToolchains) {
-      // Make sure the target setting matches but watch out for resolution errors.
-      ArrayList<String> nonmatchingSettings = new ArrayList<>();
-      ArrayList<String> errors = new ArrayList<>();
-
-      // TODO(blaze-configurability-team): If this pattern comes up more often, add a central
-      //   facility for merging multiple MatchResult
-      for (ConfigMatchingProvider configProvider : toolchain.targetSettings()) {
-        ConfigMatchingProvider.MatchResult matchResult = configProvider.result();
-        if (matchResult.getError() != null) {
-          String message = matchResult.getError();
-          errors.add("For config_setting " + configProvider.label().getName() + ", " + message);
-        } else if (matchResult.equals(ConfigMatchingProvider.MatchResult.NOMATCH)) {
-          nonmatchingSettings.add(configProvider.label().getName());
-        }
-      }
-      if (!errors.isEmpty()) {
-        // TODO(blaze-configurability-team): This should only be due to feature flag trimming. So,
-        // would be better to just ensure toolchain resolution isn't transitively dependent on
-        // feature flags at all.
-        throw new ToolchainResolutionFunctionException(
-            new InvalidConfigurationDuringToolchainResolutionException(
-                new InvalidConfigurationException(
-                    "Unrecoverable errors resolving config_setting associated with "
-                        + toolchain.toolchainLabel()
-                        + ": "
-                        + String.join("; ", errors))));
-      }
-      if (!nonmatchingSettings.isEmpty()) {
-        debugMessage(
-            resolutionTrace,
-            IndentLevel.TOOLCHAIN_LEVEL,
-            "Rejected toolchain %s; mismatching config settings: %s",
-            toolchain.toolchainLabel(),
-            String.join(", ", nonmatchingSettings));
-        continue;
-      }
-
       // Make sure the target platform matches.
       if (!checkConstraints(
           resolutionTrace,
@@ -415,10 +394,6 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
    * Used to indicate errors during the computation of an {@link SingleToolchainResolutionValue}.
    */
   private static final class ToolchainResolutionFunctionException extends SkyFunctionException {
-    ToolchainResolutionFunctionException(InvalidConfigurationDuringToolchainResolutionException e) {
-      super(e, Transience.PERSISTENT);
-    }
-
     ToolchainResolutionFunctionException(InvalidToolchainLabelException e) {
       super(e, Transience.PERSISTENT);
     }

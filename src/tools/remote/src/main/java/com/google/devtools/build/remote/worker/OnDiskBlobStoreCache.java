@@ -43,7 +43,12 @@ class OnDiskBlobStoreCache extends RemoteCache {
   public OnDiskBlobStoreCache(RemoteOptions options, Path cacheDir, DigestUtil digestUtil)
       throws IOException {
     super(
-        new DiskCacheClient(cacheDir, digestUtil, executorService, /* verifyDownloads= */ true),
+        new DiskCacheClient(
+            cacheDir,
+            /* maxSizeBytes= */ 0,
+            digestUtil,
+            executorService,
+            /* verifyDownloads= */ true),
         options,
         digestUtil);
   }

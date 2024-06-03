@@ -372,6 +372,15 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public PathFragment diskCache;
 
   @Option(
+      name = "experimental_disk_cache_max_size",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = Converters.ByteSizeConverter.class,
+      help = "Not ready for use.")
+  public long diskCacheMaxSizeBytes;
+
+  @Option(
       name = "experimental_guard_against_concurrent_changes",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,
