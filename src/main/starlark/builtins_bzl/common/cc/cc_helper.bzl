@@ -958,7 +958,7 @@ def _calculate_artifact_label_map(attr_list, attr_name):
                 if "." + artifact.extension not in CC_HEADER:
                     old_label = artifact_label_map.get(artifact, None)
                     artifact_label_map[artifact] = attr.label
-                    if old_label != None and not _are_labels_equal(old_label, attr.label) and "." + artifact.extension in CC_AND_OBJC:
+                    if old_label != None and not _are_labels_equal(old_label, attr.label) and ("." + artifact.extension in CC_AND_OBJC or attr_name == "module_interfaces"):
                         fail(
                             "Artifact '{}' is duplicated (through '{}' and '{}')".format(artifact, old_label, attr),
                             attr = attr_name,
