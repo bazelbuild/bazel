@@ -944,34 +944,33 @@ def _map_to_list(m):
         result.append((k, v))
     return result
 
-# "srcs" attribute is a LABEL_LIST in cc_rules, which might also contain files.
-def _calculate_artifact_label_map(srcs, attr):
+def _calculate_artifact_label_map(attr_list, attr_name):
+    """
+    Converts a label_list attribute into a list of (Artifact, Label) tuples.
+
+    Each tuple represents an input source file and the label of the rule that generates it
+    (or the label of the source file itself if it is an input file).
+    """
     artifact_label_map = {}
-    for src in srcs:
-        if DefaultInfo in src:
-            for artifact in src[DefaultInfo].files.to_list():
+    for attr in attr_list:
+        if DefaultInfo in attr:
+            for artifact in attr[DefaultInfo].files.to_list():
                 if "." + artifact.extension not in CC_HEADER:
                     old_label = artifact_label_map.get(artifact, None)
-                    artifact_label_map[artifact] = src.label
-                    if old_label != None and not _are_labels_equal(old_label, src.label) and "." + artifact.extension in CC_AND_OBJC:
+                    artifact_label_map[artifact] = attr.label
+                    if old_label != None and not _are_labels_equal(old_label, attr.label) and "." + artifact.extension in CC_AND_OBJC:
                         fail(
-                            "Artifact '{}' is duplicated (through '{}' and '{}')".format(artifact, old_label, src),
-                            attr = attr,
+                            "Artifact '{}' is duplicated (through '{}' and '{}')".format(artifact, old_label, attr),
+                            attr = attr_name,
                         )
     return artifact_label_map
 
-# Returns a list of (Artifact, Label) tuples. Each tuple represents an input source
-# file and the label of the rule that generates it (or the label of the source file itself if it
-# is an input file).
 def _get_srcs(ctx):
     if not hasattr(ctx.attr, "srcs"):
         return []
     artifact_label_map = _calculate_artifact_label_map(ctx.attr.srcs, "srcs")
     return _map_to_list(artifact_label_map)
 
-# Returns a list of (Artifact, Label) tuples. Each tuple represents an input source
-# file and the label of the rule that generates it (or the label of the source file itself if it
-# is an input file).
 def _get_cpp20module_interfaces(ctx):
     if not hasattr(ctx.attr, "module_interfaces"):
         return []
