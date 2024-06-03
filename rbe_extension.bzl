@@ -16,7 +16,7 @@
 
 """
 
-load("@bazelci_rules//:rbe_repo.bzl", "rbe_preconfig")
+load("@bazel_ci_rules//:rbe_repo.bzl", "rbe_preconfig")
 
 def _bazel_rbe_deps(_ctx):
     rbe_preconfig(
