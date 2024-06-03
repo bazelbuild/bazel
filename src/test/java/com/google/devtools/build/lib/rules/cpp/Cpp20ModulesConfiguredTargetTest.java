@@ -104,4 +104,54 @@ public class Cpp20ModulesConfiguredTargetTest extends BuildViewTestCase {
       assertDoesNotContainEvent("the feature cpp20_modules must be enabled");
     }
   }
+  @Test
+  public void testSameModuleInterfacesFileTwice() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        """
+        filegroup(
+          name = "a1",
+          srcs = ["a.cppm"],
+        )
+        filegroup(
+          name = "a2",
+          srcs = ["a.cppm"],
+        )
+        cc_library(
+          name = "lib",
+          module_interfaces = ["a1", "a2"],
+        )
+        cc_binary(
+          name = "bin",
+          module_interfaces = ["a1", "a2"],
+        )
+        cc_test(
+          name = "test",
+          module_interfaces = ["a1", "a2"],
+        )
+        """);
+    AnalysisMock.get()
+            .ccSupport()
+            .setupCcToolchainConfig(
+                    mockToolsConfig,
+                    Crosstool.CcToolchainConfig.builder()
+                            .withFeatures(
+                                    CppRuleClasses.CPP20_MODULES));
+    useConfiguration("--experimental_cpp20_modules", "--features=cpp20_modules");
+    {
+      reporter.removeHandler(failFastHandler);
+      getConfiguredTarget("//a:lib");
+      assertContainsEvent("Artifact '<source file a/a.cppm>' is duplicated");
+    }
+    {
+      reporter.removeHandler(failFastHandler);
+      getConfiguredTarget("//a:bin");
+      assertContainsEvent("Artifact '<source file a/a.cppm>' is duplicated");
+    }
+    {
+      reporter.removeHandler(failFastHandler);
+      getConfiguredTarget("//a:test");
+      assertContainsEvent("Artifact '<source file a/a.cppm>' is duplicated");
+    }
+  }
 }
