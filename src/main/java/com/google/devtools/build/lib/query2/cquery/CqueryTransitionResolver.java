@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.query2.cquery;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationProducer.computeTransition;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.HashBasedTable;
@@ -32,8 +31,10 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -41,6 +42,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -247,14 +249,26 @@ public class CqueryTransitionResolver {
     return kind.getAttribute().getName();
   }
 
+  // Keep in sync with TargetAndConfigurationProducer.computeTransition.
   @Nullable
   private ConfigurationTransition getRuleTransition(CqueryNode configuredTarget) {
     Rule rule = accessor.getTarget(configuredTarget).getAssociatedRule();
     if (rule == null) {
       return null;
     }
-    return computeTransition(
-        rule, ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory());
+    TransitionFactory<RuleTransitionData> transitionFactory =
+        rule.getRuleClassObject().getTransitionFactory();
+    TransitionFactory<RuleTransitionData> trimmingTransitionFactory =
+        ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory();
+
+    boolean isAlias = rule.getAssociatedRule().getName().equals("alias");
+    if (trimmingTransitionFactory != null && !isAlias) {
+      transitionFactory =
+          ComposingTransitionFactory.of(transitionFactory, trimmingTransitionFactory);
+    }
+
+    var transitionData = RuleTransitionData.create(rule, /* configConditions= */ null, "");
+    return transitionFactory.create(transitionData);
   }
 
   private static String getTransitionName(

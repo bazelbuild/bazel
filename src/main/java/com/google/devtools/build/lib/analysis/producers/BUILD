@@ -36,7 +36,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/starlark_transition_cache",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/toolchain_type_requirement",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/composing_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/composing_transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/configuration_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/patch_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/transition_collector",
