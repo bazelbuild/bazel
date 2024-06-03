@@ -72,6 +72,7 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
 
     LocalDiffAwareness.Options localDiffOptions = new LocalDiffAwareness.Options();
     localDiffOptions.watchFS = true;
+    localDiffOptions.watchmanPath = PathFragment.EMPTY_FRAGMENT;
     watchFsEnabledProvider = FakeOptions.of(localDiffOptions);
 
     localDiff =
