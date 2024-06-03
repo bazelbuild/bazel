@@ -19,14 +19,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class Cpp20ModulesConfiguredTargetTest extends BuildViewTestCase {
 
-  @Override
-  protected ConfiguredRuleClassProvider createRuleClassProvider() {
-    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
-    TestRuleClassProvider.addStandardRules(builder);
-    builder.addConfigurationFragment(DummyTestFragment.class);
-    return builder.addRuleDefinition(new TestRuleClassProvider.MakeVariableTesterRule()).build();
-  }
-
   @Test
   public void testCpp20ModulesConfigurationNoFlags() throws Exception {
     ImmutableList<String> targetList = ImmutableList.of("//foo:lib", "//foo:bin", "//foo:test");
