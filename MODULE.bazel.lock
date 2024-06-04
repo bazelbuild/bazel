@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "497cdf890d3415f6dacb97f62246f5ab1bea3da5997f7fedc7829db56307d5e7",
+  "moduleFileHash": "818d3d6a05f9446d49a9ca71484dc5d06317e39de0bfcf6580cdf260243c0150",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -65,8 +65,8 @@
                   "com.google.auto:auto-common:1.2.1",
                   "com.google.auto.service:auto-service:1.0",
                   "com.google.auto.service:auto-service-annotations:1.0.1",
-                  "com.google.auto.value:auto-value:1.10.4",
-                  "com.google.auto.value:auto-value-annotations:1.10.4",
+                  "com.google.auto.value:auto-value:1.11.0",
+                  "com.google.auto.value:auto-value-annotations:1.11.0",
                   "com.google.code.findbugs:jsr305:3.0.2",
                   "com.google.code.gson:gson:2.10.1",
                   "com.google.code.java-allocation-instrumenter:java-allocation-instrumenter:3.3.0",
@@ -2949,7 +2949,7 @@
       "general": {
         "bzlTransitiveDigest": "iHLxWy9Kdma4o6vQG1U0vO82d7jPg9gng3gCoY4Dn88=",
         "recordedFileInputs": {
-          "@@//MODULE.bazel": "497cdf890d3415f6dacb97f62246f5ab1bea3da5997f7fedc7829db56307d5e7",
+          "@@//MODULE.bazel": "818d3d6a05f9446d49a9ca71484dc5d06317e39de0bfcf6580cdf260243c0150",
           "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "4a9cf4d1d48d36a3d6e24a13094b2c32aa20be5a495d4e5b33e43db973250182"
         },
         "recordedDirentsInputs": {},
@@ -4801,7 +4801,7 @@
         "recordedFileInputs": {
           "@@//src/tools/android/maven_android_install.json": "09bff3e33d291336046f7c9201630fb5e014f0e60b78b6f09b84e4f5f73ed04f",
           "@@rules_jvm_external~//rules_jvm_external_deps_install.json": "cafb5d2d8119391eb2b322ce3840d3352ea82d496bdb8cbd4b6779ec4d044dda",
-          "@@//maven_install.json": "01e0711721ff11f8ff15d409ba5e6e831524102317fe699a80c1609b74c9dada"
+          "@@//maven_install.json": "afc79de20d5d2eda76b2488c3adf6966ba4cdc1aca4d874694195b73100abf46"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -5409,8 +5409,8 @@
                 "{ \"group\": \"com.google.auto\", \"artifact\": \"auto-common\", \"version\": \"1.2.1\" }",
                 "{ \"group\": \"com.google.auto.service\", \"artifact\": \"auto-service\", \"version\": \"1.0\" }",
                 "{ \"group\": \"com.google.auto.service\", \"artifact\": \"auto-service-annotations\", \"version\": \"1.0.1\" }",
-                "{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value\", \"version\": \"1.10.4\" }",
-                "{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value-annotations\", \"version\": \"1.10.4\" }",
+                "{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value\", \"version\": \"1.11.0\" }",
+                "{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value-annotations\", \"version\": \"1.11.0\" }",
                 "{ \"group\": \"com.google.code.findbugs\", \"artifact\": \"jsr305\", \"version\": \"3.0.2\" }",
                 "{ \"group\": \"com.google.code.gson\", \"artifact\": \"gson\", \"version\": \"2.10.1\" }",
                 "{ \"group\": \"com.google.code.java-allocation-instrumenter\", \"artifact\": \"java-allocation-instrumenter\", \"version\": \"3.3.0\" }",
@@ -5562,6 +5562,17 @@
                 "https://repo1.maven.org/maven2/org/apache/tomcat/tomcat-annotations-api/8.0.5/tomcat-annotations-api-8.0.5.jar"
               ],
               "downloaded_file_path": "v1/org/apache/tomcat/tomcat-annotations-api/8.0.5/tomcat-annotations-api-8.0.5.jar"
+            }
+          },
+          "com_google_auto_value_auto_value_annotations_1_11_0": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "5a055ce4255333b3346e1a8703da5bf8ff049532286fdcd31712d624abe111dd",
+              "urls": [
+                "https://repo1.maven.org/maven2/com/google/auto/value/auto-value-annotations/1.11.0/auto-value-annotations-1.11.0.jar"
+              ],
+              "downloaded_file_path": "v1/com/google/auto/value/auto-value-annotations/1.11.0/auto-value-annotations-1.11.0.jar"
             }
           },
           "com_android_tools_analytics_library_protos_30_1_3": {
@@ -6081,17 +6092,6 @@
                 "https://repo1.maven.org/maven2/com/google/auto/value/auto-value-annotations/1.10.2/auto-value-annotations-1.10.2.jar"
               ],
               "downloaded_file_path": "v1/com/google/auto/value/auto-value-annotations/1.10.2/auto-value-annotations-1.10.2.jar"
-            }
-          },
-          "com_google_auto_value_auto_value_annotations_1_10_4": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "e1c45e6beadaef9797cb0d9afd5a45621ad061cd8632012f85582853a3887825",
-              "urls": [
-                "https://repo1.maven.org/maven2/com/google/auto/value/auto-value-annotations/1.10.4/auto-value-annotations-1.10.4.jar"
-              ],
-              "downloaded_file_path": "v1/com/google/auto/value/auto-value-annotations/1.10.4/auto-value-annotations-1.10.4.jar"
             }
           },
           "io_netty_netty_common_4_1_93_Final": {
@@ -6679,17 +6679,6 @@
               "downloaded_file_path": "v1/io/netty/netty-transport-classes-epoll/4.1.94.Final/netty-transport-classes-epoll-4.1.94.Final.jar"
             }
           },
-          "com_google_auto_value_auto_value_1_10_4": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "f3c438d1f82904bbcb452084d488b660f3c7488e9274c3a58f049e121632d434",
-              "urls": [
-                "https://repo1.maven.org/maven2/com/google/auto/value/auto-value/1.10.4/auto-value-1.10.4.jar"
-              ],
-              "downloaded_file_path": "v1/com/google/auto/value/auto-value/1.10.4/auto-value-1.10.4.jar"
-            }
-          },
           "com_googlecode_juniversalchardet_juniversalchardet_1_0_3": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -6924,6 +6913,17 @@
                 "https://repo1.maven.org/maven2/org/mockito/mockito-core/5.4.0/mockito-core-5.4.0.jar"
               ],
               "downloaded_file_path": "v1/org/mockito/mockito-core/5.4.0/mockito-core-5.4.0.jar"
+            }
+          },
+          "com_google_auto_value_auto_value_1_11_0": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "aaf8d637bfed3c420436b9facf1b7a88d12c8785374e4202382783005319c2c3",
+              "urls": [
+                "https://repo1.maven.org/maven2/com/google/auto/value/auto-value/1.11.0/auto-value-1.11.0.jar"
+              ],
+              "downloaded_file_path": "v1/com/google/auto/value/auto-value/1.11.0/auto-value-1.11.0.jar"
             }
           },
           "com_google_guava_failureaccess_1_0_2": {
@@ -8047,8 +8047,8 @@
                 "{ \"group\": \"com.google.auto\", \"artifact\": \"auto-common\", \"version\": \"1.2.1\" }",
                 "{ \"group\": \"com.google.auto.service\", \"artifact\": \"auto-service\", \"version\": \"1.0\" }",
                 "{ \"group\": \"com.google.auto.service\", \"artifact\": \"auto-service-annotations\", \"version\": \"1.0.1\" }",
-                "{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value\", \"version\": \"1.10.4\" }",
-                "{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value-annotations\", \"version\": \"1.10.4\" }",
+                "{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value\", \"version\": \"1.11.0\" }",
+                "{ \"group\": \"com.google.auto.value\", \"artifact\": \"auto-value-annotations\", \"version\": \"1.11.0\" }",
                 "{ \"group\": \"com.google.code.findbugs\", \"artifact\": \"jsr305\", \"version\": \"3.0.2\" }",
                 "{ \"group\": \"com.google.code.gson\", \"artifact\": \"gson\", \"version\": \"2.10.1\" }",
                 "{ \"group\": \"com.google.code.java-allocation-instrumenter\", \"artifact\": \"java-allocation-instrumenter\", \"version\": \"3.3.0\" }",
