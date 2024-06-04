@@ -38,7 +38,6 @@ import com.google.gson.FieldNamingPolicy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
-
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -148,11 +147,11 @@ public class IndexRegistry implements Registry {
   }
 
   private Optional<byte[]> doGrabFile(
-      String rawURL, ExtendedEventHandler eventHandler, boolean useChecksum)
+      String rawUrl, ExtendedEventHandler eventHandler, boolean useChecksum)
       throws IOException, InterruptedException {
     Optional<Checksum> checksum;
     if (knownFileHashesMode != KnownFileHashesMode.IGNORE && useChecksum) {
-      Optional<Checksum> knownChecksum = knownFileHashes.get(rawURL);
+      Optional<Checksum> knownChecksum = knownFileHashes.get(rawUrl);
       if (knownChecksum == null) {
         if (knownFileHashesMode == KnownFileHashesMode.ENFORCE) {
           throw new MissingChecksumException(
@@ -160,7 +159,7 @@ public class IndexRegistry implements Registry {
                   "Missing checksum for registry file %s not permitted with --lockfile_mode=error."
                       + " Please run `bazel mod deps --lockfile_mode=update` to update your"
                       + " lockfile.",
-                  rawURL));
+                  rawUrl));
         }
         // This is a new file, download without providing a checksum.
         checksum = Optional.empty();
@@ -188,35 +187,39 @@ public class IndexRegistry implements Registry {
               + "report at https://github.com/bazelbuild/bazel/issues/new/choose.");
     }
 
-    URL url = new URL(rawURL);
+    URL url = URI.create(rawUrl).toURL();
     // Don't try to read the registry URL from the vendor directory in the following cases:
     // 1. The vendor directory is not set, which means vendor mode is disabled.
-    // 2. The checksum is not present, which means the URL is not vendored or the vendored content is out-dated.
+    // 2. The checksum is not present, which means the URL is not vendored or the vendored content
+    // is out-dated.
     // 3. The URL starts with "file:", which means it's a local file and isn't vendored.
     // Otherwise, check if the URL is vendored and read the registry file from the vendor directory.
     if (vendorDir.isPresent() && checksum.isPresent() && !url.getProtocol().equals("file")) {
       VendorUtil vendorUtil = new VendorUtil(vendorDir.get());
       if (vendorUtil.isUrlVendored(url)) {
         try {
-          return Optional.of(vendorUtil.readRegistryURL(url, checksum.get()));
+          return Optional.of(vendorUtil.readRegistryUrl(url, checksum.get()));
         } catch (IOException e) {
           throw new IOException(
-              "Failed to read vendored registry file %s at %s: %s. Please rerun the bazel vendor command.".formatted(rawURL, vendorUtil.getVendorPathForURL(url), e.getMessage()), e);
+              String.format(
+                  "Failed to read vendored registry file %s at %s: %s. Please rerun the bazel"
+                      + " vendor command.",
+                  rawUrl, vendorUtil.getVendorPathForUrl(url), e.getMessage()),
+              e);
         }
       }
     }
 
     try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.BZLMOD, () -> "download file: " + rawURL)) {
+        Profiler.instance().profile(ProfilerTask.BZLMOD, () -> "download file: " + rawUrl)) {
       return Optional.of(
-          downloadManager.downloadAndReadOneUrlForBzlmod(
-              url, eventHandler, clientEnv, checksum));
+          downloadManager.downloadAndReadOneUrlForBzlmod(url, eventHandler, clientEnv, checksum));
     } catch (FileNotFoundException e) {
       return Optional.empty();
     } catch (IOException e) {
       // Include the URL in the exception message for easier debugging.
       throw new IOException(
-          "Failed to fetch registry file %s: %s".formatted(rawURL, e.getMessage()), e);
+          "Failed to fetch registry file %s: %s".formatted(rawUrl, e.getMessage()), e);
     }
   }
 

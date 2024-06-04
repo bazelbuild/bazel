@@ -434,7 +434,7 @@ class BazelVendorTest(test_base.TestBase):
         "WARNING: <builtin>: Vendored repository '_main~ext~justRepo' is"
         ' out-of-date. The up-to-date version will be fetched into the external'
         ' cache and used. To update the repo in the vendor directory, run'
-        " the bazel vendor command",
+        ' the bazel vendor command',
         stderr,
     )
 
@@ -464,7 +464,7 @@ class BazelVendorTest(test_base.TestBase):
         "WARNING: <builtin>: Vendored repository '_main~ext~justRepo' is"
         ' out-of-date. The up-to-date version will be fetched into the external'
         ' cache and used. To update the repo in the vendor directory, run'
-        " the bazel vendor command",
+        ' the bazel vendor command',
         stderr,
     )
     _, stdout, _ = self.RunBazel(['info', 'output_base'])
@@ -480,7 +480,7 @@ class BazelVendorTest(test_base.TestBase):
         "WARNING: <builtin>: Vendored repository '_main~ext~justRepo' is"
         ' out-of-date. The up-to-date version will be fetched into the external'
         ' cache and used. To update the repo in the vendor directory, run'
-        " the bazel vendor command",
+        ' the bazel vendor command',
         stderr,
     )
 
@@ -542,7 +542,7 @@ class BazelVendorTest(test_base.TestBase):
     )
     self.assertIn(
         'ERROR: Vendored repository _main~ext~noVenRepo not found under the'
-        " vendor directory and fetching is disabled. To fix, run the bazel"
+        ' vendor directory and fetching is disabled. To fix, run the bazel'
         " vendor command or build without the '--nofetch'",
         stderr,
     )
@@ -620,13 +620,14 @@ class BazelVendorTest(test_base.TestBase):
 
     self.RunBazel(['vendor', '//:main', '--vendor_dir=vendor'])
 
-    # Build and run the target in a clean build with internet blocked and make sure it works
+    # Build and run the target in a clean build with internet blocked and make
+    # sure it works
     _, _, _ = self.RunBazel(['clean', '--expunge'])
     _, stdout, _ = self.RunBazel(
         ['run', '//:main', '--vendor_dir=vendor', '--repository_cache='],
-        env_add= {
-          "HTTP_PROXY": "internet_blocked",
-          "HTTPS_PROXY": "internet_blocked",
+        env_add={
+            'HTTP_PROXY': 'internet_blocked',
+            'HTTPS_PROXY': 'internet_blocked',
         },
     )
     self.assertIn('Hello there! => bbb@1.0', stdout)
@@ -634,18 +635,19 @@ class BazelVendorTest(test_base.TestBase):
     # Assert repos in {OUTPUT_BASE}/external are symlinks (junction on
     # windows, this validates it was created from vendor and not fetched)
     _, stdout, _ = self.RunBazel(['info', 'output_base'])
-    for repo in ["aaa~", "bbb~"]:
-        repo_path = stdout[0] + '/external/' + repo
-        if self.IsWindows():
-            self.assertTrue(self.IsJunction(repo_path))
-        else:
-            self.assertTrue(os.path.islink(repo_path))
+    for repo in ['aaa~', 'bbb~']:
+      repo_path = stdout[0] + '/external/' + repo
+      if self.IsWindows():
+        self.assertTrue(self.IsJunction(repo_path))
+      else:
+        self.assertTrue(os.path.islink(repo_path))
 
   def testVendorConflictRegistryFile(self):
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'bbb', '1.0', {'aaa': '1.0'}
     )
-    # The registry URLs of main_registry and another_registry only differ by the port number
+    # The registry URLs of main_registry and another_registry only differ by the
+    # port number
     another_registry = BazelRegistry(
         os.path.join(self.registries_work_dir, 'MAIN'),
     )
@@ -665,9 +667,15 @@ class BazelVendorTest(test_base.TestBase):
         ],
     )
     self.ScratchFile('BUILD')
-    exit_code, _, stderr = self.RunBazel(['vendor', '--vendor_dir=vendor'], allow_failure=True)
+    exit_code, _, stderr = self.RunBazel(
+        ['vendor', '--vendor_dir=vendor'], allow_failure=True
+    )
     self.AssertExitCode(exit_code, 8, stderr)
-    self.assertIn('ERROR: Error while vendoring repos: Vendor paths conflict detected for registry URLs:', stderr)
+    self.assertIn(
+        'ERROR: Error while vendoring repos: Vendor paths conflict detected for'
+        ' registry URLs:',
+        stderr,
+    )
 
 
 if __name__ == '__main__':

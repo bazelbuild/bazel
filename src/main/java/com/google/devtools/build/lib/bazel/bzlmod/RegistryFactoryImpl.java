@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.Lockfile
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;

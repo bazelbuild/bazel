@@ -75,11 +75,14 @@ With the external dependencies vendored, you can build the target offline by
 bazel build --vendor_dir=vendor_src //src/main:hello-world //src/test/...
 ```
 
-The build should work in a clean build environment without network access and repository cache.
+The build should work in a clean build environment without network access and
+repository cache.
 
-Therefore, you should be able to check in the vendored source and build the same targets offline on another machine.
+Therefore, you should be able to check in the vendored source and build the same
+targets offline on another machine.
 
-Note: If you build different targets or change the external dependencies, build configuration, or Bazel version, you may need to re-vendor.
+Note: If you build different targets or change the external dependencies, build
+configuration, or Bazel version, you may need to re-vendor.
 
 ## Vendor all external dependencies {:#vendor-all-dependencies}
 

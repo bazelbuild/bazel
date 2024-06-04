@@ -63,14 +63,15 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
-
 import java.io.IOException;
+import java.net.URI;
 import java.net.URL;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -78,7 +79,6 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.function.Supplier;
-
 import javax.annotation.Nullable;
 
 /**
@@ -113,7 +113,8 @@ public final class VendorCommand implements BlazeCommand {
   private final DownloadManager downloadManager;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
 
-  public VendorCommand(DownloadManager downloadManager, Supplier<Map<String, String>> clientEnvironmentSupplier) {
+  public VendorCommand(
+      DownloadManager downloadManager, Supplier<Map<String, String>> clientEnvironmentSupplier) {
     this.downloadManager = downloadManager;
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
   }
@@ -151,7 +152,8 @@ public final class VendorCommand implements BlazeCommand {
 
     BlazeCommandResult result;
     VendorOptions vendorOptions = options.getOptions(VendorOptions.class);
-    Path vendorDirectory = getVendorPath(env, options.getOptions(RepositoryOptions.class).vendorDirectory);
+    Path vendorDirectory =
+        getVendorPath(env, options.getOptions(RepositoryOptions.class).vendorDirectory);
     LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
     try {
       env.getReporter().handle(Event.info("Vendoring ..."));
@@ -325,41 +327,51 @@ public final class VendorCommand implements BlazeCommand {
    * ignored or was already vendored and up-to-date
    */
   private void vendor(
-      CommandEnvironment env,
-      Path vendorDirectory,
-      ImmutableList<RepositoryName> reposToVendor)
+      CommandEnvironment env, Path vendorDirectory, ImmutableList<RepositoryName> reposToVendor)
       throws IOException, InterruptedException {
     VendorUtil vendorUtil = new VendorUtil(vendorDirectory);
 
     // 1. Vendor registry files
-    BazelModuleResolutionValue moduleResolutionValue = (BazelModuleResolutionValue) env.getSkyframeExecutor().getEvaluator().getExistingValue(BazelModuleResolutionValue.KEY);
-    ImmutableMap<String, Optional<Checksum>> registryFiles = Objects.requireNonNull(
-        moduleResolutionValue).getRegistryFileHashes();
+    BazelModuleResolutionValue moduleResolutionValue =
+        (BazelModuleResolutionValue)
+            env.getSkyframeExecutor()
+                .getEvaluator()
+                .getExistingValue(BazelModuleResolutionValue.KEY);
+    ImmutableMap<String, Optional<Checksum>> registryFiles =
+        Objects.requireNonNull(moduleResolutionValue).getRegistryFileHashes();
 
     // vendorPathToURL is a map of
     //  key: a vendor path string converted to lower case
     //  value: a URL string
     // This map is for detecting potential rare vendor path conflicts, such as:
-    //  http://foo.bar.com/BCR vs http://foo.bar.com/bcr => conflict vendor paths on case-insensitive system
-    //  http://foo.bar.com/bcr vs http://foo.bar.com:8081/bcr => conflict vendor path because port number is ignored in vendor path
+    //  http://foo.bar.com/BCR vs http://foo.bar.com/bcr => conflict vendor paths on
+    // case-insensitive system
+    //  http://foo.bar.com/bcr vs http://foo.bar.com:8081/bcr => conflict vendor path because port
+    // number is ignored in vendor path
     // The user has to update the Bazel registries this if such conflicts occur.
-    Map<String, String> vendorPathToURL = new HashMap<>();
+    Map<String, String> vendorPathToUrl = new HashMap<>();
     for (Entry<String, Optional<Checksum>> entry : registryFiles.entrySet()) {
-      URL url = new URL(entry.getKey());
+      URL url = URI.create(entry.getKey()).toURL();
       if (url.getProtocol().equals("file")) {
         continue;
       }
 
-      String outputPath = vendorUtil.getVendorPathForURL(url).getPathString();
-      if (vendorPathToURL.containsKey(outputPath.toLowerCase())) {
-        String previousURL = vendorPathToURL.get(outputPath.toLowerCase());
-        throw new IOException(String.format(
-            "Vendor paths conflict detected for registry URLs:\n    %s => %s\n    %s => %s\nTheir output paths are either the same or only differ by case, which will cause conflict on case insensitive file systems, please fix by changing the registry URLs!",
-            previousURL,
-            vendorUtil.getVendorPathForURL(new URL(previousURL)).getPathString(),
-            entry.getKey(),
-            outputPath
-        ));
+      String outputPath = vendorUtil.getVendorPathForUrl(url).getPathString();
+      String outputPathLowerCase = outputPath.toLowerCase(Locale.ROOT);
+      if (vendorPathToUrl.containsKey(outputPathLowerCase)) {
+        String previousUrl = vendorPathToUrl.get(outputPathLowerCase);
+        throw new IOException(
+            String.format(
+                "Vendor paths conflict detected for registry URLs:\n"
+                    + "    %s => %s\n"
+                    + "    %s => %s\n"
+                    + "Their output paths are either the same or only differ by case, which will"
+                    + " cause conflict on case insensitive file systems, please fix by changing the"
+                    + " registry URLs!",
+                previousUrl,
+                vendorUtil.getVendorPathForUrl(URI.create(previousUrl).toURL()).getPathString(),
+                entry.getKey(),
+                outputPath));
       }
 
       Optional<Checksum> checksum = entry.getValue();
@@ -368,13 +380,19 @@ public final class VendorCommand implements BlazeCommand {
           // recorded as "not found" in moduleResolutionValue.getRegistryFileHashes()
           && checksum.isPresent()) {
         try {
-          vendorUtil.vendorRegistryURL(url, downloadManager.downloadAndReadOneUrlForBzlmod(url, env.getReporter(), clientEnvironmentSupplier.get(), checksum));
+          vendorUtil.vendorRegistryUrl(
+              url,
+              downloadManager.downloadAndReadOneUrlForBzlmod(
+                  url, env.getReporter(), clientEnvironmentSupplier.get(), checksum));
         } catch (IOException e) {
-          throw new IOException(String.format("Failed to vendor registry URL %s at %s: %s", url, outputPath, e.getMessage()), e.getCause());
+          throw new IOException(
+              String.format(
+                  "Failed to vendor registry URL %s at %s: %s", url, outputPath, e.getMessage()),
+              e.getCause());
         }
       }
 
-      vendorPathToURL.put(outputPath.toLowerCase(), entry.getKey());
+      vendorPathToUrl.put(outputPathLowerCase, entry.getKey());
     }
 
     // 2. Vendor repos
@@ -386,11 +404,9 @@ public final class VendorCommand implements BlazeCommand {
   }
 
   private static Path getVendorPath(CommandEnvironment env, PathFragment vendorDirectory) {
-    Path vendorPath =
-        vendorDirectory.isAbsolute()
-            ? env.getRuntime().getFileSystem().getPath(vendorDirectory)
-            : env.getWorkspace().getRelative(vendorDirectory);
-    return vendorPath;
+    return vendorDirectory.isAbsolute()
+        ? env.getRuntime().getFileSystem().getPath(vendorDirectory)
+        : env.getWorkspace().getRelative(vendorDirectory);
   }
 
   private static BlazeCommandResult createFailedBlazeCommandResult(

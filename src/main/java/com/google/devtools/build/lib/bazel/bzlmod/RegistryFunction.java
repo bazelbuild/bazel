@@ -28,7 +28,6 @@ import java.net.URISyntaxException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
-
 import javax.annotation.Nullable;
 
 /** A simple SkyFunction that creates a {@link Registry} with a given URL. */

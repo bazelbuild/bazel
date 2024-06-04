@@ -1,3 +1,16 @@
+// Copyright 2024 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -10,18 +23,14 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
-
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.net.URLDecoder;
+import java.util.Locale;
 import java.util.Objects;
-import java.util.Optional;
 
-
-/**
- * Utility class for vendoring external repositories.
- */
+/** Utility class for vendoring external repositories. */
 public class VendorUtil {
 
   private final Path vendorDirectory;
@@ -37,9 +46,7 @@ public class VendorUtil {
    * @param reposToVendor The list of repositories to vendor.
    * @throws IOException if an I/O error occurs.
    */
-  public void vendorRepos(
-      Path externalRepoRoot,
-      ImmutableList<RepositoryName> reposToVendor)
+  public void vendorRepos(Path externalRepoRoot, ImmutableList<RepositoryName> reposToVendor)
       throws IOException {
     if (!vendorDirectory.exists()) {
       vendorDirectory.createDirectoryAndParents();
@@ -69,7 +76,7 @@ public class VendorUtil {
    * @throws UnsupportedEncodingException if the URL decoding fails.
    */
   public boolean isUrlVendored(URL url) throws UnsupportedEncodingException {
-    return getVendorPathForURL(url).isFile();
+    return getVendorPathForUrl(url).isFile();
   }
 
   /**
@@ -79,9 +86,8 @@ public class VendorUtil {
    * @param content The content to write.
    * @throws IOException if an I/O error occurs.
    */
-  public void vendorRegistryURL(URL url, byte[] content)
-      throws IOException {
-    Path outputPath = getVendorPathForURL(url);
+  public void vendorRegistryUrl(URL url, byte[] content) throws IOException {
+    Path outputPath = getVendorPathForUrl(url);
     Objects.requireNonNull(outputPath.getParentDirectory()).createDirectoryAndParents();
     FileSystemUtils.writeContent(outputPath, content);
   }
@@ -94,9 +100,8 @@ public class VendorUtil {
    * @return The content of the registry URL.
    * @throws IOException if an I/O error occurs or the checksum verification fails.
    */
-  public byte[] readRegistryURL(URL url, Checksum checksum)
-      throws IOException {
-    byte[] content = FileSystemUtils.readContent(getVendorPathForURL(url));
+  public byte[] readRegistryUrl(URL url, Checksum checksum) throws IOException {
+    byte[] content = FileSystemUtils.readContent(getVendorPathForUrl(url));
     Hasher hasher = checksum.getKeyType().newHasher();
     hasher.putBytes(content);
     HashCode actual = hasher.hash();
@@ -111,17 +116,16 @@ public class VendorUtil {
   }
 
   /**
-   * Checks if the repository under vendor dir needs to be updated by comparing its marker file with the
-   * one under <output_base>/external. This function assumes the marker file under <output_base>/external exists
-   * and is up-to-date.
+   * Checks if the repository under vendor dir needs to be updated by comparing its marker file with
+   * the one under <output_base>/external. This function assumes the marker file under
+   * <output_base>/external exists and is up-to-date.
    *
    * @param repoName The name of the repository.
    * @param externalPath The root directory of the external repositories.
    * @return true if the repository is up-to-date, false otherwise.
    * @throws IOException if an I/O error occurs.
    */
-  private boolean isRepoUpToDate(String repoName, Path externalPath)
-      throws IOException {
+  private boolean isRepoUpToDate(String repoName, Path externalPath) throws IOException {
     Path vendorMarkerFile = vendorDirectory.getChild("@" + repoName + ".marker");
     if (!vendorMarkerFile.exists()) {
       return false;
@@ -136,22 +140,20 @@ public class VendorUtil {
   /**
    * Returns the vendor path for the given URL.
    *
-   * The vendor path is constructed as follows:
-   * <vendor_directory>/registry_cache/<host>/<path>
+   * <p>The vendor path is constructed as follows: <vendor_directory>/registry_cache/<host>/<path>
    *
-   * The host name is case-insensitive, so it is converted to lowercase.
-   * The path is case-sensitive, so it is left as is.
-   * The port number is not included in the vendor path.
+   * <p>The host name is case-insensitive, so it is converted to lowercase. The path is
+   * case-sensitive, so it is left as is. The port number is not included in the vendor path.
    *
-   * Note that the vendor path may conflicts if two URLs only differ by the case or port number.
+   * <p>Note that the vendor path may conflicts if two URLs only differ by the case or port number.
    * But this is unlikely to happen in practice, and conflicts are checked in VendorCommand.java.
    *
    * @param url The URL to get the vendor path for.
    * @return The vendor path.
    * @throws UnsupportedEncodingException if the URL decoding fails.
    */
-  public Path getVendorPathForURL(URL url) throws UnsupportedEncodingException {
-    String host = url.getHost().toLowerCase(); // Host names are case-insensitive
+  public Path getVendorPathForUrl(URL url) throws UnsupportedEncodingException {
+    String host = url.getHost().toLowerCase(Locale.ROOT); // Host names are case-insensitive
     String path = url.getPath();
     path = URLDecoder.decode(path, "UTF-8");
     if (path.startsWith("/")) {

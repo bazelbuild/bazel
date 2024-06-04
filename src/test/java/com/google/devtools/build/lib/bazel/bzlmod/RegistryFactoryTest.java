@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import java.net.URISyntaxException;
 import java.util.Optional;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -46,7 +45,10 @@ public class RegistryFactoryTest {
             URISyntaxException.class,
             () ->
                 registryFactory.createRegistry(
-                    "/home/www", LockfileMode.UPDATE, ImmutableMap.of(), ImmutableMap.of(),
+                    "/home/www",
+                    LockfileMode.UPDATE,
+                    ImmutableMap.of(),
+                    ImmutableMap.of(),
                     Optional.empty()));
     assertThat(exception).hasMessageThat().contains("Registry URL has no scheme");
     exception =
@@ -54,7 +56,11 @@ public class RegistryFactoryTest {
             URISyntaxException.class,
             () ->
                 registryFactory.createRegistry(
-                    "foo://bar", LockfileMode.UPDATE, ImmutableMap.of(), ImmutableMap.of(), Optional.empty()));
+                    "foo://bar",
+                    LockfileMode.UPDATE,
+                    ImmutableMap.of(),
+                    ImmutableMap.of(),
+                    Optional.empty()));
     assertThat(exception).hasMessageThat().contains("Unrecognized registry URL protocol");
   }
 
@@ -72,7 +78,8 @@ public class RegistryFactoryTest {
                     "file:c:/path/to/workspace/registry",
                     LockfileMode.UPDATE,
                     ImmutableMap.of(),
-                    ImmutableMap.of(), Optional.empty()));
+                    ImmutableMap.of(),
+                    Optional.empty()));
     assertThat(exception).hasMessageThat().contains("Registry URL path is not valid");
   }
 }
