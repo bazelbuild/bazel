@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.MacroClass;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
@@ -398,7 +399,7 @@ public final class ModuleInfoExtractor {
       if (ruleClass.getRuleClassType() == RuleClassType.TEST) {
         ruleInfoBuilder.setTest(true);
       }
-      if (ruleClass.hasAttr("$is_executable", Type.BOOLEAN)) {
+      if (ruleClass.hasAttr(Rule.IS_EXECUTABLE_ATTRIBUTE_NAME, Type.BOOLEAN)) {
         ruleInfoBuilder.setExecutable(true);
       }
 
