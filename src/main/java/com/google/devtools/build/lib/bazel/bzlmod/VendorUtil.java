@@ -64,9 +64,11 @@ public class VendorUtil {
         }
         FileSystemUtils.copyTreesBelow(
             externalRepoRoot.getRelative(repo.getName()), repoUnderVendor, Symlinks.NOFOLLOW);
+        Path tmpMarkerFile = vendorDirectory.getChild(repo.getMarkerFileName() + ".tmp");
         FileSystemUtils.copyFile(
             externalRepoRoot.getChild(repo.getMarkerFileName()),
-            vendorDirectory.getChild(repo.getMarkerFileName()));
+            tmpMarkerFile);
+        tmpMarkerFile.renameTo(vendorDirectory.getChild(repo.getMarkerFileName()));
       }
     }
   }
