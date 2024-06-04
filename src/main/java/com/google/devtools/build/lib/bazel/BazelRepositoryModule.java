@@ -166,7 +166,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private Clock clock;
   private Instant lastRegistryInvalidation = Instant.EPOCH;
 
-  private Optional<Path> vendorDirectory;
+  private Optional<Path> vendorDirectory = Optional.empty();
   private List<String> allowedYankedVersions = ImmutableList.of();
   private boolean disableNativeRepoRules;
   private SingleExtensionEvalFunction singleExtensionEvalFunction;
@@ -503,8 +503,6 @@ public class BazelRepositoryModule extends BlazeModule {
                 repoOptions.vendorDirectory.isAbsolute()
                     ? filesystem.getPath(repoOptions.vendorDirectory)
                     : env.getWorkspace().getRelative(repoOptions.vendorDirectory));
-      } else {
-        vendorDirectory = Optional.empty();
       }
 
       if (repoOptions.registries != null && !repoOptions.registries.isEmpty()) {
