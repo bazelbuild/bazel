@@ -91,7 +91,7 @@ class UiStateTracker {
   private int sampleSize = 3;
 
   protected String status;
-  protected String additionalMessage;
+  protected String additionalMessage = "";
   // Not null after the loading phase has completed.
   protected RepositoryMapping mainRepositoryMapping;
 
