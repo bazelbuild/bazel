@@ -274,7 +274,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     Path vendorPath = VENDOR_DIRECTORY.get(env).get();
     Path vendorRepoPath = vendorPath.getRelative(repositoryName.getName());
     if (vendorRepoPath.exists()) {
-      Path vendorMarker = vendorPath.getChild("@" + repositoryName.getName() + ".marker");
+      Path vendorMarker = vendorPath.getChild(repositoryName.getMarkerFileName());
       if (vendorFile.getPinnedRepos().contains(repositoryName)) {
         // pinned repos are used as they are without checking their marker file
         try {
@@ -621,7 +621,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         StarlarkSemantics starlarkSemantics) {
       this.directories = directories;
       ruleKey = computeRuleKey(rule, starlarkSemantics);
-      markerPath = getMarkerPath(directories, repositoryName.getName());
+      markerPath = getMarkerPath(directories, repositoryName);
       this.rule = rule;
       recordedInputValues = Maps.newTreeMap();
     }
@@ -731,15 +731,15 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           .hexDigestAndReset();
     }
 
-    private static Path getMarkerPath(BlazeDirectories directories, String ruleName) {
+    private static Path getMarkerPath(BlazeDirectories directories, RepositoryName repo) {
       return RepositoryFunction.getExternalRepositoryDirectory(directories)
-          .getChild("@" + ruleName + ".marker");
+          .getChild(repo.getMarkerFileName());
     }
 
-    static void clearMarkerFile(BlazeDirectories directories, RepositoryName repoName)
+    static void clearMarkerFile(BlazeDirectories directories, RepositoryName repo)
         throws RepositoryFunctionException {
       try {
-        getMarkerPath(directories, repoName.getName()).delete();
+        getMarkerPath(directories, repo).delete();
       } catch (IOException e) {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }

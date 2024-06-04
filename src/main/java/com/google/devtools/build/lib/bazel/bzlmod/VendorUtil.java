@@ -57,7 +57,7 @@ public class VendorUtil {
 
     for (RepositoryName repo : reposToVendor) {
       // Only re-vendor the repository if it is not up-to-date.
-      if (!isRepoUpToDate(repo.getName(), externalRepoRoot)) {
+      if (!isRepoUpToDate(repo, externalRepoRoot)) {
         Path repoUnderVendor = vendorDirectory.getRelative(repo.getName());
         if (!repoUnderVendor.exists()) {
           repoUnderVendor.createDirectory();
@@ -65,8 +65,8 @@ public class VendorUtil {
         FileSystemUtils.copyTreesBelow(
             externalRepoRoot.getRelative(repo.getName()), repoUnderVendor, Symlinks.NOFOLLOW);
         FileSystemUtils.copyFile(
-            externalRepoRoot.getChild("@" + repo.getName() + ".marker"),
-            vendorDirectory.getChild("@" + repo.getName() + ".marker"));
+            externalRepoRoot.getChild(repo.getMarkerFileName()),
+            vendorDirectory.getChild(repo.getMarkerFileName()));
       }
     }
   }
@@ -128,13 +128,13 @@ public class VendorUtil {
    * @return true if the repository is up-to-date, false otherwise.
    * @throws IOException if an I/O error occurs.
    */
-  private boolean isRepoUpToDate(String repoName, Path externalPath) throws IOException {
-    Path vendorMarkerFile = vendorDirectory.getChild("@" + repoName + ".marker");
+  private boolean isRepoUpToDate(RepositoryName repo, Path externalPath) throws IOException {
+    Path vendorMarkerFile = vendorDirectory.getChild(repo.getMarkerFileName());
     if (!vendorMarkerFile.exists()) {
       return false;
     }
 
-    Path externalMarkerFile = externalPath.getChild("@" + repoName + ".marker");
+    Path externalMarkerFile = externalPath.getChild(repo.getMarkerFileName());
     String vendorMarkerContent = FileSystemUtils.readContent(vendorMarkerFile, UTF_8);
     String externalMarkerContent = FileSystemUtils.readContent(externalMarkerFile, UTF_8);
     return Objects.equals(vendorMarkerContent, externalMarkerContent);
@@ -148,7 +148,7 @@ public class VendorUtil {
    * <p>The host name is case-insensitive, so it is converted to lowercase. The path is
    * case-sensitive, so it is left as is. The port number is not included in the vendor path.
    *
-   * <p>Note that the vendor path may conflicts if two URLs only differ by the case or port number.
+   * <p>Note that the vendor path may conflict if two URLs only differ by the case or port number.
    * But this is unlikely to happen in practice, and conflicts are checked in VendorCommand.java.
    *
    * @param url The URL to get the vendor path for.
