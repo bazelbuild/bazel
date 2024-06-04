@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
-import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
@@ -273,14 +272,13 @@ public class CqueryTransitionResolver {
 
   private static String getTransitionName(
       @Nullable ConfigurationTransition attributeTransition,
-      @Nullable ConfigurationTransition ruleTransition) {
-    ConfigurationTransition transition = NoTransition.INSTANCE;
-    if (attributeTransition != null) {
-      transition = ComposingTransition.of(transition, attributeTransition);
+      ConfigurationTransition ruleTransition) {
+    if (attributeTransition == null || NoTransition.isInstance(attributeTransition)) {
+      return ruleTransition.getName();
+    } else if (NoTransition.isInstance(ruleTransition)) {
+      return attributeTransition.getName();
+    } else {
+      return "(" + attributeTransition.getName() + " + " + ruleTransition.getName() + ")";
     }
-    if (ruleTransition != null) {
-      transition = ComposingTransition.of(transition, ruleTransition);
-    }
-    return transition.getName();
   }
 }

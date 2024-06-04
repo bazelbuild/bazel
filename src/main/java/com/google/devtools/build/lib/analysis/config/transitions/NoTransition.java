@@ -50,6 +50,14 @@ public final class NoTransition implements PatchTransition {
     return instance instanceof Factory;
   }
 
+  /**
+   * Returns {@code true} if the given {@link ConfigurationTransition} is an instance of the no
+   * transition.
+   */
+  public static boolean isInstance(ConfigurationTransition transition) {
+    return transition instanceof NoTransition;
+  }
+
   /** A {@link TransitionFactory} implementation that generates the no transition. */
   @AutoValue
   abstract static class Factory<T extends TransitionFactory.Data>
