@@ -18,11 +18,17 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.rules.cpp.CppOptions;
+import com.google.devtools.build.lib.rules.java.JavaOptions;
 import java.util.Collection;
 import java.util.Map;
 import java.util.stream.IntStream;
@@ -211,5 +217,49 @@ public class ComposingTransitionFactoryTest {
     public boolean isSplit() {
       return true;
     }
+  }
+
+  /** Custom fragment for use in tests. */
+  private static final class TransitionFactoryWithCustomFragments
+      implements TransitionFactory<StubData> {
+    private final ImmutableSet<Class<? extends FragmentOptions>> fragments;
+
+    TransitionFactoryWithCustomFragments(ImmutableSet<Class<? extends FragmentOptions>> fragments) {
+      this.fragments = fragments;
+    }
+
+    @Override
+    public ConfigurationTransition create(StubData data) {
+      return new PatchTransition() {
+        @Override
+        public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+          return fragments;
+        }
+
+        @Override
+        public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+          return options.underlying();
+        }
+      };
+    }
+
+    @Override
+    public TransitionType transitionType() {
+      return TransitionType.ANY;
+    }
+  }
+
+  @Test
+  public void composed_required_fragments() throws Exception {
+    TransitionFactory<StubData> composed =
+        ComposingTransitionFactory.of(
+            new TransitionFactoryWithCustomFragments(ImmutableSet.of(CppOptions.class)),
+            new TransitionFactoryWithCustomFragments(ImmutableSet.of(JavaOptions.class)));
+    RequiredConfigFragmentsProvider.Builder requiredFragments =
+        RequiredConfigFragmentsProvider.builder();
+    ConfigurationTransition transition = composed.create(new StubData());
+    transition.addRequiredFragments(requiredFragments, null);
+    assertThat(requiredFragments.build().getOptionsClasses())
+        .containsExactly(CppOptions.class, JavaOptions.class);
   }
 }

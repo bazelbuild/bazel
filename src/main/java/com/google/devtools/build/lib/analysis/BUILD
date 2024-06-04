@@ -72,7 +72,6 @@ java_library(
         ":config/run_under",
         ":config/run_under_converter",
         ":config/starlark_defined_config_transition",
-        ":config/transitions/composing_transition",
         ":config/transitions/composing_transition_factory",
         ":config/transitions/configuration_transition",
         ":config/transitions/no_transition",
@@ -2111,29 +2110,18 @@ java_library(
     ],
 )
 
-# TODO(b/144899336): This should be config/transitions/BUILD
+# TODO(b/144899336): These should be config/transitions/BUILD
 java_library(
-    name = "config/transitions/composing_transition",
-    srcs = ["config/transitions/ComposingTransition.java"],
+    name = "config/transitions/composing_transition_factory",
+    srcs = ["config/transitions/ComposingTransitionFactory.java"],
     deps = [
         ":config/build_option_details",
         ":config/build_options",
         ":config/transitions/configuration_transition",
         ":config/transitions/no_transition",
+        ":config/transitions/transition_factory",
         ":required_config_fragments_provider",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "config/transitions/composing_transition_factory",
-    srcs = ["config/transitions/ComposingTransitionFactory.java"],
-    deps = [
-        ":config/transitions/composing_transition",
-        ":config/transitions/configuration_transition",
-        ":config/transitions/no_transition",
-        ":config/transitions/transition_factory",
         "//third_party:auto_value",
         "//third_party:guava",
     ],
