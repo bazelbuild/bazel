@@ -242,6 +242,15 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
           throw new RegisteredExecutionPlatformsFunctionException(
               new InvalidPlatformException(platformLabel), Transience.PERSISTENT);
         }
+
+        // Update the key so that any aliases are resolved.
+        platformLabel = target.getLabel();
+        platformKey =
+            ConfiguredTargetKey.builder()
+                .setLabel(platformLabel)
+                .setConfiguration(configuration)
+                .build();
+
         validPlatformKeys.add(platformKey);
       } catch (ConfiguredValueCreationException e) {
         throw new RegisteredExecutionPlatformsFunctionException(

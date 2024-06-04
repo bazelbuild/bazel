@@ -286,13 +286,28 @@ public class ToolchainResolutionFunction implements SkyFunction {
             .build();
 
     // Load the host and target platforms early, to check for errors.
-    var unused =
+    Map<ConfiguredTargetKey, PlatformInfo> platformInfos =
         PlatformLookupUtil.getPlatformInfo(
             ImmutableList.of(hostPlatformKey, targetPlatformKey), environment);
     if (environment.valuesMissing()) {
       throw new ValueMissingException();
     }
 
+    // Update the keys so that any aliases are resolved.
+    hostPlatformLabel = platformInfos.get(hostPlatformKey).label();
+    hostPlatformKey =
+        ConfiguredTargetKey.builder()
+            .setLabel(hostPlatformLabel)
+            .setConfiguration(configuration)
+            .build();
+    targetPlatformLabel = platformInfos.get(targetPlatformKey).label();
+    targetPlatformKey =
+        ConfiguredTargetKey.builder()
+            .setLabel(targetPlatformLabel)
+            .setConfiguration(configuration)
+            .build();
+
+    // Load the execution platform keys.
     ImmutableList<ConfiguredTargetKey> executionPlatformKeys =
         loadExecutionPlatformKeys(
             environment,
