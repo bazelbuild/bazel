@@ -111,7 +111,8 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
         /* sandboxDebugPath= */ null,
         statisticsPath,
         /* interactiveDebugArguments= */ null,
-        spawn.getMnemonic());
+        spawn.getMnemonic(),
+        spawn.getTargetLabel());
   }
 
   @Override
