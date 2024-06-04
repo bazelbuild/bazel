@@ -1950,11 +1950,6 @@ EOF
 }
 
 function test_sandboxed_multiplexing() {
-  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
-    # TODO: Enable test after the next java_tools release.
-    return 0
-  fi
-
   mkdir -p pkg
   cat << 'EOF' > pkg/BUILD
 load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
