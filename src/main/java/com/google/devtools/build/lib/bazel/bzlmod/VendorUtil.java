@@ -43,6 +43,8 @@ public class VendorUtil {
   /**
    * Vendors the specified repositories under the vendor directory.
    *
+   * TODO(pcloudy): Parallelize vendoring repos
+   *
    * @param externalRepoRoot The root directory of the external repositories.
    * @param reposToVendor The list of repositories to vendor.
    * @throws IOException if an I/O error occurs.
