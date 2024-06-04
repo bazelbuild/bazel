@@ -905,7 +905,7 @@ def _impl(ctx):
                     ],
                     flag_groups = [
                         flag_group(
-                            flags = ["/external:I", "%{external_include_paths}"],
+                            flags = ["/external:I%{external_include_paths}"],
                             iterate_over = "external_include_paths",
                             expand_if_available = "external_include_paths",
                         ),
