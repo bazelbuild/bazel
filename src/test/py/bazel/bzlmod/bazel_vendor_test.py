@@ -117,7 +117,7 @@ class BazelVendorTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(
         ['vendor', '--vendor_dir=vendor', '--nofetch'], allow_failure=True
     )
-    self.assertIn('ERROR: You cannot run vendor with --nofetch', stderr)
+    self.assertIn('ERROR: You cannot run the vendor command with --nofetch', stderr)
 
   def testVendoringMultipleTimes(self):
     self.main_registry.createCcModule('aaa', '1.0')

@@ -156,7 +156,6 @@ public final class VendorCommand implements BlazeCommand {
         getVendorPath(env, options.getOptions(RepositoryOptions.class).vendorDirectory);
     LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
     try {
-      env.getReporter().handle(Event.info("Vendoring ..."));
       if (!options.getResidue().isEmpty()) {
         result = vendorTargets(env, options, options.getResidue(), vendorDirectory);
       } else if (!vendorOptions.repos.isEmpty()) {
@@ -190,11 +189,11 @@ public final class VendorCommand implements BlazeCommand {
       return createFailedBlazeCommandResult(
           env.getReporter(),
           Code.OPTIONS_INVALID,
-          "You cannot run vendor without specifying --vendor_dir");
+          "You cannot run the vendor command without specifying --vendor_dir");
     }
     if (!options.getOptions(PackageOptions.class).fetch) {
       return createFailedBlazeCommandResult(
-          env.getReporter(), Code.OPTIONS_INVALID, "You cannot run vendor with --nofetch");
+          env.getReporter(), Code.OPTIONS_INVALID, "You cannot run the vendor command with --nofetch");
     }
     return null;
   }
@@ -219,6 +218,7 @@ public final class VendorCommand implements BlazeCommand {
     }
 
     BazelFetchAllValue fetchAllValue = (BazelFetchAllValue) evaluationResult.get(fetchKey);
+    env.getReporter().handle(Event.info("Vendoring all external repositories..."));
     vendor(env, vendorDirectory, fetchAllValue.getReposToVendor());
     env.getReporter().handle(Event.info("All external dependencies vendored successfully."));
     return BlazeCommandResult.success();
@@ -254,6 +254,7 @@ public final class VendorCommand implements BlazeCommand {
       }
     }
 
+    env.getReporter().handle(Event.info("Vendoring repositories..."));
     vendor(env, vendorDirectory, reposToVendor.build());
     if (!notFoundRepoErrors.isEmpty()) {
       return createFailedBlazeCommandResult(
@@ -291,6 +292,7 @@ public final class VendorCommand implements BlazeCommand {
     InMemoryGraph inMemoryGraph = env.getSkyframeExecutor().getEvaluator().getInMemoryGraph();
     ImmutableSet<RepositoryName> reposToVendor = collectReposFromTargets(inMemoryGraph, targetKeys);
 
+    env.getReporter().handle(Event.info("Vendoring dependencies for targets..."));
     vendor(env, vendorDirectory, reposToVendor.asList());
     env.getReporter()
         .handle(
