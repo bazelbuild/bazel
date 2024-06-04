@@ -30,9 +30,9 @@ bazel_dep(name = "rules_proto", version = "5.3.0-21.7")
 bazel_dep(name = "rules_jvm_external", version = "6.0")
 bazel_dep(name = "rules_python", version = "0.28.0")
 bazel_dep(name = "rules_testing", version = "0.6.0")
-bazel_dep(name = "googletest", version = "1.14.0", repo_name = "com_google_googletest")
+bazel_dep(name = "googletest", version = "1.14.0.bcr.1", repo_name = "com_google_googletest")
 bazel_dep(name = "with_cfg.bzl", version = "0.2.4")
-bazel_dep(name = "abseil-cpp", version = "20230125.1")
+bazel_dep(name = "abseil-cpp", version = "20240116.2")
 
 # TODO(fmeum): Remove the dependency on buildozer after Bazel is built with 7.2.0.
 bazel_dep(name = "buildozer", version = "7.1.2")

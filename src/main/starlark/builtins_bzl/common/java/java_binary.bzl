@@ -341,7 +341,7 @@ def _create_one_version_check(ctx, inputs, is_test_rule_class):
     else:
         allowlist = helper.check_and_get_one_version_attribute(ctx, "_one_version_allowlist")
 
-    if not tool or not allowlist:  # On Mac oneversion tool is not available
+    if not tool:  # On Mac oneversion tool is not available
         return None
 
     output = ctx.actions.declare_file("%s-one-version.txt" % ctx.label.name)
@@ -349,8 +349,11 @@ def _create_one_version_check(ctx, inputs, is_test_rule_class):
     args = ctx.actions.args()
     args.set_param_file_format("shell").use_param_file("@%s", use_always = True)
 
+    one_version_inputs = []
     args.add("--output", output)
-    args.add("--whitelist", allowlist)
+    if allowlist:
+        args.add("--whitelist", allowlist)
+        one_version_inputs.append(allowlist)
     if one_version_level == "WARNING":
         args.add("--succeed_on_found_violations")
     args.add_all(
@@ -364,7 +367,7 @@ def _create_one_version_check(ctx, inputs, is_test_rule_class):
         progress_message = "Checking for one-version violations in %{label}",
         executable = tool,
         toolchain = semantics.JAVA_TOOLCHAIN_TYPE,
-        inputs = depset([allowlist], transitive = [inputs]),
+        inputs = depset(one_version_inputs, transitive = [inputs]),
         tools = [tool],
         outputs = [output],
         arguments = [args],
