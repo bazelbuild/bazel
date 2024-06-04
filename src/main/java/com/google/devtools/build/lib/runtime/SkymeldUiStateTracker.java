@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
@@ -27,6 +26,7 @@ import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.PositionAwareAnsiTerminalWriter;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
+import javax.annotation.concurrent.GuardedBy;
 
 /** Tracks the state of Skymeld builds and determines what to display at each state in the UI. */
 final class SkymeldUiStateTracker extends UiStateTracker {
@@ -48,7 +48,9 @@ final class SkymeldUiStateTracker extends UiStateTracker {
     BUILD_COMPLETED;
   }
 
-  @VisibleForTesting BuildStatus buildStatus = BuildStatus.BUILD_NOT_STARTED;
+  // Prevent a race condition with the thread that runs writeProgressBar.
+  @GuardedBy("this")
+  private BuildStatus buildStatus = BuildStatus.BUILD_NOT_STARTED;
 
   SkymeldUiStateTracker(Clock clock, int targetWidth) {
     super(clock, targetWidth);
@@ -156,23 +158,23 @@ final class SkymeldUiStateTracker extends UiStateTracker {
   }
 
   @Override
-  void mainRepoMappingComputationStarted() {
+  synchronized void mainRepoMappingComputationStarted() {
     buildStatus = BuildStatus.COMPUTING_MAIN_REPO_MAPPING;
   }
 
   @Override
-  void buildStarted() {
+  synchronized void buildStarted() {
     buildStatus = BuildStatus.BUILD_STARTED;
   }
 
   @Override
-  void loadingStarted(LoadingPhaseStartedEvent event) {
+  synchronized void loadingStarted(LoadingPhaseStartedEvent event) {
     buildStatus = BuildStatus.TARGET_PATTERN_PARSING;
     packageProgressReceiver = event.getPackageProgressReceiver();
   }
 
   @Override
-  void loadingComplete(LoadingPhaseCompleteEvent event) {
+  synchronized void loadingComplete(LoadingPhaseCompleteEvent event) {
     buildStatus = BuildStatus.LOADING_COMPLETE;
     int labelsCount = event.getLabels().size();
     if (labelsCount == 1) {
@@ -184,7 +186,7 @@ final class SkymeldUiStateTracker extends UiStateTracker {
   }
 
   @Override
-  void configurationStarted(ConfigurationPhaseStartedEvent event) {
+  synchronized void configurationStarted(ConfigurationPhaseStartedEvent event) {
     buildStatus = BuildStatus.CONFIGURATION;
     configuredTargetProgressReceiver = event.getConfiguredTargetProgressReceiver();
   }
@@ -229,13 +231,21 @@ final class SkymeldUiStateTracker extends UiStateTracker {
   }
 
   @Override
-  Event buildComplete(BuildCompleteEvent event) {
+  synchronized Event buildComplete(BuildCompleteEvent event) {
     buildStatus = BuildStatus.BUILD_COMPLETED;
     return super.buildComplete(event);
   }
 
+  synchronized BuildStatus getBuildStatus() {
+    return buildStatus;
+  }
+
+  synchronized void setBuildStatusForTestingOnly(BuildStatus newStatus) {
+    buildStatus = newStatus;
+  }
+
   @Override
-  protected boolean buildCompleted() {
+  protected synchronized boolean buildCompleted() {
     return BuildStatus.BUILD_COMPLETED.equals(buildStatus);
   }
 }
