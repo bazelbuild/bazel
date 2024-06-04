@@ -225,7 +225,7 @@ public class BazelRepositoryModule extends BlazeModule {
     builder.addCommands(new FetchCommand());
     builder.addCommands(new ModCommand());
     builder.addCommands(new SyncCommand());
-    builder.addCommands(new VendorCommand(vendorDirectory, downloadManager, clientEnvironmentSupplier));
+    builder.addCommands(new VendorCommand(downloadManager, clientEnvironmentSupplier));
     builder.addInfoItems(new RepositoryCacheInfoItem(repositoryCache));
   }
 

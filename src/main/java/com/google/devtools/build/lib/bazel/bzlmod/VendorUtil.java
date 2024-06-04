@@ -123,7 +123,7 @@ public class VendorUtil {
    * the one under <output_base>/external. This function assumes the marker file under
    * <output_base>/external exists and is up-to-date.
    *
-   * @param repoName The name of the repository.
+   * @param repo The name of the repository.
    * @param externalPath The root directory of the external repositories.
    * @return true if the repository is up-to-date, false otherwise.
    * @throws IOException if an I/O error occurs.

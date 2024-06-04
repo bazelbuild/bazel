@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryM
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryGraph;
@@ -114,12 +115,10 @@ public final class VendorCommand implements BlazeCommand {
   private final DownloadManager downloadManager;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
   @Nullable
-  private final VendorUtil vendorUtil;
+  private VendorUtil vendorUtil = null;
 
   public VendorCommand(
-      Optional<Path> vendorDir,
       DownloadManager downloadManager, Supplier<Map<String, String>> clientEnvironmentSupplier) {
-    this.vendorUtil = vendorDir.map(VendorUtil::new).orElse(null);
     this.downloadManager = downloadManager;
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
   }
@@ -158,6 +157,9 @@ public final class VendorCommand implements BlazeCommand {
     BlazeCommandResult result;
     VendorOptions vendorOptions = options.getOptions(VendorOptions.class);
     LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
+    Path vendorDirectory =
+        getVendorPath(env, options.getOptions(RepositoryOptions.class).vendorDirectory);
+    this.vendorUtil = new VendorUtil(vendorDirectory);
     try {
       if (!options.getResidue().isEmpty()) {
         result = vendorTargets(env, options, options.getResidue());
@@ -404,6 +406,12 @@ public final class VendorCommand implements BlazeCommand {
             .getOutputBase()
             .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
     vendorUtil.vendorRepos(externalPath, reposToVendor);
+  }
+
+  private static Path getVendorPath(CommandEnvironment env, PathFragment vendorDirectory) {
+    return vendorDirectory.isAbsolute()
+        ? env.getRuntime().getFileSystem().getPath(vendorDirectory)
+        : env.getWorkspace().getRelative(vendorDirectory);
   }
 
   private static BlazeCommandResult createFailedBlazeCommandResult(
