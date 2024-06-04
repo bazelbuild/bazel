@@ -181,6 +181,39 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
   }
 
   @Test
+  public void testRegisteredExecutionPlatforms_aliased() throws Exception {
+    // Add an extra execution platform.
+    scratch.file(
+        "extra/BUILD",
+        """
+        platform(name = "execution_platform_1")
+
+        platform(name = "execution_platform_2")
+        """);
+    scratch.file(
+        "alias/BUILD",
+        """
+        alias(name = "alias_platform_1", actual = "//extra:execution_platform_1");
+
+        alias(name = "alias_platform_2", actual = "//extra:execution_platform_2");
+        """);
+
+    rewriteWorkspace("register_execution_platforms('//alias/...')");
+
+    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
+    EvaluationResult<RegisteredExecutionPlatformsValue> result =
+        requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
+    assertThatEvaluationResult(result).hasNoError();
+
+    // Verify that aliases were resolved to actual targets.
+    assertExecutionPlatformLabels(result.get(executionPlatformsKey))
+        .containsAtLeast(
+            Label.parseCanonicalUnchecked("//extra:execution_platform_1"),
+            Label.parseCanonicalUnchecked("//extra:execution_platform_2"))
+        .inOrder();
+  }
+
+  @Test
   public void testRegisteredExecutionPlatforms_targetPattern_otherRepo() throws Exception {
     scratch.file("myrepo/WORKSPACE", "workspace(name='myrepo')");
     scratch.file("myrepo/BUILD");
