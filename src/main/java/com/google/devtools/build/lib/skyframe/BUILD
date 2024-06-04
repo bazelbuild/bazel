@@ -1210,6 +1210,7 @@ java_library(
         ":incompatible_view_exception",
         ":workspace_info",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:auto_value",

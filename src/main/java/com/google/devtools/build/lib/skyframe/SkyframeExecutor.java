@@ -3167,15 +3167,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
     int fsvcThreads = buildRequestOptions == null ? 200 : buildRequestOptions.fsvcThreads;
-    handleDiffsWithCompleteDiffInformation(tsgm, modifiedFilesByPathEntry, fsvcThreads);
+    try (SilentCloseable c =
+        Profiler.instance().profile("handleDiffsWithCompleteDiffInformation")) {
+      handleDiffsWithCompleteDiffInformation(tsgm, modifiedFilesByPathEntry, fsvcThreads);
+    }
     RepositoryOptions repoOptions = options.getOptions(RepositoryOptions.class);
-    handleDiffsWithMissingDiffInformation(
-        eventHandler,
-        tsgm,
-        pathEntriesWithoutDiffInformation,
-        options.getOptions(PackageOptions.class).checkOutputFiles,
-        repoOptions == null || repoOptions.checkExternalRepositoryFiles,
-        fsvcThreads);
+    try (SilentCloseable c = Profiler.instance().profile("handleDiffsWithMissingDiffInformation")) {
+      handleDiffsWithMissingDiffInformation(
+          eventHandler,
+          tsgm,
+          pathEntriesWithoutDiffInformation,
+          options.getOptions(PackageOptions.class).checkOutputFiles,
+          repoOptions == null || repoOptions.checkExternalRepositoryFiles,
+          fsvcThreads);
+    }
     handleClientEnvironmentChanges();
     return workspaceInfo;
   }
@@ -3261,7 +3266,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ExternalFilesHelper tmpExternalFilesHelper =
           externalFilesHelper.cloneWithFreshExternalFilesKnowledge();
 
-      invalidateValuesMarkedForInvalidation(eventHandler);
+      try (SilentCloseable c =
+          Profiler.instance().profile("invalidateValuesMarkedForInvalidation")) {
+        invalidateValuesMarkedForInvalidation(eventHandler);
+      }
 
       FilesystemValueChecker fsvc =
           new FilesystemValueChecker(
