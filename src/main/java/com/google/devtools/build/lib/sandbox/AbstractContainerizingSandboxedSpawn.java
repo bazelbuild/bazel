@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.sandbox;
 
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -141,6 +140,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
     try (SilentCloseable c = Profiler.instance().profile("sandbox.createInputs")) {
       createInputs(inputsToCreate, inputs);
     }
+    SandboxStash.setLastModified(sandboxPath, System.currentTimeMillis());
   }
 
   protected void filterInputsAndDirsToCreate(

@@ -379,7 +379,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           sandboxDebugPath,
           statisticsPath,
           makeInteractiveDebugArguments(commandLineBuilder, sandboxOptions),
-          spawn.getMnemonic());
+          spawn.getMnemonic(),
+          spawn.getTargetLabel());
     }
   }
 

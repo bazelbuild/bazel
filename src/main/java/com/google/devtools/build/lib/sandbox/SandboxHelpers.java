@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.collect.compacthashmap.CompactHashMap;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox;
@@ -144,6 +145,25 @@ public final class SandboxHelpers {
       Path workDir,
       @Nullable TreeDeleter treeDeleter)
       throws IOException, InterruptedException {
+    cleanExisting(
+        root,
+        inputs,
+        inputsToCreate,
+        dirsToCreate,
+        workDir,
+        treeDeleter,
+        /* stashContents= */ null);
+  }
+
+  public static void cleanExisting(
+      Path root,
+      SandboxInputs inputs,
+      Set<PathFragment> inputsToCreate,
+      Set<PathFragment> dirsToCreate,
+      Path workDir,
+      @Nullable TreeDeleter treeDeleter,
+      @Nullable StashContents stashContents)
+      throws IOException, InterruptedException {
     Path inaccessibleHelperDir = workDir.getRelative(INACCESSIBLE_HELPER_DIR);
     // Setting the permissions is necessary when we are using an asynchronous tree deleter in order
     // to move the directory first. This is not necessary for a synchronous tree deleter because the
@@ -167,7 +187,93 @@ public final class SandboxHelpers {
         parent = parent.getParentDirectory();
       }
     }
-    cleanRecursively(root, inputs, inputsToCreate, dirsToCreate, workDir, prefixDirs, treeDeleter);
+    if (stashContents == null) {
+      cleanRecursively(
+          root, inputs, inputsToCreate, dirsToCreate, workDir, prefixDirs, treeDeleter);
+    } else {
+      cleanRecursivelyWithInMemoryStashes(
+          root,
+          inputs,
+          inputsToCreate,
+          dirsToCreate,
+          workDir,
+          prefixDirs,
+          treeDeleter,
+          stashContents);
+    }
+  }
+
+  /**
+   * Deletes unnecessary files/directories and updates the sets if something on disk is already
+   * correct and doesn't need any changes.
+   */
+  private static void cleanRecursivelyWithInMemoryStashes(
+      Path root,
+      SandboxInputs inputs,
+      Set<PathFragment> inputsToCreate,
+      Set<PathFragment> dirsToCreate,
+      Path workDir,
+      Set<PathFragment> prefixDirs,
+      @Nullable TreeDeleter treeDeleter,
+      StashContents stashContents)
+      throws IOException, InterruptedException {
+    Path execroot = workDir.getParentDirectory();
+    Preconditions.checkNotNull(stashContents);
+    for (var fileDirent : stashContents.filesToPath().entrySet()) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
+      Path absPath = root.getChild(fileDirent.getKey());
+      PathFragment pathRelativeToWorkDir = getPathRelativeToWorkDir(absPath, workDir, execroot);
+      Optional<Path> destination =
+          getExpectedSymlinkDestinationForFiles(pathRelativeToWorkDir, inputs);
+      if (destination.isPresent() && fileDirent.getValue().equals(destination.get())) {
+        Preconditions.checkState(inputsToCreate.remove(pathRelativeToWorkDir));
+      } else {
+        absPath.delete();
+      }
+    }
+    for (var symlinkDirent : stashContents.symlinksToPathFragment().entrySet()) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
+      Path absPath = root.getChild(symlinkDirent.getKey());
+      PathFragment pathRelativeToWorkDir = getPathRelativeToWorkDir(absPath, workDir, execroot);
+      Optional<PathFragment> destination =
+          getExpectedSymlinkDestinationForSymlinks(pathRelativeToWorkDir, inputs);
+      if (destination.isPresent() && symlinkDirent.getValue().equals(destination.get())) {
+        Preconditions.checkState(inputsToCreate.remove(pathRelativeToWorkDir));
+      } else {
+        absPath.delete();
+      }
+    }
+    for (var dirent : stashContents.dirEntries().entrySet()) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
+      Path absPath = root.getChild(dirent.getKey());
+      PathFragment pathRelativeToWorkDir = getPathRelativeToWorkDir(absPath, workDir, execroot);
+      if (dirsToCreate.contains(pathRelativeToWorkDir)
+          || prefixDirs.contains(pathRelativeToWorkDir)) {
+        cleanRecursivelyWithInMemoryStashes(
+            absPath,
+            inputs,
+            inputsToCreate,
+            dirsToCreate,
+            workDir,
+            prefixDirs,
+            treeDeleter,
+            dirent.getValue());
+        dirsToCreate.remove(pathRelativeToWorkDir);
+      } else {
+        if (treeDeleter == null) {
+          // TODO(bazel-team): Use async tree deleter for workers too
+          absPath.deleteTree();
+        } else {
+          treeDeleter.deleteTree(absPath);
+        }
+      }
+    }
   }
 
   /**
@@ -234,6 +340,19 @@ public final class SandboxHelpers {
       } else if (!inputsToCreate.contains(pathRelativeToWorkDir)) {
         absPath.delete();
       }
+    }
+  }
+
+  private static PathFragment getPathRelativeToWorkDir(Path absPath, Path workDir, Path execroot) {
+    if (absPath.startsWith(workDir)) {
+      // path is under workDir, i.e. execroot/<workspace name>. Simply get the relative path.
+      return absPath.relativeTo(workDir);
+    } else {
+      // path is not under workDir, which means it belongs to one of external repositories
+      // symlinked directly under execroot. Get the relative path based on there and prepend it
+      // with the designated prefix, '../', so that it's still a valid relative path to workDir.
+      return LabelConstants.EXPERIMENTAL_EXTERNAL_PATH_PREFIX.getRelative(
+          absPath.relativeTo(execroot));
     }
   }
 
@@ -515,6 +634,16 @@ public final class SandboxHelpers {
     return SandboxOutputs.create(files.build(), dirs.build());
   }
 
+  private static Optional<Path> getExpectedSymlinkDestinationForFiles(
+      PathFragment fragment, SandboxInputs inputs) {
+    return Optional.ofNullable(inputs.getFiles().get(fragment));
+  }
+
+  private static Optional<PathFragment> getExpectedSymlinkDestinationForSymlinks(
+      PathFragment fragment, SandboxInputs inputs) {
+    return Optional.ofNullable(inputs.getSymlinks().get(fragment));
+  }
+
   /**
    * Returns true if the build options are set in a way that requires network access for all
    * actions. This is separate from {@link
@@ -530,5 +659,19 @@ public final class SandboxHelpers {
         .getOptions(TestConfiguration.TestOptions.class)
         .testArguments
         .contains("--wrapper_script_flag=--debug");
+  }
+
+  /**
+   * Used to store sandbox stashes in-memory.
+   *
+   * <p>The String keys in the maps are individual path segments.
+   */
+  public record StashContents(
+      Map<String, Path> filesToPath,
+      Map<String, PathFragment> symlinksToPathFragment,
+      Map<String, StashContents> dirEntries) {
+    public StashContents() {
+      this(CompactHashMap.create(), CompactHashMap.create(), CompactHashMap.create());
+    }
   }
 }
