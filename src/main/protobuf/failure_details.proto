@@ -631,6 +631,8 @@ message BuildConfiguration {
     // command-line error exit code 2.
     INVALID_OUTPUT_DIRECTORY_MNEMONIC = 11 [(metadata) = { exit_code: 2 }];
     CONFIGURATION_DISCARDED_ANALYSIS_CACHE = 12 [(metadata) = { exit_code: 2 }];
+    // Failure modes specific to PROJECT.scl files.
+    INVALID_PROJECT = 13 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;

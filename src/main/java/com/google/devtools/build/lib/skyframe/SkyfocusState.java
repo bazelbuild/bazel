@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.Collection;
 import javax.annotation.Nullable;
 
 /**
@@ -102,7 +103,7 @@ public record SkyfocusState(
         buildConfiguration);
   }
 
-  public SkyfocusState addFocusedTargetLabels(ImmutableSet<Label> val) {
+  public SkyfocusState addFocusedTargetLabels(Collection<Label> val) {
     return new SkyfocusState(
         enabled,
         forcedRerun,

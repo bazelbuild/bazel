@@ -43,9 +43,8 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.InMemoryGraphImpl;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.Objects;
+import java.util.Collection;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Stream;
 
 /** A class that prepares the working set to run the core SkyframeFocuser algorithm. */
@@ -61,14 +60,19 @@ public class SkyfocusExecutor {
    *     persisted between invocations of a bazel server).
    */
   static Pair<FocusResult, SkyfocusState> prepareWorkingSetAndRunSkyfocus(
+      Collection<Label> topLevelTargetLabels,
+      ImmutableSet<PathFragment> projectDirectories,
       InMemoryMemoizingEvaluator evaluator,
-      boolean isMergedSkyframeAnalysisExecution,
       SkyfocusState skyfocusState,
       PackageManager packageManager,
       PathPackageLocator pkgLocator,
       ExtendedEventHandler eventHandler,
       ActionCache actionCache)
       throws InterruptedException {
+    if (topLevelTargetLabels.isEmpty()) {
+      return Pair.of(FocusResult.NO_RESULT, skyfocusState);
+    }
+
     // TODO: b/312819241 - add support for SerializationCheckingGraph for use in tests.
     InMemoryGraphImpl graph = (InMemoryGraphImpl) evaluator.getInMemoryGraph();
 
@@ -77,18 +81,6 @@ public class SkyfocusExecutor {
     // Skyfocus needs roots. If this fails, there's something wrong with the root-remembering
     // logic in the evaluator.
     checkState(roots != null && !roots.isEmpty(), "roots can't be null or empty");
-
-    Function<SkyKey, Label> mapForTopLevelLabels =
-        isMergedSkyframeAnalysisExecution
-            ? k -> k instanceof BuildDriverKey bdk ? bdk.getActionLookupKey().getLabel() : null
-            : k -> k instanceof ConfiguredTargetKey ctk ? ctk.getLabel() : null;
-
-    ImmutableSet<Label> topLevelTargetLabels =
-        roots.stream().map(mapForTopLevelLabels).filter(Objects::nonNull).collect(toImmutableSet());
-
-    if (topLevelTargetLabels.isEmpty()) {
-      return Pair.of(FocusResult.NO_RESULT, skyfocusState);
-    }
 
     Set<FileStateKey> newWorkingSet = Sets.newConcurrentHashSet();
 
@@ -115,6 +107,18 @@ public class SkyfocusExecutor {
                   return;
                 }
 
+                // Check if the file belongs to a project directory (defined in PROJECT.scl)
+                //
+                // If this end up being costly, we could represent projectDirectories as a trie
+                // and iterate with PathFragment#segments.
+                for (PathFragment projectDirectory : projectDirectories) {
+                  if (fileStateKey.argument().getRootRelativePath().startsWith(projectDirectory)) {
+                    newWorkingSet.add(fileStateKey.argument());
+                    return;
+                  }
+                }
+
+                // Check if the file belongs to the package of a top level target being built.
                 PathFragment currPath = fileStateKey.argument().getRootRelativePath();
                 while (currPath != null) {
                   try {

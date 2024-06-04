@@ -329,6 +329,13 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
     // Keep the rdeps transitive closure from leafs distinct from the deps.
     keptDeps.removeAll(keptRdeps);
 
+    // Ensure that the verification set doesn't contain any direct deps to build the
+    // working set.
+    verificationSet.removeAll(keptDeps);
+
+    AtomicLong rdepEdgesBefore = new AtomicLong();
+    AtomicLong rdepEdgesAfter = new AtomicLong();
+
     try (SilentCloseable c = Profiler.instance().profile("focus.sweep_nodes")) {
       graph.parallelForEach(
           inMemoryNodeEntry -> {
@@ -347,6 +354,14 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
               // For now, keep the nodes in the verification set because the
               // fsvc#getDirtyKeys relies on their existence in the graph to check for
               // dirty keys to invalidate.
+              //
+              // Also remove all rdep edges from the verification set and make it flat.
+              Collection<SkyKey> rdeps = inMemoryNodeEntry.getReverseDepsForDoneEntry();
+              rdepEdgesBefore.getAndAdd(rdeps.size());
+              for (SkyKey rdep : rdeps) {
+                inMemoryNodeEntry.removeReverseDep(rdep);
+              }
+
               return;
             }
 
@@ -369,9 +384,6 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
 
       graph.shrinkNodeMap();
     }
-
-    AtomicLong rdepEdgesBefore = new AtomicLong();
-    AtomicLong rdepEdgesAfter = new AtomicLong();
 
     try (SilentCloseable c = Profiler.instance().profile("focus.sweep_edges")) {
       for (SkyKey key : keptDeps) {
@@ -397,12 +409,6 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
               // C and D, so it's unnecessary to maintain the edges.
               Preconditions.checkNotNull(nodeEntry, key);
               nodeEntry.clearDirectDepsForSkyfocus();
-
-              if (isVerificationSetKeyType(key)) {
-                // Ensure that the verification set doesn't contain any direct deps to build the
-                // working set.
-                verificationSet.remove(key);
-              }
 
               // No need to keep the rdep edges of the deps if they do not point to an rdep
               // reachable (hence, dirty-able) by the working set.

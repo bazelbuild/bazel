@@ -102,6 +102,60 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void workingSet_canBeAutomaticallyDerivedUsingProjectFile() throws Exception {
+    addOptions("--experimental_enable_scl_dialect");
+
+    write("hello/x.txt", "x");
+    write("hello/world/y.txt", "y");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt", "world/y.txt", "//somewhere/else:files"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    // Files under //somewhere/else will be included because of this PROJECT.scl file.
+    write(
+        "hello/PROJECT.scl",
+        """
+        owned_code_paths = [
+          "hello",
+          "somewhere/else",
+          "not/used",
+        ]
+        """);
+
+    write("somewhere/else/file.txt", "some content");
+    write(
+        "somewhere/else/BUILD",
+        """
+        filegroup(name = "files", srcs = ["file.txt"])
+        """);
+
+    // Even though the PROJECT.scl file specified //not/used, this is not a dependency of
+    // the focused target, hence it's not part of the working set.
+    write("not/used/BUILD");
+
+    buildTarget("//hello:target");
+    assertContainsEvent("automatically deriving working set");
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly(
+            "hello",
+            "hello/PROJECT.scl",
+            "hello/BUILD",
+            "hello/x.txt",
+            "hello/world",
+            "hello/world/y.txt",
+            "somewhere/else",
+            "somewhere/else/BUILD",
+            "somewhere/else/file.txt");
+  }
+
+  @Test
   public void workingSet_skyfocusDoesNotRunIfDerivedWorkingSetIsUnchanged() throws Exception {
     write("hello/x.txt", "x");
     write(

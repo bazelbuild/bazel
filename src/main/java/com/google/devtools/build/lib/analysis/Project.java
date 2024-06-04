@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.ProjectFilesLookupValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.config.FlagSetValue;
@@ -70,10 +69,10 @@ public final class Project {
    * Finds and returns the project files for a set of build targets.
    *
    * <p>This walks up each target's package path looking for {@link
-   * PackageLookupFunction#PROJECT_FILE_NAME} files. For example, for {@code
-   * //foo/bar/baz:mytarget}, this might look in {@code foo/bar/baz}, {@code foo/bar}, and {@code
-   * foo} ("might" because it skips directories that don't have BUILD files - those directories
-   * aren't packages).
+   * com.google.devtools.build.lib.skyframe.ProjectFilesLookupFunction#PROJECT_FILE_NAME} files. For
+   * example, for {@code //foo/bar/baz:mytarget}, this might look in {@code foo/bar/baz}, {@code
+   * foo/bar}, and {@code foo} ("might" because it skips directories that don't have BUILD files -
+   * those directories aren't packages).
    *
    * @return a map from each target to its set of project files, ordered by reverse package depth.
    *     So a project file in {@code foo/bar} appears before a project file in {@code foo}.

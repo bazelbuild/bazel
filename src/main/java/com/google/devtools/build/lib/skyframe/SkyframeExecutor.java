@@ -635,6 +635,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             buildFilesByPriority,
             externalPackageHelper));
     map.put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction());
+    map.put(SkyFunctions.PROJECT_DIRECTORIES, new ProjectOwnedCodePathsFunction());
     map.put(SkyFunctions.PROJECT_FILES_LOOKUP, new ProjectFilesLookupFunction());
     map.put(
         SkyFunctions.BZL_COMPILE, // TODO rename
@@ -4041,12 +4042,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * Run Skyfocus. This only works if Skyfocus is enabled explicitly via the command-line flag, and
    * focusing is necessary (e.g. new working set, or analysis cache was dropped).
    */
-  public final void runSkyfocus(Reporter reporter, ActionCache actionCache)
-      throws InterruptedException, AbruptExitException {
-    if (!skyfocusState.enabled()) {
-      return;
-    }
-
+  public final void runSkyfocus(
+      Collection<Label> topLevelTargets,
+      ImmutableSet<PathFragment> projectDirectories,
+      Reporter reporter,
+      ActionCache actionCache)
+      throws InterruptedException {
     int beforeNodeCount = this.getEvaluator().getValues().size();
     long beforeHeap = 0;
     long beforeActionCacheEntries = actionCache.size();
@@ -4067,8 +4068,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // Run Skyfocus!
     Pair<FocusResult, SkyfocusState> result =
         SkyfocusExecutor.prepareWorkingSetAndRunSkyfocus(
+            topLevelTargets,
+            projectDirectories,
             (InMemoryMemoizingEvaluator) getEvaluator(),
-            isMergedSkyframeAnalysisExecution(),
             skyfocusState,
             packageManager,
             pkgLocator.get(),

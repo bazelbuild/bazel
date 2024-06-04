@@ -38,6 +38,8 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("PACKAGE_LOOKUP");
   public static final SkyFunctionName CONTAINING_PACKAGE_LOOKUP =
       SkyFunctionName.createHermetic("CONTAINING_PACKAGE_LOOKUP");
+  public static final SkyFunctionName PROJECT_DIRECTORIES =
+      SkyFunctionName.createHermetic("PROJECT_DIRECTORIES");
   public static final SkyFunctionName PROJECT_FILES_LOOKUP =
       SkyFunctionName.createHermetic("PROJECT_FILES_LOOKUP");
   public static final SkyFunctionName BZL_COMPILE = SkyFunctionName.createHermetic("BZL_COMPILE");
