@@ -200,11 +200,7 @@ def _check_and_get_one_version_attribute(ctx, attr):
     return value
 
 def _jar_and_target_arg_mapper(jar):
-    # Emit pretty labels for targets in the main repository.
-    label = str(jar.owner)
-    if label.startswith("@@//"):
-        label = label.lstrip("@")
-    return jar.path + "," + label
+    return jar.path + "," + str(jar.owner)
 
 def _get_feature_config(ctx):
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx, mandatory = False)
