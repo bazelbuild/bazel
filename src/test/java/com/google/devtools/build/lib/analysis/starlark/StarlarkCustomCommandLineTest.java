@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
-import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -34,7 +33,6 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLine.SimpleArgChunk;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
-import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkCustomCommandLine.VectorArg;
@@ -352,11 +350,8 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   private FilesetOutputSymlink createFilesetSymlink(String relativePath) {
-    return FilesetOutputSymlink.create(
-        PathFragment.create(relativePath),
-        PathFragment.EMPTY_FRAGMENT,
-        mock(HasDigest.class),
-        execRoot.asFragment());
+    return FilesetOutputSymlink.createForTesting(
+        PathFragment.create(relativePath), PathFragment.EMPTY_FRAGMENT, execRoot.asFragment());
   }
 
   private SpecialArtifact createTreeArtifact(String relativePath) {

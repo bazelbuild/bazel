@@ -446,7 +446,7 @@ public final class ActionOutputMetadataStoreTest {
         .isEqualTo(createFileMetadataForSymlinkTest(location, expectedMaterializationExecPath));
   }
 
-  private FileArtifactValue createFileMetadataForSymlinkTest(
+  private static FileArtifactValue createFileMetadataForSymlinkTest(
       FileLocation location, @Nullable PathFragment materializationExecPath) {
     switch (location) {
       case LOCAL:
@@ -507,7 +507,7 @@ public final class ActionOutputMetadataStoreTest {
                 outputArtifact, composition, expectedMaterializationExecPath));
   }
 
-  private TreeArtifactValue createTreeMetadataForSymlinkTest(
+  private static TreeArtifactValue createTreeMetadataForSymlinkTest(
       SpecialArtifact parent,
       TreeComposition composition,
       @Nullable PathFragment materializationExecPath) {
@@ -586,7 +586,8 @@ public final class ActionOutputMetadataStoreTest {
         PathFragment.create(identifier + "_symlink"),
         PathFragment.create(identifier),
         digest,
-        execRoot.asFragment());
+        execRoot.asFragment(),
+        /* enclosingTreeArtifact= */ null);
   }
 
   private ActionInput createInput(String identifier) {

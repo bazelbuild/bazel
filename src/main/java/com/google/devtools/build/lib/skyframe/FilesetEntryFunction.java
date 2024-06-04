@@ -18,6 +18,8 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversal;
@@ -160,6 +162,8 @@ public final class FilesetEntryFunction implements SkyFunction {
     // about the link (its target, associated metadata, and again its name).
     Map<PathFragment, FilesetOutputSymlink> outputSymlinks = new LinkedHashMap<>();
 
+    SpecialArtifact enclosingTreeArtifact = getTreeArtifactOrNull(params);
+
     // Create one output symlink for each entry in the results.
     for (ResolvedFile f : results) {
       // The linkName has to be under the traversal's root, which is also the prefix to remove.
@@ -188,10 +192,21 @@ public final class FilesetEntryFunction implements SkyFunction {
           f.getMetadata(),
           params.getDestPath(),
           outputSymlinks,
-          getExecRoot.apply(workspaceNameValue.getName()));
+          getExecRoot.apply(workspaceNameValue.getName()),
+          enclosingTreeArtifact);
     }
 
     return FilesetEntryValue.of(ImmutableSet.copyOf(outputSymlinks.values()));
+  }
+
+  @Nullable
+  private static SpecialArtifact getTreeArtifactOrNull(FilesetTraversalParams params) {
+    DirectTraversal direct = params.getDirectTraversal();
+    if (direct == null) {
+      return null;
+    }
+    Artifact artifact = direct.getRoot().getOutputArtifact();
+    return artifact instanceof SpecialArtifact special && special.isTreeArtifact() ? special : null;
   }
 
   /** Stores an output symlink unless it would overwrite an existing one. */
@@ -201,12 +216,14 @@ public final class FilesetEntryFunction implements SkyFunction {
       HasDigest metadata,
       PathFragment destPath,
       Map<PathFragment, FilesetOutputSymlink> result,
-      Path execRoot) {
+      Path execRoot,
+      @Nullable SpecialArtifact enclosingTreeArtifact) {
     linkName = destPath.getRelative(linkName);
     if (!result.containsKey(linkName)) {
       result.put(
           linkName,
-          FilesetOutputSymlink.create(linkName, linkTarget, metadata, execRoot.asFragment()));
+          FilesetOutputSymlink.create(
+              linkName, linkTarget, metadata, execRoot.asFragment(), enclosingTreeArtifact));
     }
   }
 
@@ -246,16 +263,16 @@ public final class FilesetEntryFunction implements SkyFunction {
    * <p>Because the Fileset doesn't process the lists in the FilesetEntryValues any further than
    * merging them, they have to adhere to the conventions of the manifest file. One of these is that
    * files are alphabetically ordered (enables the consumer of the manifest to work faster than
-   * otherwise) and another is that the contents of regular directories are listed, but contents
-   * of directory symlinks are not, only the symlinks are. (Other details of the manifest file are
-   * not relevant here.)
+   * otherwise) and another is that the contents of regular directories are listed, but contents of
+   * directory symlinks are not, only the symlinks are. (Other details of the manifest file are not
+   * relevant here.)
    *
    * <p>See {@link DirectoryTree#iterateFiles()} for more details.
    */
   private static final class DirectoryTree {
     // Use TreeMaps for the benefit of alphabetically ordered iteration.
-    public final Map<String, ResolvedFile> files = new TreeMap<>();
-    public final Map<String, DirectoryTree> dirs = new TreeMap<>();
+    final Map<String, ResolvedFile> files = new TreeMap<>();
+    final Map<String, DirectoryTree> dirs = new TreeMap<>();
 
     DirectoryTree addOrGetSubdir(String name) {
       DirectoryTree result = dirs.get(name);

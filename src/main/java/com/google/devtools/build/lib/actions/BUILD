@@ -402,10 +402,12 @@ java_library(
     name = "fileset_output_symlink",
     srcs = ["FilesetOutputSymlink.java"],
     deps = [
+        ":artifacts",
         ":has_digest",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:auto_value",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

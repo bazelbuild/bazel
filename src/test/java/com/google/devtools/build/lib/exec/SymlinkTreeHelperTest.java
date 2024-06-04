@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
-import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -82,11 +81,11 @@ public final class SymlinkTreeHelperTest {
         FilesetOutputSymlink.createForTesting(
             PathFragment.create("foo"), PathFragment.create("/bar"), execRoot);
     FilesetOutputSymlink link3 =
-        FilesetOutputSymlink.createAlreadyRelativized(
-            PathFragment.create("rel"), PathFragment.create("path"), HasDigest.EMPTY, true);
+        FilesetOutputSymlink.createAlreadyRelativizedForTesting(
+            PathFragment.create("rel"), PathFragment.create("path"), true);
     FilesetOutputSymlink link4 =
-        FilesetOutputSymlink.createAlreadyRelativized(
-            PathFragment.create("rel2"), PathFragment.create("/path"), HasDigest.EMPTY, false);
+        FilesetOutputSymlink.createAlreadyRelativizedForTesting(
+            PathFragment.create("rel2"), PathFragment.create("/path"), false);
 
     Map<PathFragment, PathFragment> symlinks =
         SymlinkTreeHelper.processFilesetLinks(

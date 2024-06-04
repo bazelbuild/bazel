@@ -13,9 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import javax.annotation.Nullable;
 
 /** Definition of a symlink in the output tree of a Fileset rule. */
 @AutoValue
@@ -49,6 +53,13 @@ public abstract class FilesetOutputSymlink {
   public abstract boolean isRelativeToExecRoot();
 
   /**
+   * If this symlink points to a file inside a tree artifact, returns that file's {@linkplain
+   * Artifact#getParent parent} tree artifact. Otherwise, returns {@code null}.
+   */
+  @Nullable
+  public abstract SpecialArtifact getEnclosingTreeArtifact();
+
+  /**
    * Reconstitutes the original target path of this symlink.
    *
    * <p>This method essentially performs the inverse of what is done in {@link #create}. If the
@@ -74,13 +85,14 @@ public abstract class FilesetOutputSymlink {
   @VisibleForTesting
   public static FilesetOutputSymlink createForTesting(
       PathFragment name, PathFragment target, PathFragment execRoot) {
-    return create(name, target, HasDigest.EMPTY, execRoot);
+    return create(name, target, HasDigest.EMPTY, execRoot, /* enclosingTreeArtifact= */ null);
   }
 
   @VisibleForTesting
   public static FilesetOutputSymlink createAlreadyRelativizedForTesting(
       PathFragment name, PathFragment target, boolean isRelativeToExecRoot) {
-    return createAlreadyRelativized(name, target, HasDigest.EMPTY, isRelativeToExecRoot);
+    return createAlreadyRelativized(
+        name, target, HasDigest.EMPTY, isRelativeToExecRoot, /* enclosingTreeArtifact= */ null);
   }
 
   /**
@@ -95,9 +107,15 @@ public abstract class FilesetOutputSymlink {
    * @param target relative or absolute value of the link
    * @param metadata metadata corresponding to the target.
    * @param execRoot the execution root
+   * @param enclosingTreeArtifact if {@code target} is a tree artifact file, its {@linkplain
+   *     Artifact#getParent parent} tree artifact, otherwise {@code null}
    */
   public static FilesetOutputSymlink create(
-      PathFragment name, PathFragment target, HasDigest metadata, PathFragment execRoot) {
+      PathFragment name,
+      PathFragment target,
+      HasDigest metadata,
+      PathFragment execRoot,
+      @Nullable SpecialArtifact enclosingTreeArtifact) {
     boolean isRelativeToExecRoot = false;
     // Check if the target is under the execution root. This is not always the case because the
     // target may point to a source artifact or it may point to another symlink, in which case the
@@ -106,7 +124,8 @@ public abstract class FilesetOutputSymlink {
       target = target.relativeTo(execRoot);
       isRelativeToExecRoot = true;
     }
-    return createAlreadyRelativized(name, target, metadata, isRelativeToExecRoot);
+    return createAlreadyRelativized(
+        name, target, metadata, isRelativeToExecRoot, enclosingTreeArtifact);
   }
 
   /**
@@ -114,7 +133,15 @@ public abstract class FilesetOutputSymlink {
    * stripped if necessary.
    */
   public static FilesetOutputSymlink createAlreadyRelativized(
-      PathFragment name, PathFragment target, HasDigest metadata, boolean isRelativeToExecRoot) {
-    return new AutoValue_FilesetOutputSymlink(name, target, metadata, isRelativeToExecRoot);
+      PathFragment name,
+      PathFragment target,
+      HasDigest metadata,
+      boolean isRelativeToExecRoot,
+      @Nullable SpecialArtifact enclosingTreeArtifact) {
+    checkArgument(
+        enclosingTreeArtifact == null || enclosingTreeArtifact.isTreeArtifact(),
+        enclosingTreeArtifact);
+    return new AutoValue_FilesetOutputSymlink(
+        name, target, metadata, isRelativeToExecRoot, enclosingTreeArtifact);
   }
 }
