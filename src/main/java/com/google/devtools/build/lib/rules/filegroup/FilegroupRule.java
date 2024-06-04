@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.bazel.rules.common;
+package com.google.devtools.build.lib.rules.filegroup;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -22,13 +22,10 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.rules.filegroup.Filegroup;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
-/**
- * Rule object implementing "filegroup".
- */
-public final class BazelFilegroupRule implements RuleDefinition {
+/** Rule object implementing "filegroup". */
+public final class FilegroupRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     // filegroup ignores any filtering set with setSrcsAllowedFiles.
@@ -71,10 +68,6 @@ public final class BazelFilegroupRule implements RuleDefinition {
           <code>filegroup</code> to find the name of the directory holding the files.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(
-            attr("path", STRING)
-                .undocumented(
-                    "only used to expose FilegroupPathProvider, which is not currently used"))
         .build();
   }
 
@@ -89,10 +82,17 @@ public final class BazelFilegroupRule implements RuleDefinition {
 }
 
 /*<!-- #BLAZE_RULE (NAME = filegroup, FAMILY = General)[GENERIC_RULE] -->
+<p>
+  Use <code>filegroup</code> to gather the outputs of a set of targets under a single
+  label.
+</p>
 
 <p>
-  Use <code>filegroup</code> to give a convenient name to a collection of targets.
-  These can then be referenced from other rules.
+  <code>filegroup</code> is not a substitute for listing targets on the command line or
+  in an attribute of another rule, because targets have many properties other than their
+  outputs, which are not collected in the same way. However, it's still useful in quite
+  a few cases, for example, in the <code>srcs</code> attribute of a genrule, or
+  the <code>data</code> attribute of a *_binary rule.
 </p>
 
 <p>
@@ -113,7 +113,8 @@ filegroup(
     name = "mygroup",
     srcs = [
         "a_file.txt",
-        "some/subdirectory/another_file.txt",
+        "//a/library:target",
+        "//a/binary:target",
     ],
 )
 </pre>
