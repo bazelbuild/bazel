@@ -102,6 +102,8 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     // In theory, module maps should not be executable but, in practice, we don't care. As
     // 'executable' is the default (see ActionOutputMetadataStore.setPathReadOnlyAndExecutable()),
     // we want to avoid the extra file operation of making this file non-executable.
+    // Note that the opposite is true for Bazel: making a file executable results in an extra file
+    // operation in com.google.devtools.build.lib.exec.FileWriteStrategy.
     return true;
   }
 

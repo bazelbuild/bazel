@@ -83,7 +83,7 @@ public final class BinaryFileWriteAction extends AbstractFileWriteAction {
       @Nullable ArtifactExpander artifactExpander,
       Fingerprint fp) {
     fp.addString(GUID);
-    fp.addString(String.valueOf(makeExecutable()));
+    fp.addBoolean(makeExecutable());
 
     try (InputStream in = source.openStream()) {
       byte[] buffer = new byte[512];
