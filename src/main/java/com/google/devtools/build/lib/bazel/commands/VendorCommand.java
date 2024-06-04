@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryM
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryGraph;
@@ -63,6 +62,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
+
 import java.io.IOException;
 import java.net.URI;
 import java.net.URL;
@@ -79,6 +79,7 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.function.Supplier;
+
 import javax.annotation.Nullable;
 
 /**
@@ -112,9 +113,13 @@ public final class VendorCommand implements BlazeCommand {
 
   private final DownloadManager downloadManager;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
+  @Nullable
+  private final VendorUtil vendorUtil;
 
   public VendorCommand(
+      Optional<Path> vendorDir,
       DownloadManager downloadManager, Supplier<Map<String, String>> clientEnvironmentSupplier) {
+    this.vendorUtil = vendorDir.map(VendorUtil::new).orElse(null);
     this.downloadManager = downloadManager;
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
   }
@@ -152,16 +157,14 @@ public final class VendorCommand implements BlazeCommand {
 
     BlazeCommandResult result;
     VendorOptions vendorOptions = options.getOptions(VendorOptions.class);
-    Path vendorDirectory =
-        getVendorPath(env, options.getOptions(RepositoryOptions.class).vendorDirectory);
     LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
     try {
       if (!options.getResidue().isEmpty()) {
-        result = vendorTargets(env, options, options.getResidue(), vendorDirectory);
+        result = vendorTargets(env, options, options.getResidue());
       } else if (!vendorOptions.repos.isEmpty()) {
-        result = vendorRepos(env, threadsOption, vendorOptions.repos, vendorDirectory);
+        result = vendorRepos(env, threadsOption, vendorOptions.repos);
       } else {
-        result = vendorAll(env, threadsOption, vendorDirectory);
+        result = vendorAll(env, threadsOption);
       }
     } catch (InterruptedException e) {
       return createFailedBlazeCommandResult(
@@ -199,7 +202,7 @@ public final class VendorCommand implements BlazeCommand {
   }
 
   private BlazeCommandResult vendorAll(
-      CommandEnvironment env, LoadingPhaseThreadsOption threadsOption, Path vendorDirectory)
+      CommandEnvironment env, LoadingPhaseThreadsOption threadsOption)
       throws InterruptedException, IOException {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
@@ -219,7 +222,7 @@ public final class VendorCommand implements BlazeCommand {
 
     BazelFetchAllValue fetchAllValue = (BazelFetchAllValue) evaluationResult.get(fetchKey);
     env.getReporter().handle(Event.info("Vendoring all external repositories..."));
-    vendor(env, vendorDirectory, fetchAllValue.getReposToVendor());
+    vendor(env, fetchAllValue.getReposToVendor());
     env.getReporter().handle(Event.info("All external dependencies vendored successfully."));
     return BlazeCommandResult.success();
   }
@@ -227,8 +230,7 @@ public final class VendorCommand implements BlazeCommand {
   private BlazeCommandResult vendorRepos(
       CommandEnvironment env,
       LoadingPhaseThreadsOption threadsOption,
-      List<String> repos,
-      Path vendorDirectory)
+      List<String> repos)
       throws InterruptedException, IOException {
     ImmutableMap<RepositoryName, RepositoryDirectoryValue> repositoryNamesAndValues;
     try {
@@ -255,7 +257,7 @@ public final class VendorCommand implements BlazeCommand {
     }
 
     env.getReporter().handle(Event.info("Vendoring repositories..."));
-    vendor(env, vendorDirectory, reposToVendor.build());
+    vendor(env, reposToVendor.build());
     if (!notFoundRepoErrors.isEmpty()) {
       return createFailedBlazeCommandResult(
           env.getReporter(), "Vendoring some repos failed with errors: " + notFoundRepoErrors);
@@ -267,8 +269,7 @@ public final class VendorCommand implements BlazeCommand {
   private BlazeCommandResult vendorTargets(
       CommandEnvironment env,
       OptionsParsingResult options,
-      List<String> targets,
-      Path vendorDirectory)
+      List<String> targets)
       throws InterruptedException, IOException {
     // Call fetch which runs build to have the targets graph and configuration set
     BuildResult buildResult;
@@ -293,7 +294,7 @@ public final class VendorCommand implements BlazeCommand {
     ImmutableSet<RepositoryName> reposToVendor = collectReposFromTargets(inMemoryGraph, targetKeys);
 
     env.getReporter().handle(Event.info("Vendoring dependencies for targets..."));
-    vendor(env, vendorDirectory, reposToVendor.asList());
+    vendor(env, reposToVendor.asList());
     env.getReporter()
         .handle(
             Event.info(
@@ -329,9 +330,9 @@ public final class VendorCommand implements BlazeCommand {
    * ignored or was already vendored and up-to-date
    */
   private void vendor(
-      CommandEnvironment env, Path vendorDirectory, ImmutableList<RepositoryName> reposToVendor)
+      CommandEnvironment env, ImmutableList<RepositoryName> reposToVendor)
       throws IOException, InterruptedException {
-    VendorUtil vendorUtil = new VendorUtil(vendorDirectory);
+    Objects.requireNonNull(vendorUtil);
 
     // 1. Vendor registry files
     BazelModuleResolutionValue moduleResolutionValue =
@@ -403,12 +404,6 @@ public final class VendorCommand implements BlazeCommand {
             .getOutputBase()
             .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
     vendorUtil.vendorRepos(externalPath, reposToVendor);
-  }
-
-  private static Path getVendorPath(CommandEnvironment env, PathFragment vendorDirectory) {
-    return vendorDirectory.isAbsolute()
-        ? env.getRuntime().getFileSystem().getPath(vendorDirectory)
-        : env.getWorkspace().getRelative(vendorDirectory);
   }
 
   private static BlazeCommandResult createFailedBlazeCommandResult(

@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionUsagesFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.VendorFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.VendorUtil;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.commands.FetchCommand;
@@ -224,7 +225,7 @@ public class BazelRepositoryModule extends BlazeModule {
     builder.addCommands(new FetchCommand());
     builder.addCommands(new ModCommand());
     builder.addCommands(new SyncCommand());
-    builder.addCommands(new VendorCommand(downloadManager, clientEnvironmentSupplier));
+    builder.addCommands(new VendorCommand(vendorDirectory, downloadManager, clientEnvironmentSupplier));
     builder.addInfoItems(new RepositoryCacheInfoItem(repositoryCache));
   }
 

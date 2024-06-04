@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
+
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;

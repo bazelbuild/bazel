@@ -47,6 +47,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 
+import javax.annotation.Nullable;
+
 /**
  * Represents a Bazel module registry that serves a list of module metadata from a static HTTP
  * server or a local file path.
@@ -89,7 +91,8 @@ public class IndexRegistry implements Registry {
   private final Gson gson;
   private final ImmutableMap<String, Optional<Checksum>> knownFileHashes;
   private final ImmutableMap<ModuleKey, String> previouslySelectedYankedVersions;
-  private final Optional<Path> vendorDir;
+  @Nullable
+  private final VendorUtil vendorUtil;
   private final KnownFileHashesMode knownFileHashesMode;
   private volatile Optional<BazelRegistryJson> bazelRegistryJson;
   private volatile StoredEventHandler bazelRegistryJsonEvents;
@@ -114,7 +117,7 @@ public class IndexRegistry implements Registry {
     this.knownFileHashes = knownFileHashes;
     this.knownFileHashesMode = knownFileHashesMode;
     this.previouslySelectedYankedVersions = previouslySelectedYankedVersions;
-    this.vendorDir = vendorDir;
+    this.vendorUtil = vendorDir.map(VendorUtil::new).orElse(null);
   }
 
   @Override
@@ -188,25 +191,22 @@ public class IndexRegistry implements Registry {
     }
 
     URL url = URI.create(rawUrl).toURL();
-    // Don't try to read the registry URL from the vendor directory in the following cases:
-    // 1. The vendor directory is not set, which means vendor mode is disabled.
+    // Don't read the registry URL from the vendor directory in the following cases:
+    // 1. vendorUtil is null, which means vendor mode is disabled.
     // 2. The checksum is not present, which means the URL is not vendored or the vendored content
     // is out-dated.
     // 3. The URL starts with "file:", which means it's a local file and isn't vendored.
-    // Otherwise, check if the URL is vendored and read the registry file from the vendor directory.
-    if (vendorDir.isPresent() && checksum.isPresent() && !url.getProtocol().equals("file")) {
-      VendorUtil vendorUtil = new VendorUtil(vendorDir.get());
-      if (vendorUtil.isUrlVendored(url)) {
-        try {
-          return Optional.of(vendorUtil.readRegistryUrl(url, checksum.get()));
-        } catch (IOException e) {
-          throw new IOException(
-              String.format(
-                  "Failed to read vendored registry file %s at %s: %s. Please rerun the bazel"
-                      + " vendor command.",
-                  rawUrl, vendorUtil.getVendorPathForUrl(url), e.getMessage()),
-              e);
-        }
+    // 4. The vendor path doesn't exist, which means the URL is not vendored.
+    if (vendorUtil != null && checksum.isPresent() && !url.getProtocol().equals("file") && vendorUtil.isUrlVendored(url)) {
+      try {
+        return Optional.of(vendorUtil.readRegistryUrl(url, checksum.get()));
+      } catch (IOException e) {
+        throw new IOException(
+            String.format(
+                "Failed to read vendored registry file %s at %s: %s. Please rerun the bazel"
+                    + " vendor command.",
+                rawUrl, vendorUtil.getVendorPathForUrl(url), e.getMessage()),
+            e);
       }
     }
 
