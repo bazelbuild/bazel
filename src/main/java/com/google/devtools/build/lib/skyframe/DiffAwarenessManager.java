@@ -20,6 +20,8 @@ import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
@@ -111,7 +113,7 @@ public final class DiffAwarenessManager {
     }
     DiffAwareness diffAwareness = diffAwarenessState.diffAwareness;
     View newView;
-    try {
+    try (SilentCloseable c = Profiler.instance().profile("diffAwareness.getCurrentView")) {
       newView = diffAwareness.getCurrentView(options);
     } catch (BrokenDiffAwarenessException e) {
       handleBrokenDiffAwareness(eventHandler, pathEntry, ignoredPaths, e);
@@ -128,7 +130,7 @@ public final class DiffAwarenessManager {
     ModifiedFileSet diff;
     logger.atInfo().log(
         "About to compute diff between %s and %s for %s", baselineView, newView, pathEntry);
-    try {
+    try (SilentCloseable c = Profiler.instance().profile("diffAwareness.getDiff")) {
       diff = diffAwareness.getDiff(baselineView, newView);
     } catch (BrokenDiffAwarenessException e) {
       handleBrokenDiffAwareness(eventHandler, pathEntry, ignoredPaths, e);
