@@ -496,13 +496,9 @@ public class BazelRepositoryModule extends BlazeModule {
       bazelCompatibilityMode = repoOptions.bazelCompatibilityMode;
       bazelLockfileMode = repoOptions.lockfileMode;
       allowedYankedVersions = repoOptions.allowedYankedVersions;
-
-      if (repoOptions.vendorDirectory != null) {
-        vendorDirectory =
-            Optional.of(
-                repoOptions.vendorDirectory.isAbsolute()
-                    ? filesystem.getPath(repoOptions.vendorDirectory)
-                    : env.getWorkspace().getRelative(repoOptions.vendorDirectory));
+      if (env.getWorkspace() != null) {
+        vendorDirectory = Optional.ofNullable(repoOptions.vendorDirectory)
+            .map(vendorDirectory -> env.getWorkspace().getRelative(vendorDirectory));
       }
 
       if (repoOptions.registries != null && !repoOptions.registries.isEmpty()) {

@@ -34,6 +34,8 @@ import java.util.Objects;
 /** Utility class for vendoring external repositories. */
 public class VendorUtil {
 
+  private final static String REGISTRIES_DIR = "_registries";
+
   private final Path vendorDirectory;
 
   public VendorUtil(Path vendorDirectory) {
@@ -121,7 +123,7 @@ public class VendorUtil {
   }
 
   /**
-   * Checks if the repository under vendor dir needs to be updated by comparing its marker file with
+   * Checks if the repository under vendor dir is up-to-date by comparing its marker file with
    * the one under <output_base>/external. This function assumes the marker file under
    * <output_base>/external exists and is up-to-date.
    *
@@ -164,6 +166,6 @@ public class VendorUtil {
     if (path.startsWith("/")) {
       path = path.substring(1);
     }
-    return vendorDirectory.getRelative("registry_cache").getRelative(host).getRelative(path);
+    return vendorDirectory.getRelative(REGISTRIES_DIR).getRelative(host).getRelative(path);
   }
 }

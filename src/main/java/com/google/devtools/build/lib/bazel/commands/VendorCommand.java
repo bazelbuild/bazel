@@ -157,8 +157,7 @@ public final class VendorCommand implements BlazeCommand {
     BlazeCommandResult result;
     VendorOptions vendorOptions = options.getOptions(VendorOptions.class);
     LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
-    Path vendorDirectory =
-        getVendorPath(env, options.getOptions(RepositoryOptions.class).vendorDirectory);
+    Path vendorDirectory = env.getWorkspace().getRelative(options.getOptions(RepositoryOptions.class).vendorDirectory);
     this.vendorUtil = new VendorUtil(vendorDirectory);
     try {
       if (!options.getResidue().isEmpty()) {
@@ -406,12 +405,6 @@ public final class VendorCommand implements BlazeCommand {
             .getOutputBase()
             .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
     vendorUtil.vendorRepos(externalPath, reposToVendor);
-  }
-
-  private static Path getVendorPath(CommandEnvironment env, PathFragment vendorDirectory) {
-    return vendorDirectory.isAbsolute()
-        ? env.getRuntime().getFileSystem().getPath(vendorDirectory)
-        : env.getWorkspace().getRelative(vendorDirectory);
   }
 
   private static BlazeCommandResult createFailedBlazeCommandResult(
