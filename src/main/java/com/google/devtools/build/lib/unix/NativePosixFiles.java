@@ -199,7 +199,7 @@ public final class NativePosixFiles {
    * @throws IOException if the call to opendir failed for any reason.
    */
   public static Dirents readdir(String path, ReadTypes readTypes) throws IOException {
-    long comp = Blocker.begin();
+    var comp = Blocker.begin();
     try {
       // Passing enums to native code is possible, but onerous; we use a char instead.
       return readdir(path, readTypes.getCode());
