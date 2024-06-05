@@ -3473,6 +3473,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     // (See --incompatible_no_attr_license). However, this verifies that until the attribute
     // is removed, values of the attribute are a valid Starlark type.
     setBuildLanguageOptions("--incompatible_no_attr_license=false");
+    invalidatePackages();
     scratch.file(
         "test/rule.bzl",
         """

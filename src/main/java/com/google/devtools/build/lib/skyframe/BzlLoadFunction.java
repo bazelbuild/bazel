@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -171,6 +172,11 @@ public class BzlLoadFunction implements SkyFunction {
         /* inlineCacheManager= */ null);
   }
 
+  /**
+   * Constructs a new instance that uses bzl inlining.
+   *
+   * <p>Must call {@link #resetInliningCache} on the returned instance before use.
+   */
   public static BzlLoadFunction createForInlining(
       RuleClassProvider ruleClassProvider,
       BlazeDirectories directories,
@@ -362,8 +368,15 @@ public class BzlLoadFunction implements SkyFunction {
     return childState.buildCachedData(key, value);
   }
 
+  /** Re-initializes the bzl inlining cache, if this instance uses one. No-op otherwise. */
   public void resetInliningCache() {
-    inlineCacheManager.reset();
+    inlineCacheManager.reset(/* resetBuiltins= */ false);
+  }
+
+  /** Re-initializes the bzl inlining cache, if this instance uses one. No-op otherwise. */
+  @VisibleForTesting
+  public void resetInliningCacheAndBuiltinsForTesting() {
+    inlineCacheManager.reset(/* resetBuiltins= */ true);
   }
 
   /**
@@ -1516,11 +1529,13 @@ public class BzlLoadFunction implements SkyFunction {
    */
   static class InlineCacheManager {
     private final int bzlLoadCacheSize;
+
+    // Data which will be cleared on #reset().
     private Cache<BzlLoadValue.Key, CachedBzlLoadData> bzlLoadCache;
     private CachedBzlLoadDataBuilderFactory cachedBzlLoadDataBuilderFactory =
         new CachedBzlLoadDataBuilderFactory();
-
-    final AtomicReference<StarlarkBuiltinsValue> builtinsRef = new AtomicReference<>();
+    // Not private so that StarlarkBuiltinsFunction can directly access this.
+    AtomicReference<StarlarkBuiltinsValue> builtinsRef = new AtomicReference<>();
 
     private InlineCacheManager(int bzlLoadCacheSize) {
       this.bzlLoadCacheSize = bzlLoadCacheSize;
@@ -1530,7 +1545,7 @@ public class BzlLoadFunction implements SkyFunction {
       return cachedBzlLoadDataBuilderFactory.newCachedBzlLoadDataBuilder();
     }
 
-    private void reset() {
+    private void reset(boolean resetBuiltins) {
       if (bzlLoadCache != null) {
         logger.atInfo().log(
             "Starlark inlining cache stats from earlier build: %s", bzlLoadCache.stats());
@@ -1546,13 +1561,16 @@ public class BzlLoadFunction implements SkyFunction {
               .maximumSize(bzlLoadCacheSize)
               .recordStats()
               .build();
-      // Don't reset `builtinsRef`.
-      //
-      // All usages of BzlLoadFunction inlining assume builtins can never change (i.e. no usage of
-      // --experimental_builtins_bzl_path, no inter-invocation flipping of Starlark semantics
-      // options that'd cause evaluation of builtins to differ). If this assumption ever doesn't
-      // hold, we'd want to reset `builtinsRef` and we'd also want to inline deps on the logical
-      // Skyframe subgraph when we get a `builtins` cache hit.
+
+      // All actual usages of BzlLoadFunction inlining assume builtins can never change (i.e. no
+      // usage of --experimental_builtins_bzl_path, no inter-invocation flipping of Starlark
+      // semantics options that'd cause evaluation of builtins to differ). This assumption is only
+      // violated in some tests, which rewrite the builtins to validate the state. If non-test usage
+      // can ever change builtins, we'd also want to inline deps on the logical Skyframe subgraph
+      // when we get a `builtins` cache hit.
+      if (resetBuiltins) {
+        builtinsRef = new AtomicReference<>();
+      }
     }
   }
 
