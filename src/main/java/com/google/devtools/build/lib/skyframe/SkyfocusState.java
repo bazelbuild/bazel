@@ -15,13 +15,12 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
-import com.google.common.base.Preconditions;
+import com.google.auto.value.AutoBuilder;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.Collection;
 import javax.annotation.Nullable;
 
 /**
@@ -52,6 +51,36 @@ public record SkyfocusState(
     @Nullable SkyfocusOptions options,
     @Nullable BuildConfigurationValue buildConfiguration) {
 
+  /**
+   * Builder for the {@code SkyfocusState} record.
+   *
+   * <p>This must reflect all parameters in the record constructor.
+   */
+  @AutoBuilder
+  public interface Builder {
+    Builder enabled(boolean enable);
+
+    Builder forcedRerun(boolean forcedRerun);
+
+    Builder focusedTargetLabels(ImmutableSet<Label> focusedTargetLabels);
+
+    Builder workingSetType(WorkingSetType workingSetType);
+
+    Builder workingSet(ImmutableSet<FileStateKey> workingSet);
+
+    Builder verificationSet(ImmutableSet<SkyKey> verificationSet);
+
+    Builder options(@Nullable SkyfocusOptions options);
+
+    Builder buildConfiguration(@Nullable BuildConfigurationValue buildConfiguration);
+
+    SkyfocusState build();
+  }
+
+  public Builder toBuilder() {
+    return new AutoBuilder_SkyfocusState_Builder(this);
+  }
+
   /** Describes how the working set was constructed. */
   public enum WorkingSetType {
     /** Automatically derived by the source state and the command line (e.g. focused targets) */
@@ -77,105 +106,6 @@ public record SkyfocusState(
     return workingSet.stream()
         .map(fsk -> fsk.argument().getRootRelativePath().toString())
         .collect(toImmutableSet());
-  }
-
-  public SkyfocusState withEnabled(boolean val) {
-    return new SkyfocusState(
-        val,
-        forcedRerun,
-        focusedTargetLabels,
-        workingSetType,
-        workingSet,
-        verificationSet,
-        options,
-        buildConfiguration);
-  }
-
-  public SkyfocusState withForcedRerun(boolean val) {
-    return new SkyfocusState(
-        enabled,
-        val,
-        focusedTargetLabels,
-        workingSetType,
-        workingSet,
-        verificationSet,
-        options,
-        buildConfiguration);
-  }
-
-  public SkyfocusState addFocusedTargetLabels(Collection<Label> val) {
-    return new SkyfocusState(
-        enabled,
-        forcedRerun,
-        ImmutableSet.<Label>builder().addAll(focusedTargetLabels).addAll(val).build(),
-        workingSetType,
-        workingSet,
-        verificationSet,
-        options,
-        buildConfiguration);
-  }
-
-  public SkyfocusState withUserDefinedWorkingSet(ImmutableSet<FileStateKey> val) {
-    return new SkyfocusState(
-        enabled,
-        forcedRerun,
-        focusedTargetLabels,
-        WorkingSetType.USER_DEFINED,
-        val,
-        verificationSet,
-        options,
-        buildConfiguration);
-  }
-
-  public SkyfocusState addDerivedWorkingSet(ImmutableSet<FileStateKey> val) {
-    Preconditions.checkState(
-        workingSetType == WorkingSetType.DERIVED, "Cannot add to a non-derived working set.");
-
-    return new SkyfocusState(
-        enabled,
-        forcedRerun,
-        focusedTargetLabels,
-        WorkingSetType.DERIVED,
-        ImmutableSet.<FileStateKey>builder().addAll(workingSet).addAll(val).build(),
-        verificationSet,
-        options,
-        buildConfiguration);
-  }
-
-  public SkyfocusState withVerificationSet(ImmutableSet<SkyKey> val) {
-    return new SkyfocusState(
-        enabled,
-        forcedRerun,
-        focusedTargetLabels,
-        workingSetType,
-        workingSet,
-        val,
-        options,
-        buildConfiguration);
-  }
-
-  public SkyfocusState withOptions(SkyfocusOptions val) {
-    return new SkyfocusState(
-        enabled,
-        forcedRerun,
-        focusedTargetLabels,
-        workingSetType,
-        workingSet,
-        verificationSet,
-        val,
-        buildConfiguration);
-  }
-
-  public SkyfocusState withBuildConfiguration(BuildConfigurationValue val) {
-    return new SkyfocusState(
-        enabled,
-        forcedRerun,
-        focusedTargetLabels,
-        workingSetType,
-        workingSet,
-        verificationSet,
-        options,
-        val);
   }
 
 }

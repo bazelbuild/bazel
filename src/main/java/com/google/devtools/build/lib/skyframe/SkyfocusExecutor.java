@@ -15,13 +15,14 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.devtools.build.lib.actions.FileStateValue.NONEXISTENT_FILE_STATE_NODE;
+import static com.google.devtools.build.lib.skyframe.SkyfocusState.WorkingSetType.DERIVED;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -35,7 +36,6 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.SkyfocusState.WorkingSetType;
 import com.google.devtools.build.lib.skyframe.SkyframeFocuser.FocusResult;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -44,6 +44,7 @@ import com.google.devtools.build.skyframe.InMemoryGraphImpl;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collection;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -53,25 +54,26 @@ public class SkyfocusExecutor {
   private SkyfocusExecutor() {}
 
   /**
-   * Prepares the working set and runs SkyframeFocuser.
+   * Prepares the working set to run the core SkyframeFocuser algorithm.
    *
-   * @return a {@link Pair} of {@link FocusResult} (which stores the one-time results/metrics of
-   *     this run) and {@link SkyfocusState} (which stores the state of Skyfocus that should be
-   *     persisted between invocations of a bazel server).
+   * <p>This method will update the working set if the user has requested a new working set from the
+   * command line, or if the user has not requested a new working set, automatically derive it using
+   * the source state.
+   *
+   * @return an optional of a SkyfocusState. If the value is present, the working set has been
+   *     updated.
    */
-  static Pair<FocusResult, SkyfocusState> prepareWorkingSetAndRunSkyfocus(
+  public static Optional<SkyfocusState> prepareWorkingSet(
       Collection<Label> topLevelTargetLabels,
       ImmutableSet<PathFragment> projectDirectories,
       InMemoryMemoizingEvaluator evaluator,
       SkyfocusState skyfocusState,
       PackageManager packageManager,
       PathPackageLocator pkgLocator,
-      ExtendedEventHandler eventHandler,
-      ActionCache actionCache)
-      throws InterruptedException {
-    if (topLevelTargetLabels.isEmpty()) {
-      return Pair.of(FocusResult.NO_RESULT, skyfocusState);
-    }
+      ExtendedEventHandler eventHandler) {
+    Preconditions.checkState(
+        !topLevelTargetLabels.isEmpty(),
+        "Cannot prepare working set without top level targets to focus on.");
 
     // TODO: b/312819241 - add support for SerializationCheckingGraph for use in tests.
     InMemoryGraphImpl graph = (InMemoryGraphImpl) evaluator.getInMemoryGraph();
@@ -82,10 +84,19 @@ public class SkyfocusExecutor {
     // logic in the evaluator.
     checkState(roots != null && !roots.isEmpty(), "roots can't be null or empty");
 
+    SkyfocusState.Builder newSkyfocusStateBuilder =
+        skyfocusState.toBuilder()
+            .focusedTargetLabels(
+                ImmutableSet.<Label>builder()
+                    // Persist previous focused labels.
+                    .addAll(skyfocusState.focusedTargetLabels())
+                    .addAll(topLevelTargetLabels)
+                    .build());
+
     Set<FileStateKey> newWorkingSet = Sets.newConcurrentHashSet();
 
     if (skyfocusState.options().workingSet.isEmpty()
-        && skyfocusState.workingSetType().equals(WorkingSetType.DERIVED)) {
+        && skyfocusState.workingSetType().equals(DERIVED)) {
       // If the user hasn't defined a new working set from the command line and there
       // isn't an active user-defined working set in use, automatically derive one using the
       // targets being built.
@@ -103,7 +114,7 @@ public class SkyfocusExecutor {
                 Preconditions.checkState(
                     node.isDone(),
                     "FileState node is not done. This is an internal inconsistency.");
-                if (node.getValue().equals(FileStateValue.NONEXISTENT_FILE_STATE_NODE)) {
+                if (node.getValue().equals(NONEXISTENT_FILE_STATE_NODE)) {
                   return;
                 }
 
@@ -148,15 +159,26 @@ public class SkyfocusExecutor {
             && skyfocusState.workingSet().containsAll(newWorkingSet)
             && skyfocusState.focusedTargetLabels().containsAll(topLevelTargetLabels)) {
           // Already focused on a superset of the working set, no need to do anything.
-          return Pair.of(FocusResult.NO_RESULT, skyfocusState);
+          return Optional.empty();
         }
 
-        skyfocusState = skyfocusState.addDerivedWorkingSet(ImmutableSet.copyOf(newWorkingSet));
+        newSkyfocusStateBuilder
+            .workingSetType(DERIVED)
+            .workingSet(
+                ImmutableSet.<FileStateKey>builder()
+                    .addAll(
+                        // Only persist previously derived working sets. If they were
+                        // user defined, overwrite them.
+                        skyfocusState.workingSetType().equals(DERIVED)
+                            ? skyfocusState.workingSet()
+                            : ImmutableSet.of())
+                    .addAll(newWorkingSet)
+                    .build());
       }
     } else {
       if (skyfocusState.options().workingSet.isEmpty() && !skyfocusState.forcedRerun()) {
         // No command line request to update the working set; return early.
-        return Pair.of(FocusResult.NO_RESULT, skyfocusState);
+        return Optional.empty();
       }
 
       // User is setting a new explicit working set from the command line option.
@@ -200,23 +222,35 @@ public class SkyfocusExecutor {
         if (skyfocusState.forcedRerun()) {
           newWorkingSet.addAll(skyfocusState.workingSet());
         } else {
-          return Pair.of(FocusResult.NO_RESULT, skyfocusState);
+          return Optional.empty();
         }
       }
 
-      skyfocusState = skyfocusState.withUserDefinedWorkingSet(ImmutableSet.copyOf(newWorkingSet));
+      newSkyfocusStateBuilder
+          .workingSetType(WorkingSetType.USER_DEFINED)
+          .workingSet(ImmutableSet.copyOf(newWorkingSet));
     }
 
+    eventHandler.handle(Event.info("Updated working set successfully."));
+    return Optional.of(newSkyfocusStateBuilder.build());
+  }
+
+  public static FocusResult execute(
+      ImmutableSet<FileStateKey> workingSet,
+      InMemoryMemoizingEvaluator evaluator,
+      ExtendedEventHandler eventHandler,
+      ActionCache actionCache)
+      throws InterruptedException {
+
+    Set<SkyKey> roots = evaluator.getLatestTopLevelEvaluations();
     ImmutableSet<SkyKey> leafs =
         ImmutableSet.<SkyKey>builder()
             // TODO: b/312819241 - BUILD_ID is necessary for build correctness of volatile actions,
             // like stamping, but retains a lot of memory (100MB of retained heap for a 9+GB build).
             // Figure out a way to not include it.
             .add(PrecomputedValue.BUILD_ID.getKey())
-            .addAll(skyfocusState.workingSet())
+            .addAll(workingSet)
             .build();
-
-    eventHandler.handle(Event.info("Updated working set successfully."));
 
     eventHandler.handle(
         Event.info(
@@ -228,16 +262,12 @@ public class SkyfocusExecutor {
     FocusResult focusResult;
 
     try (SilentCloseable c = Profiler.instance().profile("SkyframeFocuser")) {
-      focusResult = SkyframeFocuser.focus(graph, actionCache, roots, leafs);
+      focusResult = SkyframeFocuser.focus(evaluator.getInMemoryGraph(), actionCache, roots, leafs);
     }
 
-    return Pair.of(
-        focusResult,
-        skyfocusState
-            .addFocusedTargetLabels(topLevelTargetLabels)
-            .withForcedRerun(false)
-            .withVerificationSet(focusResult.verificationSet()));
+    return focusResult;
   }
+
 
   /** Turns a root relative path string into a RootedPath object. */
   static RootedPath toFileStateKey(PathPackageLocator pkgLocator, String rootRelativePathFragment) {

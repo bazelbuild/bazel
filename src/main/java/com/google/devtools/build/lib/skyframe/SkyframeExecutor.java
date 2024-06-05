@@ -4043,7 +4043,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
 
     memoizingEvaluator.rememberTopLevelEvaluations(true);
-    skyfocusState = skyfocusState.withEnabled(true).withOptions(skyfocusOptions);
+    skyfocusState = skyfocusState.toBuilder().enabled(true).options(skyfocusOptions).build();
   }
 
   /**
@@ -4051,11 +4051,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * focusing is necessary (e.g. new working set, or analysis cache was dropped).
    */
   public final void runSkyfocus(
-      Collection<Label> topLevelTargets,
+      ImmutableSet<Label> topLevelTargets,
       ImmutableSet<PathFragment> projectDirectories,
       Reporter reporter,
       ActionCache actionCache)
       throws InterruptedException {
+    if (!skyfocusState.enabled() || topLevelTargets.isEmpty()) {
+      return;
+    }
+
     int beforeNodeCount = this.getEvaluator().getValues().size();
     long beforeHeap = 0;
     long beforeActionCacheEntries = actionCache.size();
@@ -4073,24 +4077,32 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       skyFunctionCountBefore = getSkyFunctionNameCount(graph);
     }
 
-    // Run Skyfocus!
-    Pair<FocusResult, SkyfocusState> result =
-        SkyfocusExecutor.prepareWorkingSetAndRunSkyfocus(
+    Optional<SkyfocusState> maybeNewSkyfocusState =
+        SkyfocusExecutor.prepareWorkingSet(
             topLevelTargets,
             projectDirectories,
             (InMemoryMemoizingEvaluator) getEvaluator(),
             skyfocusState,
             packageManager,
             pkgLocator.get(),
+            reporter);
+
+    if (maybeNewSkyfocusState.isEmpty()) {
+      return;
+    }
+
+    SkyfocusState newSkyfocusState = maybeNewSkyfocusState.get();
+
+    // Run Skyfocus!
+    FocusResult focusResult =
+        SkyfocusExecutor.execute(
+            newSkyfocusState.workingSet(),
+            (InMemoryMemoizingEvaluator) getEvaluator(),
             reporter,
             actionCache);
 
-    FocusResult focusResult = result.getFirst();
-    skyfocusState = result.getSecond();
-
-    if (focusResult.equals(FocusResult.NO_RESULT)) {
-      return;
-    }
+    skyfocusState =
+        newSkyfocusState.toBuilder().verificationSet(focusResult.verificationSet()).build();
 
     // Shouldn't result in an empty graph.
     checkState(!focusResult.deps().isEmpty());

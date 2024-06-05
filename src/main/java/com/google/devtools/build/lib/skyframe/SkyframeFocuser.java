@@ -120,18 +120,7 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
       ImmutableSet<SkyKey> deps,
       ImmutableSet<SkyKey> verificationSet,
       long rdepEdgesBefore,
-      long rdepEdgesAfter) {
-
-    public static final FocusResult NO_RESULT =
-        new FocusResult(
-            ImmutableSet.of(),
-            ImmutableSet.of(),
-            ImmutableSet.of(),
-            ImmutableSet.of(),
-            ImmutableSet.of(),
-            0L,
-            0L);
-  }
+      long rdepEdgesAfter) {}
 
   /**
    * NodeVisitor is parallelizable graph visitor that's applied transitively upwards from leafs to

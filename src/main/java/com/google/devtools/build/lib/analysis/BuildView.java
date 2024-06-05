@@ -286,9 +286,10 @@ public class BuildView {
         }
 
         skyframeExecutor.setSkyfocusState(
-            skyfocusState
-                .withBuildConfiguration(topLevelConfig)
-                .withForcedRerun(buildConfigChanged));
+            skyfocusState.toBuilder()
+                .buildConfiguration(topLevelConfig)
+                .forcedRerun(buildConfigChanged)
+                .build());
       }
       eventBus.post(new ConfigRequestedEvent(topLevelConfig, /* parentChecksum= */ null));
     }
