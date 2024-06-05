@@ -60,17 +60,22 @@ public class VendorUtil {
     for (RepositoryName repo : reposToVendor) {
       // Only re-vendor the repository if it is not up-to-date.
       if (!isRepoUpToDate(repo, externalRepoRoot)) {
+        Path markerUnderVendor = vendorDirectory.getChild(repo.getMarkerFileName());
         Path repoUnderVendor = vendorDirectory.getRelative(repo.getName());
-        if (!repoUnderVendor.exists()) {
-          repoUnderVendor.createDirectory();
-        }
+
+        // 1. Clean up existing marker file and repo vendor directory
+        markerUnderVendor.delete();
+        repoUnderVendor.deleteTree();
+        repoUnderVendor.createDirectory();
+
+        // 2. Copy over the repo source.
         FileSystemUtils.copyTreesBelow(
             externalRepoRoot.getRelative(repo.getName()), repoUnderVendor, Symlinks.NOFOLLOW);
-        Path tmpMarkerFile = vendorDirectory.getChild(repo.getMarkerFileName() + ".tmp");
-        FileSystemUtils.copyFile(
-            externalRepoRoot.getChild(repo.getMarkerFileName()),
-            tmpMarkerFile);
-        tmpMarkerFile.renameTo(vendorDirectory.getChild(repo.getMarkerFileName()));
+
+        // 3. Copy the marker file atomically
+        Path tmpMarker = vendorDirectory.getChild(repo.getMarkerFileName() + ".tmp");
+        FileSystemUtils.copyFile(externalRepoRoot.getChild(repo.getMarkerFileName()), tmpMarker);
+        tmpMarker.renameTo(markerUnderVendor);
       }
     }
   }
