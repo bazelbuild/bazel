@@ -20,7 +20,6 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -28,9 +27,9 @@ import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider.RemovedEnvironmentCulprit;
-import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -150,7 +149,10 @@ public class TopLevelConstraintSemantics {
             configuredTarget.getLabel(),
             // We need access to the provider so we pass in the underlying target here that is
             // responsible for the incompatibility.
-            reportOnIncompatibility(underlyingTarget));
+            IncompatibleTargetUtils.reportOnIncompatibility(
+                underlyingTarget.getLabel(),
+                underlyingTarget.getConfigurationChecksum(),
+                underlyingTarget.get(IncompatiblePlatformProvider.PROVIDER)));
     return new TargetCompatibilityCheckException(
         targetIncompatibleMessage,
         FailureDetail.newBuilder()
@@ -264,64 +266,6 @@ public class TopLevelConstraintSemantics {
         .targetsToSkip(ImmutableSet.copyOf(incompatibleTargets.build()))
         .targetsWithErrors(ImmutableSet.copyOf(incompatibleButRequestedTargets.build()))
         .build();
-  }
-
-  /**
-   * Assembles the explanation for a platform incompatibility.
-   *
-   * <p>This is useful when trying to explain to the user why an explicitly requested target on the
-   * command line is considered incompatible. The goal is to print out the dependency chain and the
-   * constraint that wasn't satisfied so that the user can immediately figure out what happened.
-   *
-   * @param target the incompatible target that was explicitly requested on the command line.
-   * @return the verbose error message to show to the user.
-   */
-  private static String reportOnIncompatibility(ConfiguredTarget target) {
-    Preconditions.checkNotNull(target);
-
-    String message = "\nDependency chain:";
-    IncompatiblePlatformProvider provider = null;
-
-    // TODO(austinschuh): While the first error is helpful, reporting all the errors at once would
-    // save the user bazel round trips.
-    while (target != null) {
-      message +=
-          String.format(
-              "\n    %s (%s)",
-              target.getLabel(), target.getConfigurationChecksum().substring(0, 6));
-      provider = target.get(IncompatiblePlatformProvider.PROVIDER);
-      ImmutableList<ConfiguredTarget> targetList = provider.targetsResponsibleForIncompatibility();
-      if (targetList == null) {
-        target = null;
-      } else {
-        target = targetList.get(0);
-      }
-    }
-
-    message +=
-        String.format(
-            "   <-- target platform (%s) didn't satisfy constraint", provider.targetPlatform());
-    if (provider.constraintsResponsibleForIncompatibility().size() == 1) {
-      message += " " + provider.constraintsResponsibleForIncompatibility().get(0).label();
-      return message;
-    }
-
-    message += "s [";
-
-    boolean first = true;
-    for (ConstraintValueInfo constraintValueInfo :
-        provider.constraintsResponsibleForIncompatibility()) {
-      if (first) {
-        first = false;
-      } else {
-        message += ", ";
-      }
-      message += constraintValueInfo.label();
-    }
-
-    message += "]";
-
-    return message;
   }
 
   /**
