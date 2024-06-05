@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
-import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
@@ -78,19 +77,6 @@ public final class AndroidPlatformsTransition implements PatchTransition {
         newPlatformOptions.platforms = ImmutableList.of(androidOptions.androidPlatforms.get(0));
       }
     }
-
-    if (androidOptions.androidPlatformsTransitionsUpdateAffected) {
-      ImmutableSet.Builder<String> affected = ImmutableSet.builder();
-      if (!options
-          .get(PlatformOptions.class)
-          .platforms
-          .equals(newOptions.get(PlatformOptions.class).platforms)) {
-        affected.add("//command_line_option:platforms");
-      }
-      FunctionTransitionUtil.updateAffectedByStarlarkTransition(
-          newOptions.get(CoreOptions.class), affected.build());
-    }
-
     return newOptions.underlying();
   }
 
