@@ -335,6 +335,18 @@ public class SandboxOptions extends OptionsBase {
   public boolean reuseSandboxDirectories;
 
   @Option(
+      name = "experimental_inmemory_sandbox_stashes",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
+      help =
+          "If set to true, the contents of stashed sandboxes for reuse_sandbox_directories will be"
+              + " tracked in memory. This reduces the amount of I/O needed during reuse. Depending"
+              + " on the build this flag may improve wall time. Depending on the build as well this"
+              + " flag may use a significant amount of additional memory.")
+  public boolean experimentalInMemorySandboxStashes;
+
+  @Option(
       name = "experimental_use_hermetic_linux_sandbox",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
