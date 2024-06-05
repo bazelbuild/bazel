@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
+import javax.annotation.Nullable;
 
 /**
  * Support for rules that compile sources. Provides ways to determine files that should be output,
@@ -81,6 +83,40 @@ public class CompilationSupport {
   }
 
   private CompilationSupport() {}
+
+  /**
+   * Returns the preferred static library for linking, or {@code null} if there is no static
+   * library.
+   *
+   * @param library the input library.
+   */
+  @Nullable
+  public static Artifact getStaticLibraryForLinking(LibraryToLink library) {
+    if (library.getStaticLibrary() != null) {
+      return library.getStaticLibrary();
+    } else if (library.getPicStaticLibrary() != null) {
+      return library.getPicStaticLibrary();
+    } else {
+      return null;
+    }
+  }
+
+  /**
+   * Returns the preferred variant of the library for linking.
+   *
+   * @param library the input library.
+   */
+  public static Artifact getLibraryForLinking(LibraryToLink library) {
+    if (library.getStaticLibrary() != null) {
+      return library.getStaticLibrary();
+    } else if (library.getPicStaticLibrary() != null) {
+      return library.getPicStaticLibrary();
+    } else if (library.getInterfaceLibrary() != null) {
+      return library.getInterfaceLibrary();
+    } else {
+      return library.getDynamicLibrary();
+    }
+  }
 
   public static Optional<Artifact> getCustomModuleMap(RuleContext ruleContext) {
     if (ruleContext.attributes().has("module_map", BuildType.LABEL)) {

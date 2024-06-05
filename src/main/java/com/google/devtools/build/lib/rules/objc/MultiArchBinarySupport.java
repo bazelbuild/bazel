@@ -15,13 +15,23 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkerInput;
+import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.objc.AppleLinkingOutputs.TargetTriplet;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
@@ -30,6 +40,57 @@ import net.starlark.java.eval.EvalException;
 /** Support utility for creating multi-arch Apple binaries. */
 public class MultiArchBinarySupport {
   private MultiArchBinarySupport() {}
+
+  private static HashSet<PathFragment> buildAvoidLibrarySet(
+      Iterable<CcLinkingContext> avoidDepContexts) {
+    HashSet<PathFragment> avoidLibrarySet = new HashSet<>();
+    for (CcLinkingContext context : avoidDepContexts) {
+      for (LinkerInput linkerInput : context.getLinkerInputs().toList()) {
+        for (LibraryToLink libraryToLink : linkerInput.getLibraries()) {
+          Artifact library = CompilationSupport.getStaticLibraryForLinking(libraryToLink);
+          if (library != null) {
+            avoidLibrarySet.add(library.getRunfilesPath());
+          }
+        }
+      }
+    }
+
+    return avoidLibrarySet;
+  }
+
+  public static CcLinkingContext ccLinkingContextSubtractSubtrees(
+      RuleContext ruleContext,
+      Iterable<CcLinkingContext> depContexts,
+      Iterable<CcLinkingContext> avoidDepContexts) {
+    CcLinkingContext.Builder outputContext = new CcLinkingContext.Builder();
+
+    outputContext.setOwner(ruleContext.getLabel());
+
+    HashSet<PathFragment> avoidLibrarySet = buildAvoidLibrarySet(avoidDepContexts);
+    ImmutableList.Builder<LibraryToLink> filteredLibraryList = new ImmutableList.Builder<>();
+    for (CcLinkingContext context : depContexts) {
+
+      for (LinkerInput linkerInput : context.getLinkerInputs().toList()) {
+        for (LibraryToLink libraryToLink : linkerInput.getLibraries()) {
+          Artifact library = CompilationSupport.getLibraryForLinking(libraryToLink);
+          Preconditions.checkNotNull(library);
+          if (!avoidLibrarySet.contains(library.getRunfilesPath())) {
+            filteredLibraryList.add(libraryToLink);
+          }
+        }
+
+        outputContext.addUserLinkFlags(linkerInput.getUserLinkFlags());
+        outputContext.addNonCodeInputs(linkerInput.getNonCodeInputs());
+        outputContext.addLinkstamps(linkerInput.getLinkstamps());
+      }
+
+      NestedSetBuilder<LibraryToLink> filteredLibrarySet = NestedSetBuilder.linkOrder();
+      filteredLibrarySet.addAll(filteredLibraryList.build());
+      outputContext.addLibraries(filteredLibrarySet.build().toList());
+    }
+
+    return outputContext.build();
+  }
 
   /**
    * Returns an Apple target triplet (arch, platform, environment) for a given {@link

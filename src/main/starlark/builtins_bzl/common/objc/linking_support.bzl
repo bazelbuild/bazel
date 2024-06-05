@@ -17,7 +17,6 @@
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/objc/compilation_support.bzl", "compilation_support")
-load(":common/objc/multi_arch_binary_support.bzl", "subtract_linking_contexts")
 load(":common/objc/objc_info.bzl", "ObjcInfo")
 
 objc_internal = _builtins.internal.objc_internal
@@ -117,7 +116,7 @@ def _link_multi_arch_static_library(ctx):
 
         name = ctx.label.name + "-" + cc_toolchain.target_gnu_system_name + "-fl"
 
-        cc_linking_context = subtract_linking_contexts(
+        cc_linking_context = objc_internal.subtract_linking_contexts(
             ctx = ctx,
             linking_contexts = common_variables.objc_linking_context.cc_linking_contexts,
             avoid_dep_linking_contexts = avoid_cc_linking_contexts,
@@ -235,7 +234,7 @@ def _link_multi_arch_binary(
             ),
         ))
 
-        cc_linking_context = subtract_linking_contexts(
+        cc_linking_context = objc_internal.subtract_linking_contexts(
             ctx = ctx,
             linking_contexts = common_variables.objc_linking_context.cc_linking_contexts +
                                avoid_cc_linking_contexts,
