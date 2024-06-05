@@ -65,6 +65,16 @@ single_version_override(
     ],
 )
 
+# Remove the following patch when the following commit is in a release.
+# https://github.com/abseil/abseil-cpp/commit/65a55c2ba891f6d2492477707f4a2e327a0b40dc
+single_version_override(
+    module_name = "abseil-cpp",
+    patch_strip = 1,
+    patches = [
+        "//third_party:abseil-cpp-macos-fix.patch",
+    ],
+)
+
 # The following Bazel modules are not direct dependencies for building Bazel,
 # but are required for visibility from DIST_ARCHIVE_REPOS in repositories.bzl
 bazel_dep(name = "apple_support", version = "1.8.1")
