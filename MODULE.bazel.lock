@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "ebb77f16d8f0a7ce4dfb1163ac6552073681a6fd506bd703e11bd435fa5badf5",
+  "moduleFileHash": "a7763ee017cb7133cd854e5217de5391d51c90faf7b9e2c412b37980b1952a32",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -333,7 +333,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 347,
+                "line": 371,
                 "column": 22
               }
             }
@@ -523,12 +523,83 @@
           "hasNonDevUseExtension": true
         },
         {
+          "extensionBzlFile": "//:MODULE.bazel",
+          "extensionName": "_repo_rules",
+          "usingModule": "<root>",
+          "location": {
+            "file": "@@//:MODULE.bazel",
+            "line": 0,
+            "column": 0
+          },
+          "imports": {
+            "jq_linux_amd64": "jq_linux_amd64",
+            "jq_macos_amd64": "jq_macos_amd64",
+            "jq_windows_amd64": "jq_windows_amd64"
+          },
+          "devImports": [],
+          "tags": [
+            {
+              "tagName": "@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
+              "attributeValues": {
+                "executable": true,
+                "integrity": "sha256-xrOn19PntwxvUbcGo7kL0BgzhGxU0yyjLwAn8AIm/20=",
+                "urls": [
+                  "https://github.com/jqlang/jq/releases/download/jq-1.5/jq-linux64"
+                ],
+                "name": "jq_linux_amd64"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 313,
+                "column": 10
+              }
+            },
+            {
+              "tagName": "@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
+              "attributeValues": {
+                "executable": true,
+                "integrity": "sha256-OG6SyYKlb+SFFGjXqTHfyilWDO4wag5mxqG9QGXT2sU=",
+                "urls": [
+                  "https://github.com/jqlang/jq/releases/download/jq-1.5/jq-osx-amd64"
+                ],
+                "name": "jq_macos_amd64"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 320,
+                "column": 10
+              }
+            },
+            {
+              "tagName": "@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
+              "attributeValues": {
+                "executable": true,
+                "integrity": "sha256-6+zYQLpH779mgihoF4zHIaFRBgk396xAbj0xvQFb3pQ=",
+                "urls": [
+                  "https://github.com/jqlang/jq/releases/download/jq-1.5/jq-win64.exe"
+                ],
+                "name": "jq_windows_amd64"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 327,
+                "column": 10
+              }
+            }
+          ],
+          "hasDevUseExtension": false,
+          "hasNonDevUseExtension": true
+        },
+        {
           "extensionBzlFile": "@io_bazel//:extensions.bzl",
           "extensionName": "bazel_test_deps",
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 314,
+            "line": 338,
             "column": 32
           },
           "imports": {
@@ -547,7 +618,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 322,
+            "line": 346,
             "column": 31
           },
           "imports": {
@@ -564,7 +635,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 325,
+            "line": 349,
             "column": 48
           },
           "imports": {
@@ -581,7 +652,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 369,
+            "line": 393,
             "column": 35
           },
           "imports": {
@@ -598,7 +669,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 372,
+            "line": 396,
             "column": 42
           },
           "imports": {
@@ -2925,7 +2996,7 @@
       "general": {
         "bzlTransitiveDigest": "fsj2Y0/OdubiefV/mXYFaPLbTvxWyuGu7Pp/xcVMWBE=",
         "recordedFileInputs": {
-          "@@//MODULE.bazel": "ebb77f16d8f0a7ce4dfb1163ac6552073681a6fd506bd703e11bd435fa5badf5",
+          "@@//MODULE.bazel": "a7763ee017cb7133cd854e5217de5391d51c90faf7b9e2c412b37980b1952a32",
           "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "828ca18c55ab0580454760a1a8b00d414057233329bd7a44c31e477cdaa56d81"
         },
         "recordedDirentsInputs": {},
