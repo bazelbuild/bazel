@@ -700,7 +700,7 @@ Note: The **Action** column indicates the relevant action type, if applicable.
   <tr>
    <td><strong><code>output_file</code></strong>
    </td>
-   <td>compile</td>
+   <td>compile, strip</td>
    <td>Compilation output.
    </td>
   </tr>
