@@ -301,9 +301,12 @@ public class ModuleFileGlobals {
       name = "register_execution_platforms",
       doc =
           "Specifies already-defined execution platforms to be registered when this module is"
-              + " selected. Should be absolute target patterns (ie. beginning with either"
-              + " <code>@</code> or <code>//</code>). See <a href=\"${link toolchains}\">toolchain"
-              + " resolution</a> for more information.",
+              + " selected. Should be absolute <a"
+              + " href='https://bazel.build/reference/glossary#target-pattern'>target patterns</a>"
+              + " (ie. beginning with either <code>@</code> or <code>//</code>). See <a"
+              + " href=\"${link toolchains}\">toolchain resolution</a> for more information."
+              + " Patterns that expand to multiple targets, such as <code>:all</code>, will be"
+              + " registered in lexicographical order by name.",
       parameters = {
         @Param(
             name = "dev_dependency",
@@ -318,7 +321,7 @@ public class ModuleFileGlobals {
           @Param(
               name = "platform_labels",
               allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
-              doc = "The labels of the platforms to register."),
+              doc = "The target patterns to register."),
       useStarlarkThread = true)
   public void registerExecutionPlatforms(
       boolean devDependency, Sequence<?> platformLabels, StarlarkThread thread)
@@ -339,9 +342,13 @@ public class ModuleFileGlobals {
       name = "register_toolchains",
       doc =
           "Specifies already-defined toolchains to be registered when this module is selected."
-              + " Should be absolute target patterns (ie. beginning with either <code>@</code> or"
-              + " <code>//</code>). See <a href=\"${link toolchains}\">toolchain resolution</a> for"
-              + " more information.",
+              + " Should be absolute <a"
+              + " href='https://bazel.build/reference/glossary#target-pattern'>target patterns</a>"
+              + " (ie. beginning with either <code>@</code> or <code>//</code>). See <a"
+              + " href=\"${link toolchains}\">toolchain resolution</a> for more information."
+              + " Patterns that expand to multiple targets, such as <code>:all</code>, will be"
+              + " registered in lexicographical order by target name (not the name of the toolchain"
+              + " implementation).",
       parameters = {
         @Param(
             name = "dev_dependency",
@@ -356,10 +363,7 @@ public class ModuleFileGlobals {
           @Param(
               name = "toolchain_labels",
               allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
-              doc =
-                  "The labels of the toolchains to register. Labels can include "
-                      + "<code>:all</code>, in which case, all toolchain-providing targets in the "
-                      + "package will be registered in lexicographical order by name."),
+              doc = "The target patterns to register."),
       useStarlarkThread = true)
   public void registerToolchains(
       boolean devDependency, Sequence<?> toolchainLabels, StarlarkThread thread)

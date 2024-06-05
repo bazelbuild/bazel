@@ -69,14 +69,17 @@ public interface WorkspaceGlobalsApi {
   @StarlarkMethod(
       name = "register_execution_platforms",
       doc =
-          "Register an already-defined platform so that Bazel can use it as an "
-              + "<a href=\"${link toolchains#toolchain-resolution}\">execution platform</a> "
-              + "during <a href=\"${link toolchains}\">toolchain resolution</a>.",
+          "Specifies already-defined execution platforms to be registered. Should be absolute <a"
+              + " href='https://bazel.build/reference/glossary#target-pattern'>target patterns</a>"
+              + " (ie. beginning with either <code>@</code> or <code>//</code>). See <a"
+              + " href=\"${link toolchains}\">toolchain resolution</a> for more information."
+              + " Patterns that expand to multiple targets, such as <code>:all</code>, will be"
+              + " registered in lexicographical order by name.",
       extraPositionals =
           @Param(
               name = "platform_labels",
               allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
-              doc = "The labels of the platforms to register."),
+              doc = "The target patterns to register."),
       useStarlarkThread = true)
   void registerExecutionPlatforms(Sequence<?> platformLabels, StarlarkThread thread)
       throws EvalException, InterruptedException;
@@ -84,19 +87,18 @@ public interface WorkspaceGlobalsApi {
   @StarlarkMethod(
       name = "register_toolchains",
       doc =
-          "Register an already-defined toolchain so that Bazel can use it during "
-              + "<a href=\"${link toolchains}\">toolchain resolution</a>. See examples of "
-              + "<a href=\"${link toolchains#defining-toolchains}\">defining</a> and "
-              + "<a href=\"${link toolchains#registering-and-building-with-toolchains}\">"
-              + "registering toolchains</a>.",
+          "Specifies already-defined toolchains to be registered. Should be absolute <a"
+              + " href='https://bazel.build/reference/glossary#target-pattern'>target patterns</a>"
+              + " (ie. beginning with either <code>@</code> or <code>//</code>). See <a"
+              + " href=\"${link toolchains}\">toolchain resolution</a> for more information."
+              + " Patterns that expand to multiple targets, such as <code>:all</code>, will be"
+              + " registered in lexicographical order by target name (not the name of the toolchain"
+              + " implementation).",
       extraPositionals =
           @Param(
               name = "toolchain_labels",
               allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
-              doc =
-                  "The labels of the toolchains to register. Labels can include "
-                      + "<code>:all</code>, in which case, all toolchain-providing targets in the "
-                      + "package will be registered in lexicographical order by name."),
+              doc = "The target patterns to register."),
       useStarlarkThread = true)
   void registerToolchains(Sequence<?> toolchainLabels, StarlarkThread thread)
       throws EvalException, InterruptedException;
