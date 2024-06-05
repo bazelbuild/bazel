@@ -1,4 +1,4 @@
-load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+load("@rules_python//python:defs.bzl", "py_binary")
 load(":defs.bzl", "run_ijar", "run_singlejar")
 
 package(default_visibility = ["//visibility:public"])
@@ -253,19 +253,6 @@ py_binary(
 )
 
 py_binary(
-    name = "aar_native_libs_zip_creator",
-    srcs = [
-        "aar_native_libs_zip_creator.py",
-    ],
-    python_version = "PY3",
-    deps = [
-        ":junction_lib",
-        "//third_party/py/abseil",
-        ":json_worker_wrapper",
-    ],
-)
-
-py_binary(
     name = "stubify_manifest",
     srcs = ["stubify_manifest.py"],
     python_version = "PY3",
@@ -275,57 +262,9 @@ py_binary(
 )
 
 py_binary(
-    name = "aar_embedded_proguard_extractor",
-    srcs = ["aar_embedded_proguard_extractor.py"],
-    python_version = "PY3",
-    deps = [
-        ":junction_lib",
-        "//third_party/py/abseil",
-        ":json_worker_wrapper",
-    ],
-)
-
-py_binary(
-    name = "aar_embedded_jars_extractor",
-    srcs = ["aar_embedded_jars_extractor.py"],
-    python_version = "PY3",
-    deps = [
-        ":junction_lib",
-        "//third_party/py/abseil",
-        ":json_worker_wrapper",
-    ],
-)
-
-py_binary(
-    name = "aar_resources_extractor",
-    srcs = ["aar_resources_extractor.py"],
-    python_version = "PY3",
-    deps = [
-        ":junction_lib",
-        "//third_party/py/abseil",
-        ":json_worker_wrapper",
-    ],
-)
-
-py_binary(
     name = "resource_extractor",
     srcs = ["resource_extractor.py"],
     python_version = "PY3",
-)
-
-py_library(
-    name = "junction_lib",
-    srcs = ["junction.py"],
-    # TODO(bazel-team): remove srcs_version = "PY2AND3" while fixing https://github.com/bazelbuild/bazel/issues/10127.
-    srcs_version = "PY2AND3",
-    visibility = ["//visibility:private"],
-)
-
-py_library(
-    name = "json_worker_wrapper",
-    srcs = ["json_worker_wrapper.py"],
-    visibility = ["//visibility:private"],
-    srcs_version = "PY3",
 )
 
 alias(
