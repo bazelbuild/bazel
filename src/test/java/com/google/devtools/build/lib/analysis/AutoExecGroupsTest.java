@@ -2354,8 +2354,12 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "test/alias/BUILD",
         """
         alias(
-            name = "alias_toolchain_type",
+            name = "alias_toolchain_type_1",
             actual = "//rule:toolchain_type_1",
+        )
+        alias(
+            name = "alias_toolchain_type_2",
+            actual = "//rule:toolchain_type_2",
         )
         """);
     scratch.file(
@@ -2366,7 +2370,8 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
 
         custom_rule = rule(
             implementation = _impl,
-            toolchains = ["//test/alias:alias_toolchain_type"],
+            toolchains = ["//test/alias:alias_toolchain_type_1",
+             "//test/alias:alias_toolchain_type_2"],
             exec_groups = {
                 "custom_exec_group": exec_group(
                     toolchains = ["//rule:toolchain_type_1"],
@@ -2389,12 +2394,18 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
     RuleContext ruleContext = getRuleContext(target);
-    ToolchainInfo realToolchainInfo =
+    ToolchainInfo realToolchainInfo1 =
         ruleContext.getToolchainInfo(Label.parseCanonical("//rule:toolchain_type_1"));
-    ToolchainInfo aliasToolchainInfo =
-        ruleContext.getToolchainInfo(Label.parseCanonical("//test/alias:alias_toolchain_type"));
+    ToolchainInfo aliasToolchainInfo1 =
+        ruleContext.getToolchainInfo(Label.parseCanonical("//test/alias:alias_toolchain_type_1"));
 
-    assertThat(realToolchainInfo).isNotNull();
-    assertThat(realToolchainInfo).isEqualTo(aliasToolchainInfo);
+    assertThat(realToolchainInfo1).isEqualTo(aliasToolchainInfo1);
+
+    ToolchainInfo realToolchainInfo2 =
+        ruleContext.getToolchainInfo(Label.parseCanonical("//rule:toolchain_type_2"));
+    ToolchainInfo aliasToolchainInfo2 =
+        ruleContext.getToolchainInfo(Label.parseCanonical("//test/alias:alias_toolchain_type_2"));
+
+    assertThat(realToolchainInfo2).isEqualTo(aliasToolchainInfo2);
   }
 }

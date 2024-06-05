@@ -1169,9 +1169,7 @@ public class RuleContext extends TargetContext
                 name -> {
                   ResolvedToolchainContext context = toolchainContexts.getToolchainContext(name);
                   return (context != null
-                      && context
-                          .requestedToolchainTypeLabels()
-                          .containsKey(Label.parseCanonicalUnchecked(name)));
+                      && context.requestedToolchainTypeLabels().containsKey(toolchainType));
                 })
             .findFirst()
             .orElse(null);
