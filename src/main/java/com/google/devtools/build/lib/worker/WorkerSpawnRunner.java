@@ -335,7 +335,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
         ErrorMessage.builder()
             .message("Worker process did not return a WorkResponse:")
             .logFile(logfile)
-            .logSizeLimit(4096)
+            .logSizeLimit(8192)
             .build()
             .toString();
     return createUserExecException(message, Code.NO_RESPONSE);
