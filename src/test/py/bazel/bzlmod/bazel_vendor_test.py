@@ -79,7 +79,7 @@ class BazelVendorTest(test_base.TestBase):
   def testBasicVendoring(self):
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'bbb', '1.0', {'aaa': '1.0'}
-    )
+    ).createCcModule('bbb', '2.0')
     self.ScratchFile(
         'MODULE.bazel',
         [
@@ -94,12 +94,30 @@ class BazelVendorTest(test_base.TestBase):
     self.RunBazel(['vendor', '--vendor_dir=vendor'])
 
     # Assert repos are vendored with marker files and VENDOR.bazel is created
-    repos_vendored = os.listdir(self._test_cwd + '/vendor')
+    vendor_dir = self._test_cwd + '/vendor'
+    repos_vendored = os.listdir(vendor_dir)
     self.assertIn('aaa~', repos_vendored)
     self.assertIn('bbb~', repos_vendored)
     self.assertIn('@aaa~.marker', repos_vendored)
     self.assertIn('@bbb~.marker', repos_vendored)
     self.assertIn('VENDOR.bazel', repos_vendored)
+
+    # Update bbb to 2.0 and re-vendor
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "bbb", version = "2.0")',
+            'local_path_override(module_name="bazel_tools", path="tools_mock")',
+            'local_path_override(module_name="local_config_platform", ',
+            'path="platforms_mock")',
+        ],
+    )
+    self.ScratchFile("vendor/bbb~/foo")
+    self.RunBazel(['vendor', '--vendor_dir=vendor'])
+    bbb_module_bazel = os.path.join(vendor_dir, 'bbb~/MODULE.bazel')
+    self.AssertFileContentContains(bbb_module_bazel, 'version = "2.0"')
+    foo = os.path.join(vendor_dir, 'bbb~/foo')
+    self.assertFalse(os.path.exists(foo)) # foo should be removed due to re-vendor
 
   def testVendorFailsWithNofetch(self):
     self.ScratchFile(
