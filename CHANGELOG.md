@@ -1,3 +1,20 @@
+## Release 8.0.0-pre.20240530.1 (2024-06-05)
+
+```
+Baseline: b48a319187c87e230b59142b4f7366775173faf4
+```
+
+Important changes:
+
+  - Changes to environment variables read via `getenv` now correctly
+    invalidate module extensions.
+  - `--experimental_collect_system_network_usage` is flipped to
+    `true`.
+  - Progress is no longer written to BEP after the build completing
+    event is posted.
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, dependabot[bot], Fabian Meumertzheim, Keith Smiley, Matt Smith, Xdng Yng.
+
 ## Release 8.0.0-pre.20240523.3 (2024-05-31)
 
 ```
