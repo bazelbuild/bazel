@@ -324,6 +324,30 @@ gvm.graalvm(
 )
 use_repo(gvm, "graalvm_toolchains")
 
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+
+# DO NOT UPDATE the jq version, this is used to verify compatibility with old versions.
+http_file(
+    name = "jq_linux_amd64",
+    executable = True,
+    integrity = "sha256-xrOn19PntwxvUbcGo7kL0BgzhGxU0yyjLwAn8AIm/20=",
+    urls = ["https://github.com/jqlang/jq/releases/download/jq-1.5/jq-linux64"],
+)
+
+http_file(
+    name = "jq_macos_amd64",
+    executable = True,
+    integrity = "sha256-OG6SyYKlb+SFFGjXqTHfyilWDO4wag5mxqG9QGXT2sU=",
+    urls = ["https://github.com/jqlang/jq/releases/download/jq-1.5/jq-osx-amd64"],
+)
+
+http_file(
+    name = "jq_windows_amd64",
+    executable = True,
+    integrity = "sha256-6+zYQLpH779mgihoF4zHIaFRBgk396xAbj0xvQFb3pQ=",
+    urls = ["https://github.com/jqlang/jq/releases/download/jq-1.5/jq-win64.exe"],
+)
+
 # =========================================
 # Other Bazel testing dependencies
 # =========================================

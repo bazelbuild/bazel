@@ -41,6 +41,32 @@ sh_test(
 )
 
 filegroup(
+    name = "jq",
+    srcs = select({
+        "@platforms//os:linux": ["@jq_linux_amd64//file"],
+        "@platforms//os:macos": ["@jq_macos_amd64//file"],
+        "@platforms//os:windows": ["@jq_windows_amd64//file"],
+    }),
+)
+
+sh_test(
+    name = "bazel_lockfile_merge_test",
+    size = "small",
+    srcs = ["bazel_lockfile_merge_test.sh"],
+    data = [
+        "bazel-lockfile-merge.jq",
+        "testenv.sh",
+        ":jq",
+        "//src/test/shell:bashunit",
+        "//src/test/tools/bzlmod:MODULE.bazel.lock",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    env = {
+        "JQ_RLOCATIONPATH": "$(rlocationpath :jq)",
+    },
+)
+
+filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//scripts/docs:srcs",

@@ -49,9 +49,12 @@ public class BazelLockFileFunction implements SkyFunction {
   private static final Pattern LOCKFILE_VERSION_PATTERN =
       Pattern.compile("\"lockFileVersion\":\\s*(\\d+)");
 
-  private final Path rootDirectory;
+  private static final Pattern POSSIBLE_MERGE_CONFLICT_PATTERN =
+      Pattern.compile("<<<<<<<|=======|" + Pattern.quote("|||||||") + "|>>>>>>>");
 
   private static final BazelLockFileValue EMPTY_LOCKFILE = BazelLockFileValue.builder().build();
+
+  private final Path rootDirectory;
 
   public BazelLockFileFunction(Path rootDirectory) {
     this.rootDirectory = rootDirectory;
@@ -71,13 +74,24 @@ public class BazelLockFileFunction implements SkyFunction {
 
     try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.BZLMOD, "parse lockfile")) {
       return getLockfileValue(lockfilePath, LOCKFILE_MODE.get(env));
-    } catch (IOException | JsonSyntaxException | NullPointerException e) {
+    } catch (IOException
+        | JsonSyntaxException
+        | NullPointerException
+        | IllegalArgumentException e) {
+      String actionSuffix;
+      if (POSSIBLE_MERGE_CONFLICT_PATTERN.matcher(e.getMessage()).find()) {
+        actionSuffix =
+            " This looks like a merge conflict. See"
+                + " https://bazel.build/external/lockfile#merge-conflicts for advice.";
+      } else {
+        actionSuffix = " Try deleting it and rerun the build.";
+      }
       throw new BazelLockfileFunctionException(
           ExternalDepsException.withMessage(
               Code.BAD_LOCKFILE,
-              "Failed to read and parse the MODULE.bazel.lock file with error: %s."
-                  + " Try deleting it and rerun the build.",
-              e.getMessage()),
+              "Failed to read and parse the MODULE.bazel.lock file with error: %s.%s",
+              e.getMessage(),
+              actionSuffix),
           Transience.PERSISTENT);
     }
   }

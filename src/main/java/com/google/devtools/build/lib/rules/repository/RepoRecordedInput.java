@@ -196,13 +196,13 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
     public static RepoCacheFriendlyPath createInsideWorkspace(
         RepositoryName repoName, PathFragment path) {
       Preconditions.checkArgument(
-          !path.isAbsolute(), "the provided path should be relative to the repo root");
+          !path.isAbsolute(), "the provided path should be relative to the repo root: %s", path);
       return new AutoValue_RepoRecordedInput_RepoCacheFriendlyPath(Optional.of(repoName), path);
     }
 
     public static RepoCacheFriendlyPath createOutsideWorkspace(PathFragment path) {
       Preconditions.checkArgument(
-          path.isAbsolute(), "the provided path should be absolute in the filesystem");
+          path.isAbsolute(), "the provided path should be absolute in the filesystem: %s", path);
       return new AutoValue_RepoRecordedInput_RepoCacheFriendlyPath(Optional.empty(), path);
     }
 
