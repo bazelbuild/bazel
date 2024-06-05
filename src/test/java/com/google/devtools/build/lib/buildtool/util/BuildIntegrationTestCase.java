@@ -818,6 +818,11 @@ public abstract class BuildIntegrationTestCase {
     return runtimeWrapper.getLastResult();
   }
 
+  @CanIgnoreReturnValue
+  public final BuildResult buildTarget(List<String> targets) throws Exception {
+    return buildTarget(targets.toArray(String[]::new));
+  }
+
   /** Runs the {@code info} command. */
   public void info() throws Exception {
     events.setOutErr(outErr);
