@@ -321,9 +321,10 @@ public class IndexRegistry implements Registry {
 
   private Optional<BazelRegistryJson> getBazelRegistryJson(ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException {
-    if (bazelRegistryJson == null) {
+    if (bazelRegistryJson == null || bazelRegistryJsonEvents == null) {
       synchronized (this) {
-        if (bazelRegistryJson == null) {
+        if (bazelRegistryJson == null || bazelRegistryJsonEvents == null) {
+          Preconditions.checkState(bazelRegistryJson == null && bazelRegistryJsonEvents == null);
           var storedEventHandler = new StoredEventHandler();
           bazelRegistryJson =
               grabJson(
