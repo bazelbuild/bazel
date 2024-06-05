@@ -230,3 +230,49 @@ practices:
 By following these best practices, you can effectively utilize the lockfile
 feature in Bazel, leading to more efficient, reliable, and collaborative
 software development workflows.
+
+## Merge Conflicts {:#merge-conflicts}
+
+The lockfile format is designed to minimize merge conflicts, but they can still
+happen.
+
+### Automatic Resolution {:#automatic-resolution}
+
+Bazel provides a custom
+[git merge driver](https://git-scm.com/docs/gitattributes#_defining_a_custom_merge_driver)
+to help resolve these conflicts automatically.
+
+Set up the driver by adding this line to a `.gitattributes` file in the root of
+your git repository:
+
+```gitattributes
+# A custom merge driver for the Bazel lockfile.
+# https://bazel.build/external/lockfile#automatic-resolution
+MODULE.bazel.lock merge=bazel-lockfile-merge
+```
+
+Then each developer who wants to use the driver has to register it once by
+following these steps:
+
+1. Install [jq](https://jqlang.github.io/jq/download/) (1.5 or higher).
+2. Run the following commands:
+
+```bash
+jq_script=$(curl https://raw.githubusercontent.com/bazelbuild/bazel/master/scripts/bazel-lockfile-merge.jq)
+printf '%s\n' "${jq_script}" | less # to optionally inspect the jq script
+git config --global merge.bazel-lockfile-merge.name   "Merge driver for the Bazel lockfile (MODULE.bazel.lock)"
+git config --global merge.bazel-lockfile-merge.driver "jq -s '${jq_script}' -- %O %A %B > %A.jq_tmp && mv %A.jq_tmp %A"
+```
+
+### Manual Resolution {:#manual-resolution}
+
+Simple merge conflicts in the `registryFileHashes` and `selectedYankedVersions`
+fields can be safely resolved by keeping all the entries from both sides of the
+conflict.
+
+Other types of merge conflicts should not be resolved manually. Instead:
+
+1. Restore the previous state of the lockfile
+   via `git reset MODULE.bazel.lock && git checkout MODULE.bazel.lock`.
+2. Resolve any conflicts in the `MODULE.bazel` file.
+3. Run `bazel mod deps` to update the lockfile.
