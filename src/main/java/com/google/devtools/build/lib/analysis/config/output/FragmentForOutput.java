@@ -14,17 +14,17 @@
 
 package com.google.devtools.build.lib.analysis.config.output;
 
-import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import java.util.List;
 import java.util.Objects;
 
 /**
- * Data structure defining a {@link Fragment} for the purpose of creating user output.
+ * Data structure defining a {@link com.google.devtools.build.lib.analysis.config.Fragment} for the
+ * purpose of creating user output.
  *
- * <p>{@link Fragment} is a Java object representation of a domain-specific "piece" of configuration
- * (like "C++-related configuration"). It depends on one or more {@link FragmentOptions}, which are
- * the <code>--flag=value</code> pairs that key configurations.
+ * <p>{@link com.google.devtools.build.lib.analysis.config.Fragment} is a Java object representation
+ * of a domain-specific "piece" of configuration (like "C++-related configuration"). It depends on
+ * one or more {@link com.google.devtools.build.lib.analysis.config.FragmentOptions}, which are the
+ * <code>--flag=value</code> pairs that key configurations.
  *
  * <p>See {@link FragmentOptionsForOutput} and {@link ConfigurationForOutput} for further details.
  */
