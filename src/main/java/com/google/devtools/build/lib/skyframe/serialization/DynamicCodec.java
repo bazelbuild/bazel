@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 
 /** A codec that serializes arbitrary types. */
+@SuppressWarnings("SunApi") // TODO: b/331765692 - clean this up
 public final class DynamicCodec extends AsyncObjectCodec<Object> {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -131,7 +132,7 @@ public final class DynamicCodec extends AsyncObjectCodec<Object> {
    * fresh copy that the caller may freely modify.
    */
   @SuppressWarnings("NonApiType") // type communicates fixed ordering
-  private static <T> LinkedHashMap<Field, FieldHandler> getFieldHandlerMap(Class<T> type) {
+  public static <T> LinkedHashMap<Field, FieldHandler> getFieldHandlerMap(Class<T> type) {
     LinkedHashMap<Field, FieldHandler> handlers = new LinkedHashMap<>();
     for (Field field : getSerializableFields(type)) {
       handlers.put(field, getHandlerForField(field));
