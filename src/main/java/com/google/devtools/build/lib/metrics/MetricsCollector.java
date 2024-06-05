@@ -92,6 +92,7 @@ class MetricsCollector {
 
   private final CommandEnvironment env;
   private final boolean recordMetricsForAllMnemonics;
+  private final boolean recordSkyframeMetrics;
   // For ActionSummary.
   private final ConcurrentHashMap<String, ActionStats> actionStatsMap = new ConcurrentHashMap<>();
 
@@ -121,6 +122,7 @@ class MetricsCollector {
     this.env = env;
     Options options = env.getOptions().getOptions(Options.class);
     this.recordMetricsForAllMnemonics = options != null && options.recordMetricsForAllMnemonics;
+    this.recordSkyframeMetrics = options != null && options.recordSkyframeMetrics;
     this.numAnalyses = numAnalyses;
     this.numBuilds = numBuilds;
     env.getEventBus().register(this);
@@ -397,6 +399,11 @@ class MetricsCollector {
   }
 
   private void addSkyframeStats(BuildGraphMetrics.Builder builder) {
+    // short-circuit if not requested
+    if (!recordSkyframeMetrics) {
+      return;
+    }
+
     // NOTE: This can potentially unintentionally consume a pending Exception by
     // calling getSkyframeStats, with our Reporter which ends up consuming the
     // analysis failure unintentionally.  So if our CommandEnvironment has a
@@ -414,11 +421,6 @@ class MetricsCollector {
 
     Stream<SkyKeyStats> ruleActionStats = skyframeStats.ruleStats().stream();
     Stream<SkyKeyStats> aspectActionStats = skyframeStats.aspectStats().stream();
-
-    if (!recordMetricsForAllMnemonics) {
-      ruleActionStats = ruleActionStats.limit(MAX_ACTION_DATA);
-      aspectActionStats = aspectActionStats.limit(MAX_ACTION_DATA);
-    }
 
     ruleActionStats.forEach(
         a ->

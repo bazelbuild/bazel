@@ -402,9 +402,17 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
                         .build())
                 .build());
 
-    // Validate RuleClass Aspect and SkyFunction data is reported.
+    // Validate RuleClass Aspect and SkyFunction data is not reported by default
     BuildGraphMetrics bgm =
         buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics();
+    assertThat(bgm.getRuleClassList()).isEmpty();
+    assertThat(bgm.getAspectList()).isEmpty();
+
+    // Enable skyframe metrics via flag and verify they're reported.
+    addOptions("--experimental_record_skyframe_metrics=1");
+    buildTarget("//a");
+    bgm = buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics();
+
     List<RuleClassCount> ruleClasses = bgm.getRuleClassList();
     List<AspectCount> aspectCount = bgm.getAspectList();
 
