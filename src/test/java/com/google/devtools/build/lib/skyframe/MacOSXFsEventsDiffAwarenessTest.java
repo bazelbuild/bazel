@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.testing.common.FakeOptions;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -39,6 +40,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
@@ -112,6 +114,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
    * @param rawPaths the files to expect in the view
    * @return the new view
    */
+  @CanIgnoreReturnValue
   private View assertDiff(View view1, Iterable<String> rawPaths)
       throws IncompatibleViewException, BrokenDiffAwarenessException, InterruptedException {
     Set<PathFragment> allPaths = new HashSet<>();
@@ -215,19 +218,21 @@ public class MacOSXFsEventsDiffAwarenessTest {
     dirToFilesToCreate
         .asMap()
         .forEach(
-            (dir, files) ->
-                executor.submit(
-                    () -> {
-                      try {
-                        scratchDir(dir);
-                        for (String file : files) {
-                          scratchFile(file);
+            (dir, files) -> {
+              Future<?> unused =
+                  executor.submit(
+                      () -> {
+                        try {
+                          scratchDir(dir);
+                          for (String file : files) {
+                            scratchFile(file);
+                          }
+                        } catch (IOException e) {
+                          firstError.compareAndSet(null, e);
                         }
-                      } catch (IOException e) {
-                        firstError.compareAndSet(null, e);
-                      }
-                      latch.countDown();
-                    }));
+                        latch.countDown();
+                      });
+            });
     latch.await();
     executor.shutdown();
     IOException e = firstError.get();
