@@ -32,13 +32,13 @@ import java.util.Locale;
 import java.util.Objects;
 
 /** Utility class for vendoring external repositories. */
-public class VendorUtil {
+public class VendorManager {
 
   private final static String REGISTRIES_DIR = "_registries";
 
   private final Path vendorDirectory;
 
-  public VendorUtil(Path vendorDirectory) {
+  public VendorManager(Path vendorDirectory) {
     this.vendorDirectory = vendorDirectory;
   }
 

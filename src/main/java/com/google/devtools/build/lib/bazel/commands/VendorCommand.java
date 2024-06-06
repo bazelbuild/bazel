@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelFetchAllValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionValue;
-import com.google.devtools.build.lib.bazel.bzlmod.VendorUtil;
+import com.google.devtools.build.lib.bazel.bzlmod.VendorManager;
 import com.google.devtools.build.lib.bazel.commands.RepositoryFetcher.RepositoryFetcherException;
 import com.google.devtools.build.lib.bazel.commands.TargetFetcher.TargetFetcherException;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryM
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryGraph;
@@ -107,15 +106,14 @@ import javax.annotation.Nullable;
     usesConfigurationOptions = true,
     help = "resource:vendor.txt",
     shortDescription =
-        "Fetches external repositories into a specific folder specified by the flag "
-            + "--vendor_dir.")
+        "Fetches external repositories into a folder specified by the flag --vendor_dir.")
 public final class VendorCommand implements BlazeCommand {
   public static final String NAME = "vendor";
 
   private final DownloadManager downloadManager;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
   @Nullable
-  private VendorUtil vendorUtil = null;
+  private VendorManager vendorManager = null;
 
   public VendorCommand(
       DownloadManager downloadManager, Supplier<Map<String, String>> clientEnvironmentSupplier) {
@@ -158,7 +156,7 @@ public final class VendorCommand implements BlazeCommand {
     VendorOptions vendorOptions = options.getOptions(VendorOptions.class);
     LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
     Path vendorDirectory = env.getWorkspace().getRelative(options.getOptions(RepositoryOptions.class).vendorDirectory);
-    this.vendorUtil = new VendorUtil(vendorDirectory);
+    this.vendorManager = new VendorManager(vendorDirectory);
     try {
       if (!options.getResidue().isEmpty()) {
         result = vendorTargets(env, options, options.getResidue());
@@ -333,7 +331,7 @@ public final class VendorCommand implements BlazeCommand {
   private void vendor(
       CommandEnvironment env, ImmutableList<RepositoryName> reposToVendor)
       throws IOException, InterruptedException {
-    Objects.requireNonNull(vendorUtil);
+    Objects.requireNonNull(vendorManager);
 
     // 1. Vendor registry files
     BazelModuleResolutionValue moduleResolutionValue =
@@ -360,7 +358,7 @@ public final class VendorCommand implements BlazeCommand {
         continue;
       }
 
-      String outputPath = vendorUtil.getVendorPathForUrl(url).getPathString();
+      String outputPath = vendorManager.getVendorPathForUrl(url).getPathString();
       String outputPathLowerCase = outputPath.toLowerCase(Locale.ROOT);
       if (vendorPathToUrl.containsKey(outputPathLowerCase)) {
         String previousUrl = vendorPathToUrl.get(outputPathLowerCase);
@@ -373,18 +371,18 @@ public final class VendorCommand implements BlazeCommand {
                     + " cause conflict on case insensitive file systems, please fix by changing the"
                     + " registry URLs!",
                 previousUrl,
-                vendorUtil.getVendorPathForUrl(URI.create(previousUrl).toURL()).getPathString(),
+                vendorManager.getVendorPathForUrl(URI.create(previousUrl).toURL()).getPathString(),
                 entry.getKey(),
                 outputPath));
       }
 
       Optional<Checksum> checksum = entry.getValue();
-      if (!vendorUtil.isUrlVendored(url)
+      if (!vendorManager.isUrlVendored(url)
           // Only vendor a registry URL when its checksum exists, otherwise the URL should be
           // recorded as "not found" in moduleResolutionValue.getRegistryFileHashes()
           && checksum.isPresent()) {
         try {
-          vendorUtil.vendorRegistryUrl(
+          vendorManager.vendorRegistryUrl(
               url,
               downloadManager.downloadAndReadOneUrlForBzlmod(
                   url, env.getReporter(), clientEnvironmentSupplier.get(), checksum));
@@ -404,7 +402,7 @@ public final class VendorCommand implements BlazeCommand {
         env.getDirectories()
             .getOutputBase()
             .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
-    vendorUtil.vendorRepos(externalPath, reposToVendor);
+    vendorManager.vendorRepos(externalPath, reposToVendor);
   }
 
   private static BlazeCommandResult createFailedBlazeCommandResult(

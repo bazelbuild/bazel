@@ -92,7 +92,7 @@ public class IndexRegistry implements Registry {
   private final ImmutableMap<String, Optional<Checksum>> knownFileHashes;
   private final ImmutableMap<ModuleKey, String> previouslySelectedYankedVersions;
   @Nullable
-  private final VendorUtil vendorUtil;
+  private final VendorManager vendorUtil;
   private final KnownFileHashesMode knownFileHashesMode;
   private volatile Optional<BazelRegistryJson> bazelRegistryJson;
   private volatile StoredEventHandler bazelRegistryJsonEvents;
@@ -117,7 +117,7 @@ public class IndexRegistry implements Registry {
     this.knownFileHashes = knownFileHashes;
     this.knownFileHashesMode = knownFileHashesMode;
     this.previouslySelectedYankedVersions = previouslySelectedYankedVersions;
-    this.vendorUtil = vendorDir.map(VendorUtil::new).orElse(null);
+    this.vendorUtil = vendorDir.map(VendorManager::new).orElse(null);
   }
 
   @Override

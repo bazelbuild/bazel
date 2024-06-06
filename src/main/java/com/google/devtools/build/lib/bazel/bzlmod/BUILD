@@ -48,7 +48,7 @@ java_library(
 
 java_library(
     name = "vendor",
-    srcs = ["VendorUtil.java"],
+    srcs = ["VendorManager.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
