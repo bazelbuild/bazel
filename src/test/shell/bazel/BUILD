@@ -136,7 +136,6 @@ sh_test(
     srcs = ["bazel_tools_test.sh"],
     data = [
         ":test-deps",
-        "//:workspace-file",
     ],
     tags = [
         "no_windows",  # objc-specific test
@@ -1412,7 +1411,7 @@ sh_test(
     srcs = ["verify_workspace.sh"],
     data = [
         ":test-deps",
-        "//:workspace-file",
+        "//:workspace-deps-bzl",
         "@bazel_tools//tools/bash/runfiles",
     ],
     tags = [
