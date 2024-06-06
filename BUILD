@@ -58,10 +58,8 @@ filegroup(
 )
 
 filegroup(
-    name = "workspace-file",
+    name = "workspace-deps-bzl",
     srcs = [
-        ":WORKSPACE",
-        ":distdir.bzl",
         ":workspace_deps.bzl",
     ],
     visibility = [
