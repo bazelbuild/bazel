@@ -12,12 +12,12 @@ public class IncompatibleTargetUtils {
   /**
    * Assembles the explanation for a platform incompatibility.
    *
-   * <p>This is useful when trying to explain to the user why a target requested on the * command
-   * line is considered incompatible. The goal is to print out the dependency chain and the
-   * constraint that wasn't satisfied so that the user can immediately figure out what happened.
+   * <p>The goal is to print out the dependency chain and the constraint that wasn't satisfied so
+   * that the user can immediately figure out why a certain target is incompatible.
    *
-   * @param targetAndConfiguration the incompatible target that was explicitly requested on the
-   *     command line.
+   * @param label the label of the incompatible target
+   * @param configurationChecksum the configuration checksum of the incompatible target
+   * @param provider the {@link IncompatiblePlatformProvider} of the incompatible target
    * @return the verbose error message to show to the user.
    */
   static String reportOnIncompatibility(

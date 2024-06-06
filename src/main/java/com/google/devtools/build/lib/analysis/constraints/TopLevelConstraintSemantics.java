@@ -147,8 +147,6 @@ public class TopLevelConstraintSemantics {
         String.format(
             TARGET_INCOMPATIBLE_ERROR_TEMPLATE,
             configuredTarget.getLabel(),
-            // We need access to the provider so we pass in the underlying target here that is
-            // responsible for the incompatibility.
             IncompatibleTargetUtils.reportOnIncompatibility(
                 underlyingTarget.getLabel(),
                 underlyingTarget.getConfigurationChecksum(),

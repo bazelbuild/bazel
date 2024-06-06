@@ -250,6 +250,7 @@ bazel_fragments["CoreOptions"] = fragment(
         "//command_line_option:experimental_exclude_defines_from_exec_config",
         "//command_line_option:experimental_exclude_starlark_flags_from_exec_config",
         "//command_line_option:experimental_propagate_custom_flag",
+        "//command_line_option:incompatible_explicit_target_compatible_with",
     ],
     inputs = ["//command_line_option:features"],
     outputs = [

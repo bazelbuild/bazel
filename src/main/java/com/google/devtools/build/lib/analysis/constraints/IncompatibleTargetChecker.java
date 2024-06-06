@@ -254,15 +254,25 @@ public class IncompatibleTargetChecker {
     // At this point the target is indirectly incompatible due to its dependencies, but passed the
     // check for direct incompatibility, which means that any explicitly specified
     // target_compatible_with value isn't accurate.
-    if (rule.isAttributeValueExplicitlySpecified("target_compatible_with")) {
+    if (configuration != null
+        && configuration.explicitTargetCompatibleWith()
+        && rule.isAttributeValueExplicitlySpecified("target_compatible_with")) {
       throw new ConfiguredValueCreationException(
           targetAndConfiguration.getTarget(),
           configurationId(targetAndConfiguration.getConfiguration()),
-          "foo\n"
-              + IncompatibleTargetUtils.reportOnIncompatibility(
+          String.format(
+              "The target %s has an explicit target_compatible_with attribute, but is indirectly "
+                  + "incompatible with the current platform %s due to its dependencies. Either "
+                  + "remove the target_compatible_with attribute or ensure that it doesn't match "
+                  + "the constraints that are incompatible with its dependencies. This error "
+                  + "can be temporarily disabled with "
+                  + "--noincompatible_explicit_target_compatible_with.%s",
+              target.getLabel(),
+              platformLabel,
+              IncompatibleTargetUtils.reportOnIncompatibility(
                   targetAndConfiguration.getLabel(),
                   targetAndConfiguration.getConfiguration().checksum(),
-                  incompatiblePlatformProvider),
+                  incompatiblePlatformProvider)),
           null,
           null);
     }
