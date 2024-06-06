@@ -395,10 +395,15 @@ public class FilesystemValueChecker {
           FileArtifactValue newData =
               ActionOutputMetadataStore.fileArtifactValueFromArtifact(
                   artifact, stat, xattrProviderOverrider.getXattrProvider(syscallCache), tsgm);
+          // TODO: b/345207297 - Remove fine logging after flakiness is diagnosed.
           if (newData.couldBeModifiedSince(lastKnownData)) {
+            logger.atFine().log("Modified output %s (%s -> %s)", artifact, lastKnownData, newData);
             modifiedOutputsReceiver.reportModifiedOutputFile(
                 stat != null ? stat.getLastChangeTime() : -1, artifact);
             dirtyKeys.add(key);
+          } else {
+            logger.atFine().log(
+                "Unmodified output %s (%s -> %s)", artifact, lastKnownData, newData);
           }
         } catch (IOException e) {
           logger.atWarning().withCause(e).log(
