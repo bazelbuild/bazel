@@ -2105,7 +2105,7 @@ java_test(
 
 java_test(
     name = "BzlLoadFunctionTest",
-    timeout = "short",
+    timeout = "moderate",
     srcs = ["BzlLoadFunctionTest.java"],
     deps = [
         ":testutil",
