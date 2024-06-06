@@ -54,11 +54,14 @@ def layering_check_features(compiler, is_macos):
                     flag_groups = [
                         flag_group(
                             # macOS requires -Xclang because of a bug in Apple Clang
+                            # -fno-cxx-modules is necessary to avoid clang defaulting
+                            # to C++ modules with -std=c++20. The flag requires the
+                            # -Xclang prefix even on Linux.
                             flags = (["-Xclang"] if is_macos else []) + [
                                 "-fmodule-name=%{module_name}",
                             ] + (["-Xclang"] if is_macos else []) + [
                                 "-fmodule-map-file=%{module_map_file}",
-                            ],
+                            ] + ["-Xclang", "-fno-cxx-modules"],
                         ),
                     ],
                 ),
