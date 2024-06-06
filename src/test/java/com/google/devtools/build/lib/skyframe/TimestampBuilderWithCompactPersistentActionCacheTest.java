@@ -35,11 +35,11 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * These tests belong to {@link TimestampBuilderTest}, but they're in a separate class for now
- * because they are a little slower.
+ * These tests are similar to {@link TimestampBuilderTest}, but uses {@link
+ * CompactPersistentActionCache} in the builder.
  */
 @RunWith(JUnit4.class)
-public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
+public class TimestampBuilderWithCompactPersistentActionCacheTest extends TimestampBuilderTestCase {
   private final StoredEventHandler storedEventHandler = new StoredEventHandler();
   private Path cacheRoot;
   private CompactPersistentActionCache cache;

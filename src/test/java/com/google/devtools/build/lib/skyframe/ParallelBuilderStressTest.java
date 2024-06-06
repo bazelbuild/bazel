@@ -23,7 +23,7 @@ import org.junit.runners.JUnit4;
  * Stress tests for the parallel builder.
  */
 @RunWith(JUnit4.class)
-public class ParallelBuilderMediumTest extends ParallelBuilderTest {
+public class ParallelBuilderStressTest extends ParallelBuilderTest {
 
   /**
    * A larger set of tests using randomly-generated complex dependency graphs.
