@@ -525,11 +525,13 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected void setPackageOptions(String... options) throws Exception {
     packageOptions = parsePackageOptions(options);
     setUpSkyframe();
+    invalidatePackages(/* alsoConfigs= */ false);
   }
 
   protected void setBuildLanguageOptions(String... options) throws Exception {
     buildLanguageOptions = parseBuildLanguageOptions(options);
     setUpSkyframe();
+    invalidatePackages(/* alsoConfigs= */ false);
   }
 
   private static PackageOptions parsePackageOptions(String... options) throws Exception {
