@@ -606,7 +606,6 @@ public class BazelRepositoryModule extends BlazeModule {
         PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, bazelLockfileMode),
         PrecomputedValue.injected(RepositoryDelegatorFunction.IS_VENDOR_COMMAND, false),
         PrecomputedValue.injected(RepositoryDelegatorFunction.VENDOR_DIRECTORY, vendorDirectory),
-        PrecomputedValue.injected(VendorFileFunction.VENDOR_DIRECTORY, vendorDirectory),
         PrecomputedValue.injected(
             YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, allowedYankedVersions),
         PrecomputedValue.injected(

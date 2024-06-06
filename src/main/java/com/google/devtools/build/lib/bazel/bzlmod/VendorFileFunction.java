@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.DotBazelFileSyntaxChecker;
 import com.google.devtools.build.lib.packages.VendorThreadContext;
+import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -35,7 +35,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -53,9 +52,6 @@ import net.starlark.java.syntax.SyntaxError;
  * --vendor_dir.
  */
 public class VendorFileFunction implements SkyFunction {
-
-  public static final Precomputed<Optional<Path>> VENDOR_DIRECTORY =
-      new Precomputed<>("vendor_directory");
 
   private static final String VENDOR_FILE_HEADER =
       """
@@ -83,7 +79,7 @@ public class VendorFileFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
-    if (VENDOR_DIRECTORY.get(env).isEmpty()) {
+    if (RepositoryDelegatorFunction.VENDOR_DIRECTORY.get(env).isEmpty()) {
       throw new VendorFileFunctionException(
           new IllegalStateException(
               "VENDOR.bazel file is not accessible with vendor mode off (without --vendor_dir"
@@ -91,7 +87,7 @@ public class VendorFileFunction implements SkyFunction {
           Transience.PERSISTENT);
     }
 
-    Path vendorPath = VENDOR_DIRECTORY.get(env).get();
+    Path vendorPath = RepositoryDelegatorFunction.VENDOR_DIRECTORY.get(env).get();
     RootedPath vendorFilePath =
         RootedPath.toRootedPath(Root.fromPath(vendorPath), LabelConstants.VENDOR_FILE_NAME);
 
