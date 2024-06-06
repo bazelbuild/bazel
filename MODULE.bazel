@@ -352,10 +352,11 @@ http_file(
 # Other Bazel testing dependencies
 # =========================================
 
+bazel_dep(name = "bazel_ci_rules", version = "1.0.0")
+
 bazel_test_deps = use_extension("//:extensions.bzl", "bazel_test_deps")
 use_repo(
     bazel_test_deps,
-    "bazelci_rules",
     "local_bazel_source_list",
     "local_config_winsdk",
 )

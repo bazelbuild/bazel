@@ -125,15 +125,6 @@ def embedded_jdk_repositories():
         url = "https://aka.ms/download-jdk/microsoft-jdk-21.0.0-windows-aarch64.zip",
     )
 
-def bazelci_rules_repo():
-    """Required by the Bazel CI jobs."""
-    http_archive(
-        name = "bazelci_rules",
-        sha256 = "eca21884e6f66a88c358e580fd67a6b148d30ab57b1680f62a96c00f9bc6a07e",
-        strip_prefix = "bazelci_rules-1.0.0",
-        url = "https://github.com/bazelbuild/continuous-integration/releases/download/rules-1.0.0/bazelci_rules-1.0.0.tar.gz",
-    )
-
 def android_deps_repos():
     """Required by building the android tools."""
     http_archive(

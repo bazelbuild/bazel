@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "3418b2507fd6534397a1371e7e9c73d58b538e23c981e0c5b3d258d9a0999ea4",
+  "moduleFileHash": "2c56771ce2290e4701c982a8bd9df9e512b0cfa45f2ba3cf0e14457446430eb2",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -333,7 +333,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 388,
+                "line": 389,
                 "column": 22
               }
             }
@@ -599,11 +599,10 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 355,
+            "line": 357,
             "column": 32
           },
           "imports": {
-            "bazelci_rules": "bazelci_rules",
             "local_bazel_source_list": "local_bazel_source_list",
             "local_config_winsdk": "local_config_winsdk"
           },
@@ -618,7 +617,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 363,
+            "line": 364,
             "column": 31
           },
           "imports": {
@@ -635,7 +634,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 366,
+            "line": 367,
             "column": 48
           },
           "imports": {
@@ -652,7 +651,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 410,
+            "line": 411,
             "column": 35
           },
           "imports": {
@@ -669,7 +668,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 413,
+            "line": 414,
             "column": 42
           },
           "imports": {
@@ -687,7 +686,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 416,
+            "line": 417,
             "column": 45
           },
           "imports": {
@@ -729,6 +728,7 @@
         "rules_go": "rules_go@0.39.1",
         "rules_kotlin": "rules_kotlin@1.9.0",
         "upb": "upb@0.0.0-20220923-a547704",
+        "bazel_ci_rules": "bazel_ci_rules@1.0.0",
         "bazel_tools": "bazel_tools@_",
         "local_config_platform": "local_config_platform@_"
       }
@@ -2471,6 +2471,34 @@
         }
       }
     },
+    "bazel_ci_rules@1.0.0": {
+      "name": "bazel_ci_rules",
+      "version": "1.0.0",
+      "key": "bazel_ci_rules@1.0.0",
+      "repoName": "bazel_ci_rules",
+      "executionPlatformsToRegister": [],
+      "toolchainsToRegister": [],
+      "extensionUsages": [],
+      "deps": {
+        "bazel_tools": "bazel_tools@_",
+        "local_config_platform": "local_config_platform@_"
+      },
+      "repoSpec": {
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+        "ruleClassName": "http_archive",
+        "attributes": {
+          "urls": [
+            "https://github.com/bazelbuild/continuous-integration/releases/download/rules-1.0.0/bazelci_rules-1.0.0.tar.gz"
+          ],
+          "integrity": "sha256-7KIYhOb2aojDWOWA/WemsUjTCrV7FoD2KpbAD5vGoH4=",
+          "strip_prefix": "bazelci_rules-1.0.0",
+          "remote_patches": {
+            "https://bcr.bazel.build/modules/bazel_ci_rules/1.0.0/patches/module_dot_bazel.patch": "sha256-7+y6zT4ZrnkI5+oTjCn7RU49mEm+Cofu+lvejkt83Ow="
+          },
+          "remote_patch_strip": 0
+        }
+      }
+    },
     "bazel_tools@_": {
       "name": "bazel_tools",
       "version": "",
@@ -2932,7 +2960,7 @@
   "moduleExtensions": {
     "//:extensions.bzl%bazel_android_deps": {
       "general": {
-        "bzlTransitiveDigest": "iHLxWy9Kdma4o6vQG1U0vO82d7jPg9gng3gCoY4Dn88=",
+        "bzlTransitiveDigest": "azTqWoKU0m+NcErwGCriLuIP3pRuF3YZCgHB7tQKK/8=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -3088,9 +3116,9 @@
     },
     "//:extensions.bzl%bazel_build_deps": {
       "general": {
-        "bzlTransitiveDigest": "iHLxWy9Kdma4o6vQG1U0vO82d7jPg9gng3gCoY4Dn88=",
+        "bzlTransitiveDigest": "azTqWoKU0m+NcErwGCriLuIP3pRuF3YZCgHB7tQKK/8=",
         "recordedFileInputs": {
-          "@@//MODULE.bazel": "3418b2507fd6534397a1371e7e9c73d58b538e23c981e0c5b3d258d9a0999ea4",
+          "@@//MODULE.bazel": "2c56771ce2290e4701c982a8bd9df9e512b0cfa45f2ba3cf0e14457446430eb2",
           "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "4a9cf4d1d48d36a3d6e24a13094b2c32aa20be5a495d4e5b33e43db973250182"
         },
         "recordedDirentsInputs": {},
@@ -3481,7 +3509,7 @@
     },
     "//:extensions.bzl%bazel_test_deps": {
       "general": {
-        "bzlTransitiveDigest": "iHLxWy9Kdma4o6vQG1U0vO82d7jPg9gng3gCoY4Dn88=",
+        "bzlTransitiveDigest": "azTqWoKU0m+NcErwGCriLuIP3pRuF3YZCgHB7tQKK/8=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -3495,15 +3523,6 @@
             "bzlFile": "@@//src/test/shell/bazel:list_source_repository.bzl",
             "ruleClassName": "list_source_repository",
             "attributes": {}
-          },
-          "bazelci_rules": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_archive",
-            "attributes": {
-              "sha256": "eca21884e6f66a88c358e580fd67a6b148d30ab57b1680f62a96c00f9bc6a07e",
-              "strip_prefix": "bazelci_rules-1.0.0",
-              "url": "https://github.com/bazelbuild/continuous-integration/releases/download/rules-1.0.0/bazelci_rules-1.0.0.tar.gz"
-            }
           }
         },
         "recordedRepoMappingEntries": [
@@ -3647,13 +3666,13 @@
     },
     "//:rbe_extension.bzl%bazel_rbe_deps": {
       "general": {
-        "bzlTransitiveDigest": "3Qxu4ylcYD3RTWLhk5k/59p/CwZ4tLdSgYnmBXYgAtc=",
+        "bzlTransitiveDigest": "6fmMLRoLX/J5WGAPuWkOjUqawjzbUeUDMw0od38SgWY=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "rbe_ubuntu2004": {
-            "bzlFile": "@@_main~bazel_test_deps~bazelci_rules//:rbe_repo.bzl",
+            "bzlFile": "@@bazel_ci_rules~//:rbe_repo.bzl",
             "ruleClassName": "rbe_preconfig",
             "attributes": {
               "toolchain": "ubuntu2004"
@@ -3663,8 +3682,8 @@
         "recordedRepoMappingEntries": [
           [
             "",
-            "bazelci_rules",
-            "_main~bazel_test_deps~bazelci_rules"
+            "bazel_ci_rules",
+            "bazel_ci_rules~"
           ]
         ]
       }

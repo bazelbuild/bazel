@@ -17,7 +17,7 @@
 """
 
 load("//:distdir.bzl", "distdir_tar", "repo_cache_tar")
-load("//:repositories.bzl", "DIST_ARCHIVE_REPOS", "android_deps_repos", "bazelci_rules_repo", "embedded_jdk_repositories")
+load("//:repositories.bzl", "DIST_ARCHIVE_REPOS", "android_deps_repos", "embedded_jdk_repositories")
 load("//:workspace_deps.bzl", "WORKSPACE_REPOS")
 load("//src/main/res:winsdk_configure.bzl", "winsdk_configure")
 load("//src/test/shell/bazel:list_source_repository.bzl", "list_source_repository")
@@ -48,7 +48,6 @@ bazel_build_deps = module_extension(implementation = _bazel_build_deps)
 
 ### Dependencies for testing Bazel
 def _bazel_test_deps(_ctx):
-    bazelci_rules_repo()
     list_source_repository(name = "local_bazel_source_list")
     winsdk_configure(name = "local_config_winsdk")
 
