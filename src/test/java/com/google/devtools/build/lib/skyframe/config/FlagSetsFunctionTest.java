@@ -87,7 +87,7 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void flagSetsFunction_returns_origional_buildOptions() throws Exception {
+  public void flagSetsFunction_returns_original_buildOptions() throws Exception {
     // given original BuildOptions and an empty scl config name
     BuildOptions buildOptions =
         BuildOptions.getDefaultBuildOptionsForFragments(

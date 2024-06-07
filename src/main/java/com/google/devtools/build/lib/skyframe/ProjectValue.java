@@ -14,21 +14,43 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Objects;
+import javax.annotation.Nullable;
 
-/** A SkyValue representing the code paths that are owned by a project. */
-public final class ProjectOwnedCodePathsValue implements SkyValue {
+/** A SkyValue representing the parsed definitions from a PROJECT.scl file. */
+public final class ProjectValue implements SkyValue {
 
   private final ImmutableSet<String> ownedCodePaths;
 
-  public ProjectOwnedCodePathsValue(ImmutableSet<String> ownedCodePaths) {
+  private final ImmutableMap<String, Object> residualGlobals;
+
+  public ProjectValue(
+      ImmutableSet<String> ownedCodePaths, ImmutableMap<String, Object> residualGlobals) {
     this.ownedCodePaths = ownedCodePaths;
+    this.residualGlobals = residualGlobals;
   }
 
+  /**
+   * Returns the residual global referenced by the {@code key} found in the PROJECT file.
+   *
+   * <p>This returns null for non-existent keys and reserved globals. Use the dedicated getters to
+   * access the reserved globals. See {@code ProjectFunction.RESERVED_GLOBALS} for the list.
+   */
+  @Nullable
+  public Object getResidualGlobal(String key) {
+    return residualGlobals.get(key);
+  }
+
+  /**
+   * Returns the list of code paths defined by the {@code ProjectFunction.OWNED_CODE_PATHS_KEY}. If
+   * the list is not defined in the file, returns an empty set.
+   */
   public ImmutableSet<String> getOwnedCodePaths() {
     return ownedCodePaths;
   }
@@ -47,7 +69,24 @@ public final class ProjectOwnedCodePathsValue implements SkyValue {
 
     @Override
     public SkyFunctionName functionName() {
-      return SkyFunctions.PROJECT_DIRECTORIES;
+      return SkyFunctions.PROJECT;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      ProjectValue.Key key = (ProjectValue.Key) o;
+      return Objects.equals(projectFile, key.projectFile);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(projectFile);
     }
   }
 }

@@ -33,7 +33,6 @@ public class FlagSetValue implements SkyValue {
   @AutoCodec
   public static final class Key implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
-    // private final String sclFile;
     private final Label projectFile;
     private final String sclConfig;
     private final BuildOptions targetOptions;

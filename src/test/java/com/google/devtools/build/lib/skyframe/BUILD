@@ -680,6 +680,21 @@ java_test(
 )
 
 java_test(
+    name = "ProjectFunctionTest",
+    srcs = ["ProjectFunctionTest.java"],
+    deps = [
+        ":testutil",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:project_value",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "ActionExecutionValueTransformSharedTreeArtifactsTest",
     timeout = "short",
     srcs = ["ActionExecutionValueTransformSharedTreeArtifactsTest.java"],

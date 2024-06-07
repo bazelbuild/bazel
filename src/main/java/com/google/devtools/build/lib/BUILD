@@ -432,7 +432,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_roots_no_symlink_creation",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:project_owned_code_paths_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:project_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyfocus",
