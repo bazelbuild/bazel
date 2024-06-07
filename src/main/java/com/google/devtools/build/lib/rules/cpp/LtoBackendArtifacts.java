@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
@@ -178,13 +179,19 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
     return objectFile;
   }
 
-  @Override
+  @StarlarkMethod(name = "object_file", documented = false, useStarlarkThread = true)
   public Artifact getObjectFileForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return objectFile;
   }
 
-  Artifact getBitcodeFile() {
+  public Artifact getBitcodeFile() {
+    return bitcodeFile;
+  }
+
+  @StarlarkMethod(name = "bitcode_file", documented = false, useStarlarkThread = true)
+  public Artifact getBitcodeFileForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return bitcodeFile;
   }
 
@@ -192,7 +199,12 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
     return dwoFile;
   }
 
-  @Override
+  @StarlarkMethod(
+      name = "dwo_file",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
   public Artifact getDwoFileForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return getDwoFile();

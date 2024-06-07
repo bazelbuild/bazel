@@ -746,6 +746,7 @@ public class CppLinkActionBuilder {
         userLinkFlags);
   }
 
+  // LINT.IfChange
   /** Builds the Action as configured and returns it. */
   public CppLinkAction build() throws EvalException, InterruptedException {
     Preconditions.checkNotNull(featureConfiguration);
@@ -756,10 +757,6 @@ public class CppLinkActionBuilder {
     Preconditions.checkState(hasIdentifier != isExecutable);
     if (interfaceOutput != null && !linkType.isDynamicLibrary()) {
       throw Starlark.errorf("Interface output can only be used with DYNAMIC_LIBRARY targets");
-    }
-    if (!featureConfiguration.actionIsConfigured(linkType.getActionName())) {
-      throw Starlark.errorf(
-          "Expected action_config for '%s' to be configured", linkType.getActionName());
     }
     if (!featureConfiguration.actionIsConfigured(linkType.getActionName())) {
       throw Starlark.errorf(
@@ -872,6 +869,8 @@ public class CppLinkActionBuilder {
         buildVariables.build(),
         userLinkFlags);
   }
+
+  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/cpp_link_action.bzl)
 
   private CppLinkAction buildLinkAction(
       String actionName,
@@ -1122,6 +1121,7 @@ public class CppLinkActionBuilder {
     return interfaceOutputLibrary;
   }
 
+  // LINT.IfChange
   private static NestedSet<Artifact> getArtifactsPossiblyLtoMapped(
       Iterable<LegacyLinkerInput> inputs, Map<Artifact, Artifact> ltoMapping) {
     Preconditions.checkNotNull(ltoMapping);
@@ -1133,6 +1133,8 @@ public class CppLinkActionBuilder {
     }
     return result.build();
   }
+
+  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/cpp_link_action.bzl)
 
   private boolean shouldUseLinkDynamicLibraryTool() {
     return linkType.isDynamicLibrary()
@@ -1185,6 +1187,7 @@ public class CppLinkActionBuilder {
     return false;
   }
 
+  // LINT.IfChange
   /**
    * Translates a collection of {@link Linkstamp} instances to an immutable mapping from linkstamp
    * to object files. In other words, given a set of source files, this method determines the output
@@ -1224,6 +1227,8 @@ public class CppLinkActionBuilder {
     }
     return mapBuilder.buildOrThrow();
   }
+
+  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/cpp_link_action.bzl)
 
   protected ActionOwner getOwner() {
     ActionOwner cppLinkExecGroupOwner =

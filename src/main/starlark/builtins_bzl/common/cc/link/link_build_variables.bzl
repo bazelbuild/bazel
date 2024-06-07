@@ -277,7 +277,6 @@ def setup_linking_variables(
         feature_configuration,
         output_file,
         runtime_solib_name,
-        interface_library_builder,
         interface_library_output,
         thinlto_param_file):
     """Returns additional build variables used by regular linking action.
@@ -287,7 +286,6 @@ def setup_linking_variables(
       feature_configuration: Feature configuration to be queried.
       output_file: (str) Optional output file path. Used also as an input to interface_library builder.
       runtime_solib_name: (str) The name of the runtime solib symlink of the shared library.
-      interface_library_builder: (str) Path to the interface library builder tool.
       interface_library_output: (str) Path where to generate interface library using the ifso builder tool.
       thinlto_param_file: (str) Thinlto param file consumed by the final link action. (Produced
         by thin-lto indexing action)
@@ -314,10 +312,10 @@ def setup_linking_variables(
         vars[LINK_BUILD_VARIABLES.PROPELLER_OPTIMIZE_LD_PATH] = fdo_context.propeller_optimize_info.ld_profile.path
 
     # ifso variables
-    should_generate_interface_library = output_file and interface_library_builder and interface_library_output
+    should_generate_interface_library = output_file and cc_toolchain._if_so_builder.path and interface_library_output
     if should_generate_interface_library:
         vars[LINK_BUILD_VARIABLES.GENERATE_INTERFACE_LIBRARY] = "yes"
-        vars[LINK_BUILD_VARIABLES.INTERFACE_LIBRARY_BUILDER] = interface_library_builder
+        vars[LINK_BUILD_VARIABLES.INTERFACE_LIBRARY_BUILDER] = cc_toolchain._if_so_builder.path
         vars[LINK_BUILD_VARIABLES.INTERFACE_LIBRARY_INPUT] = output_file
         vars[LINK_BUILD_VARIABLES.INTERFACE_LIBRARY_OUTPUT] = interface_library_output
     else:
