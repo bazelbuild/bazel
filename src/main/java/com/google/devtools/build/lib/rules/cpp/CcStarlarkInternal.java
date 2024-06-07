@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Types;
@@ -53,6 +55,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLin
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
+import com.google.devtools.build.lib.rules.cpp.LegacyLinkerInputs.LibraryInput;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -730,6 +733,86 @@ public class CcStarlarkInternal implements StarlarkValue {
       builder.setMustKeepDebug(libraryToLink.getValue("must_keep_debug", Boolean.class));
     }
     return builder.build();
+  }
+
+  // TODO(b/331164666): rewrite to Stalark using cc_common.create_lto_artifact
+  @StarlarkMethod(
+      name = "create_lto_artifacts",
+      documented = false,
+      parameters = {
+        @Param(name = "actions"),
+        @Param(name = "lto_compilation_context"),
+        @Param(name = "feature_configuration"),
+        @Param(name = "cc_toolchain"),
+        @Param(name = "use_pic"),
+        @Param(name = "object_files"),
+        @Param(name = "lto_output_root_prefix"),
+        @Param(name = "lto_obj_root_prefix"),
+        @Param(name = "libraries"),
+        @Param(name = "allow_lto_indexing"),
+        @Param(name = "include_link_static_in_lto_indexing"),
+      })
+  public Iterable<LtoBackendArtifacts> createLtoArtifacts(
+      WrappedStarlarkActionFactory actions,
+      LtoCompilationContext ltoCompilationContext,
+      FeatureConfigurationForStarlark featureConfiguration,
+      StarlarkInfo toolchain,
+      boolean usePicForLtoBackendActions,
+      Sequence<?> objectFiles,
+      String ltoOutputRootPrefix,
+      String ltoObjRootPrefix,
+      Depset uniqueLibraries,
+      boolean allowLtoIndexing,
+      boolean includeLinkStaticInLtoIndexing)
+      throws EvalException {
+    try {
+      return CppLinkActionBuilder.createLtoArtifacts(
+          actions.construction,
+          ltoCompilationContext,
+          featureConfiguration.getFeatureConfiguration(),
+          CcToolchainProvider.create(toolchain),
+          usePicForLtoBackendActions,
+          ImmutableSet.copyOf(Sequence.cast(objectFiles, LegacyLinkerInput.class, "object_files")),
+          PathFragment.create(ltoOutputRootPrefix),
+          PathFragment.create(ltoObjRootPrefix),
+          uniqueLibraries.getSet(LibraryInput.class),
+          allowLtoIndexing,
+          includeLinkStaticInLtoIndexing);
+    } catch (TypeException e) {
+      throw new EvalException(e);
+    }
+  }
+
+  // TODO(b/331164666): rewrite to Stalark using cc_common.create_lto_artifact
+  @StarlarkMethod(
+      name = "create_shared_non_lto_artifacts",
+      documented = false,
+      parameters = {
+        @Param(name = "actions"),
+        @Param(name = "lto_compilation_context"),
+        @Param(name = "is_linker"),
+        @Param(name = "feature_configuration"),
+        @Param(name = "cc_toolchain"),
+        @Param(name = "use_pic"),
+        @Param(name = "object_files"),
+      })
+  public ImmutableMap<Artifact, LtoBackendArtifacts> createSharedNonLtoArtifacts(
+      WrappedStarlarkActionFactory actions,
+      LtoCompilationContext ltoCompilationContext,
+      boolean isLinker,
+      FeatureConfigurationForStarlark featureConfiguration,
+      StarlarkInfo toolchain,
+      boolean usePicForLtoBackendActions,
+      Sequence<?> objectFiles)
+      throws EvalException {
+    return CppLinkActionBuilder.createSharedNonLtoArtifacts(
+        actions.construction,
+        ltoCompilationContext,
+        isLinker,
+        featureConfiguration.getFeatureConfiguration(),
+        CcToolchainProvider.create(toolchain),
+        usePicForLtoBackendActions,
+        ImmutableSet.copyOf(Sequence.cast(objectFiles, LegacyLinkerInput.class, "object_files")));
   }
 
   @StarlarkMethod(name = "empty_compilation_outputs", documented = false)
