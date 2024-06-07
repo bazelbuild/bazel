@@ -291,6 +291,15 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
     return Iterables.getFirst(getInputs().toList(), null);
   }
 
+  public Artifact getOriginalPrimaryInput() {
+    // The default behavior is to return the first input artifact of the original input list (before
+    // input discovery).
+    // Call through the method, not the field, because it may be overridden.
+    NestedSet<Artifact> originalInputs = getOriginalInputs();
+    NestedSet<Artifact> inputs = originalInputs == null ? getInputs() : originalInputs;
+    return Iterables.getFirst(inputs.toList(), null);
+  }
+
   @Override
   public final Artifact getPrimaryOutput() {
     return outputs instanceof Artifact ? (Artifact) outputs : ((Artifact[]) outputs)[0];
@@ -376,9 +385,10 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
       progressMessage =
           progressMessage.replace("%{output}", getPrimaryOutput().getRootRelativePathString());
     }
-    if (progressMessage.contains("%{input}") && getPrimaryInput() != null) {
+    if (progressMessage.contains("%{input}") && getOriginalPrimaryInput() != null) {
       progressMessage =
-          progressMessage.replace("%{input}", getPrimaryInput().getRootRelativePathString());
+          progressMessage.replace(
+              "%{input}", getOriginalPrimaryInput().getRootRelativePathString());
     }
     return progressMessage;
   }

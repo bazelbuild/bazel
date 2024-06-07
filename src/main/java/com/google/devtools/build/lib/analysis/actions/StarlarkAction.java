@@ -255,6 +255,11 @@ public class StarlarkAction extends SpawnAction {
     }
 
     @Override
+    protected NestedSet<Artifact> getOriginalInputs() {
+      return allStarlarkActionInputs;
+    }
+
+    @Override
     protected boolean inputsDiscovered() {
       return inputsDiscovered;
     }
