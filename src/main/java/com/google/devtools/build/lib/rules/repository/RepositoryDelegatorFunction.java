@@ -274,7 +274,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     Path vendorPath = VENDOR_DIRECTORY.get(env).get();
     Path vendorRepoPath = vendorPath.getRelative(repositoryName.getName());
     if (vendorRepoPath.exists()) {
-      Path vendorMarker = vendorPath.getChild("@" + repositoryName.getName() + ".marker");
+      Path vendorMarker = vendorPath.getChild(repositoryName.getMarkerFileName());
       if (vendorFile.getPinnedRepos().contains(repositoryName)) {
         // pinned repos are used as they are without checking their marker file
         try {
@@ -303,7 +303,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
                       String.format(
                           "Vendored repository '%s' is out-of-date and fetching is disabled."
                               + " Run build without the '--nofetch' option or run"
-                              + " `bazel vendor` to update it",
+                              + " the bazel vendor command to update it",
                           rule.getName())));
         }
         return setupOverride(vendorRepoPath.asFragment(), env, repoRoot, repositoryName);
@@ -316,7 +316,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
                     String.format(
                         "Vendored repository '%s' is out-of-date. The up-to-date version will"
                             + " be fetched into the external cache and used. To update the repo"
-                            + " in the  vendor directory, run 'bazel vendor'",
+                            + " in the vendor directory, run the bazel vendor command",
                         rule.getName())));
       }
     } else if (vendorFile.getPinnedRepos().contains(repositoryName)) {
@@ -332,7 +332,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
               "Vendored repository "
                   + repositoryName.getName()
                   + " not found under the vendor directory and fetching is disabled."
-                  + " To fix run 'bazel vendor' or build without the '--nofetch'"),
+                  + " To fix, run the bazel vendor command or build without the '--nofetch'"),
           Transience.TRANSIENT);
     }
     return null;
@@ -621,7 +621,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         StarlarkSemantics starlarkSemantics) {
       this.directories = directories;
       ruleKey = computeRuleKey(rule, starlarkSemantics);
-      markerPath = getMarkerPath(directories, repositoryName.getName());
+      markerPath = getMarkerPath(directories, repositoryName);
       this.rule = rule;
       recordedInputValues = Maps.newTreeMap();
     }
@@ -731,15 +731,15 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           .hexDigestAndReset();
     }
 
-    private static Path getMarkerPath(BlazeDirectories directories, String ruleName) {
+    private static Path getMarkerPath(BlazeDirectories directories, RepositoryName repo) {
       return RepositoryFunction.getExternalRepositoryDirectory(directories)
-          .getChild("@" + ruleName + ".marker");
+          .getChild(repo.getMarkerFileName());
     }
 
-    static void clearMarkerFile(BlazeDirectories directories, RepositoryName repoName)
+    static void clearMarkerFile(BlazeDirectories directories, RepositoryName repo)
         throws RepositoryFunctionException {
       try {
-        getMarkerPath(directories, repoName.getName()).delete();
+        getMarkerPath(directories, repo).delete();
       } catch (IOException e) {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }

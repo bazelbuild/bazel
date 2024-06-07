@@ -47,6 +47,17 @@ java_library(
 )
 
 java_library(
+    name = "vendor",
+    srcs = ["VendorManager.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "module_extension",
     srcs = [
         "ModuleExtension.java",
@@ -80,6 +91,7 @@ java_library(
     ],
     deps = [
         ":common",
+        ":vendor",
         ":yanked_versions_value",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
@@ -87,10 +99,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:gson",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

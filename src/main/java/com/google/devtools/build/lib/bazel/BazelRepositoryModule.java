@@ -165,7 +165,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private Clock clock;
   private Instant lastRegistryInvalidation = Instant.EPOCH;
 
-  private Optional<Path> vendorDirectory;
+  private Optional<Path> vendorDirectory = Optional.empty();
   private List<String> allowedYankedVersions = ImmutableList.of();
   private boolean disableNativeRepoRules;
   private SingleExtensionEvalFunction singleExtensionEvalFunction;
@@ -224,7 +224,7 @@ public class BazelRepositoryModule extends BlazeModule {
     builder.addCommands(new FetchCommand());
     builder.addCommands(new ModCommand());
     builder.addCommands(new SyncCommand());
-    builder.addCommands(new VendorCommand());
+    builder.addCommands(new VendorCommand(downloadManager, clientEnvironmentSupplier));
     builder.addInfoItems(new RepositoryCacheInfoItem(repositoryCache));
   }
 
@@ -503,15 +503,10 @@ public class BazelRepositoryModule extends BlazeModule {
       bazelCompatibilityMode = repoOptions.bazelCompatibilityMode;
       bazelLockfileMode = repoOptions.lockfileMode;
       allowedYankedVersions = repoOptions.allowedYankedVersions;
-
-      if (repoOptions.vendorDirectory != null) {
+      if (env.getWorkspace() != null) {
         vendorDirectory =
-            Optional.of(
-                repoOptions.vendorDirectory.isAbsolute()
-                    ? filesystem.getPath(repoOptions.vendorDirectory)
-                    : env.getWorkspace().getRelative(repoOptions.vendorDirectory));
-      } else {
-        vendorDirectory = Optional.empty();
+            Optional.ofNullable(repoOptions.vendorDirectory)
+                .map(vendorDirectory -> env.getWorkspace().getRelative(vendorDirectory));
       }
 
       if (repoOptions.registries != null && !repoOptions.registries.isEmpty()) {
