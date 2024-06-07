@@ -78,12 +78,6 @@ public class SkyfocusExecutor {
     // TODO: b/312819241 - add support for SerializationCheckingGraph for use in tests.
     InMemoryGraphImpl graph = (InMemoryGraphImpl) evaluator.getInMemoryGraph();
 
-    // Compute the roots and leafs.
-    Set<SkyKey> roots = evaluator.getLatestTopLevelEvaluations();
-    // Skyfocus needs roots. If this fails, there's something wrong with the root-remembering
-    // logic in the evaluator.
-    checkState(roots != null && !roots.isEmpty(), "roots can't be null or empty");
-
     SkyfocusState.Builder newSkyfocusStateBuilder =
         skyfocusState.toBuilder()
             .focusedTargetLabels(
@@ -243,6 +237,9 @@ public class SkyfocusExecutor {
       throws InterruptedException {
 
     Set<SkyKey> roots = evaluator.getLatestTopLevelEvaluations();
+    checkState(
+        roots != null && !roots.isEmpty(), "Skyfocus needs roots, so it can't be null or empty.");
+
     ImmutableSet<SkyKey> leafs =
         ImmutableSet.<SkyKey>builder()
             // TODO: b/312819241 - BUILD_ID is necessary for build correctness of volatile actions,

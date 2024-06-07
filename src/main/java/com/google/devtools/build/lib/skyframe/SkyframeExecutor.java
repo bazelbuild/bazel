@@ -4012,9 +4012,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
 
     reporter.handle(
-        Event.warn(
+        Event.info(
             "--experimental_enable_skyfocus is enabled. "
-                + productName
+                + StringUtilities.capitalize(productName)
                 + " will reclaim memory not needed to build the working set. Run '"
                 + productName
                 + " info working_set' to show the working set."));
@@ -4105,8 +4105,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         newSkyfocusState.toBuilder().verificationSet(focusResult.verificationSet()).build();
 
     // Shouldn't result in an empty graph.
-    checkState(!focusResult.deps().isEmpty());
-    checkState(!focusResult.rdeps().isEmpty());
+    checkState(!focusResult.deps().isEmpty(), "FocusResult deps should not be empty");
+    checkState(!focusResult.rdeps().isEmpty(), "FocusResults rdeps should not be empty");
 
     // Now that the graph has dropped nodes, run a GC to reclaim some memory.
     System.gc();
@@ -4117,21 +4117,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     dumpSkyfocusKeys(dumpKeysOption, reporter, focusResult, graph, skyFunctionCountBefore);
 
     if (skyfocusState.options().dumpKeys != SkyfocusDumpOption.NONE) {
-      reportReductions(
+      reportMetricChange(
           reporter,
           "Rdep edges",
           focusResult.rdepEdgesBefore(),
           focusResult.rdepEdgesAfter(),
           Long::toString);
 
-      reportReductions(
+      reportMetricChange(
           reporter,
           "Node count",
           beforeNodeCount,
           memoizingEvaluator.getValues().size(),
           Long::toString);
 
-      reportReductions(
+      reportMetricChange(
           reporter,
           "Action cache count",
           beforeActionCacheEntries,
@@ -4140,7 +4140,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
 
     if (skyfocusState.options().dumpPostGcStats) {
-      reportReductions(
+      reportMetricChange(
           reporter, "Heap", beforeHeap, getHeapSize(), StringUtilities::prettyPrintBytes);
     }
   }
@@ -4167,7 +4167,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * @param after the value after
    * @param valueFormatter the function to format the value
    */
-  private static void reportReductions(
+  private static void reportMetricChange(
       ExtendedEventHandler eventHandler,
       String prefix,
       long before,
@@ -4179,7 +4179,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         String.format(
             "%s: %s -> %s", prefix, valueFormatter.apply(before), valueFormatter.apply(after));
     if (before > 0) {
-      message += String.format(" (-%.2f%%)", (double) (before - after) / before * 100);
+      double change = (double) (before - after) / before * 100;
+      message += String.format(" (%+.2f%%)", -change);
     }
 
     eventHandler.handle(Event.info(message));
@@ -4226,7 +4227,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           getSkyFunctionNameCount(graph);
       skyFunctionNameCountsBefore.forEachEntry(
           (entry, beforeCount) ->
-              reportReductions(
+              reportMetricChange(
                   reporter,
                   entry.toString(),
                   beforeCount,

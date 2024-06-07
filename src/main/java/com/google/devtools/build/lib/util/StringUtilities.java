@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Joiner;
 import com.google.common.escape.CharEscaperBuilder;
 import com.google.common.escape.Escaper;
@@ -102,5 +103,10 @@ public class StringUtilities {
    */
   public static String sanitizeControlChars(String message) {
     return CONTROL_CHAR_ESCAPER.escape(message);
+  }
+
+  /** Capitalize the first character of a string, assuming ASCII charset. */
+  public static String capitalize(String s) {
+    return Ascii.toUpperCase(s.substring(0, 1)) + s.substring(1);
   }
 }
