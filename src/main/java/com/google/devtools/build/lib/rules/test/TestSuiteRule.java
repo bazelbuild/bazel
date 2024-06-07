@@ -59,13 +59,13 @@ public final class TestSuiteRule implements RuleDefinition {
         </p>
         <p>
           The <code>manual</code> tag keyword is treated differently than the above by the
-          "test_suite expansion" performed by the <code>blaze test</code> command on invocations
+          "test_suite expansion" performed by the <code>bazel test</code> command on invocations
           involving wildcard
           <a href="https://bazel.build/docs/build#specifying-build-targets">target patterns</a>.
           There, <code>test_suite</code> targets tagged "manual" are filtered out (and thus not
-          expanded). This behavior is consistent with how <code>blaze build</code> and
-          <code>blaze test</code> handle wildcard target patterns in general. Note that this is
-          explicitly different from how <code>blaze query 'tests(E)'</code> behaves, as suites are
+          expanded). This behavior is consistent with how <code>bazel build</code> and
+          <code>bazel test</code> handle wildcard target patterns in general. Note that this is
+          explicitly different from how <code>bazel query 'tests(E)'</code> behaves, as suites are
           always expanded by the <code>tests</code> query function, regardless of the
           <code>manual</code> tag.
         </p>
@@ -125,10 +125,10 @@ public final class TestSuiteRule implements RuleDefinition {
 <p>
 A <code>test_suite</code> defines a set of tests that are considered "useful" to humans. This
 allows projects to define sets of tests, such as "tests you must run before checkin", "our
-project's stress tests" or "all small tests." The <code>blaze test</code> command respects this sort
-of organization: For an invocation like <code>blaze test //some/test:suite</code>, Blaze first
+project's stress tests" or "all small tests." The <code>bazel test</code> command respects this sort
+of organization: For an invocation like <code>bazel test //some/test:suite</code>, Bazel first
 enumerates all test targets transitively included by the <code>//some/test:suite</code> target (we
-call this "test_suite expansion"), then Blaze builds and tests those targets.
+call this "test_suite expansion"), then Bazel builds and tests those targets.
 </p>
 
 <h4 id="test_suite_examples">Examples</h4>
