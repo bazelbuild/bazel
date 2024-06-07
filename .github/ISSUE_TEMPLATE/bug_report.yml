@@ -76,8 +76,8 @@ body:
     id: bisect
     attributes:
       label: >
-        Is this a regression? If yes, please try to identify the Bazel commit where the bug was
-        introduced.
+        If this is a regression, please try to identify the Bazel commit where the bug was
+        introduced with bazelisk --bisect.
       description: >
         If the problem is specific to the most recent release or the Bazel@HEAD version and it
         doesn't occur in earlier versions, you can use the `bazelisk --bisect=<GOOD>..<BAD>`
