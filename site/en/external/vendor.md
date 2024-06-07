@@ -139,7 +139,7 @@ always excluded from vendoring.
 ## Understand how vendor mode works {:#how-vendor-mode-works}
 
 Bazel fetches external dependencies of a project under `$(bazel info
-output_base)/external`. Vendoring external dependencies means copying out
+output_base)/external`. Vendoring external dependencies means moving out
 relevant files and directories to a given vendor directory and use the vendored
 source for later builds.
 
