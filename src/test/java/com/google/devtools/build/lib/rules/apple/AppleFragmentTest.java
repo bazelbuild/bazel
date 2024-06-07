@@ -83,13 +83,17 @@ public class AppleFragmentTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "/workspace/platform_mappings",
-        "platforms:",
-        "  //:macos_arm64",
-        "    --cpu=darwin_arm64",
-        "flags:",
-        "  --cpu=darwin_arm64",
-        "  --apple_platform_type=macos",
-        "    //:macos_arm64");
+        """
+        platforms:
+          //:macos_arm64
+            --cpu=darwin_arm64
+            --macos_cpus=arm64
+
+        flags:
+          --cpu=darwin_arm64
+          --apple_platform_type=macos
+            //:macos_arm64
+        """);
     invalidatePackages(false);
   }
 

@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.apple;
 
+import static com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.DEFAULT_MACOS_CPU;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -55,12 +57,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
    * require an apple SDK. The valid values consist of {@link ApplePlatform} names.
    */
   public static final String APPLE_SDK_PLATFORM_ENV_NAME = "APPLE_SDK_PLATFORM";
-
-  /** Prefix for iOS cpu values */
-  public static final String IOS_CPU_PREFIX = "ios_";
-
-  /** Prefix for macOS cpu values */
-  private static final String MACOS_CPU_PREFIX = "darwin_";
 
   /** Prefix for simulator environment cpu values */
   public static final String SIMULATOR_ENVIRONMENT_CPU_PREFIX = "sim_";
@@ -120,7 +116,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
       String appleSplitCpu = Preconditions.checkNotNull(options.appleSplitCpu, "appleSplitCpu");
       ImmutableList<String> iosMultiCpus =
           (options.iosMultiCpus == null || options.iosMultiCpus.isEmpty())
-              ? ImmutableList.of(iosCpuFromCpu(coreOptions.cpu))
+              ? ImmutableList.of(DEFAULT_IOS_CPU)
               : ImmutableList.copyOf(options.iosMultiCpus);
       ImmutableList<String> visionosCpus =
           (options.visionosCpus == null || options.visionosCpus.isEmpty())
@@ -136,7 +132,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
               : ImmutableList.copyOf(options.tvosCpus);
       ImmutableList<String> macosCpus =
           (options.macosCpus == null || options.macosCpus.isEmpty())
-              ? ImmutableList.of(macosCpuFromCpu(coreOptions.cpu))
+              ? ImmutableList.of(DEFAULT_MACOS_CPU)
               : ImmutableList.copyOf(options.macosCpus);
       ImmutableList<String> catalystCpus =
           (options.catalystCpus == null || options.catalystCpus.isEmpty())
@@ -166,23 +162,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     abstract ImmutableList<String> macosCpus();
 
     abstract ImmutableList<String> catalystCpus();
-  }
-
-  /** Determines iOS cpu value from apple-specific toolchain identifier. */
-  public static String iosCpuFromCpu(String cpu) {
-    if (cpu.startsWith(IOS_CPU_PREFIX)) {
-      return cpu.substring(IOS_CPU_PREFIX.length());
-    } else {
-      return DEFAULT_IOS_CPU;
-    }
-  }
-
-  /** Determines macOS cpu value from apple-specific toolchain identifier. */
-  private static String macosCpuFromCpu(String cpu) {
-    if (cpu.startsWith(MACOS_CPU_PREFIX)) {
-      return cpu.substring(MACOS_CPU_PREFIX.length());
-    }
-    return AppleCommandLineOptions.DEFAULT_MACOS_CPU;
   }
 
   public AppleCommandLineOptions getOptions() {
