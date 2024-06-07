@@ -36,7 +36,7 @@ def _target_os_version(ctx):
     xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
     return xcode_config.minimum_os_for_platform_type(platform_type)
 
-def layering_check_features(compiler, is_macos):
+def layering_check_features(compiler, extra_flags_per_feature, is_macos):
     if compiler != "clang":
         return []
     return [
@@ -54,14 +54,11 @@ def layering_check_features(compiler, is_macos):
                     flag_groups = [
                         flag_group(
                             # macOS requires -Xclang because of a bug in Apple Clang
-                            # -fno-cxx-modules is necessary to avoid clang defaulting
-                            # to C++ modules with -std=c++20. The flag requires the
-                            # -Xclang prefix even on Linux.
                             flags = (["-Xclang"] if is_macos else []) + [
                                 "-fmodule-name=%{module_name}",
                             ] + (["-Xclang"] if is_macos else []) + [
                                 "-fmodule-map-file=%{module_map_file}",
-                            ] + ["-Xclang", "-fno-cxx-modules"],
+                            ] + extra_flags_per_feature.get("use_module_maps", []),
                         ),
                     ],
                 ),
@@ -1492,7 +1489,7 @@ def _impl(ctx):
             unfiltered_compile_flags_feature,
             treat_warnings_as_errors_feature,
             archive_param_file_feature,
-        ] + layering_check_features(ctx.attr.compiler, is_macos = False)
+        ] + layering_check_features(ctx.attr.compiler, ctx.attr.extra_flags_per_feature, is_macos = False)
     else:
         # macOS artifact name patterns differ from the defaults only for dynamic
         # libraries.
@@ -1533,7 +1530,7 @@ def _impl(ctx):
             treat_warnings_as_errors_feature,
             archive_param_file_feature,
             generate_linkmap_feature,
-        ] + layering_check_features(ctx.attr.compiler, is_macos = True)
+        ] + layering_check_features(ctx.attr.compiler, ctx.attr.extra_flags_per_feature, is_macos = True)
 
     parse_headers_action_configs, parse_headers_features = parse_headers_support(
         parse_headers_tool_path = ctx.attr.tool_paths.get("parse_headers"),
@@ -1586,6 +1583,7 @@ cc_toolchain_config = rule(
         "coverage_link_flags": attr.string_list(),
         "supports_start_end_lib": attr.bool(),
         "builtin_sysroot": attr.string(),
+        "extra_flags_per_feature": attr.string_list_dict(),
         "_xcode_config": attr.label(default = configuration_field(
             fragment = "apple",
             name = "xcode_config_label",
