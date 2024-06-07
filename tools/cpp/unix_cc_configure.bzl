@@ -424,28 +424,30 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         False,
     ), ":")
 
-    gold_or_lld_linker_path = (
-        _find_linker_path(repository_ctx, cc, "lld", is_clang) or
-        _find_linker_path(repository_ctx, cc, "gold", is_clang)
-    )
+    bin_dirs = []
     cc_path = repository_ctx.path(cc)
     if not str(cc_path).startswith(str(repository_ctx.path(".")) + "/"):
-        # cc is outside the repository, set -B
-        bin_search_flags = ["-B" + escape_string(str(cc_path.dirname))]
-    else:
-        # cc is inside the repository, don't set -B.
-        bin_search_flags = []
-    if not gold_or_lld_linker_path:
-        ld_path = repository_ctx.path(tool_paths["ld"])
-        if ld_path.dirname != cc_path.dirname:
-            bin_search_flags.append("-B" + str(ld_path.dirname))
-    force_linker_flags = []
-    if gold_or_lld_linker_path:
-        force_linker_flags.append("-fuse-ld=" + gold_or_lld_linker_path)
+        # The compiler might need to find tools relative to its non-hermetic
+        # location.
+        bin_dirs.append(cc_path.dirname)
+    ld_path = repository_ctx.path(tool_paths["ld"])
 
-    # TODO: It's unclear why these flags aren't added on macOS.
-    if bin_search_flags and not darwin:
-        force_linker_flags.extend(bin_search_flags)
+    # Prefer lld or gold if present as they support --start-lib/--end-lib.
+    linker_path = (
+        _find_linker_path(repository_ctx, cc, "lld", is_clang) or
+        _find_linker_path(repository_ctx, cc, "gold", is_clang) or
+        ld_path
+    )
+    if linker_path.dirname != cc_path.dirname:
+        # Let the compiler find the linker
+        bin_dirs.append(linker_path.dirname)
+
+    force_linker_flags = ["-B" + escape_string(str(bin_dir)) for bin_dir in bin_dirs]
+
+    # ld is used by default
+    if linker_path != ld_path:
+        force_linker_flags.append("-fuse-ld=" + linker_path)
+
     use_libcpp = darwin or bsd
     is_as_needed_supported = _is_linker_option_supported(
         repository_ctx,
@@ -460,6 +462,13 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         force_linker_flags,
         "-Wl,--push-state",
         "--push-state",
+    )
+    is_start_end_lib_supported = _is_linker_option_supported(
+        repository_ctx,
+        cc,
+        force_linker_flags,
+        "-Wl,--start-lib",
+        "--start-lib",
     )
     if use_libcpp:
         bazel_default_libs = ["-lc++", "-lm"]
@@ -695,6 +704,6 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             "%{dbg_compile_flags}": get_starlark_list(["-g"]),
             "%{coverage_compile_flags}": coverage_compile_flags,
             "%{coverage_link_flags}": coverage_link_flags,
-            "%{supports_start_end_lib}": "True" if gold_or_lld_linker_path else "False",
+            "%{supports_start_end_lib}": bool(is_start_end_lib_supported),
         },
     )
