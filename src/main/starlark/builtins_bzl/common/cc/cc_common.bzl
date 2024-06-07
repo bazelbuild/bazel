@@ -14,6 +14,11 @@
 
 """Utilities related to C++ support."""
 
+load(
+    ":common/cc/cc_helper_internal.bzl",
+    _CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES = "CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES",
+    _PRIVATE_STARLARKIFICATION_ALLOWLIST = "PRIVATE_STARLARKIFICATION_ALLOWLIST",
+)
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 load(":common/cc/link/link_build_variables.bzl", "create_link_variables")
@@ -26,20 +31,6 @@ _UnboundValueProviderDoNotUse = provider("This provider is used as an unique sym
 _UNBOUND = _UnboundValueProviderDoNotUse()
 
 _OLD_STARLARK_API_ALLOWLISTED_PACKAGES = [("", "tools/build_defs/cc"), ("_builtins", "")]
-
-_CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES = [("", "devtools/rust/cc_interop"), ("", "third_party/crubit")]
-
-_PRIVATE_STARLARKIFICATION_ALLOWLIST = [
-    ("_builtins", ""),
-    ("", "bazel_internal/test_rules/cc"),
-    ("", "tools/build_defs/android"),
-    ("", "third_party/bazel_rules/rules_android"),
-    ("build_bazel_rules_android", ""),
-    ("rules_android", ""),
-    ("", "rust/private"),
-    ("rules_rust", "rust/private"),
-    ("", "third_party/gpus/cuda"),
-] + _CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES
 
 _BUILTINS = [("_builtins", "")]
 

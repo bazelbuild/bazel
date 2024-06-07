@@ -142,6 +142,7 @@ public final class CcToolchainProvider {
     return new CcToolchainProvider(value);
   }
 
+  // LINT.IfChange
   /**
    * Determines if we should apply -fPIC for this rule's C++ compilations. This determination is
    * generally made by the global C++ configuration settings "needsPic" and "usePicForBinaries".
@@ -156,6 +157,8 @@ public final class CcToolchainProvider {
     return cppConfiguration.forcePic()
         || featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC);
   }
+
+  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/cc_helper_internal.bzl)
 
   /**
    * Returns true if PER_OBJECT_DEBUG_INFO are specified and supported by the CROSSTOOL for the

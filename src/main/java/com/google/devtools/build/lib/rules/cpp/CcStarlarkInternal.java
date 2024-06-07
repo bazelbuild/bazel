@@ -140,6 +140,43 @@ public class CcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
+      name = "dynamic_library_symlink",
+      documented = false,
+      parameters = {
+        @Param(name = "actions"),
+        @Param(name = "library"),
+        @Param(name = "solib_directory"),
+        @Param(name = "preserve_name"),
+        @Param(name = "prefix_consumer"),
+      })
+  public Artifact dynamicLibrarySymlinkAction(
+      StarlarkActionFactory actions,
+      Artifact library,
+      String solibDirectory,
+      boolean preserveName,
+      boolean prefixConsumer) {
+    return SolibSymlinkAction.getDynamicLibrarySymlink(
+        actions.getRuleContext(), solibDirectory, library, preserveName, prefixConsumer);
+  }
+
+  @StarlarkMethod(
+      name = "dynamic_library_soname",
+      documented = false,
+      parameters = {
+        @Param(name = "actions"),
+        @Param(name = "path"),
+        @Param(name = "preserve_name"),
+      })
+  public String dynamicLibrarySoname(
+      WrappedStarlarkActionFactory actions, String path, boolean preserveName) {
+
+    return SolibSymlinkAction.getDynamicLibrarySoname(
+        PathFragment.create(path),
+        preserveName,
+        actions.construction.getContext().getConfiguration().getMnemonic());
+  }
+
+  @StarlarkMethod(
       name = "cc_toolchain_features",
       documented = false,
       parameters = {

@@ -17,7 +17,7 @@ load(":common/cc/cc_helper_internal.bzl", "artifact_category")
 
 cc_internal = _builtins.internal.cc_internal
 
-def convert_library_to_link_list_to_linker_input_list(linking_contexts, static_mode, for_dynamic_library, supports_dynamic_linker):
+def convert_library_to_link_list_to_linker_input_list(linker_inputs, static_mode, for_dynamic_library, supports_dynamic_linker):
     """
     Converts LibraryToLink-s from CcLinkingContext-s to LegacyLinkerInput-s.
 
@@ -34,7 +34,7 @@ def convert_library_to_link_list_to_linker_input_list(linking_contexts, static_m
     variables to generated the command line.
 
     Args:
-      linking_contexts: (list[CcLinkingContext]) Libraries from dependencies.
+      linker_inputs: (list[LinkerInput]) Linker inputs from dependencies.
       static_mode: (bool) True for `static`, False for `dynamic` linking mode.
       for_dynamic_library: (bool) True when creating a library. False for executable.
       supports_dynamic_linker: (bool) True when C++ toolchain supports_dynamic_linker. That is,
@@ -57,12 +57,8 @@ def convert_library_to_link_list_to_linker_input_list(linking_contexts, static_m
 
     # This ordering of LinkerInputs and Librar(-ies)ToLink is really sensitive, changes result in
     # subtle breakages.
-    linker_inputs = depset(
-        transitive = [linking_context.linker_inputs for linking_context in linking_contexts],
-        order = "topological",
-    )
     libraries_to_link = depset(
-        [lib for linker_input in linker_inputs.to_list() for lib in linker_input.libraries],
+        [lib for linker_input in linker_inputs for lib in linker_input.libraries],
         order = "topological",
     )
     library_inputs = []
@@ -113,6 +109,13 @@ def convert_library_to_link_list_to_linker_input_list(linking_contexts, static_m
         if not library_input_to_use:
             fail("No flavour of library found.")  # This (should) never happen(s).
         library_inputs.append(library_input_to_use)
+
+    # TODO(b/338618120): Deduplicate LibraryToLink, so that deduplication
+    # here isn't needed.
+    # The following step is necessary because of LibraryLinkerInput.equals compares
+    # only on artifacts. Somtimes a duplicated library is present, once with object
+    # file and once without, we need to remove one.
+    library_inputs = depset(library_inputs, order = "topological").to_list()
     return library_inputs
 
 def _static_library_input(library_to_link):

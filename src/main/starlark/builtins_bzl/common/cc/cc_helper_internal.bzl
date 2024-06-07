@@ -18,6 +18,22 @@ Utility functions for C++ rules that don't depend on cc_common.
 Only use those within C++ implementation. The others need to go through cc_common.
 """
 
+cc_common_internal = _builtins.internal.cc_common
+
+CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES = [("", "devtools/rust/cc_interop"), ("", "third_party/crubit")]
+
+PRIVATE_STARLARKIFICATION_ALLOWLIST = [
+    ("_builtins", ""),
+    ("", "bazel_internal/test_rules/cc"),
+    ("", "tools/build_defs/android"),
+    ("", "third_party/bazel_rules/rules_android"),
+    ("build_bazel_rules_android", ""),
+    ("rules_android", ""),
+    ("", "rust/private"),
+    ("rules_rust", "rust/private"),
+    ("", "third_party/gpus/cuda"),
+] + CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES
+
 artifact_category = struct(
     STATIC_LIBRARY = "STATIC_LIBRARY",
     ALWAYSLINK_STATIC_LIBRARY = "ALWAYSLINK_STATIC_LIBRARY",
@@ -38,6 +54,21 @@ artifact_category = struct(
     COVERAGE_DATA_FILE = "COVERAGE_DATA_FILE",
     CLIF_OUTPUT_PROTO = "CLIF_OUTPUT_PROTO",
 )
+
+def wrap_with_check_private_api(symbol):
+    """
+    Protects the symbol so it can only be used internally.
+
+    Returns:
+      A function. When the function is invoked (without any params), the check
+      is done and if it passes the symbol is returned.
+    """
+
+    def callback():
+        cc_common_internal.check_private_api(allowlist = PRIVATE_STARLARKIFICATION_ALLOWLIST)
+        return symbol
+
+    return callback
 
 def should_create_per_object_debug_info(feature_configuration, cpp_configuration):
     return cpp_configuration.fission_active_for_current_compilation_mode() and \
@@ -69,3 +100,27 @@ def is_versioned_shared_library(file):
     if ".so." not in file.basename and ".dylib." not in file.basename:
         return False
     return is_versioned_shared_library_extension_valid(file.basename)
+
+def use_pic_for_binaries(cpp_config, feature_configuration):
+    """
+    Returns whether binaries must be compiled with position independent code.
+    """
+    return cpp_config.force_pic() or (
+        feature_configuration.is_enabled("supports_pic") and
+        (cpp_config.compilation_mode() != "opt" or feature_configuration.is_enabled("prefer_pic_for_opt_binaries"))
+    )
+
+def use_pic_for_dynamic_libs(cpp_config, feature_configuration):
+    """Determines if we should apply -fPIC for this rule's C++ compilations.
+
+    This determination is
+    generally made by the global C++ configuration settings "needsPic" and "usePicForBinaries".
+    However, an individual rule may override these settings by applying -fPIC" to its "nocopts"
+    attribute. This allows incompatible rules to "opt out" of global PIC settings (see bug:
+    "Provide a way to turn off -fPIC for targets that can't be built that way").
+
+    Returns:
+       true if this rule's compilations should apply -fPIC, false otherwise
+    """
+    return (cpp_config.force_pic() or
+            feature_configuration.is_enabled("supports_pic"))

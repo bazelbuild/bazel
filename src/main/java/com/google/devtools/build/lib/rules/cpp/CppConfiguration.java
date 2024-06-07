@@ -525,6 +525,13 @@ public final class CppConfiguration extends Fragment
     return cppOptions.useInterfaceSharedObjects;
   }
 
+  @StarlarkMethod(name = "interface_shared_objects", documented = false, useStarlarkThread = true)
+  public boolean getUseInterfaceSharedLibrariesforStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return cppOptions.useInterfaceSharedObjects;
+  }
+
   /** Returns whether this configuration will use libunwind for stack unwinding. */
   public boolean isOmitfp() {
     return cppOptions.experimentalOmitfp;
