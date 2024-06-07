@@ -172,17 +172,6 @@ public class BlazeJavacMain {
       status = Status.CRASH;
     } finally {
       compiler = (BlazeJavaCompiler) JavaCompiler.instance(context);
-      if (status == Status.OK) {
-        // There could be situations where we incorrectly skip Error Prone and the compilation
-        // ends up succeeding, e.g., if there are errors that are fixed by subsequent round of
-        // annotation processing.  This check ensures that if there were any flow events at all,
-        // then plugins were run.  There may legitimately not be any flow events, e.g. -proc:only
-        // or empty source files.
-        if (compiler.skippedFlowEvents() > 0 && compiler.flowEvents() == 0) {
-          errWriter.println("Expected at least one FLOW event");
-          status = Status.ERROR;
-        }
-      }
     }
     errWriter.flush();
     ImmutableList<FormattedDiagnostic> diagnostics = diagnosticsBuilder.build();

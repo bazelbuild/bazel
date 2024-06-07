@@ -103,4 +103,9 @@ public abstract class BlazeJavaCompilerPlugin {
   public boolean runOnAttributionErrors() {
     return false;
   }
+
+  /** Returns true if the plugin should run on compilations with flow errors. */
+  public boolean runOnFlowErrors() {
+    return false;
+  }
 }
