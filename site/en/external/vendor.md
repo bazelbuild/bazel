@@ -81,8 +81,8 @@ repository cache.
 Therefore, you should be able to check in the vendored source and build the same
 targets offline on another machine.
 
-Note: If you build different targets or change the external dependencies, build
-configuration, or Bazel version, you may need to re-vendor.
+Note: If you make changes to the targets to build, the external dependencies, the build
+configuration, or the Bazel version, you may need to re-vendor to make sure offline build still works.
 
 ## Vendor all external dependencies {:#vendor-all-dependencies}
 
