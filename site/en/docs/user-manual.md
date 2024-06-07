@@ -30,6 +30,9 @@ identified in the on-line help with the text 'may be used multiple times'.
 
 #### `--package_path` {:#package-path}
 
+**WARNING:** The `--package_path` option is deprecated. Bazel prefers packages
+in the main repository to be under the workspace root.
+
 This option specifies the set of directories that are searched to
 find the BUILD file for a given package.
 
