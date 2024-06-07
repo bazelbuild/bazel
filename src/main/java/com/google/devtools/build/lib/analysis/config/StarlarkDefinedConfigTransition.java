@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -237,8 +238,10 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
    * practice to have few or even one transition invoke multiple times over multiple configured
    * targets.
    */
-  public final Cache<RuleTransitionData, PatchTransition> getRuleTransitionCache() {
-    return ruleTransitionCache;
+  public PatchTransition createRuleTransition(
+      RuleTransitionData ruleData,
+      Function<RuleTransitionData, ? extends PatchTransition> createTransition) {
+    return this.ruleTransitionCache.get(ruleData, createTransition);
   }
 
   /**
@@ -552,7 +555,8 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         // Create a new {@link BazelStarlarkContext} for the new thread. We need to
         // create a new context every time because {@link BazelStarlarkContext}s
         // should be confined to a single thread.
-        new BazelStarlarkContext(Phase.ANALYSIS, /* mainRepoMapping= */ null).storeInThread(thread);
+        new BazelStarlarkContext(Phase.ANALYSIS, /* mainRepoMappingSupplier= */ null)
+            .storeInThread(thread);
 
         result =
             Starlark.fastcall(
