@@ -108,7 +108,6 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
     ImmutableList<String> transitionOutputs = this.starlarkDefinedConfigTransition.getOutputs();
 
     for (Attribute attribute : rule.getAttributes()) {
-      // Store the value in an Optional, even if it's null.
       // If the value is present, even if it is null, add to the attribute map.
       Object val = attributeMapper.getRawAttributeValue(rule, attribute);
       if (val instanceof SelectorList<?> sl) {
