@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.analysis;
+package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.common.collect.Multimaps.toMultimap;
 import static com.google.common.truth.Truth.assertThat;
@@ -25,6 +25,10 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
+import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.OutputPathMnemonicComputer;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
