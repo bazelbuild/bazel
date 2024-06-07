@@ -67,6 +67,23 @@ Under the hood, it's doing a `bazel build --nobuild` command to analyze the
 target patterns, therefore build flags could be applied to this command and
 affect the result.
 
+### Build the target offline {:#build-the-target-offline}
+
+With the external dependencies vendored, you can build the target offline by
+
+```none
+bazel build --vendor_dir=vendor_src //src/main:hello-world //src/test/...
+```
+
+The build should work in a clean build environment without network access and
+repository cache.
+
+Therefore, you should be able to check in the vendored source and build the same
+targets offline on another machine.
+
+Note: If you build different targets or change the external dependencies, build
+configuration, or Bazel version, you may need to re-vendor.
+
 ## Vendor all external dependencies {:#vendor-all-dependencies}
 
 To vendor all repos in your transitive external dependencies graph, you can

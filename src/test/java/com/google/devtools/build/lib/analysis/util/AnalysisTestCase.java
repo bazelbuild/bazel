@@ -254,6 +254,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                         BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
                         BazelCompatibilityMode.ERROR),
                     PrecomputedValue.injected(
+                        RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
+                    PrecomputedValue.injected(
                         BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE)))
             .build(ruleClassProvider, fileSystem);
     useConfiguration();

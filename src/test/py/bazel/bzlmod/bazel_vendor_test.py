@@ -79,7 +79,7 @@ class BazelVendorTest(test_base.TestBase):
   def testBasicVendoring(self):
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'bbb', '1.0', {'aaa': '1.0'}
-    )
+    ).createCcModule('bbb', '2.0')
     self.ScratchFile(
         'MODULE.bazel',
         [
@@ -94,12 +94,32 @@ class BazelVendorTest(test_base.TestBase):
     self.RunBazel(['vendor', '--vendor_dir=vendor'])
 
     # Assert repos are vendored with marker files and VENDOR.bazel is created
-    repos_vendored = os.listdir(self._test_cwd + '/vendor')
+    vendor_dir = self._test_cwd + '/vendor'
+    repos_vendored = os.listdir(vendor_dir)
     self.assertIn('aaa~', repos_vendored)
     self.assertIn('bbb~', repos_vendored)
     self.assertIn('@aaa~.marker', repos_vendored)
     self.assertIn('@bbb~.marker', repos_vendored)
     self.assertIn('VENDOR.bazel', repos_vendored)
+
+    # Update bbb to 2.0 and re-vendor
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "bbb", version = "2.0")',
+            'local_path_override(module_name="bazel_tools", path="tools_mock")',
+            'local_path_override(module_name="local_config_platform", ',
+            'path="platforms_mock")',
+        ],
+    )
+    self.ScratchFile('vendor/bbb~/foo')
+    self.RunBazel(['vendor', '--vendor_dir=vendor'])
+    bbb_module_bazel = os.path.join(vendor_dir, 'bbb~/MODULE.bazel')
+    self.AssertFileContentContains(bbb_module_bazel, 'version = "2.0"')
+    foo = os.path.join(vendor_dir, 'bbb~/foo')
+    self.assertFalse(
+        os.path.exists(foo)
+    )  # foo should be removed due to re-vendor
 
   def testVendorFailsWithNofetch(self):
     self.ScratchFile(
@@ -117,7 +137,9 @@ class BazelVendorTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(
         ['vendor', '--vendor_dir=vendor', '--nofetch'], allow_failure=True
     )
-    self.assertIn('ERROR: You cannot run vendor with --nofetch', stderr)
+    self.assertIn(
+        'ERROR: You cannot run the vendor command with --nofetch', stderr
+    )
 
   def testVendoringMultipleTimes(self):
     self.main_registry.createCcModule('aaa', '1.0')
@@ -258,35 +280,6 @@ class BazelVendorTest(test_base.TestBase):
         "Vendored repository 'dummyRepo' is out-of-date.", '\n'.join(stderr)
     )
 
-  def testBuildingWithVendoredRepos(self):
-    self.main_registry.createCcModule('aaa', '1.0')
-    self.ScratchFile(
-        'MODULE.bazel',
-        [
-            'bazel_dep(name = "aaa", version = "1.0")',
-        ],
-    )
-    self.ScratchFile('BUILD')
-    self.RunBazel(['vendor', '--vendor_dir=vendor'])
-    self.assertIn('aaa~', os.listdir(self._test_cwd + '/vendor'))
-
-    # Empty external & build with vendor
-    self.RunBazel(['clean', '--expunge'])
-    _, _, stderr = self.RunBazel(['build', '@aaa//:all', '--vendor_dir=vendor'])
-    self.assertNotIn(
-        "Vendored repository '_main~ext~justRepo' is out-of-date.",
-        '\n'.join(stderr),
-    )
-
-    # Assert repo aaa in {OUTPUT_BASE}/external is a symlink (junction on
-    # windows, this validates it was created from vendor and not fetched)=
-    _, stdout, _ = self.RunBazel(['info', 'output_base'])
-    repo_path = stdout[0] + '/external/aaa~'
-    if self.IsWindows():
-      self.assertTrue(self.IsJunction(repo_path))
-    else:
-      self.assertTrue(os.path.islink(repo_path))
-
   def testIgnoreFromVendoring(self):
     # Repos should be excluded from vendoring:
     # 1.Local Repos, 2.Config Repos, 3.Repos declared in VENDOR.bazel file
@@ -372,7 +365,7 @@ class BazelVendorTest(test_base.TestBase):
     )
     self.ScratchFile('BUILD')
 
-    self.RunBazel(['vendor', '--vendor_dir=vendor'])
+    self.RunBazel(['vendor', '--vendor_dir=vendor', '--repo=@venRepo'])
     self.assertIn('_main~ext~venRepo', os.listdir(self._test_cwd + '/vendor'))
     self.ScratchFile(
         'extension.bzl',
@@ -421,7 +414,7 @@ class BazelVendorTest(test_base.TestBase):
     )
 
     # Re-vendor & build make sure the repo is successfully updated
-    self.RunBazel(['vendor', '--vendor_dir=vendor'])
+    self.RunBazel(['vendor', '--vendor_dir=vendor', '--repo=@venRepo'])
     _, _, stderr = self.RunBazel(
         ['build', '@venRepo//:all', '--vendor_dir=vendor'],
     )
@@ -454,7 +447,7 @@ class BazelVendorTest(test_base.TestBase):
     )
 
     # Vendor, assert and build with no problems
-    self.RunBazel(['vendor', '--vendor_dir=vendor'])
+    self.RunBazel(['vendor', '--vendor_dir=vendor', '--repo=@justRepo'])
     self.assertIn('_main~ext~justRepo', os.listdir(self._test_cwd + '/vendor'))
     _, _, stderr = self.RunBazel(
         ['build', '@justRepo//:all', '--vendor_dir=vendor']
@@ -462,8 +455,8 @@ class BazelVendorTest(test_base.TestBase):
     self.assertNotIn(
         "WARNING: <builtin>: Vendored repository '_main~ext~justRepo' is"
         ' out-of-date. The up-to-date version will be fetched into the external'
-        ' cache and used. To update the repo in the  vendor directory, run'
-        " 'bazel vendor'",
+        ' cache and used. To update the repo in the vendor directory, run'
+        ' the bazel vendor command',
         stderr,
     )
 
@@ -492,15 +485,15 @@ class BazelVendorTest(test_base.TestBase):
     self.assertIn(
         "WARNING: <builtin>: Vendored repository '_main~ext~justRepo' is"
         ' out-of-date. The up-to-date version will be fetched into the external'
-        ' cache and used. To update the repo in the  vendor directory, run'
-        " 'bazel vendor'",
+        ' cache and used. To update the repo in the vendor directory, run'
+        ' the bazel vendor command',
         stderr,
     )
     _, stdout, _ = self.RunBazel(['info', 'output_base'])
     self.assertFalse(os.path.islink(stdout[0] + '/external/bbb~'))
 
     # Assert vendoring again solves the problem
-    self.RunBazel(['vendor', '--vendor_dir=vendor'])
+    self.RunBazel(['vendor', '--vendor_dir=vendor', '--repo=@justRepo'])
     self.RunBazel(['clean', '--expunge'])
     _, _, stderr = self.RunBazel(
         ['build', '@justRepo//:all', '--vendor_dir=vendor']
@@ -508,12 +501,12 @@ class BazelVendorTest(test_base.TestBase):
     self.assertNotIn(
         "WARNING: <builtin>: Vendored repository '_main~ext~justRepo' is"
         ' out-of-date. The up-to-date version will be fetched into the external'
-        ' cache and used. To update the repo in the  vendor directory, run'
-        " 'bazel vendor'",
+        ' cache and used. To update the repo in the vendor directory, run'
+        ' the bazel vendor command',
         stderr,
     )
 
-  def testBuildingVendoredRepoInOfflineMode(self):
+  def testBuildingVendoredRepoWithNoFetch(self):
     self.ScratchFile(
         'MODULE.bazel',
         [
@@ -537,7 +530,7 @@ class BazelVendorTest(test_base.TestBase):
     self.ScratchFile('BUILD')
 
     # Vendor, assert and build with no problems
-    self.RunBazel(['vendor', '--vendor_dir=vendor'])
+    self.RunBazel(['vendor', '--vendor_dir=vendor', '@venRepo//:all'])
     self.assertIn('_main~ext~venRepo', os.listdir(self._test_cwd + '/vendor'))
 
     # Make updates in repo definition
@@ -571,8 +564,8 @@ class BazelVendorTest(test_base.TestBase):
     )
     self.assertIn(
         'ERROR: Vendored repository _main~ext~noVenRepo not found under the'
-        " vendor directory and fetching is disabled. To fix run 'bazel"
-        " vendor' or build without the '--nofetch'",
+        ' vendor directory and fetching is disabled. To fix, run the bazel'
+        " vendor command or build without the '--nofetch'",
         stderr,
     )
 
@@ -584,7 +577,7 @@ class BazelVendorTest(test_base.TestBase):
     self.assertIn(
         "WARNING: <builtin>: Vendored repository '_main~ext~venRepo' is"
         ' out-of-date and fetching is disabled. Run build without the'
-        " '--nofetch' option or run `bazel vendor` to update it",
+        " '--nofetch' option or run the bazel vendor command to update it",
         stderr,
     )
     # Assert the out-dated repo is the one built with
@@ -615,7 +608,7 @@ class BazelVendorTest(test_base.TestBase):
     self.assertIn('bbb~', os.listdir(self._test_cwd + '/vendor'))
     self.assertNotIn('ccc~', os.listdir(self._test_cwd + '/vendor'))
 
-  def testVendorTarget(self):
+  def testBuildVendoredTargetOffline(self):
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'bbb', '1.0', {'aaa': '1.0'}
     )
@@ -640,22 +633,71 @@ class BazelVendorTest(test_base.TestBase):
     self.ScratchFile(
         'main.cc',
         [
-            '#include "aaa.h"',
+            '#include "bbb.h"',
             'int main() {',
-            '    hello_aaa("Hello there!");',
+            '    hello_bbb("Hello there!");',
             '}',
         ],
     )
 
     self.RunBazel(['vendor', '//:main', '--vendor_dir=vendor'])
 
-    # Run the vendored target with --nofetch should only use what is under
-    # vendor to build, meaning we have vendored everything we need to build/run
-    # this target
+    # Build and run the target in a clean build with internet blocked and make
+    # sure it works
+    _, _, _ = self.RunBazel(['clean', '--expunge'])
     _, stdout, _ = self.RunBazel(
-        ['run', '//:main', '--vendor_dir=vendor', '--nofetch']
+        ['run', '//:main', '--vendor_dir=vendor', '--repository_cache='],
+        env_add={
+            'HTTP_PROXY': 'internet_blocked',
+            'HTTPS_PROXY': 'internet_blocked',
+        },
     )
-    self.assertIn('Hello there! => aaa@1.0', stdout)
+    self.assertIn('Hello there! => bbb@1.0', stdout)
+
+    # Assert repos in {OUTPUT_BASE}/external are symlinks (junction on
+    # windows, this validates it was created from vendor and not fetched)
+    _, stdout, _ = self.RunBazel(['info', 'output_base'])
+    for repo in ['aaa~', 'bbb~']:
+      repo_path = stdout[0] + '/external/' + repo
+      if self.IsWindows():
+        self.assertTrue(self.IsJunction(repo_path))
+      else:
+        self.assertTrue(os.path.islink(repo_path))
+
+  def testVendorConflictRegistryFile(self):
+    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+        'bbb', '1.0', {'aaa': '1.0'}
+    )
+    # The registry URLs of main_registry and another_registry only differ by the
+    # port number
+    another_registry = BazelRegistry(
+        os.path.join(self.registries_work_dir, 'MAIN'),
+    )
+    another_registry.start()
+    another_registry.createCcModule('aaa', '1.0')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "bbb", version = "1.0")',
+            'local_path_override(module_name="bazel_tools", path="tools_mock")',
+            'local_path_override(module_name="local_config_platform", ',
+            'path="platforms_mock")',
+            'single_version_override(',
+            '  module_name = "aaa",',
+            '  registry = "%s",' % another_registry.getURL(),
+            ')',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    exit_code, _, stderr = self.RunBazel(
+        ['vendor', '--vendor_dir=vendor'], allow_failure=True
+    )
+    self.AssertExitCode(exit_code, 8, stderr)
+    self.assertIn(
+        'ERROR: Error while vendoring repos: Vendor paths conflict detected for'
+        ' registry URLs:',
+        stderr,
+    )
 
 
 if __name__ == '__main__':
