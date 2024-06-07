@@ -125,6 +125,7 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
   @Test
   public void javaTestInvalidTestClassAtRootPackage() throws Exception {
     scratch.file("BUILD", "java_test(name = 'some_test', srcs = ['SomeTest.java'])");
+    invalidatePackages();
 
     AssertionError error =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//:some_test"));
