@@ -657,30 +657,19 @@ rule is defined in the WORKSPACE file.
 
 #### `--java_toolchain={{ "<var>" }}label{{ "</var>" }}` {:#java-toolchain}
 
-This option specifies the label of the java_toolchain used to compile Java
-source files.
+No-op. Kept only for backwards compatibility.
 
 #### `--host_java_toolchain={{ "<var>" }}label{{ "</var>" }}` {:#host-java-toolchain}
 
-If not specified, bazel uses the value of `--java_toolchain` to compile
-code in the exec configuration, such as for tools run during the build. The main purpose of this flag
-is to enable cross-compilation.
+No-op. Kept only for backwards compatibility.
 
 #### `--javabase=({{ "<var>" }}label{{ "</var>" }})` {:#javabase}
 
-This option sets the _label_ of the base Java installation to use for _bazel run_,
-_bazel test_, and for Java binaries built by `java_binary` and
-`java_test` rules. The `JAVABASE` and `JAVA`
-["Make" variables](/reference/be/make-variables) are derived from this option.
+No-op. Kept only for backwards compatibility.
 
 #### `--host_javabase={{ "<var>" }}label{{ "</var>" }}` {:#host-javabase}
 
-This option sets the _label_ of the base Java installation to use in the exec configuration,
-for example for host build tools including JavaBuilder and Singlejar.
-
-This does not select the Java compiler that is used to compile Java
-source files. The compiler can be selected by settings the
-[`--java_toolchain`](#java-toolchain) option.
+No-op. Kept only for backwards compatibility.
 
 ### Execution strategy {:#execution-strategy}
 
