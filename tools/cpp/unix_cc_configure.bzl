@@ -704,6 +704,6 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             "%{dbg_compile_flags}": get_starlark_list(["-g"]),
             "%{coverage_compile_flags}": coverage_compile_flags,
             "%{coverage_link_flags}": coverage_link_flags,
-            "%{supports_start_end_lib}": bool(is_start_end_lib_supported),
+            "%{supports_start_end_lib}": repr(is_start_end_lib_supported),
         },
     )
