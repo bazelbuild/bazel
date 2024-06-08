@@ -430,13 +430,12 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         # The compiler might need to find tools relative to its non-hermetic
         # location.
         bin_dirs.append(cc_path.dirname)
-    ld_path = repository_ctx.path(tool_paths["ld"])
 
     # Prefer lld or gold if present as they support --start-lib/--end-lib.
-    linker_path = (
+    linker_path = repository_ctx.path(
         _find_linker_path(repository_ctx, cc, "lld", is_clang) or
         _find_linker_path(repository_ctx, cc, "gold", is_clang) or
-        ld_path
+        repository_ctx.path(tool_paths["ld"])
     )
     if linker_path.dirname != cc_path.dirname:
         # Let the compiler find the linker
