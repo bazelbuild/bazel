@@ -424,28 +424,29 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         False,
     ), ":")
 
-    bin_dirs = []
-    cc_path = repository_ctx.path(cc)
-    if not str(cc_path).startswith(str(repository_ctx.path(".")) + "/"):
-        # The compiler might need to find tools relative to its non-hermetic
-        # location.
-        bin_dirs.append(cc_path.dirname)
-
     # Prefer lld or gold if present as they support --start-lib/--end-lib.
     linker_path = repository_ctx.path(
         _find_linker_path(repository_ctx, cc, "lld", is_clang) or
         _find_linker_path(repository_ctx, cc, "gold", is_clang) or
-        repository_ctx.path(tool_paths["ld"])
+        tool_paths["ld"],
     )
-    if linker_path.dirname != cc_path.dirname:
-        # Let the compiler find the linker
-        bin_dirs.append(linker_path.dirname)
+
+    # Let the compiler find the linker and other tools.
+    bin_dirs = [linker_path.dirname]
+    cc_path = repository_ctx.path(cc)
+    if not str(cc_path).startswith(str(repository_ctx.path(".")) + "/") and not cc_path.dirname in bin_dirs:
+        # The compiler might need to find tools relative to its non-hermetic
+        # location.
+        bin_dirs.append(cc_path.dirname)
 
     force_linker_flags = ["-B" + escape_string(str(bin_dir)) for bin_dir in bin_dirs]
 
     # ld is used by default
-    if linker_path != ld_path:
-        force_linker_flags.append("-fuse-ld=" + linker_path)
+    if linker_path.basename != "ld":
+        # gcc doesn't support absolute paths for -fuse-ld.
+        # The linker's parent directory has been added to the search path
+        # above.
+        force_linker_flags.append("-fuse-ld=" + linker_path.basename)
 
     use_libcpp = darwin or bsd
     is_as_needed_supported = _is_linker_option_supported(
