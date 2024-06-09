@@ -1,3 +1,5 @@
+common --verbose_failures
+
 common --enable_platform_specific_config
 
 # Shared configuration flags to build and test Bazel on RBE.
