@@ -34,7 +34,10 @@ import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
+import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
@@ -410,8 +413,8 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             defaultValue = "False",
             named = true,
             doc =
-                "If set, indicate the error in the return value"
-                    + " instead of raising an error for failed downloads"),
+                "If set, indicate the error in the return value instead of raising an error for"
+                    + " failed downloads. This silences errors and warnings."),
         @Param(
             name = "canonical_id",
             defaultValue = "''",
@@ -488,7 +491,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
               canonicalId,
               Optional.<String>empty(),
               outputPath.getPath(),
-              env.getListener(),
+              allowFail ? NullEventHandler.INSTANCE : env.getListener(),
               envVariables,
               getIdentifyingStringForLogging());
       if (executable) {
@@ -584,8 +587,8 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             defaultValue = "False",
             named = true,
             doc =
-                "If set, indicate the error in the return value"
-                    + " instead of raising an error for failed downloads"),
+                "If set, indicate the error in the return value instead of raising an error for"
+                    + " failed downloads. This silences errors and warnings."),
         @Param(
             name = "canonical_id",
             defaultValue = "''",
@@ -689,7 +692,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
               canonicalId,
               Optional.of(type),
               downloadDirectory,
-              env.getListener(),
+              allowFail ? NullEventHandler.INSTANCE : env.getListener(),
               envVariables,
               getIdentifyingStringForLogging());
     } catch (InterruptedException e) {
