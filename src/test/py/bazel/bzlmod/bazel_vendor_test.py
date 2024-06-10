@@ -699,6 +699,42 @@ class BazelVendorTest(test_base.TestBase):
         stderr,
     )
 
+  def testVendorRepoWithSymlinks(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "foo", "bar")',
+        ],
+    )
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_foo_impl(ctx):',
+            '    ctx.file("REPO.bazel")',
+            '    ctx.file("data", "Hello from foo!")',
+            # Symlink to an absolute path
+            '    ctx.symlink("path_abs", "/tmp/foo")',
+            # Symlink to file in the same repo with relative path
+            '    ctx.symlink("path_rel", "data")',
+            # Symlink to file in another repo with absolute path
+            '    ctx.symlink("path_bar", Label("@bar//:data").path)',
+            '    ctx.file("BUILD")',
+            'repo_foo = repository_rule(implementation=_repo_foo_impl)',
+            '',
+            'def _repo_bar_impl(ctx):',
+            '    ctx.file("REPO.bazel")',
+            '    ctx.file("data", "Hello from bar!")',
+            '    ctx.file("BUILD", "exports_files([\"data\"])")',
+            'repo_bar = repository_rule(implementation=_repo_bar_impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    repo_foo(name="foo")',
+            '    repo_bar(name="bar")',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
 
 if __name__ == '__main__':
   absltest.main()

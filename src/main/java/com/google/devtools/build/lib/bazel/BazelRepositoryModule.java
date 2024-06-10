@@ -82,6 +82,7 @@ import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRul
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -498,6 +499,22 @@ public class BazelRepositoryModule extends BlazeModule {
         vendorDirectory =
             Optional.ofNullable(repoOptions.vendorDirectory)
                 .map(vendorDirectory -> env.getWorkspace().getRelative(vendorDirectory));
+
+        if (vendorDirectory.isPresent()) {
+          Path externalRepoSymlink = vendorDirectory.get().getChild("_bazel-external");
+          if (externalRepoSymlink.exists()) { // which means we do need this symlink
+            try {
+              externalRepoSymlink.delete();
+              externalRepoSymlink.createSymbolicLink(env.getOutputBase().getRelative(LabelConstants.EXTERNAL_PATH_PREFIX));
+            } catch (IOException e) {
+              env.getReporter()
+                  .handle(
+                      Event.error(
+                          "Failed to create symlink to external repo root under vendor directory: "
+                              + e.getMessage()));
+            }
+            }
+        }
       }
 
       if (repoOptions.registries != null && !repoOptions.registries.isEmpty()) {

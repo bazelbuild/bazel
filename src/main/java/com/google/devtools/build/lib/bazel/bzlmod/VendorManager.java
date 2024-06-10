@@ -22,10 +22,12 @@ import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.net.URLDecoder;
+import java.util.Collection;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -83,12 +85,39 @@ public class VendorManager {
       // 3. Move the external repo to vendor dir. It's fine if this step fails or is interrupted,
       // because the marker file under external is gone anyway.
       FileSystemUtils.moveTreesBelow(repoUnderExternal, repoUnderVendor);
+      reWriteSymlinks(repoUnderVendor, externalRepoRoot);
       // 4. Rename to temporary marker file after the move is done.
       tMarker.renameTo(markerUnderVendor);
       // 5. Leave a symlink in external dir.
       repoUnderExternal.deleteTree();
       FileSystemUtils.ensureSymbolicLink(repoUnderExternal, repoUnderVendor);
     }
+  }
+
+  public void reWriteSymlinks(Path repoUnderVendor, Path externalRepoRoot) throws IOException {
+      try {
+          Collection<Path> symlinks = FileSystemUtils.traverseTree(repoUnderVendor, Path::isSymbolicLink);
+          Path externalSymlinkUnderVendor = vendorDirectory.getChild("_bazel-external");
+          boolean externalSymlinkExist = externalSymlinkUnderVendor.exists();
+          for (Path symlink : symlinks) {
+            PathFragment target = symlink.readSymbolicLink();
+            if (!target.startsWith(externalRepoRoot.asFragment())) {
+              continue;
+            }
+            if (!externalSymlinkExist) {
+              FileSystemUtils.ensureSymbolicLink(externalSymlinkUnderVendor, externalRepoRoot);
+              externalSymlinkExist = true;
+            }
+            PathFragment newTarget = PathFragment
+                .create("../".repeat(symlink.getParentDirectory().relativeTo(vendorDirectory).segmentCount()))
+                .getRelative("_bazel-external")
+                .getRelative(target.relativeTo(externalRepoRoot.asFragment()));
+            symlink.delete();
+            FileSystemUtils.ensureSymbolicLink(symlink, newTarget);
+          }
+      } catch (IOException e) {
+          throw new IOException(String.format("Failed to rewrite symlinks under %s: ", repoUnderVendor), e);
+      }
   }
 
   /**
