@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.devtools.build.lib.actions.Artifact;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
@@ -54,7 +55,6 @@ public interface LegacyLinkerInput extends StarlarkValue {
   public Artifact getOriginalLibraryArtifact();
 
   /** Whether the input artifact contains object files or is opaque. */
-  @StarlarkMethod(name = "object_file_container", structField = true, documented = false)
   boolean containsObjectFiles();
 
   @StarlarkMethod(name = "is_linkstamp", structField = true, documented = false)
@@ -66,7 +66,12 @@ public interface LegacyLinkerInput extends StarlarkValue {
    * Return the list of object files included in the input artifact, if there are any. It is legal
    * to call this only when {@link #containsObjectFiles()} returns true.
    */
-  @StarlarkMethod(name = "object_files", structField = true, documented = false)
+  @StarlarkMethod(
+      name = "object_files",
+      structField = true,
+      documented = false,
+      allowReturnNones = true)
+  @Nullable
   ImmutableCollection<Artifact> getObjectFiles();
 
   /** Returns whether we must keep debug symbols for this input. */

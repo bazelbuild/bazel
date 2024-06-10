@@ -91,7 +91,7 @@ public abstract class LegacyLinkerInputs {
 
     @Override
     public ImmutableCollection<Artifact> getObjectFiles() {
-      throw new IllegalStateException();
+      return null;
     }
 
     @Override
@@ -220,8 +220,7 @@ public abstract class LegacyLinkerInputs {
 
     @Override
     public ImmutableCollection<Artifact> getObjectFiles() {
-      throw new IllegalStateException(
-          "LegacyLinkerInputs: does not support getObjectFiles: " + this);
+      return null;
     }
 
     @Override
@@ -356,7 +355,7 @@ public abstract class LegacyLinkerInputs {
 
     @Override
     public ImmutableCollection<Artifact> getObjectFiles() {
-      return Preconditions.checkNotNull(objectFiles);
+      return objectFiles;
     }
 
     @Override
