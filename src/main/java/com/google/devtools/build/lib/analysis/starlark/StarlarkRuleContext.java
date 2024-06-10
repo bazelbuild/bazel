@@ -839,7 +839,7 @@ public final class StarlarkRuleContext
   }
 
   // visible for subrules
-  ImmutableSet<Label> getAutomaticExecGroupLabels() {
+  ImmutableSet<Label> getRequestedToolchainTypeLabelsFromAutoExecGroups() {
     ToolchainCollection<ResolvedToolchainContext> toolchainContexts =
         ruleContext.getToolchainContexts();
 
@@ -850,8 +850,7 @@ public final class StarlarkRuleContext
                     .getToolchainContext(execGroupName)
                     .requestedToolchainTypeLabels()
                     .keySet()
-                    .stream()
-                    .filter(label -> label.toString().equals(execGroupName)))
+                    .stream())
         .collect(toImmutableSet());
   }
 
@@ -867,7 +866,7 @@ public final class StarlarkRuleContext
       return StarlarkToolchainContext.create(
           /* targetDescription= */ ruleContext.getToolchainContext().targetDescription(),
           /* resolveToolchainInfoFunc= */ ruleContext::getToolchainInfo,
-          /* resolvedToolchainTypeLabels= */ getAutomaticExecGroupLabels());
+          /* resolvedToolchainTypeLabels= */ getRequestedToolchainTypeLabelsFromAutoExecGroups());
     } else {
       return StarlarkToolchainContext.create(
           /* targetDescription= */ ruleContext.getToolchainContext().targetDescription(),
