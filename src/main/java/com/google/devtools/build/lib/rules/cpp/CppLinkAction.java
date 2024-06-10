@@ -40,6 +40,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
+// LINT.IfChange
 /** Action that represents a linking step. */
 @ThreadCompatible
 public final class CppLinkAction extends SpawnAction {
@@ -135,3 +136,4 @@ public final class CppLinkAction extends SpawnAction {
     }
   }
 }
+// LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/finalize_link_action.bzl)

@@ -69,6 +69,16 @@ public class FeatureConfigurationForStarlark implements FeatureConfigurationApi 
   }
 
   @StarlarkMethod(
+      name = "is_requested",
+      parameters = {@Param(name = "feature")},
+      documented = false,
+      useStarlarkThread = true)
+  public boolean isRequested(String feature, StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return featureConfiguration.getRequestedFeatures().contains(feature);
+  }
+
+  @StarlarkMethod(
       name = "is_enabled",
       parameters = {@Param(name = "feature")},
       documented = false,

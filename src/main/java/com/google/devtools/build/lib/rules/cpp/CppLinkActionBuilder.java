@@ -872,6 +872,7 @@ public class CppLinkActionBuilder {
 
   // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/cpp_link_action.bzl)
 
+  // LINT.IfChange
   private CppLinkAction buildLinkAction(
       String actionName,
       String mnemonic,
@@ -1097,6 +1098,7 @@ public class CppLinkActionBuilder {
 
       inputsBuilder.addTransitive(linkstampObjectArtifacts);
     }
+    // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/finalize_link_action.bzl)
 
     return new CppLinkAction(
         getOwner(),
@@ -1142,6 +1144,7 @@ public class CppLinkActionBuilder {
         && !featureConfiguration.hasConfiguredLinkerPathInActionConfig();
   }
 
+  // LINT.IfChange
   /** The default heuristic on whether we need to use whole-archive for the link. */
   private static boolean needWholeArchive(
       FeatureConfiguration featureConfiguration,
@@ -1186,6 +1189,8 @@ public class CppLinkActionBuilder {
     // Hopefully future default.
     return false;
   }
+
+  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/finalize_link_action.bzl)
 
   // LINT.IfChange
   /**

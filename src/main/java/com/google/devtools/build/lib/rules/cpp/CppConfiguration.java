@@ -513,7 +513,22 @@ public final class CppConfiguration extends Fragment
     return cppOptions.legacyWholeArchive;
   }
 
+  @StarlarkMethod(name = "legacy_whole_archive", documented = false, useStarlarkThread = true)
+  public boolean legacyWholeArchiveForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return cppOptions.legacyWholeArchive;
+  }
+
   public boolean removeLegacyWholeArchive() {
+    return cppOptions.removeLegacyWholeArchive;
+  }
+
+  @StarlarkMethod(
+      name = "incompatible_remove_legacy_whole_archive",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean removeLegacyWholeArchiveForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return cppOptions.removeLegacyWholeArchive;
   }
 
@@ -827,6 +842,15 @@ public final class CppConfiguration extends Fragment
   }
 
   public boolean useSpecificToolFiles() {
+    return cppOptions.useSpecificToolFiles;
+  }
+
+  @StarlarkMethod(
+      name = "incompatible_use_specific_tool_files",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean useSpecificToolFilesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return cppOptions.useSpecificToolFiles;
   }
 

@@ -120,7 +120,12 @@ public final class LinkCommandLine extends AbstractCommandLine {
   CommandLines getCommandLines() throws EvalException {
     CommandLines.Builder builder = CommandLines.builder();
     builder.addSingleArgument(getLinkerPathString());
+    builder.addCommandLine(this, getParamFileInfo());
+    return builder.build();
+  }
 
+  @Nullable
+  ParamFileInfo getParamFileInfo() throws EvalException {
     ParamFileInfo paramFileInfo = null;
     if (splitCommandLine) {
       try {
@@ -143,10 +148,7 @@ public final class LinkCommandLine extends AbstractCommandLine {
         throw new EvalException(e);
       }
     }
-
-    builder.addCommandLine(this, paramFileInfo);
-
-    return builder.build();
+    return paramFileInfo;
   }
 
   @Override

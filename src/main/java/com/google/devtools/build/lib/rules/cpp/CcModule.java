@@ -2534,6 +2534,25 @@ public abstract class CcModule
             named = true),
         @Param(name = "label_replacement", documented = false, positional = false, named = true),
         @Param(name = "output_replacement", documented = false, positional = false, named = true),
+        @Param(
+            name = "needs_pic",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "False"),
+        @Param(
+            name = "stamping",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "None"),
+        @Param(
+            name = "additional_linkstamp_defines",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "unbound"),
       })
   public void registerLinkstampCompileAction(
       StarlarkActionFactory starlarkActionFactoryApi,
@@ -2545,11 +2564,17 @@ public abstract class CcModule
       Depset inputsForValidation,
       String labelReplacement,
       String outputReplacement,
+      boolean needsPic,
+      Object stampingObject,
+      Object additionalLinkstampDefines,
       StarlarkThread thread)
       throws EvalException, InterruptedException, TypeException, RuleErrorException {
     isCalledFromStarlarkCcCommon(thread);
     RuleContext ruleContext = starlarkActionFactoryApi.getRuleContext();
-
+    boolean stamping =
+        stampingObject instanceof Boolean
+            ? (Boolean) stampingObject
+            : AnalysisUtils.isStampingEnabled(ruleContext, ruleContext.getConfiguration());
     CcToolchainProvider ccToolchain =
         CcToolchainProvider.PROVIDER.wrapOrThrowEvalException(ccToolchainInfo);
     CppConfiguration cppConfiguration = ccToolchain.getCppConfiguration();
@@ -2570,7 +2595,7 @@ public abstract class CcModule
             compilationInputs.getSet(Artifact.class),
             /* nonCodeInputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             inputsForValidation.getSet(Artifact.class),
-            AnalysisUtils.isStampingEnabled(ruleContext, ruleContext.getConfiguration())
+            stamping
                 ? ccToolchain
                     .getCcBuildInfoTranslator()
                     .getOutputGroup("non_redacted_build_info_files")
@@ -2579,7 +2604,7 @@ public abstract class CcModule
                     .getCcBuildInfoTranslator()
                     .getOutputGroup("redacted_build_info_files")
                     .toList(),
-            /* additionalLinkstampDefines= */ ImmutableList.of(),
+            asStringImmutableList(additionalLinkstampDefines),
             ccToolchain,
             ruleContext.getConfiguration().isCodeCoverageEnabled(),
             CppHelper.getFdoBuildStamp(
@@ -2587,7 +2612,7 @@ public abstract class CcModule
                 ccToolchain.getFdoContext(),
                 featureConfigurationForStarlark.getFeatureConfiguration()),
             featureConfigurationForStarlark.getFeatureConfiguration(),
-            /* needsPic= */ false,
+            needsPic,
             labelReplacement,
             outputReplacement,
             getSemantics()));

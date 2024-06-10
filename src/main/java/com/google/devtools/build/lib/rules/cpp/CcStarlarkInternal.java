@@ -25,6 +25,8 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
@@ -32,6 +34,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory.StarlarkActionContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
@@ -56,6 +59,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuil
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.rules.cpp.LegacyLinkerInputs.LibraryInput;
+import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -69,6 +73,7 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
@@ -669,6 +674,42 @@ public class CcStarlarkInternal implements StarlarkValue {
   public LegacyLinkerInput solibLinkerInput(
       Artifact solibSymlink, Artifact original, String libraryIdentifier) throws EvalException {
     return LegacyLinkerInputs.solibLibraryInput(solibSymlink, original, libraryIdentifier);
+  }
+
+  @StarlarkMethod(
+      name = "get_link_args",
+      documented = false,
+      parameters = {
+        @Param(name = "action_name", positional = false, named = true),
+        @Param(name = "feature_configuration", positional = false, named = true),
+        @Param(name = "build_variables", positional = false, named = true),
+        @Param(
+            name = "parameter_file_type",
+            positional = false,
+            named = true,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)}),
+      })
+  public Args getArgs(
+      String actionName,
+      FeatureConfigurationForStarlark featureConfiguration,
+      CcToolchainVariables buildVariables,
+      Object paramFileType)
+      throws EvalException {
+    LinkCommandLine.Builder linkCommandLineBuilder =
+        new LinkCommandLine.Builder()
+            .setActionName(actionName)
+            .setBuildVariables(buildVariables)
+            .setFeatureConfiguration(featureConfiguration.getFeatureConfiguration())
+            .setLinkTargetType(LinkTargetType.EXECUTABLE);
+    if (paramFileType instanceof String) {
+      linkCommandLineBuilder
+          .setParameterFileType(ParameterFileType.valueOf((String) paramFileType))
+          .setSplitCommandLine(true);
+    }
+    LinkCommandLine linkCommandLine = linkCommandLineBuilder.build();
+    return Args.forRegisteredAction(
+        new CommandLineAndParamFileInfo(linkCommandLine, linkCommandLine.getParamFileInfo()),
+        ImmutableSet.of());
   }
 
   @StarlarkMethod(
