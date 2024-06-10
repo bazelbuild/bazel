@@ -325,16 +325,55 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
     AtomicLong rdepEdgesBefore = new AtomicLong();
     AtomicLong rdepEdgesAfter = new AtomicLong();
 
-    try (SilentCloseable c = Profiler.instance().profile("focus.sweep_nodes")) {
+    try (SilentCloseable c = Profiler.instance().profile("focus.sweep")) {
       graph.parallelForEach(
           inMemoryNodeEntry -> {
             SkyKey key = inMemoryNodeEntry.getKey();
-            if (keptDeps.contains(key)) {
-              return;
-            }
+
             if (keptRdeps.contains(key)) {
               return;
             }
+
+            if (keptDeps.contains(key)) {
+              IncrementalInMemoryNodeEntry incrementalInMemoryNodeEntry =
+                  (IncrementalInMemoryNodeEntry) inMemoryNodeEntry;
+
+              // No need to keep the direct deps edges of existing deps. For example:
+              //
+              //    B
+              //  / |\
+              // A C  \
+              //    \ |
+              //     D
+              //
+              // B is the root, and A is the only leaf. We can throw out the CD edge, even
+              // though both C and D are still used by B. This is because no changes are expected to
+              // C and D, so it's unnecessary to maintain the edges.
+              incrementalInMemoryNodeEntry.clearDirectDepsForSkyfocus();
+
+              // No need to keep the rdep edges of the deps if they do not point to an rdep
+              // reachable (hence, dirty-able) by the working set.
+              //
+              // This accounts for nearly 5% of 9+GB retained heap on a large server build.
+              Collection<SkyKey> existingRdeps =
+                  incrementalInMemoryNodeEntry.getReverseDepsForDoneEntry();
+              rdepEdgesBefore.getAndAdd(existingRdeps.size());
+              int rdepEdgesKept = 0;
+              for (SkyKey rdep : existingRdeps) {
+                if (keptRdeps.contains(rdep)) {
+                  rdepEdgesKept++;
+                } else {
+                  incrementalInMemoryNodeEntry.removeReverseDep(rdep);
+                }
+              }
+              rdepEdgesAfter.getAndAdd(rdepEdgesKept);
+
+              // This calls ReverseDepsUtility.consolidateData().
+              incrementalInMemoryNodeEntry.consolidateReverseDeps();
+
+              return;
+            }
+
             if (verificationSet.contains(key)) {
               // TODO: b/327545930 - fsvc supports checking keys with missing values in the graph
               // using `FileSystemValueCheckerInferringAncestors#visitUnknownEntry`, so perhaps we
@@ -372,53 +411,6 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
           });
 
       graph.shrinkNodeMap();
-    }
-
-    try (SilentCloseable c = Profiler.instance().profile("focus.sweep_edges")) {
-      for (SkyKey key : keptDeps) {
-        execute(
-            () -> {
-              // TODO: b/312819241 - Consider transforming IncrementalInMemoryNodeEntry only used
-              // for their immutable states to an ImmutableDoneNodeEntry or
-              // NonIncrementalInMemoryNodeEntry
-              // for further memory savings.
-              IncrementalInMemoryNodeEntry nodeEntry =
-                  (IncrementalInMemoryNodeEntry) graph.getIfPresent(key);
-
-              // No need to keep the direct deps edges of existing deps. For example:
-              //
-              //    B
-              //  / |\
-              // A C  \
-              //    \ |
-              //     D
-              //
-              // B is the root, and A is the only leaf. We can throw out the CD edge, even
-              // though both C and D are still used by B. This is because no changes are expected to
-              // C and D, so it's unnecessary to maintain the edges.
-              Preconditions.checkNotNull(nodeEntry, key);
-              nodeEntry.clearDirectDepsForSkyfocus();
-
-              // No need to keep the rdep edges of the deps if they do not point to an rdep
-              // reachable (hence, dirty-able) by the working set.
-              //
-              // This accounts for nearly 5% of 9+GB retained heap on a large server build.
-              Collection<SkyKey> existingRdeps = nodeEntry.getReverseDepsForDoneEntry();
-              rdepEdgesBefore.getAndAdd(existingRdeps.size());
-              int rdepEdgesKept = 0;
-              for (SkyKey rdep : existingRdeps) {
-                if (keptRdeps.contains(rdep)) {
-                  rdepEdgesKept++;
-                } else {
-                  nodeEntry.removeReverseDep(rdep);
-                }
-              }
-              rdepEdgesAfter.getAndAdd(rdepEdgesKept);
-
-              // This calls ReverseDepsUtility.consolidateData().
-              nodeEntry.consolidateReverseDeps();
-            });
-      }
 
       awaitQuiescence(true); // and shut down the ExecutorService.
     }
