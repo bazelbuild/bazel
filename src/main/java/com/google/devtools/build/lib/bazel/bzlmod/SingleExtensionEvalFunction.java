@@ -35,8 +35,6 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.Lockfile
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule.RepositoryRuleFunction;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
-import com.google.devtools.build.lib.cmdline.BazelStarlarkContext;
-import com.google.devtools.build.lib.cmdline.BazelStarlarkContext.Phase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -888,6 +886,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
               usagesValue.getExtensionUniqueName() + "~",
               extensionId.getBzlFileLabel().getPackageIdentifier(),
               BazelModuleContext.of(bzlLoadValue.getModule()).repoMapping(),
+              mainRepositoryMapping,
               directories,
               env.getListener());
       ModuleExtensionContext moduleContext;
@@ -905,8 +904,6 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
         moduleContext = createContext(env, usagesValue, starlarkSemantics, extensionId);
         threadContext.storeInThread(thread);
-        new BazelStarlarkContext(Phase.WORKSPACE, () -> mainRepositoryMapping)
-            .storeInThread(thread);
         // This is used by the `Label()` constructor in Starlark, to record any attempts to resolve
         // apparent repo names to canonical repo names. See #20721 for why this is necessary.
         thread.setThreadLocal(Label.RepoMappingRecorder.class, repoMappingRecorder);

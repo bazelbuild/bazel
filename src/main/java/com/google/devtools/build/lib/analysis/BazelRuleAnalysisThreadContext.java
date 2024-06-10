@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.devtools.build.lib.cmdline.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -23,7 +23,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 
 /** Bazel application data for the Starlark thread that performs analysis of rules and aspects. */
-public class BazelRuleAnalysisThreadContext extends BazelStarlarkContext {
+public class BazelRuleAnalysisThreadContext extends StarlarkThreadContext {
 
   private final RuleContext ruleContext;
 
@@ -33,7 +33,7 @@ public class BazelRuleAnalysisThreadContext extends BazelStarlarkContext {
    * @param ruleContext is the {@link RuleContext} of the rule for analysis of a rule or aspect
    */
   public BazelRuleAnalysisThreadContext(RuleContext ruleContext) {
-    super(Phase.ANALYSIS, ruleContext.getAnalysisEnvironment()::getMainRepoMapping);
+    super(ruleContext.getAnalysisEnvironment()::getMainRepoMapping);
     this.ruleContext = ruleContext;
   }
 
@@ -41,11 +41,6 @@ public class BazelRuleAnalysisThreadContext extends BazelStarlarkContext {
   @Nullable
   public Label getAnalysisRuleLabel() {
     return ruleContext.getLabel();
-  }
-
-  @Override
-  public String getContextForUncheckedException() {
-    return ruleContext.getLabel().toString();
   }
 
   public RuleContext getRuleContext() {
@@ -62,7 +57,7 @@ public class BazelRuleAnalysisThreadContext extends BazelStarlarkContext {
   @CanIgnoreReturnValue
   public static BazelRuleAnalysisThreadContext fromOrFail(StarlarkThread thread, String what)
       throws EvalException {
-    BazelStarlarkContext ctx = thread.getThreadLocal(BazelStarlarkContext.class);
+    StarlarkThreadContext ctx = thread.getThreadLocal(StarlarkThreadContext.class);
     if (ctx instanceof BazelRuleAnalysisThreadContext bazelRuleAnalysisThreadContext) {
       return bazelRuleAnalysisThreadContext;
     }

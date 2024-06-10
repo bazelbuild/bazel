@@ -31,8 +31,6 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFr
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputDirectoryNamingScheme;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.cmdline.BazelStarlarkContext;
-import com.google.devtools.build.lib.cmdline.BazelStarlarkContext.Phase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -551,12 +549,6 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         thread.setPrintHandler(Event.makeDebugPrintHandler(handler));
         Dict<String, Object> previousSettingsDict =
             createBuildSettingsDict(previousSettings, optionInfoMap, mu);
-
-        // Create a new {@link BazelStarlarkContext} for the new thread. We need to
-        // create a new context every time because {@link BazelStarlarkContext}s
-        // should be confined to a single thread.
-        new BazelStarlarkContext(Phase.ANALYSIS, /* mainRepoMappingSupplier= */ null)
-            .storeInThread(thread);
 
         result =
             Starlark.fastcall(

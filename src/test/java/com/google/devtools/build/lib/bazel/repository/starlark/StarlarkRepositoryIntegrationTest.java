@@ -59,7 +59,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
   protected void invalidatePackages() throws InterruptedException, AbruptExitException {
     // Repository shuffling breaks access to config-needed paths like //tools/jdk:toolchain and
     // these tests don't do anything interesting with configurations anyway. So exempt them.
-    invalidatePackages(/*alsoConfigs=*/ false);
+    invalidatePackages(/* alsoConfigs= */ false);
   }
 
   @Test
@@ -515,7 +515,8 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
 
     invalidatePackages();
     getConfiguredTarget("//:x");
-    assertContainsEvent("'repository rule repo' can only be called during workspace loading");
+    assertContainsEvent(
+        "repo rules may only be called from a WORKSPACE file or a macro loaded from there");
   }
 
   @Test

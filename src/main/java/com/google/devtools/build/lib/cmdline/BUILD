@@ -17,7 +17,6 @@ java_library(
     srcs = [
         "BazelCompileContext.java",
         "BazelModuleContext.java",
-        "BazelStarlarkContext.java",
         "Label.java",
         "LabelConstants.java",
         "LabelParser.java",
@@ -27,6 +26,7 @@ java_library(
         "RepositoryName.java",
         "ResolvedTargets.java",
         "SignedTargetPattern.java",
+        "StarlarkThreadContext.java",
         "TargetParsingException.java",
         "TargetPattern.java",
         "TargetPatternResolver.java",

@@ -1022,10 +1022,7 @@ public class RuleContext extends TargetContext
     AnalysisEnvironment env = getAnalysisEnvironment();
     StarlarkThread thread =
         StarlarkThread.create(
-            mutability,
-            env.getStarlarkSemantics(),
-            /* contextDescription= */ "",
-            getSymbolGenerator());
+            mutability, env.getStarlarkSemantics(), getLabel().toString(), getSymbolGenerator());
     thread.setPrintHandler(Event.makeDebugPrintHandler(env.getEventHandler()));
     new BazelRuleAnalysisThreadContext(this).storeInThread(thread);
     return thread;

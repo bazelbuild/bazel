@@ -773,8 +773,8 @@ class BazelModuleTest(test_base.TestBase):
     )
     self.AssertExitCode(exit_code, 48, stderr)
     self.assertIn(
-        'Error in init_rule: A rule can only be instantiated in a BUILD file, '
-        'or a macro invoked from a BUILD file',
+        'Error in init_rule: Cannot instantiate a rule when loading a .bzl '
+        'file. Rules may be instantiated only in a BUILD thread.',
         stderr,
     )
 

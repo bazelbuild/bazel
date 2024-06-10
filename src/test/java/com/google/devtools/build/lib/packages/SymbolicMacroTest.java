@@ -336,7 +336,9 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     assertGetPackageFailsWithEvent(
         "pkg",
         String.format(
-            "%s can only be used while evaluating a BUILD file or legacy macro", apiName));
+            "%s can only be used while evaluating a BUILD file, a WORKSPACE file, or a legacy macro"
+                + " loaded from there",
+            apiName));
   }
 
   @Test

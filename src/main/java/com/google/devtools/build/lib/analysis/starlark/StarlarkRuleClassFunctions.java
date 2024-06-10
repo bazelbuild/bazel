@@ -56,11 +56,11 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
-import com.google.devtools.build.lib.cmdline.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AllowlistChecker;
@@ -1189,7 +1189,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     @Override
     public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
-      BazelStarlarkContext.checkLoadingPhase(thread, getName());
       Package.Builder pkgBuilder = Package.Builder.fromOrNull(thread);
       if (pkgBuilder == null) {
         throw Starlark.errorf(
@@ -1370,13 +1369,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       if (!args.isEmpty()) {
         throw new EvalException("Unexpected positional arguments");
       }
-      try {
-        BazelStarlarkContext.checkLoadingPhase(thread, getName());
-      } catch (EvalException unused) {
-        throw new EvalException(
-            "A rule can only be instantiated in a BUILD file, or a macro "
-                + "invoked from a BUILD file");
-      }
       if (ruleClass == null) {
         throw new EvalException("Invalid rule class hasn't been exported by a bzl file");
       }
@@ -1392,14 +1384,14 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
       ImmutableSet<String> legacyAnyTypeAttrs = getLegacyAnyTypeAttrs(ruleClass);
 
-      // Remove {@link BazelStarlarkContext} to prevent calls to load and analysis time functions.
-      // Mutating values in initializers is mostly not a problem, because the attribute values are
-      // copied before calling the initializers (<-TODO) and before they are set on the target.
-      // Exception is a legacy case allowing arbitrary type of parameter values. In that case the
-      // values may be mutated by the initializer, but they are still copied when set on the target.
-      BazelStarlarkContext bazelStarlarkContext = BazelStarlarkContext.fromOrFail(thread);
       try {
-        thread.setThreadLocal(BazelStarlarkContext.class, null);
+        // Temporarily remove `pkgBuilder` from the thread to prevent calls to load time functions.
+        // Mutating values in initializers is mostly not a problem, because the attribute values are
+        // copied before calling the initializers (<-TODO) and before they are set on the target.
+        // Exception is a legacy case allowing arbitrary type of parameter values. In that case the
+        // values may be mutated by the initializer, but they are still copied when set on the
+        // target.
+        thread.setThreadLocal(StarlarkThreadContext.class, null);
         // Allow access to the LabelConverter to support native.package_relative_label() in an
         // initializer.
         thread.setThreadLocal(LabelConverter.class, pkgBuilder.getLabelConverter());
@@ -1491,7 +1483,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         }
       } finally {
         thread.setThreadLocal(LabelConverter.class, null);
-        bazelStarlarkContext.storeInThread(thread);
+        pkgBuilder.storeInThread(thread);
       }
 
       BuildLangTypedAttributeValuesMap attributeValues =

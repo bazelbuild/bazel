@@ -4335,7 +4335,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     getConfiguredTarget("//initializer_testing:my_target");
 
     ev.assertContainsError(
-        "A rule can only be instantiated in a BUILD file, or a macro invoked from a BUILD file");
+        "Cannot instantiate a rule when loading a .bzl file. Rules may be instantiated only in a"
+            + " BUILD thread.");
   }
 
   @Test
@@ -4374,7 +4375,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     reporter.addHandler(ev.getEventCollector());
     getConfiguredTarget("//initializer_testing:my_target");
 
-    ev.assertContainsError("'native.existing_rules' cannot be called from an initializer");
+    ev.assertContainsError(
+        "existing_rules() can only be used while evaluating a BUILD file, a WORKSPACE file, or a"
+            + " macro loaded from there");
   }
 
   @Test

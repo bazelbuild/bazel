@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.cmdline.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -31,7 +31,7 @@ import net.starlark.java.eval.StarlarkThread;
  * Bazel application data for the Starlark thread that evaluates the top-level code in a .bzl (or
  * .scl) module (i.e. when evaluating that module's global symbols).
  */
-public final class BzlInitThreadContext extends BazelStarlarkContext
+public final class BzlInitThreadContext extends StarlarkThreadContext
     implements RuleDefinitionEnvironment {
 
   private final Label bzlFile;
@@ -68,7 +68,7 @@ public final class BzlInitThreadContext extends BazelStarlarkContext
       Optional<Label> networkAllowlistForTests,
       ImmutableMap<String, Class<?>> fragmentNameToClass,
       RepositoryMapping mainRepoMapping) {
-    super(BazelStarlarkContext.Phase.LOADING, () -> mainRepoMapping);
+    super(() -> mainRepoMapping);
     this.bzlFile = bzlFile;
     this.transitiveDigest = transitiveDigest;
     this.toolsRepository = toolsRepository;
@@ -83,12 +83,22 @@ public final class BzlInitThreadContext extends BazelStarlarkContext
   @CanIgnoreReturnValue
   public static BzlInitThreadContext fromOrFail(StarlarkThread thread, String what)
       throws EvalException {
-    @Nullable BazelStarlarkContext ctx = thread.getThreadLocal(BazelStarlarkContext.class);
+    @Nullable StarlarkThreadContext ctx = thread.getThreadLocal(StarlarkThreadContext.class);
     if (!(ctx instanceof BzlInitThreadContext)) {
       throw Starlark.errorf(
           "%s can only be used during .bzl initialization (top-level evaluation)", what);
     }
     return (BzlInitThreadContext) ctx;
+  }
+
+  /**
+   * Retrieves this context from a Starlark thread. If not present, returns {@code null} instead.
+   */
+  @Nullable
+  public static BzlInitThreadContext fromOrNull(StarlarkThread thread) {
+    return thread.getThreadLocal(StarlarkThreadContext.class) instanceof BzlInitThreadContext c
+        ? c
+        : null;
   }
 
   /**

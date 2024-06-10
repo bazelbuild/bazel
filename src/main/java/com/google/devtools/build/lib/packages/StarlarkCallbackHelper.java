@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.cmdline.BazelStarlarkContext;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import net.starlark.java.eval.EvalException;
@@ -70,8 +69,6 @@ public final class StarlarkCallbackHelper {
       // But I don't think implicit outputs or computed defaults care about identity.
       StarlarkThread thread = StarlarkThread.createTransient(mu, starlarkSemantics);
       thread.setPrintHandler(Event.makeDebugPrintHandler(eventHandler));
-      new BazelStarlarkContext(BazelStarlarkContext.Phase.LOADING, /* mainRepoMapping= */ null)
-          .storeInThread(thread);
       return Starlark.call(
           thread, callback, buildArgumentList(struct, arguments), /*kwargs=*/ ImmutableMap.of());
     } catch (ClassCastException | IllegalArgumentException e) { // TODO(adonovan): investigate

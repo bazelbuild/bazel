@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.docgen.annot.GlobalMethods;
 import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
-import com.google.devtools.build.lib.cmdline.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
@@ -75,9 +74,9 @@ public class BuildGlobals {
       Sequence<?> defaultsList, // <Label>
       StarlarkThread thread)
       throws EvalException {
-    BazelStarlarkContext.checkLoadingPhase(thread, "environment_group");
     Package.Builder pkgBuilder =
         Package.Builder.fromOrFailDisallowingSymbolicMacros(thread, "environment_group()");
+    Package.Builder.fromOrFailDisallowingWorkspace(thread, "environment_group()");
     List<Label> environments =
         BuildType.LABEL_LIST.convert(
             environmentsList, "'environment_group argument'", pkgBuilder.getLabelConverter());
@@ -117,9 +116,9 @@ public class BuildGlobals {
       Sequence<?> licensesList, // list of license strings
       StarlarkThread thread)
       throws EvalException {
-    BazelStarlarkContext.checkLoadingPhase(thread, "licenses");
     Package.Builder pkgBuilder =
         Package.Builder.fromOrFailDisallowingSymbolicMacros(thread, "licenses()");
+    Package.Builder.fromOrFailDisallowingWorkspace(thread, "licenses()");
     try {
       License license = BuildType.LICENSE.convert(licensesList, "'licenses' operand");
       pkgBuilder.mergePackageArgsFrom(PackageArgs.builder().setLicense(license));

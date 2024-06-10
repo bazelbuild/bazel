@@ -28,11 +28,11 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
-import com.google.devtools.build.lib.cmdline.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -275,8 +275,9 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
         thread.setThreadLocal(Label.RepoMappingRecorder.class, repoMappingRecorder);
       }
 
-      new BazelStarlarkContext(BazelStarlarkContext.Phase.LOADING, () -> mainRepoMapping)
-          .storeInThread(thread); // "fetch"
+      // We sort of want a starlark thread context here, but no extra info is needed. So we just
+      // use an anonymous class.
+      new StarlarkThreadContext(() -> mainRepoMapping) {}.storeInThread(thread);
 
       StarlarkRepositoryContext starlarkRepositoryContext =
           new StarlarkRepositoryContext(
@@ -325,8 +326,8 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
             Starlark.call(
                 thread,
                 function,
-                /*args=*/ ImmutableList.of(starlarkRepositoryContext),
-                /*kwargs=*/ ImmutableMap.of());
+                /* args= */ ImmutableList.of(starlarkRepositoryContext),
+                /* kwargs= */ ImmutableMap.of());
         fetchSuccessful = true;
       } finally {
         if (starlarkRepositoryContext.ensureNoPendingAsyncTasks(

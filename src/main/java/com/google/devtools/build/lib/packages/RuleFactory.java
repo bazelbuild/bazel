@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.cmdline.BazelStarlarkContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
@@ -281,7 +280,6 @@ public class RuleFactory {
       if (!args.isEmpty()) {
         throw Starlark.errorf("unexpected positional arguments");
       }
-      BazelStarlarkContext.checkLoadingOrWorkspacePhase(thread, ruleClass.getName());
       try {
         Package.Builder pkgBuilder = Package.Builder.fromOrFail(thread, "rules");
         RuleFactory.createAndAddRule(

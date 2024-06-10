@@ -671,11 +671,14 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
 
   @Override
   public void debugPrint(Printer printer, StarlarkThread thread) {
-    RepositoryMapping mainRepoMapping;
-    try {
-      mainRepoMapping = BazelStarlarkContext.fromOrFail(thread).getMainRepoMapping();
-    } catch (EvalException | InterruptedException e) {
-      mainRepoMapping = null;
+    StarlarkThreadContext threadContext = thread.getThreadLocal(StarlarkThreadContext.class);
+    RepositoryMapping mainRepoMapping = null;
+    if (threadContext != null) {
+      try {
+        mainRepoMapping = threadContext.getMainRepoMapping();
+      } catch (InterruptedException e) {
+        // ignore
+      }
     }
     printer.append(getDisplayForm(mainRepoMapping));
   }
