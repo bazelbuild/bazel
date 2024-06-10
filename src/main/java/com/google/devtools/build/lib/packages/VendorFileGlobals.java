@@ -27,7 +27,7 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
 
 /** Definition of the functions used in VENDOR.bazel file. */
-@GlobalMethods(environment = Environment.MODULE)
+@GlobalMethods(environment = Environment.VENDOR)
 public final class VendorFileGlobals {
   private VendorFileGlobals() {}
 
