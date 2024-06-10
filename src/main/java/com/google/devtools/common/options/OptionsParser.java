@@ -535,15 +535,13 @@ public class OptionsParser implements OptionsParsingResult {
 
     for (Map.Entry<OptionDocumentationCategory, List<OptionDefinition>> e :
         optionsByCategory.entrySet()) {
-      desc.append("<dl>");
-      String categoryDescription = optionCategoryDescriptions.get(e.getKey());
       List<OptionDefinition> categorizedOptionsList = e.getValue();
-
-      // Describe the category if we're going to end up using it at all.
-      if (!categorizedOptionsList.isEmpty()) {
-        desc.append(escaper.escape(categoryDescription)).append(":\n");
+      if (categorizedOptionsList.isEmpty()) {
+        continue;
       }
-      // Describe the options in this category.
+      String categoryDescription = optionCategoryDescriptions.get(e.getKey());
+
+      desc.append("<dl>").append(escaper.escape(categoryDescription)).append(":\n");
       for (OptionDefinition optionDef : categorizedOptionsList) {
         OptionsUsage.getUsageHtml(optionDef, desc, escaper, impl.getOptionsData(), true);
       }
