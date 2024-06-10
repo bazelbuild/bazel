@@ -749,20 +749,24 @@ public class CcStarlarkInternal implements StarlarkValue {
         libraryToLink.getNoneableValue("lto_compilation_context", LtoCompilationContext.class));
     builder.setPicLtoCompilationContext(
         libraryToLink.getNoneableValue("pic_lto_compilation_context", LtoCompilationContext.class));
-    builder.setSharedNonLtoBackends(
-        ImmutableMap.copyOf(
-            Dict.noneableCast(
-                libraryToLink.getValue("shared_non_lto_backends"),
-                Artifact.class,
-                LtoBackendArtifacts.class,
-                "shared_non_lto_backends")));
-    builder.setPicSharedNonLtoBackends(
-        ImmutableMap.copyOf(
-            Dict.noneableCast(
-                libraryToLink.getValue("pic_shared_non_lto_backends"),
-                Artifact.class,
-                LtoBackendArtifacts.class,
-                "shared_non_lto_backends")));
+    if (libraryToLink.getFieldNames().contains("shared_non_lto_backends")) {
+      builder.setSharedNonLtoBackends(
+          ImmutableMap.copyOf(
+              Dict.noneableCast(
+                  libraryToLink.getValue("shared_non_lto_backends"),
+                  Artifact.class,
+                  LtoBackendArtifacts.class,
+                  "shared_non_lto_backends")));
+    }
+    if (libraryToLink.getFieldNames().contains("pic_shared_non_lto_backends")) {
+      builder.setPicSharedNonLtoBackends(
+          ImmutableMap.copyOf(
+              Dict.noneableCast(
+                  libraryToLink.getValue("pic_shared_non_lto_backends"),
+                  Artifact.class,
+                  LtoBackendArtifacts.class,
+                  "shared_non_lto_backends")));
+    }
     if (libraryToLink.getFieldNames().contains("disable_whole_archive")) {
       builder.setDisableWholeArchive(
           libraryToLink.getValue("disable_whole_archive", Boolean.class));
