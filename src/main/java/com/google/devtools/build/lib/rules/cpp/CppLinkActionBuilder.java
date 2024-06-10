@@ -986,7 +986,6 @@ public class CppLinkActionBuilder {
     LinkCommandLine.Builder linkCommandLineBuilder =
         new LinkCommandLine.Builder()
             .setActionName(actionName)
-            .setLinkTargetType(linkType)
             .setSplitCommandLine(canSplitCommandLine())
             .setParameterFileType(
                 featureConfiguration.isEnabled(CppRuleClasses.GCC_QUOTING_FOR_PARAM_FILES)

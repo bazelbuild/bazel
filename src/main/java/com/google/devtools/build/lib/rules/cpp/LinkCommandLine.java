@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.rules.cpp.LinkBuildVariables.LINKER_PARAM_FILE;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.AbstractCommandLine;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
@@ -30,7 +29,6 @@ import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import java.util.Optional;
@@ -49,7 +47,6 @@ public final class LinkCommandLine extends AbstractCommandLine {
   private final CcToolchainVariables variables;
   // The feature config can be null for tests.
   @Nullable private final FeatureConfiguration featureConfiguration;
-  private final LinkTargetType linkTargetType;
 
   private final boolean splitCommandLine;
   private final ParameterFileType parameterFileType;
@@ -57,7 +54,6 @@ public final class LinkCommandLine extends AbstractCommandLine {
   private LinkCommandLine(
       String actionName,
       String forcedToolPath,
-      LinkTargetType linkTargetType,
       boolean splitCommandLine,
       ParameterFileType parameterFileType,
       CcToolchainVariables variables,
@@ -67,7 +63,6 @@ public final class LinkCommandLine extends AbstractCommandLine {
     this.forcedToolPath = forcedToolPath;
     this.variables = variables;
     this.featureConfiguration = featureConfiguration;
-    this.linkTargetType = Preconditions.checkNotNull(linkTargetType);
     this.splitCommandLine = splitCommandLine;
     this.parameterFileType = parameterFileType;
   }
@@ -84,7 +79,7 @@ public final class LinkCommandLine extends AbstractCommandLine {
       if (!featureConfiguration.actionIsConfigured(actionName)) {
         throw Starlark.errorf("Expected action_config for '%s' to be configured", actionName);
       }
-      return featureConfiguration.getToolPathForAction(linkTargetType.getActionName());
+      return featureConfiguration.getToolPathForAction(actionName);
     }
   }
 
@@ -166,7 +161,6 @@ public final class LinkCommandLine extends AbstractCommandLine {
   public static final class Builder {
 
     private String forcedToolPath;
-    @Nullable private LinkTargetType linkTargetType;
     private boolean splitCommandLine;
     private ParameterFileType parameterFileType = ParameterFileType.UNQUOTED;
     private CcToolchainVariables variables;
@@ -181,7 +175,6 @@ public final class LinkCommandLine extends AbstractCommandLine {
       return new LinkCommandLine(
           actionName,
           forcedToolPath,
-          linkTargetType,
           splitCommandLine,
           parameterFileType,
           variables,
@@ -199,19 +192,6 @@ public final class LinkCommandLine extends AbstractCommandLine {
     @CanIgnoreReturnValue
     public Builder setFeatureConfiguration(FeatureConfiguration featureConfiguration) {
       this.featureConfiguration = featureConfiguration;
-      return this;
-    }
-
-    /**
-     * Sets the type of the link. It is an error to try to set this to {@link
-     * LinkTargetType#INTERFACE_DYNAMIC_LIBRARY}. Note that all the static target types (see {@link
-     * LinkTargetType#linkerOrArchiver}) are equivalent, and there is no check that the output
-     * artifact matches the target type extension.
-     */
-    @CanIgnoreReturnValue
-    public Builder setLinkTargetType(LinkTargetType linkTargetType) {
-      Preconditions.checkArgument(linkTargetType != LinkTargetType.INTERFACE_DYNAMIC_LIBRARY);
-      this.linkTargetType = linkTargetType;
       return this;
     }
 

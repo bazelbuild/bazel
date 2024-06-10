@@ -59,7 +59,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuil
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
 import com.google.devtools.build.lib.rules.cpp.LegacyLinkerInputs.LibraryInput;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -699,8 +698,7 @@ public class CcStarlarkInternal implements StarlarkValue {
         new LinkCommandLine.Builder()
             .setActionName(actionName)
             .setBuildVariables(buildVariables)
-            .setFeatureConfiguration(featureConfiguration.getFeatureConfiguration())
-            .setLinkTargetType(LinkTargetType.EXECUTABLE);
+            .setFeatureConfiguration(featureConfiguration.getFeatureConfiguration());
     if (paramFileType instanceof String) {
       linkCommandLineBuilder
           .setParameterFileType(ParameterFileType.valueOf((String) paramFileType))
