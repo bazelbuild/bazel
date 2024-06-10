@@ -27,7 +27,7 @@ def _static_runtime_lib(static_runtime_lib):
     def static_runtime_lib_func(*, feature_configuration):
         if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "static_link_cpp_runtimes"):
             if static_runtime_lib == None:
-                fail("Toolchain supports embedded runtimes, but didn't provide static_runtime_lib attribute")
+                fail("Toolchain supports embedded runtimes, but didn't provide static_runtime_lib attribute.")
             return static_runtime_lib
         return depset()
 
@@ -37,7 +37,7 @@ def _dynamic_runtime_lib(dynamic_runtime_lib):
     def dynamic_runtime_lib_func(*, feature_configuration):
         if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "static_link_cpp_runtimes"):
             if dynamic_runtime_lib == None:
-                fail("Toolchain supports embedded runtimes, but didn't provide dynamic_runtime_lib attribute")
+                fail("Toolchain supports embedded runtimes, but didn't provide dynamic_runtime_lib attribute.")
             return dynamic_runtime_lib
         return depset()
 

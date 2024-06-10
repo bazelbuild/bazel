@@ -26,6 +26,7 @@ DebugPackageInfo = _builtins.toplevel.DebugPackageInfo
 cc_internal = _builtins.internal.cc_internal
 StaticallyLinkedMarkerInfo = _builtins.internal.StaticallyLinkedMarkerProvider
 
+# TODO(blaze-team): cleanup lint target types
 _EXECUTABLE = "executable"
 _DYNAMIC_LIBRARY = "dynamic_library"
 

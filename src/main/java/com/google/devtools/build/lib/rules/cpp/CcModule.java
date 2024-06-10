@@ -232,6 +232,7 @@ public abstract class CcModule
     }
   }
 
+  // TODO(blaze-team): duplicate with the getExecutionRequirements below
   @Override
   public Sequence<String> getToolRequirementForAction(
       FeatureConfigurationForStarlark featureConfiguration,
@@ -1977,8 +1978,8 @@ public abstract class CcModule
             }),
       })
   public void checkPrivateApi(Object allowlistObject, StarlarkThread thread) throws EvalException {
-    // Make sure that check_private_api is called either from builtins or allowlisted packages.
-    isCalledFromStarlarkCcCommon(thread);
+    // This method may be called anywhere from builtins, but not outside (because it's not exposed
+    // in cc_common.bzl
     BazelModuleContext bazelModuleContext =
         (BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread, 1).getClientData();
     ImmutableList<BuiltinRestriction.AllowlistEntry> allowlist =

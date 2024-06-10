@@ -427,7 +427,8 @@ public class CcCommonTest extends BuildViewTestCase {
     SpawnAction action = (SpawnAction) getGeneratingAction(getExecutable(target));
     for (Artifact input : action.getInputs().toList()) {
       String name = input.getFilename();
-      assertThat(!CppFileTypes.ARCHIVE.matches(name) && !CppFileTypes.PIC_ARCHIVE.matches(name))
+      assertWithMessage("Expect '%s' not to be an archive", name)
+          .that(!CppFileTypes.ARCHIVE.matches(name) && !CppFileTypes.PIC_ARCHIVE.matches(name))
           .isTrue();
     }
   }
