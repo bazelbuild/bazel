@@ -602,6 +602,7 @@ public class CppLinkActionBuilder {
     }
   }
 
+  // LINT.IfChange
   /**
    * When using this, allLtoArtifacts are stored so the next build() call can emit the real link. Do
    * not call addInput() between the two build() calls.
@@ -745,6 +746,8 @@ public class CppLinkActionBuilder {
         buildVariables.build(),
         userLinkFlags);
   }
+
+  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/lto_indexing_action.bzl)
 
   // LINT.IfChange
   /** Builds the Action as configured and returns it. */

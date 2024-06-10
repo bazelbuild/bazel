@@ -357,6 +357,13 @@ public final class CppConfiguration extends Fragment
     return ltoindexOptions;
   }
 
+  @StarlarkMethod(name = "lto_index_options", documented = false, useStarlarkThread = true)
+  public ImmutableList<String> getLtoIndexOptionsForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return ltoindexOptions;
+  }
+
   /** Returns the set of command-line LTO backend options. */
   public ImmutableList<String> getLtoBackendOptions() {
     return ltobackendOptions;

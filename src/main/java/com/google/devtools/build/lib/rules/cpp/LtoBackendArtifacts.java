@@ -210,6 +210,18 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
     return getDwoFile();
   }
 
+  @StarlarkMethod(name = "index", documented = false, structField = true, allowReturnNones = true)
+  @Nullable
+  public Artifact getIndex() {
+    return index;
+  }
+
+  @StarlarkMethod(name = "imports", documented = false, structField = true, allowReturnNones = true)
+  @Nullable
+  public Artifact getImports() {
+    return imports;
+  }
+
   void addIndexingOutputs(ImmutableSet.Builder<Artifact> builder) {
     // For objects from linkstatic libraries, we may not be including them in the LTO indexing
     // step when linked into a test, but rather will use shared non-LTO backends for better
