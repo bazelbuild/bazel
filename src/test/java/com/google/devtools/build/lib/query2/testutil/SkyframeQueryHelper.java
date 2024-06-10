@@ -78,6 +78,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -123,10 +124,15 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     analysisMock = AnalysisMock.get();
     rootDirectory = createDir(getRootDirectoryNameForSetup());
     outputBase = createDir(fileSystem.getPath("/output").getPathString());
-    rootDirectory = createDir(getRootDirectoryNameForSetup());
     directories =
         new BlazeDirectories(
-            new ServerDirectories(rootDirectory, outputBase, outputBase),
+            new ServerDirectories(
+                rootDirectory,
+                outputBase,
+                outputBase,
+                outputBase.getRelative(ServerDirectories.EXECROOT),
+                useVirtualSourceRoot() ? Root.fromPath(rootDirectory) : null,
+                /* installMD5= */ null),
             rootDirectory,
             /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
@@ -155,6 +161,11 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   }
 
   protected abstract String getRootDirectoryNameForSetup();
+
+  @ForOverride
+  protected boolean useVirtualSourceRoot() {
+    return false;
+  }
 
   protected abstract void performAdditionalClientSetup(MockToolsConfig mockToolsConfig)
       throws IOException;

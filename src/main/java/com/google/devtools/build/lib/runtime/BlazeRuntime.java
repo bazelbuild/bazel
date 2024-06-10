@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatters;
+import com.google.devtools.build.lib.runtime.BlazeModule.ModuleFileSystem;
 import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
@@ -102,6 +103,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.common.options.CommandNameCache;
 import com.google.devtools.common.options.InvocationPolicyParser;
@@ -1172,6 +1174,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     PathFragment outputUserRoot = startupOptions.outputUserRoot;
     PathFragment installBase = startupOptions.installBase;
     PathFragment outputBase = startupOptions.outputBase;
+    PathFragment realExecRootBase = outputBase.getRelative(ServerDirectories.EXECROOT);
 
     maybeForceJNIByGettingPid(installBase); // Must be before first use of JNI.
 
@@ -1192,14 +1195,15 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
 
     FileSystem nativeFs = null;
-    Path execRootBasePath = null;
+    Optional<Root> virtualSourceRoot = Optional.empty();
+    Optional<Path> virtualExecRootBase = Optional.empty();
     for (BlazeModule module : blazeModules) {
-      BlazeModule.ModuleFileSystem moduleFs =
-          module.getFileSystem(options, outputBase.getRelative(ServerDirectories.EXECROOT));
+      ModuleFileSystem moduleFs = module.getFileSystem(options, realExecRootBase);
       if (moduleFs != null) {
-        execRootBasePath = moduleFs.virtualExecRootBase();
         Preconditions.checkState(nativeFs == null, "more than one module returns a file system");
         nativeFs = moduleFs.fileSystem();
+        virtualSourceRoot = moduleFs.virtualSourceRoot();
+        virtualExecRootBase = moduleFs.virtualExecRootBase();
       }
     }
 
@@ -1264,9 +1268,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     Path outputUserRootPath = fs.getPath(outputUserRoot);
     Path installBasePath = fs.getPath(installBase);
     Path outputBasePath = fs.getPath(outputBase);
-    if (execRootBasePath == null) {
-      execRootBasePath = outputBasePath.getRelative(ServerDirectories.EXECROOT);
-    }
+    Path execRootBasePath = virtualExecRootBase.orElseGet(() -> fs.getPath(realExecRootBase));
     Path workspaceDirectoryPath = null;
     if (!workspaceDirectory.equals(PathFragment.EMPTY_FRAGMENT)) {
       workspaceDirectoryPath = nativeFs.getPath(workspaceDirectory);
@@ -1282,6 +1284,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             outputBasePath,
             outputUserRootPath,
             execRootBasePath,
+            virtualSourceRoot.orElse(null),
             startupOptions.installMD5);
     Clock clock = BlazeClock.instance();
     BlazeRuntime.Builder runtimeBuilder =

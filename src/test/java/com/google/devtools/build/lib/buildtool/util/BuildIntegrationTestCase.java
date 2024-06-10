@@ -137,6 +137,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.lib.worker.WorkerModule;
@@ -265,6 +266,7 @@ public abstract class BuildIntegrationTestCase {
             /* outputBase= */ outputBase,
             /* outputUserRoot= */ outputBase,
             /* execRootBase= */ getExecRootBase(),
+            /* virtualSourceRoot= */ getVirtualSourceRoot(),
             // Arbitrary install base hash.
             /* installMD5= */ "83bc4458738962b9b77480bac76164a9");
     directories =
@@ -335,8 +337,14 @@ public abstract class BuildIntegrationTestCase {
         BugReport.handleCrash(Crash.from(exception), CrashContext.keepAlive());
   }
 
+  @ForOverride
+  @Nullable
+  protected Root getVirtualSourceRoot() {
+    return null;
+  }
+
   protected Path getExecRootBase() {
-    return outputBase.getRelative("execroot");
+    return outputBase.getRelative(ServerDirectories.EXECROOT);
   }
 
   protected void createRuntimeWrapper() throws Exception {
