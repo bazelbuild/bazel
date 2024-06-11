@@ -260,7 +260,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "local",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "No-op, deprecated. See https://github.com/bazelbuild/bazel/issues/7480 for details.")
+      help = "Deprecated. See https://github.com/bazelbuild/bazel/issues/7480 for details.")
   public String remoteLocalFallbackStrategy;
 
   @Option(
@@ -272,18 +272,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
           "Whether to upload locally executed action results to the remote cache if the remote "
               + "cache supports it and the user is authorized to do so.")
   public boolean remoteUploadLocalResults;
-
-  @Deprecated
-  @Option(
-      name = "incompatible_remote_build_event_upload_respect_no_cache",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      deprecationWarning =
-          "--incompatible_remote_build_event_upload_respect_no_cache has been deprecated in favor"
-              + " of --remote_build_event_upload=minimal.",
-      help = "Deprecated. No-op. Use --remote_build_event_upload=minimal instead.")
-  public boolean incompatibleRemoteBuildEventUploadRespectNoCache;
 
   @Option(
       name = "remote_build_event_upload",
@@ -308,16 +296,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
       super(RemoteBuildEventUploadMode.class, "remote build event upload");
     }
   }
-
-  @Option(
-      name = "incompatible_remote_results_ignore_disk",
-      defaultValue = "true",
-      category = "remote",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "No-op")
-  public boolean incompatibleRemoteResultsIgnoreDisk;
 
   @Option(
       name = "incompatible_remote_output_paths_relative_to_input_root",
