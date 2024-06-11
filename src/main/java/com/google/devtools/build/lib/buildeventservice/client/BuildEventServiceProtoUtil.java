@@ -126,10 +126,30 @@ public final class BuildEventServiceProtoUtil {
     };
   }
 
+  public record SerializedEvent(PublishBuildToolEventStreamRequest request) implements StreamEvent {
+    @Override
+    public CommandContext commandContext() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Instant eventTime() {
+      return toInstant(request.getOrderedBuildEvent().getEvent().getEventTime());
+    }
+
+    @Override
+    public long sequenceNumber() {
+      return request.getOrderedBuildEvent().getSequenceNumber();
+    }
+  }
+
   /** Creates a {@link PublishBuildToolEventStreamRequest} from a {@link StreamEvent}. */
   public static PublishBuildToolEventStreamRequest publishBuildToolEventStreamRequest(
       StreamEvent streamEvent) {
     return switch (streamEvent) {
+      case SerializedEvent(
+              PublishBuildToolEventStreamRequest request) ->
+          request;
       case StreamEvent.BazelEvent(
               CommandContext commandContext,
               Instant eventTime,
@@ -165,6 +185,10 @@ public final class BuildEventServiceProtoUtil {
         BuildEvent.newBuilder()
             .setComponentStreamFinished(
                 BuildComponentStreamFinished.newBuilder().setType(FINISHED)));
+  }
+
+  public static boolean isStreamFinishedRequest(PublishBuildToolEventStreamRequest request) {
+    return request.getOrderedBuildEvent().getEvent().getComponentStreamFinished().getType() == FINISHED;
   }
 
   @VisibleForTesting
@@ -236,5 +260,9 @@ public final class BuildEventServiceProtoUtil {
         .setSeconds(instant.getEpochSecond())
         .setNanos(instant.getNano())
         .build();
+  }
+
+  private static Instant toInstant(Timestamp timestamp) {
+    return Instant.ofEpochSecond(timestamp.getSeconds(), timestamp.getNanos());
   }
 }

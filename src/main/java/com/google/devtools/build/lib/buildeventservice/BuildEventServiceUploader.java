@@ -105,6 +105,8 @@ public final class BuildEventServiceUploader implements Runnable {
         ListenableFuture<PathConverter> localFileUploadProgress)
         implements SendBuildEvent {}
 
+    record SendStreamEvent(StreamEvent streamEvent) implements Command {}
+
     /** Tells the event loop that this is the last event of the stream. */
     record SendLastBuildEvent(long sequenceNumber, Instant creationTime)
         implements SendBuildEvent {}
@@ -427,8 +429,9 @@ public final class BuildEventServiceUploader implements Runnable {
     // Every build event sent to the server needs to be acknowledged by it. This queue stores
     // the build events that have been sent and still have to be acknowledged by the server.
     // The build events are stored in the order they were sent.
-    Deque<Command.SendBuildEvent> ackQueue = new ArrayDeque<>();
+    Deque<Command.SendStreamEvent> ackQueue = new ArrayDeque<>();
     boolean lastEventSent = false;
+    long lastEventSeqNum = -1;
     int acksReceived = 0;
     int retryAttempt = 0;
 
@@ -458,9 +461,6 @@ public final class BuildEventServiceUploader implements Runnable {
                 (status) -> commandQueue.addLast(new Command.StreamComplete(status)));
           }
           case Command.SendRegularBuildEvent sendRegularBuildEventCmd -> {
-            // Invariant: commandQueue may contain commands of any type
-            ackQueue.addLast(sendRegularBuildEventCmd);
-
             PathConverter pathConverter = waitForUploads(sendRegularBuildEventCmd);
 
             BuildEventStreamProtos.BuildEvent serializedRegularBuildEvent =
@@ -473,18 +473,19 @@ public final class BuildEventServiceUploader implements Runnable {
                     sendRegularBuildEventCmd.sequenceNumber(),
                     serializedRegularBuildEvent.toByteString());
 
-            streamContext.sendOverStream(bazelEvent);
+            // Invariant: commandQueue may contain commands of any type
+            ackQueue.addLast(new Command.SendStreamEvent(streamContext.sendOverStream(bazelEvent)));
           }
           case Command.SendLastBuildEvent sendLastBuildEventCmd -> {
-            // Invariant: the commandQueue may contain commands of any type
-            ackQueue.addLast(sendLastBuildEventCmd);
             lastEventSent = true;
+            lastEventSeqNum = sendLastBuildEventCmd.sequenceNumber();
             var streamFinishedEvent =
                 new StreamEvent.StreamFinished(
                     commandContext,
                     sendLastBuildEventCmd.creationTime(),
-                    sendLastBuildEventCmd.sequenceNumber());
-            streamContext.sendOverStream(streamFinishedEvent);
+                    lastEventSeqNum);
+            // Invariant: the commandQueue may contain commands of any type
+            ackQueue.addLast(new Command.SendStreamEvent(streamContext.sendOverStream(streamFinishedEvent)));
             streamContext.halfCloseStream();
             halfCloseFuture.set(null);
             logger.atInfo().log("BES uploader is half-closed");
@@ -492,16 +493,17 @@ public final class BuildEventServiceUploader implements Runnable {
           case Command.AckReceived ackReceivedCmd -> {
             // Invariant: the commandQueue may contain commands of any type
             if (!ackQueue.isEmpty()) {
-              Command.SendBuildEvent expected = ackQueue.removeFirst();
+              Command.SendStreamEvent expected = ackQueue.removeFirst();
               long actualSeqNum = ackReceivedCmd.sequenceNumber();
-              if (expected.sequenceNumber() == actualSeqNum) {
+              long expectedSeqNum = expected.streamEvent().sequenceNumber();
+              if (expectedSeqNum == actualSeqNum) {
                 acksReceived++;
               } else {
                 ackQueue.addFirst(expected);
                 String message =
                     String.format(
                         "Expected ACK with seqNum=%d but received ACK with seqNum=%d",
-                        expected.sequenceNumber(), actualSeqNum);
+                        expectedSeqNum, actualSeqNum);
                 logger.atInfo().log("%s", message);
                 streamContext.abortStream(Status.FAILED_PRECONDITION.withDescription(message));
               }
@@ -567,7 +569,7 @@ public final class BuildEventServiceUploader implements Runnable {
             // Retry logic
             // Adds build event commands from the ackQueue to the front of the commandQueue, so that
             // the commands in the commandQueue are sorted by sequence number (ascending).
-            Command.SendBuildEvent unacked;
+            Command.SendStreamEvent unacked;
             while ((unacked = ackQueue.pollLast()) != null) {
               commandQueue.addFirst(unacked);
             }
@@ -586,6 +588,17 @@ public final class BuildEventServiceUploader implements Runnable {
             }
             acksReceived = 0;
             commandQueue.addFirst(new Command.OpenStream());
+          }
+          case Command.SendStreamEvent sendStreamEventCmd -> {
+            var streamEvent = sendStreamEventCmd.streamEvent();
+            // Invariant: the commandQueue may contain commands of any type
+            streamContext.sendOverStream(streamEvent);
+            ackQueue.addLast(sendStreamEventCmd);
+            if (streamEvent.sequenceNumber() == lastEventSeqNum) {
+              streamContext.halfCloseStream();
+              halfCloseFuture.set(null);
+              logger.atInfo().log("BES uploader is half-closed");
+            }
           }
         }
       }
@@ -609,22 +622,16 @@ public final class BuildEventServiceUploader implements Runnable {
           GoogleAutoProfilerUtils.logged("local file upload cancellation")) {
         // Cancel all pending local file uploads.
         Command cmd;
-        while ((cmd = ackQueue.pollFirst()) != null) {
-          if (cmd instanceof Command.SendRegularBuildEvent sendRegularBuildEventCmd) {
-            cancelLocalFileUpload(sendRegularBuildEventCmd);
-          }
-        }
         while ((cmd = commandQueue.pollFirst()) != null) {
           if (cmd instanceof Command.SendRegularBuildEvent sendRegularBuildEventCmd) {
-            cancelLocalFileUpload(sendRegularBuildEventCmd);
+            cancelLocalFileUpload(sendRegularBuildEventCmd.localFileUploadProgress());
           }
         }
       }
     }
   }
 
-  private void cancelLocalFileUpload(Command.SendRegularBuildEvent cmd) {
-    ListenableFuture<PathConverter> localFileUploaderFuture = cmd.localFileUploadProgress();
+  private void cancelLocalFileUpload(ListenableFuture<PathConverter> localFileUploaderFuture) {
     if (!localFileUploaderFuture.isDone()) {
       localFileUploaderFuture.cancel(true);
     }

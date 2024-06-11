@@ -113,7 +113,7 @@ public interface BuildEventServiceClient {
   }
 
   /** An event sent over a {@link StreamContext}. */
-  sealed interface StreamEvent {
+  sealed interface StreamEvent permits StreamEvent.BazelEvent, StreamEvent.StreamFinished, BuildEventServiceProtoUtil.SerializedEvent {
     /** The command context for the event. */
     CommandContext commandContext();
 
@@ -161,9 +161,12 @@ public interface BuildEventServiceClient {
      * will fail silently and report the error via the {@link ListenableFuture} returned by {@link
      * #getStatus()}.
      *
+     * The StreamEvent returned must be used to resend in the event of a retried send to reduce
+     * memory consumption with excessive references to build state.
+     *
      * <p>This method may block due to flow control.
      */
-    void sendOverStream(StreamEvent streamEvent) throws InterruptedException;
+    StreamEvent sendOverStream(StreamEvent streamEvent) throws InterruptedException;
 
     /**
      * Half closes the currently opened stream. This method does not block. Callers should block on
