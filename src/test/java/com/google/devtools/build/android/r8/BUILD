@@ -36,13 +36,9 @@ java_library(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+        "@android_gmaven_r8//jar",
         "@bazel_tools//tools/java/runfiles",
-    ] + select({
-        "//external:has_androidsdk": [
-            "//external:android/d8_jar_import",
-        ],
-        "//conditions:default": [],
-    }),
+    ],
 )
 
 java_test(
