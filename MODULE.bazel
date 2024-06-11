@@ -326,12 +326,19 @@ use_repo(gvm, "graalvm_toolchains")
 
 http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 
-# DO NOT UPDATE the jq version, this is used to verify compatibility with old versions.
+# DO NOT UPDATE the jq versions, they are used to verify compatibility with old and new versions.
 http_file(
     name = "jq_linux_amd64",
     executable = True,
     integrity = "sha256-xrOn19PntwxvUbcGo7kL0BgzhGxU0yyjLwAn8AIm/20=",
     urls = ["https://github.com/jqlang/jq/releases/download/jq-1.5/jq-linux64"],
+)
+
+http_file(
+    name = "jq_linux_arm64",
+    executable = True,
+    integrity = "sha256-TdLYoGYd8LIvG7mh+YMPBrbzuPfZEhGh7118TwaotKU=",
+    urls = ["https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-arm64"],
 )
 
 http_file(
