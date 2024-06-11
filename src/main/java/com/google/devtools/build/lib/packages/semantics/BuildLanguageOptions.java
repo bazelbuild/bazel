@@ -76,24 +76,6 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " user .bzl files and may only be called from their respective rules repositories.")
   public boolean incompatibleStopExportingLanguageModules;
 
-  @Option(
-      name = "incompatible_remove_rule_name_parameter",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.DEPRECATED},
-      help = "No-op")
-  public boolean incompatibleRemoveRuleNameParameter;
-
-  @Option(
-      name = "incompatible_disallow_symlink_file_to_dir",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "No-op.")
-  public boolean incompatibleDisallowSymlinkFileToDir;
-
   // TODO(#11437): Delete the special empty string value so that it's on unconditionally.
   @Option(
       name = "experimental_builtins_bzl_path",
