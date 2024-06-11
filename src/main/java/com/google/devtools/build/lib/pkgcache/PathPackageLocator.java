@@ -44,15 +44,16 @@ public final class PathPackageLocator {
   private static final String WORKSPACE_WILDCARD = "%workspace%";
 
   private final ImmutableList<Root> pathEntries;
+
   // Transient because this is an injected value in Skyframe, and as such, its serialized
   // representation is used as a key. We want a change to output base not to invalidate things.
-  private final transient Path outputBase;
+  @Nullable private final transient Path outputBase;
 
   private final ImmutableList<BuildFileName> buildFilesByPriority;
 
   @VisibleForTesting
   public PathPackageLocator(
-      Path outputBase, List<Root> pathEntries, List<BuildFileName> buildFilesByPriority) {
+      @Nullable Path outputBase, List<Root> pathEntries, List<BuildFileName> buildFilesByPriority) {
     this.outputBase = outputBase;
     this.pathEntries = ImmutableList.copyOf(pathEntries);
     this.buildFilesByPriority = ImmutableList.copyOf(buildFilesByPriority);
@@ -175,7 +176,9 @@ public final class PathPackageLocator {
    *     provided.
    */
   public static PathPackageLocator createWithoutExistenceCheck(
-      Path outputBase, List<Root> pathElements, List<BuildFileName> buildFilesByPriority) {
+      @Nullable Path outputBase,
+      List<Root> pathElements,
+      List<BuildFileName> buildFilesByPriority) {
     return new PathPackageLocator(outputBase, pathElements, buildFilesByPriority);
   }
 
@@ -274,6 +277,7 @@ public final class PathPackageLocator {
         && Objects.equals(outputBase, pathPackageLocator.outputBase);
   }
 
+  @Nullable
   public Path getOutputBase() {
     return outputBase;
   }

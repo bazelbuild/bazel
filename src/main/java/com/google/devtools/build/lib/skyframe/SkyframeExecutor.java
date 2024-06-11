@@ -34,7 +34,6 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
@@ -1507,17 +1506,22 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     PathPackageLocator oldLocator = this.pkgLocator.getAndSet(pkgLocator);
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(injectable(), pkgLocator);
 
-    if (!pkgLocator.equals(oldLocator)) {
+    if (oldLocator != null && !pkgLocator.equals(oldLocator)) {
+      checkState(
+          directories.getVirtualSourceRoot() == null,
+          "Package locator should not change when using a virtual source root (%s -> %s)",
+          oldLocator,
+          pkgLocator);
       // The package path is read not only by SkyFunctions but also by some other code paths.
       // We need to take additional steps to keep the corresponding data structures in sync.
       // (Some of the additional steps are carried out by ConfiguredTargetValueInvalidationListener,
       // and some by BuildView#buildHasIncompatiblePackageRoots and #updateSkyframe.)
-      onPkgLocatorChange(oldLocator, pkgLocator);
+      onPkgLocatorChange();
     }
   }
 
-  protected abstract void onPkgLocatorChange(
-      PathPackageLocator oldLocator, PathPackageLocator pkgLocator);
+  @ForOverride
+  void onPkgLocatorChange() {}
 
   public SkyframeBuildView getSkyframeBuildView() {
     return skyframeBuildView;
@@ -2215,7 +2219,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * done.
    */
   public void clearExecutionStatesSkymeld(ExtendedEventHandler eventHandler) {
-    Preconditions.checkNotNull(watchdog).stop();
+    watchdog.stop();
     watchdog = null;
     cleanUpAfterSingleEvaluationWithActionExecution(eventHandler);
     statusReporterRef.get().unregisterFromEventBus();
@@ -2686,17 +2690,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     PrecomputedValue.ACTION_ENV.set(injectable(), actionEnv);
   }
 
-  public PathPackageLocator createPackageLocator(
-      ExtendedEventHandler eventHandler, List<String> packagePaths, Path workingDirectory) {
-    return PathPackageLocator.create(
-        directories.getOutputBase(),
-        packagePaths,
-        eventHandler,
-        directories.getWorkspace().asFragment(),
-        workingDirectory,
-        buildFilesByPriority);
-  }
-
   private CyclesReporter createCyclesReporter() {
     return new CyclesReporter(
         new TargetCycleReporter(packageManager),
@@ -2740,6 +2733,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @Nullable
   public PackageProgressReceiver getPackageProgressReceiver() {
     return packageProgress;
+  }
+
+  public final ImmutableList<BuildFileName> getBuildFilesByPriority() {
+    return buildFilesByPriority;
   }
 
   /**

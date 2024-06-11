@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
-import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -194,6 +193,7 @@ public class CommandEnvironment {
       Command command,
       OptionsParsingResult options,
       InvocationPolicy invocationPolicy,
+      @Nullable PathPackageLocator packageLocator,
       SyscallCache syscallCache,
       QuiescingExecutors quiescingExecutors,
       List<String> warnings,
@@ -214,6 +214,7 @@ public class CommandEnvironment {
     this.command = command;
     this.options = options;
     this.invocationPolicy = invocationPolicy;
+    this.packageLocator = packageLocator;
     this.shutdownReasonConsumer = shutdownReasonConsumer;
     this.syscallCache = syscallCache;
     this.quiescingExecutors = quiescingExecutors;
@@ -251,20 +252,6 @@ public class CommandEnvironment {
     this.waitTime = Duration.ofMillis(waitTimeInMs + commandOptions.waitTime);
     this.commandStartTime = commandStartTime - commandOptions.startupTime;
     this.commandExtensions = ImmutableList.copyOf(commandExtensions);
-    // If this command supports --package_path we initialize the package locator scoped
-    // to the command environment
-    PackageOptions pkgOptions = options.getOptions(PackageOptions.class);
-    if (pkgOptions != null && directories.getWorkspace() != null) {
-      this.packageLocator =
-          workspace
-              .getSkyframeExecutor()
-              .createPackageLocator(
-                  reporter,
-                  options.getOptions(PackageOptions.class).packagePath,
-                  directories.getWorkspace());
-    } else {
-      this.packageLocator = null;
-    }
     workspace.getSkyframeExecutor().setEventBus(eventBus);
     eventBus.register(this);
 
