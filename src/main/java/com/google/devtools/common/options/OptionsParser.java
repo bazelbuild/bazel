@@ -337,6 +337,7 @@ public class OptionsParser implements OptionsParsingResult {
    * upon error. Also, prints out the usage message if "--help" appears anywhere within {@code
    * args}.
    */
+  @SuppressWarnings("SystemExitOutsideMain")
   public void parseAndExitUponError(
       OptionPriority.PriorityCategory priority, String source, String[] args) {
     for (String arg : args) {
