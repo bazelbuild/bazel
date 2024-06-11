@@ -34,7 +34,7 @@ public final class MemoryPressureModule extends BlazeModule {
   @Nullable private EventBus eventBus;
 
   @Override
-  public ImmutableList<Class<? extends OptionsBase>> getCommandOptions(Command command) {
+  public ImmutableList<Class<? extends OptionsBase>> getCommonCommandOptions() {
     return ImmutableList.of(MemoryPressureOptions.class);
   }
 
