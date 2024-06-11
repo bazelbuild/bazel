@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
@@ -57,25 +56,38 @@ public class VendorManager {
     }
 
     for (RepositoryName repo : reposToVendor) {
-      // Only re-vendor the repository if it is not up-to-date.
-      if (!isRepoUpToDate(repo, externalRepoRoot)) {
-        Path markerUnderVendor = vendorDirectory.getChild(repo.getMarkerFileName());
-        Path repoUnderVendor = vendorDirectory.getRelative(repo.getName());
-
-        // 1. Clean up existing marker file and repo vendor directory
-        markerUnderVendor.delete();
-        repoUnderVendor.deleteTree();
-        repoUnderVendor.createDirectory();
-
-        // 2. Copy over the repo source.
-        FileSystemUtils.copyTreesBelow(
-            externalRepoRoot.getRelative(repo.getName()), repoUnderVendor, Symlinks.NOFOLLOW);
-
-        // 3. Copy the marker file atomically
-        Path tMarker = vendorDirectory.getChild(repo.getMarkerFileName() + ".tmp");
-        FileSystemUtils.copyFile(externalRepoRoot.getChild(repo.getMarkerFileName()), tMarker);
-        tMarker.renameTo(markerUnderVendor);
+      Path repoUnderExternal = externalRepoRoot.getChild(repo.getName());
+      Path repoUnderVendor = vendorDirectory.getChild(repo.getName());
+      // This could happen when running the vendor command twice without changing anything.
+      if (repoUnderExternal.isSymbolicLink()
+          && repoUnderExternal.resolveSymbolicLinks().equals(repoUnderVendor)) {
+        continue;
       }
+
+      // At this point, the repo should exist under external dir, but check if the vendor src is
+      // already up-to-date.
+      Path markerUnderExternal = externalRepoRoot.getChild(repo.getMarkerFileName());
+      Path markerUnderVendor = vendorDirectory.getChild(repo.getMarkerFileName());
+      if (isRepoUpToDate(markerUnderVendor, markerUnderExternal)) {
+        continue;
+      }
+
+      // Actually vendor the repo:
+      // 1. Clean up existing marker file and vendor dir.
+      markerUnderVendor.delete();
+      repoUnderVendor.deleteTree();
+      repoUnderVendor.createDirectory();
+      // 2. Move the marker file to a temporary one under vendor dir.
+      Path tMarker = vendorDirectory.getChild(repo.getMarkerFileName() + ".tmp");
+      FileSystemUtils.moveFile(markerUnderExternal, tMarker);
+      // 3. Move the external repo to vendor dir. It's fine if this step fails or is interrupted,
+      // because the marker file under external is gone anyway.
+      FileSystemUtils.moveTreesBelow(repoUnderExternal, repoUnderVendor);
+      // 4. Rename to temporary marker file after the move is done.
+      tMarker.renameTo(markerUnderVendor);
+      // 5. Leave a symlink in external dir.
+      repoUnderExternal.deleteTree();
+      FileSystemUtils.ensureSymbolicLink(repoUnderExternal, repoUnderVendor);
     }
   }
 
@@ -131,20 +143,18 @@ public class VendorManager {
    * one under <output_base>/external. This function assumes the marker file under
    * <output_base>/external exists and is up-to-date.
    *
-   * @param repo The name of the repository.
-   * @param externalPath The root directory of the external repositories.
+   * @param markerUnderVendor The marker file path under vendor dir
+   * @param markerUnderExternal The marker file path under external dir
    * @return true if the repository is up-to-date, false otherwise.
    * @throws IOException if an I/O error occurs.
    */
-  private boolean isRepoUpToDate(RepositoryName repo, Path externalPath) throws IOException {
-    Path vendorMarkerFile = vendorDirectory.getChild(repo.getMarkerFileName());
-    if (!vendorMarkerFile.exists()) {
+  private boolean isRepoUpToDate(Path markerUnderVendor, Path markerUnderExternal)
+      throws IOException {
+    if (!markerUnderVendor.exists()) {
       return false;
     }
-
-    Path externalMarkerFile = externalPath.getChild(repo.getMarkerFileName());
-    String vendorMarkerContent = FileSystemUtils.readContent(vendorMarkerFile, UTF_8);
-    String externalMarkerContent = FileSystemUtils.readContent(externalMarkerFile, UTF_8);
+    String vendorMarkerContent = FileSystemUtils.readContent(markerUnderVendor, UTF_8);
+    String externalMarkerContent = FileSystemUtils.readContent(markerUnderExternal, UTF_8);
     return Objects.equals(vendorMarkerContent, externalMarkerContent);
   }
 
