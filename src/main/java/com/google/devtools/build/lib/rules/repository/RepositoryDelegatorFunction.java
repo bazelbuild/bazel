@@ -549,7 +549,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     if (!WorkspaceFileHelper.isValidRepoRoot(destination)) {
       throw new RepositoryFunctionException(
           new IOException("No MODULE.bazel, REPO.bazel, or WORKSPACE file found in " + destination),
-          Transience.PERSISTENT);
+          Transience.TRANSIENT);
     }
     return RepositoryDirectoryValue.builder().setExcludeFromVendoring(true).setPath(source);
   }
