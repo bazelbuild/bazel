@@ -536,6 +536,13 @@ public class OptionsParser implements OptionsParsingResult {
     for (Map.Entry<OptionDocumentationCategory, List<OptionDefinition>> e :
         optionsByCategory.entrySet()) {
       List<OptionDefinition> categorizedOptionsList = e.getValue();
+      categorizedOptionsList =
+          categorizedOptionsList.stream()
+              .filter(
+                  optionDef ->
+                      Arrays.stream(optionDef.getOptionEffectTags())
+                          .noneMatch(effectTag -> effectTag.equals(OptionEffectTag.NO_OP)))
+              .collect(toImmutableList());
       if (categorizedOptionsList.isEmpty()) {
         continue;
       }
