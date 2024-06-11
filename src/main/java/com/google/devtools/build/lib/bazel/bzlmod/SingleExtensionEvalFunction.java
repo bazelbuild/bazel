@@ -943,7 +943,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           } catch (IOException e1) {
             ExternalDepsException externalDepsException =
                 ExternalDepsException.withCauseAndMessage(
-                    ExternalDeps.Code.UNRECOGNIZED,
+                    ExternalDeps.Code.EXTERNAL_DEPS_UNKNOW,
                     e1,
                     "Failed to clean up module context directory");
             throw new SingleExtensionEvalFunctionException(
