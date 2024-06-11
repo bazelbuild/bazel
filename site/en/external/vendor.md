@@ -81,8 +81,9 @@ repository cache.
 Therefore, you should be able to check in the vendored source and build the same
 targets offline on another machine.
 
-Note: If you build different targets or change the external dependencies, build
-configuration, or Bazel version, you may need to re-vendor.
+Note: If you make changes to the targets to build, the external dependencies,
+the build configuration, or the Bazel version, you may need to re-vendor to make
+sure offline build still works.
 
 ## Vendor all external dependencies {:#vendor-all-dependencies}
 
@@ -139,7 +140,7 @@ always excluded from vendoring.
 ## Understand how vendor mode works {:#how-vendor-mode-works}
 
 Bazel fetches external dependencies of a project under `$(bazel info
-output_base)/external`. Vendoring external dependencies means copying out
+output_base)/external`. Vendoring external dependencies means moving out
 relevant files and directories to a given vendor directory and use the vendored
 source for later builds.
 
