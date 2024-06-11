@@ -409,7 +409,6 @@ bazel_fragments["ProtoConfiguration$Options"] = fragment(
         "//command_line_option:proto_compiler",
         "//command_line_option:protocopt",
         "//command_line_option:experimental_proto_descriptor_sets_include_source_info",
-        "//command_line_option:experimental_proto_extra_actions",
         "//command_line_option:proto_toolchain_for_java",
         "//command_line_option:proto_toolchain_for_j2objc",
         "//command_line_option:proto_toolchain_for_javalite",

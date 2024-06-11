@@ -269,8 +269,42 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testDescriptorSetOutput_strict_deps_strict() throws Exception {
+    useConfiguration("--proto_compiler=//proto:compiler", "--strict_proto_deps=strict");
+    ConfiguredTarget target =
+        scratchConfiguredTarget(
+            "x",
+            "foo",
+            TestConstants.LOAD_PROTO_LIBRARY,
+            "proto_library(name='foo', srcs=['foo.proto', 'bar.proto'])");
+    Artifact file = getFirstArtifactEndingWith(getFilesToBuild(target), ".proto.bin");
+    assertThat(file.getRootRelativePathString()).isEqualTo("x/foo-descriptor-set.proto.bin");
+
+    assertThat(getGeneratingSpawnAction(file).getRemainingArguments())
+        .containsAtLeast("--direct_dependencies", "x/foo.proto:x/bar.proto")
+        .inOrder();
+  }
+
+  @Test
   public void testDescriptorSetOutput_strictDeps_disabled() throws Exception {
     useConfiguration("--proto_compiler=//proto:compiler", "--strict_proto_deps=off");
+    scratch.file(
+        "x/BUILD",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "proto_library(name='foo', srcs=['foo.proto'])");
+
+    for (String arg :
+        getGeneratingSpawnAction(getDescriptorOutput("//x:foo")).getRemainingArguments()) {
+      assertThat(arg).doesNotContain("--direct_dependencies=");
+      assertThat(arg)
+          .doesNotContain(
+              String.format(ProtoConstants.STRICT_PROTO_DEPS_VIOLATION_MESSAGE, "//x:foo_proto"));
+    }
+  }
+
+  @Test
+  public void testDescriptorSetOutput_strictDeps_default() throws Exception {
+    useConfiguration("--proto_compiler=//proto:compiler", "--strict_proto_deps=default");
     scratch.file(
         "x/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
