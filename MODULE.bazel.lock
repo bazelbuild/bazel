@@ -294,7 +294,7 @@
         "bzlTransitiveDigest": "51/NRg2Yuex/h7TzW+J9jCXlgPIqQcGHnmKEYx6yGuY=",
         "usagesDigest": "S0vNSOLxzaSWBw2qFrqtiXI9txwZdU8Tc5Bmz/zBoJA=",
         "recordedFileInputs": {
-          "@@//MODULE.bazel": "2c56771ce2290e4701c982a8bd9df9e512b0cfa45f2ba3cf0e14457446430eb2",
+          "@@//MODULE.bazel": "dbb04241bdcb24a613ad35c4fe57299251820482253e1841f2600416ad380eed",
           "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "4a9cf4d1d48d36a3d6e24a13094b2c32aa20be5a495d4e5b33e43db973250182"
         },
         "recordedDirentsInputs": {},

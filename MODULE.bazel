@@ -342,6 +342,13 @@ http_file(
 )
 
 http_file(
+    name = "jq_macos_arm64",
+    executable = True,
+    integrity = "sha256-C75hnmY+DeLFUL4v4NJA0HZ5nW+KZStw+gSuqKg2Loo=",
+    urls = ["https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-macos-arm64"],
+)
+
+http_file(
     name = "jq_windows_amd64",
     executable = True,
     integrity = "sha256-6+zYQLpH779mgihoF4zHIaFRBgk396xAbj0xvQFb3pQ=",
