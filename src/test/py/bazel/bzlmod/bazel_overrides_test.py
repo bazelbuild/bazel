@@ -513,6 +513,28 @@ class BazelOverridesTest(test_base.TestBase):
         'Target @@ss~//:choose_me up-to-date (nothing to build)', stderr
     )
 
+  def testLocalPathOverrideErrorResolved(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "module")',
+            'local_path_override(',
+            '  module_name = "module",',
+            '  path = "module",',
+            ')',
+        ],
+    )
+    self.ScratchFile('module/BUILD')
+
+    # MODULE.bazel file is missing
+    stderr, _, exit_code = self.RunBazel(
+        ['build', '@module//:all'], allow_failure=True
+    )
+    self.AssertNotExitCode(exit_code, 0, stderr)
+
+    self.ScratchFile('module/MODULE.bazel', ["module(name = 'module')"])
+    _, _, _ = self.RunBazel(['build', '@module//:all'])
+
 
 if __name__ == '__main__':
   absltest.main()
