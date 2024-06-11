@@ -166,7 +166,7 @@ Option precedence:
     *   The following commands inherit from (and are more specific than)
         `build`: `test`, `run`, `clean`, `mobile-install`, `info`,
         `print_action`, `config`, `cquery`, and `aquery`
-    *   `coverage` inherits from `test`
+    *   `coverage`, `fetch`, and `vendor` inherit from `test`
 
 -   Two lines specifying options for the same command at equal specificity are
     parsed in the order in which they appear within the file.
