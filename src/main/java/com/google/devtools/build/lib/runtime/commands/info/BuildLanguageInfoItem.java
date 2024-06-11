@@ -117,13 +117,18 @@ public final class BuildLanguageInfoItem extends InfoItem {
         if (entry.getValue() instanceof RuleFunction) {
           ruleClasses.add(((RuleFunction) entry.getValue()).getRuleClass());
         } else if (entry.getValue() instanceof StarlarkFunction) {
-          if (nativeRuleClasses.containsKey(entry.getKey())) {
-            // entry.getValue() is a Starlark macro in @_builtins overriding a native rule. We
-            // cannot extract the macro's metadata (other than by, perhaps, parsing its Starlark
-            // docstring via starlark_doc_extract, but that does not have sufficient fidelity to
-            // get rule attribute metadata), so we extract it from the legacy rule instead.
-            // Note that we *cannot* rely on StarlarkFunction.getName() because under which the
-            // macro is defined may not match the name under which @_builtins exports it.
+          // entry.getValue() is a Starlark macro in @_builtins overriding a native rule. We
+          // cannot extract the macro's metadata (other than by, perhaps, parsing its Starlark
+          // docstring via starlark_doc_extract, but that does not have sufficient fidelity to
+          // get rule attribute metadata), so we try to find the rule function if it's exposed to
+          // native, else extract it from the legacy rule instead.
+          // Note that we *cannot* rely on StarlarkFunction.getName() because under which the
+          // macro is defined may not match the name under which @_builtins exports it.
+          if (builtins.exportedToJava.containsKey(entry.getKey() + "_rule_function")) {
+            ruleClasses.add(
+                ((RuleFunction) builtins.exportedToJava.get(entry.getKey() + "_rule_function"))
+                    .getRuleClass());
+          } else if (nativeRuleClasses.containsKey(entry.getKey())) {
             ruleClasses.add(nativeRuleClasses.get(entry.getKey()));
           }
         }
