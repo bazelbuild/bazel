@@ -1561,7 +1561,8 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             named = true,
             doc =
                 "Working directory for command execution.\n"
-                    + "Can be relative to the repository root or absolute."),
+                    + "Can be relative to the repository root or absolute.\n"
+                    + "The default is the repository root."),
       })
   public StarlarkExecutionResult execute(
       Sequence<?> arguments, // <String> or <StarlarkPath> or <Label> expected
