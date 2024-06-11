@@ -58,9 +58,9 @@ public class VendorManager {
 
     for (RepositoryName repo : reposToVendor) {
       Path repoUnderExternal = externalRepoRoot.getChild(repo.getName());
-      Path repoUnderVendor = vendorDirectory.getRelative(repo.getName());
+      Path repoUnderVendor = vendorDirectory.getChild(repo.getName());
       // This could happen when running the vendor command twice without changing anything.
-      if (repoUnderExternal.isSymbolicLink() && repoUnderExternal.resolveSymbolicLinks().compareTo(repoUnderVendor) == 0) {
+      if (repoUnderExternal.isSymbolicLink() && repoUnderExternal.resolveSymbolicLinks().equals(repoUnderVendor)) {
         continue;
       }
 
