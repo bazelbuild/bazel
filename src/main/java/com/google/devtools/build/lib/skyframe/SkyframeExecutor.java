@@ -1077,20 +1077,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return GlobbingStrategy.NON_SKYFRAME;
   }
 
-  /**
-   * If not null, this is the only source root in the build, corresponding to the single element in
-   * a single-element package path. Such a single-source-root build need not plant the execroot
-   * symlink forest, and can trivially resolve source artifacts from exec paths. As a consequence,
-   * builds where this is not null do not need to track a package -> source root map. In addition,
-   * such builds can only occur in a monorepo, and thus do not need to produce repo mapping
-   * manifests for runfiles.
-   */
-  // TODO(wyv): To be safe, fail early if we're in a multi-repo setup but this is not being tracked.
-  @Nullable
-  public Root getForcedSingleSourceRootIfNoExecrootSymlinkCreation() {
-    return null;
-  }
-
   private boolean shouldStoreTransitivePackagesInLoadingAndAnalysis() {
     // Transitive packages may be needed for either RepoMappingManifestAction or Skymeld with
     // external repository support. They are never needed if external repositories are disabled. To
@@ -2117,9 +2103,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         getPackageRoots());
   }
 
-  @ForOverride
-  protected PackageRoots getPackageRoots() {
-    return new MapAsPackageRoots(collectPackageRoots());
+  private PackageRoots getPackageRoots() {
+    Root virtualSourceRoot = directories.getVirtualSourceRoot();
+    if (virtualSourceRoot == null) {
+      return new MapAsPackageRoots(collectPackageRoots());
+    }
+
+    // No need to plant symlinks when using virtual roots.
+    // TODO: b/290617036 - Reconsider this for local action support with virtual roots.
+    checkState(
+        !outputService.actionFileSystemType().supportsLocalActions(),
+        "Local actions are incompatible with virtual roots");
+    return new PackageRootsNoSymlinkCreation(virtualSourceRoot);
   }
 
   @Nullable

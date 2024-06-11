@@ -156,6 +156,7 @@ java_library(
         ":package_lookup_function",
         ":package_lookup_value",
         ":package_progress_receiver",
+        ":package_roots_no_symlink_creation",
         ":package_value",
         ":pattern_expanding_error",
         ":precomputed_function",
