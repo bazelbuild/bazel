@@ -128,6 +128,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.LocalOutputService;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -211,6 +212,11 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   public void createVisitorAndParseOptions() throws Exception {
     visitor = skyframeExecutor.getQueryTransitivePackagePreloader();
     options.parse("--jobs=20");
+  }
+
+  @Before
+  public void setOutputService() {
+    skyframeExecutor.setOutputService(new LocalOutputService(directories));
   }
 
   @Override

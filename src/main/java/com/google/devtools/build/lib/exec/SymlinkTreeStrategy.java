@@ -72,7 +72,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
         GoogleAutoProfilerUtils.logged("running " + action.prettyPrint(), MIN_LOGGING)) {
       // TODO(tjgq): Respect RunfileSymlinksMode.SKIP even in the presence of an OutputService.
       try {
-        if (outputService != null && outputService.canCreateSymlinkTree()) {
+        if (outputService.canCreateSymlinkTree()) {
           Path inputManifest = actionExecutionContext.getInputPath(action.getInputManifest());
           Map<PathFragment, PathFragment> symlinks;
           if (action.getRunfiles() != null) {

@@ -120,11 +120,12 @@ public class BazelOutputService implements OutputService {
   }
 
   @Override
-  public String getFilesSystemName() {
+  public String getFileSystemName(String outputBaseFileSystemName) {
     return "BazelOutputService";
   }
 
-  private void prepareOutputPath(Path outputPath, PathFragment target) throws AbruptExitException {
+  private static void prepareOutputPath(Path outputPath, PathFragment target)
+      throws AbruptExitException {
     // Plant a symlink at bazel-out pointing to the target returned from the remote output service.
     try {
       if (!outputPath.isSymbolicLink()) {
@@ -144,7 +145,7 @@ public class BazelOutputService implements OutputService {
     }
   }
 
-  private PathFragment constructOutputPathTarget(
+  private static PathFragment constructOutputPathTarget(
       PathFragment outputPathPrefix, StartBuildResponse response) throws AbruptExitException {
     var outputPathSuffix = PathFragment.create(response.getOutputPathSuffix());
     if (outputPathPrefix.isEmpty() && !outputPathSuffix.isAbsolute()) {
@@ -191,7 +192,7 @@ public class BazelOutputService implements OutputService {
 
   @Override
   public ModifiedFileSet startBuild(
-      EventHandler eventHandler, UUID buildId, boolean finalizeActions)
+      UUID buildId, String workspaceName, EventHandler eventHandler, boolean finalizeActions)
       throws AbruptExitException, InterruptedException {
     checkState(this.buildId == null, "this.buildId must be null");
     this.buildId = buildId.toString();
@@ -400,7 +401,7 @@ public class BazelOutputService implements OutputService {
                 }));
   }
 
-  private void addArtifact(
+  private static void addArtifact(
       OutputMetadataStore outputMetadataStore,
       Path execRoot,
       Path outputPath,

@@ -379,16 +379,12 @@ public final class CompletionFunction<
       return;
     }
 
-    var outputService = skyframeActionExecutor.getOutputService();
-    if (outputService == null) {
-      return;
-    }
-
     var actionInputPrefetcher = skyframeActionExecutor.getActionInputPrefetcher();
     if (actionInputPrefetcher == null || actionInputPrefetcher == ActionInputPrefetcher.NONE) {
       return;
     }
 
+    var outputService = skyframeActionExecutor.getOutputService();
     var remoteArtifactChecker = outputService.getRemoteArtifactChecker();
     if (remoteArtifactChecker == RemoteArtifactChecker.TRUST_ALL) {
       return;

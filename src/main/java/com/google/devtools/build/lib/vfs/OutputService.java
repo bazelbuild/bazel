@@ -95,9 +95,18 @@ public interface OutputService {
   }
 
   /**
-   * @return the name of filesystem, akin to what you might see in /proc/mounts
+   * Returns the name of the filesystem used by this output service, akin to what you might see in
+   * /proc/mounts.
+   *
+   * @param outputBaseFileSystemName from {@link
+   *     com.google.devtools.build.lib.runtime.BlazeWorkspace#getOutputBaseFilesystemTypeName()}
    */
-  String getFilesSystemName();
+  String getFileSystemName(String outputBaseFileSystemName);
+
+  /** Whether actions can only be executed locally. */
+  default boolean isLocalOnly() {
+    return false;
+  }
 
   /** Returns true if remote output metadata should be stored in action cache. */
   default boolean shouldStoreRemoteOutputMetadataInActionCache() {
@@ -109,16 +118,18 @@ public interface OutputService {
   }
 
   /**
-   * Start the build.
+   * Starts the build.
    *
-   * @param buildId the UUID build identifier
+   * @param buildId the build identifier
+   * @param workspaceName the name of the workspace in which the build is running
+   * @param eventHandler an {@link EventHandler} to inform of events
    * @param finalizeActions whether this build is finalizing actions so that the output service can
    *     track output tree modifications
    * @return a ModifiedFileSet of changed output files.
    * @throws BuildFailedException if build preparation failed
-   * @throws InterruptedException
    */
-  ModifiedFileSet startBuild(EventHandler eventHandler, UUID buildId, boolean finalizeActions)
+  ModifiedFileSet startBuild(
+      UUID buildId, String workspaceName, EventHandler eventHandler, boolean finalizeActions)
       throws BuildFailedException, AbruptExitException, InterruptedException;
 
   /** Flush and wait for in-progress downloads. */
@@ -151,7 +162,6 @@ public interface OutputService {
    * @param symlinks the symlinks to create
    * @param symlinkTreeRoot the symlink tree root, relative to the execRoot
    * @throws ExecException on failure
-   * @throws InterruptedException
    */
   void createSymlinkTree(Map<PathFragment, PathFragment> symlinks, PathFragment symlinkTreeRoot)
       throws ExecException, InterruptedException;
@@ -160,7 +170,6 @@ public interface OutputService {
    * Cleans the entire output tree.
    *
    * @throws ExecException on failure
-   * @throws InterruptedException
    */
   void clean() throws ExecException, InterruptedException;
 
@@ -213,13 +222,6 @@ public interface OutputService {
    */
   default void checkActionFileSystemForLostInputs(FileSystem actionFileSystem, Action action)
       throws LostInputsActionExecutionException {}
-
-  /**
-   * Flush the internal state of filesystem returned by {@link #createActionFileSystem} after action
-   * execution, before skyframe checking the action outputs.
-   */
-  default void flushActionFileSystem(FileSystem actionFileSystem)
-      throws IOException, InterruptedException {}
 
   default boolean supportsPathResolverForArtifactValues() {
     return false;

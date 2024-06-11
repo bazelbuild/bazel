@@ -477,7 +477,7 @@ public final class RemoteModule extends BlazeModule {
               bazelOutputServiceChannel,
               lastBuildId);
     } else {
-      outputService = new RemoteOutputService(env);
+      outputService = new RemoteOutputService(env.getDirectories());
     }
 
     if ((enableHttpCache || enableDiskCache) && !enableGrpcCache) {

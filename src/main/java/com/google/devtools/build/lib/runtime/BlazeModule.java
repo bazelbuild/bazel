@@ -219,19 +219,20 @@ public abstract class BlazeModule {
    * Returns additional listeners to the console output stream. Called at the beginning of each
    * command (after #beforeCommand).
    */
-  @SuppressWarnings("unused")
   @Nullable
   public OutErr getOutputListener() {
     return null;
   }
 
   /**
-   * Returns the output service to be used. It is an error if more than one module returns an output
-   * service.
+   * Returns the {@link OutputService} to be used.
    *
-   * <p>This method will be called at the beginning of each command (after #beforeCommand).
+   * <p>It is an error if more than one module returns a non-null output service. If all modules
+   * return {@code null}, then {@link com.google.devtools.build.lib.vfs.LocalOutputService} will be
+   * used.
+   *
+   * <p>This method is called at the beginning of each command (after {@link #beforeCommand}).
    */
-  @SuppressWarnings("unused")
   public OutputService getOutputService() throws AbruptExitException {
     return null;
   }

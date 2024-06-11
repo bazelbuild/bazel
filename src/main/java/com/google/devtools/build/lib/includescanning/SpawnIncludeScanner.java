@@ -117,10 +117,13 @@ public class SpawnIncludeScanner {
     if (file.getRoot().getRoot().isAbsolute()) {
       return false;
     }
+    // Enable include scanning remotely when explicitly directed to via a flag.
+    if (remoteExtractionThreshold == 0) {
+      return true;
+    }
     // Files written remotely that are not locally available should be scanned remotely to avoid the
-    // bandwidth and disk space penalty of bringing them across. Also, enable include scanning
-    // remotely when explicitly directed to via a flag.
-    if (remoteExtractionThreshold == 0 || (outputService != null && !file.isSourceArtifact())) {
+    // bandwidth and disk space penalty of bringing them across.
+    if (!outputService.isLocalOnly() && !file.isSourceArtifact()) {
       return true;
     }
     Path path = file.getPath();

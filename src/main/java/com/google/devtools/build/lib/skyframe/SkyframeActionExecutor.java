@@ -211,7 +211,7 @@ public final class SkyframeActionExecutor {
   @Nullable private ActionCompletedReceiver completionReceiver;
 
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef;
-  @Nullable private OutputService outputService;
+  private OutputService outputService;
   private boolean finalizeActions;
   private boolean rewindingEnabled;
   private final Supplier<ImmutableList<Root>> sourceRootSupplier;
@@ -280,7 +280,7 @@ public final class SkyframeActionExecutor {
       OptionsProvider options,
       ActionCacheChecker actionCacheChecker,
       ActionOutputDirectoryHelper outputDirectoryHelper,
-      @Nullable OutputService outputService,
+      OutputService outputService,
       boolean trackIncrementalState) {
     this.reporter = checkNotNull(reporter);
     this.executorEngine = checkNotNull(executor);
@@ -298,7 +298,7 @@ public final class SkyframeActionExecutor {
     // Cache some option values for performance, since we consult them on every action.
     this.finalizeActions = buildRequestOptions.finalizeActions;
     this.rewindingEnabled = buildRequestOptions.rewindLostInputs;
-    this.outputService = outputService;
+    this.outputService = checkNotNull(outputService);
     this.outputDirectoryHelper = outputDirectoryHelper;
 
     // Retaining discovered inputs is only worthwhile for incremental builds or builds with extra
@@ -330,7 +330,6 @@ public final class SkyframeActionExecutor {
     this.clientEnv = ImmutableMap.copyOf(clientEnv);
   }
 
-  @Nullable
   public OutputService getOutputService() {
     return outputService;
   }
@@ -341,9 +340,7 @@ public final class SkyframeActionExecutor {
   }
 
   ActionFileSystemType actionFileSystemType() {
-    return outputService != null
-        ? outputService.actionFileSystemType()
-        : ActionFileSystemType.DISABLED;
+    return outputService.actionFileSystemType();
   }
 
   Path getExecRoot() {
@@ -376,11 +373,7 @@ public final class SkyframeActionExecutor {
   }
 
   XattrProvider getXattrProvider() {
-    if (outputService != null) {
-      return checkNotNull(outputService.getXattrProvider(syscallCache));
-    }
-
-    return syscallCache;
+    return checkNotNull(outputService.getXattrProvider(syscallCache));
   }
 
   /** REQUIRES: {@link #actionFileSystemType()} to be not {@code DISABLED}. */
@@ -388,15 +381,14 @@ public final class SkyframeActionExecutor {
       String relativeOutputPath,
       ActionInputMap inputArtifactData,
       Iterable<Artifact> outputArtifacts) {
-    return checkNotNull(outputService)
-        .createActionFileSystem(
-            executorEngine.getFileSystem(),
-            executorEngine.getExecRoot().asFragment(),
-            relativeOutputPath,
-            sourceRootSupplier.get(),
-            inputArtifactData,
-            outputArtifacts,
-            rewindingEnabled);
+    return outputService.createActionFileSystem(
+        executorEngine.getFileSystem(),
+        executorEngine.getExecRoot().asFragment(),
+        relativeOutputPath,
+        sourceRootSupplier.get(),
+        inputArtifactData,
+        outputArtifacts,
+        rewindingEnabled);
   }
 
   private void updateActionFileSystemContext(
@@ -405,8 +397,8 @@ public final class SkyframeActionExecutor {
       Environment env,
       MetadataInjector metadataInjector,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
-    checkNotNull(outputService)
-        .updateActionFileSystemContext(action, actionFileSystem, env, metadataInjector, filesets);
+    outputService.updateActionFileSystemContext(
+        action, actionFileSystem, env, metadataInjector, filesets);
   }
 
   void executionOver() {
@@ -681,9 +673,7 @@ public final class SkyframeActionExecutor {
           remoteOptions != null
               ? remoteOptions.getRemoteDefaultExecProperties()
               : ImmutableSortedMap.of();
-      if (outputService != null) {
-        remoteArtifactChecker = outputService.getRemoteArtifactChecker();
-      }
+      remoteArtifactChecker = outputService.getRemoteArtifactChecker();
       handler =
           options.getOptions(BuildRequestOptions.class).explanationPath != null ? reporter : null;
       token =
@@ -1056,7 +1046,7 @@ public final class SkyframeActionExecutor {
               action.prepare(
                   actionExecutionContext.getExecRoot(),
                   actionExecutionContext.getPathResolver(),
-                  outputService != null ? outputService.bulkDeleter() : null,
+                  outputService.bulkDeleter(),
                   useArchivedTreeArtifacts(action));
             } catch (IOException e) {
               logger.atWarning().withCause(e).log(
@@ -1231,18 +1221,6 @@ public final class SkyframeActionExecutor {
             "Action %s successfully executed, but inputs still not known",
             action);
 
-        try {
-          flushActionFileSystem(actionExecutionContext.getActionFileSystem(), outputService);
-        } catch (IOException e) {
-          logger.atWarning().withCause(e).log("unable to flush action filesystem: '%s'", action);
-          throw toActionExecutionException(
-              "unable to flush action filesystem",
-              e,
-              action,
-              fileOutErr,
-              Code.ACTION_FINALIZATION_FAILURE);
-        }
-
         if (!checkOutputs(
             action,
             outputMetadataStore,
@@ -1256,7 +1234,7 @@ public final class SkyframeActionExecutor {
               Code.ACTION_OUTPUTS_NOT_CREATED);
         }
 
-        if (outputService != null && finalizeActions) {
+        if (finalizeActions) {
           try (SilentCloseable c =
               profiler.profile(ProfilerTask.INFO, "outputService.finalizeAction")) {
             outputService.finalizeAction(action, outputMetadataStore);
@@ -1542,14 +1520,6 @@ public final class SkyframeActionExecutor {
     return actionFileSystem == null
         ? LostInputsCheck.NONE
         : () -> outputService.checkActionFileSystemForLostInputs(actionFileSystem, action);
-  }
-
-  private static void flushActionFileSystem(
-      @Nullable FileSystem actionFileSystem, @Nullable OutputService outputService)
-      throws IOException, InterruptedException {
-    if (outputService != null && actionFileSystem != null) {
-      outputService.flushActionFileSystem(actionFileSystem);
-    }
   }
 
   /**

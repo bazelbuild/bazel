@@ -294,7 +294,7 @@ public class ExecutionTool {
     OutputService outputService = env.getOutputService();
     ModifiedFileSet modifiedOutputFiles =
         startBuildAndDetermineModifiedOutputFiles(request.getId(), outputService);
-    if (outputService == null || outputService.actionFileSystemType().supportsLocalActions()) {
+    if (outputService.actionFileSystemType().supportsLocalActions()) {
       // Must be created after the output path is created above.
       try (SilentCloseable c = Profiler.instance().profile("createActionLogDirectory")) {
         createActionLogDirectory();
@@ -310,8 +310,6 @@ public class ExecutionTool {
     }
     SkyframeBuilder skyframeBuilder;
     try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
-      var shouldStoreRemoteMetadataInActionCache =
-          outputService != null && outputService.shouldStoreRemoteOutputMetadataInActionCache();
       skyframeBuilder =
           (SkyframeBuilder)
               createBuilder(
@@ -319,7 +317,7 @@ public class ExecutionTool {
                   actionCache,
                   skyframeExecutor,
                   modifiedOutputFiles,
-                  shouldStoreRemoteMetadataInActionCache);
+                  outputService.shouldStoreRemoteOutputMetadataInActionCache());
     }
 
     skyframeExecutor.drainChangedFiles();
@@ -395,7 +393,7 @@ public class ExecutionTool {
     ModifiedFileSet modifiedOutputFiles =
         startBuildAndDetermineModifiedOutputFiles(buildId, outputService);
 
-    if (outputService == null || outputService.actionFileSystemType().supportsLocalActions()) {
+    if (outputService.actionFileSystemType().supportsLocalActions()) {
       // Must be created after the output path is created above.
       createActionLogDirectory();
     }
@@ -413,15 +411,13 @@ public class ExecutionTool {
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
     Builder builder;
     try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
-      var shouldStoreRemoteMetadataInActionCache =
-          outputService != null && outputService.shouldStoreRemoteOutputMetadataInActionCache();
       builder =
           createBuilder(
               request,
               actionCache,
               skyframeExecutor,
               modifiedOutputFiles,
-              shouldStoreRemoteMetadataInActionCache);
+              outputService.shouldStoreRemoteOutputMetadataInActionCache());
     }
 
     //
@@ -511,19 +507,15 @@ public class ExecutionTool {
   private ModifiedFileSet startBuildAndDetermineModifiedOutputFiles(
       UUID buildId, OutputService outputService)
       throws BuildFailedException, AbruptExitException, InterruptedException {
-    ModifiedFileSet modifiedOutputFiles = ModifiedFileSet.EVERYTHING_MODIFIED;
-    if (outputService != null) {
-      try (SilentCloseable c = Profiler.instance().profile("outputService.startBuild")) {
-        modifiedOutputFiles =
-            outputService.startBuild(
-                env.getReporter(), buildId, request.getBuildOptions().finalizeActions);
-        informedOutputServiceToStartTheBuild = true;
-      }
-    } else {
-      // TODO(bazel-team): this could be just another OutputService
-      try (SilentCloseable c = Profiler.instance().profile("startLocalOutputBuild")) {
-        startLocalOutputBuild();
-      }
+    ModifiedFileSet modifiedOutputFiles;
+    try (SilentCloseable c = Profiler.instance().profile("outputService.startBuild")) {
+      modifiedOutputFiles =
+          outputService.startBuild(
+              buildId,
+              env.getWorkspaceName(),
+              env.getReporter(),
+              request.getBuildOptions().finalizeActions);
+      informedOutputServiceToStartTheBuild = true;
     }
     if (!request.getPackageOptions().checkOutputFiles) {
       // Do not skip output invalidation in the following cases:
@@ -602,7 +594,7 @@ public class ExecutionTool {
     }
     // Finalize the output service last if required, so that if we do throw an exception, we know
     // that all the other code has already run.
-    if (env.getOutputService() != null && informedOutputServiceToStartTheBuild) {
+    if (informedOutputServiceToStartTheBuild) {
       boolean isBuildSuccessful =
           buildResult.getSuccessfulTargets().size()
               == buildResultListener.getAnalyzedTargets().size();
@@ -838,30 +830,6 @@ public class ExecutionTool {
           targetConfigs,
           options -> getConfiguration(executor, reporter, options),
           productName);
-    }
-  }
-
-  /** Prepare for a local output build. */
-  private void startLocalOutputBuild() throws AbruptExitException {
-    try (SilentCloseable c = Profiler.instance().profile("Starting local output build")) {
-      Path outputPath = env.getDirectories().getOutputPath(env.getWorkspaceName());
-      Path localOutputPath = env.getDirectories().getLocalOutputPath();
-
-      if (outputPath.isSymbolicLink()) {
-        try {
-          // Remove the existing symlink first.
-          outputPath.delete();
-          if (localOutputPath.exists()) {
-            // Pre-existing local output directory. Move to outputPath.
-            localOutputPath.renameTo(outputPath);
-          }
-        } catch (IOException e) {
-          throw createExitException(
-              "Couldn't handle local output directory symlinks",
-              Code.LOCAL_OUTPUT_DIRECTORY_SYMLINK_FAILURE,
-              e);
-        }
-      }
     }
   }
 

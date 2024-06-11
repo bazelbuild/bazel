@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.LocalOutputService;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -612,7 +613,10 @@ public class CommandEnvironment {
     return workingDirectory;
   }
 
-  /** @return the OutputService in use, or null if none. */
+  /**
+   * Returns the {@link OutputService} to use, or {@code null} if this is not a {@linkplain
+   * Command#builds build command}.
+   */
   @Nullable
   public OutputService getOutputService() {
     return outputService;
@@ -801,6 +805,9 @@ public class CommandEnvironment {
           outputModule = module;
         }
       }
+      if (outputService == null) {
+        outputService = new LocalOutputService(directories);
+      }
     }
 
     SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
@@ -830,13 +837,10 @@ public class CommandEnvironment {
     // If we have a fancy OutputService, this may be different between consecutive Blaze commands
     // and so we need to compute it freshly. Otherwise, we can used the immutable value that's
     // precomputed by our BlazeWorkspace.
-    if (outputService != null) {
-      try (SilentCloseable c =
-          Profiler.instance().profile(ProfilerTask.INFO, "Finding output file system")) {
-        return outputService.getFilesSystemName();
-      }
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.INFO, "Finding output file system")) {
+      return outputService.getFileSystemName(workspace.getOutputBaseFilesystemTypeName());
     }
-    return workspace.getOutputBaseFilesystemTypeName();
   }
 
   /** Returns the client environment with all settings from --action_env and --repo_env. */

@@ -339,7 +339,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private final FilesMetricConsumer outputArtifactsFromActionCache = new FilesMetricConsumer();
   private final FilesMetricConsumer topLevelArtifactsMetric = new FilesMetricConsumer();
 
-  @Nullable OutputService outputService;
+  @Nullable OutputService outputService; // Null only for non-build commands.
 
   // TODO(bazel-team): Figure out how to handle value builders that block internally. Blocking
   // operations may need to be handled in another (bigger?) thread pool. Also, we should detect
@@ -500,7 +500,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   final class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
     public boolean shouldCreatePathResolverForArtifactValues() {
-      return outputService != null && outputService.supportsPathResolverForArtifactValues();
+      return outputService.supportsPathResolverForArtifactValues();
     }
 
     @Override
@@ -875,7 +875,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @ForOverride
   protected abstract void dumpPackages(PrintStream out);
 
-  public void setOutputService(OutputService outputService) {
+  public void setOutputService(@Nullable OutputService outputService) {
     this.outputService = outputService;
   }
 
