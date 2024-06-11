@@ -19,7 +19,7 @@ from src.test.py.bazel import test_base
 class BazelServerModeTest(test_base.TestBase):
 
   def testBazelServerMode(self):
-    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('MODULE.bazel')
 
     _, stdout, _ = self.RunBazel(['info', 'server_pid'])
     pid1 = stdout[0]
@@ -27,6 +27,16 @@ class BazelServerModeTest(test_base.TestBase):
     pid2 = stdout[0]
     self.assertEqual(pid1, pid2)
 
+  def testBazelServerModeStressTest(self):
+    self.ScratchFile('MODULE.bazel')
+
+    last_pid = None
+    for _ in range(10):
+      _, stdout, _ = self.RunBazel(['--ignore_all_rc_files', 'info', 'server_pid'])
+      new_pid = stdout[0]
+      if last_pid is not None:
+        self.assertEqual(last_pid, new_pid)
+      last_pid = new_pid
 
 if __name__ == '__main__':
   absltest.main()

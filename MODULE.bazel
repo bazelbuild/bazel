@@ -32,7 +32,7 @@ bazel_dep(name = "rules_python", version = "0.28.0")
 bazel_dep(name = "rules_testing", version = "0.6.0")
 bazel_dep(name = "googletest", version = "1.14.0.bcr.1", repo_name = "com_google_googletest")
 bazel_dep(name = "with_cfg.bzl", version = "0.2.4")
-bazel_dep(name = "abseil-cpp", version = "20240116.2")
+bazel_dep(name = "abseil-cpp", version = "20230802.1")
 
 # TODO(fmeum): Remove the dependency on buildozer after Bazel is built with 7.2.0.
 bazel_dep(name = "buildozer", version = "7.1.2")
@@ -62,16 +62,6 @@ single_version_override(
     patch_strip = 1,
     patches = [
         "//third_party/grpc:00_disable_layering_check.patch",
-    ],
-)
-
-# Remove the following patch when the following commit is in a release.
-# https://github.com/abseil/abseil-cpp/commit/65a55c2ba891f6d2492477707f4a2e327a0b40dc
-single_version_override(
-    module_name = "abseil-cpp",
-    patch_strip = 1,
-    patches = [
-        "//third_party:abseil-cpp-macos-fix.patch",
     ],
 )
 
