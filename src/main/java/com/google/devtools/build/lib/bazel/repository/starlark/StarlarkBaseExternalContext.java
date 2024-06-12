@@ -625,7 +625,8 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             named = true,
             doc =
                 "If set, restrict cache hits to those cases where the file was added to the cache"
-                    + " with the same canonical id"),
+                    + " with the same canonical id. By default the checksum (`sha256` or"
+                    + " `integrity`) is used otherwise caching is disabled."),
         @Param(
             name = "auth",
             defaultValue = "{}",
@@ -825,7 +826,8 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             named = true,
             doc =
                 "If set, restrict cache hits to those cases where the file was added to the cache"
-                    + " with the same canonical id"),
+                    + " with the same canonical id. By default the checksum (`sha256` or"
+                    + " `integrity`) is used otherwise caching is disabled."),
         @Param(
             name = "auth",
             defaultValue = "{}",
