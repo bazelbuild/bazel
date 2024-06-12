@@ -14,7 +14,6 @@
 
 """Helper functions for Bzlmod build"""
 
-load("@buildozer//:buildozer.bzl", "BUILDOZER_LABEL")
 load(":blazel_utils.bzl", _get_canonical_repo_name = "get_canonical_repo_name")
 
 get_canonical_repo_name = _get_canonical_repo_name
@@ -51,56 +50,33 @@ def parse_http_artifacts(ctx, lockfile_path, required_repos):
     lockfile = json.decode(ctx.read(lockfile_path))
     http_artifacts = []
     found_repos = []
-    if "moduleDepGraph" in lockfile:
-        # TODO: Remove this branch after Bazel is built with 7.2.0.
-        for _, module in lockfile["moduleDepGraph"].items():
-            if "repoSpec" in module and module["repoSpec"]["ruleClassName"] == "http_archive":
-                repo_spec = module["repoSpec"]
-                attributes = repo_spec["attributes"]
-                repo_name = _module_repo_name(module)
+    for url, sha256 in lockfile["registryFileHashes"].items():
+        if not url.endswith("/source.json"):
+            continue
+        segments = url.split("/")
+        module = {
+            "name": segments[-3],
+            "version": segments[-2],
+        }
+        repo_name = _module_repo_name(module)
+        if repo_name not in required_repos:
+            continue
+        found_repos.append(repo_name)
 
-                if repo_name not in required_repos:
-                    continue
-                found_repos.append(repo_name)
+        ctx.delete("./tempfile")
+        ctx.download(url, "./tempfile", executable = False, sha256 = sha256)
+        source_json = json.decode(ctx.read("./tempfile"))
 
-                http_artifacts.append({
-                    "integrity": attributes["integrity"],
-                    "url": extract_url(attributes),
-                })
-                if "remote_patches" in attributes:
-                    for patch, integrity in attributes["remote_patches"].items():
-                        http_artifacts.append({
-                            "integrity": integrity,
-                            "url": patch,
-                        })
-    else:
-        for url, sha256 in lockfile["registryFileHashes"].items():
-            if not url.endswith("/source.json"):
-                continue
-            segments = url.split("/")
-            module = {
-                "name": segments[-3],
-                "version": segments[-2],
-            }
-            repo_name = _module_repo_name(module)
-            if repo_name not in required_repos:
-                continue
-            found_repos.append(repo_name)
+        http_artifacts.append({
+            "integrity": source_json["integrity"],
+            "url": source_json["url"],
+        })
 
-            ctx.delete("./tempfile")
-            ctx.download(url, "./tempfile", executable = False, sha256 = sha256)
-            source_json = json.decode(ctx.read("./tempfile"))
-
+        for patch, integrity in source_json.get("patches", {}).items():
             http_artifacts.append({
-                "integrity": source_json["integrity"],
-                "url": source_json["url"],
+                "integrity": integrity,
+                "url": url.rsplit("/", 1)[0] + "/patches/" + patch,
             })
-
-            for patch, integrity in source_json.get("patches", {}).items():
-                http_artifacts.append({
-                    "integrity": integrity,
-                    "url": url.rsplit("/", 1)[0] + "/patches/" + patch,
-                })
 
     for extension_id, extension_entry in lockfile["moduleExtensions"].items():
         if extension_id.startswith("@@"):
@@ -154,66 +130,10 @@ def parse_registry_files(ctx, lockfile_path, module_files):
     """
     lockfile = json.decode(ctx.read(lockfile_path))
     registry_file_hashes = lockfile.get("registryFileHashes", {})
-    if registry_file_hashes:
-        return [
-            {"sha256": sha256, "url": url}
-            for url, sha256 in registry_file_hashes.items()
-        ]
-
-    # TODO: Remove the following code after Bazel is built with 7.2.0.
-    registry_files = ["https://bcr.bazel.build/bazel_registry.json"]
-
-    # 1. Collect all source.json files of selected module versions.
-    for module in lockfile["moduleDepGraph"].values():
-        if module["version"]:
-            registry_files.append(BCR_URL_SCHEME.format(
-                name = module["name"],
-                version = module["version"],
-                file = "source.json",
-            ))
-
-    # 2. Download registry files to compute their hashes.
-    registry_file_artifacts = []
-    downloads = {
-        url: ctx.download(url, "./tempdir/{}".format(i), executable = False, block = False)
-        for i, url in enumerate(registry_files)
-    }
-    for url, download in downloads.items():
-        hash = download.wait()
-        registry_file_artifacts.append({"url": url, "sha256": hash.sha256})
-
-    # 3. Perform module resolution in Starlark to get the MODULE.bazel file URLs
-    #    of all module versions relevant during resolution. The lockfile only
-    #    contains the selected module versions.
-    module_file_stack = [ctx.path(module_file) for module_file in module_files]
-    seen_deps = {}
-    for _ in range(1000000):
-        if not module_file_stack:
-            break
-        bazel_deps = _extract_bazel_deps(ctx, module_file_stack.pop())
-        downloads = {}
-        for dep in bazel_deps:
-            if dep in seen_deps:
-                continue
-            url = BCR_URL_SCHEME.format(
-                name = dep.name,
-                version = dep.version,
-                file = "MODULE.bazel",
-            )
-            path = ctx.path("./tempdir/modules/{name}/{version}/MODULE.bazel".format(
-                name = dep.name,
-                version = dep.version,
-            ))
-            module_file_stack.append(path)
-            seen_deps[dep] = None
-            downloads[url] = ctx.download(url, path, executable = False, block = False)
-
-        for url, download in downloads.items():
-            hash = download.wait()
-            registry_file_artifacts.append({"url": url, "sha256": hash.sha256})
-
-    ctx.delete("./tempdir")
-    return registry_file_artifacts
+    return [
+        {"sha256": sha256, "url": url}
+        for url, sha256 in registry_file_hashes.items()
+    ]
 
 def parse_bazel_module_repos(ctx, lockfile_path):
     """Parse repo names of http_archive backed Bazel modules from the given lockfile.
@@ -248,30 +168,4 @@ def _module_repo_name(module):
     if module_name in _WELL_KNOWN_MODULES:
         return module_name
 
-    # TODO(pcloudy): Simplify the following logic after we upgrade to 7.1
-    if get_canonical_repo_name("rules_cc").endswith("~"):
-        return "{}~".format(module_name)
-
-    return "{}~{}".format(module_name, module["version"])
-
-def _extract_bazel_deps(ctx, module_file):
-    buildozer = ctx.path(BUILDOZER_LABEL)
-    temp_path = "tempdir/buildozer/MODULE.bazel"
-    ctx.delete(temp_path)
-    ctx.symlink(module_file, temp_path)
-    result = ctx.execute([buildozer, "print name version dev_dependency", temp_path + ":%bazel_dep"])
-    if result.return_code != 0:
-        fail("Failed to extract bazel_dep from {}:\n{}".format(module_file, result.stderr))
-    deps = []
-    for line in result.stdout.splitlines():
-        if "  " in line:
-            # The dep doesn't have a version specified, which is only valid in
-            # the root module. Ignore it.
-            continue
-        if line.endswith(" True"):
-            # The dep is a dev_dependency, ignore it.
-            continue
-        name, version, _ = line.split(" ")
-        deps.append(struct(name = name, version = version))
-
-    return deps
+    return "{}~".format(module_name)
