@@ -568,10 +568,6 @@ public final class SkyframeActionExecutor {
   }
 
   void maybeAcquireActionExecutionSemaphore() throws InterruptedException {
-    if (useAsyncExecution) {
-      checkState(Thread.currentThread().isVirtual());
-    }
-
     if (actionExecutionSemaphore != null) {
       actionExecutionSemaphore.acquire();
     }
