@@ -749,6 +749,8 @@ class BazelVendorTest(test_base.TestBase):
     self.RunBazel(
         [f'--output_base={output_base}', 'build', '//:print_paths', '--vendor_dir=vendor_new', '--verbose_failures']
     )
+    _, stdout, _ = self.RunBazel(['info', 'output_base'])
+    self.AssertPathIsSymlink(stdout[0] + '/external/_main~ext~foo')
     output = os.path.join(self._test_cwd, './bazel-bin/output.txt')
     self.AssertFileContentContains(output, 'Hello from abs!\nHello from foo!\nHello from bar!\n')
 
