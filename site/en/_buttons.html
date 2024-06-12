@@ -10,4 +10,25 @@
   View source<span class="material-icons icon-after" aria-hidden="true">open_in_new</span>
 </a>
 {% dynamic endif %}
+{% dynamic if request.path|length < 10 or request.path|slice:":10" != '/versions/' %}
+<devsite-language-selector>
+  <ul role="presentation">
+    <li role="presentation">
+      <a role="menuitem" href="/versions/7.2.0{%dynamic print request.path}">7.2.0</a>
+    </li>
+    <li role="presentation">
+      <a role="menuitem" href="/versions/7.1.0{%dynamic print request.path}">7.1.0</a>
+    </li>
+    <li role="presentation">
+      <a role="menuitem" href="/versions/7.0.0{%dynamic print request.path}">7.0.0</a>
+    </li>
+    <li role="presentation">
+      <a role="menuitem" href="/versions/6.5.0{%dynamic print request.path}">6.5.0</a>
+    </li>
+    <li role="presentation">
+      <a role="menuitem" href="/versions/6.4.0{%dynamic print request.path}">6.4.0</a>
+    </li>
+  </ul>
+</devsite-language-selector>
+{% dynamic endif %}
 </p>
