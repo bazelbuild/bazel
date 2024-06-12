@@ -1,2844 +1,128 @@
 {
-  "lockFileVersion": 6,
-  "moduleFileHash": "a7763ee017cb7133cd854e5217de5391d51c90faf7b9e2c412b37980b1952a32",
-  "flags": {
-    "cmdRegistries": [
-      "https://bcr.bazel.build/"
-    ],
-    "cmdModuleOverrides": {},
-    "allowedYankedVersions": [],
-    "envVarAllowedYankedVersions": "",
-    "ignoreDevDependency": false,
-    "directDependenciesMode": "ERROR",
-    "compatibilityMode": "ERROR"
+  "lockFileVersion": 11,
+  "registryFileHashes": {
+    "https://bcr.bazel.build/bazel_registry.json": "8a28e4aff06ee60aed2a8c281907fb8bcbf3b753c91fb5a5c57da3215d5b3497",
+    "https://bcr.bazel.build/modules/abseil-cpp/20210324.2/MODULE.bazel": "7cd0312e064fde87c8d1cd79ba06c876bd23630c83466e9500321be55c96ace2",
+    "https://bcr.bazel.build/modules/abseil-cpp/20211102.0/MODULE.bazel": "70390338f7a5106231d20620712f7cccb659cd0e9d073d1991c038eb9fc57589",
+    "https://bcr.bazel.build/modules/abseil-cpp/20220623.1/MODULE.bazel": "73ae41b6818d423a11fd79d95aedef1258f304448193d4db4ff90e5e7a0f076c",
+    "https://bcr.bazel.build/modules/abseil-cpp/20230125.1/MODULE.bazel": "89047429cb0207707b2dface14ba7f8df85273d484c2572755be4bab7ce9c3a0",
+    "https://bcr.bazel.build/modules/abseil-cpp/20230125.1/source.json": "06cc0842d241da0c5edc755edb3c7d0d008d304330e57ecf2d6449fb0b633a82",
+    "https://bcr.bazel.build/modules/apple_support/1.5.0/MODULE.bazel": "50341a62efbc483e8a2a6aec30994a58749bd7b885e18dd96aa8c33031e558ef",
+    "https://bcr.bazel.build/modules/apple_support/1.8.1/MODULE.bazel": "500f7aa32c008222e360dc9a158c248c2dbaeb3b6246c19e7269981dbd61e29b",
+    "https://bcr.bazel.build/modules/apple_support/1.8.1/source.json": "6362ffe3728c63ab28daf35c5804931419e076ab0e60c7e0043484016e5a9800",
+    "https://bcr.bazel.build/modules/bazel_features/1.0.0/MODULE.bazel": "d7f022dc887efb96e1ee51cec7b2e48d41e36ff59a6e4f216c40e4029e1585bf",
+    "https://bcr.bazel.build/modules/bazel_features/1.1.0/MODULE.bazel": "cfd42ff3b815a5f39554d97182657f8c4b9719568eb7fded2b9135f084bf760b",
+    "https://bcr.bazel.build/modules/bazel_features/1.11.0/MODULE.bazel": "f9382337dd5a474c3b7d334c2f83e50b6eaedc284253334cf823044a26de03e8",
+    "https://bcr.bazel.build/modules/bazel_features/1.11.0/source.json": "c9320aa53cd1c441d24bd6b716da087ad7e4ff0d9742a9884587596edfe53015",
+    "https://bcr.bazel.build/modules/bazel_skylib/1.0.3/MODULE.bazel": "bcb0fd896384802d1ad283b4e4eb4d718eebd8cb820b0a2c3a347fb971afd9d8",
+    "https://bcr.bazel.build/modules/bazel_skylib/1.2.0/MODULE.bazel": "44fe84260e454ed94ad326352a698422dbe372b21a1ac9f3eab76eb531223686",
+    "https://bcr.bazel.build/modules/bazel_skylib/1.2.1/MODULE.bazel": "f35baf9da0efe45fa3da1696ae906eea3d615ad41e2e3def4aeb4e8bc0ef9a7a",
+    "https://bcr.bazel.build/modules/bazel_skylib/1.3.0/MODULE.bazel": "20228b92868bf5cfc41bda7afc8a8ba2a543201851de39d990ec957b513579c5",
+    "https://bcr.bazel.build/modules/bazel_skylib/1.4.1/MODULE.bazel": "a0dcb779424be33100dcae821e9e27e4f2901d9dfd5333efe5ac6a8d7ab75e1d",
+    "https://bcr.bazel.build/modules/bazel_skylib/1.4.2/MODULE.bazel": "3bd40978e7a1fac911d5989e6b09d8f64921865a45822d8b09e815eaa726a651",
+    "https://bcr.bazel.build/modules/bazel_skylib/1.5.0/MODULE.bazel": "32880f5e2945ce6a03d1fbd588e9198c0a959bb42297b2cfaf1685b7bc32e138",
+    "https://bcr.bazel.build/modules/bazel_skylib/1.6.1/MODULE.bazel": "8fdee2dbaace6c252131c00e1de4b165dc65af02ea278476187765e1a617b917",
+    "https://bcr.bazel.build/modules/bazel_skylib/1.6.1/source.json": "082ed5f9837901fada8c68c2f3ddc958bb22b6d654f71dd73f3df30d45d4b749",
+    "https://bcr.bazel.build/modules/blake3/1.5.1.bcr.1/MODULE.bazel": "6f22a783790d834c8e2c91ab85848e781e65078a96304e99e4595763622b171a",
+    "https://bcr.bazel.build/modules/blake3/1.5.1.bcr.1/source.json": "0e27e27f359ae8fdc140f8ae0891bb719664c3d6a0ab1e7cdb9b8ae372c72f17",
+    "https://bcr.bazel.build/modules/boringssl/0.0.0-20211025-d4f1ab9/MODULE.bazel": "6ee6353f8b1a701fe2178e1d925034294971350b6d3ac37e67e5a7d463267834",
+    "https://bcr.bazel.build/modules/boringssl/0.0.0-20211025-d4f1ab9/source.json": "323bafff99739f6aba35b69a84f0bc04ddb4540a46c1694355f60f073dff3001",
+    "https://bcr.bazel.build/modules/buildozer/7.1.2/MODULE.bazel": "2e8dd40ede9c454042645fd8d8d0cd1527966aa5c919de86661e62953cd73d84",
+    "https://bcr.bazel.build/modules/buildozer/7.1.2/source.json": "c9028a501d2db85793a6996205c8de120944f50a0d570438fcae0457a5f9d1f8",
+    "https://bcr.bazel.build/modules/c-ares/1.15.0/MODULE.bazel": "ba0a78360fdc83f02f437a9e7df0532ad1fbaa59b722f6e715c11effebaa0166",
+    "https://bcr.bazel.build/modules/c-ares/1.15.0/source.json": "5e3ed991616c5ec4cc09b0893b29a19232de4a1830eb78c567121bfea87453f7",
+    "https://bcr.bazel.build/modules/gazelle/0.27.0/MODULE.bazel": "3446abd608295de6d90b4a8a118ed64a9ce11dcb3dda2dc3290a22056bd20996",
+    "https://bcr.bazel.build/modules/gazelle/0.30.0/MODULE.bazel": "f888a1effe338491f35f0e0e85003b47bb9d8295ccba73c37e07702d8d31c65b",
+    "https://bcr.bazel.build/modules/gazelle/0.30.0/source.json": "7af0779f99120aafc73be127615d224f26da2fc5a606b52bdffb221fd9efb737",
+    "https://bcr.bazel.build/modules/googletest/1.11.0/MODULE.bazel": "3a83f095183f66345ca86aa13c58b59f9f94a2f81999c093d4eeaa2d262d12f4",
+    "https://bcr.bazel.build/modules/googletest/1.14.0/MODULE.bazel": "cfbcbf3e6eac06ef9d85900f64424708cc08687d1b527f0ef65aa7517af8118f",
+    "https://bcr.bazel.build/modules/googletest/1.14.0/source.json": "2478949479000fdd7de9a3d0107ba2c85bb5f961c3ecb1aa448f52549ce310b5",
+    "https://bcr.bazel.build/modules/grpc/1.41.0/MODULE.bazel": "5bcbfc2b274dabea628f0649dc50c90cf36543b1cfc31624832538644ad1aae8",
+    "https://bcr.bazel.build/modules/grpc/1.48.1.bcr.1/MODULE.bazel": "47243405985039362f06c841e0377bf317f7da39d9b25c48311fcb016a62e740",
+    "https://bcr.bazel.build/modules/grpc/1.48.1.bcr.1/source.json": "a7db3d7812116d036fb86358322a80b5f021c1f1e607eb2577d4214b803b3243",
+    "https://bcr.bazel.build/modules/platforms/0.0.4/MODULE.bazel": "9b328e31ee156f53f3c416a64f8491f7eb731742655a47c9eec4703a71644aee",
+    "https://bcr.bazel.build/modules/platforms/0.0.5/MODULE.bazel": "5733b54ea419d5eaf7997054bb55f6a1d0b5ff8aedf0176fef9eea44f3acda37",
+    "https://bcr.bazel.build/modules/platforms/0.0.6/MODULE.bazel": "ad6eeef431dc52aefd2d77ed20a4b353f8ebf0f4ecdd26a807d2da5aa8cd0615",
+    "https://bcr.bazel.build/modules/platforms/0.0.7/MODULE.bazel": "72fd4a0ede9ee5c021f6a8dd92b503e089f46c227ba2813ff183b71616034814",
+    "https://bcr.bazel.build/modules/platforms/0.0.8/MODULE.bazel": "9f142c03e348f6d263719f5074b21ef3adf0b139ee4c5133e2aa35664da9eb2d",
+    "https://bcr.bazel.build/modules/platforms/0.0.9/MODULE.bazel": "4a87a60c927b56ddd67db50c89acaa62f4ce2a1d2149ccb63ffd871d5ce29ebc",
+    "https://bcr.bazel.build/modules/platforms/0.0.9/source.json": "cd74d854bf16a9e002fb2ca7b1a421f4403cda29f824a765acd3a8c56f8d43e6",
+    "https://bcr.bazel.build/modules/protobuf/21.7/MODULE.bazel": "a5a29bb89544f9b97edce05642fac225a808b5b7be74038ea3640fae2f8e66a7",
+    "https://bcr.bazel.build/modules/protobuf/21.7/source.json": "bbe500720421e582ff2d18b0802464205138c06056f443184de39fbb8187b09b",
+    "https://bcr.bazel.build/modules/protobuf/3.19.0/MODULE.bazel": "6b5fbb433f760a99a22b18b6850ed5784ef0e9928a72668b66e4d7ccd47db9b0",
+    "https://bcr.bazel.build/modules/protobuf/3.19.2/MODULE.bazel": "532ffe5f2186b69fdde039efe6df13ba726ff338c6bc82275ad433013fa10573",
+    "https://bcr.bazel.build/modules/protobuf/3.19.6/MODULE.bazel": "9233edc5e1f2ee276a60de3eaa47ac4132302ef9643238f23128fea53ea12858",
+    "https://bcr.bazel.build/modules/re2/2021-09-01/MODULE.bazel": "bcb6b96f3b071e6fe2d8bed9cc8ada137a105f9d2c5912e91d27528b3d123833",
+    "https://bcr.bazel.build/modules/re2/2021-09-01/source.json": "cc2a0461b85c7634b7d38f8890e38600cd0cca4be7350096450b7cf174493261",
+    "https://bcr.bazel.build/modules/rules_cc/0.0.1/MODULE.bazel": "cb2aa0747f84c6c3a78dad4e2049c154f08ab9d166b1273835a8174940365647",
+    "https://bcr.bazel.build/modules/rules_cc/0.0.2/MODULE.bazel": "6915987c90970493ab97393024c156ea8fb9f3bea953b2f3ec05c34f19b5695c",
+    "https://bcr.bazel.build/modules/rules_cc/0.0.6/MODULE.bazel": "abf360251023dfe3efcef65ab9d56beefa8394d4176dd29529750e1c57eaa33f",
+    "https://bcr.bazel.build/modules/rules_cc/0.0.8/MODULE.bazel": "964c85c82cfeb6f3855e6a07054fdb159aced38e99a5eecf7bce9d53990afa3e",
+    "https://bcr.bazel.build/modules/rules_cc/0.0.9/MODULE.bazel": "836e76439f354b89afe6a911a7adf59a6b2518fafb174483ad78a2a2fde7b1c5",
+    "https://bcr.bazel.build/modules/rules_cc/0.0.9/source.json": "1f1ba6fea244b616de4a554a0f4983c91a9301640c8fe0dd1d410254115c8430",
+    "https://bcr.bazel.build/modules/rules_go/0.33.0/MODULE.bazel": "a2b11b64cd24bf94f57454f53288a5dacfe6cb86453eee7761b7637728c1910c",
+    "https://bcr.bazel.build/modules/rules_go/0.38.1/MODULE.bazel": "fb8e73dd3b6fc4ff9d260ceacd830114891d49904f5bda1c16bc147bcc254f71",
+    "https://bcr.bazel.build/modules/rules_go/0.39.1/MODULE.bazel": "d34fb2a249403a5f4339c754f1e63dc9e5ad70b47c5e97faee1441fc6636cd61",
+    "https://bcr.bazel.build/modules/rules_go/0.39.1/source.json": "f21e042154010ae2c944ab230d572b17d71cdb27c5255806d61df6ccaed4354c",
+    "https://bcr.bazel.build/modules/rules_graalvm/0.11.1/MODULE.bazel": "0caaea2dff60b70b8f9b9ceb6e5ae815b85ae610a0392433a22c755b2f2c2456",
+    "https://bcr.bazel.build/modules/rules_graalvm/0.11.1/source.json": "23d59a63e1dce95df987d19284bad81a4bf7e4df788d47b0ad99c217447bceca",
+    "https://bcr.bazel.build/modules/rules_java/4.0.0/MODULE.bazel": "5a78a7ae82cd1a33cef56dc578c7d2a46ed0dca12643ee45edbb8417899e6f74",
+    "https://bcr.bazel.build/modules/rules_java/5.1.0/MODULE.bazel": "324b6478b0343a3ce7a9add8586ad75d24076d6d43d2f622990b9c1cfd8a1b15",
+    "https://bcr.bazel.build/modules/rules_java/6.0.0/MODULE.bazel": "8a43b7df601a7ec1af61d79345c17b31ea1fedc6711fd4abfd013ea612978e39",
+    "https://bcr.bazel.build/modules/rules_java/6.4.0/MODULE.bazel": "e986a9fe25aeaa84ac17ca093ef13a4637f6107375f64667a15999f77db6c8f6",
+    "https://bcr.bazel.build/modules/rules_java/7.3.2/MODULE.bazel": "50dece891cfdf1741ea230d001aa9c14398062f2b7c066470accace78e412bc2",
+    "https://bcr.bazel.build/modules/rules_java/7.6.1/MODULE.bazel": "2f14b7e8a1aa2f67ae92bc69d1ec0fa8d9f827c4e17ff5e5f02e91caa3b2d0fe",
+    "https://bcr.bazel.build/modules/rules_java/7.6.1/source.json": "8f3f3076554e1558e8e468b2232991c510ecbcbed9e6f8c06ac31c93bcf38362",
+    "https://bcr.bazel.build/modules/rules_jvm_external/4.4.2/MODULE.bazel": "a56b85e418c83eb1839819f0b515c431010160383306d13ec21959ac412d2fe7",
+    "https://bcr.bazel.build/modules/rules_jvm_external/5.3/MODULE.bazel": "bf93870767689637164657731849fb887ad086739bd5d360d90007a581d5527d",
+    "https://bcr.bazel.build/modules/rules_jvm_external/6.0/MODULE.bazel": "37c93a5a78d32e895d52f86a8d0416176e915daabd029ccb5594db422e87c495",
+    "https://bcr.bazel.build/modules/rules_jvm_external/6.0/source.json": "73cc8818203a182e7374adf137f428d276190b2e2bef3022c231990cf0e594aa",
+    "https://bcr.bazel.build/modules/rules_kotlin/1.9.0/MODULE.bazel": "ef85697305025e5a61f395d4eaede272a5393cee479ace6686dba707de804d59",
+    "https://bcr.bazel.build/modules/rules_kotlin/1.9.0/source.json": "e4e8566acbfc02cc701c169d756ee99bca1c395a0d1dc69293a21a5ef14cac43",
+    "https://bcr.bazel.build/modules/rules_license/0.0.3/MODULE.bazel": "627e9ab0247f7d1e05736b59dbb1b6871373de5ad31c3011880b4133cafd4bd0",
+    "https://bcr.bazel.build/modules/rules_license/0.0.4/MODULE.bazel": "6a88dd22800cf1f9f79ba32cacad0d3a423ed28efa2c2ed5582eaa78dd3ac1e5",
+    "https://bcr.bazel.build/modules/rules_license/0.0.7/MODULE.bazel": "088fbeb0b6a419005b89cf93fe62d9517c0a2b8bb56af3244af65ecfe37e7d5d",
+    "https://bcr.bazel.build/modules/rules_license/0.0.7/source.json": "355cc5737a0f294e560d52b1b7a6492d4fff2caf0bef1a315df5a298fca2d34a",
+    "https://bcr.bazel.build/modules/rules_pkg/0.7.0/MODULE.bazel": "df99f03fc7934a4737122518bb87e667e62d780b610910f0447665a7e2be62dc",
+    "https://bcr.bazel.build/modules/rules_pkg/0.9.1/MODULE.bazel": "af00144208c4be503bc920d043ba3284fb37385b3f6160b4a4daf4df80b4b823",
+    "https://bcr.bazel.build/modules/rules_pkg/0.9.1/source.json": "c00cf34b4cfe88fce80245f8ce8532360f787dad9f21462e9b470796d14ffe10",
+    "https://bcr.bazel.build/modules/rules_proto/4.0.0/MODULE.bazel": "a7a7b6ce9bee418c1a760b3d84f83a299ad6952f9903c67f19e4edd964894e06",
+    "https://bcr.bazel.build/modules/rules_proto/5.3.0-21.7/MODULE.bazel": "e8dff86b0971688790ae75528fe1813f71809b5afd57facb44dad9e8eca631b7",
+    "https://bcr.bazel.build/modules/rules_proto/5.3.0-21.7/source.json": "d57902c052424dfda0e71646cb12668d39c4620ee0544294d9d941e7d12bc3a9",
+    "https://bcr.bazel.build/modules/rules_python/0.10.2/MODULE.bazel": "cc82bc96f2997baa545ab3ce73f196d040ffb8756fd2d66125a530031cd90e5f",
+    "https://bcr.bazel.build/modules/rules_python/0.22.1/MODULE.bazel": "26114f0c0b5e93018c0c066d6673f1a2c3737c7e90af95eff30cfee38d0bbac7",
+    "https://bcr.bazel.build/modules/rules_python/0.23.1/MODULE.bazel": "49ffccf0511cb8414de28321f5fcf2a31312b47c40cc21577144b7447f2bf300",
+    "https://bcr.bazel.build/modules/rules_python/0.26.0/MODULE.bazel": "42cb98cd15954e83b96b540dcc6d5a618eb061f056147ac4ea46e687a066a7c7",
+    "https://bcr.bazel.build/modules/rules_python/0.26.0/source.json": "66e663b0e220d22d78bfdf3937f171bb0a9d73c746f434ea1e1218de0f96bb6c",
+    "https://bcr.bazel.build/modules/rules_python/0.4.0/MODULE.bazel": "9208ee05fd48bf09ac60ed269791cf17fb343db56c8226a720fbb1cdf467166c",
+    "https://bcr.bazel.build/modules/rules_testing/0.6.0/MODULE.bazel": "8518d53bc742c462536d3f1a0de0c265bd7b51f32797fea4132007223ed2926f",
+    "https://bcr.bazel.build/modules/rules_testing/0.6.0/source.json": "915ae13ae2247c986cc57289f21e7f1d9711cd2ecfdf5867b51dc0484f3b043b",
+    "https://bcr.bazel.build/modules/sqlite3/3.42.0.bcr.1/MODULE.bazel": "e58096b04bc268d13f6b9047c385b7d38ac62f4d1ebd1ed3d0a852378c10b05a",
+    "https://bcr.bazel.build/modules/sqlite3/3.42.0.bcr.1/source.json": "9abf49bde81eca775c4193d0a5fd2b08bb577705fdb474f9a8a28643b7d6216d",
+    "https://bcr.bazel.build/modules/stardoc/0.5.1/MODULE.bazel": "1a05d92974d0c122f5ccf09291442580317cdd859f07a8655f1db9a60374f9f8",
+    "https://bcr.bazel.build/modules/stardoc/0.5.3/MODULE.bazel": "c7f6948dae6999bf0db32c1858ae345f112cacf98f174c7a8bb707e41b974f1c",
+    "https://bcr.bazel.build/modules/stardoc/0.5.6/MODULE.bazel": "c43dabc564990eeab55e25ed61c07a1aadafe9ece96a4efabb3f8bf9063b71ef",
+    "https://bcr.bazel.build/modules/stardoc/0.5.6/source.json": "956954c9c45ef492ea4001ce579dc40431fbd75090151e8f9eadf9ed6377a108",
+    "https://bcr.bazel.build/modules/upb/0.0.0-20211020-160625a/MODULE.bazel": "6cced416be2dc5b9c05efd5b997049ba795e5e4e6fafbe1624f4587767638928",
+    "https://bcr.bazel.build/modules/upb/0.0.0-20220602-e5f2601/MODULE.bazel": "84a1b5fc76719c2841759d150637cca2fdc19abccc680d6d02614def044379de",
+    "https://bcr.bazel.build/modules/upb/0.0.0-20220923-a547704/MODULE.bazel": "7298990c00040a0e2f121f6c32544bab27d4452f80d9ce51349b1a28f3005c43",
+    "https://bcr.bazel.build/modules/upb/0.0.0-20220923-a547704/source.json": "f1ef7d3f9e0e26d4b23d1c39b5f5de71f584dd7d1b4ef83d9bbba6ec7a6a6459",
+    "https://bcr.bazel.build/modules/with_cfg.bzl/0.2.4/MODULE.bazel": "0b4563c23f9c5c1a280b5de93a8b05a69e8b2f98cb4019470f94584af7fda83c",
+    "https://bcr.bazel.build/modules/with_cfg.bzl/0.2.4/source.json": "687a5039225087fb04562cc9126dd8f074847776555e4a9859544eb58eae6564",
+    "https://bcr.bazel.build/modules/zlib/1.2.11/MODULE.bazel": "07b389abc85fdbca459b69e2ec656ae5622873af3f845e1c9d80fe179f3effa0",
+    "https://bcr.bazel.build/modules/zlib/1.2.12/MODULE.bazel": "3b1a8834ada2a883674be8cbd36ede1b6ec481477ada359cd2d3ddc562340b27",
+    "https://bcr.bazel.build/modules/zlib/1.2.13/MODULE.bazel": "aa6deb1b83c18ffecd940c4119aff9567cd0a671d7bba756741cb2ef043a29d5",
+    "https://bcr.bazel.build/modules/zlib/1.3/MODULE.bazel": "6a9c02f19a24dcedb05572b2381446e27c272cd383aed11d41d99da9e3167a72",
+    "https://bcr.bazel.build/modules/zlib/1.3/source.json": "b6b43d0737af846022636e6e255fd4a96fee0d34f08f3830e6e0bac51465c37c",
+    "https://bcr.bazel.build/modules/zstd-jni/1.5.2-3.bcr.1/MODULE.bazel": "cb11f12dc4c8454bede2b64855a8126b547cc89cf77838188513f647d9edd86e",
+    "https://bcr.bazel.build/modules/zstd-jni/1.5.2-3.bcr.1/source.json": "f728c0f2384b4d047a759f4ff5d9cd05a81a78388fbe9cc3981b773e5536be38"
   },
-  "localOverrideHashes": {
-    "bazel_tools": "1ae69322ac3823527337acf02016e8ee95813d8d356f47060255b8956fa642f0",
-    "googleapis": "89bad67656f73e953cbf62f12165f56e97cf2cc17d56974c593de76200fa3471",
-    "remoteapis": "3862bfbe3d308e71852b8f025f4b33ea9c0dc8790829eda4a71425c5a2ca814e"
-  },
-  "moduleDepGraph": {
-    "<root>": {
-      "name": "bazel",
-      "version": "",
-      "key": "<root>",
-      "repoName": "io_bazel",
-      "executionPlatformsToRegister": [
-        "//:default_host_platform"
-      ],
-      "toolchainsToRegister": [
-        "@bazel_tools//tools/python:autodetecting_toolchain",
-        "@local_config_winsdk//:all",
-        "//src/main/res:empty_rc_toolchain",
-        "@graalvm_toolchains//:gvm"
-      ],
-      "extensionUsages": [
-        {
-          "extensionBzlFile": "@rules_jvm_external//:extensions.bzl",
-          "extensionName": "maven",
-          "usingModule": "<root>",
-          "location": {
-            "file": "@@//:MODULE.bazel",
-            "line": 80,
-            "column": 22
-          },
-          "imports": {
-            "maven": "maven",
-            "unpinned_maven": "unpinned_maven",
-            "maven_android": "maven_android",
-            "unpinned_maven_android": "unpinned_maven_android"
-          },
-          "devImports": [],
-          "tags": [
-            {
-              "tagName": "install",
-              "attributeValues": {
-                "artifacts": [
-                  "com.beust:jcommander:1.82",
-                  "com.github.ben-manes.caffeine:caffeine:3.0.5",
-                  "com.github.kevinstern:software-and-algorithms:1.0",
-                  "com.github.stephenc.jcip:jcip-annotations:1.0-1",
-                  "com.google.api-client:google-api-client:1.35.2",
-                  "com.google.api-client:google-api-client-gson:1.35.2",
-                  "com.google.auth:google-auth-library-credentials:1.6.0",
-                  "com.google.auth:google-auth-library-oauth2-http:1.6.0",
-                  "com.google.auto:auto-common:1.2.1",
-                  "com.google.auto.service:auto-service:1.0",
-                  "com.google.auto.service:auto-service-annotations:1.0.1",
-                  "com.google.auto.value:auto-value:1.8.2",
-                  "com.google.auto.value:auto-value-annotations:1.9",
-                  "com.google.code.findbugs:jsr305:3.0.2",
-                  "com.google.code.gson:gson:2.9.0",
-                  "com.google.code.java-allocation-instrumenter:java-allocation-instrumenter:3.3.0",
-                  "com.google.errorprone:error_prone_annotation:2.22.0",
-                  "com.google.errorprone:error_prone_annotations:2.22.0",
-                  "com.google.errorprone:error_prone_check_api:2.22.0",
-                  "com.google.errorprone:error_prone_core:2.22.0",
-                  "com.google.errorprone:error_prone_type_annotations:2.22.0",
-                  "com.google.flogger:flogger:0.5.1",
-                  "com.google.flogger:flogger-system-backend:0.5.1",
-                  "com.google.flogger:google-extensions:0.5.1",
-                  "com.google.guava:failureaccess:1.0.1",
-                  "com.google.guava:guava:31.1-jre",
-                  "com.google.http-client:google-http-client:1.42.0",
-                  "com.google.http-client:google-http-client-gson:1.42.0",
-                  "com.google.j2objc:j2objc-annotations:1.3",
-                  "com.google.turbine:turbine:0.6.0",
-                  "com.ryanharter.auto.value:auto-value-gson-extension:1.3.1",
-                  "com.ryanharter.auto.value:auto-value-gson-factory:1.3.1",
-                  "com.ryanharter.auto.value:auto-value-gson-runtime:1.3.1",
-                  "com.squareup:javapoet:1.12.0",
-                  "commons-collections:commons-collections:3.2.2",
-                  "commons-lang:commons-lang:2.6",
-                  "io.github.java-diff-utils:java-diff-utils:4.12",
-                  "io.grpc:grpc-api:1.48.1",
-                  "io.grpc:grpc-auth:1.48.1",
-                  "io.grpc:grpc-context:1.48.1",
-                  "io.grpc:grpc-core:1.48.1",
-                  "io.grpc:grpc-netty:1.48.1",
-                  "io.grpc:grpc-protobuf:1.48.1",
-                  "io.grpc:grpc-protobuf-lite:1.48.1",
-                  "io.grpc:grpc-stub:1.48.1",
-                  "io.netty:netty-buffer:4.1.93.Final",
-                  "io.netty:netty-codec:4.1.93.Final",
-                  "io.netty:netty-codec-http:4.1.93.Final",
-                  "io.netty:netty-codec-http2:4.1.93.Final",
-                  "io.netty:netty-common:4.1.93.Final",
-                  "io.netty:netty-handler:4.1.93.Final",
-                  "io.netty:netty-handler-proxy:4.1.93.Final",
-                  "io.netty:netty-resolver:4.1.93.Final",
-                  "io.netty:netty-resolver-dns:4.1.93.Final",
-                  "io.netty:netty-tcnative-boringssl-static:jar:linux-aarch_64:2.0.56.Final",
-                  "io.netty:netty-tcnative-boringssl-static:jar:linux-x86_64:2.0.56.Final",
-                  "io.netty:netty-tcnative-boringssl-static:jar:osx-aarch_64:2.0.56.Final",
-                  "io.netty:netty-tcnative-boringssl-static:jar:osx-x86_64:2.0.56.Final",
-                  "io.netty:netty-tcnative-boringssl-static:jar:windows-x86_64:2.0.56.Final",
-                  "io.netty:netty-tcnative-classes:2.0.56.Final",
-                  "io.netty:netty-transport:4.1.93.Final",
-                  "io.netty:netty-transport-classes-epoll:4.1.93.Final",
-                  "io.netty:netty-transport-classes-kqueue:4.1.93.Final",
-                  "io.netty:netty-transport-native-epoll:jar:linux-aarch_64:4.1.93.Final",
-                  "io.netty:netty-transport-native-epoll:jar:linux-x86_64:4.1.93.Final",
-                  "io.netty:netty-transport-native-kqueue:jar:osx-aarch_64:4.1.93.Final",
-                  "io.netty:netty-transport-native-kqueue:jar:osx-x86_64:4.1.93.Final",
-                  "io.netty:netty-transport-native-unix-common:4.1.93.Final",
-                  "io.netty:netty-transport-native-unix-common:jar:linux-aarch_64:4.1.93.Final",
-                  "io.netty:netty-transport-native-unix-common:jar:linux-x86_64:4.1.93.Final",
-                  "io.netty:netty-transport-native-unix-common:jar:osx-aarch_64:4.1.93.Final",
-                  "io.netty:netty-transport-native-unix-common:jar:osx-x86_64:4.1.93.Final",
-                  "io.reactivex.rxjava3:rxjava:3.1.2",
-                  "it.unimi.dsi:fastutil:7.2.1",
-                  "javax.activation:javax.activation-api:1.2.0",
-                  "javax.annotation:javax.annotation-api:1.3.2",
-                  "javax.inject:javax.inject:1",
-                  "net.bytebuddy:byte-buddy:1.14.5",
-                  "net.bytebuddy:byte-buddy-agent:1.14.5",
-                  "org.apache.commons:commons-compress:1.26.1",
-                  "org.apache.commons:commons-pool2:2.8.0",
-                  "org.apache.tomcat:tomcat-annotations-api:8.0.5",
-                  "org.apache.velocity:velocity:1.7",
-                  "org.checkerframework:checker-qual:3.19.0",
-                  "org.openjdk.jmh:jmh-core:1.37",
-                  "org.openjdk.jmh:jmh-generator-annprocess:1.37",
-                  "org.ow2.asm:asm:9.2",
-                  "org.ow2.asm:asm-analysis:9.2",
-                  "org.ow2.asm:asm-commons:9.2",
-                  "org.ow2.asm:asm-tree:9.2",
-                  "org.ow2.asm:asm-util:9.2",
-                  "org.pcollections:pcollections:3.1.4",
-                  "org.threeten:threeten-extra:1.5.0",
-                  "org.tukaani:xz:1.9",
-                  "org.yaml:snakeyaml:1.28",
-                  "tools.profiler:async-profiler:3.0",
-                  "junit:junit:4.13.2",
-                  "org.hamcrest:hamcrest-core:1.3"
-                ],
-                "excluded_artifacts": [
-                  "org.apache.httpcomponents:httpclient",
-                  "org.apache.httpcomponents:httpcore",
-                  "org.eclipse.jgit:org.eclipse.jgit",
-                  "com.google.protobuf:protobuf-java",
-                  "com.google.protobuf:protobuf-javalite"
-                ],
-                "fail_if_repin_required": true,
-                "lock_file": "//:maven_install.json",
-                "repositories": [
-                  "https://repo1.maven.org/maven2"
-                ],
-                "strict_visibility": true
-              },
-              "devDependency": false,
-              "location": {
-                "file": "@@//:MODULE.bazel",
-                "line": 81,
-                "column": 14
-              }
-            },
-            {
-              "tagName": "artifact",
-              "attributeValues": {
-                "testonly": true,
-                "artifact": "guava-testlib",
-                "group": "com.google.guava",
-                "version": "31.1-jre"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "@@//:MODULE.bazel",
-                "line": 207,
-                "column": 19
-              }
-            },
-            {
-              "tagName": "artifact",
-              "attributeValues": {
-                "testonly": true,
-                "artifact": "jimfs",
-                "group": "com.google.jimfs",
-                "version": "1.2"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "@@//:MODULE.bazel",
-                "line": 207,
-                "column": 19
-              }
-            },
-            {
-              "tagName": "artifact",
-              "attributeValues": {
-                "testonly": true,
-                "artifact": "compile-testing",
-                "group": "com.google.testing.compile",
-                "version": "0.18"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "@@//:MODULE.bazel",
-                "line": 207,
-                "column": 19
-              }
-            },
-            {
-              "tagName": "artifact",
-              "attributeValues": {
-                "testonly": true,
-                "artifact": "test-parameter-injector",
-                "group": "com.google.testparameterinjector",
-                "version": "1.0"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "@@//:MODULE.bazel",
-                "line": 207,
-                "column": 19
-              }
-            },
-            {
-              "tagName": "artifact",
-              "attributeValues": {
-                "testonly": true,
-                "artifact": "truth",
-                "group": "com.google.truth",
-                "version": "1.1.3"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "@@//:MODULE.bazel",
-                "line": 207,
-                "column": 19
-              }
-            },
-            {
-              "tagName": "artifact",
-              "attributeValues": {
-                "testonly": true,
-                "artifact": "truth-java8-extension",
-                "group": "com.google.truth.extensions",
-                "version": "1.1.3"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "@@//:MODULE.bazel",
-                "line": 207,
-                "column": 19
-              }
-            },
-            {
-              "tagName": "artifact",
-              "attributeValues": {
-                "testonly": true,
-                "artifact": "truth-liteproto-extension",
-                "group": "com.google.truth.extensions",
-                "version": "1.1.3"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "@@//:MODULE.bazel",
-                "line": 207,
-                "column": 19
-              }
-            },
-            {
-              "tagName": "artifact",
-              "attributeValues": {
-                "testonly": true,
-                "artifact": "truth-proto-extension",
-                "group": "com.google.truth.extensions",
-                "version": "1.1.3"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "@@//:MODULE.bazel",
-                "line": 207,
-                "column": 19
-              }
-            },
-            {
-              "tagName": "artifact",
-              "attributeValues": {
-                "testonly": true,
-                "artifact": "mockito-core",
-                "group": "org.mockito",
-                "version": "5.4.0"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "@@//:MODULE.bazel",
-                "line": 207,
-                "column": 19
-              }
-            },
-            {
-              "tagName": "install",
-              "attributeValues": {
-                "name": "maven_android",
-                "artifacts": [
-                  "androidx.databinding:databinding-compiler:3.4.0-alpha10",
-                  "com.android.tools.build:builder:7.1.3",
-                  "com.android.tools.build:manifest-merger:30.1.3",
-                  "com.android.tools:sdk-common:30.1.3",
-                  "com.android.tools:annotations:30.1.3",
-                  "com.android.tools.layoutlib:layoutlib-api:30.1.3",
-                  "com.android.tools:common:30.1.3",
-                  "com.android.tools:repository:30.1.3"
-                ],
-                "fail_if_repin_required": true,
-                "lock_file": "//src/tools/android:maven_android_install.json",
-                "repositories": [
-                  "https://dl.google.com/android/maven2",
-                  "https://repo1.maven.org/maven2"
-                ]
-              },
-              "devDependency": false,
-              "location": {
-                "file": "@@//:MODULE.bazel",
-                "line": 371,
-                "column": 22
-              }
-            }
-          ],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@rules_java//java:extensions.bzl",
-          "extensionName": "toolchains",
-          "usingModule": "<root>",
-          "location": {
-            "file": "@@//:MODULE.bazel",
-            "line": 228,
-            "column": 32
-          },
-          "imports": {
-            "local_jdk": "local_jdk",
-            "remote_java_tools": "remote_java_tools",
-            "remote_java_tools_darwin_arm64": "remote_java_tools_darwin_arm64",
-            "remote_java_tools_darwin_x86_64": "remote_java_tools_darwin_x86_64",
-            "remote_java_tools_linux": "remote_java_tools_linux",
-            "remote_java_tools_windows": "remote_java_tools_windows",
-            "remotejdk11_linux": "remotejdk11_linux",
-            "remotejdk11_linux_aarch64": "remotejdk11_linux_aarch64",
-            "remotejdk11_linux_ppc64le": "remotejdk11_linux_ppc64le",
-            "remotejdk11_linux_s390x": "remotejdk11_linux_s390x",
-            "remotejdk11_macos": "remotejdk11_macos",
-            "remotejdk11_macos_aarch64": "remotejdk11_macos_aarch64",
-            "remotejdk11_win": "remotejdk11_win",
-            "remotejdk11_win_arm64": "remotejdk11_win_arm64",
-            "remotejdk17_linux": "remotejdk17_linux",
-            "remotejdk17_linux_s390x": "remotejdk17_linux_s390x",
-            "remotejdk17_macos": "remotejdk17_macos",
-            "remotejdk17_macos_aarch64": "remotejdk17_macos_aarch64",
-            "remotejdk17_win": "remotejdk17_win",
-            "remotejdk17_win_arm64": "remotejdk17_win_arm64",
-            "remotejdk21_linux": "remotejdk21_linux",
-            "remotejdk21_macos": "remotejdk21_macos",
-            "remotejdk21_macos_aarch64": "remotejdk21_macos_aarch64",
-            "remotejdk21_win": "remotejdk21_win"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@rules_python//python/extensions:python.bzl",
-          "extensionName": "python",
-          "usingModule": "<root>",
-          "location": {
-            "file": "@@//:MODULE.bazel",
-            "line": 262,
-            "column": 23
-          },
-          "imports": {},
-          "devImports": [],
-          "tags": [
-            {
-              "tagName": "toolchain",
-              "attributeValues": {
-                "python_version": "3.8"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "@@//:MODULE.bazel",
-                "line": 263,
-                "column": 17
-              }
-            }
-          ],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@rules_python//python/extensions:pip.bzl",
-          "extensionName": "pip",
-          "usingModule": "<root>",
-          "location": {
-            "file": "@@//:MODULE.bazel",
-            "line": 265,
-            "column": 20
-          },
-          "imports": {
-            "bazel_pip_dev_deps": "bazel_pip_dev_deps"
-          },
-          "devImports": [],
-          "tags": [
-            {
-              "tagName": "parse",
-              "attributeValues": {
-                "hub_name": "bazel_pip_dev_deps",
-                "python_version": "3.8",
-                "requirements_lock": "//:requirements.txt"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "@@//:MODULE.bazel",
-                "line": 266,
-                "column": 10
-              }
-            }
-          ],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@io_bazel//:extensions.bzl",
-          "extensionName": "bazel_build_deps",
-          "usingModule": "<root>",
-          "location": {
-            "file": "@@//:MODULE.bazel",
-            "line": 277,
-            "column": 33
-          },
-          "imports": {
-            "bazel_tools_repo_cache": "bazel_tools_repo_cache",
-            "bootstrap_repo_cache": "bootstrap_repo_cache",
-            "debian_bin_deps": "debian_bin_deps",
-            "debian_cc_deps": "debian_cc_deps",
-            "debian_java_deps": "debian_java_deps",
-            "debian_proto_deps": "debian_proto_deps",
-            "openjdk_linux_aarch64_vanilla": "openjdk_linux_aarch64_vanilla",
-            "openjdk_linux_ppc64le_vanilla": "openjdk_linux_ppc64le_vanilla",
-            "openjdk_linux_s390x_vanilla": "openjdk_linux_s390x_vanilla",
-            "openjdk_linux_vanilla": "openjdk_linux_vanilla",
-            "openjdk_macos_aarch64_vanilla": "openjdk_macos_aarch64_vanilla",
-            "openjdk_macos_x86_64_vanilla": "openjdk_macos_x86_64_vanilla",
-            "openjdk_win_arm64_vanilla": "openjdk_win_arm64_vanilla",
-            "openjdk_win_vanilla": "openjdk_win_vanilla",
-            "workspace_repo_cache": "workspace_repo_cache"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@bazel_tools//tools/cpp:cc_configure.bzl",
-          "extensionName": "cc_configure_extension",
-          "usingModule": "<root>",
-          "location": {
-            "file": "@@//:MODULE.bazel",
-            "line": 298,
-            "column": 29
-          },
-          "imports": {
-            "local_config_cc": "local_config_cc"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@rules_graalvm//:extensions.bzl",
-          "extensionName": "graalvm",
-          "usingModule": "<root>",
-          "location": {
-            "file": "@@//:MODULE.bazel",
-            "line": 301,
-            "column": 20
-          },
-          "imports": {
-            "graalvm_toolchains": "graalvm_toolchains"
-          },
-          "devImports": [],
-          "tags": [
-            {
-              "tagName": "graalvm",
-              "attributeValues": {
-                "name": "graalvm",
-                "distribution": "ce",
-                "java_version": "21",
-                "version": "21.0.2"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "@@//:MODULE.bazel",
-                "line": 302,
-                "column": 12
-              }
-            }
-          ],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "//:MODULE.bazel",
-          "extensionName": "_repo_rules",
-          "usingModule": "<root>",
-          "location": {
-            "file": "@@//:MODULE.bazel",
-            "line": 0,
-            "column": 0
-          },
-          "imports": {
-            "jq_linux_amd64": "jq_linux_amd64",
-            "jq_macos_amd64": "jq_macos_amd64",
-            "jq_windows_amd64": "jq_windows_amd64"
-          },
-          "devImports": [],
-          "tags": [
-            {
-              "tagName": "@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
-              "attributeValues": {
-                "executable": true,
-                "integrity": "sha256-xrOn19PntwxvUbcGo7kL0BgzhGxU0yyjLwAn8AIm/20=",
-                "urls": [
-                  "https://github.com/jqlang/jq/releases/download/jq-1.5/jq-linux64"
-                ],
-                "name": "jq_linux_amd64"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "@@//:MODULE.bazel",
-                "line": 313,
-                "column": 10
-              }
-            },
-            {
-              "tagName": "@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
-              "attributeValues": {
-                "executable": true,
-                "integrity": "sha256-OG6SyYKlb+SFFGjXqTHfyilWDO4wag5mxqG9QGXT2sU=",
-                "urls": [
-                  "https://github.com/jqlang/jq/releases/download/jq-1.5/jq-osx-amd64"
-                ],
-                "name": "jq_macos_amd64"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "@@//:MODULE.bazel",
-                "line": 320,
-                "column": 10
-              }
-            },
-            {
-              "tagName": "@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
-              "attributeValues": {
-                "executable": true,
-                "integrity": "sha256-6+zYQLpH779mgihoF4zHIaFRBgk396xAbj0xvQFb3pQ=",
-                "urls": [
-                  "https://github.com/jqlang/jq/releases/download/jq-1.5/jq-win64.exe"
-                ],
-                "name": "jq_windows_amd64"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "@@//:MODULE.bazel",
-                "line": 327,
-                "column": 10
-              }
-            }
-          ],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@io_bazel//:extensions.bzl",
-          "extensionName": "bazel_test_deps",
-          "usingModule": "<root>",
-          "location": {
-            "file": "@@//:MODULE.bazel",
-            "line": 338,
-            "column": 32
-          },
-          "imports": {
-            "bazelci_rules": "bazelci_rules",
-            "local_bazel_source_list": "local_bazel_source_list",
-            "local_config_winsdk": "local_config_winsdk"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@io_bazel//:rbe_extension.bzl",
-          "extensionName": "bazel_rbe_deps",
-          "usingModule": "<root>",
-          "location": {
-            "file": "@@//:MODULE.bazel",
-            "line": 346,
-            "column": 31
-          },
-          "imports": {
-            "rbe_ubuntu2004": "rbe_ubuntu2004"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@io_bazel//tools/test:extensions.bzl",
-          "extensionName": "remote_coverage_tools_extension",
-          "usingModule": "<root>",
-          "location": {
-            "file": "@@//:MODULE.bazel",
-            "line": 349,
-            "column": 48
-          },
-          "imports": {
-            "remote_coverage_tools": "remote_coverage_tools"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@io_bazel//:extensions.bzl",
-          "extensionName": "bazel_android_deps",
-          "usingModule": "<root>",
-          "location": {
-            "file": "@@//:MODULE.bazel",
-            "line": 393,
-            "column": 35
-          },
-          "imports": {
-            "desugar_jdk_libs": "desugar_jdk_libs"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@io_bazel//tools/android:android_extensions.bzl",
-          "extensionName": "remote_android_tools_extensions",
-          "usingModule": "<root>",
-          "location": {
-            "file": "@@//:MODULE.bazel",
-            "line": 396,
-            "column": 42
-          },
-          "imports": {
-            "android_gmaven_r8": "android_gmaven_r8",
-            "android_tools": "android_tools"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        }
-      ],
-      "deps": {
-        "rules_license": "rules_license@0.0.7",
-        "bazel_skylib": "bazel_skylib@1.6.1",
-        "com_google_protobuf": "protobuf@21.7",
-        "com_github_grpc_grpc": "grpc@1.48.1.bcr.1",
-        "platforms": "platforms@0.0.9",
-        "rules_pkg": "rules_pkg@0.9.1",
-        "io_bazel_skydoc": "stardoc@0.5.6",
-        "zstd-jni": "zstd-jni@1.5.2-3.bcr.1",
-        "blake3": "blake3@1.5.1.bcr.1",
-        "sqlite3": "sqlite3@3.42.0.bcr.1",
-        "zlib": "zlib@1.3",
-        "rules_cc": "rules_cc@0.0.9",
-        "rules_java": "rules_java@7.6.1",
-        "rules_graalvm": "rules_graalvm@0.11.1",
-        "rules_proto": "rules_proto@5.3.0-21.7",
-        "rules_jvm_external": "rules_jvm_external@6.0",
-        "rules_python": "rules_python@0.26.0",
-        "rules_testing": "rules_testing@0.6.0",
-        "com_google_googletest": "googletest@1.14.0",
-        "with_cfg.bzl": "with_cfg.bzl@0.2.4",
-        "buildozer": "buildozer@7.1.2",
-        "remoteapis": "remoteapis@_",
-        "googleapis": "googleapis@_",
-        "apple_support": "apple_support@1.8.1",
-        "abseil-cpp": "abseil-cpp@20230125.1",
-        "c-ares": "c-ares@1.15.0",
-        "rules_go": "rules_go@0.39.1",
-        "rules_kotlin": "rules_kotlin@1.9.0",
-        "upb": "upb@0.0.0-20220923-a547704",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      }
-    },
-    "rules_license@0.0.7": {
-      "name": "rules_license",
-      "version": "0.0.7",
-      "key": "rules_license@0.0.7",
-      "repoName": "rules_license",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [],
-      "deps": {
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/bazelbuild/rules_license/releases/download/0.0.7/rules_license-0.0.7.tar.gz"
-          ],
-          "integrity": "sha256-RTHezLkTY5ww5cdRKgVNXYdWmNrrddjPkPKEN1/nw2A=",
-          "strip_prefix": "",
-          "remote_patches": {},
-          "remote_patch_strip": 0
-        }
-      }
-    },
-    "bazel_skylib@1.6.1": {
-      "name": "bazel_skylib",
-      "version": "1.6.1",
-      "key": "bazel_skylib@1.6.1",
-      "repoName": "bazel_skylib",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [
-        "//toolchains/unittest:cmd_toolchain",
-        "//toolchains/unittest:bash_toolchain"
-      ],
-      "extensionUsages": [],
-      "deps": {
-        "platforms": "platforms@0.0.9",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/bazelbuild/bazel-skylib/releases/download/1.6.1/bazel-skylib-1.6.1.tar.gz"
-          ],
-          "integrity": "sha256-nziIakBUjG6WwQa3UvJCEw7hGqoGila6flb0UR8z5PI=",
-          "strip_prefix": "",
-          "remote_patches": {},
-          "remote_patch_strip": 0
-        }
-      }
-    },
-    "protobuf@21.7": {
-      "name": "protobuf",
-      "version": "21.7",
-      "key": "protobuf@21.7",
-      "repoName": "protobuf",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [
-        {
-          "extensionBzlFile": "@rules_jvm_external//:extensions.bzl",
-          "extensionName": "maven",
-          "usingModule": "protobuf@21.7",
-          "location": {
-            "file": "https://bcr.bazel.build/modules/protobuf/21.7/MODULE.bazel",
-            "line": 22,
-            "column": 22
-          },
-          "imports": {
-            "maven": "maven"
-          },
-          "devImports": [],
-          "tags": [
-            {
-              "tagName": "install",
-              "attributeValues": {
-                "name": "maven",
-                "artifacts": [
-                  "com.google.code.findbugs:jsr305:3.0.2",
-                  "com.google.code.gson:gson:2.8.9",
-                  "com.google.errorprone:error_prone_annotations:2.3.2",
-                  "com.google.j2objc:j2objc-annotations:1.3",
-                  "com.google.guava:guava:31.1-jre",
-                  "com.google.guava:guava-testlib:31.1-jre",
-                  "com.google.truth:truth:1.1.2",
-                  "junit:junit:4.13.2",
-                  "org.mockito:mockito-core:4.3.1"
-                ]
-              },
-              "devDependency": false,
-              "location": {
-                "file": "https://bcr.bazel.build/modules/protobuf/21.7/MODULE.bazel",
-                "line": 24,
-                "column": 14
-              }
-            }
-          ],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        }
-      ],
-      "deps": {
-        "bazel_skylib": "bazel_skylib@1.6.1",
-        "rules_python": "rules_python@0.26.0",
-        "rules_cc": "rules_cc@0.0.9",
-        "rules_proto": "rules_proto@5.3.0-21.7",
-        "rules_java": "rules_java@7.6.1",
-        "rules_pkg": "rules_pkg@0.9.1",
-        "com_google_abseil": "abseil-cpp@20230125.1",
-        "zlib": "zlib@1.3",
-        "upb": "upb@0.0.0-20220923-a547704",
-        "rules_jvm_external": "rules_jvm_external@6.0",
-        "com_google_googletest": "googletest@1.14.0",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/protocolbuffers/protobuf/releases/download/v21.7/protobuf-all-21.7.zip"
-          ],
-          "integrity": "sha256-VJOiH17T/FAuZv7GuUScBqVRztYwAvpIkDxA36jeeko=",
-          "strip_prefix": "protobuf-21.7",
-          "remote_patches": {
-            "https://bcr.bazel.build/modules/protobuf/21.7/patches/add_module_dot_bazel.patch": "sha256-q3V2+eq0v2XF0z8z+V+QF4cynD6JvHI1y3kI/+rzl5s=",
-            "https://bcr.bazel.build/modules/protobuf/21.7/patches/add_module_dot_bazel_for_examples.patch": "sha256-O7YP6s3lo/1opUiO0jqXYORNHdZ/2q3hjz1QGy8QdIU=",
-            "https://bcr.bazel.build/modules/protobuf/21.7/patches/relative_repo_names.patch": "sha256-RK9RjW8T5UJNG7flIrnFiNE9vKwWB+8uWWtJqXYT0w4=",
-            "https://bcr.bazel.build/modules/protobuf/21.7/patches/add_missing_files.patch": "sha256-Hyne4DG2u5bXcWHNxNMirA2QFAe/2Cl8oMm1XJdkQIY="
-          },
-          "remote_patch_strip": 1
-        }
-      }
-    },
-    "grpc@1.48.1.bcr.1": {
-      "name": "grpc",
-      "version": "1.48.1.bcr.1",
-      "key": "grpc@1.48.1.bcr.1",
-      "repoName": "com_github_grpc_grpc",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [
-        {
-          "extensionBzlFile": "@com_github_grpc_grpc//bazel:grpc_deps.bzl",
-          "extensionName": "grpc_repo_deps_ext",
-          "usingModule": "grpc@1.48.1.bcr.1",
-          "location": {
-            "file": "https://bcr.bazel.build/modules/grpc/1.48.1.bcr.1/MODULE.bazel",
-            "line": 20,
-            "column": 35
-          },
-          "imports": {
-            "com_envoyproxy_protoc_gen_validate": "com_envoyproxy_protoc_gen_validate",
-            "com_google_googleapis": "com_google_googleapis",
-            "com_github_cncf_udpa": "com_github_cncf_udpa",
-            "envoy_api": "envoy_api"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl",
-          "extensionName": "grpc_extra_deps_ext",
-          "usingModule": "grpc@1.48.1.bcr.1",
-          "location": {
-            "file": "https://bcr.bazel.build/modules/grpc/1.48.1.bcr.1/MODULE.bazel",
-            "line": 30,
-            "column": 36
-          },
-          "imports": {
-            "com_google_googleapis_imports": "com_google_googleapis_imports"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        }
-      ],
-      "deps": {
-        "bazel_skylib": "bazel_skylib@1.6.1",
-        "boringssl": "boringssl@0.0.0-20211025-d4f1ab9",
-        "com_github_cares_cares": "c-ares@1.15.0",
-        "com_google_absl": "abseil-cpp@20230125.1",
-        "com_google_protobuf": "protobuf@21.7",
-        "com_googlesource_code_re2": "re2@2021-09-01",
-        "rules_proto": "rules_proto@5.3.0-21.7",
-        "upb": "upb@0.0.0-20220923-a547704",
-        "zlib": "zlib@1.3",
-        "rules_java": "rules_java@7.6.1",
-        "io_bazel_rules_go": "rules_go@0.39.1",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/grpc/grpc/archive/refs/tags/v1.48.1.tar.gz"
-          ],
-          "integrity": "sha256-MgNmZl0ZAnzah7I2jAOTkAajfgOIv9EJHI0qlvvJO9g=",
-          "strip_prefix": "grpc-1.48.1",
-          "remote_patches": {
-            "https://bcr.bazel.build/modules/grpc/1.48.1.bcr.1/patches/adopt_bzlmod.patch": "sha256-iMrebRKNKLNqVtRX+4eRZ63QcBr2t8Zo/ZvBPjVnyw8="
-          },
-          "remote_patch_strip": 1,
-          "patches": [
-            "@@//third_party/grpc:00_disable_layering_check.patch"
-          ],
-          "patch_cmds": [],
-          "patch_args": [
-            "-p1"
-          ]
-        }
-      }
-    },
-    "platforms@0.0.9": {
-      "name": "platforms",
-      "version": "0.0.9",
-      "key": "platforms@0.0.9",
-      "repoName": "platforms",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [
-        {
-          "extensionBzlFile": "@platforms//host:extension.bzl",
-          "extensionName": "host_platform",
-          "usingModule": "platforms@0.0.9",
-          "location": {
-            "file": "https://bcr.bazel.build/modules/platforms/0.0.9/MODULE.bazel",
-            "line": 9,
-            "column": 30
-          },
-          "imports": {
-            "host_platform": "host_platform"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        }
-      ],
-      "deps": {
-        "rules_license": "rules_license@0.0.7",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/bazelbuild/platforms/releases/download/0.0.9/platforms-0.0.9.tar.gz"
-          ],
-          "integrity": "sha256-XtpTnIQSZQMcL4LYrno6ZJC9YhduDAOPxGnqv5H2FJs=",
-          "strip_prefix": "",
-          "remote_patches": {},
-          "remote_patch_strip": 0
-        }
-      }
-    },
-    "rules_pkg@0.9.1": {
-      "name": "rules_pkg",
-      "version": "0.9.1",
-      "key": "rules_pkg@0.9.1",
-      "repoName": "rules_pkg",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [],
-      "deps": {
-        "rules_license": "rules_license@0.0.7",
-        "bazel_skylib": "bazel_skylib@1.6.1",
-        "rules_python": "rules_python@0.26.0",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/bazelbuild/rules_pkg/releases/download/0.9.1/rules_pkg-0.9.1.tar.gz"
-          ],
-          "integrity": "sha256-j57i3BDBrlFO5ZmotC7Zn6Jit1cFj2WtPDhCif9wxLg=",
-          "strip_prefix": "",
-          "remote_patches": {},
-          "remote_patch_strip": 0
-        }
-      }
-    },
-    "stardoc@0.5.6": {
-      "name": "stardoc",
-      "version": "0.5.6",
-      "key": "stardoc@0.5.6",
-      "repoName": "stardoc",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [],
-      "deps": {
-        "bazel_skylib": "bazel_skylib@1.6.1",
-        "rules_java": "rules_java@7.6.1",
-        "rules_license": "rules_license@0.0.7",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/bazelbuild/stardoc/releases/download/0.5.6/stardoc-0.5.6.tar.gz"
-          ],
-          "integrity": "sha256-37w2Sq7BQ99ebFL68fEWZ3WltECCQ/RF9EtmHP3DE08=",
-          "strip_prefix": "",
-          "remote_patches": {},
-          "remote_patch_strip": 0
-        }
-      }
-    },
-    "zstd-jni@1.5.2-3.bcr.1": {
-      "name": "zstd-jni",
-      "version": "1.5.2-3.bcr.1",
-      "key": "zstd-jni@1.5.2-3.bcr.1",
-      "repoName": "zstd-jni",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [],
-      "deps": {
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/luben/zstd-jni/archive/refs/tags/v1.5.2-3.zip"
-          ],
-          "integrity": "sha256-NmAJpDz62jUBXkzECn78S38BfGuN9crD+H0keAJ7IFY=",
-          "strip_prefix": "zstd-jni-1.5.2-3",
-          "remote_patches": {
-            "https://bcr.bazel.build/modules/zstd-jni/1.5.2-3.bcr.1/patches/Native.java.patch": "sha256-HDzZr1BxNacyg+xWvojosR8VgfZdOQ2TDAPW2bCATDs=",
-            "https://bcr.bazel.build/modules/zstd-jni/1.5.2-3.bcr.1/patches/add_build_file.patch": "sha256-k67/p9wSUWEfSeeLVPabVleF+lH9YLxlog1auvezsts=",
-            "https://bcr.bazel.build/modules/zstd-jni/1.5.2-3.bcr.1/patches/module_dot_bazel.patch": "sha256-0KGh/q92+gB4AWBFco0+/UkrkRGsZf0QynxMdWvAgPo="
-          },
-          "remote_patch_strip": 1
-        }
-      }
-    },
-    "blake3@1.5.1.bcr.1": {
-      "name": "blake3",
-      "version": "1.5.1.bcr.1",
-      "key": "blake3@1.5.1.bcr.1",
-      "repoName": "blake3",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [],
-      "deps": {
-        "rules_cc": "rules_cc@0.0.9",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/BLAKE3-team/BLAKE3/archive/refs/tags/1.5.1.tar.gz"
-          ],
-          "integrity": "sha256-gizTf3AVLlmFQz0sUMj2suyDqvEaoxvp/nFIapF0Tzc=",
-          "strip_prefix": "BLAKE3-1.5.1",
-          "remote_patches": {
-            "https://bcr.bazel.build/modules/blake3/1.5.1.bcr.1/patches/add_build_file.patch": "sha256-BmZOqWOTfHup68uNZXOh2mP+b971CWY3QufbkIe6eEM=",
-            "https://bcr.bazel.build/modules/blake3/1.5.1.bcr.1/patches/module_dot_bazel.patch": "sha256-dKnHpXqvNwW2m7vYxnfWEoBhphBysqbeBxAMVX3b5a0=",
-            "https://bcr.bazel.build/modules/blake3/1.5.1.bcr.1/patches/fix_windows_arm_build_pr_389.patch": "sha256-9G3QDBp5OuyYP7vwPKjqK+uTUZmjhLpKSE7nshz8guc="
-          },
-          "remote_patch_strip": 0
-        }
-      }
-    },
-    "sqlite3@3.42.0.bcr.1": {
-      "name": "sqlite3",
-      "version": "3.42.0.bcr.1",
-      "key": "sqlite3@3.42.0.bcr.1",
-      "repoName": "sqlite3",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [],
-      "deps": {
-        "platforms": "platforms@0.0.9",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://sqlite.org/2023/sqlite-amalgamation-3420000.zip"
-          ],
-          "integrity": "sha256-HMgk0PXmdYKfo3AYMY/agz6lb36d4rQe3dn3ZDtewp4=",
-          "strip_prefix": "sqlite-amalgamation-3420000",
-          "remote_patches": {
-            "https://bcr.bazel.build/modules/sqlite3/3.42.0.bcr.1/patches/add_build_file.patch": "sha256-jv2puH58Mvf5zg3l26JdJHsAHBjb743lE3uV0FvSAd8=",
-            "https://bcr.bazel.build/modules/sqlite3/3.42.0.bcr.1/patches/module_dot_bazel.patch": "sha256-0nVrZCj8DjLNzeeLpBtVT9X0s4BQXqANYyu++q7Ikv8="
-          },
-          "remote_patch_strip": 0
-        }
-      }
-    },
-    "zlib@1.3": {
-      "name": "zlib",
-      "version": "1.3",
-      "key": "zlib@1.3",
-      "repoName": "zlib",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [],
-      "deps": {
-        "platforms": "platforms@0.0.9",
-        "rules_cc": "rules_cc@0.0.9",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/madler/zlib/releases/download/v1.3/zlib-1.3.tar.gz"
-          ],
-          "integrity": "sha256-/wukwpIBPbwnUws6geH5qBPNOd4Byl4Pi/NVcC76WT4=",
-          "strip_prefix": "zlib-1.3",
-          "remote_patches": {
-            "https://bcr.bazel.build/modules/zlib/1.3/patches/add_build_file.patch": "sha256-Ei+FYaaOo7A3jTKunMEodTI0Uw5NXQyZEcboMC8JskY=",
-            "https://bcr.bazel.build/modules/zlib/1.3/patches/module_dot_bazel.patch": "sha256-fPWLM+2xaF/kuy+kZc1YTfW6hNjrkG400Ho7gckuyJk="
-          },
-          "remote_patch_strip": 0
-        }
-      }
-    },
-    "rules_cc@0.0.9": {
-      "name": "rules_cc",
-      "version": "0.0.9",
-      "key": "rules_cc@0.0.9",
-      "repoName": "rules_cc",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [
-        "@local_config_cc_toolchains//:all"
-      ],
-      "extensionUsages": [
-        {
-          "extensionBzlFile": "@bazel_tools//tools/cpp:cc_configure.bzl",
-          "extensionName": "cc_configure_extension",
-          "usingModule": "rules_cc@0.0.9",
-          "location": {
-            "file": "https://bcr.bazel.build/modules/rules_cc/0.0.9/MODULE.bazel",
-            "line": 9,
-            "column": 29
-          },
-          "imports": {
-            "local_config_cc_toolchains": "local_config_cc_toolchains"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        }
-      ],
-      "deps": {
-        "platforms": "platforms@0.0.9",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/bazelbuild/rules_cc/releases/download/0.0.9/rules_cc-0.0.9.tar.gz"
-          ],
-          "integrity": "sha256-IDeHW5pEVtzkp50RKorohbvEqtlo5lh9ym5k86CQDN8=",
-          "strip_prefix": "rules_cc-0.0.9",
-          "remote_patches": {
-            "https://bcr.bazel.build/modules/rules_cc/0.0.9/patches/module_dot_bazel_version.patch": "sha256-mM+qzOI0SgAdaJBlWOSMwMPKpaA9b7R37Hj/tp5bb4g="
-          },
-          "remote_patch_strip": 0
-        }
-      }
-    },
-    "rules_java@7.6.1": {
-      "name": "rules_java",
-      "version": "7.6.1",
-      "key": "rules_java@7.6.1",
-      "repoName": "rules_java",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [
-        "//toolchains:all",
-        "@local_jdk//:runtime_toolchain_definition",
-        "@local_jdk//:bootstrap_runtime_toolchain_definition",
-        "@remote_jdk8_linux_toolchain_config_repo//:all",
-        "@remote_jdk8_linux_aarch64_toolchain_config_repo//:all",
-        "@remote_jdk8_linux_s390x_toolchain_config_repo//:all",
-        "@remote_jdk8_macos_toolchain_config_repo//:all",
-        "@remote_jdk8_macos_aarch64_toolchain_config_repo//:all",
-        "@remote_jdk8_windows_toolchain_config_repo//:all",
-        "@remotejdk11_linux_toolchain_config_repo//:all",
-        "@remotejdk11_linux_aarch64_toolchain_config_repo//:all",
-        "@remotejdk11_linux_ppc64le_toolchain_config_repo//:all",
-        "@remotejdk11_linux_s390x_toolchain_config_repo//:all",
-        "@remotejdk11_macos_toolchain_config_repo//:all",
-        "@remotejdk11_macos_aarch64_toolchain_config_repo//:all",
-        "@remotejdk11_win_toolchain_config_repo//:all",
-        "@remotejdk11_win_arm64_toolchain_config_repo//:all",
-        "@remotejdk17_linux_toolchain_config_repo//:all",
-        "@remotejdk17_linux_aarch64_toolchain_config_repo//:all",
-        "@remotejdk17_linux_ppc64le_toolchain_config_repo//:all",
-        "@remotejdk17_linux_s390x_toolchain_config_repo//:all",
-        "@remotejdk17_macos_toolchain_config_repo//:all",
-        "@remotejdk17_macos_aarch64_toolchain_config_repo//:all",
-        "@remotejdk17_win_toolchain_config_repo//:all",
-        "@remotejdk17_win_arm64_toolchain_config_repo//:all",
-        "@remotejdk21_linux_toolchain_config_repo//:all",
-        "@remotejdk21_linux_aarch64_toolchain_config_repo//:all",
-        "@remotejdk21_linux_ppc64le_toolchain_config_repo//:all",
-        "@remotejdk21_linux_s390x_toolchain_config_repo//:all",
-        "@remotejdk21_macos_toolchain_config_repo//:all",
-        "@remotejdk21_macos_aarch64_toolchain_config_repo//:all",
-        "@remotejdk21_win_toolchain_config_repo//:all",
-        "@remotejdk21_win_arm64_toolchain_config_repo//:all"
-      ],
-      "extensionUsages": [
-        {
-          "extensionBzlFile": "@rules_java//java:extensions.bzl",
-          "extensionName": "toolchains",
-          "usingModule": "rules_java@7.6.1",
-          "location": {
-            "file": "https://bcr.bazel.build/modules/rules_java/7.6.1/MODULE.bazel",
-            "line": 20,
-            "column": 27
-          },
-          "imports": {
-            "remote_java_tools": "remote_java_tools",
-            "remote_java_tools_linux": "remote_java_tools_linux",
-            "remote_java_tools_windows": "remote_java_tools_windows",
-            "remote_java_tools_darwin_x86_64": "remote_java_tools_darwin_x86_64",
-            "remote_java_tools_darwin_arm64": "remote_java_tools_darwin_arm64",
-            "local_jdk": "local_jdk",
-            "remote_jdk8_linux_toolchain_config_repo": "remote_jdk8_linux_toolchain_config_repo",
-            "remote_jdk8_linux_aarch64_toolchain_config_repo": "remote_jdk8_linux_aarch64_toolchain_config_repo",
-            "remote_jdk8_linux_s390x_toolchain_config_repo": "remote_jdk8_linux_s390x_toolchain_config_repo",
-            "remote_jdk8_macos_toolchain_config_repo": "remote_jdk8_macos_toolchain_config_repo",
-            "remote_jdk8_macos_aarch64_toolchain_config_repo": "remote_jdk8_macos_aarch64_toolchain_config_repo",
-            "remote_jdk8_windows_toolchain_config_repo": "remote_jdk8_windows_toolchain_config_repo",
-            "remotejdk11_linux_toolchain_config_repo": "remotejdk11_linux_toolchain_config_repo",
-            "remotejdk11_linux_aarch64_toolchain_config_repo": "remotejdk11_linux_aarch64_toolchain_config_repo",
-            "remotejdk11_linux_ppc64le_toolchain_config_repo": "remotejdk11_linux_ppc64le_toolchain_config_repo",
-            "remotejdk11_linux_s390x_toolchain_config_repo": "remotejdk11_linux_s390x_toolchain_config_repo",
-            "remotejdk11_macos_toolchain_config_repo": "remotejdk11_macos_toolchain_config_repo",
-            "remotejdk11_macos_aarch64_toolchain_config_repo": "remotejdk11_macos_aarch64_toolchain_config_repo",
-            "remotejdk11_win_toolchain_config_repo": "remotejdk11_win_toolchain_config_repo",
-            "remotejdk11_win_arm64_toolchain_config_repo": "remotejdk11_win_arm64_toolchain_config_repo",
-            "remotejdk17_linux_toolchain_config_repo": "remotejdk17_linux_toolchain_config_repo",
-            "remotejdk17_linux_aarch64_toolchain_config_repo": "remotejdk17_linux_aarch64_toolchain_config_repo",
-            "remotejdk17_linux_ppc64le_toolchain_config_repo": "remotejdk17_linux_ppc64le_toolchain_config_repo",
-            "remotejdk17_linux_s390x_toolchain_config_repo": "remotejdk17_linux_s390x_toolchain_config_repo",
-            "remotejdk17_macos_toolchain_config_repo": "remotejdk17_macos_toolchain_config_repo",
-            "remotejdk17_macos_aarch64_toolchain_config_repo": "remotejdk17_macos_aarch64_toolchain_config_repo",
-            "remotejdk17_win_toolchain_config_repo": "remotejdk17_win_toolchain_config_repo",
-            "remotejdk17_win_arm64_toolchain_config_repo": "remotejdk17_win_arm64_toolchain_config_repo",
-            "remotejdk21_linux_toolchain_config_repo": "remotejdk21_linux_toolchain_config_repo",
-            "remotejdk21_linux_aarch64_toolchain_config_repo": "remotejdk21_linux_aarch64_toolchain_config_repo",
-            "remotejdk21_linux_ppc64le_toolchain_config_repo": "remotejdk21_linux_ppc64le_toolchain_config_repo",
-            "remotejdk21_linux_s390x_toolchain_config_repo": "remotejdk21_linux_s390x_toolchain_config_repo",
-            "remotejdk21_macos_toolchain_config_repo": "remotejdk21_macos_toolchain_config_repo",
-            "remotejdk21_macos_aarch64_toolchain_config_repo": "remotejdk21_macos_aarch64_toolchain_config_repo",
-            "remotejdk21_win_toolchain_config_repo": "remotejdk21_win_toolchain_config_repo",
-            "remotejdk21_win_arm64_toolchain_config_repo": "remotejdk21_win_arm64_toolchain_config_repo"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        }
-      ],
-      "deps": {
-        "platforms": "platforms@0.0.9",
-        "rules_cc": "rules_cc@0.0.9",
-        "bazel_features": "bazel_features@1.11.0",
-        "bazel_skylib": "bazel_skylib@1.6.1",
-        "rules_proto": "rules_proto@5.3.0-21.7",
-        "rules_license": "rules_license@0.0.7",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/bazelbuild/rules_java/releases/download/7.6.1/rules_java-7.6.1.tar.gz"
-          ],
-          "integrity": "sha256-+K6e04h98C9A3p9PesOHPm3XpHH5zd9jlSU4uUtZrrM=",
-          "strip_prefix": "",
-          "remote_patches": {},
-          "remote_patch_strip": 0
-        }
-      }
-    },
-    "rules_graalvm@0.11.1": {
-      "name": "rules_graalvm",
-      "version": "0.11.1",
-      "key": "rules_graalvm@0.11.1",
-      "repoName": "rules_graalvm",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [],
-      "deps": {
-        "platforms": "platforms@0.0.9",
-        "bazel_features": "bazel_features@1.11.0",
-        "rules_java": "rules_java@7.6.1",
-        "bazel_skylib": "bazel_skylib@1.6.1",
-        "build_bazel_apple_support": "apple_support@1.8.1",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/sgammon/rules_graalvm/releases/download/v0.11.1/rules_graalvm-0.11.1.zip"
-          ],
-          "integrity": "sha256-5PonWwYtzQOx7LArsl8B6tUSAjAGqHSl4MLLeLptjnM=",
-          "strip_prefix": "rules_graalvm-0.11.1",
-          "remote_patches": {},
-          "remote_patch_strip": 0
-        }
-      }
-    },
-    "rules_proto@5.3.0-21.7": {
-      "name": "rules_proto",
-      "version": "5.3.0-21.7",
-      "key": "rules_proto@5.3.0-21.7",
-      "repoName": "rules_proto",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [],
-      "deps": {
-        "bazel_skylib": "bazel_skylib@1.6.1",
-        "com_google_protobuf": "protobuf@21.7",
-        "rules_cc": "rules_cc@0.0.9",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/bazelbuild/rules_proto/archive/refs/tags/5.3.0-21.7.tar.gz"
-          ],
-          "integrity": "sha256-3D+yBqLLNEG0heseQjFlsjEjWh6psDG0Qzz3vB+kYN0=",
-          "strip_prefix": "rules_proto-5.3.0-21.7",
-          "remote_patches": {},
-          "remote_patch_strip": 0
-        }
-      }
-    },
-    "rules_jvm_external@6.0": {
-      "name": "rules_jvm_external",
-      "version": "6.0",
-      "key": "rules_jvm_external@6.0",
-      "repoName": "rules_jvm_external",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [
-        {
-          "extensionBzlFile": "@bazel_tools//tools/android:android_extensions.bzl",
-          "extensionName": "remote_android_tools_extensions",
-          "usingModule": "rules_jvm_external@6.0",
-          "location": {
-            "file": "https://bcr.bazel.build/modules/rules_jvm_external/6.0/MODULE.bazel",
-            "line": 29,
-            "column": 42
-          },
-          "imports": {
-            "android_gmaven_r8": "android_gmaven_r8",
-            "android_tools": "android_tools"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@rules_jvm_external//:extensions.bzl",
-          "extensionName": "maven",
-          "usingModule": "rules_jvm_external@6.0",
-          "location": {
-            "file": "https://bcr.bazel.build/modules/rules_jvm_external/6.0/MODULE.bazel",
-            "line": 33,
-            "column": 22
-          },
-          "imports": {
-            "maven_jar_migrator": "maven_jar_migrator",
-            "rules_jvm_external_deps": "rules_jvm_external_deps",
-            "unpinned_rules_jvm_external_deps": "unpinned_rules_jvm_external_deps"
-          },
-          "devImports": [],
-          "tags": [
-            {
-              "tagName": "install",
-              "attributeValues": {
-                "name": "rules_jvm_external_deps",
-                "artifacts": [
-                  "com.google.auth:google-auth-library-credentials:1.19.0",
-                  "com.google.auth:google-auth-library-oauth2-http:1.19.0",
-                  "com.google.cloud:google-cloud-core:2.22.0",
-                  "com.google.cloud:google-cloud-storage:2.26.1",
-                  "com.google.code.gson:gson:2.10.1",
-                  "com.google.googlejavaformat:google-java-format:1.17.0",
-                  "com.google.guava:guava:32.1.2-jre",
-                  "org.apache.maven:maven-artifact:3.9.4",
-                  "software.amazon.awssdk:s3:2.20.128"
-                ],
-                "lock_file": "//:rules_jvm_external_deps_install.json"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "https://bcr.bazel.build/modules/rules_jvm_external/6.0/MODULE.bazel",
-                "line": 35,
-                "column": 14
-              }
-            },
-            {
-              "tagName": "install",
-              "attributeValues": {
-                "name": "maven_jar_migrator",
-                "artifacts": [
-                  "com.google.guava:guava:28.0-jre"
-                ]
-              },
-              "devDependency": false,
-              "location": {
-                "file": "https://bcr.bazel.build/modules/rules_jvm_external/6.0/MODULE.bazel",
-                "line": 51,
-                "column": 14
-              }
-            }
-          ],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "//:MODULE.bazel",
-          "extensionName": "_repo_rules",
-          "usingModule": "rules_jvm_external@6.0",
-          "location": {
-            "file": "https://bcr.bazel.build/modules/rules_jvm_external/6.0/MODULE.bazel",
-            "line": 0,
-            "column": 0
-          },
-          "imports": {
-            "coursier_cli": "coursier_cli",
-            "buildifier-linux-arm64": "buildifier-linux-arm64",
-            "buildifier-linux-x86_64": "buildifier-linux-x86_64",
-            "buildifier-macos-arm64": "buildifier-macos-arm64",
-            "buildifier-macos-x86_64": "buildifier-macos-x86_64",
-            "com.google.ar.sceneform_rendering": "com.google.ar.sceneform_rendering",
-            "hamcrest_core_for_test": "hamcrest_core_for_test",
-            "hamcrest_core_srcs_for_test": "hamcrest_core_srcs_for_test",
-            "gson_for_test": "gson_for_test",
-            "junit_platform_commons_for_test": "junit_platform_commons_for_test",
-            "google_api_services_compute_javadoc_for_test": "google_api_services_compute_javadoc_for_test"
-          },
-          "devImports": [],
-          "tags": [
-            {
-              "tagName": "@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
-              "attributeValues": {
-                "sha256": "2b78bfdd3ef13fd1f42f158de0f029d7cbb1f4f652d51773445cf2b6f7918a87",
-                "urls": [
-                  "https://github.com/coursier/coursier/releases/download/v2.1.8/coursier.jar"
-                ],
-                "name": "coursier_cli"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "https://bcr.bazel.build/modules/rules_jvm_external/6.0/MODULE.bazel",
-                "line": 78,
-                "column": 10
-              }
-            },
-            {
-              "tagName": "@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
-              "attributeValues": {
-                "sha256": "917d599dbb040e63ae7a7e1adb710d2057811902fdc9e35cce925ebfd966eeb8",
-                "urls": [
-                  "https://github.com/bazelbuild/buildtools/releases/download/5.1.0/buildifier-linux-arm64"
-                ],
-                "name": "buildifier-linux-arm64"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "https://bcr.bazel.build/modules/rules_jvm_external/6.0/MODULE.bazel",
-                "line": 84,
-                "column": 10
-              }
-            },
-            {
-              "tagName": "@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
-              "attributeValues": {
-                "sha256": "52bf6b102cb4f88464e197caac06d69793fa2b05f5ad50a7e7bf6fbd656648a3",
-                "urls": [
-                  "https://github.com/bazelbuild/buildtools/releases/download/5.1.0/buildifier-linux-amd64"
-                ],
-                "name": "buildifier-linux-x86_64"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "https://bcr.bazel.build/modules/rules_jvm_external/6.0/MODULE.bazel",
-                "line": 90,
-                "column": 10
-              }
-            },
-            {
-              "tagName": "@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
-              "attributeValues": {
-                "sha256": "745feb5ea96cb6ff39a76b2821c57591fd70b528325562486d47b5d08900e2e4",
-                "urls": [
-                  "https://github.com/bazelbuild/buildtools/releases/download/5.1.0/buildifier-darwin-arm64"
-                ],
-                "name": "buildifier-macos-arm64"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "https://bcr.bazel.build/modules/rules_jvm_external/6.0/MODULE.bazel",
-                "line": 96,
-                "column": 10
-              }
-            },
-            {
-              "tagName": "@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
-              "attributeValues": {
-                "sha256": "c9378d9f4293fc38ec54a08fbc74e7a9d28914dae6891334401e59f38f6e65dc",
-                "urls": [
-                  "https://github.com/bazelbuild/buildtools/releases/download/5.1.0/buildifier-darwin-amd64"
-                ],
-                "name": "buildifier-macos-x86_64"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "https://bcr.bazel.build/modules/rules_jvm_external/6.0/MODULE.bazel",
-                "line": 102,
-                "column": 10
-              }
-            },
-            {
-              "tagName": "@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
-              "attributeValues": {
-                "downloaded_file_path": "rendering-1.10.0.aar",
-                "sha256": "d2f6cd1d54eee0d5557518d1edcf77a3ba37494ae94f9bb862e570ee426a3431",
-                "urls": [
-                  "https://dl.google.com/android/maven2/com/google/ar/sceneform/rendering/1.10.0/rendering-1.10.0.aar"
-                ],
-                "name": "com.google.ar.sceneform_rendering"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "https://bcr.bazel.build/modules/rules_jvm_external/6.0/MODULE.bazel",
-                "line": 684,
-                "column": 10
-              }
-            },
-            {
-              "tagName": "@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
-              "attributeValues": {
-                "downloaded_file_path": "hamcrest-core-1.3.jar",
-                "sha256": "66fdef91e9739348df7a096aa384a5685f4e875584cce89386a7a47251c4d8e9",
-                "urls": [
-                  "https://repo1.maven.org/maven2/org/hamcrest/hamcrest-core/1.3/hamcrest-core-1.3.jar"
-                ],
-                "name": "hamcrest_core_for_test"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "https://bcr.bazel.build/modules/rules_jvm_external/6.0/MODULE.bazel",
-                "line": 693,
-                "column": 10
-              }
-            },
-            {
-              "tagName": "@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
-              "attributeValues": {
-                "downloaded_file_path": "hamcrest-core-1.3-sources.jar",
-                "sha256": "e223d2d8fbafd66057a8848cc94222d63c3cedd652cc48eddc0ab5c39c0f84df",
-                "urls": [
-                  "https://repo1.maven.org/maven2/org/hamcrest/hamcrest-core/1.3/hamcrest-core-1.3-sources.jar"
-                ],
-                "name": "hamcrest_core_srcs_for_test"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "https://bcr.bazel.build/modules/rules_jvm_external/6.0/MODULE.bazel",
-                "line": 702,
-                "column": 10
-              }
-            },
-            {
-              "tagName": "@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
-              "attributeValues": {
-                "downloaded_file_path": "gson-2.9.0.jar",
-                "sha256": "c96d60551331a196dac54b745aa642cd078ef89b6f267146b705f2c2cbef052d",
-                "urls": [
-                  "https://repo1.maven.org/maven2/com/google/code/gson/gson/2.9.0/gson-2.9.0.jar"
-                ],
-                "name": "gson_for_test"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "https://bcr.bazel.build/modules/rules_jvm_external/6.0/MODULE.bazel",
-                "line": 711,
-                "column": 10
-              }
-            },
-            {
-              "tagName": "@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
-              "attributeValues": {
-                "downloaded_file_path": "junit-platform-commons-1.8.2.jar",
-                "sha256": "d2e015fca7130e79af2f4608dc54415e4b10b592d77333decb4b1a274c185050",
-                "urls": [
-                  "https://repo1.maven.org/maven2/org/junit/platform/junit-platform-commons/1.8.2/junit-platform-commons-1.8.2.jar"
-                ],
-                "name": "junit_platform_commons_for_test"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "https://bcr.bazel.build/modules/rules_jvm_external/6.0/MODULE.bazel",
-                "line": 720,
-                "column": 10
-              }
-            },
-            {
-              "tagName": "@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
-              "attributeValues": {
-                "downloaded_file_path": "google-api-services-compute-v1-rev235-1.25.0-javadoc.jar",
-                "sha256": "b03be5ee8effba3bfbaae53891a9c01d70e2e3bd82ad8889d78e641b22bd76c2",
-                "urls": [
-                  "https://repo1.maven.org/maven2/com/google/apis/google-api-services-compute/v1-rev235-1.25.0/google-api-services-compute-v1-rev235-1.25.0-javadoc.jar"
-                ],
-                "name": "google_api_services_compute_javadoc_for_test"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "https://bcr.bazel.build/modules/rules_jvm_external/6.0/MODULE.bazel",
-                "line": 730,
-                "column": 10
-              }
-            }
-          ],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        }
-      ],
-      "deps": {
-        "bazel_skylib": "bazel_skylib@1.6.1",
-        "platforms": "platforms@0.0.9",
-        "rules_java": "rules_java@7.6.1",
-        "rules_kotlin": "rules_kotlin@1.9.0",
-        "io_bazel_stardoc": "stardoc@0.5.6",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/bazelbuild/rules_jvm_external/releases/download/6.0/rules_jvm_external-6.0.tar.gz"
-          ],
-          "integrity": "sha256-hf1rrVisdsw6J8jgUeQlX/nM2MkrqHlnDRlWIufAqbc=",
-          "strip_prefix": "rules_jvm_external-6.0",
-          "remote_patches": {
-            "https://bcr.bazel.build/modules/rules_jvm_external/6.0/patches/module_dot_bazel.patch": "sha256-+Ci4gFKoiHYV4zl1HFIS8JtdDSogzDh6neAEBNd+zLA="
-          },
-          "remote_patch_strip": 0,
-          "patches": [
-            "@@//third_party:rules_jvm_external_6.0.patch"
-          ],
-          "patch_cmds": [],
-          "patch_args": [
-            "-p1"
-          ]
-        }
-      }
-    },
-    "rules_python@0.26.0": {
-      "name": "rules_python",
-      "version": "0.26.0",
-      "key": "rules_python@0.26.0",
-      "repoName": "rules_python",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [
-        "@pythons_hub//:all"
-      ],
-      "extensionUsages": [
-        {
-          "extensionBzlFile": "@rules_python//python/extensions/private:internal_deps.bzl",
-          "extensionName": "internal_deps",
-          "usingModule": "rules_python@0.26.0",
-          "location": {
-            "file": "https://bcr.bazel.build/modules/rules_python/0.26.0/MODULE.bazel",
-            "line": 15,
-            "column": 30
-          },
-          "imports": {
-            "rules_python_internal": "rules_python_internal",
-            "pypi__build": "pypi__build",
-            "pypi__click": "pypi__click",
-            "pypi__colorama": "pypi__colorama",
-            "pypi__importlib_metadata": "pypi__importlib_metadata",
-            "pypi__installer": "pypi__installer",
-            "pypi__more_itertools": "pypi__more_itertools",
-            "pypi__packaging": "pypi__packaging",
-            "pypi__pep517": "pypi__pep517",
-            "pypi__pip": "pypi__pip",
-            "pypi__pip_tools": "pypi__pip_tools",
-            "pypi__pyproject_hooks": "pypi__pyproject_hooks",
-            "pypi__setuptools": "pypi__setuptools",
-            "pypi__tomli": "pypi__tomli",
-            "pypi__wheel": "pypi__wheel",
-            "pypi__zipp": "pypi__zipp"
-          },
-          "devImports": [],
-          "tags": [
-            {
-              "tagName": "install",
-              "attributeValues": {},
-              "devDependency": false,
-              "location": {
-                "file": "https://bcr.bazel.build/modules/rules_python/0.26.0/MODULE.bazel",
-                "line": 16,
-                "column": 22
-              }
-            }
-          ],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@rules_python//python/extensions:python.bzl",
-          "extensionName": "python",
-          "usingModule": "rules_python@0.26.0",
-          "location": {
-            "file": "https://bcr.bazel.build/modules/rules_python/0.26.0/MODULE.bazel",
-            "line": 41,
-            "column": 23
-          },
-          "imports": {
-            "pythons_hub": "pythons_hub"
-          },
-          "devImports": [],
-          "tags": [
-            {
-              "tagName": "toolchain",
-              "attributeValues": {
-                "is_default": true,
-                "python_version": "3.11"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "https://bcr.bazel.build/modules/rules_python/0.26.0/MODULE.bazel",
-                "line": 47,
-                "column": 17
-              }
-            }
-          ],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        }
-      ],
-      "deps": {
-        "bazel_features": "bazel_features@1.11.0",
-        "bazel_skylib": "bazel_skylib@1.6.1",
-        "platforms": "platforms@0.0.9",
-        "rules_proto": "rules_proto@5.3.0-21.7",
-        "com_google_protobuf": "protobuf@21.7",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/bazelbuild/rules_python/releases/download/0.26.0/rules_python-0.26.0.tar.gz"
-          ],
-          "integrity": "sha256-nQQEGskqCYXjRCNfXZRvcaxUPxsVZfLNvJoqruit9Vs=",
-          "strip_prefix": "rules_python-0.26.0",
-          "remote_patches": {
-            "https://bcr.bazel.build/modules/rules_python/0.26.0/patches/module_dot_bazel_version.patch": "sha256-V3kwks4ppP5NERbfSY4505SXghM4mKLEBuhi4tpseZE="
-          },
-          "remote_patch_strip": 1
-        }
-      }
-    },
-    "rules_testing@0.6.0": {
-      "name": "rules_testing",
-      "version": "0.6.0",
-      "key": "rules_testing@0.6.0",
-      "repoName": "rules_testing",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [],
-      "deps": {
-        "platforms": "platforms@0.0.9",
-        "bazel_skylib": "bazel_skylib@1.6.1",
-        "rules_license": "rules_license@0.0.7",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/bazelbuild/rules_testing/releases/download/v0.6.0/rules_testing-v0.6.0.tar.gz"
-          ],
-          "integrity": "sha256-AsYldGMYdqTjsCoYIMtRFnu5zc3qI4Gy+p2bixHEB8Q=",
-          "strip_prefix": "rules_testing-0.6.0",
-          "remote_patches": {
-            "https://bcr.bazel.build/modules/rules_testing/0.6.0/patches/module_dot_bazel_version.patch": "sha256-zHdszG0CcODGvv3mz84d9MlwLrZEOr1r+dpVDpsvs8U="
-          },
-          "remote_patch_strip": 1
-        }
-      }
-    },
-    "googletest@1.14.0": {
-      "name": "googletest",
-      "version": "1.14.0",
-      "key": "googletest@1.14.0",
-      "repoName": "googletest",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [],
-      "deps": {
-        "com_google_absl": "abseil-cpp@20230125.1",
-        "platforms": "platforms@0.0.9",
-        "rules_cc": "rules_cc@0.0.9",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz"
-          ],
-          "integrity": "sha256-itWYxzrXluDYKAsILOvYKmMNc+c808cAV5OKZQG7pdc=",
-          "strip_prefix": "googletest-1.14.0",
-          "remote_patches": {
-            "https://bcr.bazel.build/modules/googletest/1.14.0/patches/module_dot_bazel.patch": "sha256-CSomzvti38LCuURDG5EEoa3O1tQF3cKKt/mknnP1qcc="
-          },
-          "remote_patch_strip": 0
-        }
-      }
-    },
-    "with_cfg.bzl@0.2.4": {
-      "name": "with_cfg.bzl",
-      "version": "0.2.4",
-      "key": "with_cfg.bzl@0.2.4",
-      "repoName": "with_cfg.bzl",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [],
-      "deps": {
-        "bazel_skylib": "bazel_skylib@1.6.1",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/fmeum/with_cfg.bzl/releases/download/v0.2.4/with_cfg.bzl-v0.2.4.tar.gz"
-          ],
-          "integrity": "sha256-BqKxtWpYxHGrQNivFmxNUfCYLhxrxGN1uAWRWz/AZY4=",
-          "strip_prefix": "with_cfg.bzl-0.2.4",
-          "remote_patches": {
-            "https://bcr.bazel.build/modules/with_cfg.bzl/0.2.4/patches/module_dot_bazel_version.patch": "sha256-nMJ63F1h826i8AWSmXwz9pZYDwKfOnM5QdrZqyCLYMo="
-          },
-          "remote_patch_strip": 1
-        }
-      }
-    },
-    "buildozer@7.1.2": {
-      "name": "buildozer",
-      "version": "7.1.2",
-      "key": "buildozer@7.1.2",
-      "repoName": "buildozer",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [
-        {
-          "extensionBzlFile": "@buildozer//:buildozer_binary.bzl",
-          "extensionName": "buildozer_binary",
-          "usingModule": "buildozer@7.1.2",
-          "location": {
-            "file": "https://bcr.bazel.build/modules/buildozer/7.1.2/MODULE.bazel",
-            "line": 9,
-            "column": 33
-          },
-          "imports": {
-            "buildozer_binary": "buildozer_binary"
-          },
-          "devImports": [],
-          "tags": [
-            {
-              "tagName": "buildozer",
-              "attributeValues": {
-                "sha256": {
-                  "darwin-amd64": "90da5cf4f7db73007977a8c6bec23fa7022265978187e1da8df5edc91daf6ee1",
-                  "darwin-arm64": "bedff301bc51f04da46d2c8900c1753032ea88485af375a9f1b7bed0915558e0",
-                  "linux-amd64": "8d5c459ab21b411b8be059a8bdf59f0d3eabf9dff943d5eccb80e36e525cc09d",
-                  "linux-arm64": "a00d1790e8c92c5022d83e345d6629506836d73c23c5338d5f777589bfaed02d",
-                  "windows-amd64": "3a650e10f07787760889d7e5694924d881265ae2384499fd59ada7c39c02366e"
-                },
-                "version": "7.1.2"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "https://bcr.bazel.build/modules/buildozer/7.1.2/MODULE.bazel",
-                "line": 10,
-                "column": 27
-              }
-            }
-          ],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        }
-      ],
-      "deps": {
-        "bazel_features": "bazel_features@1.11.0",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/fmeum/buildozer/releases/download/v7.1.2/buildozer-v7.1.2.tar.gz"
-          ],
-          "integrity": "sha256-/HfDfwjmdFCKV5jYSRiuUrO5UQGZ4KwBESo3iWfaQVg=",
-          "strip_prefix": "buildozer-7.1.2",
-          "remote_patches": {
-            "https://bcr.bazel.build/modules/buildozer/7.1.2/patches/module_dot_bazel_version.patch": "sha256-nbMWB+h5mPmkLZWAFPslhFDwz615WFnN2VTEr7Fxhfo="
-          },
-          "remote_patch_strip": 1
-        }
-      }
-    },
-    "remoteapis@_": {
-      "name": "remoteapis",
-      "version": "",
-      "key": "remoteapis@_",
-      "repoName": "remoteapis",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [],
-      "deps": {
-        "rules_java": "rules_java@7.6.1",
-        "rules_proto": "rules_proto@5.3.0-21.7",
-        "com_google_protobuf": "protobuf@21.7",
-        "googleapis": "googleapis@_",
-        "io_bazel": "<root>",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      }
-    },
-    "googleapis@_": {
-      "name": "googleapis",
-      "version": "",
-      "key": "googleapis@_",
-      "repoName": "googleapis",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [],
-      "deps": {
-        "rules_license": "rules_license@0.0.7",
-        "rules_java": "rules_java@7.6.1",
-        "rules_proto": "rules_proto@5.3.0-21.7",
-        "com_google_protobuf": "protobuf@21.7",
-        "io_bazel": "<root>",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      }
-    },
-    "apple_support@1.8.1": {
-      "name": "apple_support",
-      "version": "1.8.1",
-      "key": "apple_support@1.8.1",
-      "repoName": "build_bazel_apple_support",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [
-        "@local_config_apple_cc_toolchains//:all"
-      ],
-      "extensionUsages": [
-        {
-          "extensionBzlFile": "@build_bazel_apple_support//crosstool:setup.bzl",
-          "extensionName": "apple_cc_configure_extension",
-          "usingModule": "apple_support@1.8.1",
-          "location": {
-            "file": "https://bcr.bazel.build/modules/apple_support/1.8.1/MODULE.bazel",
-            "line": 14,
-            "column": 35
-          },
-          "imports": {
-            "local_config_apple_cc": "local_config_apple_cc",
-            "local_config_apple_cc_toolchains": "local_config_apple_cc_toolchains"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        }
-      ],
-      "deps": {
-        "bazel_skylib": "bazel_skylib@1.6.1",
-        "platforms": "platforms@0.0.9",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/bazelbuild/apple_support/releases/download/1.8.1/apple_support.1.8.1.tar.gz"
-          ],
-          "integrity": "sha256-Rda7rVMWycMAh4v3//xP/eE9YgSEyRhHCMkX4guLY/8=",
-          "strip_prefix": "",
-          "remote_patches": {
-            "https://bcr.bazel.build/modules/apple_support/1.8.1/patches/module_dot_bazel_version.patch": "sha256-KiC39AC9hYWZhC2sZwZcY46HVerfh2p9pzF9WXqcxAI="
-          },
-          "remote_patch_strip": 0
-        }
-      }
-    },
-    "abseil-cpp@20230125.1": {
-      "name": "abseil-cpp",
-      "version": "20230125.1",
-      "key": "abseil-cpp@20230125.1",
-      "repoName": "abseil-cpp",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [],
-      "deps": {
-        "rules_cc": "rules_cc@0.0.9",
-        "platforms": "platforms@0.0.9",
-        "bazel_skylib": "bazel_skylib@1.6.1",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/abseil/abseil-cpp/archive/refs/tags/20230125.1.tar.gz"
-          ],
-          "integrity": "sha256-gTEcF1mbNxIGne0gzKCaYqsL8qid+haZN4bIeCt+0UU=",
-          "strip_prefix": "abseil-cpp-20230125.1",
-          "remote_patches": {
-            "https://bcr.bazel.build/modules/abseil-cpp/20230125.1/patches/module_dot_bazel.patch": "sha256-L1wChhBmDOnRbPbD4MENVXHjOBT2KFrDxT6D+aoThxk="
-          },
-          "remote_patch_strip": 0
-        }
-      }
-    },
-    "c-ares@1.15.0": {
-      "name": "c-ares",
-      "version": "1.15.0",
-      "key": "c-ares@1.15.0",
-      "repoName": "c-ares",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [],
-      "deps": {
-        "bazel_skylib": "bazel_skylib@1.6.1",
-        "com_github_grpc_grpc": "grpc@1.48.1.bcr.1",
-        "platforms": "platforms@0.0.9",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/c-ares/c-ares/releases/download/cares-1_15_0/c-ares-1.15.0.tar.gz"
-          ],
-          "integrity": "sha256-bNuXhx8pMFMMl963z1yPpL5aCwLHzqbnx2Z2cqOdaFI=",
-          "strip_prefix": "c-ares-1.15.0",
-          "remote_patches": {
-            "https://bcr.bazel.build/modules/c-ares/1.15.0/patches/add_build_file.patch": "sha256-+SUCFxBIkR0GE9FRFPps/e6AnA9cQIGANBHK14UAKwQ=",
-            "https://bcr.bazel.build/modules/c-ares/1.15.0/patches/module_dot_bazel.patch": "sha256-SVQeSrnvd7IishMhmg8S3PK6/6bbt1IqwVEqKDfdYgk="
-          },
-          "remote_patch_strip": 0
-        }
-      }
-    },
-    "rules_go@0.39.1": {
-      "name": "rules_go",
-      "version": "0.39.1",
-      "key": "rules_go@0.39.1",
-      "repoName": "io_bazel_rules_go",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [
-        "@go_toolchains//:all"
-      ],
-      "extensionUsages": [
-        {
-          "extensionBzlFile": "@io_bazel_rules_go//go/private:extensions.bzl",
-          "extensionName": "non_module_dependencies",
-          "usingModule": "rules_go@0.39.1",
-          "location": {
-            "file": "https://bcr.bazel.build/modules/rules_go/0.39.1/MODULE.bazel",
-            "line": 13,
-            "column": 40
-          },
-          "imports": {
-            "go_googleapis": "go_googleapis",
-            "io_bazel_rules_nogo": "io_bazel_rules_nogo"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@io_bazel_rules_go//go:extensions.bzl",
-          "extensionName": "go_sdk",
-          "usingModule": "rules_go@0.39.1",
-          "location": {
-            "file": "https://bcr.bazel.build/modules/rules_go/0.39.1/MODULE.bazel",
-            "line": 20,
-            "column": 23
-          },
-          "imports": {
-            "go_toolchains": "go_toolchains"
-          },
-          "devImports": [],
-          "tags": [
-            {
-              "tagName": "download",
-              "attributeValues": {
-                "name": "go_default_sdk",
-                "version": "1.19.8"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "https://bcr.bazel.build/modules/rules_go/0.39.1/MODULE.bazel",
-                "line": 21,
-                "column": 16
-              }
-            }
-          ],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@gazelle//:extensions.bzl",
-          "extensionName": "go_deps",
-          "usingModule": "rules_go@0.39.1",
-          "location": {
-            "file": "https://bcr.bazel.build/modules/rules_go/0.39.1/MODULE.bazel",
-            "line": 31,
-            "column": 24
-          },
-          "imports": {
-            "com_github_gogo_protobuf": "com_github_gogo_protobuf",
-            "com_github_golang_mock": "com_github_golang_mock",
-            "com_github_golang_protobuf": "com_github_golang_protobuf",
-            "org_golang_google_genproto": "org_golang_google_genproto",
-            "org_golang_google_grpc": "org_golang_google_grpc",
-            "org_golang_google_protobuf": "org_golang_google_protobuf",
-            "org_golang_x_net": "org_golang_x_net"
-          },
-          "devImports": [],
-          "tags": [
-            {
-              "tagName": "from_file",
-              "attributeValues": {
-                "go_mod": "//:go.mod"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "https://bcr.bazel.build/modules/rules_go/0.39.1/MODULE.bazel",
-                "line": 32,
-                "column": 18
-              }
-            },
-            {
-              "tagName": "module",
-              "attributeValues": {
-                "path": "github.com/gogo/protobuf",
-                "sum": "h1:Ov1cvc58UF3b5XjBnZv7+opcTcQFZebYjWzi34vdm4Q=",
-                "version": "v1.3.2"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "https://bcr.bazel.build/modules/rules_go/0.39.1/MODULE.bazel",
-                "line": 33,
-                "column": 15
-              }
-            }
-          ],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        }
-      ],
-      "deps": {
-        "bazel_skylib": "bazel_skylib@1.6.1",
-        "platforms": "platforms@0.0.9",
-        "rules_proto": "rules_proto@5.3.0-21.7",
-        "com_google_protobuf": "protobuf@21.7",
-        "gazelle": "gazelle@0.30.0",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/bazelbuild/rules_go/releases/download/v0.39.1/rules_go-v0.39.1.zip"
-          ],
-          "integrity": "sha256-bcLaerTPXXv8fJSXdrG3xzPwXlbtxLzZAiuySdLiqZY=",
-          "strip_prefix": "",
-          "remote_patches": {},
-          "remote_patch_strip": 0
-        }
-      }
-    },
-    "rules_kotlin@1.9.0": {
-      "name": "rules_kotlin",
-      "version": "1.9.0",
-      "key": "rules_kotlin@1.9.0",
-      "repoName": "rules_kotlin",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [
-        "//kotlin/internal:default_toolchain"
-      ],
-      "extensionUsages": [
-        {
-          "extensionBzlFile": "@rules_kotlin//src/main/starlark/core/repositories:bzlmod_setup.bzl",
-          "extensionName": "rules_kotlin_extensions",
-          "usingModule": "rules_kotlin@1.9.0",
-          "location": {
-            "file": "https://bcr.bazel.build/modules/rules_kotlin/1.9.0/MODULE.bazel",
-            "line": 14,
-            "column": 40
-          },
-          "imports": {
-            "buildkite_config": "buildkite_config",
-            "com_github_google_ksp": "com_github_google_ksp",
-            "com_github_jetbrains_kotlin": "com_github_jetbrains_kotlin",
-            "com_github_pinterest_ktlint": "com_github_pinterest_ktlint",
-            "kt_java_stub_template": "kt_java_stub_template",
-            "rules_android": "rules_android"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@bazel_tools//tools/android:android_extensions.bzl",
-          "extensionName": "remote_android_tools_extensions",
-          "usingModule": "rules_kotlin@1.9.0",
-          "location": {
-            "file": "https://bcr.bazel.build/modules/rules_kotlin/1.9.0/MODULE.bazel",
-            "line": 28,
-            "column": 42
-          },
-          "imports": {
-            "android_gmaven_r8": "android_gmaven_r8",
-            "android_tools": "android_tools"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@rules_jvm_external//:extensions.bzl",
-          "extensionName": "maven",
-          "usingModule": "rules_kotlin@1.9.0",
-          "location": {
-            "file": "https://bcr.bazel.build/modules/rules_kotlin/1.9.0/MODULE.bazel",
-            "line": 37,
-            "column": 22
-          },
-          "imports": {
-            "kotlin_rules_maven": "kotlin_rules_maven"
-          },
-          "devImports": [],
-          "tags": [
-            {
-              "tagName": "install",
-              "attributeValues": {
-                "name": "kotlin_rules_maven",
-                "artifacts": [
-                  "com.google.code.findbugs:jsr305:3.0.2",
-                  "junit:junit:4.13-beta-3",
-                  "com.google.protobuf:protobuf-java:3.6.0",
-                  "com.google.protobuf:protobuf-java-util:3.6.0",
-                  "com.google.guava:guava:27.1-jre",
-                  "com.google.truth:truth:0.45",
-                  "com.google.auto.service:auto-service:1.0.1",
-                  "com.google.auto.service:auto-service-annotations:1.0.1",
-                  "com.google.auto.value:auto-value:1.10.1",
-                  "com.google.auto.value:auto-value-annotations:1.10.1",
-                  "com.google.dagger:dagger:2.43.2",
-                  "com.google.dagger:dagger-compiler:2.43.2",
-                  "com.google.dagger:dagger-producers:2.43.2",
-                  "javax.annotation:javax.annotation-api:1.3.2",
-                  "javax.inject:javax.inject:1",
-                  "org.pantsbuild:jarjar:1.7.2",
-                  "org.jetbrains.kotlinx:atomicfu-js:0.15.2",
-                  "org.jetbrains.kotlinx:kotlinx-serialization-runtime:1.0-M1-1.4.0-rc"
-                ],
-                "fetch_sources": true,
-                "repositories": [
-                  "https://maven-central.storage.googleapis.com/repos/central/data/",
-                  "https://maven.google.com",
-                  "https://repo1.maven.org/maven2"
-                ]
-              },
-              "devDependency": false,
-              "location": {
-                "file": "https://bcr.bazel.build/modules/rules_kotlin/1.9.0/MODULE.bazel",
-                "line": 38,
-                "column": 14
-              }
-            }
-          ],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        }
-      ],
-      "deps": {
-        "platforms": "platforms@0.0.9",
-        "bazel_skylib": "bazel_skylib@1.6.1",
-        "rules_java": "rules_java@7.6.1",
-        "rules_python": "rules_python@0.26.0",
-        "rules_cc": "rules_cc@0.0.9",
-        "rules_jvm_external": "rules_jvm_external@6.0",
-        "rules_pkg": "rules_pkg@0.9.1",
-        "io_bazel_stardoc": "stardoc@0.5.6",
-        "rules_proto": "rules_proto@5.3.0-21.7",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/bazelbuild/rules_kotlin/releases/download/v1.9.0/rules_kotlin-v1.9.0.tar.gz"
-          ],
-          "integrity": "sha256-V2bx5Zms9VGqVvSdq5q5EIJpsDxVdJbFSsr0H5jiuNY=",
-          "strip_prefix": "",
-          "remote_patches": {
-            "https://bcr.bazel.build/modules/rules_kotlin/1.9.0/patches/module_dot_bazel_version.patch": "sha256-nDFDlp2ujd74k9mEF0Bh7pZqBt+CUCF2bZHIaFgM25g="
-          },
-          "remote_patch_strip": 1
-        }
-      }
-    },
-    "upb@0.0.0-20220923-a547704": {
-      "name": "upb",
-      "version": "0.0.0-20220923-a547704",
-      "key": "upb@0.0.0-20220923-a547704",
-      "repoName": "upb",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [],
-      "deps": {
-        "bazel_skylib": "bazel_skylib@1.6.1",
-        "rules_proto": "rules_proto@5.3.0-21.7",
-        "com_google_protobuf": "protobuf@21.7",
-        "com_google_absl": "abseil-cpp@20230125.1",
-        "platforms": "platforms@0.0.9",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/protocolbuffers/upb/archive/a5477045acaa34586420942098f5fecd3570f577.tar.gz"
-          ],
-          "integrity": "sha256-z39x6v+QskwaKLSWRan/A6mmwecTQpHOcJActj5zZLU=",
-          "strip_prefix": "upb-a5477045acaa34586420942098f5fecd3570f577",
-          "remote_patches": {
-            "https://bcr.bazel.build/modules/upb/0.0.0-20220923-a547704/patches/module_dot_bazel.patch": "sha256-wH4mNS6ZYy+8uC0HoAft/c7SDsq2Kxf+J8dUakXhaB0="
-          },
-          "remote_patch_strip": 0
-        }
-      }
-    },
-    "bazel_tools@_": {
-      "name": "bazel_tools",
-      "version": "",
-      "key": "bazel_tools@_",
-      "repoName": "bazel_tools",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [
-        "@local_config_cc_toolchains//:all",
-        "@local_config_sh//:local_sh_toolchain"
-      ],
-      "extensionUsages": [
-        {
-          "extensionBzlFile": "@bazel_tools//tools/cpp:cc_configure.bzl",
-          "extensionName": "cc_configure_extension",
-          "usingModule": "bazel_tools@_",
-          "location": {
-            "file": "@@bazel_tools//:MODULE.bazel",
-            "line": 18,
-            "column": 29
-          },
-          "imports": {
-            "local_config_cc": "local_config_cc",
-            "local_config_cc_toolchains": "local_config_cc_toolchains"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@bazel_tools//tools/osx:xcode_configure.bzl",
-          "extensionName": "xcode_configure_extension",
-          "usingModule": "bazel_tools@_",
-          "location": {
-            "file": "@@bazel_tools//:MODULE.bazel",
-            "line": 22,
-            "column": 32
-          },
-          "imports": {
-            "local_config_xcode": "local_config_xcode"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@rules_java//java:extensions.bzl",
-          "extensionName": "toolchains",
-          "usingModule": "bazel_tools@_",
-          "location": {
-            "file": "@@bazel_tools//:MODULE.bazel",
-            "line": 25,
-            "column": 32
-          },
-          "imports": {
-            "local_jdk": "local_jdk",
-            "remote_java_tools": "remote_java_tools",
-            "remote_java_tools_linux": "remote_java_tools_linux",
-            "remote_java_tools_windows": "remote_java_tools_windows",
-            "remote_java_tools_darwin_x86_64": "remote_java_tools_darwin_x86_64",
-            "remote_java_tools_darwin_arm64": "remote_java_tools_darwin_arm64"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@bazel_tools//tools/sh:sh_configure.bzl",
-          "extensionName": "sh_configure_extension",
-          "usingModule": "bazel_tools@_",
-          "location": {
-            "file": "@@bazel_tools//:MODULE.bazel",
-            "line": 36,
-            "column": 39
-          },
-          "imports": {
-            "local_config_sh": "local_config_sh"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@bazel_tools//tools/test:extensions.bzl",
-          "extensionName": "remote_coverage_tools_extension",
-          "usingModule": "bazel_tools@_",
-          "location": {
-            "file": "@@bazel_tools//:MODULE.bazel",
-            "line": 40,
-            "column": 48
-          },
-          "imports": {
-            "remote_coverage_tools": "remote_coverage_tools"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@bazel_tools//tools/android:android_extensions.bzl",
-          "extensionName": "remote_android_tools_extensions",
-          "usingModule": "bazel_tools@_",
-          "location": {
-            "file": "@@bazel_tools//:MODULE.bazel",
-            "line": 43,
-            "column": 42
-          },
-          "imports": {
-            "android_gmaven_r8": "android_gmaven_r8",
-            "android_tools": "android_tools"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@buildozer//:buildozer_binary.bzl",
-          "extensionName": "buildozer_binary",
-          "usingModule": "bazel_tools@_",
-          "location": {
-            "file": "@@bazel_tools//:MODULE.bazel",
-            "line": 47,
-            "column": 33
-          },
-          "imports": {
-            "buildozer_binary": "buildozer_binary"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        }
-      ],
-      "deps": {
-        "rules_cc": "rules_cc@0.0.9",
-        "rules_java": "rules_java@7.6.1",
-        "rules_license": "rules_license@0.0.7",
-        "rules_proto": "rules_proto@5.3.0-21.7",
-        "rules_python": "rules_python@0.26.0",
-        "buildozer": "buildozer@7.1.2",
-        "platforms": "platforms@0.0.9",
-        "com_google_protobuf": "protobuf@21.7",
-        "zlib": "zlib@1.3",
-        "build_bazel_apple_support": "apple_support@1.8.1",
-        "local_config_platform": "local_config_platform@_"
-      }
-    },
-    "local_config_platform@_": {
-      "name": "local_config_platform",
-      "version": "",
-      "key": "local_config_platform@_",
-      "repoName": "local_config_platform",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [],
-      "deps": {
-        "platforms": "platforms@0.0.9",
-        "bazel_tools": "bazel_tools@_"
-      }
-    },
-    "boringssl@0.0.0-20211025-d4f1ab9": {
-      "name": "boringssl",
-      "version": "0.0.0-20211025-d4f1ab9",
-      "key": "boringssl@0.0.0-20211025-d4f1ab9",
-      "repoName": "boringssl",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [],
-      "deps": {
-        "rules_cc": "rules_cc@0.0.9",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/google/boringssl/archive/d4f1ab983065e4616319f59c723c7b9870021fae.tar.gz"
-          ],
-          "integrity": "sha256-M26QowTRWQe0pyMgTvDHwMabsdfxLqYP6MMwUWZjC/I=",
-          "strip_prefix": "boringssl-d4f1ab983065e4616319f59c723c7b9870021fae",
-          "remote_patches": {
-            "https://bcr.bazel.build/modules/boringssl/0.0.0-20211025-d4f1ab9/patches/module_dot_bazel.patch": "sha256-TJNetd16OGSjVWvmBAL4iZM/uatmXvjR0AsjHrPRGUA="
-          },
-          "remote_patch_strip": 0
-        }
-      }
-    },
-    "re2@2021-09-01": {
-      "name": "re2",
-      "version": "2021-09-01",
-      "key": "re2@2021-09-01",
-      "repoName": "re2",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [],
-      "deps": {
-        "rules_cc": "rules_cc@0.0.9",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/google/re2/archive/refs/tags/2021-09-01.zip"
-          ],
-          "integrity": "sha256-739ELobFx96SqV7QdeOUNre0fFKk5+5jV1IU7slG/C8=",
-          "strip_prefix": "re2-2021-09-01",
-          "remote_patches": {
-            "https://bcr.bazel.build/modules/re2/2021-09-01/patches/module_dot_bazel.patch": "sha256-uLpoNV5fETcQxOqvD9PtPv4CHYhetfPSkPIJPXoLXcg="
-          },
-          "remote_patch_strip": 0
-        }
-      }
-    },
-    "bazel_features@1.11.0": {
-      "name": "bazel_features",
-      "version": "1.11.0",
-      "key": "bazel_features@1.11.0",
-      "repoName": "bazel_features",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [
-        {
-          "extensionBzlFile": "@bazel_features//private:extensions.bzl",
-          "extensionName": "version_extension",
-          "usingModule": "bazel_features@1.11.0",
-          "location": {
-            "file": "https://bcr.bazel.build/modules/bazel_features/1.11.0/MODULE.bazel",
-            "line": 15,
-            "column": 24
-          },
-          "imports": {
-            "bazel_features_globals": "bazel_features_globals",
-            "bazel_features_version": "bazel_features_version"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        }
-      ],
-      "deps": {
-        "bazel_skylib": "bazel_skylib@1.6.1",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/bazel-contrib/bazel_features/releases/download/v1.11.0/bazel_features-v1.11.0.tar.gz"
-          ],
-          "integrity": "sha256-LNnlfUw4Z10yFzHWXBUljzpmQ4rVMa4Jy4uxQhfchXI=",
-          "strip_prefix": "bazel_features-1.11.0",
-          "remote_patches": {
-            "https://bcr.bazel.build/modules/bazel_features/1.11.0/patches/module_dot_bazel_version.patch": "sha256-SmJxgdBt6h3FejXQprwnDFpgAouqa1nThB8hStRLI7o="
-          },
-          "remote_patch_strip": 1
-        }
-      }
-    },
-    "gazelle@0.30.0": {
-      "name": "gazelle",
-      "version": "0.30.0",
-      "key": "gazelle@0.30.0",
-      "repoName": "bazel_gazelle",
-      "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
-      "extensionUsages": [
-        {
-          "extensionBzlFile": "@io_bazel_rules_go//go:extensions.bzl",
-          "extensionName": "go_sdk",
-          "usingModule": "gazelle@0.30.0",
-          "location": {
-            "file": "https://bcr.bazel.build/modules/gazelle/0.30.0/MODULE.bazel",
-            "line": 12,
-            "column": 23
-          },
-          "imports": {
-            "go_default_sdk": "go_default_sdk"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@bazel_gazelle//internal/bzlmod:non_module_deps.bzl",
-          "extensionName": "non_module_deps",
-          "usingModule": "gazelle@0.30.0",
-          "location": {
-            "file": "https://bcr.bazel.build/modules/gazelle/0.30.0/MODULE.bazel",
-            "line": 17,
-            "column": 32
-          },
-          "imports": {
-            "bazel_gazelle_go_repository_cache": "bazel_gazelle_go_repository_cache",
-            "bazel_gazelle_go_repository_tools": "bazel_gazelle_go_repository_tools"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@io_bazel_rules_go//go/private:extensions.bzl",
-          "extensionName": "non_module_dependencies",
-          "usingModule": "gazelle@0.30.0",
-          "location": {
-            "file": "https://bcr.bazel.build/modules/gazelle/0.30.0/MODULE.bazel",
-            "line": 24,
-            "column": 41
-          },
-          "imports": {
-            "go_googleapis": "go_googleapis"
-          },
-          "devImports": [],
-          "tags": [],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        },
-        {
-          "extensionBzlFile": "@bazel_gazelle//:extensions.bzl",
-          "extensionName": "go_deps",
-          "usingModule": "gazelle@0.30.0",
-          "location": {
-            "file": "https://bcr.bazel.build/modules/gazelle/0.30.0/MODULE.bazel",
-            "line": 30,
-            "column": 24
-          },
-          "imports": {
-            "com_github_bazelbuild_buildtools": "com_github_bazelbuild_buildtools",
-            "com_github_bmatcuk_doublestar_v4": "com_github_bmatcuk_doublestar_v4",
-            "com_github_fsnotify_fsnotify": "com_github_fsnotify_fsnotify",
-            "com_github_google_go_cmp": "com_github_google_go_cmp",
-            "com_github_pelletier_go_toml": "com_github_pelletier_go_toml",
-            "com_github_pmezard_go_difflib": "com_github_pmezard_go_difflib",
-            "org_golang_x_mod": "org_golang_x_mod",
-            "org_golang_x_sync": "org_golang_x_sync",
-            "org_golang_x_tools": "org_golang_x_tools",
-            "bazel_gazelle_go_repository_config": "bazel_gazelle_go_repository_config"
-          },
-          "devImports": [],
-          "tags": [
-            {
-              "tagName": "from_file",
-              "attributeValues": {
-                "go_mod": "//:go.mod"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "https://bcr.bazel.build/modules/gazelle/0.30.0/MODULE.bazel",
-                "line": 31,
-                "column": 18
-              }
-            }
-          ],
-          "hasDevUseExtension": false,
-          "hasNonDevUseExtension": true
-        }
-      ],
-      "deps": {
-        "bazel_skylib": "bazel_skylib@1.6.1",
-        "com_google_protobuf": "protobuf@21.7",
-        "io_bazel_rules_go": "rules_go@0.39.1",
-        "rules_proto": "rules_proto@5.3.0-21.7",
-        "bazel_tools": "bazel_tools@_",
-        "local_config_platform": "local_config_platform@_"
-      },
-      "repoSpec": {
-        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-        "ruleClassName": "http_archive",
-        "attributes": {
-          "urls": [
-            "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.30.0/bazel-gazelle-v0.30.0.tar.gz"
-          ],
-          "integrity": "sha256-cn8+Tt2W6iDCnowsqejSr3JNjHd455I6hUssgJUrxAU=",
-          "strip_prefix": "",
-          "remote_patches": {},
-          "remote_patch_strip": 0
-        }
-      }
-    }
-  },
+  "selectedYankedVersions": {},
   "moduleExtensions": {
     "//:extensions.bzl%bazel_android_deps": {
       "general": {
-        "bzlTransitiveDigest": "fsj2Y0/OdubiefV/mXYFaPLbTvxWyuGu7Pp/xcVMWBE=",
+        "bzlTransitiveDigest": "v9XVxqi5Phec86bF2h2jdijyUjvkMsSRhoHfLBFlSDQ=",
+        "usagesDigest": "sg97SybGLnVD/XjwZWrt/P/mpgHokHG4MDCrqAO8U4M=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -2994,7 +278,8 @@
     },
     "//:extensions.bzl%bazel_build_deps": {
       "general": {
-        "bzlTransitiveDigest": "fsj2Y0/OdubiefV/mXYFaPLbTvxWyuGu7Pp/xcVMWBE=",
+        "bzlTransitiveDigest": "v9XVxqi5Phec86bF2h2jdijyUjvkMsSRhoHfLBFlSDQ=",
+        "usagesDigest": "S0vNSOLxzaSWBw2qFrqtiXI9txwZdU8Tc5Bmz/zBoJA=",
         "recordedFileInputs": {
           "@@//MODULE.bazel": "a7763ee017cb7133cd854e5217de5391d51c90faf7b9e2c412b37980b1952a32",
           "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "828ca18c55ab0580454760a1a8b00d414057233329bd7a44c31e477cdaa56d81"
@@ -3388,7 +673,8 @@
     },
     "//:extensions.bzl%bazel_test_deps": {
       "general": {
-        "bzlTransitiveDigest": "fsj2Y0/OdubiefV/mXYFaPLbTvxWyuGu7Pp/xcVMWBE=",
+        "bzlTransitiveDigest": "v9XVxqi5Phec86bF2h2jdijyUjvkMsSRhoHfLBFlSDQ=",
+        "usagesDigest": "z5vKii6UDgNY0+omarLGTmjsgS9a1wb0ayg9nBqDSxI=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -3555,6 +841,7 @@
     "//:rbe_extension.bzl%bazel_rbe_deps": {
       "general": {
         "bzlTransitiveDigest": "3Qxu4ylcYD3RTWLhk5k/59p/CwZ4tLdSgYnmBXYgAtc=",
+        "usagesDigest": "bfpcGikP5pxq55O4cZ1SJugim1GiA0G3MceZeL9nYhQ=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -3578,7 +865,8 @@
     },
     "@@apple_support~//crosstool:setup.bzl%apple_cc_configure_extension": {
       "general": {
-        "bzlTransitiveDigest": "JFciz9+xRmE31CdyrcEUeZSKFxwiLTQ+PNMg6Bcc6s8=",
+        "bzlTransitiveDigest": "UxZFvCeNtqOfABEQ0g7SXWSfNlKhn2Bmq3DHR47loSA=",
+        "usagesDigest": "n0/QKoqccR9AmakcnGD8sxU+UmSR5WN38s4qRDfVTXQ=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -3603,119 +891,10 @@
         ]
       }
     },
-    "@@bazel_tools//tools/android:android_extensions.bzl%remote_android_tools_extensions": {
-      "general": {
-        "bzlTransitiveDigest": "S0n86BFe4SJ3lRaZiRA5D46oH52UO2hP1T50t/zldOw=",
-        "recordedFileInputs": {},
-        "recordedDirentsInputs": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "android_tools": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_archive",
-            "attributes": {
-              "sha256": "2b661a761a735b41c41b3a78089f4fc1982626c76ddb944604ae3ff8c545d3c2",
-              "url": "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.30.0.tar"
-            }
-          },
-          "android_gmaven_r8": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_jar",
-            "attributes": {
-              "sha256": "57a696749695a09381a87bc2f08c3a8ed06a717a5caa3ef878a3077e0d3af19d",
-              "url": "https://maven.google.com/com/android/tools/r8/8.1.56/r8-8.1.56.jar"
-            }
-          }
-        },
-        "recordedRepoMappingEntries": []
-      }
-    },
-    "@@bazel_tools//tools/cpp:cc_configure.bzl%cc_configure_extension": {
-      "general": {
-        "bzlTransitiveDigest": "PHpT2yqMGms2U4L3E/aZ+WcQalmZWm+ILdP3yiLsDhA=",
-        "recordedFileInputs": {},
-        "recordedDirentsInputs": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "local_config_cc": {
-            "bzlFile": "@@bazel_tools//tools/cpp:cc_configure.bzl",
-            "ruleClassName": "cc_autoconf",
-            "attributes": {}
-          },
-          "local_config_cc_toolchains": {
-            "bzlFile": "@@bazel_tools//tools/cpp:cc_configure.bzl",
-            "ruleClassName": "cc_autoconf_toolchains",
-            "attributes": {}
-          }
-        },
-        "recordedRepoMappingEntries": [
-          [
-            "bazel_tools",
-            "bazel_tools",
-            "bazel_tools"
-          ]
-        ]
-      }
-    },
-    "@@bazel_tools//tools/osx:xcode_configure.bzl%xcode_configure_extension": {
-      "general": {
-        "bzlTransitiveDigest": "Qh2bWTU6QW6wkrd87qrU4YeY+SG37Nvw3A0PR4Y0L2Y=",
-        "recordedFileInputs": {},
-        "recordedDirentsInputs": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "local_config_xcode": {
-            "bzlFile": "@@bazel_tools//tools/osx:xcode_configure.bzl",
-            "ruleClassName": "xcode_autoconf",
-            "attributes": {
-              "xcode_locator": "@bazel_tools//tools/osx:xcode_locator.m",
-              "remote_xcode": ""
-            }
-          }
-        },
-        "recordedRepoMappingEntries": []
-      }
-    },
-    "@@bazel_tools//tools/sh:sh_configure.bzl%sh_configure_extension": {
-      "general": {
-        "bzlTransitiveDigest": "hp4NgmNjEg5+xgvzfh6L83bt9/aiiWETuNpwNuF1MSU=",
-        "recordedFileInputs": {},
-        "recordedDirentsInputs": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "local_config_sh": {
-            "bzlFile": "@@bazel_tools//tools/sh:sh_configure.bzl",
-            "ruleClassName": "sh_config",
-            "attributes": {}
-          }
-        },
-        "recordedRepoMappingEntries": []
-      }
-    },
-    "@@bazel_tools//tools/test:extensions.bzl%remote_coverage_tools_extension": {
-      "general": {
-        "bzlTransitiveDigest": "l5mcjH2gWmbmIycx97bzI2stD0Q0M5gpDc0aLOHKIm8=",
-        "recordedFileInputs": {},
-        "recordedDirentsInputs": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "remote_coverage_tools": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_archive",
-            "attributes": {
-              "sha256": "7006375f6756819b7013ca875eab70a541cf7d89142d9c511ed78ea4fefa38af",
-              "urls": [
-                "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.6.zip"
-              ]
-            }
-          }
-        },
-        "recordedRepoMappingEntries": []
-      }
-    },
     "@@gazelle~//:extensions.bzl%go_deps": {
       "general": {
-        "bzlTransitiveDigest": "V0I2A6HQbPqRuhGhygxjQV47OuSSxVaAXG5m+/637Zw=",
+        "bzlTransitiveDigest": "KnJM36BNWe/NP/TKDbrmkLH1Oa6KLGvHqjuwR0tQom0=",
+        "usagesDigest": "PIsHZ918JQdt7pO52RB+yz+Z2m9WfTiRnG9m6Zp5BPs=",
         "recordedFileInputs": {
           "@@rules_go~//go.mod": "a7143f329c2a3e0b983ce74a96c0c25b0d0c59d236d75f7e1b069aadd988d55e",
           "@@gazelle~//go.sum": "c9624aa41e5ffd61a8581d57a3c4046e62b46630dddc8b191e65017f34ff12a5",
@@ -3967,6 +1146,7 @@
     "@@gazelle~//internal/bzlmod:non_module_deps.bzl%non_module_deps": {
       "general": {
         "bzlTransitiveDigest": "30wev+wJfzc4s72MCfbP9U8W+3Js2b+Xbo5ofgZbHw8=",
+        "usagesDigest": "+xCT9pRvDnsW7iI58SOYi7xcZx59eX5FMxOaQkThPC4=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -3998,7 +1178,8 @@
     },
     "@@grpc~//bazel:grpc_deps.bzl%grpc_repo_deps_ext": {
       "general": {
-        "bzlTransitiveDigest": "CQymQeM+xKJtqfP8mRUSq0+RY5mOsGzDgE0qRby0QbY=",
+        "bzlTransitiveDigest": "g3tQcAERgW3d6N1gPCz9FCsyoGGqNexWYUD89l4dCz8=",
+        "usagesDigest": "pUXbIpOy2jqE7CmQkRf73GRQmDQME0OYOKx+KnlocH8=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -4293,7 +1474,8 @@
     },
     "@@grpc~//bazel:grpc_extra_deps.bzl%grpc_extra_deps_ext": {
       "general": {
-        "bzlTransitiveDigest": "APB5VWiSPsu/YjQruUlTuHP2OspkSapZzpofR9h3kOc=",
+        "bzlTransitiveDigest": "oC3WXWbs22K9+R9wsFDqFnsXsZH7uporE4vH0N0aVgE=",
+        "usagesDigest": "GsyNga+5a9OklQGmc4ymqmxBcEKaADjmKhuQ6MeGmXY=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -4520,6 +1702,7 @@
     "@@platforms//host:extension.bzl%host_platform": {
       "general": {
         "bzlTransitiveDigest": "xelQcPZH8+tmuOHVjL9vDxMnnQNMlwj0SlvgoqBkm4U=",
+        "usagesDigest": "meSzxn3DUCcYEhq4HQwExWkWtU4EjriRBQLsZN+Q0SU=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -4535,7 +1718,8 @@
     },
     "@@rules_go~//go:extensions.bzl%go_sdk": {
       "general": {
-        "bzlTransitiveDigest": "k4MEsADgBfRC+sbMqB3lZL0JpdsCxlwSYO+z9zn9Y80=",
+        "bzlTransitiveDigest": "obps9i5YfjAXyjEh/+gfXpZMEP3YOLx+PtumJeeJNo0=",
+        "usagesDigest": "ofRjJtvD11oKY99HMhrv1wKNQNLh9wT+dNirGyPuXJQ=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -4589,7 +1773,8 @@
     },
     "@@rules_go~//go/private:extensions.bzl%non_module_dependencies": {
       "general": {
-        "bzlTransitiveDigest": "n/KyfNdKeML6sHRHvHLrPCzPU5vSJfn9Z5b0n2xjRbQ=",
+        "bzlTransitiveDigest": "vurqgs3L/LXq/D5+nInE4siArAxouQkjNApYNtypmbA=",
+        "usagesDigest": "xC/Z8V6ieDZ8CF4DWbgeocO0pLMlM7zxp/VgPdK3KSU=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -4809,6 +1994,7 @@
     "@@rules_graalvm~//:extensions.bzl%graalvm": {
       "general": {
         "bzlTransitiveDigest": "7TRnLGgMZtLIlqn0gwKri3T+KOm/9pO2nb9Tyb8sGJY=",
+        "usagesDigest": "9ti2DgD4vux69Lw+Y5sosEyWg4oi/gn5Z/rh7kXzpDY=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -4845,7 +2031,8 @@
     },
     "@@rules_jvm_external~//:extensions.bzl%maven": {
       "general": {
-        "bzlTransitiveDigest": "obio0831iCBU8RFJomnkAkwWz22lcgjyJVwFayzhtrk=",
+        "bzlTransitiveDigest": "6HjpYwTb4aw3ujkkpdKEvg9geToiH1ebaT6hmsvF5xw=",
+        "usagesDigest": "1ia58ODt3QzLkRngsv/TS0AzP8ijp5HDSJODwRvBAQ4=",
         "recordedFileInputs": {
           "@@//src/tools/android/maven_android_install.json": "09bff3e33d291336046f7c9201630fb5e014f0e60b78b6f09b84e4f5f73ed04f",
           "@@rules_jvm_external~//rules_jvm_external_deps_install.json": "cafb5d2d8119391eb2b322ce3840d3352ea82d496bdb8cbd4b6779ec4d044dda",
@@ -8668,7 +5855,8 @@
     },
     "@@rules_kotlin~//src/main/starlark/core/repositories:bzlmod_setup.bzl%rules_kotlin_extensions": {
       "general": {
-        "bzlTransitiveDigest": "aN5nha4wx41+LIEE1T8eDrrCZ96tVn4Pkuac4FAGLnE=",
+        "bzlTransitiveDigest": "HEEa2807W1hMMbUfqsZEgS3IyuR2PxPE8mEPkwu03Bs=",
+        "usagesDigest": "NVenRWDvHRhBixN7Qd3DonxYCvo8Bzu7GU5tHat0wps=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -8747,167 +5935,9 @@
       }
     },
     "@@rules_python~//python/extensions:pip.bzl%pip": {
-      "os:osx,arch:aarch64": {
-        "bzlTransitiveDigest": "aYXlTHcvXABtRU8WJsmXJN3BYqdOujLy91GGu4/LKXk=",
-        "recordedFileInputs": {
-          "@@//requirements.txt": "ff12967a755bb8e9b4c92524f6471a99e14c30474a3d428547c55745ec8f23a0"
-        },
-        "recordedDirentsInputs": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "bazel_pip_dev_deps": {
-            "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
-            "ruleClassName": "pip_hub_repository_bzlmod",
-            "attributes": {
-              "repo_name": "bazel_pip_dev_deps",
-              "whl_map": {
-                "bazel_runfiles": [
-                  "3.8.18"
-                ]
-              },
-              "default_version": "3.8.18"
-            }
-          },
-          "bazel_pip_dev_deps_38_bazel_runfiles": {
-            "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
-            "ruleClassName": "whl_library",
-            "attributes": {
-              "requirement": "bazel-runfiles==0.24.0",
-              "repo": "bazel_pip_dev_deps_38",
-              "repo_prefix": "bazel_pip_dev_deps_38_",
-              "python_interpreter": "",
-              "python_interpreter_target": "@@rules_python~~python~python_3_8_aarch64-apple-darwin//:bin/python3",
-              "quiet": true,
-              "timeout": 600,
-              "isolated": true,
-              "extra_pip_args": [],
-              "download_only": false,
-              "pip_data_exclude": [],
-              "enable_implicit_namespace_pkgs": false,
-              "environment": {}
-            }
-          }
-        },
-        "recordedRepoMappingEntries": [
-          [
-            "bazel_features~",
-            "bazel_features_globals",
-            "bazel_features~~version_extension~bazel_features_globals"
-          ],
-          [
-            "bazel_features~",
-            "bazel_features_version",
-            "bazel_features~~version_extension~bazel_features_version"
-          ],
-          [
-            "rules_python~",
-            "bazel_features",
-            "bazel_features~"
-          ],
-          [
-            "rules_python~",
-            "bazel_skylib",
-            "bazel_skylib~"
-          ],
-          [
-            "rules_python~",
-            "bazel_tools",
-            "bazel_tools"
-          ],
-          [
-            "rules_python~",
-            "pypi__build",
-            "rules_python~~internal_deps~pypi__build"
-          ],
-          [
-            "rules_python~",
-            "pypi__click",
-            "rules_python~~internal_deps~pypi__click"
-          ],
-          [
-            "rules_python~",
-            "pypi__colorama",
-            "rules_python~~internal_deps~pypi__colorama"
-          ],
-          [
-            "rules_python~",
-            "pypi__importlib_metadata",
-            "rules_python~~internal_deps~pypi__importlib_metadata"
-          ],
-          [
-            "rules_python~",
-            "pypi__installer",
-            "rules_python~~internal_deps~pypi__installer"
-          ],
-          [
-            "rules_python~",
-            "pypi__more_itertools",
-            "rules_python~~internal_deps~pypi__more_itertools"
-          ],
-          [
-            "rules_python~",
-            "pypi__packaging",
-            "rules_python~~internal_deps~pypi__packaging"
-          ],
-          [
-            "rules_python~",
-            "pypi__pep517",
-            "rules_python~~internal_deps~pypi__pep517"
-          ],
-          [
-            "rules_python~",
-            "pypi__pip",
-            "rules_python~~internal_deps~pypi__pip"
-          ],
-          [
-            "rules_python~",
-            "pypi__pip_tools",
-            "rules_python~~internal_deps~pypi__pip_tools"
-          ],
-          [
-            "rules_python~",
-            "pypi__pyproject_hooks",
-            "rules_python~~internal_deps~pypi__pyproject_hooks"
-          ],
-          [
-            "rules_python~",
-            "pypi__setuptools",
-            "rules_python~~internal_deps~pypi__setuptools"
-          ],
-          [
-            "rules_python~",
-            "pypi__tomli",
-            "rules_python~~internal_deps~pypi__tomli"
-          ],
-          [
-            "rules_python~",
-            "pypi__wheel",
-            "rules_python~~internal_deps~pypi__wheel"
-          ],
-          [
-            "rules_python~",
-            "pypi__zipp",
-            "rules_python~~internal_deps~pypi__zipp"
-          ],
-          [
-            "rules_python~",
-            "pythons_hub",
-            "rules_python~~python~pythons_hub"
-          ],
-          [
-            "rules_python~~python~pythons_hub",
-            "python_3_11_aarch64-apple-darwin",
-            "rules_python~~python~python_3_11_aarch64-apple-darwin"
-          ],
-          [
-            "rules_python~~python~pythons_hub",
-            "python_3_8_aarch64-apple-darwin",
-            "rules_python~~python~python_3_8_aarch64-apple-darwin"
-          ]
-        ]
-      },
       "os:linux,arch:amd64": {
-        "bzlTransitiveDigest": "5Lvn7sv2dp1clpNx6PhSEnwCbTeYQvZwgQDjL3LxYqI=",
+        "bzlTransitiveDigest": "Vf13b56cyzDlFSuBe0jAWQ6cABEp8g1eMKvDLQ6oYzI=",
+        "usagesDigest": "z2Y/qriRs1cB2u4zSGurJXLmeiegK0aeWcRkUhnJCfo=",
         "recordedFileInputs": {
           "@@//requirements.txt": "ff12967a755bb8e9b4c92524f6471a99e14c30474a3d428547c55745ec8f23a0"
         },
@@ -9065,8 +6095,169 @@
           ]
         ]
       },
+      "os:osx,arch:aarch64": {
+        "bzlTransitiveDigest": "QC+EDcwRkAC0XFrTRoCebERmIR0+pCFUTORLGWFeG9o=",
+        "usagesDigest": "z2Y/qriRs1cB2u4zSGurJXLmeiegK0aeWcRkUhnJCfo=",
+        "recordedFileInputs": {
+          "@@//requirements.txt": "ff12967a755bb8e9b4c92524f6471a99e14c30474a3d428547c55745ec8f23a0"
+        },
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "bazel_pip_dev_deps": {
+            "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
+            "ruleClassName": "pip_hub_repository_bzlmod",
+            "attributes": {
+              "repo_name": "bazel_pip_dev_deps",
+              "whl_map": {
+                "bazel_runfiles": [
+                  "3.8.18"
+                ]
+              },
+              "default_version": "3.8.18"
+            }
+          },
+          "bazel_pip_dev_deps_38_bazel_runfiles": {
+            "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
+            "ruleClassName": "whl_library",
+            "attributes": {
+              "requirement": "bazel-runfiles==0.24.0",
+              "repo": "bazel_pip_dev_deps_38",
+              "repo_prefix": "bazel_pip_dev_deps_38_",
+              "python_interpreter": "",
+              "python_interpreter_target": "@@rules_python~~python~python_3_8_aarch64-apple-darwin//:bin/python3",
+              "quiet": true,
+              "timeout": 600,
+              "isolated": true,
+              "extra_pip_args": [],
+              "download_only": false,
+              "pip_data_exclude": [],
+              "enable_implicit_namespace_pkgs": false,
+              "environment": {}
+            }
+          }
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "bazel_features~",
+            "bazel_features_globals",
+            "bazel_features~~version_extension~bazel_features_globals"
+          ],
+          [
+            "bazel_features~",
+            "bazel_features_version",
+            "bazel_features~~version_extension~bazel_features_version"
+          ],
+          [
+            "rules_python~",
+            "bazel_features",
+            "bazel_features~"
+          ],
+          [
+            "rules_python~",
+            "bazel_skylib",
+            "bazel_skylib~"
+          ],
+          [
+            "rules_python~",
+            "bazel_tools",
+            "bazel_tools"
+          ],
+          [
+            "rules_python~",
+            "pypi__build",
+            "rules_python~~internal_deps~pypi__build"
+          ],
+          [
+            "rules_python~",
+            "pypi__click",
+            "rules_python~~internal_deps~pypi__click"
+          ],
+          [
+            "rules_python~",
+            "pypi__colorama",
+            "rules_python~~internal_deps~pypi__colorama"
+          ],
+          [
+            "rules_python~",
+            "pypi__importlib_metadata",
+            "rules_python~~internal_deps~pypi__importlib_metadata"
+          ],
+          [
+            "rules_python~",
+            "pypi__installer",
+            "rules_python~~internal_deps~pypi__installer"
+          ],
+          [
+            "rules_python~",
+            "pypi__more_itertools",
+            "rules_python~~internal_deps~pypi__more_itertools"
+          ],
+          [
+            "rules_python~",
+            "pypi__packaging",
+            "rules_python~~internal_deps~pypi__packaging"
+          ],
+          [
+            "rules_python~",
+            "pypi__pep517",
+            "rules_python~~internal_deps~pypi__pep517"
+          ],
+          [
+            "rules_python~",
+            "pypi__pip",
+            "rules_python~~internal_deps~pypi__pip"
+          ],
+          [
+            "rules_python~",
+            "pypi__pip_tools",
+            "rules_python~~internal_deps~pypi__pip_tools"
+          ],
+          [
+            "rules_python~",
+            "pypi__pyproject_hooks",
+            "rules_python~~internal_deps~pypi__pyproject_hooks"
+          ],
+          [
+            "rules_python~",
+            "pypi__setuptools",
+            "rules_python~~internal_deps~pypi__setuptools"
+          ],
+          [
+            "rules_python~",
+            "pypi__tomli",
+            "rules_python~~internal_deps~pypi__tomli"
+          ],
+          [
+            "rules_python~",
+            "pypi__wheel",
+            "rules_python~~internal_deps~pypi__wheel"
+          ],
+          [
+            "rules_python~",
+            "pypi__zipp",
+            "rules_python~~internal_deps~pypi__zipp"
+          ],
+          [
+            "rules_python~",
+            "pythons_hub",
+            "rules_python~~python~pythons_hub"
+          ],
+          [
+            "rules_python~~python~pythons_hub",
+            "python_3_11_aarch64-apple-darwin",
+            "rules_python~~python~python_3_11_aarch64-apple-darwin"
+          ],
+          [
+            "rules_python~~python~pythons_hub",
+            "python_3_8_aarch64-apple-darwin",
+            "rules_python~~python~python_3_8_aarch64-apple-darwin"
+          ]
+        ]
+      },
       "os:osx,arch:x86_64": {
-        "bzlTransitiveDigest": "38n/yFjOP7+N7KUHr2Bh7sUzv+wC66cCk0HvnYmsoZs=",
+        "bzlTransitiveDigest": "9GKzYppTyFpn0pd9crxJgoMeFLQji7t7VnaWvwvwSbQ=",
+        "usagesDigest": "z2Y/qriRs1cB2u4zSGurJXLmeiegK0aeWcRkUhnJCfo=",
         "recordedFileInputs": {
           "@@//requirements.txt": "ff12967a755bb8e9b4c92524f6471a99e14c30474a3d428547c55745ec8f23a0"
         },
@@ -9225,7 +6416,8 @@
         ]
       },
       "os:windows,arch:amd64": {
-        "bzlTransitiveDigest": "TJX9WRxFbOoM/GPrljH/F35M7Kf4s9uu0E654r/Onh8=",
+        "bzlTransitiveDigest": "3plWzREB7/+/pm54KZG/dfyd6qX7337sV3I+2il0Q0g=",
+        "usagesDigest": "z2Y/qriRs1cB2u4zSGurJXLmeiegK0aeWcRkUhnJCfo=",
         "recordedFileInputs": {
           "@@//requirements.txt": "ff12967a755bb8e9b4c92524f6471a99e14c30474a3d428547c55745ec8f23a0"
         },
@@ -9253,7 +6445,7 @@
               "repo": "bazel_pip_dev_deps_38",
               "repo_prefix": "bazel_pip_dev_deps_38_",
               "python_interpreter": "",
-              "python_interpreter_target": "@@rules_python~~python~python_3_8_x86_64-pc-windows-msvc//:python.exe",
+              "python_interpreter_target": "@@rules_python~~python~python_3_8_x86_64-pc-windows-msvc//:python.exe", 
               "quiet": true,
               "timeout": 600,
               "isolated": true,
@@ -9386,7 +6578,8 @@
     },
     "@@rules_python~//python/extensions:python.bzl%python": {
       "general": {
-        "bzlTransitiveDigest": "CTlgB1kgpACRR86vMKUCvV1re9yIbHoFbQxl5Idc1zI=",
+        "bzlTransitiveDigest": "qykkCCZi7WXfc1IEX9TRGfXQvtG2HBtRiW+ozvSdFR4=",
+        "usagesDigest": "HzPJcYVTPnJE+R87+uo72fMw9AGt6aWd5WBneQneOqc=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -9668,7 +6861,8 @@
     },
     "@@rules_python~//python/extensions/private:internal_deps.bzl%internal_deps": {
       "general": {
-        "bzlTransitiveDigest": "ne6idUaoP4SJ3e18pSCQ6R4ugdw8ElmkOXa9kpkE0M4=",
+        "bzlTransitiveDigest": "4fHuagqWTh/LIfgVNXCqH1s2uDJc5FOedNMqwvjAxXk=",
+        "usagesDigest": "+zwWaUZDmpgGhZEwl8+lDBw72IvZL3qTQlGxpYnQOmI=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
