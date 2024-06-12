@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.producers;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -43,6 +45,10 @@ public class BuildConfigurationKeyProducer<C>
     implements StateMachine,
         ValueOrExceptionSink<PlatformMappingException>,
         PlatformFlagsProducer.ResultSink {
+
+  // Static cache for transformed options.
+  private static final Cache<BuildOptions, BuildConfigurationKey> CACHE =
+      Caffeine.newBuilder().weakKeys().build();
 
   /** Interface for clients to accept results of this computation. */
   public interface ResultSink<C> {
@@ -76,11 +82,15 @@ public class BuildConfigurationKeyProducer<C>
 
   @Override
   public StateMachine step(Tasks tasks) throws InterruptedException {
+    BuildConfigurationKey result = CACHE.getIfPresent(this.options);
+    if (result != null) {
+      this.sink.acceptTransitionedConfiguration(this.context, result);
+      return this.runAfter;
+    }
+
     // Short-circuit if there are no platform options.
     if (!this.options.contains(PlatformOptions.class)) {
-      this.sink.acceptTransitionedConfiguration(
-          this.context, BuildConfigurationKey.create(this.options));
-      return this.runAfter;
+      return finishConfigurationKeyProcessing(BuildConfigurationKey.create(this.options));
     }
 
     // Find platform mappings and platform-based flags for merging.
@@ -167,12 +177,17 @@ public class BuildConfigurationKeyProducer<C>
 
     try {
       BuildConfigurationKey newConfigurationKey = applyFlagsForOptions(options);
-      sink.acceptTransitionedConfiguration(this.context, newConfigurationKey);
+      return finishConfigurationKeyProcessing(newConfigurationKey);
     } catch (OptionsParsingException e) {
       sink.acceptTransitionError(e);
       return runAfter;
     }
-    return runAfter;
+  }
+
+  private StateMachine finishConfigurationKeyProcessing(BuildConfigurationKey newConfigurationKey) {
+    CACHE.put(this.options, newConfigurationKey);
+    sink.acceptTransitionedConfiguration(this.context, newConfigurationKey);
+    return this.runAfter;
   }
 
   /**
