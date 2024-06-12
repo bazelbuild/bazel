@@ -127,7 +127,7 @@ public class VendorManager {
             .getRelative(target.relativeTo(externalRepoRoot.asFragment()));
         if (OS.getCurrent() == OS.WINDOWS){
           symlink.delete();
-          Files.createSymbolicLink(java.nio.file.Path.of(symlink.getPathString()), java.nio.file.Path.of(target.getPathString()));
+          Files.createSymbolicLink(java.nio.file.Path.of(symlink.getPathString()), java.nio.file.Path.of(newTarget.getPathString()));
         } else {
           FileSystemUtils.ensureSymbolicLink(symlink, newTarget);
         }
