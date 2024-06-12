@@ -111,7 +111,7 @@ public class RepositoryOptions extends OptionsBase {
 
   @Option(
       name = "experimental_repository_downloader_retries",
-      defaultValue = "0",
+      defaultValue = "5",
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
