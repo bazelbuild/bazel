@@ -438,9 +438,9 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   /**
-   * @return all documented options loaded in this parser, grouped by categories in display order.
+   * Returns all documented options loaded in this parser, grouped by categories in display order.
    */
-  private LinkedHashMap<OptionDocumentationCategory, List<OptionDefinition>>
+  public LinkedHashMap<OptionDocumentationCategory, List<OptionDefinition>>
       getOptionsSortedByCategory() {
     OptionsData data = impl.getOptionsData();
     if (data.getOptionsClasses().isEmpty()) {
@@ -527,7 +527,8 @@ public class OptionsParser implements OptionsParsingResult {
    * annotations, this method also interprets {@link OptionsUsage} annotations which give an
    * intuitive short description for the options.
    */
-  public String describeOptionsHtml(Escaper escaper, String productName) {
+  public String describeOptionsHtml(
+      Escaper escaper, String productName, List<String> optionsToIgnore) {
     StringBuilder desc = new StringBuilder();
     LinkedHashMap<OptionDocumentationCategory, List<OptionDefinition>> optionsByCategory =
         getOptionsSortedByCategory();
@@ -543,6 +544,7 @@ public class OptionsParser implements OptionsParsingResult {
                   optionDef ->
                       Arrays.stream(optionDef.getOptionEffectTags())
                           .noneMatch(effectTag -> effectTag.equals(OptionEffectTag.NO_OP)))
+              .filter(optionDef -> !optionsToIgnore.contains(optionDef.getOptionName()))
               .collect(toImmutableList());
       if (categorizedOptionsList.isEmpty()) {
         continue;
