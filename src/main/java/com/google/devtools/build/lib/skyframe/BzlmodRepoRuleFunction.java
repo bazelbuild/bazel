@@ -67,11 +67,8 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
    * in unambiguous canonical form and thus require no mapping, except instances read from old
    * lockfiles.
    */
-  // TODO(fmeum): Make this mapping truly empty after bumping LOCK_FILE_VERSION.
   private static final RepositoryMapping EMPTY_MAIN_REPO_MAPPING =
-      RepositoryMapping.create(
-          ImmutableMap.of("", RepositoryName.MAIN, "bazel_tools", RepositoryName.BAZEL_TOOLS),
-          RepositoryName.MAIN);
+      RepositoryMapping.create(ImmutableMap.of(), RepositoryName.MAIN);
 
   public BzlmodRepoRuleFunction(RuleClassProvider ruleClassProvider, BlazeDirectories directories) {
     this.ruleClassProvider = ruleClassProvider;

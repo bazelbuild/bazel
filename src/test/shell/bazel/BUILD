@@ -1,5 +1,6 @@
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//:workspace_deps.bzl", "gen_workspace_stanza")
+load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -220,9 +221,7 @@ sh_test(
 write_file(
     name = "gen_rules_java_repo_name",
     out = "RULES_JAVA_REPO_NAME",
-    # TODO: Revert to the following when building with Bazel 7.1.0.
-    # content = [get_canonical_repo_name("@rules_java")],
-    content = ["rules_java~"],
+    content = [get_canonical_repo_name("@rules_java")],
 )
 
 sh_test(
