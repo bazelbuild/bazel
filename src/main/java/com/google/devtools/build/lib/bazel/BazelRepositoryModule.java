@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionUsagesFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.VendorFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.VendorManager;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.commands.FetchCommand;
@@ -115,6 +116,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBoots
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -501,19 +503,17 @@ public class BazelRepositoryModule extends BlazeModule {
                 .map(vendorDirectory -> env.getWorkspace().getRelative(vendorDirectory));
 
         if (vendorDirectory.isPresent()) {
-          Path externalRepoSymlink = vendorDirectory.get().getChild("_bazel-external");
-          if (externalRepoSymlink.exists()) { // which means we do need this symlink
-            try {
-              externalRepoSymlink.delete();
-              externalRepoSymlink.createSymbolicLink(env.getOutputBase().getRelative(LabelConstants.EXTERNAL_PATH_PREFIX));
-            } catch (IOException e) {
-              env.getReporter()
-                  .handle(
-                      Event.error(
-                          "Failed to create symlink to external repo root under vendor directory: "
-                              + e.getMessage()));
-            }
-            }
+          try {
+            FileSystemUtils.ensureSymbolicLink(
+                vendorDirectory.get().getChild(VendorManager.EXTERNAL_ROOT_SYMLINK_NAME),
+                env.getOutputBase().getRelative(LabelConstants.EXTERNAL_PATH_PREFIX));
+          } catch (IOException e) {
+            env.getReporter()
+                .handle(
+                    Event.error(
+                        "Failed to create symlink to external repo root under vendor directory: "
+                            + e.getMessage()));
+          }
         }
       }
 

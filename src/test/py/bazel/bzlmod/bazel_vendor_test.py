@@ -164,10 +164,7 @@ class BazelVendorTest(test_base.TestBase):
 
     _, stdout, _ = self.RunBazel(['info', 'output_base'])
     repo_path = stdout[0] + '/external/aaa~'
-    if self.IsWindows():
-      self.assertTrue(self.IsJunction(repo_path))
-    else:
-      self.assertTrue(os.path.islink(repo_path))
+    self.AssertPathIsSymlink(repo_path)
 
   def testVendorRepo(self):
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
@@ -659,10 +656,7 @@ class BazelVendorTest(test_base.TestBase):
     _, stdout, _ = self.RunBazel(['info', 'output_base'])
     for repo in ['aaa~', 'bbb~']:
       repo_path = stdout[0] + '/external/' + repo
-      if self.IsWindows():
-        self.assertTrue(self.IsJunction(repo_path))
-      else:
-        self.assertTrue(os.path.islink(repo_path))
+      self.AssertPathIsSymlink(repo_path)
 
   def testVendorConflictRegistryFile(self):
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
@@ -707,25 +701,26 @@ class BazelVendorTest(test_base.TestBase):
             'use_repo(ext, "foo", "bar")',
         ],
     )
+    abs_foo = self.ScratchFile('foo', ['Hello from foo!'])
     self.ScratchFile(
         'extension.bzl',
         [
             'def _repo_foo_impl(ctx):',
             '    ctx.file("REPO.bazel")',
-            '    ctx.file("data", "Hello from foo!")',
-            # Symlink to an absolute path
-            '    ctx.symlink("path_abs", "/tmp/foo")',
-            # Symlink to file in the same repo with relative path
-            '    ctx.symlink("path_rel", "data")',
-            # Symlink to file in another repo with absolute path
-            '    ctx.symlink("path_bar", Label("@bar//:data").path)',
-            '    ctx.file("BUILD")',
+            '    ctx.file("data", "Hello from foo!\\n")',
+            # Symlink to an absolute path outside of external root
+            f'    ctx.symlink("{abs_foo}", "path_abs")',
+            # Symlink to file in the same repo
+            '    ctx.symlink("data", "path_foo")',
+            # Symlink to file in another repo
+            '    ctx.symlink(ctx.path(Label("@bar//:data")), "path_bar")',
+            '    ctx.file("BUILD", "exports_files([\'path_abs\', \'path_foo\',\'path_bar\'])")',
             'repo_foo = repository_rule(implementation=_repo_foo_impl)',
             '',
             'def _repo_bar_impl(ctx):',
             '    ctx.file("REPO.bazel")',
-            '    ctx.file("data", "Hello from bar!")',
-            '    ctx.file("BUILD", "exports_files([\"data\"])")',
+            '    ctx.file("data", "Hello from bar!\\n")',
+            '    ctx.file("BUILD", "exports_files([\'data\'])")',
             'repo_bar = repository_rule(implementation=_repo_bar_impl)',
             '',
             'def _ext_impl(ctx):',
@@ -734,6 +729,27 @@ class BazelVendorTest(test_base.TestBase):
             'ext = module_extension(implementation=_ext_impl)',
         ],
     )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'genrule(',
+            '  name = "print_paths",',
+            '  srcs = ["@foo//:path_abs", "@foo//:path_foo", "@foo//:path_bar",],',
+            '  outs = ["output.txt"],',
+            '  cmd = "cat $(SRCS) > $@",',
+            ')',
+        ])
+    self.RunBazel(['vendor', '--vendor_dir=vendor', '--repo=@foo'])
+    self.RunBazel(['clean', '--expunge'])
+
+    # Move the vendor directory to a new location, it should still work
+    os.rename(self._test_cwd + '/vendor', self._test_cwd + '/vendor_new')
+    output_base = tempfile.mkdtemp(dir=self._tests_root)
+    self.RunBazel(
+        [f'--output_base={output_base}', 'build', '//:print_paths', '--vendor_dir=vendor_new', '--verbose_failures']
+    )
+    output = os.path.join(self._test_cwd, './bazel-bin/output.txt')
+    self.AssertFileContentContains(output, 'Hello from abs!\nHello from foo!\nHello from bar!\n')
 
 
 if __name__ == '__main__':

@@ -36,6 +36,8 @@ public class VendorManager {
 
   private static final String REGISTRIES_DIR = "_registries";
 
+  public static final String EXTERNAL_ROOT_SYMLINK_NAME = "_bazel-external";
+
   private final Path vendorDirectory;
 
   public VendorManager(Path vendorDirectory) {
@@ -85,34 +87,42 @@ public class VendorManager {
       // 3. Move the external repo to vendor dir. It's fine if this step fails or is interrupted,
       // because the marker file under external is gone anyway.
       FileSystemUtils.moveTreesBelow(repoUnderExternal, repoUnderVendor);
-      reWriteSymlinks(repoUnderVendor, externalRepoRoot);
-      // 4. Rename to temporary marker file after the move is done.
+      // 4. Re-plant symlinks pointing a path under the external root to a relative path
+      // to make sure the vendor src keep working after being moved or output base changed
+      replantSymlinks(repoUnderVendor, externalRepoRoot);
+      // 5. Rename to temporary marker file after the move is done.
       tMarker.renameTo(markerUnderVendor);
-      // 5. Leave a symlink in external dir.
+      // 6. Leave a symlink in external dir.
       repoUnderExternal.deleteTree();
       FileSystemUtils.ensureSymbolicLink(repoUnderExternal, repoUnderVendor);
     }
   }
 
-  public void reWriteSymlinks(Path repoUnderVendor, Path externalRepoRoot) throws IOException {
+  /**
+   * Replants the symlinks under the specified repository directory.
+   *
+   * Re-write symlinks that originally pointing to a path under the external root to a relative path pointing
+   * to an external root symlink under the vendor directory.
+   *
+   * @param repoUnderVendor The path to the repository directory under the vendor directory.
+   * @param externalRepoRoot The path to the root of external repositories.
+   * @throws IOException If an I/O error occurs while replanting the symlinks.
+   */
+  private void replantSymlinks(Path repoUnderVendor, Path externalRepoRoot) throws IOException {
       try {
           Collection<Path> symlinks = FileSystemUtils.traverseTree(repoUnderVendor, Path::isSymbolicLink);
-          Path externalSymlinkUnderVendor = vendorDirectory.getChild("_bazel-external");
-          boolean externalSymlinkExist = externalSymlinkUnderVendor.exists();
+          Path externalSymlinkUnderVendor = vendorDirectory.getChild(EXTERNAL_ROOT_SYMLINK_NAME);
+          FileSystemUtils.ensureSymbolicLink(externalSymlinkUnderVendor, externalRepoRoot);
           for (Path symlink : symlinks) {
             PathFragment target = symlink.readSymbolicLink();
             if (!target.startsWith(externalRepoRoot.asFragment())) {
+              // TODO: print a warning for absolute symlinks?
               continue;
             }
-            if (!externalSymlinkExist) {
-              FileSystemUtils.ensureSymbolicLink(externalSymlinkUnderVendor, externalRepoRoot);
-              externalSymlinkExist = true;
-            }
             PathFragment newTarget = PathFragment
-                .create("../".repeat(symlink.getParentDirectory().relativeTo(vendorDirectory).segmentCount()))
-                .getRelative("_bazel-external")
+                .create("../".repeat(symlink.relativeTo(vendorDirectory).segmentCount() - 1))
+                .getRelative(EXTERNAL_ROOT_SYMLINK_NAME)
                 .getRelative(target.relativeTo(externalRepoRoot.asFragment()));
-            symlink.delete();
             FileSystemUtils.ensureSymbolicLink(symlink, newTarget);
           }
       } catch (IOException e) {

@@ -215,6 +215,12 @@ class TestBase(absltest.TestCase):
       if entry in f.read():
         self.fail('File "%s" does contain "%s"' % (file_path, entry))
 
+  def AssertPathIsSymlink(self, path):
+    if self.IsWindows():
+      self.assertTrue(self.IsJunction(path))
+    else:
+      self.assertTrue(os.path.islink(path))
+
   def CreateWorkspaceWithDefaultRepos(self, path, lines=None):
     """Creates a `WORKSPACE` file with default repos and register C++ toolchains."""
     rule_definition = [
