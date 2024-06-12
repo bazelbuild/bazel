@@ -131,7 +131,7 @@ public final class GlobsFunction implements SkyFunction {
                 // IncludeParser.
                 PathFragment.EMPTY_FRAGMENT,
                 globRequest.getPattern(),
-                globRequest.getGlobOeration());
+                globRequest.getGlobOperation());
         state.globDrivers.add(
             new Driver(
                 new GlobComputationProducer(
