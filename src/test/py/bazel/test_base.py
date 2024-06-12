@@ -217,9 +217,9 @@ class TestBase(absltest.TestCase):
 
   def AssertPathIsSymlink(self, path):
     if self.IsWindows():
-      self.assertTrue(self.IsJunction(path))
+      self.assertTrue(self.IsJunction(path), "Path '%s' is not a symlink or junction" % path)
     else:
-      self.assertTrue(os.path.islink(path))
+      self.assertTrue(os.path.islink(path), "Path '%s' is not a symlink" % path)
 
   def CreateWorkspaceWithDefaultRepos(self, path, lines=None):
     """Creates a `WORKSPACE` file with default repos and register C++ toolchains."""

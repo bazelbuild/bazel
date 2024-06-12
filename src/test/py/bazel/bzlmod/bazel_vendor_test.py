@@ -701,7 +701,7 @@ class BazelVendorTest(test_base.TestBase):
             'use_repo(ext, "foo", "bar")',
         ],
     )
-    abs_foo = self.ScratchFile('foo', ['Hello from foo!'])
+    abs_foo = self.ScratchFile('abs', ['Hello from abs!'])
     self.ScratchFile(
         'extension.bzl',
         [
@@ -749,7 +749,7 @@ class BazelVendorTest(test_base.TestBase):
     self.RunBazel(
         [f'--output_base={output_base}', 'build', '//:print_paths', '--vendor_dir=vendor_new', '--verbose_failures']
     )
-    _, stdout, _ = self.RunBazel(['info', 'output_base'])
+    _, stdout, _ = self.RunBazel([f'--output_base={output_base}', 'info', 'output_base'])
     self.AssertPathIsSymlink(stdout[0] + '/external/_main~ext~foo')
     output = os.path.join(self._test_cwd, './bazel-bin/output.txt')
     self.AssertFileContentContains(output, 'Hello from abs!\nHello from foo!\nHello from bar!\n')
