@@ -29,7 +29,6 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "apple_support",
     "bazel_skylib",
     "blake3",
-    "buildozer",
     "c-ares",
     "com_github_grpc_grpc",
     "com_google_protobuf",
