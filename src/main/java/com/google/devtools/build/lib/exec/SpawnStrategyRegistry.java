@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Multimaps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
@@ -67,7 +68,7 @@ public final class SpawnStrategyRegistry
       SpawnStrategyPolicy.create(MnemonicPolicy.getDefaultInstance());
 
   private final ImmutableListMultimap<String, SpawnStrategy> mnemonicToStrategies;
-  private final ImmutableListMultimap<RegexFilter, SpawnStrategy> filterToStrategies;
+  private final StrategyRegexFilter strategyRegexFilter;
   private final ImmutableList<? extends SpawnStrategy> defaultStrategies;
   private final ImmutableMultimap<String, SandboxedSpawnStrategy> mnemonicToRemoteDynamicStrategies;
   private final ImmutableMultimap<String, SandboxedSpawnStrategy> mnemonicToLocalDynamicStrategies;
@@ -75,19 +76,19 @@ public final class SpawnStrategyRegistry
 
   private SpawnStrategyRegistry(
       ImmutableListMultimap<String, SpawnStrategy> mnemonicToStrategies,
-      ImmutableListMultimap<RegexFilter, SpawnStrategy> filterToStrategies,
+      StrategyRegexFilter strategyRegexFilter,
       ImmutableList<? extends SpawnStrategy> defaultStrategies,
       ImmutableMultimap<String, SandboxedSpawnStrategy> mnemonicToRemoteDynamicStrategies,
       ImmutableMultimap<String, SandboxedSpawnStrategy> mnemonicToLocalDynamicStrategies,
       @Nullable AbstractSpawnStrategy remoteLocalFallbackStrategy) {
     this.mnemonicToStrategies = mnemonicToStrategies;
-    this.filterToStrategies = filterToStrategies;
+    this.strategyRegexFilter = strategyRegexFilter;
     this.defaultStrategies = defaultStrategies;
     this.mnemonicToRemoteDynamicStrategies = mnemonicToRemoteDynamicStrategies;
     this.mnemonicToLocalDynamicStrategies = mnemonicToLocalDynamicStrategies;
     this.remoteLocalFallbackStrategy = remoteLocalFallbackStrategy;
     logger.atInfo().log("Default strategies: %s", defaultStrategies);
-    logger.atInfo().log("Filter strategies: %s", filterToStrategies);
+    logger.atInfo().log("Filter strategies: %s", strategyRegexFilter);
     logger.atInfo().log("Mnemonic strategies: %s", mnemonicToStrategies);
     logger.atInfo().log("Remote strategies: %s", mnemonicToRemoteDynamicStrategies);
     logger.atInfo().log("Local strategies: %s", mnemonicToLocalDynamicStrategies);
@@ -116,16 +117,10 @@ public final class SpawnStrategyRegistry
     if (resourceOwner != null && !"TestRunner".equals(mnemonic)) {
       String description = resourceOwner.getProgressMessage();
       if (description != null) {
-        for (Map.Entry<RegexFilter, Collection<SpawnStrategy>> filterStrategies :
-            filterToStrategies.asMap().entrySet()) {
-          if (filterStrategies.getKey().isIncluded(description)) {
-            // TODO(schmitt): Why is this done here and not after running canExec?
-            if (reporter != null) {
-              reporter.handle(
-                  Event.progress(description + " with context " + filterStrategies.getValue()));
-            }
-            return ImmutableList.copyOf(filterStrategies.getValue());
-          }
+        ImmutableList<? extends SpawnStrategy> regexStrategies =
+            strategyRegexFilter.getStrategies(mnemonic, description, reporter);
+        if (!regexStrategies.isEmpty()) {
+          return regexStrategies;
         }
       }
     }
@@ -172,7 +167,7 @@ public final class SpawnStrategyRegistry
    * SpawnStrategy#usedContext used}.
    */
   public void notifyUsed(ActionContext.ActionContextRegistry actionContextRegistry) {
-    for (SpawnStrategy strategy : filterToStrategies.values()) {
+    for (SpawnStrategy strategy : strategyRegexFilter.getFilterToStrategies().values()) {
       strategy.usedContext(actionContextRegistry);
     }
     for (SpawnStrategy strategy : mnemonicToStrategies.values()) {
@@ -199,7 +194,7 @@ public final class SpawnStrategyRegistry
     }
 
     for (Map.Entry<RegexFilter, Collection<SpawnStrategy>> entry :
-        filterToStrategies.asMap().entrySet()) {
+        strategyRegexFilter.getFilterToStrategies().asMap().entrySet()) {
       Collection<SpawnStrategy> value = entry.getValue();
       logger.atInfo().log(
           "FilterToStrategyImplementations: \"%s\" = [%s]",
@@ -269,7 +264,7 @@ public final class SpawnStrategyRegistry
    */
   public static final class Builder {
 
-    private final HashMap<String, SpawnStrategy> identifierToStrategy = new HashMap<>();
+    private final StrategyMapper strategyMapper = new StrategyMapper();
     private final ArrayList<SpawnStrategy> strategiesInRegistrationOrder = new ArrayList<>();
 
     private ImmutableList<String> explicitDefaultStrategies = ImmutableList.of();
@@ -372,7 +367,7 @@ public final class SpawnStrategyRegistry
       Preconditions.checkArgument(
           commandlineIdentifiers.length >= 1, "At least one commandLineIdentifier must be given");
       for (String identifier : commandlineIdentifiers) {
-        identifierToStrategy.put(identifier, strategy);
+        strategyMapper.registerStrategy(identifier, strategy);
       }
       strategiesInRegistrationOrder.add(strategy);
       return this;
@@ -429,12 +424,15 @@ public final class SpawnStrategyRegistry
     public SpawnStrategyRegistry build() throws AbruptExitException {
       List<FilterAndIdentifiers> orderedFilterAndIdentifiers = Lists.reverse(filterAndIdentifiers);
 
+      ListMultimap<RegexFilter, String> filterToIdentifiers = LinkedListMultimap.create();
       ListMultimap<RegexFilter, SpawnStrategy> filterToStrategies = LinkedListMultimap.create();
       for (FilterAndIdentifiers filterAndIdentifier : orderedFilterAndIdentifiers) {
         RegexFilter filter = filterAndIdentifier.filter();
-        if (!filterToStrategies.containsKey(filter)) {
+        if (!filterToIdentifiers.containsKey(filter)) {
+          filterToIdentifiers.putAll(filter, filterAndIdentifier.identifiers());
           filterToStrategies.putAll(
-              filter, toStrategies(filterAndIdentifier.identifiers(), filter));
+              filter,
+              strategyMapper.toStrategies(filterAndIdentifier.identifiers(), "filter " + filter));
         }
       }
 
@@ -445,7 +443,7 @@ public final class SpawnStrategyRegistry
         ImmutableList<String> sanitizedStrategies =
             strategyPolicy.apply(mnemonic, entry.getValue());
         mnemonicToStrategies.putAll(
-            mnemonic, toStrategies(sanitizedStrategies, "mnemonic " + mnemonic));
+            mnemonic, strategyMapper.toStrategies(sanitizedStrategies, "mnemonic " + mnemonic));
       }
 
       ImmutableListMultimap.Builder<String, SandboxedSpawnStrategy> mnemonicToLocalStrategies =
@@ -455,7 +453,9 @@ public final class SpawnStrategyRegistry
         ImmutableList<String> sanitizedStrategies =
             dynamicLocalPolicy.apply(mnemonic, entry.getValue());
         mnemonicToLocalStrategies.putAll(
-            mnemonic, toSandboxedStrategies(sanitizedStrategies, "local mnemonic " + mnemonic));
+            mnemonic,
+            strategyMapper.toSandboxedStrategies(
+                sanitizedStrategies, "local mnemonic " + mnemonic));
       }
 
       ImmutableListMultimap.Builder<String, SandboxedSpawnStrategy> mnemonicToRemoteStrategies =
@@ -465,13 +465,16 @@ public final class SpawnStrategyRegistry
         ImmutableList<String> sanitizedStrategies =
             dynamicRemotePolicy.apply(mnemonic, entry.getValue());
         mnemonicToRemoteStrategies.putAll(
-            mnemonic, toSandboxedStrategies(sanitizedStrategies, "remote mnemonic " + mnemonic));
+            mnemonic,
+            strategyMapper.toSandboxedStrategies(
+                sanitizedStrategies, "remote mnemonic " + mnemonic));
       }
 
       AbstractSpawnStrategy remoteLocalFallbackStrategy = null;
       if (remoteLocalFallbackStrategyIdentifier != null) {
         SpawnStrategy strategy =
-            toStrategy(remoteLocalFallbackStrategyIdentifier, "remote fallback strategy");
+            strategyMapper.toStrategy(
+                remoteLocalFallbackStrategyIdentifier, "remote fallback strategy");
         if (!(strategy instanceof AbstractSpawnStrategy)) {
           // TODO(schmitt): Check if all strategies can use the same base and remove check if so.
           throw createExitException(
@@ -491,20 +494,108 @@ public final class SpawnStrategyRegistry
         // Use the strategies as registered, in reverse order.
         defaultStrategies = ImmutableList.copyOf(Lists.reverse(strategiesInRegistrationOrder));
       } else {
-        defaultStrategies = toStrategies(explicitDefaultStrategies, "default strategies");
+        defaultStrategies =
+            strategyMapper.toStrategies(explicitDefaultStrategies, "default strategies");
       }
 
       return new SpawnStrategyRegistry(
           mnemonicToStrategies.build(),
-          ImmutableListMultimap.copyOf(filterToStrategies),
+          new StrategyRegexFilter(
+              strategyMapper, strategyPolicy, filterToIdentifiers, filterToStrategies),
           defaultStrategies,
           mnemonicToRemoteStrategies.build(),
           mnemonicToLocalStrategies.build(),
           remoteLocalFallbackStrategy);
     }
 
-    private ImmutableList<? extends SpawnStrategy> toStrategies(
-        List<String> identifiers, Object requestName) throws AbruptExitException {
+    @VisibleForTesting
+    public SpawnStrategy toStrategy(String identifier, Object requestName)
+        throws AbruptExitException {
+      return strategyMapper.toStrategy(identifier, requestName);
+    }
+  }
+
+  /** Filter that applies strategy_regexp while respecting the command's strategy-policy. */
+  private static class StrategyRegexFilter {
+    private final SpawnStrategyPolicy strategyPolicy;
+    private final ListMultimap<RegexFilter, String> filterToIdentifiers;
+    private final ListMultimap<RegexFilter, SpawnStrategy> filterToStrategies;
+    private final StrategyMapper strategyMapper;
+
+    public StrategyRegexFilter(
+        StrategyMapper strategyMapper,
+        SpawnStrategyPolicy strategyPolicy,
+        ListMultimap<RegexFilter, String> filterToIdentifiers,
+        ListMultimap<RegexFilter, SpawnStrategy> filterToStrategies) {
+      this.strategyPolicy = strategyPolicy;
+      this.filterToIdentifiers = filterToIdentifiers;
+      this.filterToStrategies = filterToStrategies;
+      this.strategyMapper = strategyMapper;
+    }
+
+    public ImmutableList<? extends SpawnStrategy> getStrategies(
+        String mnemonic, String description, EventHandler reporter) {
+      for (Map.Entry<RegexFilter, List<String>> filterToIdentifiers :
+          Multimaps.asMap(filterToIdentifiers).entrySet()) {
+        if (filterToIdentifiers.getKey().isIncluded(description)) {
+          // TODO(schmitt): Why is this done here and not after running canExec?
+          if (reporter != null) {
+            reporter.handle(
+                Event.progress(description + " with context " + filterToIdentifiers.getValue()));
+          }
+          // Apply the policy to the identifiers.
+          ImmutableList<String> sanitizedStrategies =
+              strategyPolicy.apply(mnemonic, filterToIdentifiers.getValue());
+          try {
+            ImmutableList<? extends SpawnStrategy> strategies =
+                strategyMapper.toStrategies(
+                    sanitizedStrategies, "filter " + filterToIdentifiers.getKey());
+            if (strategies.isEmpty()) {
+              // If after sanitizing we get the empty list of strategies, we should return null
+              // to indicate that default strategies should be used.
+              return ImmutableList.of();
+            }
+            return strategies;
+          } catch (AbruptExitException e) {
+            // We should not reach this code because the mapping to strategies already applied
+            // while building filterToStrategies
+            throw new IllegalStateException(
+                String.format(
+                    "Failed to apply policy for to strategies that were already applied for"
+                        + " mnemonic %s and filter %s",
+                    mnemonic, filterToIdentifiers.getKey()),
+                e);
+          }
+        }
+      }
+
+      // Return the empty list if no filter matches.
+      return ImmutableList.of();
+    }
+
+    ListMultimap<RegexFilter, SpawnStrategy> getFilterToStrategies() {
+      return filterToStrategies;
+    }
+
+    @Override
+    public String toString() {
+      return filterToStrategies.toString();
+    }
+  }
+
+  /* Maps the strategy identifier (e.g. "local", "worker"..) to the real strategy. */
+  private static class StrategyMapper {
+
+    private final Map<String, SpawnStrategy> identifierToStrategy = new HashMap<>();
+
+    StrategyMapper() {}
+
+    void registerStrategy(String identifier, SpawnStrategy strategy) {
+      identifierToStrategy.put(identifier, strategy);
+    }
+
+    ImmutableList<SpawnStrategy> toStrategies(List<String> identifiers, Object requestName)
+        throws AbruptExitException {
       ImmutableList.Builder<SpawnStrategy> strategies = ImmutableList.builder();
       for (String identifier : identifiers) {
         if (identifier.isEmpty()) {
@@ -515,9 +606,7 @@ public final class SpawnStrategyRegistry
       return strategies.build();
     }
 
-    @VisibleForTesting
-    public SpawnStrategy toStrategy(String identifier, Object requestName)
-        throws AbruptExitException {
+    SpawnStrategy toStrategy(String identifier, Object requestName) throws AbruptExitException {
       SpawnStrategy strategy = identifierToStrategy.get(identifier);
       if (strategy == null) {
         throw createExitException(
@@ -530,7 +619,7 @@ public final class SpawnStrategyRegistry
       return strategy;
     }
 
-    private Iterable<? extends SandboxedSpawnStrategy> toSandboxedStrategies(
+    Iterable<? extends SandboxedSpawnStrategy> toSandboxedStrategies(
         List<String> identifiers, Object requestName) throws AbruptExitException {
       Iterable<? extends SpawnStrategy> strategies = toStrategies(identifiers, requestName);
       for (SpawnStrategy strategy : strategies) {
