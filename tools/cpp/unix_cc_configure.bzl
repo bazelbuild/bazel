@@ -541,6 +541,22 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             builtin_include_directories,
             paths["@bazel_tools//tools/cpp:generate_system_module_map.sh"],
         ))
+    extra_flags_per_feature = {}
+    if is_clang:
+        # Only supported by LLVM 14 and later, but required with C++20 and
+        # layering_check as C++ modules are the default.
+        # https://github.com/llvm/llvm-project/commit/0556138624edf48621dd49a463dbe12e7101f17d
+        result = repository_ctx.execute([
+            cc,
+            "-Xclang",
+            "-fno-cxx-modules",
+            "-o",
+            "/dev/null",
+            "-c",
+            str(repository_ctx.path("tools/cpp/empty.cc")),
+        ])
+        if "-fno-cxx-modules" not in result.stderr:
+            extra_flags_per_feature["use_module_maps"] = ["-Xclang", "-fno-cxx-modules"]
 
     write_builtin_include_directory_paths(repository_ctx, cc, builtin_include_directories)
     repository_ctx.template(
@@ -696,5 +712,6 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             "%{coverage_compile_flags}": coverage_compile_flags,
             "%{coverage_link_flags}": coverage_link_flags,
             "%{supports_start_end_lib}": "True" if gold_or_lld_linker_path else "False",
+            "%{extra_flags_per_feature}": repr(extra_flags_per_feature),
         },
     )
