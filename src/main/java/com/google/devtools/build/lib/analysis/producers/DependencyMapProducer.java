@@ -89,6 +89,8 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
     int index = 0;
     for (Map.Entry<DependencyKind, Collection<Label>> entry : dependencyLabels.asMap().entrySet()) {
       var kind = entry.getKey();
+      // The list of aspects is evaluated here to be done once per attribute, rather than once per
+      // dependency.
       ImmutableList<Aspect> aspects =
           computePropagatingAspects(kind, parameters.aspects(), parameters.associatedRule());
       for (var label : entry.getValue()) {

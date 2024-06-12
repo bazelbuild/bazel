@@ -94,7 +94,7 @@ public interface TargetData {
   /**
    * True if the underlying target advertises the required providers.
    *
-   * <p>This is used to determine whether an aspect should propagate to this configured target.
+   * <p>This is used to determine whether an aspect should propagate to this target.
    */
   default boolean satisfies(RequiredProviders required) {
     return false;

@@ -61,6 +61,6 @@ class ValidateTarget extends NativeAspectClass implements ConfiguredAspectFactor
             .build();
       }
     }
-    return ConfiguredAspect.forNonapplicableTarget();
+    return ConfiguredAspect.NonApplicableAspect.INSTANCE;
   }
 }

@@ -30,24 +30,6 @@ import javax.annotation.Nullable;
 public final class AspectResolutionHelpers {
   private AspectResolutionHelpers() {}
 
-  public static boolean aspectMatchesConfiguredTarget(
-      ConfiguredTarget ct, boolean isRule, Aspect aspect) {
-    if (!aspect.getDefinition().applyToFiles()
-        && !aspect.getDefinition().applyToGeneratingRules()
-        && !isRule) {
-      return false;
-    }
-    if (ct.getConfigurationKey() == null) {
-      // Aspects cannot apply to PackageGroups or InputFiles, the only cases where this is null.
-      return false;
-    }
-    return ct.satisfies(aspect.getDefinition().getRequiredProviders());
-  }
-
-  public static boolean aspectMatchesConfiguredTarget(ConfiguredTargetAndData ctad, Aspect aspect) {
-    return aspectMatchesConfiguredTarget(ctad.getConfiguredTarget(), ctad.isTargetRule(), aspect);
-  }
-
   /**
    * Computes the set of aspects that could be applied to a dependency.
    *
@@ -63,8 +45,7 @@ public final class AspectResolutionHelpers {
    * <p>The presence of an aspect here does not necessarily mean that it will be available on a
    * dependency: it can still be filtered out because it requires a provider that the configured
    * target it should be attached to it doesn't advertise. This is taken into account in {@link
-   * #computeAspectCollection} once the {@link ConfiguredTargetAndData} instances for the
-   * dependencies are known.
+   * #computeAspectCollection}.
    */
   public static ImmutableList<Aspect> computePropagatingAspects(
       DependencyKind kind, ImmutableList<Aspect> aspectsPath, Rule rule) {
