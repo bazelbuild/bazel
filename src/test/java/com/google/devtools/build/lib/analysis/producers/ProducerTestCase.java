@@ -23,6 +23,11 @@ import com.google.devtools.build.skyframe.state.StateMachineEvaluatorForTesting;
 
 /** Base class for tests of producers. */
 public abstract class ProducerTestCase extends BuildViewTestCase {
+  @Override
+  protected void useConfiguration(String... args) throws Exception {
+    // Do nothing, some of the producers under test are used in standard configuration creation.
+  }
+
   /**
    * Use a {@link StateMachineEvaluatorForTesting} to drive the given {@link StateMachine} until it
    * finishes (with a result or an error). Results should be retrieved from whatever result sink the
