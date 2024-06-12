@@ -701,7 +701,7 @@ class BazelVendorTest(test_base.TestBase):
             'use_repo(ext, "foo", "bar")',
         ],
     )
-    abs_foo = self.ScratchFile('abs', ['Hello from abs!'])
+    abs_foo = self.ScratchFile('abs', ['Hello from abs!']).replace('\\', '/')
     self.ScratchFile(
         'extension.bzl',
         [

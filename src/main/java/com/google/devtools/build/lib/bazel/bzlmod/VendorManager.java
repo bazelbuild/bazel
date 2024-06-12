@@ -20,6 +20,7 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.Hasher;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -27,6 +28,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.net.URLDecoder;
+import java.nio.file.Files;
 import java.util.Collection;
 import java.util.Locale;
 import java.util.Objects;
@@ -109,25 +111,30 @@ public class VendorManager {
    * @throws IOException If an I/O error occurs while replanting the symlinks.
    */
   private void replantSymlinks(Path repoUnderVendor, Path externalRepoRoot) throws IOException {
-      try {
-          Collection<Path> symlinks = FileSystemUtils.traverseTree(repoUnderVendor, Path::isSymbolicLink);
-          Path externalSymlinkUnderVendor = vendorDirectory.getChild(EXTERNAL_ROOT_SYMLINK_NAME);
-          FileSystemUtils.ensureSymbolicLink(externalSymlinkUnderVendor, externalRepoRoot);
-          for (Path symlink : symlinks) {
-            PathFragment target = symlink.readSymbolicLink();
-            if (!target.startsWith(externalRepoRoot.asFragment())) {
-              // TODO: print a warning for absolute symlinks?
-              continue;
-            }
-            PathFragment newTarget = PathFragment
-                .create("../".repeat(symlink.relativeTo(vendorDirectory).segmentCount() - 1))
-                .getRelative(EXTERNAL_ROOT_SYMLINK_NAME)
-                .getRelative(target.relativeTo(externalRepoRoot.asFragment()));
-            FileSystemUtils.ensureSymbolicLink(symlink, newTarget);
-          }
-      } catch (IOException e) {
-          throw new IOException(String.format("Failed to rewrite symlinks under %s: ", repoUnderVendor), e);
+    try {
+      Collection<Path> symlinks = FileSystemUtils.traverseTree(repoUnderVendor, Path::isSymbolicLink);
+      Path externalSymlinkUnderVendor = vendorDirectory.getChild(EXTERNAL_ROOT_SYMLINK_NAME);
+      FileSystemUtils.ensureSymbolicLink(externalSymlinkUnderVendor, externalRepoRoot);
+      for (Path symlink : symlinks) {
+        PathFragment target = symlink.readSymbolicLink();
+        if (!target.startsWith(externalRepoRoot.asFragment())) {
+          // TODO: print a warning for absolute symlinks?
+          continue;
+        }
+        PathFragment newTarget = PathFragment
+            .create("../".repeat(symlink.relativeTo(vendorDirectory).segmentCount() - 1))
+            .getRelative(EXTERNAL_ROOT_SYMLINK_NAME)
+            .getRelative(target.relativeTo(externalRepoRoot.asFragment()));
+        if (OS.getCurrent() == OS.WINDOWS){
+          symlink.delete();
+          Files.createSymbolicLink(java.nio.file.Path.of(symlink.getPathString()), java.nio.file.Path.of(target.getPathString()));
+        } else {
+          FileSystemUtils.ensureSymbolicLink(symlink, newTarget);
+        }
       }
+    } catch (IOException e) {
+      throw new IOException(String.format("Failed to rewrite symlinks under %s: ", repoUnderVendor), e);
+    }
   }
 
   /**
