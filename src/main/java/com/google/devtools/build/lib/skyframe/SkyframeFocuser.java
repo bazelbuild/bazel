@@ -36,6 +36,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.annotation.Nullable;
 
 /**
  * SkyframeFocuser is a minimizing optimizer (i.e. garbage collector) for the Skyframe graph, based
@@ -53,9 +54,10 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
   // The in-memory Skyframe graph
   private final InMemoryGraph graph;
 
-  private final ActionCache actionCache;
+  // Can be null with --nouse_action_cache.
+  @Nullable private final ActionCache actionCache;
 
-  private SkyframeFocuser(InMemoryGraph graph, ActionCache actionCache) {
+  private SkyframeFocuser(InMemoryGraph graph, @Nullable ActionCache actionCache) {
     super(
         /* parallelism= */ Runtime.getRuntime().availableProcessors(),
         /* keepAliveTime= */ 2,
@@ -86,10 +88,7 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
    * @return the set of kept SkyKeys in the in-memory graph, categorized by deps and rdeps.
    */
   public static FocusResult focus(
-      InMemoryGraph graph,
-      ActionCache actionCache,
-      Set<SkyKey> roots,
-      Set<SkyKey> leafs)
+      InMemoryGraph graph, @Nullable ActionCache actionCache, Set<SkyKey> roots, Set<SkyKey> leafs)
       throws InterruptedException {
     SkyframeFocuser focuser = new SkyframeFocuser(graph, actionCache);
     return focuser.run(roots, leafs);
@@ -399,7 +398,8 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
               return;
             }
 
-            if (inMemoryNodeEntry.getValue() instanceof ActionLookupValue alv) {
+            if (actionCache != null
+                && inMemoryNodeEntry.getValue() instanceof ActionLookupValue alv) {
               for (ActionAnalysisMetadata a : alv.getActions()) {
                 for (Artifact output : a.getOutputs()) {
                   actionCache.remove(output.getExecPathString());

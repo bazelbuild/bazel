@@ -46,6 +46,7 @@ import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 
 /** A class that prepares the working set to run the core SkyframeFocuser algorithm. */
 public class SkyfocusExecutor {
@@ -237,7 +238,7 @@ public class SkyfocusExecutor {
       ImmutableSet<FileStateKey> workingSet,
       InMemoryMemoizingEvaluator evaluator,
       ExtendedEventHandler eventHandler,
-      ActionCache actionCache)
+      @Nullable ActionCache actionCache)
       throws InterruptedException {
 
     Set<SkyKey> roots = evaluator.getLatestTopLevelEvaluations();

@@ -4046,7 +4046,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ImmutableSet<Label> topLevelTargets,
       ImmutableSet<PathFragment> projectDirectories,
       Reporter reporter,
-      ActionCache actionCache)
+      @Nullable ActionCache actionCache)
       throws InterruptedException {
     if (!skyfocusState.enabled() || topLevelTargets.isEmpty()) {
       return;
@@ -4054,13 +4054,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     int beforeNodeCount = this.getEvaluator().getValues().size();
     long beforeHeap = 0;
-    long beforeActionCacheEntries = actionCache.size();
     if (skyfocusState.options().dumpPostGcStats) {
       // we have to gc once here to get an accurate reading on the exact work Skyfocus is
       // doing.
       System.gc();
       beforeHeap = getHeapSize();
     }
+    long beforeActionCacheEntries = actionCache == null ? 0 : actionCache.size();
 
     ImmutableMultiset<SkyFunctionName> skyFunctionCountBefore = ImmutableMultiset.of();
     InMemoryGraph graph = memoizingEvaluator.getInMemoryGraph();
@@ -4123,12 +4123,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           memoizingEvaluator.getValues().size(),
           Long::toString);
 
-      reportMetricChange(
-          reporter,
-          "Action cache count",
-          beforeActionCacheEntries,
-          actionCache.size(),
-          Long::toString);
+      if (actionCache != null) {
+        reportMetricChange(
+            reporter,
+            "Action cache count",
+            beforeActionCacheEntries,
+            actionCache.size(),
+            Long::toString);
+      }
     }
 
     if (skyfocusState.options().dumpPostGcStats) {
