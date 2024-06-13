@@ -126,6 +126,8 @@ public class VendorManager {
             .getRelative(EXTERNAL_ROOT_SYMLINK_NAME)
             .getRelative(target.relativeTo(externalRepoRoot.asFragment()));
         if (OS.getCurrent() == OS.WINDOWS){
+          // On Windows, FileSystemUtils.ensureSymbolicLink always resolves paths to absolute path.
+          // Use Files.createSymbolicLink here instead to preserve relative target path.
           symlink.delete();
           Files.createSymbolicLink(java.nio.file.Path.of(symlink.getPathString()), java.nio.file.Path.of(newTarget.getPathString()));
         } else {
