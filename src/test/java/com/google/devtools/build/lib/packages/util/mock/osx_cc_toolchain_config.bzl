@@ -289,6 +289,7 @@ def _impl(ctx):
             ],
         )
     elif (ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
           ctx.attr.cpu == "ios_armv7"):
         preprocess_assemble_action = action_config(
             action_name = ACTION_NAMES.preprocess_assemble,
@@ -464,7 +465,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "ios_arm64"):
+    elif (ctx.attr.cpu == "ios_arm64" or ctx.attr.cpu == "ios_arm64e"):
         objc_executable_action = action_config(
             action_name = "objc-executable",
             flag_sets = [
@@ -1139,6 +1140,7 @@ def _impl(ctx):
             ],
         )
     elif (ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
           ctx.attr.cpu == "ios_armv7"):
         cpp_link_executable_action = action_config(
             action_name = ACTION_NAMES.cpp_link_executable,
@@ -1330,7 +1332,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "ios_arm64"):
+    elif (ctx.attr.cpu == "ios_arm64" or ctx.attr.cpu == "ios_arm64e"):
         objc_compile_action = action_config(
             enabled = True,
             action_name = ACTION_NAMES.objc_compile,
@@ -1712,7 +1714,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "ios_arm64"):
+    elif (ctx.attr.cpu == "ios_arm64" or ctx.attr.cpu == "ios_arm64e"):
         objcpp_compile_action = action_config(
             action_name = ACTION_NAMES.objcpp_compile,
             flag_sets = [
@@ -2152,6 +2154,7 @@ def _impl(ctx):
             ],
         )
     elif (ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
           ctx.attr.cpu == "ios_armv7"):
         cpp_header_parsing_action = action_config(
             action_name = ACTION_NAMES.cpp_header_parsing,
@@ -2334,6 +2337,7 @@ def _impl(ctx):
             ],
         )
     elif (ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
           ctx.attr.cpu == "ios_armv7"):
         assemble_action = action_config(
             action_name = ACTION_NAMES.assemble,
@@ -2469,6 +2473,7 @@ def _impl(ctx):
             ],
         )
     elif (ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
           ctx.attr.cpu == "ios_armv7"):
         cpp_link_dynamic_library_action = action_config(
             action_name = ACTION_NAMES.cpp_link_dynamic_library,
@@ -2691,7 +2696,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "ios_arm64"):
+    elif (ctx.attr.cpu == "ios_arm64" or ctx.attr.cpu == "ios_arm64e"):
         c_compile_action = action_config(
             action_name = ACTION_NAMES.c_compile,
             flag_sets = [
@@ -3020,7 +3025,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "ios_arm64"):
+    elif (ctx.attr.cpu == "ios_arm64" or ctx.attr.cpu == "ios_arm64e"):
         cpp_compile_action = action_config(
             action_name = ACTION_NAMES.cpp_compile,
             flag_sets = [
@@ -3322,7 +3327,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "ios_arm64"):
+    elif (ctx.attr.cpu == "ios_arm64" or ctx.attr.cpu == "ios_arm64e"):
         linkstamp_compile_action = action_config(
             action_name = ACTION_NAMES.linkstamp_compile,
             enabled = True,
@@ -3702,6 +3707,7 @@ def _impl(ctx):
             ],
         )
     elif (ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
           ctx.attr.cpu == "ios_armv7"):
         cpp_module_compile_action = action_config(
             action_name = ACTION_NAMES.cpp_module_compile,
@@ -3842,6 +3848,7 @@ def _impl(ctx):
             ],
         )
     elif (ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
           ctx.attr.cpu == "ios_armv7"):
         cpp_link_nodeps_dynamic_library_action = action_config(
             action_name = ACTION_NAMES.cpp_link_nodeps_dynamic_library,
@@ -4027,6 +4034,7 @@ def _impl(ctx):
             ],
         )
     elif (ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
           ctx.attr.cpu == "ios_armv7"):
         cpp_link_static_library_action = action_config(
             action_name = ACTION_NAMES.cpp_link_static_library,
@@ -4192,7 +4200,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "ios_arm64"):
+    elif (ctx.attr.cpu == "ios_arm64" or ctx.attr.cpu == "ios_arm64e"):
         objc_fully_link_action = action_config(
             action_name = "objc-fully-link",
             flag_sets = [
@@ -4653,6 +4661,7 @@ def _impl(ctx):
             tools = [tool(path = "<tool_dir>/strip")],
         )
     elif (ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
           ctx.attr.cpu == "ios_armv7"):
         strip_action = action_config(
             action_name = ACTION_NAMES.strip,
@@ -4823,6 +4832,7 @@ def _impl(ctx):
     )
 
     if (ctx.attr.cpu == "ios_arm64" or
+        ctx.attr.cpu == "ios_arm64e" or
         ctx.attr.cpu == "ios_armv7" or
         ctx.attr.cpu == "ios_i386" or
         ctx.attr.cpu == "ios_x86_64" or
@@ -4859,7 +4869,7 @@ def _impl(ctx):
     else:
         apply_implicit_frameworks_feature = None
 
-    if (ctx.attr.cpu == "ios_arm64"):
+    if (ctx.attr.cpu == "ios_arm64" or ctx.attr.cpu == "ios_arm64e"):
         unfiltered_compile_flags_feature = feature(
             name = "unfiltered_compile_flags",
             flag_sets = [
@@ -5348,6 +5358,7 @@ def _impl(ctx):
     )
 
     if (ctx.attr.cpu == "ios_arm64" or
+        ctx.attr.cpu == "ios_arm64e" or
         ctx.attr.cpu == "ios_armv7" or
         ctx.attr.cpu == "tvos_arm64" or
         ctx.attr.cpu == "watchos_armv7k" or
@@ -5499,6 +5510,7 @@ def _impl(ctx):
         )
     elif (ctx.attr.cpu == "darwin_x86_64" or
           ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
           ctx.attr.cpu == "ios_armv7" or
           ctx.attr.cpu == "ios_i386" or
           ctx.attr.cpu == "ios_x86_64" or
@@ -5678,6 +5690,7 @@ def _impl(ctx):
             ],
         )
     elif (ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
           ctx.attr.cpu == "ios_armv7" or
           ctx.attr.cpu == "ios_i386" or
           ctx.attr.cpu == "ios_x86_64" or
@@ -6281,6 +6294,7 @@ def _impl(ctx):
             ],
         )
     elif (ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
           ctx.attr.cpu == "ios_armv7" or
           ctx.attr.cpu == "ios_i386" or
           ctx.attr.cpu == "ios_x86_64" or
@@ -6474,7 +6488,7 @@ def _impl(ctx):
                 ),
             ],
         )
-    elif (ctx.attr.cpu == "ios_arm64"):
+    elif (ctx.attr.cpu == "ios_arm64" or ctx.attr.cpu == "ios_arm64e"):
         default_link_flags_feature = feature(
             name = "default_link_flags",
             enabled = True,
@@ -6630,6 +6644,7 @@ def _impl(ctx):
         )
     elif (ctx.attr.cpu == "darwin_x86_64" or
           ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
           ctx.attr.cpu == "ios_armv7" or
           ctx.attr.cpu == "ios_i386" or
           ctx.attr.cpu == "ios_x86_64" or
@@ -6750,6 +6765,7 @@ def _impl(ctx):
     )
 
     if (ctx.attr.cpu == "ios_arm64" or
+        ctx.attr.cpu == "ios_arm64e" or
         ctx.attr.cpu == "ios_armv7" or
         ctx.attr.cpu == "tvos_arm64" or
         ctx.attr.cpu == "watchos_armv7k" or
@@ -6860,6 +6876,7 @@ def _impl(ctx):
         )
     elif (ctx.attr.cpu == "darwin_x86_64" or
           ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
           ctx.attr.cpu == "ios_armv7" or
           ctx.attr.cpu == "tvos_arm64" or
           ctx.attr.cpu == "watchos_armv7k" or
@@ -6992,6 +7009,7 @@ def _impl(ctx):
     )
 
     if (ctx.attr.cpu == "ios_arm64" or
+        ctx.attr.cpu == "ios_arm64e" or
         ctx.attr.cpu == "ios_armv7" or
         ctx.attr.cpu == "ios_i386" or
         ctx.attr.cpu == "ios_x86_64" or
@@ -7134,6 +7152,7 @@ def _impl(ctx):
     )
 
     if (ctx.attr.cpu == "ios_arm64" or
+        ctx.attr.cpu == "ios_arm64e" or
         ctx.attr.cpu == "ios_armv7" or
         ctx.attr.cpu == "ios_i386" or
         ctx.attr.cpu == "ios_x86_64" or
@@ -7279,6 +7298,7 @@ def _impl(ctx):
             tool_path(name = "objdump", path = "/usr/bin/objdump"),
         ]
     elif (ctx.attr.cpu == "ios_arm64" or
+          ctx.attr.cpu == "ios_arm64e" or
           ctx.attr.cpu == "ios_armv7"):
         tool_paths = [
             tool_path(name = "ar", path = "ios/ar_wrapper"),
@@ -7402,6 +7422,7 @@ cc_toolchain_config = rule(
         "cpu": attr.string(mandatory = True, values = [
             "darwin_x86_64",
             "ios_arm64",
+            "ios_arm64e",
             "ios_armv7",
             "ios_i386",
             "ios_x86_64",

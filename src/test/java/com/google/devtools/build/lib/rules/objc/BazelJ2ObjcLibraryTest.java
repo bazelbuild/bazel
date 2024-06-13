@@ -1349,9 +1349,9 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testCompileActionTemplateFromGenJar() throws Exception {
     useConfiguration(
         "--apple_platform_type=ios",
-        "--cpu=ios_i386",
+        "--ios_multi_cpus=x86_64",
         "--ios_minimum_os=1.0",
-        "--platforms=" + MockObjcSupport.IOS_I386);
+        "--platforms=" + MockObjcSupport.IOS_X86_64);
     addSimpleJ2ObjcLibraryWithJavaPlugin();
     Artifact archive = j2objcArchive("//java/com/google/app/test:transpile", "test");
     CommandAction archiveAction = (CommandAction) getGeneratingAction(archive);
@@ -1397,7 +1397,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             .add("-fobjc-abi-version=2")
             .add("-fobjc-legacy-dispatch")
             .add("-DOS_IOS")
-            .add("-arch", "i386")
+            .add("-arch", "x86_64")
             .add("-isysroot")
             .add("__BAZEL_XCODE_SDKROOT__")
             .add("-O0")
