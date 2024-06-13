@@ -174,6 +174,7 @@ import com.google.devtools.build.lib.rules.genquery.GenQueryConfiguration.GenQue
 import com.google.devtools.build.lib.rules.genquery.GenQueryDirectPackageProviderFactory;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileFunction;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.runtime.MemoryPressureOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository;
@@ -307,6 +308,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -4046,7 +4048,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ImmutableSet<Label> topLevelTargets,
       ImmutableSet<PathFragment> projectDirectories,
       Reporter reporter,
-      @Nullable ActionCache actionCache)
+      @Nullable ActionCache actionCache,
+      OptionsParsingResult options)
       throws InterruptedException {
     if (!skyfocusState.enabled() || topLevelTargets.isEmpty()) {
       return;
@@ -4058,7 +4061,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       // we have to gc once here to get an accurate reading on the exact work Skyfocus is
       // doing.
       System.gc();
-      beforeHeap = getHeapSize();
+      beforeHeap =
+          getHeapSize(
+              options
+                  .getOptions(MemoryPressureOptions.class)
+                  .jvmHeapHistogramInternalObjectPattern
+                  .regexPattern());
     }
     long beforeActionCacheEntries = actionCache == null ? 0 : actionCache.size();
 
@@ -4135,7 +4143,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     if (skyfocusState.options().dumpPostGcStats) {
       reportMetricChange(
-          reporter, "Heap", beforeHeap, getHeapSize(), StringUtilities::prettyPrintBytes);
+          reporter,
+          "Heap",
+          beforeHeap,
+          getHeapSize(
+              options
+                  .getOptions(MemoryPressureOptions.class)
+                  .jvmHeapHistogramInternalObjectPattern
+                  .regexPattern()),
+          StringUtilities::prettyPrintBytes);
     }
   }
 
@@ -4147,9 +4163,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    *
    * <p>TODO: b/311665999 - Remove the subtraction of FillerArray once we figure out an alternative.
    */
-  private static long getHeapSize() {
+  private static long getHeapSize(Pattern internalJvmObjectPattern) {
     MemoryMXBean memBean = ManagementFactory.getMemoryMXBean();
-    return memBean.getHeapMemoryUsage().getUsed() - HeapOffsetHelper.getSizeOfFillerArrayOnHeap();
+    return memBean.getHeapMemoryUsage().getUsed()
+        - HeapOffsetHelper.getSizeOfFillerArrayOnHeap(
+            internalJvmObjectPattern, BugReporter.defaultInstance());
   }
 
   /**

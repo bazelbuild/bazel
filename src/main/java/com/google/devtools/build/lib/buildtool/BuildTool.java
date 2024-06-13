@@ -295,7 +295,8 @@ public class BuildTool {
                 topLevelTargets,
                 projectDirectories,
                 env.getReporter(),
-                env.getBlazeWorkspace().getPersistentActionCache());
+                env.getBlazeWorkspace().getPersistentActionCache(),
+                env.getOptions());
       }
     }
   }

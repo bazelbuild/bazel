@@ -19,11 +19,13 @@ import com.google.devtools.common.options.Converters.CommaSeparatedOptionListCon
 import com.google.devtools.common.options.Converters.DurationConverter;
 import com.google.devtools.common.options.Converters.PercentageConverter;
 import com.google.devtools.common.options.Converters.RangeConverter;
+import com.google.devtools.common.options.Converters.RegexPatternConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.RegexPatternOption;
 import java.time.Duration;
 
 /** Options for responding to memory pressure. */
@@ -105,6 +107,23 @@ public final class MemoryPressureOptions extends OptionsBase {
               + " memory pressure events against its limits (--gc_thrashing_limits). If set to 100,"
               + " GcThrashingDetector is disabled.")
   public int gcThrashingThreshold;
+
+  // NOTE: 2024-06-11, this matches both known patterns of:
+  // jdk.internal.vm.Filler[Array|Element[]] but does not match the thread
+  // related jdk.internal.vm entries which we do not currently want to count.
+  @Option(
+      name = "jvm_heap_histogram_internal_object_pattern",
+      converter = RegexPatternConverter.class,
+      defaultValue = "jdk\\.internal\\.vm\\.Filler.+",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Regex for overriding the matching logic for JDK21+ JVM heap memory"
+              + " collection. We are relying on volatile internal G1 GC implemenation"
+              + " details to get a clean memory metric, this option allows us to adapt"
+              + " to changes in that internal implementation without having to wait"
+              + " for a binary release.  Passed to JDK Matcher.find()")
+  public RegexPatternOption jvmHeapHistogramInternalObjectPattern;
 
   static final class NonNegativeIntegerConverter extends RangeConverter {
     NonNegativeIntegerConverter() {
