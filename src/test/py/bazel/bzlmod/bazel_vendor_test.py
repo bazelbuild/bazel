@@ -709,17 +709,20 @@ class BazelVendorTest(test_base.TestBase):
             '    ctx.file("REPO.bazel")',
             '    ctx.file("data", "Hello from foo!\\n")',
             # Symlink to an absolute path outside of external root
-            f'    ctx.symlink("{abs_foo}", "path_abs")',
-            # Symlink to file in the same repo
-            '    ctx.symlink("data", "path_foo")',
-            # Symlink to file in another repo
-            '    ctx.symlink(ctx.path(Label("@bar//:data")), "path_bar")',
-            '    ctx.file("BUILD", "exports_files([\'path_abs\', \'path_foo\',\'path_bar\'])")',
+            f'    ctx.symlink("{abs_foo}", "sym_abs")',
+            # Symlink to a file in the same repo
+            '    ctx.symlink("data", "sym_foo")',
+            # Symlink to a file in another repo
+            '    ctx.symlink(ctx.path(Label("@bar//:data")), "sym_bar")',
+            # Symlink to a directory in another repo
+            '    ctx.symlink("../_main~ext~bar/pkg", "sym_pkg")',
+            '    ctx.file("BUILD", "exports_files([\'sym_abs\', \'sym_foo\',\'sym_bar\', \'sym_pkg/data\'])")',
             'repo_foo = repository_rule(implementation=_repo_foo_impl)',
             '',
             'def _repo_bar_impl(ctx):',
             '    ctx.file("REPO.bazel")',
             '    ctx.file("data", "Hello from bar!\\n")',
+            '    ctx.file("pkg/data", "Hello from pkg bar!\\n")',
             '    ctx.file("BUILD", "exports_files([\'data\'])")',
             'repo_bar = repository_rule(implementation=_repo_bar_impl)',
             '',
@@ -734,7 +737,7 @@ class BazelVendorTest(test_base.TestBase):
         [
             'genrule(',
             '  name = "print_paths",',
-            '  srcs = ["@foo//:path_abs", "@foo//:path_foo", "@foo//:path_bar",],',
+            '  srcs = ["@foo//:sym_abs", "@foo//:sym_foo", "@foo//:sym_bar", "@foo//:sym_pkg/data"],',
             '  outs = ["output.txt"],',
             '  cmd = "cat $(SRCS) > $@",',
             ')',
@@ -752,7 +755,7 @@ class BazelVendorTest(test_base.TestBase):
     _, stdout, _ = self.RunBazel([f'--output_base={output_base}', 'info', 'output_base'])
     self.AssertPathIsSymlink(stdout[0] + '/external/_main~ext~foo')
     output = os.path.join(self._test_cwd, './bazel-bin/output.txt')
-    self.AssertFileContentContains(output, 'Hello from abs!\nHello from foo!\nHello from bar!\n')
+    self.AssertFileContentContains(output, 'Hello from abs!\nHello from foo!\nHello from bar!\nHello from pkg bar!\n')
 
 
 if __name__ == '__main__':
