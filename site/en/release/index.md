@@ -168,7 +168,11 @@ For LTS releases, the procedure and policies below are followed:
     *   If new release blockers are identified, go back to the last step and
         create a new release candidate after resolving all the issues.
     *   New features are not allowed to be added to the release branch after the
-        first release candidate is created.
+        first release candidate is created; cherry-picks are limited to critical
+        fixes only. If a cherry-pick is needed, the requester must answer the
+        following questions: Why is this change critical, and what benefits does
+        it provide? What is the likelihood of this change introducing a
+        regression?
 1.  Push the release candidate as the official release if no further release
     blockers are found
     *   For patch releases, push the release at least two business days after
