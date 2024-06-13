@@ -115,6 +115,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersH
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -504,9 +505,15 @@ public class BazelRepositoryModule extends BlazeModule {
 
         if (vendorDirectory.isPresent()) {
           try {
+            Path externalRoot = env.getOutputBase().getRelative(LabelConstants.EXTERNAL_PATH_PREFIX);
             FileSystemUtils.ensureSymbolicLink(
                 vendorDirectory.get().getChild(VendorManager.EXTERNAL_ROOT_SYMLINK_NAME),
-                env.getOutputBase().getRelative(LabelConstants.EXTERNAL_PATH_PREFIX));
+                externalRoot);
+            if (OS.getCurrent() == OS.WINDOWS) {
+              FileSystemUtils.ensureSymbolicLink(
+                  externalRoot.getChild(VendorManager.EXTERNAL_ROOT_SYMLINK_NAME),
+                  externalRoot);
+            }
           } catch (IOException e) {
             env.getReporter()
                 .handle(
