@@ -514,7 +514,7 @@ public class BazelRepositoryModule extends BlazeModule {
               // Given <external>/repo_foo/link,
               // where <external>/repo_foo points to <vendor dir>/repo_foo in vendor mode
               // and repo_foo/link points to a relative path ../_bazel-external/repo_bar/data.
-              // Windows won't resolve the repo_foo before resolving link, which causes
+              // Windows won't resolve `repo_foo` before resolving `link`, which causes
               // <external>/repo_foo/link to be resolved to <external>/_bazel-external/repo_bar/data
               // To work around this, we create a symlink <external>/_bazel-external -> <external>.
               FileSystemUtils.ensureSymbolicLink(

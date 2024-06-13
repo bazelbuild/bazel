@@ -746,7 +746,7 @@ class BazelVendorTest(test_base.TestBase):
     self.RunBazel(['clean', '--expunge'])
     self.AssertPathIsSymlink(self._test_cwd + '/vendor/_bazel-external')
 
-    # Move the vendor directory to a new location, it should still work
+    # Move the vendor directory to a new location and use a new output base, it should still work
     os.rename(self._test_cwd + '/vendor', self._test_cwd + '/vendor_new')
     output_base = tempfile.mkdtemp(dir=self._tests_root)
     self.RunBazel(
