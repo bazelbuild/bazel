@@ -387,6 +387,7 @@ message PackageOptions {
 
     PACKAGE_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     PACKAGE_PATH_INVALID = 1 [(metadata) = { exit_code: 2 }];
+    NONSINGLETON_PACKAGE_PATH = 4 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
