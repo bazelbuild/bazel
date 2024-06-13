@@ -23,10 +23,12 @@ import com.google.common.collect.Iterators;
 import com.google.common.escape.Escaper;
 import com.google.common.escape.Escapers;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.SkyframeAwareAction;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
@@ -371,7 +373,19 @@ public final class Actions {
    * that no other label maps to this string.
    */
   public static String escapeLabel(Label label) {
-    return PATH_ESCAPER.escape(label.getPackageName() + ":" + label.getName());
+    String path = label.getPackageName() + ":" + label.getName();
+    if (!label.getRepository().isMain()) {
+      // Canonical repository names can be long and the resulting segment should be usable as a file
+      // name (less than 256 characters), so use a truncated hash instead.
+      path =
+          Hashing.sha256()
+                  .hashString(label.getRepository().getName(), StandardCharsets.UTF_8)
+                  .toString()
+                  .substring(0, 10)
+              + ":"
+              + path;
+    }
+    return PATH_ESCAPER.escape(path);
   }
 
   /**
