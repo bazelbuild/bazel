@@ -487,6 +487,9 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
         requested_features = features,
         unsupported_features = disabled_features,
     )
+
+    cc_helper.check_cpp_modules(ctx, feature_configuration)
+
     all_deps = ctx.attr.deps + semantics.get_cc_runtimes(ctx, _is_link_shared(ctx))
     compilation_context_deps = [dep[CcInfo].compilation_context for dep in all_deps if CcInfo in dep]
 
@@ -508,6 +511,7 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
         public_hdrs = cc_helper.get_public_hdrs(ctx),
         copts_filter = cc_helper.copts_filter(ctx, additional_make_variable_substitutions),
         srcs = cc_helper.get_srcs(ctx),
+        module_interfaces = cc_helper.get_cpp_module_interfaces(ctx),
         compilation_contexts = compilation_context_deps,
         code_coverage_enabled = cc_helper.is_code_coverage_enabled(ctx = ctx),
     )
