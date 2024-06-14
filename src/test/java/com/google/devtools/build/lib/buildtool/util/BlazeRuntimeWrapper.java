@@ -477,7 +477,7 @@ public class BlazeRuntimeWrapper {
             .setOutErr(env.getReporter().getOutErr())
             .setTargets(targets)
             .setStartTimeMillis(runtime.getClock().currentTimeMillis());
-    if ("test".equals(commandName)) {
+    if (commandName.equals("test") || commandName.equals("coverage")) {
       builder.setRunTests(true);
     }
     return builder.build();
