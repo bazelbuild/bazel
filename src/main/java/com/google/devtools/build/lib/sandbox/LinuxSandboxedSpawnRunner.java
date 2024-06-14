@@ -408,6 +408,11 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         getSandboxOptions().sandboxAdditionalMounts, sandboxExecRoot, userBindMounts);
 
     for (Path inaccessiblePath : getInaccessiblePaths()) {
+      if (!inaccessiblePath.exists()) {
+        // No need to make non-existent paths inaccessible (this would make the bind mount fail).
+        continue;
+      }
+
       if (inaccessiblePath.isDirectory(Symlinks.NOFOLLOW)) {
         userBindMounts.put(inaccessiblePath, inaccessibleHelperDir);
       } else {
