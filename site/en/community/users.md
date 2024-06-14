@@ -178,15 +178,13 @@ requirements of reproducibility and platform/language support. All software at
 Google is built using Bazel. Google uses Bazel and its rules for millions of
 builds every day.
 
-### [GRAKN.AI](https://grakn.ai){: .external}
-<img src="/community/images/grakn.jpeg" alt="GRAKN AI Logo" width="150" align="right">
+### [TypeDB](https://typedb.com){: .external}
+<img src="/community/images/typedb.png" alt="TypeDB Logo" width="150" align="right">
 
-Grakn is a database technology that serves as the knowledge-base foundation to
-intelligent systems. Grakn allows intelligent systems to interpret complex
-datasets as a single body of knowledge that can be logically reasoned over.
-Bazel enables the @graknlabs team to build a highly-orchestrated CI and
-distribution pipeline that manages multiple repositories of multiple languages,
-and deploys to numerous platforms seamlessly.
+Bazel enables the TypeDB team to build a highly-orchestrated CI and distribution
+pipeline that manages many repositories in a wide variety of languages, and
+deploys to numerous platforms seamlessly. The TypeDB team has also released
+Bazel rules for assembling and deploying software distributions.
 
 ### [Huawei](http://www.huawei.com/){: .external}
 
