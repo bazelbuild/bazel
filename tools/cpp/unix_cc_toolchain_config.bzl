@@ -1581,6 +1581,7 @@ def _impl(ctx):
             cpp_modules_feature,
             macos_minimum_os_feature,
             macos_default_link_flags_feature,
+            dependency_file_feature,
             libtool_feature,
             archiver_flags_feature,
             asan_feature,
