@@ -118,7 +118,7 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
   }
 
   public WriteAdbArgsAction(ActionOwner owner, Artifact outputFile) {
-    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), outputFile, false);
+    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), outputFile);
   }
 
   @Override
