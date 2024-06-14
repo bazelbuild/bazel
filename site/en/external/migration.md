@@ -673,6 +673,10 @@ Bazel module.
 Bzlmod and WORKSPACE can work side by side, which allows migrating dependencies
 from the WORKSPACE file to Bzlmod to be a gradual process.
 
+Note: In practice, loading "*_deps" macros in WORKSPACE often causes confusions
+with Bzlmod dependencies, therefore we recommend starting with a
+WORKSPACE.bzlmod file and avoid loading transitive dependencies with macros.
+
 #### WORKSPACE.bzlmod {:#workspace.bzlmod}
 
 During the migration, Bazel users may need to switch between builds with and
@@ -692,10 +696,6 @@ Using the WORKSPACE.bzlmod file can make the migration easier because:
     original WORKSPACE file.
 *   When Bzlmod is enabled, you can better track what dependencies are left to
     migrate with WORKSPACE.bzlmod.
-
-Note: WORKSPACE.bzlmod does NOT replace the functionality of WORKSPACE for
-identifying the workspace root, therefore you still need a WORKSPACE file at
-your workspace root.
 
 #### Repository visibility {:#repository-visibility}
 
