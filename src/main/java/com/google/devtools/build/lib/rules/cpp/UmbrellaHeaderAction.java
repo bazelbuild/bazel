@@ -27,8 +27,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -58,8 +56,7 @@ public final class UmbrellaHeaderAction extends AbstractFileWriteAction {
         NestedSetBuilder.<Artifact>stableOrder()
             .addAll(Iterables.filter(publicHeaders, Artifact::isTreeArtifact))
             .build(),
-        umbrellaHeader,
-        /*makeExecutable=*/ false);
+        umbrellaHeader);
     this.umbrellaHeader = umbrellaHeader;
     this.publicHeaders = ImmutableList.copyOf(publicHeaders);
     this.additionalExportedHeaders = ImmutableList.copyOf(additionalExportedHeaders);
@@ -68,19 +65,16 @@ public final class UmbrellaHeaderAction extends AbstractFileWriteAction {
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)  {
     final ArtifactExpander artifactExpander = ctx.getArtifactExpander();
-    return new DeterministicWriter() {
-      @Override
-      public void writeOutputFile(OutputStream out) throws IOException {
-        StringBuilder content = new StringBuilder();
-        HashSet<PathFragment> deduper = new HashSet<>();
-        for (Artifact artifact : expandedHeaders(artifactExpander, publicHeaders)) {
-          appendHeader(content, artifact.getExecPath(), deduper);
-        }
-        for (PathFragment additionalExportedHeader : additionalExportedHeaders) {
-          appendHeader(content, additionalExportedHeader, deduper);
-        }
-        out.write(content.toString().getBytes(StandardCharsets.ISO_8859_1));
+    return out -> {
+      StringBuilder content = new StringBuilder();
+      HashSet<PathFragment> deduper = new HashSet<>();
+      for (Artifact artifact : expandedHeaders(artifactExpander, publicHeaders)) {
+        appendHeader(content, artifact.getExecPath(), deduper);
       }
+      for (PathFragment additionalExportedHeader : additionalExportedHeaders) {
+        appendHeader(content, additionalExportedHeader, deduper);
+      }
+      out.write(content.toString().getBytes(StandardCharsets.ISO_8859_1));
     };
   }
 

@@ -108,16 +108,22 @@ public final class AbstractFileWriteActionTest {
   private static class TestFileWriteAction extends AbstractFileWriteAction {
     private final DeterministicWriter deterministicWriter;
     private final boolean isRemotable;
+    private final boolean makeExecutable;
 
     TestFileWriteAction(
         DeterministicWriter deterministicWriter, boolean executable, boolean isRemotable) {
       super(
           ActionsTestUtil.NULL_ACTION_OWNER,
-          /*inputs=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-          /*output=*/ ActionsTestUtil.DUMMY_ARTIFACT,
-          executable);
+          /* inputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          /* output= */ ActionsTestUtil.DUMMY_ARTIFACT);
       this.deterministicWriter = deterministicWriter;
+      this.makeExecutable = executable;
       this.isRemotable = isRemotable;
+    }
+
+    @Override
+    public boolean makeExecutable() {
+      return makeExecutable;
     }
 
     @Override

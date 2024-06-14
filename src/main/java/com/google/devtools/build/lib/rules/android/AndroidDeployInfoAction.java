@@ -68,11 +68,7 @@ public final class AndroidDeployInfoAction extends AbstractFileWriteAction {
       Artifact mergedManifest,
       ImmutableList<Artifact> additionalMergedManifests,
       ImmutableList<Artifact> apksToDeploy) {
-    super(
-        owner,
-        makeInputs(mergedManifest, additionalMergedManifests, apksToDeploy),
-        outputFile,
-        false);
+    super(owner, makeInputs(mergedManifest, additionalMergedManifests, apksToDeploy), outputFile);
     this.mergedManifest = mergedManifest;
     this.additionalMergedManifests = additionalMergedManifests;
     this.apksToDeploy = apksToDeploy;

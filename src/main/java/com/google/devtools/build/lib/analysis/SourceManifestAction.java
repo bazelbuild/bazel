@@ -144,7 +144,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction
       @Nullable Artifact repoMappingManifest,
       boolean remotableSourceManifestActions) {
     // The real set of inputs is computed in #getInputs().
-    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), primaryOutput, false);
+    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), primaryOutput);
     this.manifestWriter = manifestWriter;
     this.runfiles = runfiles;
     this.repoMappingManifest = repoMappingManifest;
