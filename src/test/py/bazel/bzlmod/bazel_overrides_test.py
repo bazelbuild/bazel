@@ -478,6 +478,27 @@ class BazelOverridesTest(test_base.TestBase):
         'Target @@ss~//:choose_me up-to-date (nothing to build)', stderr
     )
 
+    # Test delete previous overrides
+    _, _, stderr = self.RunBazel(
+        [
+            'build',
+            '--announce_rc',
+            '@ss//:all',
+            '--override_module',
+            'ss=../../bb',
+            '--override_module',
+            'ss=',
+            '--enable_bzlmod',
+        ],
+        cwd=self.Path('aa/cc'),
+        allow_failure=True,
+    )
+    self.assertIn(
+        'ERROR: Error computing the main repository mapping: module not found in registries: ss@1.0', stderr
+    )
+
+
+
   def testCmdWorkspaceRelativeModuleOverride(self):
     self.ScratchFile(
         'MODULE.bazel',
