@@ -93,7 +93,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
             symlinks =
                 SymlinkTreeHelper.processFilesetLinks(
                     filesetLinks,
-                    action.getFilesetRoot(),
+                    action.getWorkspaceNameForFileset(),
                     actionExecutionContext.getExecRoot().asFragment());
           }
 

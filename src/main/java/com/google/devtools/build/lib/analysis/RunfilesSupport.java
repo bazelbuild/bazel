@@ -489,8 +489,7 @@ public final class RunfilesSupport {
                 inputManifest,
                 runfiles,
                 outputManifest,
-                repoMappingManifest,
-                /*filesetRoot=*/ null));
+                repoMappingManifest));
     return outputManifest;
   }
 
