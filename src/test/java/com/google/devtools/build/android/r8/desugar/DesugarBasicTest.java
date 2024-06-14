@@ -15,6 +15,7 @@ package com.google.devtools.build.android.r8.desugar;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.android.r8.R8Utils.INTERFACE_COMPANION_SUFFIX;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.objectweb.asm.Opcodes.V1_7;
 
 import com.google.common.collect.ImmutableList;
@@ -134,6 +135,15 @@ public class DesugarBasicTest {
 
   @Test
   public void checkMetaDataAfterDoubleDesugaring() throws Exception {
+    String contextMap = extractContextMaps(doubleDesugaredWithDependencyMetadata);
+    assertThat(contextMap)
+        .isEqualTo(
+            String.join(
+                "",
+                "com/google/devtools/build/android/r8/desugar/basic/I$-CC;com/google/devtools/build/android/r8/desugar/basic/I\n",
+                "com/google/devtools/build/android/r8/desugar/basic/J$-CC;com/google/devtools/build/android/r8/desugar/basic/J\n",
+                "com/google/devtools/build/android/r8/desugar/basic/K$-CC;com/google/devtools/build/android/r8/desugar/basic/K\n",
+                "com/google/devtools/build/android/r8/desugar/basic/TestClass$$ExternalSyntheticLambda0;com/google/devtools/build/android/r8/desugar/basic/TestClass\n"));
     DesugarDepsInfo info = extractDesugarDeps(doubleDesugaredWithDependencyMetadata);
     assertThat(info.getInterfaceWithCompanionCount()).isEqualTo(0);
     assertThat(info.getAssumePresentCount()).isEqualTo(0);
@@ -152,6 +162,14 @@ public class DesugarBasicTest {
       ZipEntry desugarDepsEntry = zip.getEntry(Desugar.DESUGAR_DEPS_FILENAME);
       assertThat(desugarDepsEntry).isNotNull();
       return DesugarDepsInfo.parseFrom(zip.getInputStream(desugarDepsEntry));
+    }
+  }
+
+  private static String extractContextMaps(Path jar) throws Exception {
+    try (ZipFile zip = new ZipFile(jar.toFile())) {
+      ZipEntry contextMapEntry = zip.getEntry(Desugar.CONTEXT_MAP_FILENAME);
+      assertThat(contextMapEntry).isNotNull();
+      return new String(zip.getInputStream(contextMapEntry).readAllBytes(), UTF_8);
     }
   }
 
