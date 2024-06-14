@@ -497,8 +497,6 @@ class BazelOverridesTest(test_base.TestBase):
         'ERROR: Error computing the main repository mapping: module not found in registries: ss@1.0', stderr
     )
 
-
-
   def testCmdWorkspaceRelativeModuleOverride(self):
     self.ScratchFile(
         'MODULE.bazel',
