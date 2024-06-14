@@ -93,7 +93,8 @@ EOF
 
   local output_file="bazel-genfiles/pkg/breaks.txt"
 
-  bazel build --sandbox_block_path="${block_path}" pkg:breaks \
+  bazel build --sandbox_block_path="${block_path}" \
+    --sandbox_block_path=/doesnotexist pkg:breaks \
     &> $TEST_log \
     && fail "Non-hermetic genrule succeeded: examples/genrule:breaks" || true
 
