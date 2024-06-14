@@ -153,7 +153,7 @@ public final class WriteBuildInfoPropertiesAction extends AbstractFileWriteActio
       boolean includeVolatile,
       boolean includeNonVolatile,
       TimestampFormatter timestampFormatter) {
-    super(ActionOwner.SYSTEM_ACTION_OWNER, inputs, primaryOutput, /* makeExecutable= */ false);
+    super(ActionOwner.SYSTEM_ACTION_OWNER, inputs, primaryOutput);
     this.keyTranslations = keyTranslations;
     this.includeVolatile = includeVolatile;
     this.includeNonVolatile = includeNonVolatile;

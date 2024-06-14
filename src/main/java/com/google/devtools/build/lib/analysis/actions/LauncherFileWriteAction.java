@@ -62,11 +62,15 @@ public final class LauncherFileWriteAction extends AbstractFileWriteAction {
     super(
         ruleContext.getActionOwner(),
         NestedSetBuilder.create(Order.STABLE_ORDER, Preconditions.checkNotNull(launcher)),
-        output,
-        /* makeExecutable= */ true);
+        output);
     this.launcher = launcher; // already null-checked in the superclass c'tor
     this.launchInfo = Preconditions.checkNotNull(launchInfo);
     this.isExecutedOnWindows = ruleContext.isExecutedOnWindows();
+  }
+
+  @Override
+  public boolean makeExecutable() {
+    return true;
   }
 
   @Override

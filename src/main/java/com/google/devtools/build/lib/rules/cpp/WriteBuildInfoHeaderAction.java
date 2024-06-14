@@ -73,7 +73,7 @@ public final class WriteBuildInfoHeaderAction extends AbstractFileWriteAction {
       Artifact primaryOutput,
       boolean writeVolatileInfo,
       boolean writeStableInfo) {
-    super(ActionOwner.SYSTEM_ACTION_OWNER, inputs, primaryOutput, /*makeExecutable=*/ false);
+    super(ActionOwner.SYSTEM_ACTION_OWNER, inputs, primaryOutput);
     if (!inputs.isEmpty()) {
       // With non-empty inputs we should not generate both volatile and non-volatile data
       // in the same header file.
