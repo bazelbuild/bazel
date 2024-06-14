@@ -1,3 +1,19 @@
+## Release 8.0.0-pre.20240603.2 (2024-06-14)
+
+```
+Baseline: 1d335316e755216808791bdfbdcc448fc68141dc
+
+Cherry picks:
+
+   + 642b571962ca9e6cf40ce94a8f53b8618f12080a:
+     Disable SkyframeStats collection unless specifically requested
+     by flag. Removes the logic to limit on the number of reported
+     types, if you're requesting the stats already you just get all
+     of them.
+```
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson.
+
 ## Release 7.2.0 (2024-06-10)
 
 ```
