@@ -81,7 +81,7 @@ public class J2ObjcLibraryTest extends ObjcRuleTestCase {
     useConfiguration(
         "--proto_toolchain_for_java=//tools/proto/toolchains:java",
         "--platforms=" + MockObjcSupport.DARWIN_X86_64,
-        "--cpu=darwin_x86_64");
+        "--experimental_platform_in_output_dir");
 
     setBuildLanguageOptions("--incompatible_disable_objc_library_transition");
 

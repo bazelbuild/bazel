@@ -124,7 +124,6 @@ public class AppleRulesTest extends AnalysisTestCase {
         ImmutableList.<String>builder()
             .addAll(MockObjcSupport.requiredObjcCrosstoolFlagsNoXcodeConfig())
             .add("--xcode_version_config=//xcode:local")
-            .add("--cpu=darwin_x86_64")
             .build();
     useConfiguration(flags.toArray(new String[1]));
     AnalysisResult analysisResult =

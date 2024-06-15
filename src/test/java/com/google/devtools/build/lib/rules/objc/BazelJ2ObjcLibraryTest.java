@@ -299,7 +299,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "--proto_toolchain_for_java=//tools/proto/toolchains:java",
         "--platforms=" + MockObjcSupport.DARWIN_X86_64,
         "--apple_platform_type=macos",
-        "--cpu=darwin_x86_64");
+        "--experimental_platform_in_output_dir");
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget(
         "//java/com/google/dummy/test/proto:test");
@@ -334,7 +334,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "--proto_toolchain_for_java=//tools/proto/toolchains:java",
         "--platforms=" + MockObjcSupport.DARWIN_X86_64,
         "--apple_platform_type=macos",
-        "--cpu=darwin_x86_64");
+        "--experimental_platform_in_output_dir");
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//x:test");
     StructImpl j2ObjcMappingFileInfo = getJ2ObjcMappingFileInfoFromTarget(target);
@@ -388,7 +388,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "--proto_toolchain_for_java=//tools/proto/toolchains:java",
         "--platforms=" + MockObjcSupport.DARWIN_X86_64,
         "--apple_platform_type=macos",
-        "--cpu=darwin_x86_64");
+        "--experimental_platform_in_output_dir");
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//x:test");
 
@@ -1349,9 +1349,9 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testCompileActionTemplateFromGenJar() throws Exception {
     useConfiguration(
         "--apple_platform_type=ios",
-        "--ios_multi_cpus=x86_64",
         "--ios_minimum_os=1.0",
-        "--platforms=" + MockObjcSupport.IOS_X86_64);
+        "--platforms=" + MockObjcSupport.IOS_X86_64,
+        "--experimental_platform_in_output_dir");
     addSimpleJ2ObjcLibraryWithJavaPlugin();
     Artifact archive = j2objcArchive("//java/com/google/app/test:transpile", "test");
     CommandAction archiveAction = (CommandAction) getGeneratingAction(archive);

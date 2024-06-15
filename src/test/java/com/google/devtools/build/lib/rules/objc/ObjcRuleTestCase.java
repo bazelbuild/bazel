@@ -596,7 +596,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "--apple_platform_type=ios",
         "--compilation_mode=dbg",
         "--objc_debug_with_GLIBCXX=false",
-        "--cpu=k8");
+        "--experimental_platform_in_output_dir");
     scratch.file("x/a.m");
     ruleType.scratchTarget(scratch, "srcs", "['a.m']");
 

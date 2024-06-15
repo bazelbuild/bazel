@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaOptions;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.common.options.Option;
@@ -731,30 +732,35 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
   public void aliasWithSelectResolvesToConfigSetting() throws Exception {
     scratch.file(
         "a/BUILD",
-        """
-        config_setting(
-            name = "define_x",
-            define_values = {"x": "1"},
-        )
+        String.format(
+            """
+            config_setting(
+                name = "define_x",
+                define_values = {"x": "1"},
+            )
 
-        config_setting(
-            name = "k8",
-            values = {"cpu": "k8"},
-        )
+            config_setting(
+                name = "k8",
+                constraint_values = ["%s"]
+            )
 
-        alias(
-            name = "alias_to_setting",
-            actual = select({":define_x": ":k8"}),
-        )
+            alias(
+                name = "alias_to_setting",
+                actual = select({":define_x": ":k8"}),
+            )
 
-        genrule(
-            name = "gen",
-            outs = ["gen.out"],
-            cmd = select({":alias_to_setting": "touch $@"}),
-        )
-        """);
+            genrule(
+                name = "gen",
+                outs = ["gen.out"],
+                cmd = select({":alias_to_setting": "touch $@"}),
+            )
+            """,
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64"));
 
-    useConfiguration("--define=x=1", "--cpu=k8", "--include_config_fragments_provider=transitive");
+    useConfiguration(
+        "--define=x=1",
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--include_config_fragments_provider=transitive");
     RequiredConfigFragmentsProvider requiredFragments =
         getConfiguredTarget("//a:gen").getProvider(RequiredConfigFragmentsProvider.class);
 
