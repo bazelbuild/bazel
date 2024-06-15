@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -141,9 +142,12 @@ public class ExternalPackageHelper {
         // Stop iteration when encountered errors.
         return false;
       }
-      rule = externalPackage.getRule(ruleName);
-      // Stop if the rule is found = continue while it is null.
-      return rule == null;
+      Target target = externalPackage.getTargets().get(ruleName);
+      if (target instanceof Rule r) {
+        rule = r;
+        return false;
+      }
+      return true;
     }
 
     public Rule getRule() throws ExternalPackageException {

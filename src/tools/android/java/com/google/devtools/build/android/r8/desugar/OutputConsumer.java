@@ -16,6 +16,7 @@ package com.google.devtools.build.android.r8.desugar;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.devtools.build.android.r8.desugar.OutputConsumer.Flags.EXCLUDE_PATH_ENTRIES;
 import static com.google.devtools.build.android.r8.desugar.OutputConsumer.Flags.INCLUDE_PATH_ENTRIES;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.objectweb.asm.Opcodes.ACC_BRIDGE;
 import static org.objectweb.asm.Opcodes.ACC_INTERFACE;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
@@ -24,8 +25,11 @@ import com.android.tools.r8.ArchiveProgramResourceProvider;
 import com.android.tools.r8.ByteDataView;
 import com.android.tools.r8.ClassFileConsumer;
 import com.android.tools.r8.DiagnosticsHandler;
+import com.android.tools.r8.SyntheticInfoConsumer;
+import com.android.tools.r8.SyntheticInfoConsumerData;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.origin.PathOrigin;
+import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.utils.ExceptionDiagnostic;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.android.r8.DependencyCollector;
@@ -38,9 +42,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
 import java.util.Set;
@@ -79,6 +86,31 @@ public class OutputConsumer implements ClassFileConsumer {
     if (!finished()) {
       return;
     }
+
+    byte[] contextMappingContent;
+    Map<ClassReference, Set<ClassReference>> contextToSyntheticsMap =
+        getContextConsumer().contextToSyntheticsMap;
+    if (contextToSyntheticsMap.isEmpty()) {
+      contextMappingContent = null;
+    } else {
+      StringBuilder contextMappingBuilder = new StringBuilder();
+      List<ClassReference> contexts = new ArrayList<>(contextToSyntheticsMap.keySet());
+      contexts.sort(Comparator.comparing(ClassReference::getDescriptor));
+      contexts.forEach(
+          context -> {
+            List<ClassReference> synthetics = new ArrayList<>(contextToSyntheticsMap.get(context));
+            synthetics.sort(Comparator.comparing(ClassReference::getDescriptor));
+            synthetics.forEach(
+                synthetic ->
+                    contextMappingBuilder
+                        .append(synthetic.getBinaryName())
+                        .append(';')
+                        .append(context.getBinaryName())
+                        .append('\n'));
+          });
+      contextMappingContent = contextMappingBuilder.toString().getBytes(UTF_8);
+    }
+
     FilteringDependencyCollector dependencyCollector =
         new FilteringDependencyCollector(this.dependencyCollector);
     initializeInputDependencies(handler, dependencyCollector);
@@ -89,6 +121,11 @@ public class OutputConsumer implements ClassFileConsumer {
         ZipUtils.addEntry(classFile.fileName, classFile.data, ZipEntry.STORED, out);
         new DesugaredClassFileDependencyCollector(classFile, dependencyCollector).run();
       }
+      // Add context-mapping if required.
+      if (contextMappingContent != null) {
+        ZipUtils.addEntry(
+            Desugar.CONTEXT_MAP_FILENAME, contextMappingContent, ZipEntry.STORED, out);
+      }
       // Add dependency metadata if required.
       byte[] desugarDeps = dependencyCollector.toByteArray();
       if (desugarDeps != null) {
@@ -98,9 +135,13 @@ public class OutputConsumer implements ClassFileConsumer {
           input,
           out,
           entryName ->
-              ("module-info.class".equals(entryName) || entryName.startsWith("META-INF/versions/"))
+              (entryName.equals("module-info.class")
+                  // The context mapping is rebuilt from the compiler inputs so any previous map
+                  // should be removed.
+                  || entryName.equals(Desugar.CONTEXT_MAP_FILENAME)
+                  || entryName.startsWith("META-INF/versions/")
                   || ArchiveProgramResourceProvider.includeClassFileEntries(entryName)
-                  || (entryName.endsWith("/") && flags == EXCLUDE_PATH_ENTRIES),
+                  || (entryName.endsWith("/") && flags == EXCLUDE_PATH_ENTRIES)),
           name -> {
             final String metainfServicesPrefix = "META-INF/services/";
             if (name.startsWith(metainfServicesPrefix)) {
@@ -142,11 +183,29 @@ public class OutputConsumer implements ClassFileConsumer {
     }
   }
 
+  private static class ContextConsumer implements SyntheticInfoConsumer {
+
+    final Map<ClassReference, Set<ClassReference>> contextToSyntheticsMap = new HashMap<>();
+
+    @Override
+    public synchronized void acceptSyntheticInfo(SyntheticInfoConsumerData data) {
+      contextToSyntheticsMap
+          .computeIfAbsent(data.getSynthesizingContextClass(), k -> new HashSet<>())
+          .add(data.getSyntheticClass());
+    }
+
+    @Override
+    public void finished() {
+      // Do nothing.
+    }
+  }
+
   private final Path archive;
   private final Origin origin;
   private final DependencyCollector dependencyCollector;
   private final Path input;
   private final Flags flags;
+  private final ContextConsumer contextConsumer = new ContextConsumer();
 
   private final NavigableSet<ClassFileData> classFiles = new TreeSet<>();
   private boolean finish = true;
@@ -162,6 +221,10 @@ public class OutputConsumer implements ClassFileConsumer {
     this.dependencyCollector = dependencyCollector;
     this.input = input;
     this.flags = flags;
+  }
+
+  public ContextConsumer getContextConsumer() {
+    return contextConsumer;
   }
 
   @Override

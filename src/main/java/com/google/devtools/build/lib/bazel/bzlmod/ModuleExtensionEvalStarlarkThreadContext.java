@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Rule;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.StarlarkNativeModule.ExistingRulesShouldBeNoOp;
 import java.util.HashMap;
 import java.util.Map;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -40,15 +42,18 @@ import net.starlark.java.syntax.Location;
  * A context object that should be stored in a {@link StarlarkThread} for use during module
  * extension evaluation.
  */
-public final class ModuleExtensionEvalStarlarkThreadContext {
+public final class ModuleExtensionEvalStarlarkThreadContext extends StarlarkThreadContext {
+  @Override
   public void storeInThread(StarlarkThread thread) {
-    thread.setThreadLocal(ModuleExtensionEvalStarlarkThreadContext.class, this);
+    super.storeInThread(thread);
     // The following is just a hack; see documentation there for an explanation.
     thread.setThreadLocal(ExistingRulesShouldBeNoOp.class, new ExistingRulesShouldBeNoOp());
   }
 
-  public static ModuleExtensionEvalStarlarkThreadContext from(StarlarkThread thread) {
-    return thread.getThreadLocal(ModuleExtensionEvalStarlarkThreadContext.class);
+  @Nullable
+  public static ModuleExtensionEvalStarlarkThreadContext fromOrNull(StarlarkThread thread) {
+    StarlarkThreadContext ctx = thread.getThreadLocal(StarlarkThreadContext.class);
+    return ctx instanceof ModuleExtensionEvalStarlarkThreadContext c ? c : null;
   }
 
   @AutoValue
@@ -74,8 +79,10 @@ public final class ModuleExtensionEvalStarlarkThreadContext {
       String repoPrefix,
       PackageIdentifier basePackageId,
       RepositoryMapping repoMapping,
+      RepositoryMapping mainRepoMapping,
       BlazeDirectories directories,
       ExtendedEventHandler eventHandler) {
+    super(() -> mainRepoMapping);
     this.repoPrefix = repoPrefix;
     this.basePackageId = basePackageId;
     this.repoMapping = repoMapping;
@@ -114,11 +121,14 @@ public final class ModuleExtensionEvalStarlarkThreadContext {
           Maps.filterKeys(
               Maps.transformEntries(kwargs, (k, v) -> rule.getAttr(k)), k -> !k.equals("name"));
       String bzlFile = ruleClass.getRuleDefinitionEnvironmentLabel().getUnambiguousCanonicalForm();
+      var attributesValue = AttributeValues.create(attributes);
+      AttributeValues.validateAttrs(
+          attributesValue, String.format("%s '%s'", rule.getRuleClass(), name));
       RepoSpec repoSpec =
           RepoSpec.builder()
               .setBzlFile(bzlFile)
               .setRuleClassName(ruleClass.getName())
-              .setAttributes(AttributeValues.create(attributes))
+              .setAttributes(attributesValue)
               .build();
 
       generatedRepos.put(name, RepoSpecAndLocation.create(repoSpec, thread.getCallerLocation()));

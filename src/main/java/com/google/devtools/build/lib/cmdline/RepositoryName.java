@@ -16,15 +16,23 @@ package com.google.devtools.build.lib.cmdline;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
 import java.util.regex.Pattern;
@@ -132,9 +140,9 @@ public final class RepositoryName {
    * not visible from the owner repository and should fail in {@code RepositoryDelegatorFunction}
    * when fetching the repository.
    */
-  private final RepositoryName ownerRepoIfNotVisible;
+  @Nullable private final RepositoryName ownerRepoIfNotVisible;
 
-  private RepositoryName(String name, RepositoryName ownerRepoIfNotVisible) {
+  private RepositoryName(String name, @Nullable RepositoryName ownerRepoIfNotVisible) {
     this.name = name;
     this.ownerRepoIfNotVisible = ownerRepoIfNotVisible;
   }
@@ -184,6 +192,11 @@ public final class RepositoryName {
     return name;
   }
 
+  /** Returns the marker file name for this repository. */
+  public String getMarkerFileName() {
+    return "@" + name + ".marker";
+  }
+
   /**
    * Create a {@link RepositoryName} instance that indicates the requested repository name is
    * actually not visible from the owner repository and should fail in {@code
@@ -206,6 +219,20 @@ public final class RepositoryName {
       return "main repository";
     } else {
       return String.format("repository '%s'", ownerRepoIfNotVisible);
+    }
+  }
+
+  // Must only be called if isVisible() returns true.
+  public String getOwnerModuleDisplayString() {
+    Preconditions.checkNotNull(ownerRepoIfNotVisible);
+    if (ownerRepoIfNotVisible.isMain()) {
+      return "root module";
+    } else {
+      return String.format(
+          "module '%s'",
+          ownerRepoIfNotVisible
+              .getName()
+              .substring(0, ownerRepoIfNotVisible.getName().indexOf('~')));
     }
   }
 
@@ -249,19 +276,24 @@ public final class RepositoryName {
    *       <dt><code>@protobuf</code>
    *       <dd>if this repository is a WORKSPACE dependency and its <code>name</code> is "protobuf",
    *           or if this repository is a Bzlmod dependency of the main module and its apparent name
-   *           is "protobuf"
+   *           is "protobuf" (in both cases only if mainRepositoryMapping is not null)
    *       <dt><code>@@protobuf~3.19.2</code>
    *       <dd>only with Bzlmod, if this a repository that is not visible from the main module
    */
-  public String getDisplayForm(RepositoryMapping mainRepositoryMapping) {
+  public String getDisplayForm(@Nullable RepositoryMapping mainRepositoryMapping) {
     Preconditions.checkArgument(
-        mainRepositoryMapping.ownerRepo() == null || mainRepositoryMapping.ownerRepo().isMain());
+        mainRepositoryMapping == null
+            || mainRepositoryMapping.ownerRepo() == null
+            || mainRepositoryMapping.ownerRepo().isMain());
     if (!isVisible()) {
       return getNameWithAt();
     }
     if (isMain()) {
       // Packages in the main repository can always use repo-relative form.
       return "";
+    }
+    if (mainRepositoryMapping == null) {
+      return getNameWithAt();
     }
     if (!mainRepositoryMapping.usesStrictDeps()) {
       // If the main repository mapping is not using strict visibility, then Bzlmod is certainly
@@ -327,5 +359,33 @@ public final class RepositoryName {
   @Override
   public int hashCode() {
     return Objects.hash(OsPathPolicy.getFilePathOs().hash(name), ownerRepoIfNotVisible);
+  }
+
+  public static Codec repositoryNameCodec() {
+    return Codec.INSTANCE;
+  }
+
+  private static final class Codec extends LeafObjectCodec<RepositoryName> {
+    private static final Codec INSTANCE = new Codec();
+
+    @Override
+    public Class<RepositoryName> getEncodedClass() {
+      return RepositoryName.class;
+    }
+
+    @Override
+    public void serialize(
+        LeafSerializationContext context, RepositoryName obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serializeLeaf(obj.getName(), stringCodec(), codedOut);
+      context.serializeLeaf(obj.ownerRepoIfNotVisible, this, codedOut);
+    }
+
+    @Override
+    public RepositoryName deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      return new RepositoryName(
+          context.deserializeLeaf(codedIn, stringCodec()), context.deserializeLeaf(codedIn, this));
+    }
   }
 }

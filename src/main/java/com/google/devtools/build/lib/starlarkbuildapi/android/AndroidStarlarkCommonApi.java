@@ -13,13 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
-import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FilesToRunProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import javax.annotation.Nullable;
@@ -84,7 +84,7 @@ public interface AndroidStarlarkCommonApi<
               + " general use.",
       documented = false,
       structField = true)
-  StarlarkExposedRuleTransitionFactory getAndroidPlatformsTransition();
+  ConfigurationTransitionApi getAndroidPlatformsTransition();
 
   @StarlarkMethod(
       name = "enable_implicit_sourceless_deps_exports_compatibility",

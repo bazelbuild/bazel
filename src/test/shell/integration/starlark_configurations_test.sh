@@ -735,4 +735,215 @@ EOF
   expect_log "`cfg` must be set to a transition object initialized by the transition() function"
 }
 
+function write_attr_list_transition() {
+  local pkg="${1}"
+  mkdir -p "${pkg}"
+
+  # Define starlark flag rules.
+  mkdir -p settings
+  touch settings/BUILD
+  cat > settings/flag.bzl <<EOF
+BuildSettingInfo = provider(fields = ["value"])
+
+def _flag_impl(ctx):
+    return [BuildSettingInfo(value = ctx.build_setting_value)]
+
+bool_flag = rule(
+    implementation = _flag_impl,
+    build_setting = config.bool(flag = True)
+)
+
+string_list_flag = rule(
+    implementation = _flag_impl,
+    build_setting = config.string_list(),
+)
+EOF
+
+  # Create transition definition
+  mkdir -p "${pkg}/rule"
+  touch "${pkg}/rule/BUILD"
+  cat > "${pkg}/rule/def.bzl" <<EOF
+load("//settings:flag.bzl", "BuildSettingInfo")
+
+example_package = "${pkg}"
+
+# Transition that checks a list-typed attribute.
+def _transition_impl(settings, attr):
+    values = getattr(attr, "values")
+    sorted_values = sorted(values)
+    print("From transition: values = %s" % str(values))
+    print("From transition: sorted values = %s" % str(sorted_values))
+    return {"//%s/flag:transition_output_flag" % example_package: sorted_values}
+
+example_transition = transition(
+    implementation = _transition_impl,
+    inputs = [],
+    outputs = ["//%s/flag:transition_output_flag" % example_package],
+)
+
+def _parent_rule_impl(ctx):
+    attr_values = ctx.attr.values
+    print("From parent rule attributes: values = %s" % str(attr_values))
+
+parent = rule(
+    implementation = _parent_rule_impl,
+    cfg = example_transition,
+    attrs = {
+        "values": attr.string_list(),
+        "child": attr.label(allow_single_file = True),
+    },
+)
+
+def _child_rule_impl(ctx):
+    flag_values = ctx.attr._transition_output_flag[BuildSettingInfo].value
+    print("From child rule flag: values = %s" % str(flag_values))
+
+    log = ctx.outputs.log
+    content = "flag: %s" % str(flag_values)
+    ctx.actions.write(
+        output = log,
+        content = content,
+    )
+
+child = rule(
+    implementation = _child_rule_impl,
+    attrs = {
+        "_transition_output_flag": attr.label(default = "//%s/flag:transition_output_flag" % example_package),
+        "log": attr.output(),
+    },
+)
+EOF
+
+  mkdir -p "${pkg}/flag"
+
+  # Define the flags that are used.
+  cat > "${pkg}/flag/BUILD" <<EOF
+load("//settings:flag.bzl", "bool_flag", "string_list_flag")
+
+package(
+    default_visibility = ["//visibility:public"],
+)
+
+bool_flag(
+    name = "select_flag",
+    build_setting_default = True,
+)
+
+
+string_list_flag(
+    name = "transition_output_flag",
+    build_setting_default = [],
+)
+EOF
+}
+
+# Regression test for b/338660045
+function test_inspect_attribute_list_direct() {
+  local -r pkg="${FUNCNAME[0]}"
+
+  write_attr_list_transition "${pkg}"
+
+  # create rules with transition attached
+  cat > "${pkg}/BUILD" <<EOF
+load(
+    "//${pkg}/rule:def.bzl",
+    "parent", "child",
+)
+
+config_setting(
+    name = "select_setting",
+    flag_values = {"//${pkg}/flag:select_flag": "True"},
+)
+
+FRUITS = [
+    # Deliberately not sorted.
+    "banana",
+    "grape",
+    "apple",
+]
+ROCKS = [
+    # Deliberately not sorted.
+    "marble",
+    "granite",
+    "sandstone",
+]
+
+child(
+    name = "child",
+    log = "child.log",
+)
+
+parent(
+    name = "top_level",
+    child = ":child",
+    values = select({
+        ":select_setting": FRUITS,
+        "//conditions:default": ROCKS,
+    }),
+)
+EOF
+  bazel build "--//${pkg}/flag:select_flag" "//${pkg}:top_level" &> $TEST_log || fail "Build failed"
+  expect_log 'From parent rule attributes: values = \["banana", "grape", "apple"\]'
+  expect_log 'From child rule flag: values = \["apple", "banana", "grape"\]'
+
+  bazel build "--//${pkg}/flag:select_flag=false" "//${pkg}:top_level" &> $TEST_log || fail "Build failed"
+  expect_log 'From parent rule attributes: values = \["marble", "granite", "sandstone"\]'
+  expect_log 'From child rule flag: values = \["granite", "marble", "sandstone"\]'
+}
+
+function test_inspect_attribute_list_via_output() {
+  local -r pkg="${FUNCNAME[0]}"
+
+  write_attr_list_transition "${pkg}"
+
+  # create rules with transition attached
+  cat > "${pkg}/BUILD" <<EOF
+load(
+    "//${pkg}/rule:def.bzl",
+    "parent", "child",
+)
+
+config_setting(
+    name = "select_setting",
+    flag_values = {"//${pkg}/flag:select_flag": "True"},
+)
+
+FRUITS = [
+    # Deliberately not sorted.
+    "banana",
+    "grape",
+    "apple",
+]
+ROCKS = [
+    # Deliberately not sorted.
+    "marble",
+    "granite",
+    "sandstone",
+]
+
+child(
+    name = "child",
+    log = "child.log",
+)
+
+parent(
+    name = "top_level",
+    # Here the dependency is via an output file instead of a direct target
+    child = ":child.log",
+    values = select({
+        ":select_setting": FRUITS,
+        "//conditions:default": ROCKS,
+    }),
+)
+EOF
+  bazel build "--//${pkg}/flag:select_flag" "//${pkg}:top_level" &> $TEST_log || fail "Build failed"
+  expect_log 'From parent rule attributes: values = \["banana", "grape", "apple"\]'
+  expect_log 'From child rule flag: values = \["apple", "banana", "grape"\]'
+
+  bazel build "--//${pkg}/flag:select_flag=false" "//${pkg}:top_level" &> $TEST_log || fail "Build failed"
+  expect_log 'From parent rule attributes: values = \["marble", "granite", "sandstone"\]'
+  expect_log 'From child rule flag: values = \["granite", "marble", "sandstone"\]'
+}
+
+
 run_suite "${PRODUCT_NAME} starlark configurations tests"

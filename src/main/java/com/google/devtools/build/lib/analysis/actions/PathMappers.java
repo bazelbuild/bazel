@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -132,6 +132,12 @@ public final class PathMappers {
 
   private static OutputPathsMode getEffectiveOutputPathsMode(
       OutputPathsMode outputPathsMode, String mnemonic, Map<String, String> executionInfo) {
+    if (executionInfo.containsKey(ExecutionRequirements.LOCAL)
+        || (executionInfo.containsKey(ExecutionRequirements.NO_SANDBOX)
+            && executionInfo.containsKey(ExecutionRequirements.NO_REMOTE))) {
+      // Path mapping requires sandboxed or remote execution.
+      return OutputPathsMode.OFF;
+    }
     if (outputPathsMode == OutputPathsMode.STRIP
         && (SUPPORTED_MNEMONICS.contains(mnemonic)
             || executionInfo.containsKey(ExecutionRequirements.SUPPORTS_PATH_MAPPING))) {

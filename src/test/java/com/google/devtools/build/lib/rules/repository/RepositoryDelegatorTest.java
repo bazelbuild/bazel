@@ -175,7 +175,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             .addModule(
                 createModuleKey("bazel_tools", "1.0"),
                 "module(name='bazel_tools', version='1.0');");
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
 
     HashFunction hashFunction = fileSystem.getDigestFunction().getHashFunction();
     evaluator =
@@ -248,7 +248,9 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                 .put(
                     BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
                     new BzlmodRepoRuleFunction(ruleClassProvider, directories))
-                .put(SkyFunctions.REGISTRY, new RegistryFunction(registryFactory))
+                .put(
+                    SkyFunctions.REGISTRY,
+                    new RegistryFunction(registryFactory, directories.getWorkspace()))
                 .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
                 .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
                 .put(

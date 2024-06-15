@@ -16,7 +16,9 @@ filegroup(
 java_library(
     name = "nestedset",
     srcs = [
+        "DeferredNestedSetCodec.java",
         "Depset.java",
+        "NestedArrayCodec.java",
         "NestedSet.java",
         "NestedSetBuilder.java",
         "NestedSetCodecWithStore.java",

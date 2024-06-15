@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.cmdline;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -120,6 +121,7 @@ public class PackageIdentifierTest {
                 RepositoryMapping.create(
                     ImmutableMap.of("foo", RepositoryName.create("bar")), RepositoryName.MAIN)))
         .isEqualTo("//some/pkg");
+    assertThat(pkg.getDisplayForm(null)).isEqualTo("//some/pkg");
   }
 
   @Test
@@ -139,5 +141,11 @@ public class PackageIdentifierTest {
                     ImmutableMap.of("local", RepositoryName.create("other_repo")),
                     RepositoryName.MAIN)))
         .isEqualTo("@@canonical//some/pkg");
+    assertThat(pkg.getDisplayForm(null)).isEqualTo("@@canonical//some/pkg");
+  }
+
+  @Test
+  public void testSerialization() throws Exception {
+    new SerializationTester(PackageIdentifier.parse("@foo//a")).runTests();
   }
 }

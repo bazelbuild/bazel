@@ -133,7 +133,9 @@ public final class NestedSet<E> {
    * <p>All instances of depth < 3, that is, those whose successors are all leaves, share the empty
    * {@link #NO_MEMO} array.
    */
-  @Nullable private byte[] memo;
+  // This is marked transient for serialization testing. `memo` is lazily populated and not
+  // deserialized.
+  @Nullable private transient byte[] memo;
 
   /** Construct an empty NestedSet. Should only be called by Order's class initializer. */
   NestedSet(Order order) {
@@ -281,6 +283,11 @@ public final class NestedSet<E> {
   /** Returns the ordering of this nested set. */
   public Order getOrder() {
     return Order.getOrder(depthAndOrder & 3);
+  }
+
+  @VisibleForSerialization
+  int getDepthAndOrder() {
+    return depthAndOrder;
   }
 
   /**

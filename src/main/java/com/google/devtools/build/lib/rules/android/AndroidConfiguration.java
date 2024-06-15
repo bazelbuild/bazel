@@ -1029,17 +1029,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
             "Get Java resources from _proguard.jar instead of _deploy.jar in android_binary when "
                 + "bundling the final APK.")
     public boolean getJavaResourcesFromOptimizedJar;
-
-    @Option(
-        name = "incompatible_android_platforms_transition_updated_affected",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help =
-            "If set to true, the AndroidPlatformsTransition will also update `affected by Starlark"
-                + " transition` with changed options to avoid potential action conflicts.")
-    public boolean androidPlatformsTransitionsUpdateAffected;
   }
 
   private final Label sdk;

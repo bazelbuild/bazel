@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 
 /**
@@ -24,6 +25,14 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.Augm
  * module file in the root of the module.
  */
 public interface NonRegistryOverride extends ModuleOverride {
+
+  // Starlark rules loaded from bazel_tools that may define Bazel module repositories with
+  // non-registry overrides and thus must be loaded without relying on any other modules or the main
+  // repo mapping.
+  ImmutableSet<String> BOOTSTRAP_RULE_CLASSES =
+      ImmutableSet.of(
+          ArchiveRepoSpecBuilder.HTTP_ARCHIVE_PATH + "%http_archive",
+          GitRepoSpecBuilder.GIT_REPO_PATH + "%git_repository");
 
   /** Returns the {@link RepoSpec} that defines this repository. */
   RepoSpec getRepoSpec();

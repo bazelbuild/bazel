@@ -54,30 +54,21 @@ public final class BuildOptionDetails {
   static BuildOptionDetails forOptions(
       Iterable<? extends FragmentOptions> buildOptions, Map<Label, Object> starlarkOptions) {
     ImmutableMap.Builder<String, OptionDetails> map = ImmutableMap.builder();
-    try {
-      for (FragmentOptions options : buildOptions) {
-        ImmutableList<OptionDefinition> optionDefinitions =
-            OptionsParser.getOptionDefinitions(options.getClass());
+    for (FragmentOptions options : buildOptions) {
+      ImmutableList<? extends OptionDefinition> optionDefinitions =
+          OptionsParser.getOptionDefinitions(options.getClass());
 
-        for (OptionDefinition optionDefinition : optionDefinitions) {
-          if (ImmutableList.copyOf(optionDefinition.getOptionMetadataTags())
-              .contains(OptionMetadataTag.INTERNAL)) {
-            // ignore internal options
-            continue;
-          }
-          Object value = optionDefinition.getField().get(options);
-          if (value == null && !optionDefinition.isSpecialNullDefault()) {
-              // See {@link Option#defaultValue} for an explanation of default "null" strings.
-              value = optionDefinition.getUnparsedDefaultValue();
-          }
-          map.put(
-              optionDefinition.getOptionName(),
-              new OptionDetails(options.getClass(), value, optionDefinition.allowsMultiple()));
+      for (OptionDefinition optionDefinition : optionDefinitions) {
+        if (ImmutableList.copyOf(optionDefinition.getOptionMetadataTags())
+            .contains(OptionMetadataTag.INTERNAL)) {
+          // ignore internal options
+          continue;
         }
+        Object value = optionDefinition.getValue(options);
+        map.put(
+            optionDefinition.getOptionName(),
+            new OptionDetails(options.getClass(), value, optionDefinition.allowsMultiple()));
       }
-    } catch (IllegalAccessException e) {
-      throw new IllegalStateException(
-          "Unexpected illegal access trying to create this configuration's options map: ", e);
     }
     return new BuildOptionDetails(map.buildOrThrow(), ImmutableMap.copyOf(starlarkOptions));
   }

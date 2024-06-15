@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
@@ -43,6 +42,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Implements {@link TransitionFactory} to provide a starlark-defined transition that rules can
@@ -79,13 +79,7 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
     // that don't. Every transition has a {@code def impl(settings, attr) } signature, even if the
     // transition never reads {@code attr}. If we had a way to formally identify such transitions,
     // we wouldn't need {@code rule} in the cache key.
-    return starlarkDefinedConfigTransition
-        .getRuleTransitionCache()
-        .get(
-            ruleData,
-            x ->
-                createTransition(
-                    ruleData.rule(), ruleData.configConditions(), ruleData.configHash()));
+    return starlarkDefinedConfigTransition.createRuleTransition(ruleData, this::createTransition);
   }
 
   @Override
@@ -97,53 +91,35 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
     return false;
   }
 
-  private FunctionPatchTransition createTransition(
-      Rule rule, ImmutableMap<Label, ConfigMatchingProvider> configConditions, String configHash) {
+  private FunctionPatchTransition createTransition(RuleTransitionData ruleData) {
+    Rule rule = ruleData.rule();
+    ImmutableMap<Label, ConfigMatchingProvider> configConditions = ruleData.configConditions();
+    String configHash = ruleData.configHash();
     LinkedHashMap<String, Object> attributes = new LinkedHashMap<>();
     RawAttributeMapper attributeMapper = RawAttributeMapper.of(rule);
     ConfiguredAttributeMapper configuredAttributeMapper =
         ConfiguredAttributeMapper.of(rule, configConditions, configHash, false);
     ImmutableList<String> transitionOutputs = this.starlarkDefinedConfigTransition.getOutputs();
+
     for (Attribute attribute : rule.getAttributes()) {
+      // If the value is present, even if it is null, add to the attribute map.
       Object val = attributeMapper.getRawAttributeValue(rule, attribute);
-      boolean shouldResolveSelect = true;
-      boolean validationExceptionCaught = false;
-      // TODO @aranguyen b/296918741
-      boolean isValidConfigConditions = configConditions != null && !configConditions.isEmpty();
-      if (val instanceof BuildType.SelectorList && isValidConfigConditions) {
-        for (Object label : ((SelectorList) val).getKeyLabels()) {
-          ConfigMatchingProvider configMatchingProvider = configConditions.get(label);
-          if (checkIfAttributeSelectOnAFlagTransitionChanges(
-              configMatchingProvider, transitionOutputs)) {
-            shouldResolveSelect = false;
-            break;
-          }
-        }
-        if (shouldResolveSelect) {
-          ConfiguredAttributeMapper.AttributeResolutionResult<?> result =
-              configuredAttributeMapper.getResolvedAttribute(
-                  attribute.getName(),
-                  configuredAttributeMapper.getAttributeType(attribute.getName()));
-          if (result
-              .getType()
-              .equals(
-                  ConfiguredAttributeMapper.AttributeResolutionResult.AttributeResolutionResultType
-                      .FAILURE)) {
-            validationExceptionCaught = true;
-          } else {
-            val = result.getSuccess().orElse(null);
-          }
-        } else {
+      if (val instanceof SelectorList<?> sl) {
+        Result result =
+            handleConfiguredAttribute(
+                configConditions, configuredAttributeMapper, transitionOutputs, attribute, sl);
+        if (!result.success()) {
+          // Skip this attribute.
           continue;
+        } else {
+          val = result.resolved;
         }
       }
 
-      // handle to not throw exception due to unresolvable select prior to applying rule transition
-      if (!validationExceptionCaught) {
-        attributes.put(
-            Attribute.getStarlarkName(attribute.getPublicName()), Attribute.valueToStarlark(val));
-      }
+      attributes.put(
+          Attribute.getStarlarkName(attribute.getPublicName()), Attribute.valueToStarlark(val));
     }
+
     StructImpl attrObject =
         StructProvider.STRUCT.create(
             attributes,
@@ -151,6 +127,65 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
                 + " was not resolved because it is set by a select that reads flags the transition"
                 + " may set.");
     return new FunctionPatchTransition(attrObject);
+  }
+
+  /**
+   * A container class for the result of {@link #handleConfiguredAttribute}.
+   *
+   * <p>The most important point is that the {@code success} field tells whether the attribute was
+   * resolved. It is entirely possible to resolve an attribute to {@code null}.
+   */
+  private record Result(boolean success, @Nullable Object resolved) {
+    static Result failure() {
+      return new Result(false, null);
+    }
+
+    static Result success(@Nullable Object resolved) {
+      return new Result(true, resolved);
+    }
+  }
+
+  private Result handleConfiguredAttribute(
+      @Nullable ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      ConfiguredAttributeMapper configuredAttributeMapper,
+      ImmutableList<String> transitionOutputs,
+      Attribute attribute,
+      SelectorList<?> val) {
+    // If there are no configConditions then nothing is resolvable.
+    if (configConditions == null || configConditions.isEmpty()) {
+      return Result.failure();
+    }
+
+    // If any of the select keys reference the outputs, this isn't resolvable.
+    if (selectBranchesReferenceOutputs(configConditions, transitionOutputs, val)) {
+      return Result.failure();
+    }
+
+    // Resolve the attribute, ignoring any failures. They will be reported (and fail analysis) later
+    // in the rule analysis.
+    ConfiguredAttributeMapper.AttributeResolutionResult<?> result =
+        configuredAttributeMapper.getResolvedAttribute(attribute);
+    switch (result.getType()) {
+      case FAILURE:
+        return Result.failure();
+      case SUCCESS:
+        return Result.success(result.getSuccess().orElse(null));
+    }
+    return Result.failure();
+  }
+
+  private boolean selectBranchesReferenceOutputs(
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      ImmutableList<String> transitionOutputs,
+      SelectorList<?> val) {
+    for (Object label : val.getKeyLabels()) {
+      ConfigMatchingProvider configMatchingProvider = configConditions.get(label);
+      if (checkIfAttributeSelectOnAFlagTransitionChanges(
+          configMatchingProvider, transitionOutputs)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private boolean checkIfAttributeSelectOnAFlagTransitionChanges(

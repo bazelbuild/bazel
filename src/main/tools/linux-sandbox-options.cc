@@ -234,7 +234,7 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
         break;
       case 'C':
         ValidateIsAbsolutePath(optarg, args->front(), static_cast<char>(c));
-        opt.cgroups_dir.assign(optarg);
+        opt.cgroups_dirs.emplace_back(optarg);
         break;
       case 'P':
         opt.enable_pty = true;

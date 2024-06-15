@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -93,7 +94,7 @@ public final class TargetCycleReporterTest extends BuildViewTestCase {
         AspectKeyCreator.createTopLevelAspectsKey(
             ImmutableList.of(
                 new StarlarkAspectClass(
-                    Label.parseCanonicalUnchecked("//foo:b"), "my Starlark key")),
+                    keyForBuild(Label.parseCanonicalUnchecked("//foo:b")), "my Starlark key")),
             Label.parseCanonicalUnchecked("//foo:a"),
             targetConfig,
             /* topLevelAspectsParameters= */ ImmutableMap.of());

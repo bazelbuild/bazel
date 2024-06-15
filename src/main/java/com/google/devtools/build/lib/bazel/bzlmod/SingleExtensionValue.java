@@ -46,8 +46,8 @@ public abstract class SingleExtensionValue implements SkyValue {
   public abstract ImmutableBiMap<RepositoryName, String> getCanonicalRepoNameToInternalNames();
 
   /**
-   * Returns the information stored about the extension in the lockfile. Is empty if the lockfile
-   * mode is not UPDATE.
+   * Returns the information stored about the extension in the lockfile. Non-empty if and only if
+   * the lockfile mode is UPDATE.
    */
   public abstract Optional<LockFileModuleExtension.WithFactors> getLockFileInfo();
 

@@ -19,13 +19,14 @@ load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_debug_helper.bzl", "create_debug_packager_actions")
 load(":common/cc/cc_helper.bzl", "cc_helper", "linker_mode")
 load(":common/cc/cc_info.bzl", "CcInfo")
-load(":common/cc/cc_shared_library.bzl", "GraphNodeInfo", "add_unused_dynamic_deps", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "cc_shared_library_initializer", "merge_cc_shared_library_infos", "separate_static_and_dynamic_link_libraries", "sort_linker_inputs", "throw_linked_but_not_exported_errors")
+load(":common/cc/cc_shared_library.bzl", "GraphNodeInfo", "add_unused_dynamic_deps", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "dynamic_deps_initializer", "merge_cc_shared_library_infos", "separate_static_and_dynamic_link_libraries", "sort_linker_inputs", "throw_linked_but_not_exported_errors")
 load(":common/cc/semantics.bzl", "semantics")
 
 DebugPackageInfo = _builtins.toplevel.DebugPackageInfo
 cc_internal = _builtins.internal.cc_internal
 StaticallyLinkedMarkerInfo = _builtins.internal.StaticallyLinkedMarkerProvider
 
+# TODO(blaze-team): cleanup lint target types
 _EXECUTABLE = "executable"
 _DYNAMIC_LIBRARY = "dynamic_library"
 
@@ -486,6 +487,9 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
         requested_features = features,
         unsupported_features = disabled_features,
     )
+
+    cc_helper.check_cpp_modules(ctx, feature_configuration)
+
     all_deps = ctx.attr.deps + semantics.get_cc_runtimes(ctx, _is_link_shared(ctx))
     compilation_context_deps = [dep[CcInfo].compilation_context for dep in all_deps if CcInfo in dep]
 
@@ -507,6 +511,7 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
         public_hdrs = cc_helper.get_public_hdrs(ctx),
         copts_filter = cc_helper.copts_filter(ctx, additional_make_variable_substitutions),
         srcs = cc_helper.get_srcs(ctx),
+        module_interfaces = cc_helper.get_cpp_module_interfaces(ctx),
         compilation_contexts = compilation_context_deps,
         code_coverage_enabled = cc_helper.is_code_coverage_enabled(ctx = ctx),
     )
@@ -791,7 +796,7 @@ def _impl(ctx):
 
 cc_binary = rule(
     implementation = _impl,
-    initializer = cc_shared_library_initializer,
+    initializer = dynamic_deps_initializer,
     doc = """
 <p>It produces an executable binary.</p>
 

@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
+import com.google.devtools.build.lib.cmdline.Label;
 
 /** Specifies that a module should be retrieved from a Git repository. */
 @AutoValue
@@ -25,7 +26,7 @@ public abstract class GitOverride implements NonRegistryOverride {
   public static GitOverride create(
       String remote,
       String commit,
-      ImmutableList<Object> patches,
+      ImmutableList<Label> patches,
       ImmutableList<String> patchCmds,
       int patchStrip,
       boolean initSubmodules,
@@ -41,7 +42,7 @@ public abstract class GitOverride implements NonRegistryOverride {
   public abstract String getCommit();
 
   /** The labels of patches to apply after fetching from Git. */
-  public abstract ImmutableList<Object> getPatches();
+  public abstract ImmutableList<Label> getPatches();
 
   /** The patch commands to execute after fetching from Git. Should be a list of commands. */
   public abstract ImmutableList<String> getPatchCmds();

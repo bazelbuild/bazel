@@ -226,7 +226,8 @@ public class UiStateTrackerTest extends FoundationTestCase {
         new LoadingPhaseCompleteEvent(ImmutableSet.of(), ImmutableSet.of(), MOCK_REPO_MAPPING));
     if (this.isSkymeld) {
       // SkymeldUiStateTracker needs to be in the configuration phase before the execution phase.
-      ((SkymeldUiStateTracker) uiStateTracker).buildStatus = BuildStatus.ANALYSIS_COMPLETE;
+      ((SkymeldUiStateTracker) uiStateTracker)
+          .setBuildStatusForTestingOnly(BuildStatus.ANALYSIS_COMPLETE);
     } else {
       String unused = uiStateTracker.analysisComplete();
     }

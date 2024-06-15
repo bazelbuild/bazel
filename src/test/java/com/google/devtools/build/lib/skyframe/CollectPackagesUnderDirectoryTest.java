@@ -26,6 +26,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class CollectPackagesUnderDirectoryTest
     extends AbstractCollectPackagesUnderDirectoryTest {
+
   @Override
   protected String getWorkspacePathString() {
     return "/workspace";
@@ -49,5 +50,10 @@ public final class CollectPackagesUnderDirectoryTest
   @Override
   protected SkyframeExecutorFactory makeSkyframeExecutorFactory() {
     return new SequencedSkyframeExecutorFactory();
+  }
+
+  @Override
+  protected boolean useVirtualSourceRoot() {
+    return false;
   }
 }

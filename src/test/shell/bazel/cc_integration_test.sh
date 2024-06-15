@@ -21,6 +21,13 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+function set_up() {
+  # test_inclusion_validation_with_overlapping_external_repo modifies the
+  # WORKSPACE file so make an effort to reconstruct it to its original state
+  # before every test case.
+  write_workspace_file "WORKSPACE" "$WORKSPACE_NAME"
+}
+
 function test_extra_action_for_compile() {
   mkdir -p ea
   cat > ea/BUILD <<EOF
@@ -1907,6 +1914,66 @@ EOF
     expect_log 'libc'
     expect_not_log 'libstdc\+\+'
   fi
+}
+
+function test_parse_headers_unclean() {
+  mkdir pkg
+  cat > pkg/BUILD <<'EOF'
+cc_library(name = "lib", hdrs = ["lib.h"])
+EOF
+  cat > pkg/lib.h <<'EOF'
+// Missing include of cstdint, which defines uint8_t.
+uint8_t foo();
+EOF
+
+  bazel build -s --process_headers_in_dependencies --features parse_headers \
+    //pkg:lib &> "$TEST_log" && fail "Build should have failed due to unclean headers"
+  expect_log "Compiling pkg/lib.h"
+  expect_log "error:.*'uint8_t'"
+
+  bazel build -s --process_headers_in_dependencies \
+    //pkg:lib &> "$TEST_log" || fail "Build should have passed"
+}
+
+function test_parse_headers_clean() {
+  mkdir pkg
+  cat > pkg/BUILD <<'EOF'
+package(features = ["parse_headers"])
+cc_library(name = "lib", hdrs = ["lib.h"])
+EOF
+  cat > pkg/lib.h <<'EOF'
+#include <cstdint>
+uint8_t foo();
+EOF
+
+  bazel build -s --process_headers_in_dependencies \
+    //pkg:lib &> "$TEST_log" || fail "Build should have passed"
+  expect_log "Compiling pkg/lib.h"
+}
+
+# Test for a very obscure case that is sadly used by protobuf: when the
+# WORKSPACE file contains a local_repository with the same name as the main
+# one. See HeaderDiscovery.runDiscovery() for more details.
+function test_inclusion_validation_with_overlapping_external_repo() {
+  cat >> WORKSPACE<<EOF
+local_repository(name="$WORKSPACE_NAME", path=".")
+EOF
+
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+cc_library(name="a", srcs=["a.cc"])
+EOF
+
+  cat > a/a.cc <<'EOF'
+int a() {
+  return 3;
+}
+EOF
+
+  bazel build \
+    --noenable_bzlmod \
+    --experimental_sibling_repository_layout \
+    "@@$WORKSPACE_NAME//a:a" || fail "build failed"
 }
 
 run_suite "cc_integration_test"

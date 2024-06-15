@@ -11,8 +11,6 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/docgen/annot:srcs",
-        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi:srcs",
-        "//src/main/java/com/google/devtools/build/skydoc/rendering:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
@@ -31,10 +29,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:labelrenderer",
         "//src/main/java/com/google/devtools/build/lib/util:classpath",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
-        "//src/main/java/com/google/devtools/build/skydoc/fakebuildapi",
-        "//src/main/java/com/google/devtools/build/skydoc/rendering:rendering_util",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",

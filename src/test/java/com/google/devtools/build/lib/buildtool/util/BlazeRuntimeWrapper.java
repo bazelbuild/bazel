@@ -196,6 +196,7 @@ public class BlazeRuntimeWrapper {
             .initCommand(
                 commandAnnotation,
                 optionsParser,
+                InvocationPolicy.getDefaultInstance(),
                 workspaceSetupWarnings,
                 /* waitTimeInMs= */ 0L,
                 /* commandStartTime= */ 0L,
@@ -476,7 +477,7 @@ public class BlazeRuntimeWrapper {
             .setOutErr(env.getReporter().getOutErr())
             .setTargets(targets)
             .setStartTimeMillis(runtime.getClock().currentTimeMillis());
-    if ("test".equals(commandName)) {
+    if (commandName.equals("test") || commandName.equals("coverage")) {
       builder.setRunTests(true);
     }
     return builder.build();

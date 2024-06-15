@@ -178,15 +178,13 @@ requirements of reproducibility and platform/language support. All software at
 Google is built using Bazel. Google uses Bazel and its rules for millions of
 builds every day.
 
-### [GRAKN.AI](https://grakn.ai){: .external}
-<img src="/community/images/grakn.jpeg" alt="GRAKN AI Logo" width="150" align="right">
+### [TypeDB](https://typedb.com){: .external}
+<img src="/community/images/typedb.png" alt="TypeDB Logo" width="150" align="right">
 
-Grakn is a database technology that serves as the knowledge-base foundation to
-intelligent systems. Grakn allows intelligent systems to interpret complex
-datasets as a single body of knowledge that can be logically reasoned over.
-Bazel enables the @graknlabs team to build a highly-orchestrated CI and
-distribution pipeline that manages multiple repositories of multiple languages,
-and deploys to numerous platforms seamlessly.
+Bazel enables the TypeDB team to build a highly-orchestrated CI and distribution
+pipeline that manages many repositories in a wide variety of languages, and
+deploys to numerous platforms seamlessly. The TypeDB team has also released
+Bazel rules for assembling and deploying software distributions.
 
 ### [Huawei](http://www.huawei.com/){: .external}
 
@@ -226,11 +224,6 @@ to JVM binaries, using remote caching.
 Just is an enterprise financial technology company, headquartered in Norway,
 creating software solutions to transform how global corporate treasurers manage
 risk and liquidity. Their entire application stack is built with Bazel.
-
-### [Kitty Hawk Corporation](https://kittyhawk.aero/){: .external}
-
-The Kitty Hawk Corporation is an American aircraft manufacturer producing
-electric aircraft. They use Bazel with Haskell and Scala rules.
 
 ### [Line](https://line.me/)
 
@@ -277,12 +270,6 @@ unlocked further growth.
 ### [Lyft](https://www.lyft.com/){: .external}
 
 Lyft is using Bazel for their iOS ([source](https://twitter.com/SmileyKeith/status/1116486751806033920)) and Android Apps.
-
-### [Makani](https://www.google.com/makani){: .external}
-Makani, now a Google subsidiary, develops energy kites and uses Bazel to build
-their software (including their embedded C++ software).
-
-<img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/Meetup_Logo.png" width="100" align="right">
 
 ### [Meetup](http://www.meetup.com/){: .external}
 

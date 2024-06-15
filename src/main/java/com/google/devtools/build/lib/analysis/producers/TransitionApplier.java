@@ -37,7 +37,7 @@ import javax.annotation.Nullable;
  */
 final class TransitionApplier
     implements StateMachine, StateMachine.ValueOrExceptionSink<TransitionException> {
-  interface ResultSink extends BuildConfigurationKeyProducer.ResultSink {
+  interface ResultSink extends BuildConfigurationKeyMapProducer.ResultSink {
     void acceptTransitionError(TransitionException e);
   }
 
@@ -81,7 +81,7 @@ final class TransitionApplier
       return runAfter;
     }
     if (!doesStarlarkTransition) {
-      return new BuildConfigurationKeyProducer(
+      return new BuildConfigurationKeyMapProducer(
           this.sink,
           this.runAfter,
           transition.apply(
@@ -129,6 +129,6 @@ final class TransitionApplier
       sink.acceptTransitionError(e);
       return runAfter;
     }
-    return new BuildConfigurationKeyProducer(this.sink, this.runAfter, transitionedOptions);
+    return new BuildConfigurationKeyMapProducer(this.sink, this.runAfter, transitionedOptions);
   }
 }

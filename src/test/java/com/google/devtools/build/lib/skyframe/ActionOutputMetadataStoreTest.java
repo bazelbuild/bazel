@@ -82,6 +82,10 @@ public final class ActionOutputMetadataStoreTest {
     FULLY_LOCAL,
     FULLY_REMOTE,
     MIXED;
+
+    boolean isPartiallyRemote() {
+      return this == FULLY_REMOTE || this == MIXED;
+    }
   }
 
   private final Map<Path, Integer> chmodCalls = Maps.newConcurrentMap();
@@ -432,25 +436,21 @@ public final class ActionOutputMetadataStoreTest {
         .getPath(outputArtifact.getPath().getPathString())
         .createSymbolicLink(targetArtifact.getPath().asFragment());
 
-    PathFragment expectedMaterializationExecPath =
-        location == FileLocation.REMOTE && preexistingPath != null
-            ? preexistingPath
-            : targetArtifact.getExecPath();
+    PathFragment expectedMaterializationExecPath = null;
+    if (location == FileLocation.REMOTE) {
+      expectedMaterializationExecPath =
+          preexistingPath != null ? preexistingPath : targetArtifact.getExecPath();
+    }
 
     assertThat(store.getOutputMetadata(outputArtifact))
         .isEqualTo(createFileMetadataForSymlinkTest(location, expectedMaterializationExecPath));
   }
 
-  private FileArtifactValue createFileMetadataForSymlinkTest(
+  private static FileArtifactValue createFileMetadataForSymlinkTest(
       FileLocation location, @Nullable PathFragment materializationExecPath) {
     switch (location) {
       case LOCAL:
-        FileArtifactValue target =
-            FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3}, /* proxy= */ null, 10);
-        return materializationExecPath == null
-            ? target
-            : FileArtifactValue.createForResolvedSymlink(
-                materializationExecPath, target, target.getDigest());
+        return FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3}, /* proxy= */ null, 10);
       case REMOTE:
         return RemoteFileArtifactValue.create(
             new byte[] {1, 2, 3}, 10, 1, -1, materializationExecPath);
@@ -495,8 +495,11 @@ public final class ActionOutputMetadataStoreTest {
         .getPath(outputArtifact.getPath().getPathString())
         .createSymbolicLink(targetArtifact.getPath().asFragment());
 
-    PathFragment expectedMaterializationExecPath =
-        preexistingPath != null ? preexistingPath : targetArtifact.getExecPath();
+    PathFragment expectedMaterializationExecPath = null;
+    if (composition.isPartiallyRemote()) {
+      expectedMaterializationExecPath =
+          preexistingPath != null ? preexistingPath : targetArtifact.getExecPath();
+    }
 
     assertThat(store.getTreeArtifactValue(outputArtifact))
         .isEqualTo(
@@ -504,7 +507,7 @@ public final class ActionOutputMetadataStoreTest {
                 outputArtifact, composition, expectedMaterializationExecPath));
   }
 
-  private TreeArtifactValue createTreeMetadataForSymlinkTest(
+  private static TreeArtifactValue createTreeMetadataForSymlinkTest(
       SpecialArtifact parent,
       TreeComposition composition,
       @Nullable PathFragment materializationExecPath) {
@@ -583,7 +586,8 @@ public final class ActionOutputMetadataStoreTest {
         PathFragment.create(identifier + "_symlink"),
         PathFragment.create(identifier),
         digest,
-        execRoot.asFragment());
+        execRoot.asFragment(),
+        /* enclosingTreeArtifact= */ null);
   }
 
   private ActionInput createInput(String identifier) {
@@ -825,7 +829,7 @@ public final class ActionOutputMetadataStoreTest {
 
     var symlinkMetadata = store.getOutputMetadata(symlink);
 
-    assertThat(symlinkMetadata.getDigest()).isEqualTo(targetMetadata.getDigest());
+    assertThat(symlinkMetadata).isEqualTo(targetMetadata);
     assertThat(DigestUtils.getCacheStats().hitCount()).isEqualTo(1);
   }
 }

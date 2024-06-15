@@ -61,6 +61,9 @@ import javax.annotation.concurrent.GuardedBy;
  * <p>This class is also in charge of planting the necessary symlinks.
  */
 public class IncrementalPackageRoots implements PackageRoots {
+  // This work is I/O bound: set the parallelism to something similar to the default number of
+  // loading threads.
+  private static final int SYMLINK_PLANTING_PARALLELISM = 200;
 
   // We only keep track of PackageIdentifier from external repos here as a memory optimization:
   // packages belong to the main repository all share the same root, which is singleSourceRoot.
@@ -109,7 +112,7 @@ public class IncrementalPackageRoots implements PackageRoots {
     this.symlinkPlantingPool =
         MoreExecutors.listeningDecorator(
             Executors.newFixedThreadPool(
-                Runtime.getRuntime().availableProcessors(),
+                SYMLINK_PLANTING_PARALLELISM,
                 new ThreadFactoryBuilder().setNameFormat("Non-eager Symlink planter %d").build()));
   }
 
@@ -158,7 +161,7 @@ public class IncrementalPackageRoots implements PackageRoots {
    * </pre>
    *
    * We'd plant the symlink to "noclash" first, then wait to see whether we need "foo" or "Foo". If
-   * we end up needing both, throw an error. See {@link #registerAndPlantMissingSymlinks}.
+   * we end up needing both, throw an error. See {@link #recursiveRegisterAndPlantMissingSymlinks}.
    */
   public void eagerlyPlantSymlinksToSingleSourceRoot() throws AbruptExitException {
     try {
@@ -193,7 +196,7 @@ public class IncrementalPackageRoots implements PackageRoots {
   // a symlink and starting an action that requires that symlink. This race condition is possible
   // because of the various memoizations we use to avoid repeated work.
   @Subscribe
-  public void topLevelTargetReadyForSymlinkPlanting(TopLevelTargetReadyForSymlinkPlanting event)
+  public void lazilyPlantSymlinks(TopLevelTargetReadyForSymlinkPlanting event)
       throws AbruptExitException {
     if (allowExternalRepositories || !maybeConflictingBaseNamesLowercase.isEmpty()) {
       Set<NestedSet.Node> donePackagesLocalRef;
@@ -206,10 +209,28 @@ public class IncrementalPackageRoots implements PackageRoots {
         donePackagesLocalRef = donePackages;
         lazilyPlantedSymlinksLocalRef = lazilyPlantedSymlinks;
       }
-      registerAndPlantMissingSymlinks(
+
+      // Initial capacity: arbitrarily chosen.
+      // This list doesn't need to be thread-safe, as items are added sequentially.
+      List<ListenableFuture<Void>> futures = new ArrayList<>(128);
+      recursiveRegisterAndPlantMissingSymlinks(
           event.transitivePackagesForSymlinkPlanting(),
           donePackagesLocalRef,
-          lazilyPlantedSymlinksLocalRef);
+          lazilyPlantedSymlinksLocalRef,
+          futures);
+
+      // Now wait on the futures. After that, we can be sure that the symlinks have been planted.
+      try {
+        Futures.whenAllSucceed(futures).call(() -> null, directExecutor()).get();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        // Bail
+      } catch (ExecutionException e) {
+        if (e.getCause() instanceof AbruptExitException) {
+          throw (AbruptExitException) e.getCause();
+        }
+        throw new IllegalStateException("Unexpected exception", e);
+      }
     }
   }
 
@@ -224,16 +245,17 @@ public class IncrementalPackageRoots implements PackageRoots {
    * <p>There are 2 possibilities: either we're planting symlinks to the external repos, or there's
    * potentially conflicting symlinks detected.
    */
-  private void registerAndPlantMissingSymlinks(
-      NestedSet<Package> packages, Set<Node> donePackagesRef, Set<Path> lazilyPlantedSymlinksRef)
-      throws AbruptExitException {
+  private void recursiveRegisterAndPlantMissingSymlinks(
+      NestedSet<Package> packages,
+      Set<Node> donePackagesRef,
+      Set<Path> lazilyPlantedSymlinksRef,
+      List<ListenableFuture<Void>> futures) {
     // Optimization to prune subsequent traversals.
     // A false negative does not affect correctness.
-    if (donePackagesRef.contains(packages.toNode())) {
+    if (!donePackagesRef.add(packages.toNode())) {
       return;
     }
 
-    List<ListenableFuture<Void>> futures = new ArrayList<>(packages.getLeaves().size());
     synchronized (symlinkPlantingPool) {
       // Some other thread shut down the executor, exit now.
       if (symlinkPlantingPool.isShutdown()) {
@@ -246,22 +268,9 @@ public class IncrementalPackageRoots implements PackageRoots {
       }
     }
     for (NestedSet<Package> transitive : packages.getNonLeaves()) {
-      registerAndPlantMissingSymlinks(transitive, donePackagesRef, lazilyPlantedSymlinksRef);
+      recursiveRegisterAndPlantMissingSymlinks(
+          transitive, donePackagesRef, lazilyPlantedSymlinksRef, futures);
     }
-    // Now wait on the futures.
-    try {
-      Futures.whenAllSucceed(futures).call(() -> null, directExecutor()).get();
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      return; // Bail
-    } catch (ExecutionException e) {
-      if (e.getCause() instanceof AbruptExitException) {
-        throw (AbruptExitException) e.getCause();
-      }
-      throw new IllegalStateException("Unexpected exception", e);
-    }
-    // Only update the memoization set now, after the symlinks are confirmed planted.
-    donePackagesRef.add(packages.toNode());
   }
 
   private Void plantSingleSymlinkForPackage(Package pkg, Set<Path> lazilyPlantedSymlinksRef)

@@ -39,13 +39,23 @@ public interface JavaInfoApi<
 
   @StarlarkMethod(
       name = "transitive_runtime_jars",
-      doc = "Returns a transitive set of Jars required on the target's runtime classpath.",
+      doc =
+          """
+Returns a transitive set of Jars required on the target's runtime classpath.
+<p/>Note: for binary targets (such as java_binary and java_test), this is empty, since such targets
+are not intended to be dependencies of other Java targets.
+""",
       structField = true)
   Depset getTransitiveRuntimeJars();
 
   @StarlarkMethod(
       name = "transitive_compile_time_jars",
-      doc = "Returns the transitive set of Jars required to build the target.",
+      doc =
+          """
+Returns the transitive set of Jars required to build the target.
+<p/>Note: for binary targets (such as java_binary and java_test), this is empty, since such targets
+are not intended to be dependencies of other Java targets.
+""",
       structField = true)
   Depset getTransitiveCompileTimeJars();
 

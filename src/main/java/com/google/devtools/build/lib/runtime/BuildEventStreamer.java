@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.runtime.CountingArtifactGroupNamer.LatchedGroupName;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
@@ -129,8 +130,8 @@ public class BuildEventStreamer {
   // After #buildComplete is called, contains the set of events that the streamer is expected to
   // process. The streamer will fully close after seeing them. This field is null until
   // #buildComplete is called.
-  // Thread-safety note: finalEventsToCome is only non-null in the final, sequential phase of the
-  // build (all final events are issued from the main thread).
+  // Thread-safety note: in the final, sequential phase of the build, we ignore any events that are
+  // announced by events posted after #buildComplete is called.
   private Set<BuildEventId> finalEventsToCome = null;
 
   // True, if we already closed the stream.
@@ -188,6 +189,24 @@ public class BuildEventStreamer {
     this.outErrProvider = outErrProvider;
   }
 
+  // This exists to nop out the announcement of new events after #buildComplete
+  private synchronized void maybeRegisterAnnouncedEvent(BuildEventId id) {
+    if (finalEventsToCome != null) {
+      return;
+    }
+
+    announcedEvents.add(id);
+  }
+
+  // This exists to nop out the announcement of new events after #buildComplete
+  private synchronized void maybeRegisterAnnouncedEvents(Collection<BuildEventId> ids) {
+    if (finalEventsToCome != null) {
+      return;
+    }
+
+    announcedEvents.addAll(ids);
+  }
+
   /**
    * Post a new event to all transports; simultaneously keep track of the events we announce to
    * still come.
@@ -210,15 +229,15 @@ public class BuildEventStreamer {
         // The very first event of a stream is implicitly announced by the convention that
         // a complete stream has to have at least one entry. In this way we keep the invariant
         // that the set of posted events is always a subset of the set of announced events.
-        announcedEvents.add(id);
+        maybeRegisterAnnouncedEvent(id);
         if (!event.getChildrenEvents().contains(ProgressEvent.INITIAL_PROGRESS_UPDATE)) {
           BuildEvent progress = ProgressEvent.progressChainIn(progressCount, event.getEventId());
           linkEvents = ImmutableList.of(progress);
           progressCount++;
-          announcedEvents.addAll(progress.getChildrenEvents());
+          maybeRegisterAnnouncedEvents(progress.getChildrenEvents());
           // the new first event in the stream, implicitly announced by the fact that complete
           // stream may not be empty.
-          announcedEvents.add(progress.getEventId());
+          maybeRegisterAnnouncedEvent(progress.getEventId());
           postedEvents.add(progress.getEventId());
         }
 
@@ -247,7 +266,7 @@ public class BuildEventStreamer {
                     ProgressEvent.progressChainIn(progressCount, id, out, err);
                 finalLinkEvents.add(progressEvent);
                 progressCount++;
-                announcedEvents.addAll(progressEvent.getChildrenEvents());
+                maybeRegisterAnnouncedEvents(progressEvent.getChildrenEvents());
                 postedEvents.add(progressEvent.getEventId());
               });
         }
@@ -262,7 +281,7 @@ public class BuildEventStreamer {
       }
 
       postedEvents.add(id);
-      announcedEvents.addAll(event.getChildrenEvents());
+      maybeRegisterAnnouncedEvents(event.getChildrenEvents());
       // We keep as an invariant that postedEvents is a subset of announced events, so this is a
       // cheaper test for equality
       if (announcedEvents.size() == postedEvents.size()) {
@@ -504,9 +523,18 @@ public class BuildEventStreamer {
       buildEvent(freedEvent);
     }
 
+    // Special-case handling for subclasses of `BuildCompletingEvent`.
+    //
+    // For most commands, exactly one `BuildCompletingEvent` will be posted to the EventBus. If the
+    // command is "run" or "test", a non-crashing/catastrophic `BuildCompleteEvent` will be followed
+    // by a RunBuildCompleteEvent/TestingCompleteEvent.
     if (event instanceof BuildCompleteEvent buildCompleteEvent) {
       if (isCrash(buildCompleteEvent) || isCatastrophe(buildCompleteEvent)) {
-        addAbortReason(AbortReason.INTERNAL);
+        if (isOom(buildCompleteEvent)) {
+          addAbortReason(AbortReason.OUT_OF_MEMORY);
+        } else {
+          addAbortReason(AbortReason.INTERNAL);
+        }
       } else if (isIncomplete(buildCompleteEvent)) {
         addAbortReason(AbortReason.INCOMPLETE);
       }
@@ -528,7 +556,7 @@ public class BuildEventStreamer {
   }
 
   private static boolean isCrash(BuildCompleteEvent event) {
-    return event.getResult().getUnhandledThrowable() != null;
+    return event.getResult().getUnhandledThrowable() != null || isOom(event);
   }
 
   private static boolean isCatastrophe(BuildCompleteEvent event) {
@@ -539,6 +567,10 @@ public class BuildEventStreamer {
     return !event.getResult().getSuccess()
         && !event.getResult().wasCatastrophe()
         && event.getResult().getStopOnFirstFailure();
+  }
+
+  private static boolean isOom(BuildCompleteEvent event) {
+    return event.getResult().getDetailedExitCode().getExitCode().equals(ExitCode.OOM_ERROR);
   }
 
   /**
@@ -576,7 +608,7 @@ public class BuildEventStreamer {
   private synchronized BuildEvent flushStdoutStderrEvent(String out, String err) {
     BuildEvent updateEvent = ProgressEvent.progressUpdate(progressCount, out, err);
     progressCount++;
-    announcedEvents.addAll(updateEvent.getChildrenEvents());
+    maybeRegisterAnnouncedEvents(updateEvent.getChildrenEvents());
     postedEvents.add(updateEvent.getEventId());
     return updateEvent;
   }
@@ -597,7 +629,11 @@ public class BuildEventStreamer {
         // Nothing to flush; avoid generating an unneeded progress event.
         return;
       }
-      if (announcedEvents != null) {
+      if (finalEventsToCome != null) {
+        // If we've already announced the final events, we cannot add more progress events. Stdout
+        // and stderr are truncated from the event log.
+        consumeAsPairsofStrings(allOut, allErr, (s1, s2) -> {});
+      } else if (announcedEvents != null) {
         updateEvents = new ArrayList<>();
         List<BuildEvent> finalUpdateEvents = updateEvents;
         consumeAsPairsofStrings(
@@ -629,10 +665,10 @@ public class BuildEventStreamer {
   //  ....
   //  biConsumer.accept(L(N-1), null);
   //  biConsumer.accept(LN, R1);
-  //  biConsumer.accept(R2, null);
+  //  biConsumer.accept(null, R2);
   //  ...
-  //  biConsumer.accept(R(M-1), null);
-  //  lastConsumer.accept(RM, null);
+  //  biConsumer.accept(null, R(M-1);
+  //  lastConsumer.accept(null, RM);
   //
   // The lastConsumer is always called exactly once, even if both Iterables are empty.
   @VisibleForTesting
@@ -696,7 +732,7 @@ public class BuildEventStreamer {
         allOut,
         allErr,
         (s1, s2) -> post(flushStdoutStderrEvent(s1, s2)),
-        (s1, s2) -> post(ProgressEvent.finalProgressUpdate(progressCount, s1, s2)));
+        (s1, s2) -> post(ProgressEvent.finalProgressUpdate(progressCount++, s1, s2)));
     clearAnnouncedEvents(event == null ? ImmutableList.of() : event.getChildrenEvents());
   }
 
@@ -725,23 +761,23 @@ public class BuildEventStreamer {
       return RetentionDecision.DISCARD;
     }
 
-    if (isCommandToSkipBuildCompleteEvent && event instanceof BuildCompleteEvent) {
+    if (isCommandToSkipBuildCompleteEvent
+        && event instanceof BuildCompleteEvent buildCompleteEvent) {
       // In case of "bazel test" or "bazel run" ignore the BuildCompleteEvent, as it will be
-      // followed by a TestingCompleteEvent that contains the correct exit code.
-      return isCrash((BuildCompleteEvent) event)
-          ? RetentionDecision.POST
-          : RetentionDecision.DISCARD;
+      // followed by a TestingCompleteEvent (or RunBuildCompleteEvent) that contains the correct
+      // exit code.
+      return isCrash(buildCompleteEvent) ? RetentionDecision.POST : RetentionDecision.DISCARD;
     }
 
-    if (event instanceof TargetParsingCompleteEvent) {
+    if (event instanceof TargetParsingCompleteEvent parsingCompleteEvent) {
       // If there is only one pattern and we have one failed pattern, then we already posted a
       // pattern expanded error, so we don't post the completion event.
       // TODO(b/109727414): This is brittle. It would be better to always post one PatternExpanded
       // event for each pattern given on the command line instead of one event for all of them
       // combined.
       boolean discard =
-          ((TargetParsingCompleteEvent) event).getOriginalTargetPattern().size() == 1
-              && !((TargetParsingCompleteEvent) event).getFailedTargetPatterns().isEmpty();
+          parsingCompleteEvent.getOriginalTargetPattern().size() == 1
+              && !parsingCompleteEvent.getFailedTargetPatterns().isEmpty();
       return discard ? RetentionDecision.DISCARD : RetentionDecision.POST;
     }
 
@@ -765,11 +801,11 @@ public class BuildEventStreamer {
   }
 
   private synchronized boolean bufferUntilPrerequisitesReceived(BuildEvent event) {
-    if (!(event instanceof BuildEventWithOrderConstraint)) {
+    if (!(event instanceof BuildEventWithOrderConstraint buildEventWithOrderConstraint)) {
       return false;
     }
     // Check if all prerequisite events are posted already.
-    for (BuildEventId prerequisiteId : ((BuildEventWithOrderConstraint) event).postedAfter()) {
+    for (BuildEventId prerequisiteId : buildEventWithOrderConstraint.postedAfter()) {
       if (!postedEvents.contains(prerequisiteId)) {
         pendingEvents.put(prerequisiteId, event);
         return true;
@@ -780,7 +816,7 @@ public class BuildEventStreamer {
 
   /** Return true if the test summary contains no actual test runs. */
   private static boolean isVacuousTestSummary(BuildEvent event) {
-    return event instanceof TestSummary && ((TestSummary) event).totalRuns() == 0;
+    return event instanceof TestSummary testSummary && testSummary.totalRuns() == 0;
   }
 
   /**

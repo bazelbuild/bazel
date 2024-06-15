@@ -76,6 +76,15 @@ public final class BazelGenRuleRule implements RuleDefinition {
   If you only need to run a single tool, consider using
   <a href="https://github.com/bazelbuild/bazel-skylib/blob/main/docs/run_binary_doc.md">run_binary</a>
   instead.
+</p>
+<p>
+  Like every other action, the action created by genrules should not assume anything about their
+  working directory; all Bazel guarantees is that their declared inputs will be available at the
+  path that <code>$(location)</code> returns for their label. For example, if the action is run in a
+  sandbox or remotely, the implementation of the sandbox or the remote execution will determine the
+  working directory. If run directly (using the <code>standalone</code> strategy), the working
+  directory will be the execution root, i.e. the result of <code>bazel info execution_root</code>.
+</p>
 <p>
   Do not use a genrule for running tests. There are special dispensations for tests and test
   results, including caching policies and environment variables. Tests generally need to be run

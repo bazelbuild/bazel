@@ -21,13 +21,12 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.LabelPrinter;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
@@ -131,22 +130,20 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   private static String getRuleClassTransition(CqueryNode ct, Target target) {
-    String output = "";
-    if (ct instanceof RuleConfiguredTarget) {
-      TransitionFactory<RuleTransitionData> factory =
-          target.getAssociatedRule().getRuleClassObject().getTransitionFactory();
-      if (factory != null) {
-        output =
-            factory
-                .create(
-                    RuleTransitionData.create(
-                        target.getAssociatedRule(),
-                        null,
-                        ct.getConfigurationKey().getOptionsChecksum()))
-                .getName()
-                .concat(" -> ");
-      }
+    Rule rule = target.getAssociatedRule();
+    if (rule == null) {
+      return "";
     }
-    return output;
+
+    TransitionFactory<RuleTransitionData> factory =
+        rule.getRuleClassObject().getTransitionFactory();
+    return factory
+        .create(
+            RuleTransitionData.create(
+                target.getAssociatedRule(),
+                /* configConditions= */ null,
+                ct.getConfigurationKey().getOptionsChecksum()))
+        .getName()
+        .concat(" -> ");
   }
 }

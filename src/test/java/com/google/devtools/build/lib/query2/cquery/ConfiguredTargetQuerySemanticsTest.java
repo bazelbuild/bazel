@@ -30,14 +30,16 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.TransitionFactories;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.analysis.util.DummyTestFragment.DummyTestOptions;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
@@ -79,16 +81,14 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
                 "rule_with_transitions",
                 attr("patch_dep", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
-                    .cfg(TransitionFactories.of(new FooPatchTransition("SET BY PATCH"))),
+                    .cfg(new FooPatchAttrTransitionFactory("SET BY PATCH")),
                 attr("string_dep", STRING),
                 attr("split_dep", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
-                    .cfg(
-                        TransitionFactories.of(
-                            new FooSplitTransition("SET BY SPLIT 1", "SET BY SPLIT 2"))),
+                    .cfg(new FooSplitTransitionFactory("SET BY SPLIT 1", "SET BY SPLIT 2")),
                 attr("patch_dep_list", LABEL_LIST)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
-                    .cfg(TransitionFactories.of(new FooPatchTransition("SET BY PATCH 2"))));
+                    .cfg(new FooPatchAttrTransitionFactory("SET BY PATCH 2")));
     MockRule noAttributeRule = () -> MockRule.define("no_attribute_rule");
 
     helper.useRuleClassProvider(
@@ -287,7 +287,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
             MockRule.define(
                 "rule_class_transition",
                 (builder, env) ->
-                    builder.cfg(unused -> new FooPatchTransition("SET BY PATCH")).build());
+                    builder.cfg(new FooPatchRuleTransitionFactory("SET BY PATCH")).build());
 
     helper.useRuleClassProvider(setRuleClassProviders(ruleClassTransition).build());
     helper.setUniverseScope("//test:rule_class");
@@ -639,22 +639,34 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   }
 
   /** Return an empty BuildOptions for testing fragment dropping. * */
-  public static class RemoveTestOptionsTransition implements PatchTransition {
+  public static class RemoveTestOptionsTransitionFactory
+      implements TransitionFactory<AttributeTransitionData> {
+
     @Override
-    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
-      return ImmutableSet.of(TestOptions.class);
+    public ConfigurationTransition create(AttributeTransitionData data) {
+      return new PatchTransition() {
+        @Override
+        public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+          return ImmutableSet.of(TestOptions.class);
+        }
+
+        @Override
+        public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+          BuildOptions.Builder builder = BuildOptions.builder();
+          for (FragmentOptions option : options.underlying().getNativeOptions()) {
+            if (!(option instanceof TestOptions)) {
+              builder.addFragmentOptions(option);
+            }
+          }
+          // This does not copy over Starlark options!!
+          return builder.build();
+        }
+      };
     }
 
     @Override
-    public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
-      BuildOptions.Builder builder = BuildOptions.builder();
-      for (FragmentOptions option : options.underlying().getNativeOptions()) {
-        if (!(option instanceof TestOptions)) {
-          builder.addFragmentOptions(option);
-        }
-      }
-      // This does not copy over Starlark options!!
-      return builder.build();
+    public TransitionType transitionType() {
+      return TransitionType.ATTRIBUTE;
     }
   }
 
@@ -666,7 +678,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
                 "rule_drop_options",
                 attr("dep", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
-                    .cfg(TransitionFactories.of(new RemoveTestOptionsTransition())));
+                    .cfg(new RemoveTestOptionsTransitionFactory()));
     MockRule simpleRule =
         () ->
             MockRule.define(

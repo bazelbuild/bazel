@@ -504,6 +504,22 @@ function test_extract_default_zip_non_ascii_utf8_file_names() {
   ensure_output_contains_exactly_once "external/repo/out_dir/Ä_foo_∅.txt" "bar"
 }
 
+function test_sparse_tar() {
+  set_workspace_command "
+  repository_ctx.download_and_extract(
+      url='https://mirror.bazel.build/github.com/astral-sh/ruff/releases/download/v0.1.6/ruff-aarch64-apple-darwin.tar.gz',
+      sha256='0b626e88762b16908b3dbba8327341ddc13b37ebe6ec1a0db3f033ce5a44162d',
+  )"
+
+  build_and_process_log --exclude_rule "repository @@local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:3:38' 1
+  ensure_contains_atleast 'context: "repository @@repo"' 2
+  ensure_contains_exactly 'download_and_extract_event' 1
+
+  [[ -f "$(bazel info output_base)/external/repo/ruff" ]] || fail "Expected ruff binary to be extracted"
+}
+
 function test_file() {
   set_workspace_command 'repository_ctx.file("filefile.sh", "echo filefile", True)'
 

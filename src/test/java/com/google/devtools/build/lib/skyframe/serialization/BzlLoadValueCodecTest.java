@@ -20,8 +20,8 @@ import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BzlVisibility;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import net.starlark.java.eval.Module;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -60,7 +60,7 @@ public class BzlLoadValueCodecTest {
     ObjectCodecRegistry registry =
         AutoRegistry.get().getBuilder().addReferenceConstant(builtin).build();
     BzlLoadValue value = makeBLV("var", builtin);
-    BzlLoadValue deserialized = TestUtils.roundTrip(value, registry);
+    BzlLoadValue deserialized = RoundTripping.roundTrip(value, registry);
     Object deserializedDummy = deserialized.getModule().getGlobal("var");
     assertThat(deserializedDummy).isSameInstanceAs(builtin);
   }

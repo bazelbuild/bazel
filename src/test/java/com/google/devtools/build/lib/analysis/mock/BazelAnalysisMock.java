@@ -513,11 +513,31 @@ public final class BazelAnalysisMock extends AnalysisMock {
         )
         """);
     config.create(
+        "embedded_tools/tools/allowlists/initializer_allowlist/BUILD",
+        """
+        package_group(
+            name = "initializer_allowlist",
+            packages = [],
+        )
+        """);
+    config.create(
         "embedded_tools/tools/allowlists/extend_rule_allowlist/BUILD",
         """
         package_group(
             name = "extend_rule_allowlist",
             packages = ["public"],
+        )
+        package_group(
+            name = "extend_rule_api_allowlist",
+            packages = [],
+        )
+        """);
+    config.create(
+        "embedded_tools/tools/allowlists/subrules_allowlist/BUILD",
+        """
+        package_group(
+            name = "subrules_allowlist",
+            packages = [],
         )
         """);
 

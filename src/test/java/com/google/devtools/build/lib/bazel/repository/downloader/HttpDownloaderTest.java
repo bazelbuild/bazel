@@ -26,6 +26,7 @@ import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
@@ -516,6 +517,7 @@ public class HttpDownloaderTest {
                   httpDownloader.downloadAndReadOneUrl(
                       new URL(String.format("http://localhost:%d/foo", server.getLocalPort())),
                       StaticCredentials.EMPTY,
+                      Optional.empty(),
                       eventHandler,
                       Collections.emptyMap()),
                   UTF_8))
@@ -551,8 +553,87 @@ public class HttpDownloaderTest {
               httpDownloader.downloadAndReadOneUrl(
                   new URL(String.format("http://localhost:%d/foo", server.getLocalPort())),
                   StaticCredentials.EMPTY,
+                  Optional.empty(),
                   eventHandler,
                   Collections.emptyMap()));
+    }
+  }
+
+  @Test
+  public void downloadAndReadOneUrl_checksumProvided()
+      throws IOException, Checksum.InvalidChecksumException, InterruptedException {
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              () -> {
+                try (Socket socket = server.accept()) {
+                  readHttpRequest(socket.getInputStream());
+                  sendLines(
+                      socket,
+                      "HTTP/1.1 200 OK",
+                      "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                      "Connection: close",
+                      "Content-Type: text/plain",
+                      "Content-Length: 5",
+                      "",
+                      "hello");
+                }
+                return null;
+              });
+
+      assertThat(
+              new String(
+                  httpDownloader.downloadAndReadOneUrl(
+                      new URL(String.format("http://localhost:%d/foo", server.getLocalPort())),
+                      StaticCredentials.EMPTY,
+                      Optional.of(
+                          Checksum.fromString(
+                              RepositoryCache.KeyType.SHA256,
+                              Hashing.sha256().hashString("hello", UTF_8).toString())),
+                      eventHandler,
+                      ImmutableMap.of()),
+                  UTF_8))
+          .isEqualTo("hello");
+    }
+  }
+
+  @Test
+  public void downloadAndReadOneUrl_checksumMismatch() throws IOException {
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              () -> {
+                try (Socket socket = server.accept()) {
+                  readHttpRequest(socket.getInputStream());
+                  sendLines(
+                      socket,
+                      "HTTP/1.1 200 OK",
+                      "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                      "Connection: close",
+                      "Content-Type: text/plain",
+                      "Content-Length: 9",
+                      "",
+                      "malicious");
+                }
+                return null;
+              });
+
+      var e =
+          assertThrows(
+              UnrecoverableHttpException.class,
+              () ->
+                  httpDownloader.downloadAndReadOneUrl(
+                      new URL(String.format("http://localhost:%d/foo", server.getLocalPort())),
+                      StaticCredentials.EMPTY,
+                      Optional.of(
+                          Checksum.fromString(
+                              RepositoryCache.KeyType.SHA256,
+                              Hashing.sha256().hashUnencodedChars("hello").toString())),
+                      eventHandler,
+                      ImmutableMap.of()));
+      assertThat(e).hasMessageThat().contains("Checksum was");
     }
   }
 
@@ -630,6 +711,51 @@ public class HttpDownloaderTest {
 
     assertThat(times.get()).isEqualTo(4);
     String content = new String(ByteStreams.toByteArray(result.getInputStream()), UTF_8);
+    assertThat(content).isEqualTo("content");
+  }
+
+  @Test
+  public void download_contentLengthMismatchWithOtherErrors_retries() throws Exception {
+    Downloader downloader = mock(Downloader.class);
+    int retires = 5;
+    DownloadManager downloadManager = new DownloadManager(repositoryCache, downloader);
+    downloadManager.setRetries(retires);
+    AtomicInteger times = new AtomicInteger(0);
+    byte[] data = "content".getBytes(UTF_8);
+    doAnswer(
+            (Answer<Void>)
+                invocationOnMock -> {
+                  if (times.getAndIncrement() < 3) {
+                    IOException e = new IOException();
+                    e.addSuppressed(new ContentLengthMismatchException(0, data.length));
+                    e.addSuppressed(new IOException());
+                    throw e;
+                  }
+                  Path output = invocationOnMock.getArgument(5, Path.class);
+                  try (OutputStream outputStream = output.getOutputStream()) {
+                    ByteStreams.copy(new ByteArrayInputStream(data), outputStream);
+                  }
+
+                  return null;
+                })
+        .when(downloader)
+        .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
+
+    Path result =
+        downloadManager.download(
+            ImmutableList.of(new URL("http://localhost")),
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.empty(),
+            "testCanonicalId",
+            Optional.empty(),
+            fs.getPath(workingDir.newFile().getAbsolutePath()),
+            eventHandler,
+            ImmutableMap.of(),
+            "testRepo");
+
+    assertThat(times.get()).isEqualTo(4);
+    String content = new String(result.getInputStream().readAllBytes(), UTF_8);
     assertThat(content).isEqualTo("content");
   }
 }

@@ -18,8 +18,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
 
 /**
- * Represent a "promise" that the Artifacts under a NestedSet are evaluated by Skyframe and are
- * available from {@link ArtifactNestedSetFunction#getValueForKey}.
+ * Represent a "promise" that the Artifacts under a NestedSet are evaluated by Skyframe.
  *
  * <p>Implements {@link NotComparableSkyValue} to prohibit value-based change pruning.
  */

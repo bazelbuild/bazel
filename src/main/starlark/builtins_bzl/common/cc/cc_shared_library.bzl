@@ -754,10 +754,7 @@ def _cc_shared_library_impl(ctx):
         # precompiled_dynamic_library.dynamic_library could be None if the library to link just contains
         # an interface library which is valid if the actual library is obtained from the system.
         if precompiled_dynamic_library.dynamic_library != None:
-            if precompiled_dynamic_library.resolved_symlink_dynamic_library != None:
-                precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.resolved_symlink_dynamic_library)
-            else:
-                precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.dynamic_library)
+            precompiled_only_dynamic_libraries_runfiles.append(precompiled_dynamic_library.dynamic_library)
 
     runfiles = runfiles.merge(ctx.runfiles(files = precompiled_only_dynamic_libraries_runfiles))
 
@@ -843,8 +840,31 @@ graph_structure_aspect = aspect(
     implementation = _graph_structure_aspect_impl,
 )
 
+def _cc_shared_library_initializer(**kwargs):
+    """Converts labels in exports_filter into canonical form relative to the current repository.
+
+    This conversion can only be done in a macro as it requires access to the repository mapping of
+    the repository containing the cc_shared_library target. This mapping is automatically
+    applied to label attributes, but exports_filter is a list of strings attribute.
+    """
+    if "exports_filter" not in kwargs:
+        return kwargs
+
+    raw_exports_filter = kwargs["exports_filter"]
+    if type(raw_exports_filter) != type([]):
+        # TODO: Also canonicalize labels in selects once macros can operate on them.
+        # https://github.com/bazelbuild/bazel/issues/14157
+        return kwargs
+
+    canonical_exports_filter = [
+        str(_builtins.native.package_relative_label(s))
+        for s in raw_exports_filter
+    ]
+    return kwargs | {"exports_filter": canonical_exports_filter}
+
 cc_shared_library = rule(
     implementation = _cc_shared_library_impl,
+    initializer = _cc_shared_library_initializer,
     doc = """
 <p>It produces a shared library.</p>
 
@@ -1073,7 +1093,7 @@ following:
     fragments = ["cpp"] + semantics.additional_fragments(),
 )
 
-def cc_shared_library_initializer(**kwargs):
+def dynamic_deps_initializer(**kwargs):
     """Initializes dynamic_deps_attrs"""
     if "dynamic_deps" in kwargs and cc_helper.is_non_empty_list_or_select(kwargs["dynamic_deps"], "dynamic_deps"):
         # Propagate an aspect if dynamic_deps attribute is specified.

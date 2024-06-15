@@ -43,6 +43,8 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 public class NoConfigTransition implements PatchTransition {
 
   @SerializationConstant public static final NoConfigTransition INSTANCE = new NoConfigTransition();
+  private static final TransitionFactory<? extends TransitionFactory.Data> FACTORY_INSTANCE =
+      new AutoValue_NoConfigTransition_Factory<>();
 
   private NoConfigTransition() {}
 
@@ -57,8 +59,10 @@ public class NoConfigTransition implements PatchTransition {
   }
 
   /** Returns a {@link TransitionFactory} instance that generates the transition. */
-  public static <T extends TransitionFactory.Data> TransitionFactory<T> createFactory() {
-    return new AutoValue_NoConfigTransition_Factory<>();
+  public static <T extends TransitionFactory.Data> TransitionFactory<T> getFactory() {
+    @SuppressWarnings("unchecked")
+    TransitionFactory<T> castFactory = (TransitionFactory<T>) FACTORY_INSTANCE;
+    return castFactory;
   }
 
   /** A {@link TransitionFactory} implementation that generates the transition. */
@@ -67,6 +71,11 @@ public class NoConfigTransition implements PatchTransition {
     @Override
     public PatchTransition create(T unused) {
       return INSTANCE;
+    }
+
+    @Override
+    public TransitionType transitionType() {
+      return TransitionType.ANY;
     }
 
     @Override

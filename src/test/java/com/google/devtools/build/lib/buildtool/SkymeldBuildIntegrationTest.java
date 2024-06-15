@@ -21,6 +21,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
@@ -30,6 +31,8 @@ import com.google.devtools.build.lib.skyframe.SkymeldModule;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelEntityAnalysisConcludedEvent;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.skyframe.NodeEntry.LifecycleState;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -244,6 +247,62 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
         directories.getOutputPath(WORKSPACE_NAME).getRelative("build-changelist.txt").isFile())
         .isTrue();
   }
+
+  @Test
+  public void sequentialBuilds_verifyNodesAreDone(@TestParameter boolean mergedAnalysisExecution)
+      throws Exception {
+    addOptions("--experimental_merged_skyframe_analysis_execution=" + mergedAnalysisExecution);
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt"],
+            outs = ["out"],
+            cmd = "cat $< > $@",
+        )
+
+        genrule(
+            name = "target2",
+            srcs = ["x.txt"],
+            outs = ["out2"],
+            cmd = "cat $< > $@",
+        )
+        """);
+
+    buildTarget("//hello:target");
+    assertThat(getSkyframeExecutor().getEvaluator().getDoneValues())
+        .containsExactlyEntriesIn(getSkyframeExecutor().getEvaluator().getValues());
+
+    buildTarget("//hello:target2");
+
+    if (mergedAnalysisExecution) {
+      // BuildDriverKey of the previous build with be marked dirty from its child BUILD_ID dep.
+      // However, only the new BuildDriverKey will be evaluated and marked done.
+      SkyKey dirtyKey =
+          Iterables.getOnlyElement(
+              Sets.difference(
+                  getSkyframeExecutor().getEvaluator().getValues().keySet(),
+                  getSkyframeExecutor().getEvaluator().getDoneValues().keySet()));
+      assertThat(dirtyKey.getCanonicalName())
+          .contains(
+              "BUILD_DRIVER:BuildDriverKey of ActionLookupKey:"
+                  + " ConfiguredTargetKey{label=//hello:target");
+      assertThat(
+              getSkyframeExecutor()
+                  .getEvaluator()
+                  .getInMemoryGraph()
+                  .getIfPresent(dirtyKey)
+                  .getLifecycleState())
+          .isEqualTo(LifecycleState.CHECK_DEPENDENCIES);
+    } else {
+      // This doesn't happen for non-Skymeld builds.
+      assertThat(getSkyframeExecutor().getEvaluator().getDoneValues())
+          .containsExactlyEntriesIn(getSkyframeExecutor().getEvaluator().getValues());
+    }
+  }
+
 
   @Test
   public void aspectAnalysisFailure_consistentWithNonSkymeld(

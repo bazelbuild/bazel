@@ -387,6 +387,10 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         overriden_tools["ar"] = _find_generic(repository_ctx, "libtool", "LIBTOOL", overriden_tools)
     auto_configure_warning_maybe(repository_ctx, "CC used: " + str(cc))
     tool_paths = _get_tool_paths(repository_ctx, overriden_tools)
+
+    # The parse_header tool needs to be a wrapper around the compiler as it has
+    # to touch the output file.
+    tool_paths["parse_headers"] = "cc_wrapper.sh"
     cc_toolchain_identifier = escape_string(get_env_var(
         repository_ctx,
         "CC_TOOLCHAIN_NAME",
@@ -530,13 +534,29 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         ["/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk"],
     )
 
-    generate_modulemap = is_clang and not darwin
+    generate_modulemap = is_clang
     if generate_modulemap:
         repository_ctx.file("module.modulemap", _generate_system_module_map(
             repository_ctx,
             builtin_include_directories,
             paths["@bazel_tools//tools/cpp:generate_system_module_map.sh"],
         ))
+    extra_flags_per_feature = {}
+    if is_clang:
+        # Only supported by LLVM 14 and later, but required with C++20 and
+        # layering_check as C++ modules are the default.
+        # https://github.com/llvm/llvm-project/commit/0556138624edf48621dd49a463dbe12e7101f17d
+        result = repository_ctx.execute([
+            cc,
+            "-Xclang",
+            "-fno-cxx-modules",
+            "-o",
+            "/dev/null",
+            "-c",
+            str(repository_ctx.path("tools/cpp/empty.cc")),
+        ])
+        if "-fno-cxx-modules" not in result.stderr:
+            extra_flags_per_feature["use_module_maps"] = ["-Xclang", "-fno-cxx-modules"]
 
     write_builtin_include_directory_paths(repository_ctx, cc, builtin_include_directories)
     repository_ctx.template(
@@ -546,9 +566,10 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             "%{cc_toolchain_identifier}": cc_toolchain_identifier,
             "%{name}": cpu_value,
             "%{modulemap}": ("\":module.modulemap\"" if generate_modulemap else "None"),
-            "%{cc_compiler_deps}": get_starlark_list([":builtin_include_directory_paths"] + (
-                [":cc_wrapper"] if darwin else []
-            )),
+            "%{cc_compiler_deps}": get_starlark_list([
+                ":builtin_include_directory_paths",
+                ":cc_wrapper",
+            ]),
             "%{compiler}": escape_string(get_env_var(
                 repository_ctx,
                 "BAZEL_COMPILER",
@@ -691,5 +712,6 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             "%{coverage_compile_flags}": coverage_compile_flags,
             "%{coverage_link_flags}": coverage_link_flags,
             "%{supports_start_end_lib}": "True" if gold_or_lld_linker_path else "False",
+            "%{extra_flags_per_feature}": repr(extra_flags_per_feature),
         },
     )

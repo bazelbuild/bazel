@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfi
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -377,24 +376,16 @@ public final class OutputPathMnemonicComputer {
     // it is okay if chosenNative or chosenStarlark do not have a stable iteration order
     TreeMap<String, Object> toHash = new TreeMap<>();
     for (String nativeOptionName : chosenNative) {
-      Object value;
-      try {
-        OptionInfo optionInfo = optionInfoMap.get(nativeOptionName);
-        if (optionInfo == null) {
-          // This can occur if toOptions has been trimmed but the supplied chosen native options
-          // includes that trimmed options.
-          // (e.g. legacy naming mode, using --trim_test_configuration and --test_arg transition).
-          continue;
-        }
-        value =
-            optionInfo
-                .getDefinition()
-                .getField()
-                .get(toOptions.get(optionInfoMap.get(nativeOptionName).getOptionClass()));
-      } catch (IllegalAccessException e) {
-        throw new VerifyException(
-            "IllegalAccess for option " + nativeOptionName + ": " + e.getMessage());
+      OptionInfo optionInfo = optionInfoMap.get(nativeOptionName);
+      if (optionInfo == null) {
+        // This can occur if toOptions has been trimmed but the supplied chosen native options
+        // includes that trimmed options.
+        // (e.g. legacy naming mode, using --trim_test_configuration and --test_arg transition).
+        continue;
       }
+      FragmentOptions fragmentOptions =
+          toOptions.get(optionInfoMap.get(nativeOptionName).getOptionClass());
+      Object value = optionInfo.getDefinition().getValue(fragmentOptions);
       // TODO(blaze-configurability-team): The commandline option is legacy and can be removed
       //   after fixing up all the associated tests.
       toHash.put("//command_line_option:" + nativeOptionName, value);

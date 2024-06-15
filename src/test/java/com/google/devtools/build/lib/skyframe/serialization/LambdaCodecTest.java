@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -53,7 +53,7 @@ public class LambdaCodecTest {
   public void lambdaBehaviorPreserved() throws Exception {
     List<Boolean> returnValue = new ArrayList<>();
     MyInterface lambda = (MyInterface & Serializable) (arg) -> returnValue.isEmpty();
-    MyInterface deserializedLambda = TestUtils.roundTrip(lambda);
+    MyInterface deserializedLambda = RoundTripping.roundTrip(lambda);
     assertThat(lambda.func("any")).isTrue();
     assertThat(deserializedLambda.func("any")).isTrue();
     returnValue.add(true);
@@ -67,6 +67,6 @@ public class LambdaCodecTest {
     MyInterface unserializableLambda = (arg) -> true;
     assertThrows(
         SerializationException.class,
-        () -> TestUtils.toBytesMemoized(unserializableLambda, AutoRegistry.get()));
+        () -> RoundTripping.toBytesMemoized(unserializableLambda, AutoRegistry.get()));
   }
 }

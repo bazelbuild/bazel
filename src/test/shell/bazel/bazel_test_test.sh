@@ -144,6 +144,67 @@ EOF
   expect_log "ws: _main$"
 }
 
+function test_env_vars_override() {
+  cat > WORKSPACE <<EOF
+workspace(name = "bar")
+EOF
+  add_rules_cc_to_workspace WORKSPACE
+  mkdir -p foo
+  cat > foo/testenv.sh <<'EOF'
+#!/bin/sh
+echo "foo: $FOO"
+echo "bar: $BAR"
+echo "baz: $BAZ"
+echo "test_size: $TEST_SIZE"
+echo "ws: $TEST_WORKSPACE"
+EOF
+  chmod +x foo/testenv.sh
+  cat > foo/BUILD <<EOF
+sh_test(
+    name = "foo",
+    srcs = ["testenv.sh"],
+    size = "small",
+    env = {
+      "FOO": "frombuild",
+      "TEST_SIZE": "ignored",
+    },
+    env_inherit = [
+      "BAZ"
+    ],
+)
+EOF
+
+ # The next line ensures that the test passes in IPv6-only networks on macOS.
+  if is_darwin; then
+    export JAVA_TOOL_OPTIONS="-Djava.net.preferIPv6Addresses=true"
+    export STARTUP_OPTS="--host_jvm_args=-Djava.net.preferIPv6Addresses=true"
+  else
+    export STARTUP_OPTS=""
+  fi
+
+  # Test BAR is set from --action_env
+  BAZ=fromaction bazel --ignore_all_rc_files $STARTUP_OPTS test --test_output=all \
+    --action_env=BAR=fromcli --action_env=BAZ \
+    //foo &> $TEST_log || fail "Test failed"
+  expect_log "foo: frombuild"
+  expect_log "bar: fromcli"
+  expect_log "baz: fromaction"
+  expect_log "test_size: small"
+  expect_log "ws: _main$"
+
+  # Test FOO from the BUILD file wins
+  # Test BAR is set from --test_env
+  # Test BAZ is set from --test_env
+  BAZ=fromtest bazel --ignore_all_rc_files $STARTUP_OPTS test --test_output=all \
+    --action_env=FOO=fromcli --test_env=FOO=fromcli --test_env=BAR=fromcli \
+    --test_env=BAZ //foo &> $TEST_log || fail "Test failed"
+  expect_log "foo: frombuild"
+  expect_log "bar: fromcli"
+  expect_log "baz: fromtest"
+  expect_log "test_size: small"
+  expect_log "ws: _main$"
+}
+
 function test_runfiles_java_runfiles_merges_env_vars() {
   runfiles_merges_runfiles_env_vars JAVA_RUNFILES PYTHON_RUNFILES
 }

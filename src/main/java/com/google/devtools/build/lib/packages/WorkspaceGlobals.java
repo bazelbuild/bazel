@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.WorkspaceGlobalsApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
@@ -118,9 +119,29 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     Package.Builder builder =
         Package.Builder.fromOrFailDisallowingSymbolicMacros(thread, "register_toolchains()");
     List<String> patterns = Sequence.cast(toolchainLabels, String.class, "toolchain_labels");
+
+    ImmutableList<TargetPattern> targetPatterns = parsePatterns(patterns, builder, thread);
+
+    if (thread
+        .getSemantics()
+        .getBool(BuildLanguageOptions.EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING)) {
+      for (TargetPattern tp : targetPatterns) {
+        if (tp.getType() == TargetPattern.Type.TARGETS_BELOW_DIRECTORY) {
+          throw Starlark.errorf(
+              "invalid target pattern \"%s\": register_toolchain target patterns may only refer to "
+                  + "targets within a single package",
+              tp.getOriginalPattern());
+        } else if (tp.getType() == TargetPattern.Type.PATH_AS_TARGET) {
+          throw Starlark.errorf(
+              "invalid target pattern \"%s\": register_toolchain target patterns may only refer to "
+                  + "targets with a declared package (relative path syntax omitting ':' is "
+                  + "ambiguous)",
+              tp.getOriginalPattern());
+        }
+      }
+    }
     builder.addRegisteredToolchains(
-        parsePatterns(patterns, builder, thread),
-        originatesInWorkspaceSuffix(thread.getCallStack()));
+        targetPatterns, originatesInWorkspaceSuffix(thread.getCallStack()));
   }
 
   @Override

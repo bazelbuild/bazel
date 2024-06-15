@@ -296,7 +296,15 @@ function setup_credential_helper() {
 
   cat > "${TEST_TMPDIR}/credhelper" <<'EOF'
 #!/usr/bin/env python3
+import json
 import os
+import sys
+
+# Neither count nor add headers to requests to the BCR.
+uri = json.load(sys.stdin)["uri"]
+if uri.startswith("https://bcr.bazel.build/"):
+  print("{}")
+  sys.exit(0)
 
 path = os.path.join(os.environ["TEST_TMPDIR"], "credhelper.callcount")
 fd = os.open(path, os.O_WRONLY|os.O_CREAT|os.O_APPEND)

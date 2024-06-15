@@ -30,8 +30,7 @@ import net.starlark.java.eval.StarlarkValue;
     name = "objc",
     category = DocCategory.CONFIGURATION_FRAGMENT,
     doc = "A configuration fragment for Objective-C.")
-public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatformTypeApi>
-    extends StarlarkValue {
+public interface ObjcConfigurationApi extends StarlarkValue {
 
   @StarlarkMethod(
       name = "ios_simulator_device",

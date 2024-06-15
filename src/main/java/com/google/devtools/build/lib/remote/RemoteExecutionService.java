@@ -1596,8 +1596,6 @@ public class RemoteExecutionService {
     }
 
     if (remoteCache != null) {
-      remoteCache.release();
-
       try {
         backgroundTaskPhaser.awaitAdvanceInterruptibly(backgroundTaskPhaser.arrive());
       } catch (InterruptedException e) {
@@ -1605,6 +1603,12 @@ public class RemoteExecutionService {
         remoteCache.shutdownNow();
         Thread.currentThread().interrupt();
       }
+
+      // Only release the remoteCache once all background tasks have been finished. Otherwise, the
+      // last task might try to close the remoteCache inside the callback of network response which
+      // might cause deadlocks.
+      // See https://github.com/bazelbuild/bazel/issues/21568.
+      remoteCache.release();
     }
 
     if (remoteExecutor != null) {

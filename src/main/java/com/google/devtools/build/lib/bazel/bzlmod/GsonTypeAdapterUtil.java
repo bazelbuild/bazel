@@ -20,17 +20,17 @@ import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFact
 import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_MAP;
 import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_SET;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
+import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
@@ -47,7 +47,6 @@ import java.lang.reflect.Type;
 import java.util.Base64;
 import java.util.Optional;
 import javax.annotation.Nullable;
-import net.starlark.java.syntax.Location;
 
 /**
  * Utility class to hold type adapters and helper methods to get gson registered with type adapters
@@ -169,50 +168,15 @@ public final class GsonTypeAdapterUtil {
       MODULE_EXTENSION_FACTORS_TYPE_ADAPTER =
           new TypeAdapter<>() {
 
-            private static final String OS_KEY = "os:";
-            private static final String ARCH_KEY = "arch:";
-            // This is used when the module extension doesn't depend on os or arch, to indicate that
-            // its value is "general" and can be used with any platform
-            private static final String GENERAL_EXTENSION = "general";
-
             @Override
             public void write(JsonWriter jsonWriter, ModuleExtensionEvalFactors extFactors)
                 throws IOException {
-              if (extFactors.isEmpty()) {
-                jsonWriter.value(GENERAL_EXTENSION);
-              } else {
-                StringBuilder jsonBuilder = new StringBuilder();
-                if (!extFactors.getOs().isEmpty()) {
-                  jsonBuilder.append(OS_KEY).append(extFactors.getOs());
-                }
-                if (!extFactors.getArch().isEmpty()) {
-                  if (jsonBuilder.length() > 0) {
-                    jsonBuilder.append(",");
-                  }
-                  jsonBuilder.append(ARCH_KEY).append(extFactors.getArch());
-                }
-                jsonWriter.value(jsonBuilder.toString());
-              }
+              jsonWriter.value(extFactors.toString());
             }
 
             @Override
             public ModuleExtensionEvalFactors read(JsonReader jsonReader) throws IOException {
-              String jsonString = jsonReader.nextString();
-              if (jsonString.equals(GENERAL_EXTENSION)) {
-                return ModuleExtensionEvalFactors.create("", "");
-              }
-
-              String os = "";
-              String arch = "";
-              var extParts = Splitter.on(',').splitToList(jsonString);
-              for (String part : extParts) {
-                if (part.startsWith(OS_KEY)) {
-                  os = part.substring(OS_KEY.length());
-                } else if (part.startsWith(ARCH_KEY)) {
-                  arch = part.substring(ARCH_KEY.length());
-                }
-              }
-              return ModuleExtensionEvalFactors.create(os, arch);
+              return ModuleExtensionEvalFactors.parse(jsonReader.nextString());
             }
           };
 
@@ -268,22 +232,34 @@ public final class GsonTypeAdapterUtil {
           if (elementTypeAdapter == null) {
             return null;
           }
-          return (TypeAdapter<T>) new OptionalTypeAdapter<>(elementTypeAdapter);
+          // Explicit nulls for Optional.empty are required for env variable tracking, but are too
+          // noisy and unnecessary for other types.
+          return (TypeAdapter<T>)
+              new OptionalTypeAdapter<>(
+                  elementTypeAdapter, /* serializeNulls= */ elementType.equals(String.class));
         }
       };
 
   private static final class OptionalTypeAdapter<T> extends TypeAdapter<Optional<T>> {
     private final TypeAdapter<T> elementTypeAdapter;
+    private final boolean serializeNulls;
 
-    public OptionalTypeAdapter(TypeAdapter<T> elementTypeAdapter) {
+    public OptionalTypeAdapter(TypeAdapter<T> elementTypeAdapter, boolean serializeNulls) {
       this.elementTypeAdapter = elementTypeAdapter;
+      this.serializeNulls = serializeNulls;
     }
 
     @Override
     public void write(JsonWriter jsonWriter, Optional<T> t) throws IOException {
       Preconditions.checkNotNull(t);
       if (t.isEmpty()) {
-        jsonWriter.nullValue();
+        boolean oldSerializeNulls = jsonWriter.getSerializeNulls();
+        jsonWriter.setSerializeNulls(serializeNulls);
+        try {
+          jsonWriter.nullValue();
+        } finally {
+          jsonWriter.setSerializeNulls(oldSerializeNulls);
+        }
       } else {
         elementTypeAdapter.write(jsonWriter, t.get());
       }
@@ -364,87 +340,6 @@ public final class GsonTypeAdapterUtil {
         }
       };
 
-  /**
-   * A variant of {@link Location} that converts the absolute path to the root module file to a
-   * constant and back.
-   */
-  // protected only for @AutoValue
-  @GenerateTypeAdapter
-  @AutoValue
-  protected abstract static class RootModuleFileEscapingLocation {
-    // This marker string is neither a valid absolute path nor a valid URL and thus cannot conflict
-    // with any real module file location.
-    private static final String ROOT_MODULE_FILE_LABEL = "@@//:MODULE.bazel";
-
-    public abstract String file();
-
-    public abstract int line();
-
-    public abstract int column();
-
-    public Location toLocation(String moduleFilePath, String workspaceRoot) {
-      String file;
-      if (file().equals(ROOT_MODULE_FILE_LABEL)) {
-        file = moduleFilePath;
-      } else {
-        file = file().replace("%workspace%", workspaceRoot);
-      }
-      return Location.fromFileLineColumn(file, line(), column());
-    }
-
-    public static RootModuleFileEscapingLocation fromLocation(
-        Location location, String moduleFilePath, String workspaceRoot) {
-      String file;
-      if (location.file().equals(moduleFilePath)) {
-        file = ROOT_MODULE_FILE_LABEL;
-      } else {
-        file = location.file().replace(workspaceRoot, "%workspace%");
-      }
-      return new AutoValue_GsonTypeAdapterUtil_RootModuleFileEscapingLocation(
-          file, location.line(), location.column());
-    }
-  }
-
-  private static final class LocationTypeAdapterFactory implements TypeAdapterFactory {
-
-    private final String moduleFilePath;
-    private final String workspaceRoot;
-
-    public LocationTypeAdapterFactory(Path moduleFilePath, Path workspaceRoot) {
-      this.moduleFilePath = moduleFilePath.getPathString();
-      this.workspaceRoot = workspaceRoot.getPathString();
-    }
-
-    @Nullable
-    @Override
-    @SuppressWarnings("unchecked")
-    public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> typeToken) {
-      if (typeToken.getRawType() != Location.class) {
-        return null;
-      }
-      TypeAdapter<RootModuleFileEscapingLocation> relativizedLocationTypeAdapter =
-          gson.getAdapter(RootModuleFileEscapingLocation.class);
-      return (TypeAdapter<T>)
-          new TypeAdapter<Location>() {
-
-            @Override
-            public void write(JsonWriter jsonWriter, Location location) throws IOException {
-              relativizedLocationTypeAdapter.write(
-                  jsonWriter,
-                  RootModuleFileEscapingLocation.fromLocation(
-                      location, moduleFilePath, workspaceRoot));
-            }
-
-            @Override
-            public Location read(JsonReader jsonReader) throws IOException {
-              return relativizedLocationTypeAdapter
-                  .read(jsonReader)
-                  .toLocation(moduleFilePath, workspaceRoot);
-            }
-          };
-    }
-  }
-
   private static final TypeAdapter<RepoRecordedInput.File> REPO_RECORDED_INPUT_FILE_TYPE_ADAPTER =
       new TypeAdapter<>() {
         @Override
@@ -475,16 +370,80 @@ public final class GsonTypeAdapterUtil {
             }
           };
 
-  public static Gson createLockFileGson(Path moduleFilePath, Path workspaceRoot) {
-    return newGsonBuilder()
-        .setPrettyPrinting()
-        .registerTypeAdapterFactory(new LocationTypeAdapterFactory(moduleFilePath, workspaceRoot))
-        .create();
+  private static final TypeAdapter<RepoRecordedInput.EnvVar>
+      REPO_RECORDED_INPUT_ENV_VAR_TYPE_ADAPTER =
+          new TypeAdapter<>() {
+            @Override
+            public void write(JsonWriter jsonWriter, RepoRecordedInput.EnvVar value)
+                throws IOException {
+              jsonWriter.value(value.toStringInternal());
+            }
+
+            @Override
+            public RepoRecordedInput.EnvVar read(JsonReader jsonReader) throws IOException {
+              return (RepoRecordedInput.EnvVar)
+                  RepoRecordedInput.EnvVar.PARSER.parse(jsonReader.nextString());
+            }
+          };
+
+  // This can't reuse the existing type adapter factory for Optional as we need to explicitly
+  // serialize null values but don't want to rely on GSON's serializeNulls.
+  private static final class OptionalChecksumTypeAdapterFactory implements TypeAdapterFactory {
+
+    @Nullable
+    @Override
+    public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> typeToken) {
+      if (typeToken.getRawType() != Optional.class) {
+        return null;
+      }
+      Type type = typeToken.getType();
+      if (!(type instanceof ParameterizedType)) {
+        return null;
+      }
+      Type elementType = ((ParameterizedType) type).getActualTypeArguments()[0];
+      if (elementType != Checksum.class) {
+        return null;
+      }
+      @SuppressWarnings("unchecked")
+      TypeAdapter<T> typeAdapter = (TypeAdapter<T>) new OptionalChecksumTypeAdapter();
+      return typeAdapter;
+    }
+
+    private static class OptionalChecksumTypeAdapter extends TypeAdapter<Optional<Checksum>> {
+      // This value must not be a valid checksum string.
+      private static final String NOT_FOUND_MARKER = "not found";
+
+      @Override
+      public void write(JsonWriter jsonWriter, Optional<Checksum> checksum) throws IOException {
+        if (checksum.isPresent()) {
+          jsonWriter.value(checksum.get().toString());
+        } else {
+          jsonWriter.value(NOT_FOUND_MARKER);
+        }
+      }
+
+      @Override
+      public Optional<Checksum> read(JsonReader jsonReader) throws IOException {
+        String checksumString = jsonReader.nextString();
+        if (checksumString.equals(NOT_FOUND_MARKER)) {
+          return Optional.empty();
+        }
+        try {
+          return Optional.of(Checksum.fromString(RepositoryCache.KeyType.SHA256, checksumString));
+        } catch (Checksum.InvalidChecksumException e) {
+          throw new JsonParseException(String.format("Invalid checksum: %s", checksumString), e);
+        }
+      }
+    }
   }
 
-  public static Gson createSingleExtensionUsagesValueHashGson() {
-    return newGsonBuilder().create();
-  }
+  public static final Gson LOCKFILE_GSON =
+      newGsonBuilder()
+          .setPrettyPrinting()
+          .registerTypeAdapterFactory(new OptionalChecksumTypeAdapterFactory())
+          .create();
+
+  public static final Gson SINGLE_EXTENSION_USAGES_VALUE_GSON = newGsonBuilder().create();
 
   private static GsonBuilder newGsonBuilder() {
     return new GsonBuilder()
@@ -510,7 +469,9 @@ public final class GsonTypeAdapterUtil {
         .registerTypeAdapter(byte[].class, BYTE_ARRAY_TYPE_ADAPTER)
         .registerTypeAdapter(RepoRecordedInput.File.class, REPO_RECORDED_INPUT_FILE_TYPE_ADAPTER)
         .registerTypeAdapter(
-            RepoRecordedInput.Dirents.class, REPO_RECORDED_INPUT_DIRENTS_TYPE_ADAPTER);
+            RepoRecordedInput.Dirents.class, REPO_RECORDED_INPUT_DIRENTS_TYPE_ADAPTER)
+        .registerTypeAdapter(
+            RepoRecordedInput.EnvVar.class, REPO_RECORDED_INPUT_ENV_VAR_TYPE_ADAPTER);
   }
 
   private GsonTypeAdapterUtil() {}

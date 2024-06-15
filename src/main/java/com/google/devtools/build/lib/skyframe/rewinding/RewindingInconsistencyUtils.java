@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.skyframe.TraversalRequest;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /** Rewinding-related utilities used by {@link RewindableGraphInconsistencyReceiver}. */
-final class RewindingInconsistencyUtils {
+public final class RewindingInconsistencyUtils {
 
   private RewindingInconsistencyUtils() {}
 
@@ -37,7 +37,7 @@ final class RewindingInconsistencyUtils {
   }
 
   /** Returns whether the key specifies a node which may be rewound by a failed action. */
-  static boolean isRewindable(SkyKey key) {
+  public static boolean isRewindable(SkyKey key) {
     return key instanceof ActionLookupData
         || key instanceof ArtifactNestedSetKey
         || key instanceof Artifact

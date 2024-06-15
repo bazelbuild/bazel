@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.metrics;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.sandbox.CgroupsInfo;
+import com.google.devtools.build.lib.sandbox.Cgroup;
 import java.util.Map;
 
 /** Collects resource usage of processes from their cgroups {@code CgroupsInfo}. */
@@ -35,11 +35,10 @@ public class CgroupsInfoCollector {
     return instance;
   }
 
-  public ResourceSnapshot collectResourceUsage(Map<Long, CgroupsInfo> pidToCgroups, Clock clock) {
+  public ResourceSnapshot collectResourceUsage(Map<Long, Cgroup> pidToCgroups, Clock clock) {
     ImmutableMap.Builder<Long, Integer> pidToMemoryInKb = ImmutableMap.builder();
-
-    for (Map.Entry<Long, CgroupsInfo> entry : pidToCgroups.entrySet()) {
-      CgroupsInfo cgroup = entry.getValue();
+    for (Map.Entry<Long, Cgroup> entry : pidToCgroups.entrySet()) {
+      Cgroup cgroup = entry.getValue();
       // TODO(b/292634407): Consider how to handle the unlikely case where only some cgroups are
       //  invalid.
       if (cgroup.exists()) {

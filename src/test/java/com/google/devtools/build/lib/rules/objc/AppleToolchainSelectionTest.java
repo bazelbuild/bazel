@@ -64,7 +64,9 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
   @Test
   public void testToolchainSelectionCcDepDevice() throws Exception {
     useConfiguration(
-        "--apple_platform_type=ios", "--cpu=ios_armv7", "--platforms=" + MockObjcSupport.IOS_ARMV7);
+        "--apple_platform_type=ios",
+        "--ios_multi_cpus=arm64",
+        "--platforms=" + MockObjcSupport.IOS_ARM64);
     ScratchAttributeWriter.fromLabelString(this, "cc_library", "//b:lib")
         .setList("srcs", "b.cc")
         .write();
@@ -83,7 +85,7 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
     Action lipoAction = actionProducingArtifact("//a:bin", "_lipobin");
     Artifact binArtifact =
         lipoAction.getInputs().toList().stream()
-            .filter(artifact -> artifact.getPath().toString().contains("armv7"))
+            .filter(artifact -> artifact.getPath().toString().contains("arm64"))
             .findAny()
             .get();
     SpawnAction linkAction = (SpawnAction) getGeneratingAction(binArtifact);
@@ -97,7 +99,7 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
 
   @Test
   public void testToolchainSelectionMultiArchIos() throws Exception {
-    useConfiguration("--ios_multi_cpus=armv7,arm64");
+    useConfiguration("--ios_multi_cpus=arm64,arm64e");
     ScratchAttributeWriter.fromLabelString(this, "cc_library", "//b:lib")
         .setList("srcs", "a.cc")
         .write();
@@ -128,9 +130,7 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
 
   @Test
   public void testToolchainSelectionMultiArchWatchos() throws Exception {
-    useConfiguration(
-        "--ios_multi_cpus=armv7,arm64",
-        "--watchos_cpus=armv7k");
+    useConfiguration("--ios_multi_cpus=arm64,arm64e", "--watchos_cpus=arm64_32");
     ScratchAttributeWriter.fromLabelString(this, "cc_library", "//b:lib")
         .setList("srcs", "a.cc")
         .write();
@@ -151,6 +151,7 @@ public class AppleToolchainSelectionTest extends ObjcRuleTestCase {
     SpawnAction objcLibCompileAction =
         (SpawnAction)
             getGeneratingAction(getFirstArtifactEndingWith(linkAction.getInputs(), "liblib.a"));
-    assertThat(Joiner.on(" ").join(objcLibCompileAction.getArguments())).contains("watchos_armv7k");
+    assertThat(Joiner.on(" ").join(objcLibCompileAction.getArguments()))
+        .contains("watchos_arm64_32");
   }
 }

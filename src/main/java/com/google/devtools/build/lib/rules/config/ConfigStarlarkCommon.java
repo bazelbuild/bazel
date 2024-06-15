@@ -15,12 +15,12 @@
 package com.google.devtools.build.lib.rules.config;
 
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
-import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigStarlarkCommonApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkToolchainTypeRequirement;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -35,8 +35,7 @@ public class ConfigStarlarkCommon implements ConfigStarlarkCommonApi {
   }
 
   @Override
-  public StarlarkExposedRuleTransitionFactory createConfigFeatureFlagTransitionFactory(
-      String attribute) {
+  public ConfigurationTransitionApi createConfigFeatureFlagTransitionFactory(String attribute) {
     return new ConfigFeatureFlagTransitionFactory(attribute);
   }
 

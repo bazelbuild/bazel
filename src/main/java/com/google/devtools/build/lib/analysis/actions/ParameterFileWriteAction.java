@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -86,7 +86,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
       Artifact output,
       CommandLine commandLine,
       ParameterFileType type) {
-    super(owner, inputs, output, false);
+    super(owner, inputs, output);
     this.commandLine = commandLine;
     this.type = type;
     this.hasInputArtifactToExpand = !inputs.isEmpty();
@@ -174,7 +174,6 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     fp.addString(GUID);
-    fp.addString(String.valueOf(makeExecutable));
     fp.addString(type.toString());
     commandLine.addToFingerprint(actionKeyContext, artifactExpander, fp);
   }
@@ -184,8 +183,6 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     StringBuilder message = new StringBuilder();
     message.append("GUID: ");
     message.append(GUID);
-    message.append("\nExecutable: ");
-    message.append(makeExecutable);
     message.append("\nParam File Type: ");
     message.append(type);
     message.append("\nContent digest (approximate): ");

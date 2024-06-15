@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.collect.Maps;
-import com.google.devtools.build.skyframe.SkyValue;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import javax.annotation.Nullable;
 
@@ -26,7 +24,7 @@ import javax.annotation.Nullable;
  */
 @AutoValue
 @GenerateTypeAdapter
-public abstract class RepoSpec implements SkyValue {
+public abstract class RepoSpec {
 
   /**
    * The unambiguous canonical label string for the bzl file this repository rule is defined in,
@@ -53,28 +51,11 @@ public abstract class RepoSpec implements SkyValue {
   public abstract static class Builder {
     public abstract Builder setBzlFile(String bzlFile);
 
-    abstract String bzlFile();
-
     public abstract Builder setRuleClassName(String name);
 
     public abstract Builder setAttributes(AttributeValues attributes);
 
-    abstract AttributeValues attributes();
-
-    abstract RepoSpec autoBuild();
-
-    public final RepoSpec build() {
-      // Ensure backwards compatibility with old lockfiles that still specify the 'name' attribute.
-      // TODO: Remove this after both the lockfile version has been bumped and Bazel is built with
-      //  with Bazel 7.1.0.
-      AttributeValues attributes = attributes();
-      if (attributes.attributes().containsKey("name")) {
-        setAttributes(
-            AttributeValues.create(
-                Maps.filterKeys(attributes.attributes(), k -> !k.equals("name"))));
-      }
-      return autoBuild();
-    }
+    abstract RepoSpec build();
   }
 
   public boolean isNativeRepoRule() {

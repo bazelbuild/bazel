@@ -46,7 +46,7 @@ public class PlatformRule implements RuleDefinition {
     <!-- #END_BLAZE_RULE.NAME --> */
     return builder
         .advertiseStarlarkProvider(PlatformInfo.PROVIDER.id())
-        .cfg(NoConfigTransition.createFactory())
+        .cfg(NoConfigTransition.getFactory())
         .exemptFromConstraintChecking("this rule helps *define* a constraint")
         .useToolchainResolution(ToolchainResolutionMode.DISABLED)
         .removeAttribute(":action_listener")
@@ -165,6 +165,69 @@ platform(
     ],
 )
 </pre>
+
+<h3 id="platform_flags">Platform Flags</h3>
+<p>
+  Platforms may use the <code>flags</code> attribute to specify a list of flags that will be added
+  to the configuration whenever the platform is used as the target platform (i.e., as the value of
+  the <code>--platforms</code> flag).
+</p>
+
+<p>
+  Flags set from the platform effectively have the highest precedence and overwrite any previous
+  value for that flag, from the command line, rc file, or transition.
+</p>
+
+<h4 id="platform_flags_examples">Example</h4>
+
+<pre class="code">
+platform(
+    name = "foo",
+    flags = [
+        "--dynamic_mode=fully",
+        "--//bool_flag",
+        "--no//package:other_bool_flag",
+    ],
+)
+</pre>
+
+<p>
+  This defines a platform named <code>foo</code>. When this is the target platform (either because
+  the user specified <code>--platforms//:foo</code>, because a transition set the
+  <code>//command_line_option:platforms</code> flag to <code>["//:foo"]</code>, or because
+  <code>//:foo</code> was used as an execution platform), then the given flags will be set in the
+  configuration.
+</p>
+
+<h4 id=platform_flags_repeated>Platforms and Repeatable Flags</h4>
+
+<p>
+  Some flags will accumulate values when they are repeated, such as <code>--features</code>,
+  <code>--copt</code>, any Starlark flag created as <code>config.string(repeatable = True)</code>.
+  These flags are not compatible with setting the flags from the platform: instead, all previous
+  values will be removed and overwritten with the values from the platform.
+</p>
+
+<p>
+  As an example, given the following platform, the invocation <code>build --platforms=//:repeat_demo
+  --features feature_a --features feature_b</code> will end up with the value of the
+  <code>--feature</code> flag being <code>["feature_c", "feature_d"]</code>, removing the features
+  set on the command line.
+</p>
+
+<pre class="code">
+platform(
+    name = "repeat_demo",
+    flags = [
+        "--features=feature_c",
+        "--features=feature_d",
+    ],
+)
+</pre>
+
+<p>
+  For this reason, it is discouraged to use repeatable flags in the <code>flags</code> attribute.
+</p>
 
 <h3 id="platform_inheritance">Platform Inheritance</h3>
 <p>

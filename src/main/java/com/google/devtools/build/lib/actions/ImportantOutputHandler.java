@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.DetailedException;
@@ -28,14 +27,15 @@ public interface ImportantOutputHandler extends ActionContext {
    * <p>The handler may verify that remotely stored outputs are still available. Returns a map from
    * digest to output for any artifacts that need to be regenerated via action rewinding.
    *
+   * <p>{@code outputs} may contain {@linkplain Artifact#isDirectory directory artifacts}, in which
+   * case the handler is responsible for expanding them using {@code expander}.
+   *
    * @throws ImportantOutputException for an issue processing the outputs, not including lost
    *     outputs which are reported in the returned map
    */
   ImmutableMap<String, ActionInput> processAndGetLostArtifacts(
-      ImmutableCollection<ActionInput> outputs, InputMetadataProvider metadataProvider)
+      Iterable<Artifact> outputs, ArtifactExpander expander, InputMetadataProvider metadataProvider)
       throws ImportantOutputException, InterruptedException;
-
-  ImportantOutputHandler NO_OP = (outputs, metadataProvider) -> ImmutableMap.of();
 
   /** Represents an exception encountered during {@link #processAndGetLostArtifacts}. */
   final class ImportantOutputException extends Exception implements DetailedException {

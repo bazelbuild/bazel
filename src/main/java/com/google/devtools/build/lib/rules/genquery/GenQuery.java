@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -327,7 +327,6 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               settings,
               /* extraFunctions= */ ImmutableList.of(),
               /* packagePath= */ null,
-              /* blockUniverseEvaluationErrors= */ false,
               /* useGraphlessQuery= */ graphlessQuery,
               LabelPrinter.legacy());
       QueryExpression expr = QueryExpression.parse(query, queryEnvironment);
@@ -380,8 +379,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     private final GenQueryResult result;
 
     private QueryResultAction(ActionOwner owner, Artifact output, GenQueryResult result) {
-      super(
-          owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), output, /*makeExecutable=*/ false);
+      super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), output);
       this.result = result;
     }
 

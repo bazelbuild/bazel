@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -27,7 +29,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.Map;
-import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
@@ -38,7 +39,7 @@ import javax.annotation.Nullable;
  * <p>This is needed because some artifacts (tree artifacts and Filesets) are in fact aggregations
  * of multiple files.
  */
-public class CompletionContext {
+public final class CompletionContext implements ArtifactExpander {
   public static final CompletionContext FAILED_COMPLETION_CTX =
       new CompletionContext(
           null,
@@ -121,13 +122,6 @@ public class CompletionContext {
     return importantInputMap.getInputMetadata(artifact);
   }
 
-  /** Returns the expansion of the given artifacts. */
-  public ImmutableList<ActionInput> expand(Collection<Artifact> artifacts) {
-    ImmutableList.Builder<ActionInput> expansion = ImmutableList.builder();
-    visitArtifacts(artifacts, actionInputReceiver(expansion::add));
-    return expansion.build();
-  }
-
   /** Returns owner mappings for artifact expansions contained in {@code inputsOfInterest}. */
   public ActionInputDepOwners getDepOwners(Collection<ActionInput> inputsOfInterest) {
     ActionInputDepOwnerMap depOwners = new ActionInputDepOwnerMap(inputsOfInterest);
@@ -139,7 +133,20 @@ public class CompletionContext {
         });
     if (expandFilesets) {
       for (Artifact fileset : expandedFilesets.keySet()) {
-        visitFileset(fileset, actionInputReceiver(input -> depOwners.addOwner(input, fileset)));
+        visitFileset(
+            fileset,
+            new ArtifactReceiver() {
+              @Override
+              public void accept(Artifact artifact) {
+                throw new AssertionError(artifact);
+              }
+
+              @Override
+              public void acceptFilesetMapping(
+                  Artifact fileset, PathFragment relName, Path targetFile) {
+                depOwners.addOwner(ActionInputHelper.fromPath(targetFile.asFragment()), fileset);
+              }
+            });
       }
     }
     return depOwners;
@@ -199,26 +206,29 @@ public class CompletionContext {
     }
   }
 
+  @Override
+  public ImmutableSortedSet<TreeFileArtifact> expandTreeArtifact(Artifact treeArtifact) {
+    checkArgument(treeArtifact.isTreeArtifact(), treeArtifact);
+    return expandedTreeArtifacts.getOrDefault(treeArtifact, ImmutableSortedSet.of());
+  }
+
+  @Override
+  public ImmutableList<FilesetOutputSymlink> expandFileset(Artifact fileset)
+      throws MissingExpansionException {
+    checkArgument(fileset.isFileset(), fileset);
+    checkState(expandFilesets, "Fileset expansion disabled, cannot expand %s", fileset);
+    ImmutableList<FilesetOutputSymlink> links = expandedFilesets.get(fileset);
+    if (links == null) {
+      throw new MissingExpansionException("Missing expansion for fileset: " + fileset);
+    }
+    return links;
+  }
+
   /** A function that accepts an {@link Artifact}. */
   public interface ArtifactReceiver {
     void accept(Artifact artifact);
 
     void acceptFilesetMapping(Artifact fileset, PathFragment relName, Path targetFile);
-  }
-
-  /** Adapts a {@code Consumer<ActionInput>} to an {@link ArtifactReceiver}. */
-  private static ArtifactReceiver actionInputReceiver(Consumer<ActionInput> consumer) {
-    return new ArtifactReceiver() {
-      @Override
-      public void accept(Artifact artifact) {
-        consumer.accept(artifact);
-      }
-
-      @Override
-      public void acceptFilesetMapping(Artifact fileset, PathFragment relName, Path targetFile) {
-        consumer.accept(ActionInputHelper.fromPath(targetFile.asFragment()));
-      }
-    };
   }
 
   /** A factory for {@link ArtifactPathResolver}. */

@@ -42,7 +42,7 @@ import javax.annotation.Nullable;
 
 /** Module providing on-demand spawn logging. */
 public final class SpawnLogModule extends BlazeModule {
-  private static final String EXEC_LOG_FILENAME = "execution_log.binpb.zstd";
+  private static final String EXEC_LOG_FILENAME = "execution_log.binpb.zst";
 
   @Nullable private SpawnLogContext spawnLogContext;
   @Nullable private Path outputPath;

@@ -168,6 +168,7 @@ public class PackageTest {
         Optional.empty(),
         /* noImplicitFileExport= */ true,
         /* repositoryMapping= */ RepositoryMapping.ALWAYS_FALLBACK,
+        /* mainRepositoryMapping= */ null,
         /* cpuBoundSemaphore= */ null,
         PackageOverheadEstimator.NOOP_ESTIMATOR,
         /* generatorMap= */ null,

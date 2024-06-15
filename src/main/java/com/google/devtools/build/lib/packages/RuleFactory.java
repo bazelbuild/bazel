@@ -280,7 +280,6 @@ public class RuleFactory {
       if (!args.isEmpty()) {
         throw Starlark.errorf("unexpected positional arguments");
       }
-      BazelStarlarkContext.checkLoadingOrWorkspacePhase(thread, ruleClass.getName());
       try {
         Package.Builder pkgBuilder = Package.Builder.fromOrFail(thread, "rules");
         RuleFactory.createAndAddRule(

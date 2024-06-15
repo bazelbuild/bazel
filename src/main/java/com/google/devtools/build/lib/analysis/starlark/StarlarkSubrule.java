@@ -348,7 +348,7 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
     }
 
     private ImmutableSet<Label> getAutomaticExecGroupLabels() {
-      return starlarkRuleContext.getAutomaticExecGroupLabels().stream()
+      return starlarkRuleContext.getRequestedToolchainTypeLabelsFromAutoExecGroups().stream()
           .filter(label -> requestedToolchains.contains(label))
           .collect(toImmutableSet());
     }

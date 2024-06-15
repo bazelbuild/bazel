@@ -14,13 +14,15 @@
 
 package com.google.devtools.build.lib.runtime.commands;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.util.ExitCode;
 
 /** This event is posted by the {@link TestCommand} if no tests were found. */
 public class NoTestsFound extends BuildCompletingEvent {
 
   public NoTestsFound(ExitCode exitCode, long finishTimeMillis) {
-    super(exitCode, finishTimeMillis);
+    super(exitCode, finishTimeMillis, ImmutableList.of(BuildEventIdUtil.buildMetrics()));
   }
 }

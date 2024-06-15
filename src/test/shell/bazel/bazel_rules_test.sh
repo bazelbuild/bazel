@@ -523,7 +523,7 @@ cc_library(
 EOF
 
   bazel build //visibility:foo &> $TEST_log && fail "Expected failure" || true
-  expect_log "Public or private visibility labels (e.g. //visibility:public or //visibility:private) cannot be used in combination with other labels"
+  expect_log "//visibility:public and //visibility:private cannot be used in combination with other labels"
 }
 
 function test_executable_without_default_files() {

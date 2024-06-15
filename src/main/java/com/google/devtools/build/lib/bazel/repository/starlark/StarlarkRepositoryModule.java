@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -75,7 +74,6 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       Object doc, // <String> or Starlark.NONE
       StarlarkThread thread)
       throws EvalException {
-    BazelStarlarkContext.checkLoadingOrWorkspacePhase(thread, "repository_rule");
     // We'll set the name later, pass the empty string for now.
     RuleClass.Builder builder = new RuleClass.Builder("", RuleClassType.WORKSPACE, true);
 
@@ -106,8 +104,8 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       }
     }
     builder.setConfiguredTargetFunction(implementation);
-    var threadContext = BazelStarlarkContext.fromOrFail(thread);
-    if (threadContext instanceof BzlInitThreadContext bzlInitContext) {
+    BzlInitThreadContext bzlInitContext = BzlInitThreadContext.fromOrNull(thread);
+    if (bzlInitContext != null) {
       builder.setRuleDefinitionEnvironmentLabelAndDigest(
           bzlInitContext.getBzlFile(), bzlInitContext.getTransitiveDigest());
     } else {
@@ -216,7 +214,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       // Decide whether we're operating in the new mode (during module extension evaluation) or in
       // legacy mode (during workspace evaluation).
       ModuleExtensionEvalStarlarkThreadContext extensionEvalContext =
-          ModuleExtensionEvalStarlarkThreadContext.from(thread);
+          ModuleExtensionEvalStarlarkThreadContext.fromOrNull(thread);
       if (extensionEvalContext == null) {
         return createRuleLegacy(thread, kwargs);
       }
@@ -252,12 +250,15 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
 
     private Object createRuleLegacy(StarlarkThread thread, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
-      BazelStarlarkContext.checkWorkspacePhase(thread, "repository rule " + exportedName);
       String ruleClassName = getRuleClassName();
       try {
         RuleClass ruleClass = builder.build(ruleClassName, ruleClassName);
         Package.Builder pkgBuilder =
             Package.Builder.fromOrFailDisallowingSymbolicMacros(thread, "repository rules");
+        if (!pkgBuilder.isRepoRulePackage()) {
+          throw Starlark.errorf(
+              "repo rules may only be called from a WORKSPACE file or a macro loaded from there");
+        }
 
         // TODO(adonovan): is this cast safe? Check.
         String name = (String) kwargs.get("name");
@@ -266,6 +267,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
         }
         WorkspaceFactoryHelper.addMainRepoEntry(pkgBuilder, name);
         WorkspaceFactoryHelper.addRepoMappings(pkgBuilder, kwargs, name);
+        // Note that RuleFactory#createAndAddRule checks that the package is a repo rule package.
         return WorkspaceFactoryHelper.createAndAddRepositoryRule(
             pkgBuilder,
             ruleClass,

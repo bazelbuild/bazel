@@ -28,12 +28,15 @@ import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionType;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
@@ -42,10 +45,12 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import net.starlark.java.eval.BuiltinFunction;
 import net.starlark.java.eval.Sequence;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -56,6 +61,11 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase("//subrule_testing:label");
   private final BazelEvaluationTestCase evOutsideAllowlist =
       new BazelEvaluationTestCase("//foo:bar");
+
+  @Before
+  public void allowExperimentalApi() throws Exception {
+    setBuildLanguageOptions("--experimental_rule_extension_api");
+  }
 
   @Test
   public void testSubruleFunctionSymbol_notVisibleInBUILD() throws Exception {
@@ -698,9 +708,26 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
         ")");
   }
 
+  /**
+   * A test-only transition used to test native transitions on subrules. Must implement {@link
+   * ConfigurationTransitionApi} so that it is allowed by {@code rule}.
+   */
+  private static final class NativeTransition
+      implements TransitionFactory<AttributeTransitionData>, ConfigurationTransitionApi {
+    @Override
+    public ConfigurationTransition create(AttributeTransitionData data) {
+      return null;
+    }
+
+    @Override
+    public TransitionType transitionType() {
+      return TransitionType.ATTRIBUTE;
+    }
+  }
+
   @Test
   public void testSubruleAttrs_cannotHaveNativeTransitions() throws Exception {
-    ev.update("native_transition", (StarlarkExposedRuleTransitionFactory) data -> null);
+    ev.update("native_transition", new NativeTransition());
     ev.checkEvalErrorContains(
         "bad cfg for attribute '_foo': subrules may only have target/exec attributes.",
         "_my_subrule = subrule(",
@@ -1758,16 +1785,29 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSubruleInstantiation_outsideAllowlist_failsWithPrivateAPIError()
-      throws Exception {
-    evOutsideAllowlist.checkEvalErrorContains(
-        "'//foo:bar' cannot use private API", "subrule(implementation = lambda: 0 )");
-  }
-
-  @Test
   public void testSubrulesParamForRule_isPrivateAPI() throws Exception {
-    evOutsideAllowlist.checkEvalErrorContains(
-        "'//foo:bar' cannot use private API", "rule(implementation = lambda: 0, subrules = [1])");
+    setBuildLanguageOptions("--noexperimental_rule_extension_api");
+    scratch.file(
+        "foo/myrule.bzl",
+        """
+        def _impl(ctx):
+            pass
+        my_subrule = subrule(implementation = _impl)
+        my_rule = rule(_impl, subrules = [my_subrule])
+        """);
+    scratch.file(
+        "foo/BUILD",
+        """
+        load("myrule.bzl", "my_rule")
+
+        my_rule(name = "foo")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//foo");
+
+    ev.assertContainsError("Non-allowlisted attempt to use subrules.");
   }
 
   @Test

@@ -140,4 +140,9 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
         .limit(10) // best-effort to stay under the action metric size limit
         .forEachOrdered(e -> statisticsBuilder.addBugpatternTiming(e.getKey(), e.getValue()));
   }
+
+  @Override
+  public boolean runOnFlowErrors() {
+    return true;
+  }
 }

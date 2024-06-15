@@ -337,6 +337,7 @@ public class OptionsParser implements OptionsParsingResult {
    * upon error. Also, prints out the usage message if "--help" appears anywhere within {@code
    * args}.
    */
+  @SuppressWarnings("SystemExitOutsideMain")
   public void parseAndExitUponError(
       OptionPriority.PriorityCategory priority, String source, String[] args) {
     for (String arg : args) {
@@ -437,9 +438,9 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   /**
-   * @return all documented options loaded in this parser, grouped by categories in display order.
+   * Returns all documented options loaded in this parser, grouped by categories in display order.
    */
-  private LinkedHashMap<OptionDocumentationCategory, List<OptionDefinition>>
+  public LinkedHashMap<OptionDocumentationCategory, List<OptionDefinition>>
       getOptionsSortedByCategory() {
     OptionsData data = impl.getOptionsData();
     if (data.getOptionsClasses().isEmpty()) {
@@ -526,7 +527,8 @@ public class OptionsParser implements OptionsParsingResult {
    * annotations, this method also interprets {@link OptionsUsage} annotations which give an
    * intuitive short description for the options.
    */
-  public String describeOptionsHtml(Escaper escaper, String productName) {
+  public String describeOptionsHtml(
+      Escaper escaper, String productName, List<String> optionsToIgnore) {
     StringBuilder desc = new StringBuilder();
     LinkedHashMap<OptionDocumentationCategory, List<OptionDefinition>> optionsByCategory =
         getOptionsSortedByCategory();
@@ -535,15 +537,21 @@ public class OptionsParser implements OptionsParsingResult {
 
     for (Map.Entry<OptionDocumentationCategory, List<OptionDefinition>> e :
         optionsByCategory.entrySet()) {
-      desc.append("<dl>");
-      String categoryDescription = optionCategoryDescriptions.get(e.getKey());
       List<OptionDefinition> categorizedOptionsList = e.getValue();
-
-      // Describe the category if we're going to end up using it at all.
-      if (!categorizedOptionsList.isEmpty()) {
-        desc.append(escaper.escape(categoryDescription)).append(":\n");
+      categorizedOptionsList =
+          categorizedOptionsList.stream()
+              .filter(
+                  optionDef ->
+                      Arrays.stream(optionDef.getOptionEffectTags())
+                          .noneMatch(effectTag -> effectTag.equals(OptionEffectTag.NO_OP)))
+              .filter(optionDef -> !optionsToIgnore.contains(optionDef.getOptionName()))
+              .collect(toImmutableList());
+      if (categorizedOptionsList.isEmpty()) {
+        continue;
       }
-      // Describe the options in this category.
+      String categoryDescription = optionCategoryDescriptions.get(e.getKey());
+
+      desc.append("<dl>").append(escaper.escape(categoryDescription)).append(":\n");
       for (OptionDefinition optionDef : categorizedOptionsList) {
         OptionsUsage.getUsageHtml(optionDef, desc, escaper, impl.getOptionsData(), true);
       }
@@ -853,12 +861,17 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   @Override
+  public List<OptionValueDescription> allOptionValues() {
+    return impl.allOptionValues();
+  }
+
+  @Override
   public List<String> canonicalize() {
     return impl.asCanonicalizedList();
   }
 
   /** Returns all options fields of the given options class, in alphabetic order. */
-  public static ImmutableList<OptionDefinition> getOptionDefinitions(
+  public static ImmutableList<? extends OptionDefinition> getOptionDefinitions(
       Class<? extends OptionsBase> optionsClass) {
     return OptionsData.getAllOptionDefinitionsForClass(optionsClass);
   }

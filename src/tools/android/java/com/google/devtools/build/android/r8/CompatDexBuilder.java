@@ -71,6 +71,8 @@ import javax.annotation.Nullable;
  */
 public class CompatDexBuilder {
 
+  public static final String CONTEXT_MAP_FILENAME = "META-INF/synthetic-contexts.map";
+
   private static final long ONE_MEG = 1024 * 1024;
 
   private static class ContextConsumer implements SyntheticInfoConsumer {
@@ -286,12 +288,14 @@ public class CompatDexBuilder {
         final Enumeration<? extends ZipEntry> entries = zipFile.entries();
         while (entries.hasMoreElements()) {
           ZipEntry entry = entries.nextElement();
-          if (!entry.getName().endsWith(".class")) {
+          if (entry.getName().endsWith(".class")) {
+            toDex.add(entry);
+          } else if (!entry.getName().equals(CONTEXT_MAP_FILENAME)) {
+            // The context mapping is rebuilt from the compiler inputs so any previous map
+            // should be removed.
             try (InputStream stream = zipFile.getInputStream(entry)) {
               ZipUtils.addEntry(entry.getName(), stream, out);
             }
-          } else {
-            toDex.add(entry);
           }
         }
 
@@ -323,10 +327,7 @@ public class CompatDexBuilder {
         String contextMapping = contextMappingBuilder.toString();
         if (!contextMapping.isEmpty()) {
           ZipUtils.addEntry(
-              "META-INF/synthetic-contexts.map",
-              contextMapping.getBytes(UTF_8),
-              ZipEntry.STORED,
-              out);
+              CONTEXT_MAP_FILENAME, contextMapping.getBytes(UTF_8), ZipEntry.STORED, out);
         }
       }
     } finally {

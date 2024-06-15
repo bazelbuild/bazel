@@ -30,6 +30,9 @@ identified in the on-line help with the text 'may be used multiple times'.
 
 #### `--package_path` {:#package-path}
 
+**WARNING:** The `--package_path` option is deprecated. Bazel prefers packages
+in the main repository to be under the workspace root.
+
 This option specifies the set of directories that are searched to
 find the BUILD file for a given package.
 
@@ -657,30 +660,19 @@ rule is defined in the WORKSPACE file.
 
 #### `--java_toolchain={{ "<var>" }}label{{ "</var>" }}` {:#java-toolchain}
 
-This option specifies the label of the java_toolchain used to compile Java
-source files.
+No-op. Kept only for backwards compatibility.
 
 #### `--host_java_toolchain={{ "<var>" }}label{{ "</var>" }}` {:#host-java-toolchain}
 
-If not specified, bazel uses the value of `--java_toolchain` to compile
-code in the exec configuration, such as for tools run during the build. The main purpose of this flag
-is to enable cross-compilation.
+No-op. Kept only for backwards compatibility.
 
 #### `--javabase=({{ "<var>" }}label{{ "</var>" }})` {:#javabase}
 
-This option sets the _label_ of the base Java installation to use for _bazel run_,
-_bazel test_, and for Java binaries built by `java_binary` and
-`java_test` rules. The `JAVABASE` and `JAVA`
-["Make" variables](/reference/be/make-variables) are derived from this option.
+No-op. Kept only for backwards compatibility.
 
 #### `--host_javabase={{ "<var>" }}label{{ "</var>" }}` {:#host-javabase}
 
-This option sets the _label_ of the base Java installation to use in the exec configuration,
-for example for host build tools including JavaBuilder and Singlejar.
-
-This does not select the Java compiler that is used to compile Java
-source files. The compiler can be selected by settings the
-[`--java_toolchain`](#java-toolchain) option.
+No-op. Kept only for backwards compatibility.
 
 ### Execution strategy {:#execution-strategy}
 
@@ -1491,7 +1483,7 @@ status as "NO STATUS" (in red, if color output is enabled), and will return
 a non-zero exit code.
 
 This option also implies
-`[--check_up_to_date](#check-up-to-date)` behavior.
+[`--check_up_to_date`](#check-up-to-date) behavior.
 
 This option may be useful for pre-submit checks.
 
@@ -1715,21 +1707,18 @@ The syntax and the remaining options are exactly like
 ## Running executables {:#running-executables}
 
 The `bazel run` command is similar to `bazel build`, except
-it is used to build _and run_ a single target. Here is a typical session:
+it is used to build _and run_ a single target. Here is a typical session
+(`//java/myapp:myapp` says hello and prints out its args):
 
 <pre>
   % bazel run java/myapp:myapp -- --arg1 --arg2
-  Welcome to Bazel
-  INFO: Loading package: java/myapp
-  INFO: Loading package: foo/bar
-  INFO: Loading complete.  Analyzing...
+  INFO: Analyzed target //java/myapp:myapp (13 packages loaded, 27 targets configured).
   INFO: Found 1 target...
-  ...
   Target //java/myapp:myapp up-to-date:
-    bazel-bin/java/myapp:myapp
-  INFO: Elapsed time: 0.638s, Critical Path: 0.34s
-
-  INFO: Running command line: bazel-bin/java/myapp:myapp --arg1 --arg2
+    bazel-bin/java/myapp/myapp
+  INFO: Elapsed time: 14.290s, Critical Path: 5.54s, ...
+  INFO: Build completed successfully, 4 total actions
+  INFO: Running command line: bazel-bin/java/myapp/myapp &lt;args omitted&gt;
   Hello there
   $EXEC_ROOT/java/myapp/myapp
   --arg1
@@ -1739,7 +1728,8 @@ it is used to build _and run_ a single target. Here is a typical session:
 Note: `--` is needed so that Bazel
 does not interpret `--arg1` and `--arg2` as
 Bazel options, but rather as part of the command line for running the binary.
-(The program being run simply says hello and prints out its args.)
+Additionally, Bazel will avoid logging these arguments to the console in case
+they contain sensitive information.
 
 `bazel run` is similar, but not identical, to directly invoking
 the binary built by Bazel and its behavior is different depending on whether the

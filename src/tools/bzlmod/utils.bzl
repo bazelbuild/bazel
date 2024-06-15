@@ -14,11 +14,9 @@
 
 """Helper functions for Bzlmod build"""
 
-def get_canonical_repo_name(apparent_repo_name):
-    """Returns the canonical repo name for the given apparent repo name seen by the module this bzl file belongs to."""
-    if not apparent_repo_name.startswith("@"):
-        apparent_repo_name = "@" + apparent_repo_name
-    return Label(apparent_repo_name).workspace_name
+load(":blazel_utils.bzl", _get_canonical_repo_name = "get_canonical_repo_name")
+
+get_canonical_repo_name = _get_canonical_repo_name
 
 def extract_url(attributes):
     """Extracts the url from the given attributes.
@@ -52,26 +50,33 @@ def parse_http_artifacts(ctx, lockfile_path, required_repos):
     lockfile = json.decode(ctx.read(lockfile_path))
     http_artifacts = []
     found_repos = []
-    for _, module in lockfile["moduleDepGraph"].items():
-        if "repoSpec" in module and module["repoSpec"]["ruleClassName"] == "http_archive":
-            repo_spec = module["repoSpec"]
-            attributes = repo_spec["attributes"]
-            repo_name = _module_repo_name(module)
+    for url, sha256 in lockfile["registryFileHashes"].items():
+        if not url.endswith("/source.json"):
+            continue
+        segments = url.split("/")
+        module = {
+            "name": segments[-3],
+            "version": segments[-2],
+        }
+        repo_name = _module_repo_name(module)
+        if repo_name not in required_repos:
+            continue
+        found_repos.append(repo_name)
 
-            if repo_name not in required_repos:
-                continue
-            found_repos.append(repo_name)
+        ctx.delete("./tempfile")
+        ctx.download(url, "./tempfile", executable = False, sha256 = sha256)
+        source_json = json.decode(ctx.read("./tempfile"))
 
+        http_artifacts.append({
+            "integrity": source_json["integrity"],
+            "url": source_json["url"],
+        })
+
+        for patch, integrity in source_json.get("patches", {}).items():
             http_artifacts.append({
-                "integrity": attributes["integrity"],
-                "url": extract_url(attributes),
+                "integrity": integrity,
+                "url": url.rsplit("/", 1)[0] + "/patches/" + patch,
             })
-            if "remote_patches" in attributes:
-                for patch, integrity in attributes["remote_patches"].items():
-                    http_artifacts.append({
-                        "integrity": integrity,
-                        "url": patch,
-                    })
 
     for extension_id, extension_entry in lockfile["moduleExtensions"].items():
         if extension_id.startswith("@@"):
@@ -109,6 +114,27 @@ def parse_http_artifacts(ctx, lockfile_path, required_repos):
 
     return http_artifacts
 
+BCR_URL_SCHEME = "https://bcr.bazel.build/modules/{name}/{version}/{file}"
+
+def parse_registry_files(ctx, lockfile_path, module_files):
+    """Parses the registry files referenced by the given lockfile and returns them in http_file form.
+
+    Args:
+        ctx: the repository / module extension ctx object.
+        lockfile_path: The path of the lockfile to extract the registry files from.
+        module_files: The paths of non-registry module files to use during fake module resolution.
+
+    Returns:
+        A list of http artifacts in the form of
+        [{"sha256": <sha256 value>, "url": <url>}, ...]
+    """
+    lockfile = json.decode(ctx.read(lockfile_path))
+    registry_file_hashes = lockfile.get("registryFileHashes", {})
+    return [
+        {"sha256": sha256, "url": url}
+        for url, sha256 in registry_file_hashes.items()
+    ]
+
 def parse_bazel_module_repos(ctx, lockfile_path):
     """Parse repo names of http_archive backed Bazel modules from the given lockfile.
 
@@ -122,13 +148,17 @@ def parse_bazel_module_repos(ctx, lockfile_path):
 
     lockfile = json.decode(ctx.read(lockfile_path))
     repos = []
-    for _, module in lockfile["moduleDepGraph"].items():
-        if "repoSpec" in module and module["repoSpec"]["ruleClassName"] == "http_archive":
-            repo_spec = module["repoSpec"]
-            attributes = repo_spec["attributes"]
-            repo_name = _module_repo_name(module)
-            repos.append(repo_name)
-    return repos
+    for url in lockfile["registryFileHashes"].keys():
+        if not url.endswith("/source.json"):
+            continue
+        segments = url.split("/")
+        module = {
+            "name": segments[-3],
+            "version": segments[-2],
+        }
+        repo_name = _module_repo_name(module)
+        repos.append(repo_name)
+    return {repo: None for repo in repos}.keys()
 
 # Keep in sync with ModuleKey.
 _WELL_KNOWN_MODULES = ["bazel_tools", "local_config_platform", "platforms"]
@@ -138,8 +168,4 @@ def _module_repo_name(module):
     if module_name in _WELL_KNOWN_MODULES:
         return module_name
 
-    # TODO(pcloudy): Simplify the following logic after we upgrade to 7.1
-    if get_canonical_repo_name("rules_cc").endswith("~"):
-        return "{}~".format(module_name)
-
-    return "{}~{}".format(module_name, module["version"])
+    return "{}~".format(module_name)

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.aspectMatchesConfiguredTarget;
 import static com.google.devtools.build.lib.skyframe.DependencyResolver.createDefaultToolchainContextKey;
 import static com.google.devtools.build.lib.skyframe.DependencyResolver.getPrioritizedDetailedExitCode;
 
@@ -224,7 +223,7 @@ final class AspectFunction implements SkyFunction {
       return AspectValue.create(
           key,
           aspect,
-          ConfiguredAspect.forNonapplicableTarget(),
+          ConfiguredAspect.NonApplicableAspect.INSTANCE,
           computeDependenciesState.transitivePackages());
     }
 
@@ -264,7 +263,7 @@ final class AspectFunction implements SkyFunction {
           return AspectValue.create(
               key,
               aspect,
-              ConfiguredAspect.forNonapplicableTarget(),
+              ConfiguredAspect.NonApplicableAspect.INSTANCE,
               computeDependenciesState.transitivePackages());
         }
       }
@@ -809,7 +808,7 @@ final class AspectFunction implements SkyFunction {
         CurrentRuleTracker.endConfiguredAspect();
       }
     } else {
-      configuredAspect = ConfiguredAspect.forNonapplicableTarget();
+      configuredAspect = ConfiguredAspect.NonApplicableAspect.INSTANCE;
     }
 
     events.replayOn(env.getListener());
@@ -834,6 +833,22 @@ final class AspectFunction implements SkyFunction {
         aspect,
         configuredAspect,
         transitiveState.transitivePackages());
+  }
+
+  private static boolean aspectMatchesConfiguredTarget(
+      ConfiguredTarget ct, boolean isRule, Aspect aspect) {
+    if (!aspect.getDefinition().applyToFiles()
+        && !aspect.getDefinition().applyToGeneratingRules()
+        && !isRule) {
+      return false;
+    }
+    if (ct.getConfigurationKey() == null) {
+      // Aspects cannot apply to PackageGroups or InputFiles, the only cases where this is null.
+      return false;
+    }
+    // We need to check the configured target's providers against the aspect's required providers
+    // because top-level aspects do not check advertised providers of top-level targets.
+    return ct.satisfies(aspect.getDefinition().getRequiredProviders());
   }
 
   @Override

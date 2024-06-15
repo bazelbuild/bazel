@@ -163,7 +163,7 @@ second argument.
 
 Valid values for the second argument are `null` or a
 [custom configuration hash](#configurations). Hashes can be retrieved from `$
-bazel config` or a prevous `cquery`'s output.
+bazel config` or a previous `cquery`'s output.
 
 Examples:
 

@@ -43,9 +43,9 @@ import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -247,6 +247,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
 
+  @Nullable private BzlLoadFunction inliningBzlLoadFunction;
+
   @After
   public final void cleanupInterningPools() {
     skyframeExecutor.getEvaluator().cleanupInterningPools();
@@ -308,7 +310,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .addAll(analysisMock.getPrecomputedValues())
             .add(
                 PrecomputedValue.injected(
-                    ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())))
+                    ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())))
             .addAll(extraPrecomputedValues())
             .build();
     PackageFactory.BuilderForTesting pkgFactoryBuilder =
@@ -340,8 +342,15 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .build();
     if (usesInliningBzlLoadFunction()) {
       injectInliningBzlLoadFunction(skyframeExecutor, ruleClassProvider, directories);
+    } else {
+      // As of 05/21/2024, SerializationCheckingGraph does not deserialize analysis phase objects
+      // from inline bzl correctly.
+      //
+      // The SerializationCheckingGraph assumes that objects that are exported from a given .bzl
+      // file can be looked up later as a global symbol in the corresponding BzlLoadValue and that
+      // the BzlLoadValue is present in Skyframe. This isn't true when .bzl inlining is used.
+      SkyframeExecutorTestHelper.process(skyframeExecutor);
     }
-    SkyframeExecutorTestHelper.process(skyframeExecutor);
     skyframeExecutor.injectExtraPrecomputedValues(extraPrecomputedValues);
     packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
     packageOptions.showLoadingProgress = true;
@@ -370,24 +379,25 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return null;
   }
 
-  private static void injectInliningBzlLoadFunction(
+  private void injectInliningBzlLoadFunction(
       SkyframeExecutor skyframeExecutor,
       RuleClassProvider ruleClassProvider,
       BlazeDirectories directories) {
     ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions =
         ((InMemoryMemoizingEvaluator) skyframeExecutor.getEvaluator()).getSkyFunctionsForTesting();
-    BzlLoadFunction bzlLoadFunction =
+    inliningBzlLoadFunction =
         BzlLoadFunction.createForInlining(
             ruleClassProvider,
             directories,
             // Use a cache size of 2 for testing to balance coverage for where loads are present and
             // aren't present in the cache.
             /* bzlLoadValueCacheSize= */ 2);
-    bzlLoadFunction.resetInliningCache();
+    // The builtins should be empty since this was just created but reset it anyway to be sure.
+    inliningBzlLoadFunction.resetInliningCacheAndBuiltinsForTesting();
     // This doesn't override the BZL_LOAD -> BzlLoadFunction mapping, but nothing besides
     // PackageFunction should be requesting that key while using the inlining code path.
     ((PackageFunction) skyFunctions.get(SkyFunctions.PACKAGE))
-        .setBzlLoadFunctionForInliningForTesting(bzlLoadFunction);
+        .setBzlLoadFunctionForInliningForTesting(inliningBzlLoadFunction);
   }
 
   /**
@@ -515,11 +525,13 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected void setPackageOptions(String... options) throws Exception {
     packageOptions = parsePackageOptions(options);
     setUpSkyframe();
+    invalidatePackages(/* alsoConfigs= */ false);
   }
 
   protected void setBuildLanguageOptions(String... options) throws Exception {
     buildLanguageOptions = parseBuildLanguageOptions(options);
     setUpSkyframe();
+    invalidatePackages(/* alsoConfigs= */ false);
   }
 
   private static PackageOptions parsePackageOptions(String... options) throws Exception {
@@ -555,12 +567,17 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return skyframeExecutor.getPackageManager();
   }
 
+  /**
+   * Invalidates all existing packages, clears the cache for inlined bzl loads (including builtins),
+   * and invalidates configurations.
+   */
   protected void invalidatePackages() throws InterruptedException, AbruptExitException {
     invalidatePackages(true);
   }
 
   /**
-   * Invalidates all existing packages. Optionally invalidates configurations too.
+   * Invalidates all existing packages and clears the cache for inlined bzl loads (including
+   * builtins). Optionally also invalidates configurations.
    *
    * <p>Tests should invalidate both unless they have specific reason not to.
    */
@@ -568,6 +585,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       throws InterruptedException, AbruptExitException {
     skyframeExecutor.invalidateFilesUnderPathForTesting(
         reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
+    if (inliningBzlLoadFunction != null) {
+      inliningBzlLoadFunction.resetInliningCacheAndBuiltinsForTesting();
+    }
     if (alsoConfigs) {
       try {
         // Also invalidate all configurations. This is important: by invalidating all files we

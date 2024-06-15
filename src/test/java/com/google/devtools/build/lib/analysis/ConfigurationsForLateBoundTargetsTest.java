@@ -26,13 +26,15 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.config.TransitionFactories;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import org.junit.Before;
@@ -50,20 +52,31 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
-  private static final PatchTransition CHANGE_FOO_FLAG_TRANSITION =
-      new PatchTransition() {
-        @Override
-        public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
-          return ImmutableSet.of(LateBoundSplitUtil.TestOptions.class);
-        }
+  private static final TransitionFactory<AttributeTransitionData>
+      CHANGE_FOO_FLAG_TRANSITION_FACTORY =
+          new TransitionFactory<>() {
+            @Override
+            public ConfigurationTransition create(AttributeTransitionData unused) {
+              return new PatchTransition() {
+                @Override
+                public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+                  return ImmutableSet.of(LateBoundSplitUtil.TestOptions.class);
+                }
 
-        @Override
-        public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
-          BuildOptionsView toOptions = options.clone();
-          toOptions.get(LateBoundSplitUtil.TestOptions.class).fooFlag = "PATCHED!";
-          return toOptions.underlying();
-        }
-      };
+                @Override
+                public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+                  BuildOptionsView toOptions = options.clone();
+                  toOptions.get(LateBoundSplitUtil.TestOptions.class).fooFlag = "PATCHED!";
+                  return toOptions.underlying();
+                }
+              };
+            }
+
+            @Override
+            public TransitionType transitionType() {
+              return TransitionType.ATTRIBUTE;
+            }
+          };
 
   /** Rule definition with a latebound dependency. */
   private static final RuleDefinition LATE_BOUND_DEP_RULE =
@@ -78,7 +91,7 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
                                   .value(
                                       Attribute.LateBoundDefault.fromConstantForTesting(
                                           Label.parseCanonicalUnchecked("//foo:latebound_dep")))
-                                  .cfg(TransitionFactories.of(CHANGE_FOO_FLAG_TRANSITION)))
+                                  .cfg(CHANGE_FOO_FLAG_TRANSITION_FACTORY))
                           .requiresConfigurationFragments(LateBoundSplitUtil.TestFragment.class));
 
   @Before

@@ -34,7 +34,6 @@ java_library(
         ":extra/extra_action_factory",
         ":extra/extra_action_rule",
         ":filegroup/filegroup",
-        ":filegroup/filegroup_path_provider",
         ":label_build_settings",
         ":repository/bind",
         ":repository/bind_rule",
@@ -217,33 +216,24 @@ java_library(
 
 java_library(
     name = "filegroup/filegroup",
-    srcs = ["filegroup/Filegroup.java"],
+    srcs = [
+        "filegroup/Filegroup.java",
+        "filegroup/FilegroupRule.java",
+    ],
     deps = [
-        ":filegroup/filegroup_path_provider",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/instrumented_files_info",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "filegroup/filegroup_path_provider",
-    srcs = ["filegroup/FilegroupPathProvider.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/net/starlark/java/annot",
     ],
 )
 
@@ -430,6 +420,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/bazel:resolved_event",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:repo_rule_value",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -451,7 +442,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
@@ -543,6 +533,7 @@ filegroup(
     srcs = glob(
         [
             "*.java",
+            "filegroup/*.java",
             "test/*.java",
             "extra/*.java",
         ],

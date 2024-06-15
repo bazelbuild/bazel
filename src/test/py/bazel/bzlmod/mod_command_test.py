@@ -397,13 +397,15 @@ class ModCommandTest(test_base.TestBase):
     )
     self.assertRegex(stdout.pop(4), r'^  urls = \[".*"\],$')
     self.assertRegex(stdout.pop(4), r'^  integrity = ".*",$')
-    stdout.pop(11)
-    self.assertRegex(stdout.pop(16), r'^  path = ".*",$')
-    stdout.pop(29)
-    stdout.pop(39)
-    self.assertRegex(stdout.pop(44), r'^  urls = \[".*"\],$')
-    self.assertRegex(stdout.pop(44), r'^  integrity = ".*",$')
-    stdout.pop(51)
+    self.assertRegex(stdout.pop(19), r'^  path = ".*",$')
+    # lines after 'Rule data_repo defined at (most recent call last):'
+    stdout.pop(32)
+    stdout.pop(42)
+    self.assertRegex(stdout.pop(47), r'^  urls = \[".*"\],$')
+    self.assertRegex(stdout.pop(47), r'^  integrity = ".*",$')
+    # lines after '# Rule http_archive defined at (most recent call last):'
+    stdout.pop(13)
+    stdout.pop(55)
     self.assertListEqual(
         stdout,
         [
@@ -414,19 +416,21 @@ class ModCommandTest(test_base.TestBase):
             # pop(4) -- urls=[...]
             # pop(4) -- integrity=...
             '  strip_prefix = "",',
+            '  remote_file_urls = {},',
+            '  remote_file_integrity = {},',
             '  remote_patches = {},',
             '  remote_patch_strip = 0,',
             ')',
             '# Rule bar~ instantiated at (most recent call last):',
             '#   <builtin> in <toplevel>',
             '# Rule http_archive defined at (most recent call last):',
-            # pop(11)
+            # pop(13)
             '',
             '## ext@1.0:',
             '# <builtin>',
             'local_repository(',
             '  name = "ext~",',
-            # pop(16) -- path=...
+            # pop(19) -- path=...
             ')',
             '# Rule ext~ instantiated at (most recent call last):',
             '#   <builtin> in <toplevel>',
@@ -440,7 +444,7 @@ class ModCommandTest(test_base.TestBase):
             '# Rule ext~~ext~repo3 instantiated at (most recent call last):',
             '#   <builtin> in <toplevel>',
             '# Rule data_repo defined at (most recent call last):',
-            # pop(29)
+            # pop(32)
             '',
             '## @my_repo4:',
             '# <builtin>',
@@ -451,22 +455,24 @@ class ModCommandTest(test_base.TestBase):
             '# Rule ext~~ext~repo4 instantiated at (most recent call last):',
             '#   <builtin> in <toplevel>',
             '# Rule data_repo defined at (most recent call last):',
-            # pop(39)
+            # pop(42)
             '',
             '## bar@2.0:',
             '# <builtin>',
             'http_archive(',
             '  name = "bar~",',
-            # pop(44) -- urls=[...]
-            # pop(44) -- integrity=...
+            # pop(47) -- urls=[...]
+            # pop(47) -- integrity=...
             '  strip_prefix = "",',
+            '  remote_file_urls = {},',
+            '  remote_file_integrity = {},',
             '  remote_patches = {},',
             '  remote_patch_strip = 0,',
             ')',
             '# Rule bar~ instantiated at (most recent call last):',
             '#   <builtin> in <toplevel>',
             '# Rule http_archive defined at (most recent call last):',
-            # pop(51)
+            # pop(55)
             '',
         ],
         'wrong output in the show query for module and extension-generated'
@@ -975,6 +981,135 @@ class ModCommandTest(test_base.TestBase):
           [
               'ext = use_extension("//:extension.bzl", "ext")',
               'use_repo(ext, "dep")',
+              '',
+          ],
+          module_file.read().split('\n'),
+      )
+
+  def testModTidyWithIncludes(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'include("//:firstProd.MODULE.bazel")',
+            'include("//:second.MODULE.bazel")',
+        ],
+    )
+    self.ScratchFile(
+        'firstProd.MODULE.bazel',
+        [
+            'ext = use_extension("//:extension.bzl", "ext")',
+            'use_repo(ext, "dep2", "bad_dep")',
+            'include("//:firstDev.MODULE.bazel")',
+        ],
+    )
+    self.ScratchFile(
+        'firstDev.MODULE.bazel',
+        [
+            (
+                'ext_dev = use_extension("//:extension.bzl", "ext",'
+                ' dev_dependency = True)'
+            ),
+            'use_repo(ext_dev, "dev2", "bad_dev")',
+        ],
+    )
+    self.ScratchFile(
+        'second.MODULE.bazel',
+        [
+            'ext = use_extension("//:extension.bzl", "ext")',
+            'use_repo(ext, "blad_dep")',
+            (
+                'ext_dev = use_extension("//:extension.bzl", "ext",'
+                ' dev_dependency = True)'
+            ),
+            'use_repo(ext_dev, "blad_dev")',
+            'ext2 = use_extension("//:extension.bzl", "ext2")',
+            'use_repo(ext2, "blaad_dep")',
+        ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    ctx.file("WORKSPACE")',
+            '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+            '',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    repo_rule(name="dep")',
+            '    repo_rule(name="dep2")',
+            '    repo_rule(name="dev")',
+            '    repo_rule(name="dev2")',
+            '    return ctx.extension_metadata(',
+            '        root_module_direct_deps=["dep", "dep2"],',
+            '        root_module_direct_dev_deps=["dev", "dev2"],',
+            '    )',
+            '',
+            'ext = module_extension(implementation=_ext_impl)',
+            '',
+            'def _ext2_impl(ctx):',
+            '    repo_rule(name="ext2_dep")',
+            '    return ctx.extension_metadata(',
+            '        root_module_direct_deps=["ext2_dep"],',
+            '        root_module_direct_dev_deps=[],',
+            '    )',
+            '',
+            'ext2 = module_extension(implementation=_ext2_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['mod', 'tidy'])
+    stderr = '\n'.join(stderr)
+    self.assertIn(
+        'INFO: Updated use_repo calls for @//:extension.bzl%ext', stderr
+    )
+
+    with open('MODULE.bazel', 'r') as module_file:
+      self.assertEqual(
+          [
+              'include("//:firstProd.MODULE.bazel")',
+              '',  # formatted despite no extension usages!
+              'include("//:second.MODULE.bazel")',
+              '',
+          ],
+          module_file.read().split('\n'),
+      )
+    with open('firstProd.MODULE.bazel', 'r') as module_file:
+      self.assertEqual(
+          [
+              'ext = use_extension("//:extension.bzl", "ext")',
+              'use_repo(ext, "dep", "dep2")',
+              '',
+              'include("//:firstDev.MODULE.bazel")',
+              '',
+          ],
+          module_file.read().split('\n'),
+      )
+    with open('firstDev.MODULE.bazel', 'r') as module_file:
+      self.assertEqual(
+          [
+              (
+                  'ext_dev = use_extension("//:extension.bzl", "ext",'
+                  ' dev_dependency = True)'
+              ),
+              'use_repo(ext_dev, "dev", "dev2")',
+              '',
+          ],
+          module_file.read().split('\n'),
+      )
+    with open('second.MODULE.bazel', 'r') as module_file:
+      self.assertEqual(
+          [
+              'ext = use_extension("//:extension.bzl", "ext")',
+              '',
+              (
+                  'ext_dev = use_extension("//:extension.bzl", "ext",'
+                  ' dev_dependency = True)'
+              ),
+              '',
+              'ext2 = use_extension("//:extension.bzl", "ext2")',
+              'use_repo(ext2, "ext2_dep")',
               '',
           ],
           module_file.read().split('\n'),

@@ -36,7 +36,7 @@ DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/ja
 EXCLUDE_FILES="src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/testing/* src/main/java/com/google/devtools/build/lib/collect/nestedset/NestedSetCodecTestUtils.java"
 # Exclude whole directories under the bazel src tree that bazel itself
 # doesn't depend on.
-EXCLUDE_DIRS="src/main/java/com/google/devtools/build/skydoc src/main/java/com/google/devtools/build/docgen tools/java/runfiles/testing src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils src/main/java/com/google/devtools/common/options/testing src/main/java/com/google/devtools/build/lib/testing"
+EXCLUDE_DIRS="src/main/java/com/google/devtools/build/docgen tools/java/runfiles/testing src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils src/main/java/com/google/devtools/common/options/testing src/main/java/com/google/devtools/build/lib/testing"
 for d in $EXCLUDE_DIRS ; do
   for f in $(find $d -type f) ; do
     EXCLUDE_FILES+=" $f"
@@ -155,11 +155,16 @@ function create_deploy_jar() {
   local output=$3
   shift 3
   local packages=""
+  # Only keep the services subdirectory of META-INF (needed for AutoService).
+  for i in $output/classes/META-INF/*; do
+    local package=$(basename $i)
+    if [[ "$package" != "services" ]]; then
+      rm -r "$i"
+    fi
+  done
   for i in $output/classes/*; do
     local package=$(basename $i)
-    if [[ "$package" != "META-INF" ]]; then
-      packages="$packages -C $output/classes $package"
-    fi
+    packages="$packages -C $output/classes $package"
   done
 
   log "Creating $name.jar..."

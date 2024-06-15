@@ -147,6 +147,7 @@ public class HttpDownloader implements Downloader {
   public byte[] downloadAndReadOneUrl(
       URL url,
       Credentials credentials,
+      Optional<Checksum> checksum,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv)
       throws IOException, InterruptedException {
@@ -155,8 +156,7 @@ public class HttpDownloader implements Downloader {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     SEMAPHORE.acquire();
     try (HttpStream payload =
-        multiplexer.connect(
-            url, Optional.empty(), ImmutableMap.of(), credentials, Optional.empty())) {
+        multiplexer.connect(url, checksum, ImmutableMap.of(), credentials, Optional.empty())) {
       ByteStreams.copy(payload, out);
     } catch (SocketTimeoutException e) {
       // SocketTimeoutExceptions are InterruptedIOExceptions; however they do not signify

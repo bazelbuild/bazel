@@ -107,6 +107,9 @@ public class CppRuleClasses {
    */
   public static final String MODULE_MAPS = "module_maps";
 
+  /** A string constant for the cpp_modules feature. */
+  public static final String CPP_MODULES = "cpp_modules";
+
   /**
    * A string constant for the random_seed feature. This is used by gcc and Clangfor the
    * randomization of symbol names that are in the anonymous namespace but have external linkage.
@@ -291,6 +294,13 @@ public class CppRuleClasses {
 
   /** A string constant for enabling fsafdo for AutoFDO implicitly. */
   public static final String ENABLE_FSAFDO = "enable_fsafdo";
+
+  /** A string constant for enabling memprof_optimize for AutoFDO implicitly. */
+  public static final String ENABLE_AUTOFDO_MEMPROF_OPTIMIZE = "enable_autofdo_memprof_optimize";
+
+  /** A string constant for allowing memprof_optimize for AutoFDO implicitly. */
+  public static final String AUTOFDO_IMPLICIT_MEMPROF_OPTIMIZE =
+      "autofdo_implicit_memprof_optimize";
 
   /**
    * A string constant for allowing use of shared LTO backend actions for linkstatic tests building

@@ -79,17 +79,45 @@ def _use_native_patch(patch_args):
             return False
     return True
 
-def _download_patch(ctx, patch_url, integrity, auth):
+def _download_patch(ctx, patch_url, integrity, auth = None):
     name = patch_url.split("/")[-1]
     patch_path = ctx.path(_REMOTE_PATCH_DIR).get_child(name)
     ctx.download(
         patch_url,
         patch_path,
         canonical_id = ctx.attr.canonical_id,
-        auth = auth,
+        auth = get_auth(ctx, [patch_url]) if auth == None else auth,
         integrity = integrity,
     )
     return patch_path
+
+def download_remote_files(ctx, auth = None):
+    """Utility function for downloading remote files.
+
+    This rule is intended to be used in the implementation function of
+    a repository rule. It assumes the parameters `remote_file_urls` and
+    `remote_file_integrity` to be present in `ctx.attr`.
+
+    Args:
+      ctx: The repository context of the repository rule calling this utility
+        function.
+      auth: An optional dict specifying authentication information for some of the URLs.
+    """
+    pending = [
+        ctx.download(
+            remote_file_urls,
+            path,
+            canonical_id = ctx.attr.canonical_id,
+            auth = get_auth(ctx, remote_file_urls) if auth == None else auth,
+            integrity = ctx.attr.remote_file_integrity.get(path, ""),
+            block = False,
+        )
+        for path, remote_file_urls in ctx.attr.remote_file_urls.items()
+    ]
+
+    # Wait until the requests are done
+    for p in pending:
+        p.wait()
 
 def patch(ctx, patches = None, patch_cmds = None, patch_cmds_win = None, patch_tool = None, patch_args = None, auth = None):
     """Implementation of patching an already extracted repository.

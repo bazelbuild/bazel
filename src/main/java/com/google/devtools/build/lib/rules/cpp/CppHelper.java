@@ -235,15 +235,17 @@ public class CppHelper {
   // TODO(bazel-team): figure out a way to merge these 2 methods. See the Todo in
   // CcCommonConfiguredTarget.noCoptsMatches().
 
+  // LINT.IfChange
   /** Returns whether binaries must be compiled with position independent code. */
   public static boolean usePicForBinaries(
-      CppConfiguration cppConfiguration,
-      FeatureConfiguration featureConfiguration) {
+      CppConfiguration cppConfiguration, FeatureConfiguration featureConfiguration) {
     return cppConfiguration.forcePic()
         || (CcToolchainProvider.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
             && (cppConfiguration.getCompilationMode() != CompilationMode.OPT
                 || featureConfiguration.isEnabled(CppRuleClasses.PREFER_PIC_FOR_OPT_BINARIES)));
   }
+
+  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/cc_helper_internal.bzl)
 
   /** Returns the FDO build subtype. */
   @Nullable

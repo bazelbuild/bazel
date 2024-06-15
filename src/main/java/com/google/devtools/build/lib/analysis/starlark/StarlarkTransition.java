@@ -133,7 +133,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
    * same configuration.
    *
    * @param root transition that was applied. Likely a {@link
-   *     com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition} so we
+   *     com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory} so we
    *     decompose and post-process all StarlarkTransitions out of whatever transition is passed
    *     here.
    * @param details a StarlarkBuildSettingsDetailsValue whose corresponding key was all the input

@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
@@ -36,6 +37,8 @@ import com.google.devtools.build.lib.sandbox.CgroupsInfo;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxUtil;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxOptions;
+import com.google.devtools.build.lib.sandbox.cgroups.VirtualCgroup;
+import com.google.devtools.build.lib.sandbox.cgroups.VirtualCgroupFactory;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.worker.SandboxedWorker.WorkerSandboxOptions;
 import com.google.devtools.common.options.OptionsBase;
@@ -97,8 +100,8 @@ public class WorkerModule extends BlazeModule {
         env.getOutputBase().getRelative(env.getRuntime().getProductName() + "-workers");
     BlazeWorkspace workspace = env.getBlazeWorkspace();
     WorkerSandboxOptions workerSandboxOptions;
+    SandboxOptions sandboxOptions = event.request().getOptions(SandboxOptions.class);
     if (options.sandboxHardening) {
-      SandboxOptions sandboxOptions = event.request().getOptions(SandboxOptions.class);
       workerSandboxOptions =
           WorkerSandboxOptions.create(
               LinuxSandboxUtil.getLinuxSandbox(workspace),
@@ -120,8 +123,17 @@ public class WorkerModule extends BlazeModule {
         removeStaleTrash(workerDir, trashBase);
       }
     }
+    VirtualCgroupFactory cgroupFactory =
+        sandboxOptions == null || !sandboxOptions.useNewCgroupImplementation
+            ? null
+            : new VirtualCgroupFactory(
+                "worker_",
+                VirtualCgroup.getInstance(),
+                options.sandboxHardening ? sandboxOptions.getLimits() : ImmutableMap.of(),
+                options.useCgroupsOnLinux);
+
     WorkerFactory newWorkerFactory =
-        new WorkerFactory(workerDir, options, workerSandboxOptions, treeDeleter);
+        new WorkerFactory(workerDir, options, workerSandboxOptions, treeDeleter, cgroupFactory);
     if (!newWorkerFactory.equals(workerFactory)) {
       if (workerDir.exists()) {
         try {
@@ -184,7 +196,11 @@ public class WorkerModule extends BlazeModule {
     }
 
     // Override the flag value if we can't actually use cgroups so that we at least fallback to ps.
-    boolean useCgroupsOnLinux = options.useCgroupsOnLinux && CgroupsInfo.isSupported();
+    boolean useCgroupsOnLinux =
+        options.useCgroupsOnLinux
+            && ((sandboxOptions == null || !sandboxOptions.useNewCgroupImplementation)
+                ? CgroupsInfo.isSupported()
+                : VirtualCgroup.getInstance().memory() != null);
     WorkerProcessMetricsCollector.instance().setUseCgroupsOnLinux(useCgroupsOnLinux);
 
     // Start collecting after a pool is defined
@@ -228,7 +244,6 @@ public class WorkerModule extends BlazeModule {
         new WorkerSpawnRunner(
             new SandboxHelpers(),
             env.getExecRoot(),
-            env.getPackageLocator().getPathEntries(),
             workerPool,
             env.getReporter(),
             localEnvProvider,

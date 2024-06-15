@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.events.Event;
@@ -67,6 +68,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -328,8 +330,14 @@ public class IncludeScanningModule extends BlazeModule {
 
     @Override
     public void executorCreated() {
+      var buildRequestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
+      var useAsyncExecution = buildRequestOptions != null && buildRequestOptions.useAsyncExecution;
       int threads = options.includeScanningParallelism;
-      if (threads > 0) {
+      if (useAsyncExecution) {
+        includePool =
+            Executors.newThreadPerTaskExecutor(
+                Thread.ofVirtual().name("Include scanner ", 0).factory());
+      } else if (threads > 0) {
         logger.atInfo().log("Include scanning configured to use a pool with %d threads", threads);
         if (options.experimentalReuseIncludeScanningThreads) {
           includePool =

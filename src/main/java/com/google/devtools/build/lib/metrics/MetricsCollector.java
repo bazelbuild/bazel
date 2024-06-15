@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Multiset;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
@@ -38,7 +37,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.AspectCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.RuleClassCount;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.SkyFunctionCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.DynamicExecutionMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics;
@@ -94,6 +92,7 @@ class MetricsCollector {
 
   private final CommandEnvironment env;
   private final boolean recordMetricsForAllMnemonics;
+  private final boolean recordSkyframeMetrics;
   // For ActionSummary.
   private final ConcurrentHashMap<String, ActionStats> actionStatsMap = new ConcurrentHashMap<>();
 
@@ -123,6 +122,7 @@ class MetricsCollector {
     this.env = env;
     Options options = env.getOptions().getOptions(Options.class);
     this.recordMetricsForAllMnemonics = options != null && options.recordMetricsForAllMnemonics;
+    this.recordSkyframeMetrics = options != null && options.recordSkyframeMetrics;
     this.numAnalyses = numAnalyses;
     this.numBuilds = numBuilds;
     env.getEventBus().register(this);
@@ -399,6 +399,11 @@ class MetricsCollector {
   }
 
   private void addSkyframeStats(BuildGraphMetrics.Builder builder) {
+    // short-circuit if not requested
+    if (!recordSkyframeMetrics) {
+      return;
+    }
+
     // NOTE: This can potentially unintentionally consume a pending Exception by
     // calling getSkyframeStats, with our Reporter which ends up consuming the
     // analysis failure unintentionally.  So if our CommandEnvironment has a
@@ -416,11 +421,6 @@ class MetricsCollector {
 
     Stream<SkyKeyStats> ruleActionStats = skyframeStats.ruleStats().stream();
     Stream<SkyKeyStats> aspectActionStats = skyframeStats.aspectStats().stream();
-
-    if (!recordMetricsForAllMnemonics) {
-      ruleActionStats = ruleActionStats.limit(MAX_ACTION_DATA);
-      aspectActionStats = aspectActionStats.limit(MAX_ACTION_DATA);
-    }
 
     ruleActionStats.forEach(
         a ->
@@ -440,15 +440,6 @@ class MetricsCollector {
                     .setCount(a.getCount())
                     .setActionCount(a.getActionCount())
                     .build()));
-
-    skyframeStats.functionNameStats().entrySet().stream()
-        .sorted(Comparator.comparingLong(Multiset.Entry<SkyFunctionName>::getCount).reversed())
-        .forEach(
-            e ->
-                builder.addSkyFunction(
-                    SkyFunctionCount.newBuilder()
-                        .setSkyFunctionName(e.getElement().toString())
-                        .setCount(e.getCount())));
   }
 
   private MemoryMetrics createMemoryMetrics() {

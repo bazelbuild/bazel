@@ -14,13 +14,11 @@
 
 package com.google.devtools.build.lib.util;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
-import com.google.common.collect.ForwardingMap;
+import com.google.common.collect.ForwardingConcurrentMap;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.ByteStreams;
-import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedInputStream;
@@ -69,7 +67,7 @@ import javax.annotation.concurrent.GuardedBy;
  * allows the client code to change the persistence format without polluting the file system name
  * space.
  */
-public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
+public abstract class PersistentMap<K, V> extends ForwardingConcurrentMap<K, V> {
   private static final int MAGIC = 0x20071105;
   private static final int ENTRY_MAGIC = 0xfe;
   private static final int MIN_MAPFILE_SIZE = 16;
@@ -117,7 +115,7 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
    * @param mapFile the file to save the map entries to.
    * @param journalFile the journal file to write entries between invocations of {@link #save()}.
    */
-  public PersistentMap(int version, ConcurrentMap<K, V> map, Path mapFile, Path journalFile) {
+  protected PersistentMap(int version, ConcurrentMap<K, V> map, Path mapFile, Path journalFile) {
     this.version = version;
     journal = new LinkedBlockingQueue<>();
     this.mapFile = mapFile;
@@ -126,22 +124,34 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
   }
 
   @Override
-  protected Map<K, V> delegate() {
+  protected final ConcurrentMap<K, V> delegate() {
     return delegate;
   }
 
-  @ThreadSafety.ThreadSafe
+  @ThreadSafe
   @Override
   @Nullable
   public V put(K key, V value) {
-    V previous = delegate().put(checkNotNull(key, value), checkNotNull(value, key));
+    V previous = delegate.put(key, value);
     journal.add(key);
     markAsDirty();
     return previous;
   }
 
+  @ThreadSafe
+  @Override
+  @Nullable
+  public V putIfAbsent(K key, V value) {
+    V previous = delegate.putIfAbsent(key, value);
+    if (previous == null) {
+      journal.add(key);
+      markAsDirty();
+    }
+    return previous;
+  }
+
   /** Marks the map as dirty and potentially writes updated entries to the journal. */
-  @ThreadSafety.ThreadSafe
+  @ThreadSafe
   protected void markAsDirty() {
     dirty = true;
     if (updateJournal()) {
@@ -171,12 +181,12 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
     return true;
   }
 
-  @ThreadSafety.ThreadSafe
+  @ThreadSafe
   @Override
   @SuppressWarnings("unchecked")
   @Nullable
   public V remove(Object object) {
-    V previous = delegate().remove(object);
+    V previous = delegate.remove(object);
     if (previous != null) {
       // we know that 'object' must be an instance of K, because the
       // remove call succeeded, i.e. 'object' was mapped to 'previous'.

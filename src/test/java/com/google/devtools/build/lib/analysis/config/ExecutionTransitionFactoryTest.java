@@ -33,7 +33,6 @@ import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
-import java.lang.reflect.Field;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -228,15 +227,8 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
                 o ->
                     o.getKey().startsWith("incompatible_")
                         || o.getValue().hasOptionMetadataTag(OptionMetadataTag.INCOMPATIBLE_CHANGE))
-            .filter(
-                o ->
-                    o.getValue()
-                        .getDefinition()
-                        .getField()
-                        .getType()
-                        .isAssignableFrom(boolean.class))
-            .filter(
-                o -> !o.getValue().getDefinition().getField().isAnnotationPresent(Deprecated.class))
+            .filter(o -> o.getValue().getDefinition().getType().isAssignableFrom(boolean.class))
+            .filter(o -> !o.getValue().getDefinition().isDeprecated())
             // TODO: b/328442047 - Remove this when the flag is removed.
             .filter(
                 // Skipping this explicitly because it is a no-op but can't be removed yet.
@@ -253,9 +245,9 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
     // Flip all incompatible (boolean) options to their non-default value.
     BuildOptions flipped = defaultOptions.clone(); // To be flipped by below logic.
     for (OptionInfo option : incompatibleOptions.values()) {
-      Field field = option.getDefinition().getField();
       FragmentOptions fragment = flipped.get(option.getOptionClass());
-      field.setBoolean(fragment, !field.getBoolean(fragment));
+      boolean value = option.getDefinition().getBooleanValue(fragment);
+      option.getDefinition().setValue(fragment, !value);
     }
 
     PatchTransition execTransition = getExecTransition(EXECUTION_PLATFORM);
@@ -268,10 +260,12 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
     ImmutableMultimap.Builder<Class<? extends FragmentOptions>, OptionDefinition>
         unpreservedOptions = new ImmutableMultimap.Builder<>();
     for (OptionInfo incompatibleOption : incompatibleOptions.values()) {
-      Field field = incompatibleOption.getDefinition().getField();
       Class<? extends FragmentOptions> optionClass = incompatibleOption.getOptionClass();
-      if (field.getBoolean(execOptions.get(optionClass))
-          != field.getBoolean(flipped.get(optionClass))) {
+      boolean execValue =
+          incompatibleOption.getDefinition().getBooleanValue(execOptions.get(optionClass));
+      boolean flippedValue =
+          incompatibleOption.getDefinition().getBooleanValue(flipped.get(optionClass));
+      if (execValue != flippedValue) {
         unpreservedOptions.put(
             incompatibleOption.getOptionClass(), incompatibleOption.getDefinition());
       }

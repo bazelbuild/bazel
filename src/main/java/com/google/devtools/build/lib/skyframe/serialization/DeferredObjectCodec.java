@@ -60,7 +60,7 @@ public abstract class DeferredObjectCodec<T> implements ObjectCodec<T> {
    * completely deserialized except if the child is a reference to a parent. See comment at {@link
    * AsyncDeserializationContext} for details.
    */
-  public abstract DeferredValue<T> deserializeDeferred(
+  public abstract DeferredValue<? extends T> deserializeDeferred(
       AsyncDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException;
 }

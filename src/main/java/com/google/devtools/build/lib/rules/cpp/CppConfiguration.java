@@ -357,6 +357,13 @@ public final class CppConfiguration extends Fragment
     return ltoindexOptions;
   }
 
+  @StarlarkMethod(name = "lto_index_options", documented = false, useStarlarkThread = true)
+  public ImmutableList<String> getLtoIndexOptionsForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return ltoindexOptions;
+  }
+
   /** Returns the set of command-line LTO backend options. */
   public ImmutableList<String> getLtoBackendOptions() {
     return ltobackendOptions;
@@ -399,6 +406,12 @@ public final class CppConfiguration extends Fragment
 
   /** Returns whether or not to strip the binaries. */
   public boolean shouldStripBinaries() {
+    return stripBinaries;
+  }
+
+  @Override
+  public boolean shouldStripBinariesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return stripBinaries;
   }
 
@@ -483,6 +496,12 @@ public final class CppConfiguration extends Fragment
     return cppOptions.useStartEndLib;
   }
 
+  @StarlarkMethod(name = "start_end_lib", documented = false, useStarlarkThread = true)
+  public boolean startEndLibIsRequestedForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return cppOptions.useStartEndLib;
+  }
+
   /** @return value from --compiler option, null if the option was not passed. */
   @Nullable
   public String getCompilerFromOptions() {
@@ -501,7 +520,22 @@ public final class CppConfiguration extends Fragment
     return cppOptions.legacyWholeArchive;
   }
 
+  @StarlarkMethod(name = "legacy_whole_archive", documented = false, useStarlarkThread = true)
+  public boolean legacyWholeArchiveForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return cppOptions.legacyWholeArchive;
+  }
+
   public boolean removeLegacyWholeArchive() {
+    return cppOptions.removeLegacyWholeArchive;
+  }
+
+  @StarlarkMethod(
+      name = "incompatible_remove_legacy_whole_archive",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean removeLegacyWholeArchiveForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return cppOptions.removeLegacyWholeArchive;
   }
 
@@ -510,6 +544,13 @@ public final class CppConfiguration extends Fragment
   }
 
   public boolean getUseInterfaceSharedLibraries() {
+    return cppOptions.useInterfaceSharedObjects;
+  }
+
+  @StarlarkMethod(name = "interface_shared_objects", documented = false, useStarlarkThread = true)
+  public boolean getUseInterfaceSharedLibrariesforStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return cppOptions.useInterfaceSharedObjects;
   }
 
@@ -644,6 +685,13 @@ public final class CppConfiguration extends Fragment
 
   public String getCSFdoInstrument() {
     return cppOptions.csFdoInstrumentForBuild;
+  }
+
+  @Nullable
+  @Override
+  public String csFdoInstrumentStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getCSFdoInstrument();
   }
 
   @StarlarkMethod(
@@ -804,6 +852,15 @@ public final class CppConfiguration extends Fragment
     return cppOptions.useSpecificToolFiles;
   }
 
+  @StarlarkMethod(
+      name = "incompatible_use_specific_tool_files",
+      documented = false,
+      useStarlarkThread = true)
+  public boolean useSpecificToolFilesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return cppOptions.useSpecificToolFiles;
+  }
+
   public boolean disableNoCopts() {
     return cppOptions.disableNoCopts;
   }
@@ -867,8 +924,18 @@ public final class CppConfiguration extends Fragment
     return experimentalCcImplementationDeps();
   }
 
+  @StarlarkMethod(name = "experimental_cpp_modules", documented = false, useStarlarkThread = true)
+  public boolean experimentalCppModulesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return experimentalCppModules();
+  }
+
   public boolean experimentalCcImplementationDeps() {
     return cppOptions.experimentalCcImplementationDeps;
+  }
+
+  public boolean experimentalCppModules() {
+    return cppOptions.experimentalCppModules;
   }
 
   public boolean getExperimentalCppCompileResourcesEstimation() {

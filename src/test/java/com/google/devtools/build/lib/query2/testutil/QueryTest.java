@@ -665,6 +665,25 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
     runTestRdepsWithNonDefaultDependencyFilter("rdeps(//foo:all, //foo:a, 1)", "//foo:a //foo:b");
   }
 
+  // Regression test for default visibility of output file targets being traversed even with
+  // --noimplicit_deps is set.
+  @Test
+  public void testDefaultVisibilityOfOutputTarget_noImplicitDeps() throws Exception {
+    writeFile(
+        "foo/BUILD",
+        """
+        package(default_visibility = [':pg'])
+        genrule(name = 'gen', srcs = ['in'], outs = ['out'], cmd = 'doesntmatter')
+        package_group(name = 'pg', includes = [':other-pg'])
+        package_group(name = 'other-pg')
+        """);
+    assertEqualsFiltered(
+        "deps(//foo:gen) + //foo:out + //foo:pg + //foo:other-pg"
+            + getDependencyCorrectionWithGen(),
+        "deps(//foo:out)" + getDependencyCorrectionWithGen(),
+        Setting.NO_IMPLICIT_DEPS);
+  }
+
   protected Iterable<String> targetLabels(Set<Target> targets) {
     return Iterables.transform(targets, new Function<Target, String>() {
       @Override

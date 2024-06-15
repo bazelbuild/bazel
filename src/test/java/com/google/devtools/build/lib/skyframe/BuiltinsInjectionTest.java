@@ -264,6 +264,8 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
    */
   private void writeExportsBzl(String... lines) throws Exception {
     scratch.overwriteFile("tools/builtins_staging/exports.bzl", lines);
+    // Since builtins have changed, we need to be sure the cache is reset to re-load them.
+    invalidatePackages(/* alsoConfigs= */ false);
   }
 
   /**

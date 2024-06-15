@@ -1,4 +1,4 @@
-load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 
 package(default_visibility = ["//tools:__pkg__"])
 
@@ -81,28 +81,6 @@ sh_test(
 )
 
 py_binary(
-    name = "aar_native_libs_zip_creator",
-    srcs = [
-        "aar_native_libs_zip_creator.py",
-    ],
-    deps = [
-        ":json_worker_wrapper",
-        ":junction_lib",
-        "//third_party/py/abseil",
-    ],
-)
-
-py_test(
-    name = "aar_native_libs_zip_creator_test",
-    srcs = [
-        "aar_native_libs_zip_creator_test.py",
-    ],
-    deps = [
-        ":aar_native_libs_zip_creator",
-    ],
-)
-
-py_binary(
     name = "stubify_manifest",
     srcs = ["stubify_manifest.py"],
     deps = [
@@ -116,54 +94,6 @@ py_test(
     deps = [
         ":stubify_manifest",
     ],
-)
-
-py_binary(
-    name = "aar_embedded_proguard_extractor",
-    srcs = ["aar_embedded_proguard_extractor.py"],
-    deps = [
-        ":json_worker_wrapper",
-        ":junction_lib",
-        "//third_party/py/abseil",
-    ],
-)
-
-py_test(
-    name = "aar_embedded_proguard_extractor_test",
-    srcs = ["aar_embedded_proguard_extractor_test.py"],
-    deps = [":aar_embedded_proguard_extractor"],
-)
-
-py_binary(
-    name = "aar_embedded_jars_extractor",
-    srcs = ["aar_embedded_jars_extractor.py"],
-    deps = [
-        ":json_worker_wrapper",
-        ":junction_lib",
-        "//third_party/py/abseil",
-    ],
-)
-
-py_test(
-    name = "aar_embedded_jars_extractor_test",
-    srcs = ["aar_embedded_jars_extractor_test.py"],
-    deps = [":aar_embedded_jars_extractor"],
-)
-
-py_binary(
-    name = "aar_resources_extractor",
-    srcs = ["aar_resources_extractor.py"],
-    deps = [
-        ":json_worker_wrapper",
-        ":junction_lib",
-        "//third_party/py/abseil",
-    ],
-)
-
-py_test(
-    name = "aar_resources_extractor_test",
-    srcs = ["aar_resources_extractor_test.py"],
-    deps = [":aar_resources_extractor"],
 )
 
 py_binary(
@@ -189,35 +119,6 @@ py_test(
     name = "instrumentation_test_check_test",
     srcs = ["instrumentation_test_check_test.py"],
     deps = [":instrumentation_test_check"],
-)
-
-py_library(
-    name = "junction_lib",
-    srcs = ["junction.py"],
-    visibility = ["//visibility:private"],
-)
-
-py_library(
-    name = "json_worker_wrapper",
-    srcs = ["json_worker_wrapper.py"],
-    srcs_version = "PY3",
-    visibility = ["//visibility:private"],
-)
-
-py_test(
-    name = "junction_test",
-    srcs = select({
-        "//src/conditions:windows": ["junction_test.py"],
-        "//conditions:default": ["dummy_test.py"],
-    }),
-    main = select({
-        "//src/conditions:windows": "junction_test.py",
-        "//conditions:default": "dummy_test.py",
-    }),
-    deps = [
-        ":junction_lib",
-        "//src/test/py/bazel:test_base",
-    ],
 )
 
 filegroup(

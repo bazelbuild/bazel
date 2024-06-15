@@ -89,10 +89,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:starlark_builtins_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:abstract-exported-starlark-symbol-codec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:TestType",
@@ -115,7 +117,6 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
     ],
 )
 

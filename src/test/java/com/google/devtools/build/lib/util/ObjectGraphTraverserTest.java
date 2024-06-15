@@ -103,7 +103,7 @@ public class ObjectGraphTraverserTest {
     ImmutableList<DomainSpecificTraverser> traversers =
         domainSpecific == null ? ImmutableList.of() : ImmutableList.of(domainSpecific);
     return new ObjectGraphTraverser(
-        new FieldCache(traversers), true, seen, collectContext, receiver, null);
+        new FieldCache(traversers), false, true, seen, collectContext, receiver, null);
   }
 
   @Test

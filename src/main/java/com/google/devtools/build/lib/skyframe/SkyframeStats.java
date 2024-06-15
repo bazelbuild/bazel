@@ -18,8 +18,8 @@ import com.google.common.collect.Multiset;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 
 /**
- * Container for Stats we want to generate for BEP and `dump --rules` and `dump --skyframe=count`
- * which extracts information from a SkyframeExecutor.
+ * Container for Stats we want to generate for BEP, `blaze dump --rules` and `blaze dump
+ * --skyframe=count` which extracts information from a SkyframeExecutor.
  *
  * <p>ruleStats and aspectStats are expected to be sorted.
  */

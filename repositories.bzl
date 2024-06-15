@@ -24,6 +24,7 @@ load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
 #
 ##################################################################################
 DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
+    # keep sorted
     "abseil-cpp",
     "apple_support",
     "bazel_skylib",
@@ -35,10 +36,10 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "platforms",
     "rules_cc",
     "rules_go",
+    "rules_graalvm",
     "rules_java",
     "rules_jvm_external",
     "rules_kotlin",
-    "rules_graalvm",
     "rules_license",
     "rules_pkg",
     "rules_proto",
@@ -59,7 +60,7 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
 ]] + [
     # TODO(pcloudy): Remove after https://github.com/bazelbuild/rules_kotlin/issues/1106 is fixed
     get_canonical_repo_name("rules_kotlin") + "~rules_kotlin_extensions~com_github_jetbrains_kotlin",
-]
+] + ["bazel_features~"]
 
 ##################################################################################
 #
@@ -121,15 +122,6 @@ def embedded_jdk_repositories():
         sha256 = "975603e684f2ec5a525b3b5336d6aa0b09b5b7d2d0d9e271bd6a9892ad550181",
         downloaded_file_path = "zulu-win-arm64.zip",
         url = "https://aka.ms/download-jdk/microsoft-jdk-21.0.0-windows-aarch64.zip",
-    )
-
-def bazelci_rules_repo():
-    """Required by the Bazel CI jobs."""
-    http_archive(
-        name = "bazelci_rules",
-        sha256 = "eca21884e6f66a88c358e580fd67a6b148d30ab57b1680f62a96c00f9bc6a07e",
-        strip_prefix = "bazelci_rules-1.0.0",
-        url = "https://github.com/bazelbuild/continuous-integration/releases/download/rules-1.0.0/bazelci_rules-1.0.0.tar.gz",
     )
 
 def android_deps_repos():

@@ -15,7 +15,6 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableCollection;
@@ -33,6 +32,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -301,9 +301,12 @@ public class ModuleFileGlobals {
       name = "register_execution_platforms",
       doc =
           "Specifies already-defined execution platforms to be registered when this module is"
-              + " selected. Should be absolute target patterns (ie. beginning with either"
-              + " <code>@</code> or <code>//</code>). See <a href=\"${link toolchains}\">toolchain"
-              + " resolution</a> for more information.",
+              + " selected. Should be absolute <a"
+              + " href='https://bazel.build/reference/glossary#target-pattern'>target patterns</a>"
+              + " (ie. beginning with either <code>@</code> or <code>//</code>). See <a"
+              + " href=\"${link toolchains}\">toolchain resolution</a> for more information."
+              + " Patterns that expand to multiple targets, such as <code>:all</code>, will be"
+              + " registered in lexicographical order by name.",
       parameters = {
         @Param(
             name = "dev_dependency",
@@ -318,7 +321,7 @@ public class ModuleFileGlobals {
           @Param(
               name = "platform_labels",
               allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
-              doc = "The labels of the platforms to register."),
+              doc = "The target patterns to register."),
       useStarlarkThread = true)
   public void registerExecutionPlatforms(
       boolean devDependency, Sequence<?> platformLabels, StarlarkThread thread)
@@ -339,9 +342,13 @@ public class ModuleFileGlobals {
       name = "register_toolchains",
       doc =
           "Specifies already-defined toolchains to be registered when this module is selected."
-              + " Should be absolute target patterns (ie. beginning with either <code>@</code> or"
-              + " <code>//</code>). See <a href=\"${link toolchains}\">toolchain resolution</a> for"
-              + " more information.",
+              + " Should be absolute <a"
+              + " href='https://bazel.build/reference/glossary#target-pattern'>target patterns</a>"
+              + " (ie. beginning with either <code>@</code> or <code>//</code>). See <a"
+              + " href=\"${link toolchains}\">toolchain resolution</a> for more information."
+              + " Patterns that expand to multiple targets, such as <code>:all</code>, will be"
+              + " registered in lexicographical order by target name (not the name of the toolchain"
+              + " implementation).",
       parameters = {
         @Param(
             name = "dev_dependency",
@@ -356,10 +363,7 @@ public class ModuleFileGlobals {
           @Param(
               name = "toolchain_labels",
               allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
-              doc =
-                  "The labels of the toolchains to register. Labels can include "
-                      + "<code>:all</code>, in which case, all toolchain-providing targets in the "
-                      + "package will be registered in lexicographical order by name."),
+              doc = "The target patterns to register."),
       useStarlarkThread = true)
   public void registerToolchains(
       boolean devDependency, Sequence<?> toolchainLabels, StarlarkThread thread)
@@ -369,9 +373,21 @@ public class ModuleFileGlobals {
     if (context.shouldIgnoreDevDeps() && devDependency) {
       return;
     }
-    context
-        .getModuleBuilder()
-        .addToolchainsToRegister(checkAllAbsolutePatterns(toolchainLabels, "register_toolchains"));
+    ImmutableList<String> checkedToolchainLabels =
+        checkAllAbsolutePatterns(toolchainLabels, "register_toolchains");
+    if (thread
+        .getSemantics()
+        .getBool(BuildLanguageOptions.EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING)) {
+      for (String label : checkedToolchainLabels) {
+        if (label.contains("...")) {
+          throw Starlark.errorf(
+              "invalid target pattern \"%s\": register_toolchain target patterns may only refer to "
+                  + "targets within a single package",
+              label);
+        }
+      }
+    }
+    context.getModuleBuilder().addToolchainsToRegister(checkedToolchainLabels);
   }
 
   @StarlarkMethod(
@@ -428,14 +444,19 @@ public class ModuleFileGlobals {
           "innate extensions cannot be directly used; try `use_repo_rule` instead");
     }
 
+    var proxyBuilder =
+        ModuleExtensionUsage.Proxy.builder()
+            .setLocation(thread.getCallerLocation())
+            .setDevDependency(devDependency)
+            .setContainingModuleFilePath(context.getCurrentModuleFilePath());
+
     String extensionBzlFile = normalizeLabelString(context.getModuleBuilder(), rawExtensionBzlFile);
-    ModuleExtensionUsageBuilder newUsageBuilder =
-        new ModuleExtensionUsageBuilder(
-            context, extensionBzlFile, extensionName, isolate, thread.getCallerLocation());
+    var newUsageBuilder =
+        new ModuleExtensionUsageBuilder(context, extensionBzlFile, extensionName, isolate);
 
     if (context.shouldIgnoreDevDeps() && devDependency) {
       // This is a no-op proxy.
-      return ModuleExtensionProxy.createFromUsagesBuilder(newUsageBuilder, devDependency);
+      return new ModuleExtensionProxy(newUsageBuilder, proxyBuilder);
     }
 
     // Find an existing usage builder corresponding to this extension. Isolated usages need to get
@@ -443,17 +464,18 @@ public class ModuleFileGlobals {
     if (!isolate) {
       for (ModuleExtensionUsageBuilder usageBuilder : context.getExtensionUsageBuilders()) {
         if (usageBuilder.isForExtension(extensionBzlFile, extensionName)) {
-          return ModuleExtensionProxy.createFromUsagesBuilder(usageBuilder, devDependency);
+          return new ModuleExtensionProxy(usageBuilder, proxyBuilder);
         }
       }
     }
 
     // If no such proxy exists, we can just use a new one.
     context.getExtensionUsageBuilders().add(newUsageBuilder);
-    return ModuleExtensionProxy.createFromUsagesBuilder(newUsageBuilder, devDependency);
+    return new ModuleExtensionProxy(newUsageBuilder, proxyBuilder);
   }
 
-  private String normalizeLabelString(InterimModule.Builder module, String rawExtensionBzlFile) {
+  private String normalizeLabelString(InterimModule.Builder module, String rawExtensionBzlFile)
+      throws EvalException {
     // Normalize the label by parsing and stringifying it with a repo mapping that preserves the
     // apparent repository name, except that a reference to the main repository via the empty
     // repo name is translated to using the module repo name. This is necessary as
@@ -463,30 +485,27 @@ public class ModuleFileGlobals {
     // ownName can't change anymore as calling module() after this results in an error.
     String ownName = module.getRepoName().orElse(module.getName());
     RepositoryName ownRepoName = RepositoryName.createUnvalidated(ownName);
+    ImmutableMap<String, RepositoryName> repoMapping = ImmutableMap.of();
+    if (module.getKey().equals(ModuleKey.ROOT)) {
+      repoMapping = ImmutableMap.of("", ownRepoName);
+    }
+    Label label;
     try {
-      ImmutableMap<String, RepositoryName> repoMapping = ImmutableMap.of();
-      if (module.getKey().equals(ModuleKey.ROOT)) {
-        repoMapping = ImmutableMap.of("", ownRepoName);
-      }
-      Label label =
+      label =
           Label.parseWithPackageContext(
               rawExtensionBzlFile,
               Label.PackageContext.of(
                   PackageIdentifier.create(ownRepoName, PathFragment.EMPTY_FRAGMENT),
                   RepositoryMapping.createAllowingFallback(repoMapping)));
-      // Skip over the leading "@" of the unambiguous form.
-      return label.getUnambiguousCanonicalForm().substring(1);
-    } catch (LabelSyntaxException ignored) {
-      // Preserve backwards compatibility by not failing eagerly, rather keep the invalid label and
-      // let the extension fail when evaluated.
-      return rawExtensionBzlFile;
+    } catch (LabelSyntaxException e) {
+      throw Starlark.errorf("invalid label \"%s\": %s", rawExtensionBzlFile, e.getMessage());
     }
+    // Skip over the leading "@" of the unambiguous form.
+    return label.getUnambiguousCanonicalForm().substring(1);
   }
 
-  /**
-   * Returns a {@link Label} when the given string is a valid label, otherwise the string itself.
-   */
-  private Object parseOverrideLabelAttribute(InterimModule.Builder module, String rawLabel) {
+  private Label convertAndValidatePatchLabel(InterimModule.Builder module, String rawLabel)
+      throws EvalException {
     RepositoryMapping repoMapping =
         RepositoryMapping.create(
             ImmutableMap.<String, RepositoryName>builder()
@@ -494,43 +513,39 @@ public class ModuleFileGlobals {
                 .put(module.getRepoName().orElse(module.getName()), RepositoryName.MAIN)
                 .buildKeepingLast(),
             RepositoryName.MAIN);
+    Label label;
     try {
-      return Label.parseWithPackageContext(
-          rawLabel, Label.PackageContext.of(PackageIdentifier.EMPTY_PACKAGE_ID, repoMapping));
+      label =
+          Label.parseWithPackageContext(
+              rawLabel, Label.PackageContext.of(PackageIdentifier.EMPTY_PACKAGE_ID, repoMapping));
     } catch (LabelSyntaxException e) {
-      // Preserve backwards compatibility by not failing eagerly, rather keep the invalid label and
-      // let the module repo fail when fetched.
-      return rawLabel;
+      throw Starlark.errorf("invalid label \"%s\" in 'patches': %s", rawLabel, e.getMessage());
     }
+    if (!label.getRepository().isVisible()) {
+      throw Starlark.errorf(
+          "invalid label in 'patches': only patches in the main repository can be applied, not from"
+              + " '@%s'",
+          label.getRepository().getName());
+    }
+    return label;
   }
 
   @StarlarkBuiltin(name = "module_extension_proxy", documented = false)
   static class ModuleExtensionProxy implements Structure, StarlarkExportable {
     private final ModuleExtensionUsageBuilder usageBuilder;
-    private final boolean devDependency;
+    private final ModuleExtensionUsage.Proxy.Builder proxyBuilder;
 
-    /**
-     * Creates a proxy with the specified dev_dependency bit that shares accumulated imports and
-     * tags with all other such proxies, thus preserving their order across dev/non-dev deps.
-     */
-    static ModuleExtensionProxy createFromUsagesBuilder(
-        ModuleExtensionUsageBuilder usageBuilder, boolean devDependency) {
-      if (devDependency) {
-        usageBuilder.setHasDevUseExtension();
-      } else {
-        usageBuilder.setHasNonDevUseExtension();
-      }
-      return new ModuleExtensionProxy(usageBuilder, devDependency);
-    }
-
-    private ModuleExtensionProxy(ModuleExtensionUsageBuilder usageBuilder, boolean devDependency) {
+    ModuleExtensionProxy(
+        ModuleExtensionUsageBuilder usageBuilder, ModuleExtensionUsage.Proxy.Builder proxyBuilder) {
       this.usageBuilder = usageBuilder;
-      this.devDependency = devDependency;
+      this.proxyBuilder = proxyBuilder;
+      usageBuilder.addProxyBuilder(proxyBuilder);
     }
 
     void addImport(String localRepoName, String exportedName, String byWhat, Location location)
         throws EvalException {
-      usageBuilder.addImport(localRepoName, exportedName, devDependency, byWhat, location);
+      usageBuilder.addImport(localRepoName, exportedName, byWhat, location);
+      proxyBuilder.addImport(localRepoName, exportedName);
     }
 
     class TagCallable implements StarlarkValue {
@@ -551,7 +566,7 @@ public class ModuleFileGlobals {
             Tag.builder()
                 .setTagName(tagName)
                 .setAttributeValues(AttributeValues.create(kwargs))
-                .setDevDependency(devDependency)
+                .setDevDependency(proxyBuilder.isDevDependency())
                 .setLocation(thread.getCallerLocation())
                 .build());
       }
@@ -575,12 +590,12 @@ public class ModuleFileGlobals {
 
     @Override
     public boolean isExported() {
-      return usageBuilder.isExported();
+      return !proxyBuilder.getProxyName().isEmpty();
     }
 
     @Override
     public void export(EventHandler handler, Label bzlFileLabel, String name) {
-      usageBuilder.setExportedName(name);
+      proxyBuilder.setProxyName(name);
     }
   }
 
@@ -646,20 +661,18 @@ public class ModuleFileGlobals {
       throws EvalException {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "use_repo_rule()");
     context.setNonModuleCalled();
-    // The builder for the singular "innate" extension of this module. Note that there's only one
-    // such usage (and it's fabricated), so the usage location just points to this file.
-    ModuleExtensionUsageBuilder newUsageBuilder =
-        new ModuleExtensionUsageBuilder(
-            context,
-            "//:MODULE.bazel",
-            ModuleExtensionId.INNATE_EXTENSION_NAME,
-            /* isolate= */ false,
-            Location.fromFile(thread.getCallerLocation().file()));
+    // Find or create the builder for the singular "innate" extension of this module.
     for (ModuleExtensionUsageBuilder usageBuilder : context.getExtensionUsageBuilders()) {
       if (usageBuilder.isForExtension("//:MODULE.bazel", ModuleExtensionId.INNATE_EXTENSION_NAME)) {
         return new RepoRuleProxy(usageBuilder, bzlFile + '%' + ruleName);
       }
     }
+    ModuleExtensionUsageBuilder newUsageBuilder =
+        new ModuleExtensionUsageBuilder(
+            context,
+            "//:MODULE.bazel",
+            ModuleExtensionId.INNATE_EXTENSION_NAME,
+            /* isolate= */ false);
     context.getExtensionUsageBuilders().add(newUsageBuilder);
     return new RepoRuleProxy(newUsageBuilder, bzlFile + '%' + ruleName);
   }
@@ -693,7 +706,13 @@ public class ModuleFileGlobals {
       }
       kwargs.putEntry("name", name);
       ModuleExtensionProxy extensionProxy =
-          ModuleExtensionProxy.createFromUsagesBuilder(usageBuilder, devDependency);
+          new ModuleExtensionProxy(
+              usageBuilder,
+              ModuleExtensionUsage.Proxy.builder()
+                  .setDevDependency(devDependency)
+                  .setLocation(thread.getCallerLocation())
+                  .setContainingModuleFilePath(
+                      usageBuilder.getContext().getCurrentModuleFilePath()));
       extensionProxy.getValue(tagName).call(kwargs, thread);
       extensionProxy.addImport(name, name, "by a repo rule", thread.getCallerLocation());
     }
@@ -803,16 +822,18 @@ public class ModuleFileGlobals {
     try {
       parsedVersion = Version.parse(version);
     } catch (ParseException e) {
-      throw new EvalException("Invalid version in single_version_override()", e);
+      throw Starlark.errorf("Invalid version in single_version_override(): %s", version);
+    }
+    ImmutableList.Builder<Label> patchesBuilder = ImmutableList.builder();
+    for (String patch : Sequence.cast(patches, String.class, "patches")) {
+      patchesBuilder.add(convertAndValidatePatchLabel(context.getModuleBuilder(), patch));
     }
     context.addOverride(
         moduleName,
         SingleVersionOverride.create(
             parsedVersion,
             registry,
-            Sequence.cast(patches, String.class, "patches").stream()
-                .map(l -> parseOverrideLabelAttribute(context.getModuleBuilder(), l))
-                .collect(toImmutableList()),
+            patchesBuilder.build(),
             Sequence.cast(patchCmds, String.class, "patchCmds").getImmutableList(),
             patchStrip.toInt("single_version_override.patch_strip")));
   }
@@ -953,13 +974,15 @@ public class ModuleFileGlobals {
         urls instanceof String string
             ? ImmutableList.of(string)
             : Sequence.cast(urls, String.class, "urls").getImmutableList();
+    ImmutableList.Builder<Label> patchesBuilder = ImmutableList.builder();
+    for (String patch : Sequence.cast(patches, String.class, "patches")) {
+      patchesBuilder.add(convertAndValidatePatchLabel(context.getModuleBuilder(), patch));
+    }
     context.addOverride(
         moduleName,
         ArchiveOverride.create(
             urlList,
-            Sequence.cast(patches, String.class, "patches").stream()
-                .map(l -> parseOverrideLabelAttribute(context.getModuleBuilder(), l))
-                .collect(toImmutableList()),
+            patchesBuilder.build(),
             Sequence.cast(patchCmds, String.class, "patchCmds").getImmutableList(),
             integrity,
             stripPrefix,
@@ -1045,14 +1068,16 @@ public class ModuleFileGlobals {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "git_override()");
     context.setNonModuleCalled();
     validateModuleName(moduleName);
+    ImmutableList.Builder<Label> patchesBuilder = ImmutableList.builder();
+    for (String patch : Sequence.cast(patches, String.class, "patches")) {
+      patchesBuilder.add(convertAndValidatePatchLabel(context.getModuleBuilder(), patch));
+    }
     context.addOverride(
         moduleName,
         GitOverride.create(
             remote,
             commit,
-            Sequence.cast(patches, String.class, "patches").stream()
-                .map(l -> parseOverrideLabelAttribute(context.getModuleBuilder(), l))
-                .collect(toImmutableList()),
+            patchesBuilder.build(),
             Sequence.cast(patchCmds, String.class, "patchCmds").getImmutableList(),
             patchStrip.toInt("git_override.patch_strip"),
             initSubmodules,

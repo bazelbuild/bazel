@@ -76,24 +76,6 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " user .bzl files and may only be called from their respective rules repositories.")
   public boolean incompatibleStopExportingLanguageModules;
 
-  @Option(
-      name = "incompatible_remove_rule_name_parameter",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.DEPRECATED},
-      help = "No-op")
-  public boolean incompatibleRemoveRuleNameParameter;
-
-  @Option(
-      name = "incompatible_disallow_symlink_file_to_dir",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "No-op.")
-  public boolean incompatibleDisallowSymlinkFileToDir;
-
   // TODO(#11437): Delete the special empty string value so that it's on unconditionally.
   @Option(
       name = "experimental_builtins_bzl_path",
@@ -156,6 +138,17 @@ public final class BuildLanguageOptions extends OptionsBase {
           "If enabled, adds a `visibility()` function that .bzl files may call during top-level"
               + " evaluation to set their visibility for the purpose of load() statements.")
   public boolean experimentalBzlVisibility;
+
+  @Option(
+      name = "experimental_single_package_toolchain_binding",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If enabled, the register_toolchain function may not include target patterns which may "
+              + "refer to more than one package.")
+  public boolean experimentalSinglePackageToolchainBinding;
 
   @Option(
       name = "check_bzl_visibility",
@@ -657,7 +650,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "Disable objc_library's custom transition and inherit "
-              + "from the top level target instead")
+              + "from the top level target instead (No-op in Bazel)")
   public boolean incompatibleDisableObjcLibraryTransition;
 
   // remove after Bazel LTS in Nov 2023
@@ -748,6 +741,9 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(CHECK_BZL_VISIBILITY, checkBzlVisibility)
             .setBool(
                 EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
+            .setBool(
+                EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING,
+                experimentalSinglePackageToolchainBinding)
             .setBool(EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS, experimentalEnableFirstClassMacros)
             .setBool(EXPERIMENTAL_ENABLE_SCL_DIALECT, experimentalEnableSclDialect)
             .setBool(ENABLE_BZLMOD, enableBzlmod)
@@ -853,6 +849,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_disable_external_package";
   public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =
       "-experimental_enable_android_migration_apis";
+  public static final String EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING =
+      "-experimental_single_package_toolchain_binding";
   public static final String EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS =
       "-experimental_enable_first_class_macros";
   public static final String EXPERIMENTAL_ENABLE_SCL_DIALECT = "-experimental_enable_scl_dialect";

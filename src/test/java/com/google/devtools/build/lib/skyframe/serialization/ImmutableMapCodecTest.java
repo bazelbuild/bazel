@@ -23,9 +23,9 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException.NoCodecException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester.VerificationFunction;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -69,7 +69,7 @@ public class ImmutableMapCodecTest {
   @Test
   public void immutableSortedMapRoundTripsWithTheSameComparator() throws Exception {
     ImmutableSortedMap<?, ?> deserialized =
-        TestUtils.roundTrip(
+        RoundTripping.roundTrip(
             ImmutableSortedMap.orderedBy(HELLO_FIRST_COMPARATOR)
                 .put("a", "b")
                 .put("hello", "there")
@@ -87,7 +87,7 @@ public class ImmutableMapCodecTest {
         assertThrows(
             NoCodecException.class,
             () ->
-                TestUtils.roundTrip(
+                RoundTripping.roundTrip(
                     ImmutableSortedMap.<String, String>orderedBy(comparator)
                         .put("a", "b")
                         .put("c", "d")
@@ -103,11 +103,11 @@ public class ImmutableMapCodecTest {
         assertThrows(
             SerializationException.class,
             () ->
-                TestUtils.toBytesMemoized(
+                RoundTripping.toBytesMemoized(
                     ImmutableMap.of("a", new Dummy()),
                     AutoRegistry.get()
                         .getBuilder()
-                        .add(new DummyThrowingCodec(/*throwsOnSerialization=*/ true))
+                        .add(new DummyThrowingCodec(/* throwsOnSerialization= */ true))
                         .build()));
     assertThat(expected)
         .hasMessageThat()

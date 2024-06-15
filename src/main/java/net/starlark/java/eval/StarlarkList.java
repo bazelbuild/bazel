@@ -114,19 +114,10 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
     throw Starlark.errorf("unhashable type: 'list'");
   }
 
-  /**
-   * A shared instance for the empty list with immutable mutability.
-   *
-   * <p>Other immutable empty list objects can exist, e.g. lists that were once mutable but whose
-   * environments were then frozen. This instance is for empty lists that were always frozen from
-   * the beginning.
-   */
-  private static final StarlarkList<?> EMPTY = new RegularImmutableStarlarkList<>(EMPTY_ARRAY);
-
   /** Returns an empty frozen list of the desired type. */
   @SuppressWarnings("unchecked")
   public static <T> StarlarkList<T> empty() {
-    return (StarlarkList<T>) EMPTY;
+    return (StarlarkList<T>) RegularImmutableStarlarkList.EMPTY;
   }
 
   /** Returns a new, empty list with the specified Mutability. */
@@ -204,15 +195,26 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
   /**
    * Returns a new {@code StarlarkList} that is the concatenation of two {@code StarlarkList}s. The
    * new list will have the given {@link Mutability}.
+   *
+   * @throws EvalException if the resulting list would be too large
    */
   public static <T> StarlarkList<T> concat(
-      StarlarkList<? extends T> x, StarlarkList<? extends T> y, Mutability mutability) {
+      StarlarkList<? extends T> x, StarlarkList<? extends T> y, Mutability mutability)
+      throws EvalException {
     int xsize = x.size();
     int ysize = y.size();
-    Object[] res = new Object[xsize + ysize];
+    Object[] res = new Object[addSizesAndFailIfExcessive(xsize, ysize)];
     System.arraycopy(x.elems(), 0, res, 0, xsize);
     System.arraycopy(y.elems(), 0, res, xsize, ysize);
     return wrap(mutability, res);
+  }
+
+  protected static int addSizesAndFailIfExcessive(int xsize, int ysize) throws EvalException {
+    int sum = xsize + ysize;
+    if (sum < 0 || sum > MAX_ALLOC) {
+      throw Starlark.errorf("excessive capacity requested (%d + %d elements)", xsize, ysize);
+    }
+    return sum;
   }
 
   @Nonnull

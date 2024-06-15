@@ -89,6 +89,9 @@ http_archive(
 )
 EOF
   cat $(rlocation io_bazel/src/tests/shell/bazel/rules_license_stanza.txt) >> WORKSPACE
+  cat > MODULE.bazel <<EOF
+bazel_dep(name = "abseil-cpp", version = "20240116.2", repo_name = "com_google_absl")
+EOF
 }
 
 function expect_path_in_java_tools() {
@@ -150,6 +153,12 @@ function test_java_tools_has_JavaBuilder() {
 
 function test_java_tools_has_turbine_direct() {
   expect_path_in_java_tools "java_tools/turbine_direct_binary_deploy.jar"
+  expect_path_in_java_tools_prebuilt "java_tools/turbine_direct_graal"
+}
+
+function test_java_tools_has_one_version() {
+  expect_path_in_java_tools "java_tools/src/tools/one_version"
+  expect_path_in_java_tools_prebuilt "java_tools/src/tools/one_version"
 }
 
 function test_java_tools_has_Runner() {
@@ -212,6 +221,19 @@ function test_java_tools_ijar_builds_with_layering_check() {
 
   bazel build --repo_env=CC=clang --features=layering_check \
     @local_java_tools//:ijar_cc_binary || fail "ijar failed to build with layering check"
+}
+
+function test_java_tools_ijar_builds() {
+  bazel build @local_java_tools//:one_version_cc_bin || fail "one_version failed to build"
+}
+
+function test_java_tools_one_version_builds_with_layering_check() {
+  if [[ ! $(type -P clang) ]]; then
+    return
+  fi
+
+  bazel build --repo_env=CC=clang --features=layering_check \
+    @local_java_tools//:one_version_cc_bin || fail "one_version failed to build with layering check"
 }
 
 run_suite "Java tools archive tests"

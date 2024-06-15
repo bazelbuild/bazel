@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Support for rules that compile sources. Provides ways to determine files that should be output,
@@ -36,21 +35,13 @@ import net.starlark.java.eval.StarlarkValue;
  *
  * <p>Methods on this class can be called in any order without impacting the result.
  */
-public class CompilationSupport implements StarlarkValue {
+public class CompilationSupport {
   @VisibleForTesting static final String OBJC_MODULE_CACHE_DIR_NAME = "_objc_module_cache";
 
   @VisibleForTesting
   static final String ABSOLUTE_INCLUDES_PATH_FORMAT =
       "The path '%s' is absolute, but only relative paths are allowed.";
 
-  // Flags for clang 6.1(xcode 6.4)
-  @VisibleForTesting
-  static final ImmutableList<String> CLANG_GCOV_COVERAGE_FLAGS =
-      ImmutableList.of("-fprofile-arcs", "-ftest-coverage");
-
-  @VisibleForTesting
-  static final ImmutableList<String> CLANG_LLVM_COVERAGE_FLAGS =
-      ImmutableList.of("-fprofile-instr-generate", "-fcoverage-mapping");
 
   // These are added by Xcode when building, because the simulator is built on OSX
   // frameworks so we aim compile to match the OSX objc runtime.

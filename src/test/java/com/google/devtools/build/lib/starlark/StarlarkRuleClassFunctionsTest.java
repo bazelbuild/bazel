@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.starlark;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.ExecGroupSubject.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.RuleClassSubject.assertThat;
@@ -76,12 +77,17 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -139,6 +145,11 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @org.junit.Rule public ExpectedException thrown = ExpectedException.none();
+
+  @Before
+  public void allowExperimentalApi() throws Exception {
+    setBuildLanguageOptions("--experimental_rule_extension_api");
+  }
 
   @Before
   public void createBuildFile() throws Exception {
@@ -407,7 +418,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertContainsEvent("unexpected positional arguments");
   }
 
-  // TODO(#19922): Migrate away from using "$" as separator in these test cases.
   @Test
   public void testSymbolicMacroCanAcceptAttributes() throws Exception {
     setBuildLanguageOptions("--experimental_enable_first_class_macros");
@@ -416,7 +426,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "pkg/foo.bzl",
         """
         def _impl(name, target_suffix):
-            native.cc_library(name = name + "$" + target_suffix)
+            native.cc_library(name = name + "_" + target_suffix)
         my_macro = macro(
             implementation=_impl,
             attrs = {
@@ -436,7 +446,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets()).containsKey("abc$xyz");
+    assertThat(pkg.getTargets()).containsKey("abc_xyz");
   }
 
   @Test
@@ -1013,6 +1023,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testLabelListWithAspectsError() throws Exception {
+    ev.setThreadOwner(keyForBuild(FAKE_LABEL));
     ev.checkEvalErrorContains(
         "at index 1 of aspects, got element of type int, want Aspect",
         "def _impl(target, ctx):",
@@ -1377,9 +1388,94 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testAttrCfgTarget() throws Exception {
+  public void testAttrCfgTarget_string() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.label(cfg = 'target', allow_files = True)");
     assertThat(NoTransition.isInstance(attr.getTransitionFactory())).isTrue();
+  }
+
+  @Test
+  public void testAttrCfgTarget_object() throws Exception {
+    Attribute attr = buildAttribute("a1", "attr.label(cfg = config.target(), allow_files = True)");
+    assertThat(NoTransition.isInstance(attr.getTransitionFactory())).isTrue();
+  }
+
+  private void writeRuleCfgTestRule(String cfg) throws Exception {
+    scratch.file(
+        "rule_testing/rule.bzl",
+        """
+        def _impl(ctx):
+            pass
+
+        demo_rule = rule(
+            implementation = _impl,
+            cfg = %s,
+        )
+        """
+            .formatted(cfg));
+    scratch.file(
+        "rule_testing/BUILD",
+        """
+        load(":rule.bzl", "demo_rule")
+
+        demo_rule(name = "my_target")
+        """);
+  }
+
+  @Test
+  public void testRuleCfg_exec_string_fails() throws Exception {
+    writeRuleCfgTestRule("'exec'");
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//rule_testing:my_target");
+
+    ev.assertContainsError("`cfg` must be set to a transition object");
+  }
+
+  @Test
+  public void testRuleCfg_exec_obj_fails() throws Exception {
+    writeRuleCfgTestRule("config.exec()");
+
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(ev.getEventCollector());
+    getConfiguredTarget("//rule_testing:my_target");
+
+    ev.assertContainsError("`cfg` must be set to a transition object");
+  }
+
+  @Test
+  public void testRuleCfg_starlark() throws Exception {
+    scratchStarlarkTransition();
+    scratch.file(
+        "rule_testing/rule.bzl",
+        """
+        load("//test:transitions.bzl", "parent_transition")
+
+        def _impl(ctx):
+            pass
+
+        demo_rule = rule(
+            implementation = _impl,
+            cfg = parent_transition,
+        )
+        """);
+    scratch.file(
+        "rule_testing/BUILD",
+        """
+        load(":rule.bzl", "demo_rule")
+
+        demo_rule(name = "my_target")
+        """);
+
+    BuildConfigurationValue configuration =
+        getConfiguration(getConfiguredTarget("//rule_testing:my_target"));
+
+    var options = configuration.getOptions().getStarlarkOptions();
+    assertThat(options.get(Label.parseCanonicalUnchecked("//test:parent-flag")))
+        .isEqualTo("parent-changed");
+    assertThat(options.get(Label.parseCanonicalUnchecked("//test:parent-child-flag")))
+        .isEqualTo("parent-child-changed-in-parent");
+    assertThat(options.get(Label.parseCanonicalUnchecked("//test:child-flag"))).isNull();
   }
 
   @Test
@@ -1528,6 +1624,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   private static void evalAndExport(BazelEvaluationTestCase ev, String... lines) throws Exception {
+    ev.setThreadOwner(keyForBuild(FAKE_LABEL));
     ev.execAndExport(FAKE_LABEL, lines);
   }
 
@@ -2816,7 +2913,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(p.getKey()).isEqualTo(new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "p"));
     assertThat(p1.getPrintableName()).isEqualTo("p1");
     assertThat(p1.getKey()).isEqualTo(new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "p1"));
-    assertThat(a.getAspectClass()).isEqualTo(new StarlarkAspectClass(FAKE_LABEL, "a"));
+    assertThat(a.getAspectClass()).isEqualTo(new StarlarkAspectClass(keyForBuild(FAKE_LABEL), "a"));
   }
 
   @Test
@@ -3381,7 +3478,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void initializer_onlyAllowedInBuiltins() throws Exception {
+  public void initializer_allowlist() throws Exception {
     scratch.file(
         "p/b.bzl",
         """
@@ -3400,12 +3497,13 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
         my_rule(name = "my_target")
         """);
+    setBuildLanguageOptions("--noexperimental_rule_extension_api");
 
     reporter.removeHandler(failFastHandler);
     reporter.addHandler(ev.getEventCollector());
     getConfiguredTarget("//p:my_target");
 
-    ev.assertContainsError("file '//p:b.bzl' cannot use private API");
+    ev.assertContainsError("Non-allowlisted attempt to use initializer.");
   }
 
   // TODO b/298561048 - move the initializers tests below into a separate file
@@ -4237,7 +4335,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     getConfiguredTarget("//initializer_testing:my_target");
 
     ev.assertContainsError(
-        "A rule can only be instantiated in a BUILD file, or a macro invoked from a BUILD file");
+        "Cannot instantiate a rule when loading a .bzl file. Rules may be instantiated only in a"
+            + " BUILD thread.");
   }
 
   @Test
@@ -4276,7 +4375,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     reporter.addHandler(ev.getEventCollector());
     getConfiguredTarget("//initializer_testing:my_target");
 
-    ev.assertContainsError("'native.existing_rules' cannot be called from an initializer");
+    ev.assertContainsError(
+        "existing_rules() can only be used while evaluating a BUILD file, a WORKSPACE file, or a"
+            + " macro loaded from there");
   }
 
   @Test
@@ -4320,6 +4421,44 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     ev.assertContainsError("target 'my_target' not declared in package 'initializer_testing'");
   }
 
+  @Test
+  @SuppressWarnings("unchecked")
+  public void initializer_nativeModule() throws Exception {
+    scratch.appendFile("MODULE.bazel", "module(name = 'my_mod', version = '1.2.3')");
+    scratch.file("initializer_testing/rules/BUILD");
+    scratch.file(
+        "initializer_testing/rules/b.bzl",
+        "MyInfo = provider()",
+        "def initializer(name, **kwargs):",
+        "  return {'props': {",
+        "    'package_relative_label': str(native.package_relative_label(':target')),",
+        "  }}",
+        "def impl(ctx): ",
+        "  return [MyInfo(props = ctx.attr.props)]",
+        "my_rule = rule(impl,",
+        "  initializer = initializer,",
+        "  attrs = {",
+        "    'props': attr.string_dict(),",
+        "  })");
+    scratch.file(
+        "initializer_testing/targets/BUILD",
+        "load('//initializer_testing/rules:b.bzl','my_rule')",
+        "my_rule(name = 'my_target')");
+
+    invalidatePackages();
+
+    ConfiguredTarget myTarget = getConfiguredTarget("//initializer_testing/targets:my_target");
+    StructImpl info =
+        (StructImpl)
+            myTarget.get(
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//initializer_testing/rules:b.bzl")),
+                    "MyInfo"));
+
+    assertThat((Map<String, String>) info.getValue("props"))
+        .containsExactly("package_relative_label", "@@//initializer_testing/targets:target");
+  }
+
   private void scratchParentRule(String rule, String... ruleArgs) throws IOException {
     scratch.file("extend_rule_testing/parent/BUILD");
     scratch.file(
@@ -4339,7 +4478,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void extendRule_onlyAllowedInBuiltins() throws Exception {
+  public void extendRule_allowlist() throws Exception {
     scratchParentRule("parent_library");
     scratch.file(
         "bar/child.bzl",
@@ -4347,13 +4486,14 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         load("//extend_rule_testing/parent:parent.bzl", "parent_library")
 
         def _impl(ctx):
-            pass
+            return ctx.super()
 
         my_library = rule(
             implementation = _impl,
             parent = parent_library,
         )
         """);
+    scratch.file("bar/a.parent");
     scratch.file(
         "bar/BUILD",
         """
@@ -4361,15 +4501,51 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
         my_library(
             name = "my_target",
-            srcs = ["a.proto"],
+            srcs = ["a.parent"],
         )
         """);
+    setBuildLanguageOptions("--noexperimental_rule_extension_api");
 
     reporter.removeHandler(failFastHandler);
     reporter.addHandler(ev.getEventCollector());
     getConfiguredTarget("//bar:my_target");
 
-    ev.assertContainsError("file '//bar:child.bzl' cannot use private API");
+    ev.assertContainsError("Non-allowlisted attempt to use extend rule APIs.");
+  }
+
+  @Test
+  public void extendRule_ccBinary() throws Exception {
+    mockToolsConfig.overwrite(
+        "tools/allowlists/extend_rule_allowlist/BUILD",
+        """
+        package_group(
+            name = "extend_rule_allowlist",
+            packages = ["//..."],
+        )
+        """);
+    scratch.file(
+        "extend_rule_testing/child.bzl",
+        """
+        def _impl(ctx):
+            return ctx.super()
+
+        my_binary = rule(
+            implementation = _impl,
+            parent = native.cc_binary,
+        )
+        """);
+    scratch.file(
+        "extend_rule_testing/BUILD",
+        """
+        load(":child.bzl", "my_binary")
+
+        my_binary(
+            name = "my_target",
+            srcs = ["a.cc"],
+        )
+        """);
+
+    getConfiguredTarget("//extend_rule_testing:my_target");
   }
 
   @Test
@@ -5209,9 +5385,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     ev.update("config", new StarlarkConfig());
     ev.execAndExport("parent_library = rule(impl, build_setting = config.int())");
     ev.checkEvalError(notExtendableError("parent_library"), "rule(impl, parent = parent_library)");
-
-    ev.execAndExport("parent_library = rule(impl, outputs = {'deploy': '%{name}_deploy.jar'})");
-    ev.checkEvalError(notExtendableError("parent_library"), "rule(impl, parent = parent_library)");
   }
 
   @Test
@@ -5642,12 +5815,15 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
       scratch.overwriteFile(
           TestConstants.TOOLS_REPOSITORY_SCRATCH
               + "tools/allowlists/function_transition_allowlist/BUILD",
-          "package_group(",
-          "    name = 'function_transition_allowlist',",
-          "    packages = [",
-          "        '//extend_rule_testing/...',",
-          "    ],",
-          ")");
+          """
+          package_group(
+              name = "function_transition_allowlist",
+              packages = [
+                  # Allow all packages for testing.
+                  "//...",
+              ],
+          )
+          """);
     }
     scratch.file(
         "test/build_settings.bzl",
@@ -6204,5 +6380,82 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         .isEqualTo(
             "'workspace_root' is not allowed on invalid Label @@[unknown repo '' requested from"
                 + " @@module~v1.2.3]//foo:bar");
+  }
+
+  @Test
+  public void testPackageMetadataAttrOnAllRules() throws Exception {
+    scratch.file(
+        "p/b.bzl",
+        """
+        def _my_rule_impl(ctx):
+            license_file = ctx.attr.package_metadata[0][DefaultInfo].files.to_list()[0]
+            print("ctx.attr.package_metadata: %s" % license_file.path)
+
+        my_rule = rule(_my_rule_impl)
+        """);
+    scratch.file(
+        "p/BUILD",
+        """
+        load(":b.bzl", "my_rule")
+
+        filegroup(
+            name = "licenses",
+            srcs = ["LICENSE"],
+        )
+
+        my_rule(
+            name = "my_target",
+            package_metadata = [":licenses"],
+        )
+        """);
+
+    getConfiguredTarget("//p:my_target");
+
+    assertContainsEvent("ctx.attr.package_metadata: p/LICENSE");
+  }
+
+  @Test
+  public void starlarkRuleFunctionCodec() throws Exception {
+    scratch.file("lib/BUILD");
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name, xyz):
+            print("xyz is %s" % xyz)
+        my_rule = rule(
+            implementation=_impl,
+            attrs = {
+              "xyz": attr.string(),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_rule")
+        my_rule(
+            name = "abc",
+            xyz = "value",
+        )
+        """);
+
+    // Evaluates pkg to populate my_rule in Skyframe.
+    assertThat(getPackage("pkg")).isNotNull();
+
+    // Pulls my_rule's value out of Skyframe from its BzlLoadValue.
+    BzlLoadValue.Key bzlLoadKey = keyForBuild(Label.parseCanonical("//pkg:foo.bzl"));
+    var fooBzl = (BzlLoadValue) getDoneValue(bzlLoadKey);
+    var myRule = (StarlarkRuleFunction) checkNotNull(fooBzl.getModule().getGlobal("my_rule"));
+
+    var deserialized = RoundTripping.roundTripWithSkyframe(this::getDoneValue, myRule);
+    assertThat(myRule).isSameInstanceAs(deserialized);
+  }
+
+  private SkyValue getDoneValue(SkyKey key) {
+    try {
+      return skyframeExecutor.getDoneSkyValueForIntrospection(key);
+    } catch (SkyframeExecutor.FailureToRetrieveIntrospectedValueException e) {
+      throw new AssertionError(e);
+    }
   }
 }

@@ -18,11 +18,10 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester.VerificationFunction;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
 import java.util.Comparator;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -31,8 +30,8 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link ImmutableSortedSetCodec}. */
 @RunWith(JUnit4.class)
 public class ImmutableSortedSetCodecTest {
-  private static final Comparator<String> LENGTH_COMPARATOR =
-      Comparator.comparingInt(String::length);
+  @SerializationConstant @VisibleForSerialization
+  static final Comparator<String> LENGTH_COMPARATOR = Comparator.comparingInt(String::length);
 
   @Test
   public void smoke() throws Exception {
@@ -57,35 +56,8 @@ public class ImmutableSortedSetCodecTest {
     assertThrows(
         SerializationException.class,
         () ->
-            TestUtils.roundTrip(
+            RoundTripping.roundTrip(
                 ImmutableSortedSet.orderedBy(Comparator.comparingInt(String::length))
                     .add("a", "bcd", "ef")));
-  }
-
-  /**
-   * Effectively singleton codec for {@link #LENGTH_COMPARATOR}. We don't use @AutoCodec to avoid
-   * adding the dependency.
-   */
-  private static class LengthComparatorOnlyCodec implements ObjectCodec<Comparator<String>> {
-    @SuppressWarnings("unchecked")
-    @Override
-    public Class<Comparator<String>> getEncodedClass() {
-      return (Class<Comparator<String>>) (Class<?>) LENGTH_COMPARATOR.getClass();
-    }
-
-    @Override
-    public void serialize(
-        SerializationContext context, Comparator<String> obj, CodedOutputStream codedOut)
-        throws SerializationException {
-      if (obj != LENGTH_COMPARATOR) {
-        throw new SerializationException("Unexpected object " + obj);
-      }
-    }
-
-    @Override
-    public Comparator<String> deserialize(
-        DeserializationContext context, CodedInputStream codedIn) {
-      return LENGTH_COMPARATOR;
-    }
   }
 }

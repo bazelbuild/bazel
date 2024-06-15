@@ -28,7 +28,9 @@ import javax.annotation.Nullable;
 public abstract class RuleTransitionData implements TransitionFactory.Data {
 
   public static RuleTransitionData create(
-      Rule rule, ImmutableMap<Label, ConfigMatchingProvider> configConditions, String configHash) {
+      Rule rule,
+      @Nullable ImmutableMap<Label, ConfigMatchingProvider> configConditions,
+      String configHash) {
     return new AutoValue_RuleTransitionData(rule, configConditions, configHash);
   }
 

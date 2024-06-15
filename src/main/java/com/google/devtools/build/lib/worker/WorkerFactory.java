@@ -18,6 +18,7 @@ import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.sandbox.AsynchronousTreeDeleter;
+import com.google.devtools.build.lib.sandbox.cgroups.VirtualCgroupFactory;
 import com.google.devtools.build.lib.server.FailureDetails.Worker.Code;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -50,6 +51,7 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
 
   private final Path workerBaseDir;
   private final AsynchronousTreeDeleter treeDeleter;
+  private final VirtualCgroupFactory cgroupFactory;
   private Reporter reporter;
 
   /**
@@ -59,18 +61,20 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
   @Nullable private final WorkerSandboxOptions hardenedSandboxOptions;
 
   public WorkerFactory(Path workerBaseDir, WorkerOptions workerOptions) {
-    this(workerBaseDir, workerOptions, null, null);
+    this(workerBaseDir, workerOptions, null, null, null);
   }
 
   public WorkerFactory(
       Path workerBaseDir,
       WorkerOptions workerOptions,
       @Nullable WorkerSandboxOptions hardenedSandboxOptions,
-      @Nullable AsynchronousTreeDeleter treeDeleter) {
+      @Nullable AsynchronousTreeDeleter treeDeleter,
+      @Nullable VirtualCgroupFactory cgroupFactory) {
     this.workerBaseDir = workerBaseDir;
     this.workerOptions = workerOptions;
     this.hardenedSandboxOptions = hardenedSandboxOptions;
     this.treeDeleter = treeDeleter;
+    this.cgroupFactory = cgroupFactory;
   }
 
   public void setReporter(Reporter reporter) {
@@ -107,7 +111,8 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
                 logFile,
                 workerOptions,
                 hardenedSandboxOptions,
-                treeDeleter);
+                treeDeleter,
+                cgroupFactory);
       }
     } else if (key.isMultiplex()) {
       WorkerMultiplexer workerMultiplexer = WorkerMultiplexerManager.getInstance(key, logFile);
@@ -115,7 +120,9 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
           new WorkerProxy(
               key, workerId, workerMultiplexer.getLogFile(), workerMultiplexer, key.getExecRoot());
     } else {
-      worker = new SingleplexWorker(key, workerId, key.getExecRoot(), logFile, workerOptions);
+      worker =
+          new SingleplexWorker(
+              key, workerId, key.getExecRoot(), logFile, workerOptions, cgroupFactory);
     }
 
     String msg =

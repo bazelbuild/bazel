@@ -27,7 +27,7 @@ def _static_runtime_lib(static_runtime_lib):
     def static_runtime_lib_func(*, feature_configuration):
         if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "static_link_cpp_runtimes"):
             if static_runtime_lib == None:
-                fail("Toolchain supports embedded runtimes, but didn't provide static_runtime_lib attribute")
+                fail("Toolchain supports embedded runtimes, but didn't provide static_runtime_lib attribute.")
             return static_runtime_lib
         return depset()
 
@@ -37,7 +37,7 @@ def _dynamic_runtime_lib(dynamic_runtime_lib):
     def dynamic_runtime_lib_func(*, feature_configuration):
         if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "static_link_cpp_runtimes"):
             if dynamic_runtime_lib == None:
-                fail("Toolchain supports embedded runtimes, but didn't provide dynamic_runtime_lib attribute")
+                fail("Toolchain supports embedded runtimes, but didn't provide dynamic_runtime_lib attribute.")
             return dynamic_runtime_lib
         return depset()
 
@@ -71,8 +71,11 @@ def _create_cc_toolchain_info(
         toolchain_label,
         cpp_configuration,
         is_tool_configuration,
+        is_sibling_repository_layout,
+        stamp_binaries,
         default_sysroot,
         builtin_include_files,
+        build_variables_dict,
         build_variables,
         cc_info,
         all_files,
@@ -143,10 +146,13 @@ def _create_cc_toolchain_info(
         _grep_includes = grep_includes,
         _if_so_builder = if_so_builder,
         _is_tool_configuration = is_tool_configuration,
+        _is_sibling_repository_layout = is_sibling_repository_layout,
+        _stamp_binaries = stamp_binaries,
         _default_sysroot = default_sysroot,
         _static_runtime_lib_depset = static_runtime_lib_depset,
         _dynamic_runtime_lib_depset = dynamic_runtime_lib_depset,
         _compiler_files_without_includes = compiler_files_without_includes,
+        _build_variables_dict = build_variables_dict,
         _build_variables = build_variables,
         _allowlist_for_layering_check = allowlist_for_layering_check,
         _cc_info = cc_info,
@@ -223,6 +229,7 @@ CcToolchainInfo, _ = provider(
         "_abi_glibc_version": "INTERNAL API, DO NOT USE!",
         "_crosstool_top_path": "INTERNAL API, DO NOT USE!",
         "_build_info_files": "INTERNAL API, DO NOT USE!",
+        "_build_variables_dict": "INTERNAL API, DO NOT USE!",
         "_build_variables": "INTERNAL API, DO NOT USE!",
         # Fields still used by native code - will be used by Starlark in the future.
         "_supports_header_parsing": "INTERNAL API, DO NOT USE!",
@@ -234,6 +241,8 @@ CcToolchainInfo, _ = provider(
         "_grep_includes": "INTERNAL API, DO NOT USE!",
         "_if_so_builder": "INTERNAL API, DO NOT USE!",
         "_is_tool_configuration": "INTERNAL API, DO NOT USE!",
+        "_is_sibling_repository_layout": "INTERNAL API, DO NOT USE!",
+        "_stamp_binaries": "INTERNAL API, DO NOT USE!",
         "_default_sysroot": "INTERNAL API, DO NOT USE!",
         "_static_runtime_lib_depset": "INTERNAL API, DO NOT USE!",
         "_dynamic_runtime_lib_depset": "INTERNAL API, DO NOT USE!",

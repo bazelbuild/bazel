@@ -210,17 +210,15 @@ public final class CleanCommand implements BlazeCommand {
     logger.atInfo().log("Shell command status: %s", result.getTerminationStatus());
   }
 
-  private BlazeCommandResult actuallyClean(
+  private static BlazeCommandResult actuallyClean(
       CommandEnvironment env, Path outputBase, boolean expunge, boolean async, String symlinkPrefix)
       throws CleanException, InterruptedException {
     BlazeRuntime runtime = env.getRuntime();
 
-    if (env.getOutputService() != null) {
-      try {
-        env.getOutputService().clean();
-      } catch (ExecException e) {
-        throw new CleanException(Code.OUTPUT_SERVICE_CLEAN_FAILURE, e);
-      }
+    try {
+      env.getOutputService().clean();
+    } catch (ExecException e) {
+      throw new CleanException(Code.OUTPUT_SERVICE_CLEAN_FAILURE, e);
     }
 
     try {

@@ -54,7 +54,8 @@ public class TestConfiguration extends Fragment {
           // changes in --trim_test_configuration itself or related flags always prompt invalidation
           return true;
         }
-        Class<?> affectedOptionsClass = changedOption.getField().getDeclaringClass();
+        Class<? extends FragmentOptions> affectedOptionsClass =
+            changedOption.getDeclaringClass(FragmentOptions.class);
         if (!affectedOptionsClass.equals(TestOptions.class)
             && !affectedOptionsClass.equals(CoverageOptions.class)) {
           // options outside of TestOptions always prompt invalidation

@@ -330,6 +330,80 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
   }
 
   @Test
+  public void basicToolchainsWithAliasAutoExecGroups() throws Exception {
+    scratch.file(
+        "test/alias/BUILD",
+        """
+        alias(
+            name = "alias_toolchain_type",
+            actual = "//toolchain:test_toolchain",
+        )
+        """);
+    scratch.file(
+        "test/defs.bzl",
+        """
+        def _impl(ctx):
+            print(ctx.toolchains["//test/alias:alias_toolchain_type"])
+            print(ctx.toolchains["//toolchain:test_toolchain"])
+            return []
+
+        custom_rule = rule(
+            implementation = _impl,
+            toolchains = ["//test/alias:alias_toolchain_type"],
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "custom_rule")
+
+        custom_rule(
+            name = "custom_rule_name",
+        )
+        """);
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    assertThat(update("//test:custom_rule_name").hasError()).isFalse();
+  }
+
+  @Test
+  public void basicToolchainsWithAliasNoAutoExecGroups() throws Exception {
+    scratch.file(
+        "test/alias/BUILD",
+        """
+        alias(
+            name = "alias_toolchain_type",
+            actual = "//toolchain:test_toolchain",
+        )
+        """);
+    scratch.file(
+        "test/defs.bzl",
+        """
+        def _impl(ctx):
+            print(ctx.toolchains["//test/alias:alias_toolchain_type"])
+            print(ctx.toolchains["//toolchain:test_toolchain"])
+            return []
+
+        custom_rule = rule(
+            implementation = _impl,
+            toolchains = ["//test/alias:alias_toolchain_type"],
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "custom_rule")
+
+        custom_rule(
+            name = "custom_rule_name",
+        )
+        """);
+    useConfiguration("--noincompatible_auto_exec_groups");
+
+    assertThat(update("//test:custom_rule_name").hasError()).isFalse();
+  }
+
+  @Test
   public void execPlatform() throws Exception {
     // Add some platforms and custom constraints.
     scratch.file("platforms/BUILD", "platform(name = 'local_platform_a')");

@@ -158,6 +158,8 @@ java_library(
         ":toolchain_exception",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/config_matching_provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
@@ -177,7 +179,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:target_pattern_util",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",
@@ -191,6 +192,7 @@ java_library(
     srcs = ["RegisteredToolchainsValue.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
@@ -198,6 +200,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:auto_value",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -211,7 +214,6 @@ java_library(
         ":single_toolchain_resolution_value",
         ":toolchain_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/config_matching_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/toolchain_type_requirement",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
@@ -219,7 +221,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
-        "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:error_prone_annotations",

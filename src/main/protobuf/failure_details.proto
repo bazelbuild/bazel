@@ -228,6 +228,7 @@ message Spawn {
     UNSPECIFIED_EXECUTION_FAILURE = 12 [(metadata) = { exit_code: 1 }];
     FORBIDDEN_INPUT = 13 [(metadata) = { exit_code: 1 }];
     REMOTE_CACHE_EVICTED = 14 [(metadata) = { exit_code: 39 }];
+    SPAWN_LOG_IO_EXCEPTION = 15 [(metadata) = { exit_code: 36 }];
   }
   Code code = 1;
 
@@ -386,6 +387,7 @@ message PackageOptions {
 
     PACKAGE_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     PACKAGE_PATH_INVALID = 1 [(metadata) = { exit_code: 2 }];
+    NONSINGLETON_PACKAGE_PATH = 4 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
@@ -630,6 +632,8 @@ message BuildConfiguration {
     // command-line error exit code 2.
     INVALID_OUTPUT_DIRECTORY_MNEMONIC = 11 [(metadata) = { exit_code: 2 }];
     CONFIGURATION_DISCARDED_ANALYSIS_CACHE = 12 [(metadata) = { exit_code: 2 }];
+    // Failure modes specific to PROJECT.scl files.
+    INVALID_PROJECT = 13 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
@@ -1321,6 +1325,7 @@ message ExternalDeps {
     INVALID_REGISTRY_URL = 4 [(metadata) = { exit_code: 48 }];
     ERROR_ACCESSING_REGISTRY = 5 [(metadata) = { exit_code: 32 }];
     INVALID_EXTENSION_IMPORT = 6 [(metadata) = { exit_code: 48 }];
+    BAD_LOCKFILE = 7 [(metadata) = { exit_code: 48 }];
   }
 
   Code code = 1;

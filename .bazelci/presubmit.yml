@@ -30,6 +30,7 @@ tasks:
       - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
+      - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."
       - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
@@ -90,6 +91,7 @@ tasks:
       - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
+      - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."
       - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
@@ -149,6 +151,7 @@ tasks:
       - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
+      - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."
       - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
@@ -174,7 +177,6 @@ tasks:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
-      - "//src/main/java/..."
     test_flags:
       - "--config=ci-macos"
       # Fine tune the number of test jobs running in parallel to avoid timeout
@@ -184,6 +186,7 @@ tasks:
       - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
+      - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."
       - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
@@ -215,7 +218,6 @@ tasks:
       # To run any of the following test in presubmit, just comment out the corresponding line.
       # TODO(pcloudy): Disable the android tests after enabling them on Apple Silicon platform.
       - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
-      - "-//src/test/shell/bazel:bazel_bootstrap_distfile_tar_test"
       # - "-//src/test/shell/bazel/android:android_integration_test"
       # - "-//src/test/shell/bazel/android:android_integration_test_with_head_android_tools"
       - "-//src/test/shell/bazel:bazel_proto_library_test"
@@ -277,7 +279,6 @@ tasks:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
       - "//src:test_repos"
-      - "//src/main/java/..."
     test_flags:
       - "--config=ci-macos"
     test_targets:
@@ -285,6 +286,7 @@ tasks:
       - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
+      - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."
       - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
@@ -332,6 +334,7 @@ tasks:
       - "//src/test/res/..."
       - "//src/test/shell/..."
       - "//src/tools/launcher/..."
+      - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."
       - "//third_party/def_parser/..."
       - "//tools/android/..."
@@ -408,6 +411,7 @@ tasks:
       - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
+      - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."
       - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
@@ -429,6 +433,7 @@ tasks:
       - "-//src/test/py/bazel:bazel_yanked_versions_test"
       - "-//src/test/py/bazel:bzlmod_query_test"
       - "-//src/test/py/bazel:mod_command_test"
+      - "-//src/test/shell/bazel:starlark_repository_test"
       - "-//src/test/shell/bazel:verify_workspace"
       # Flaky on rbe_ubuntu2004
       # https://github.com/bazelbuild/continuous-integration/issues/1631

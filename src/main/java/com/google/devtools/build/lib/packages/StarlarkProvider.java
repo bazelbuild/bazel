@@ -484,7 +484,8 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
         return depset.getSet();
       }
       Class<?> elementClass = depset.getElementClass();
-      if (depsetTypePredictor.compareAndExchange(index, null, elementClass) == elementClass) {
+      Class<?> witness = depsetTypePredictor.compareAndExchange(index, null, elementClass);
+      if (witness == elementClass || witness == null) {
         return depset.getSet();
       }
     }
@@ -502,7 +503,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
         // This matches empty depsets created in Starlark with `depset()`.
         return Depset.of(Object.class, nestedSet);
       }
-      @SuppressWarnings("unchecked") // can't parametrize Class literal by a non-raw type
+      @SuppressWarnings("unchecked") // can't parameterize Class literal by a non-raw type
       Depset depset = Depset.of((Class<Object>) depsetTypePredictor.get(index), nestedSet);
       return depset;
     }
@@ -523,7 +524,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
    */
   // TODO: b/335901349 - this is identical to SymbolGenerator.GlobalSymbol<BzlLoadValue.Key> and
   // serves essentially the same purpose. Consider unifying these types.
-  public static class Key extends Provider.Key {
+  public static final class Key extends Provider.Key {
     private final BzlLoadValue.Key key;
     private final String exportedName;
 
@@ -536,8 +537,12 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
       return key.getLabel();
     }
 
-    public final String getExportedName() {
+    public String getExportedName() {
       return exportedName;
+    }
+
+    BzlLoadValue.Key getBzlLoadKey() {
+      return key;
     }
 
     @Override
@@ -560,7 +565,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     }
 
     @Override
-    final void fingerprint(Fingerprint fp) {
+    void fingerprint(Fingerprint fp) {
       // False => Not native.
       fp.addBoolean(false);
       fp.addString(getExtensionLabel().getCanonicalForm());

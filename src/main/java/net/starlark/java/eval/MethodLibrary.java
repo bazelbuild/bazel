@@ -841,14 +841,14 @@ class MethodLibrary {
       if (needSeparator) {
         printer.append(sep);
       }
-      printer.debugPrint(msg, thread.getSemantics());
+      printer.debugPrint(msg, thread);
       needSeparator = true;
     }
     for (Object arg : args) {
       if (needSeparator) {
         printer.append(sep);
       }
-      printer.debugPrint(arg, thread.getSemantics());
+      printer.debugPrint(arg, thread);
       needSeparator = true;
     }
     throw Starlark.errorf("%s", printer.toString());
@@ -882,7 +882,7 @@ class MethodLibrary {
     String separator = "";
     for (Object x : args) {
       p.append(separator);
-      p.debugPrint(x, thread.getSemantics());
+      p.debugPrint(x, thread);
       separator = sep;
     }
     // The PRINT_TEST_MARKER key is used in tests to verify the effects of command-line options.

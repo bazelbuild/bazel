@@ -150,6 +150,8 @@ java_library(
         ":action_input_helper",
         ":action_lookup_data",
         ":action_lookup_key",
+        ":arg_chunk",
+        ":artifact_expander",
         ":artifact_owner",
         ":artifacts",
         ":commandline_item",
@@ -204,7 +206,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:ospathpolicy",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
-        "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
@@ -221,6 +222,11 @@ java_library(
         "//third_party/protobuf:protobuf_java",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
+)
+
+java_library(
+    name = "arg_chunk",
+    srcs = ["ArgChunk.java"],
 )
 
 java_library(
@@ -249,6 +255,7 @@ java_library(
     name = "action_input_helper",
     srcs = ["ActionInputHelper.java"],
     deps = [
+        ":artifact_expander",
         ":artifacts",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -302,7 +309,6 @@ java_library(
 java_library(
     name = "artifacts",
     srcs = [
-        "AbstractCommandLine.java",
         "ActionInput.java",
         "ActionKeyContext.java",
         "Artifact.java",
@@ -312,15 +318,14 @@ java_library(
         "ArtifactResolver.java",
         "ArtifactRoot.java",
         "Artifacts.java",
-        "CommandLine.java",
         "PathMapper.java",
     ],
     deps = [
         ":action_lookup_data",
         ":action_lookup_key",
+        ":arg_chunk",
         ":artifact_owner",
         ":commandline_item",
-        ":fileset_output_symlink",
         ":package_roots",
         ":path_strippable",
         "//src/main/java/com/google/devtools/build/docgen/annot",
@@ -346,6 +351,17 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "artifact_expander",
+    srcs = ["ArtifactExpander.java"],
+    deps = [
+        ":artifacts",
+        ":fileset_output_symlink",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -386,10 +402,12 @@ java_library(
     name = "fileset_output_symlink",
     srcs = ["FilesetOutputSymlink.java"],
     deps = [
+        ":artifacts",
         ":has_digest",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:auto_value",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -449,6 +467,7 @@ java_library(
     srcs = ["ImportantOutputHandler.java"],
     deps = [
         ":actions",
+        ":artifact_expander",
         ":artifacts",
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",

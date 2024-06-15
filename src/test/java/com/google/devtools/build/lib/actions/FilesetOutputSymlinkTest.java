@@ -26,20 +26,20 @@ public final class FilesetOutputSymlinkTest {
 
   private static final PathFragment EXEC_ROOT = PathFragment.create("/example/execroot");
 
-  private static final FilesetOutputSymlink createSymlinkTo(String path) {
-    return FilesetOutputSymlink.create(
-        PathFragment.create("any/path"), PathFragment.create(path), () -> new byte[] {}, EXEC_ROOT);
+  private static FilesetOutputSymlink createSymlinkTo(String path) {
+    return FilesetOutputSymlink.createForTesting(
+        PathFragment.create("any/path"), PathFragment.create(path), EXEC_ROOT);
   }
 
   @Test
-  public void stripsExecRootFromTarget() throws Exception {
+  public void stripsExecRootFromTarget() {
     FilesetOutputSymlink symlink = createSymlinkTo("/example/execroot/some/path");
     PathFragment targetPath = symlink.getTargetPath();
     assertThat(targetPath.getPathString()).isEqualTo("some/path");
   }
 
   @Test
-  public void reconstitutesTargetPath_underExecRoot() throws Exception {
+  public void reconstitutesTargetPath_underExecRoot() {
     FilesetOutputSymlink symlink = createSymlinkTo("/example/execroot/some/path");
     PathFragment targetPath = symlink.reconstituteTargetPath(EXEC_ROOT);
     assertThat(targetPath.getPathString()).isEqualTo("/example/execroot/some/path");
@@ -53,7 +53,7 @@ public final class FilesetOutputSymlinkTest {
   }
 
   @Test
-  public void reconstitutesTargetPath_notUnderExecRoot() throws Exception {
+  public void reconstitutesTargetPath_notUnderExecRoot() {
     FilesetOutputSymlink symlink = createSymlinkTo("some/path");
     PathFragment targetPath = symlink.reconstituteTargetPath(EXEC_ROOT);
     assertThat(targetPath.getPathString()).isEqualTo("some/path");

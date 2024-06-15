@@ -36,9 +36,9 @@ import javax.annotation.Nullable;
  * <p>Notably, this class handles per-platform command-line formatting (windows vs unix).
  */
 class RunCommandLine {
-  private final ImmutableList<String> argsWithResidue;
-  private final ImmutableList<String> prettyPrintArgsWithResidue;
-  private final ImmutableList<String> argsWithoutResidue;
+  private final ImmutableList<String> args;
+  private final ImmutableList<String> prettyArgs;
+  private final ImmutableList<String> residue;
   @Nullable private final String runUnderPrefix;
   @Nullable private final String prettyRunUnderPrefix;
 
@@ -48,17 +48,17 @@ class RunCommandLine {
   private final boolean isTestTarget;
 
   private RunCommandLine(
-      ImmutableList<String> argsWithResidue,
-      ImmutableList<String> prettyPrintArgsWithResidue,
-      ImmutableList<String> argsWithoutResidue,
+      ImmutableList<String> args,
+      ImmutableList<String> prettyArgs,
+      ImmutableList<String> residue,
       @Nullable String runUnderPrefix,
       @Nullable String prettyRunUnderPrefix,
       ImmutableSortedMap<String, String> runEnvironment,
       Path workingDir,
       boolean isTestTarget) {
-    this.argsWithResidue = argsWithResidue;
-    this.prettyPrintArgsWithResidue = prettyPrintArgsWithResidue;
-    this.argsWithoutResidue = argsWithoutResidue;
+    this.args = args;
+    this.prettyArgs = prettyArgs;
+    this.residue = residue;
     this.runUnderPrefix = runUnderPrefix;
     this.prettyRunUnderPrefix = prettyRunUnderPrefix;
     this.runEnvironment = runEnvironment;
@@ -79,19 +79,24 @@ class RunCommandLine {
   }
 
   /**
-   * Returns a console-friendly (including relative paths) representation of the command line which
-   * would be returned by {@link #getArgs}.
+   * Returns a console-friendly (including relative paths) representation of the command line.
+   *
+   * <p>Arguments from the {@code run} command line are omitted as to avoid possibly leaking
+   * sensitive user-provided information in logging, BEP, etc.
    */
   String getPrettyArgs() {
     StringBuilder result = new StringBuilder();
     if (prettyRunUnderPrefix != null) {
       result.append(prettyRunUnderPrefix).append(" ");
     }
-    for (int i = 0; i < prettyPrintArgsWithResidue.size(); i++) {
+    for (int i = 0; i < prettyArgs.size(); i++) {
       if (i > 0) {
         result.append(" ");
       }
-      result.append(ShellEscaper.escapeString(prettyPrintArgsWithResidue.get(i)));
+      result.append(ShellEscaper.escapeString(prettyArgs.get(i)));
+    }
+    if (!residue.isEmpty()) {
+      result.append(" <args omitted>");
     }
     return result.toString();
   }
@@ -102,7 +107,11 @@ class RunCommandLine {
 
   /** Returns the command arguments including residue. */
   ImmutableList<String> getArgs(String shExecutable) {
-    return formatter().formatArgv(shExecutable, runUnderPrefix, argsWithResidue);
+    return formatter()
+        .formatArgv(
+            shExecutable,
+            runUnderPrefix,
+            ImmutableList.<String>builder().addAll(args).addAll(residue).build());
   }
 
   /**
@@ -111,7 +120,7 @@ class RunCommandLine {
    * in case it contains sensitive information.
    */
   ImmutableList<String> getArgsWithoutResidue(@Nullable String shExecutable) {
-    return formatter().formatArgv(shExecutable, runUnderPrefix, argsWithoutResidue);
+    return formatter().formatArgv(shExecutable, runUnderPrefix, args);
   }
 
   /**
@@ -126,7 +135,7 @@ class RunCommandLine {
             environmentVarsToUnset,
             runEnvironment,
             runUnderPrefix,
-            argsWithResidue);
+            ImmutableList.<String>builder().addAll(args).addAll(residue).build());
   }
 
   private static Formatter formatter() {
@@ -379,21 +388,10 @@ class RunCommandLine {
     }
 
     RunCommandLine build() {
-      ImmutableList<String> argsWithoutResidue = args.build();
-      ImmutableList<String> argsWithResidue =
-          ImmutableList.<String>builder()
-              .addAll(argsWithoutResidue)
-              .addAll(residueArgs.build())
-              .build();
-      ImmutableList<String> prettyPrintArgsWithResidue =
-          ImmutableList.<String>builder()
-              .addAll(prettyPrintArgs.build())
-              .addAll(residueArgs.build())
-              .build();
       return new RunCommandLine(
-          argsWithResidue,
-          prettyPrintArgsWithResidue,
-          argsWithoutResidue,
+          args.build(),
+          prettyPrintArgs.build(),
+          residueArgs.build(),
           runUnderPrefix,
           prettyRunUnderPrefix,
           runEnvironment,

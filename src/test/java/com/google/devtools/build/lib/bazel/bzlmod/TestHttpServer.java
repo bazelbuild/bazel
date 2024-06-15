@@ -78,6 +78,10 @@ public class TestHttpServer extends ExternalResource {
     serve(path, JOINER.join(lines).getBytes(UTF_8));
   }
 
+  public void unserve(String path) {
+    server.removeContext(path);
+  }
+
   public String getUrl() throws MalformedURLException {
     return new URL("http", "[::1]", server.getAddress().getPort(), "").toString();
   }

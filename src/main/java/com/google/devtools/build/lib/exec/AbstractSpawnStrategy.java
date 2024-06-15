@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
@@ -204,11 +203,16 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
                 : actionExecutionContext.getExecRoot().getFileSystem(),
             context.getTimeout(),
             spawnResult);
-      } catch (IOException | ForbiddenActionInputException e) {
-        actionExecutionContext
-            .getEventHandler()
-            .handle(
-                Event.warn("Exception " + e + " while logging properties of " + spawn.toString()));
+      } catch (IOException e) {
+        throw new EnvironmentalExecException(
+            e,
+            FailureDetail.newBuilder()
+                .setMessage("IOException while logging spawn")
+                .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.SPAWN_LOG_IO_EXCEPTION))
+                .build());
+      } catch (ForbiddenActionInputException e) {
+        // Should have already been thrown during execution.
+        throw new IllegalStateException("ForbiddenActionInputException while logging spawn", e);
       }
     }
     if (ex != null) {

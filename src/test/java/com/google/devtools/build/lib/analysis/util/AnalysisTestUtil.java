@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
@@ -272,7 +273,7 @@ public final class AnalysisTestUtil {
     @Override
     public void computeKey(
         ActionKeyContext actionKeyContext,
-        @Nullable Artifact.ArtifactExpander artifactExpander,
+        @Nullable ArtifactExpander artifactExpander,
         Fingerprint fp) {}
 
     @Override

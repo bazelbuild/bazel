@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.test;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions;
@@ -85,10 +84,6 @@ public class StarlarkTestingModule implements TestingModuleApi {
       throw Starlark.errorf("'name' cannot be set or overridden in 'attr_values'");
     }
 
-    // Get the callstack, sans the last entry, which is the builtin 'analysis_test' callable itself.
-    ImmutableList<StarlarkThread.CallStackEntry> callStack = thread.getCallStack();
-    callStack = callStack.subList(0, callStack.size() - 1);
-
     LabelConverter labelConverter = LabelConverter.forBzlEvaluatingThread(thread);
 
     // Each call to analysis_test defines a rule class (the code right below this comment here) and
@@ -121,12 +116,10 @@ public class StarlarkTestingModule implements TestingModuleApi {
         StarlarkRuleClassFunctions.createRule(
             // Contextual parameters.
             ruleDefinitionEnvironment,
-            thread.getCallerLocation(),
-            callStack,
+            thread,
             dummyBzlFile,
             transitiveDigestToUse,
             labelConverter,
-            thread.getSemantics(),
             // rule() parameters.
             /* parent= */ null,
             /* extendableUnchecked= */ false,

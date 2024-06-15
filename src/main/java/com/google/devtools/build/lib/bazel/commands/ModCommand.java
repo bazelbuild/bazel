@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.bazel.commands;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.Charset.UTF8;
@@ -24,25 +25,20 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
-import com.google.common.eventbus.Subscribe;
+import com.google.common.io.CharSource;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModTidyValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionEvent;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
-import com.google.devtools.build.lib.bazel.bzlmod.CompiledModuleFile;
-import com.google.devtools.build.lib.bazel.bzlmod.ExternalDepsException;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionId;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleFile;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.RootModuleFileFixup;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ExtensionArg;
@@ -54,7 +50,6 @@ import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.ModSubco
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.ModSubcommandConverter;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg;
 import com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModuleArg.ModuleArgConverter;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -79,11 +74,9 @@ import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.MaybeCompleteSet;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -94,16 +87,13 @@ import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.SymbolGenerator;
 
 /** Queries the Bzlmod external dependency graph. */
 @Command(
@@ -194,7 +184,6 @@ public final class ModCommand implements BlazeCommand {
     @Nullable BazelModuleInspectorValue moduleInspector;
     @Nullable BazelModTidyValue modTidyValue;
     ImmutableList<RepositoryMappingValue> repoMappingValues;
-    TidyEventRecorder tidyEventRecorder = new TidyEventRecorder();
 
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
     LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
@@ -213,7 +202,6 @@ public final class ModCommand implements BlazeCommand {
         keys.addAll(repoMappingKeys);
       } else if (subcommand.equals(ModSubcommand.TIDY)) {
         keys.add(BazelModTidyValue.KEY);
-        env.getEventBus().register(tidyEventRecorder);
       } else {
         keys.add(BazelDepGraphValue.KEY, BazelModuleInspectorValue.KEY);
       }
@@ -280,7 +268,7 @@ public final class ModCommand implements BlazeCommand {
         return reportAndCreateFailureResult(
             env, "the 'tidy' command doesn't take extra arguments", Code.TOO_MANY_ARGUMENTS);
       }
-      return runTidy(env, modTidyValue, tidyEventRecorder);
+      return runTidy(env, modTidyValue);
     }
 
     // Extract and check the --base_module argument first to use it when parsing the other args.
@@ -567,32 +555,30 @@ public final class ModCommand implements BlazeCommand {
     return BlazeCommandResult.success();
   }
 
-  private static class TidyEventRecorder {
-    @Nullable BazelModuleResolutionEvent bazelModuleResolutionEvent;
-
-    @Subscribe
-    public void bazelModuleResolved(BazelModuleResolutionEvent event) {
-      bazelModuleResolutionEvent = event;
+  private BlazeCommandResult runTidy(CommandEnvironment env, BazelModTidyValue modTidyValue) {
+    ImmutableListMultimap<PathFragment, String> allCommandsPerFile =
+        modTidyValue.fixups().stream()
+            .flatMap(fixup -> fixup.moduleFilePathToBuildozerCommands().entries().stream())
+            .collect(toImmutableListMultimap(Entry::getKey, Entry::getValue));
+    StringBuilder buildozerInput = new StringBuilder();
+    for (PathFragment moduleFilePath : modTidyValue.moduleFilePaths()) {
+      buildozerInput.append("//").append(moduleFilePath).append(":all|");
+      for (String command : allCommandsPerFile.get(moduleFilePath)) {
+        buildozerInput.append(command).append('|');
+      }
+      buildozerInput.append("format\n");
     }
-  }
 
-  private BlazeCommandResult runTidy(
-      CommandEnvironment env, BazelModTidyValue modTidyValue, TidyEventRecorder eventRecorder) {
-    CommandBuilder buildozerCommand =
-        new CommandBuilder()
-            .setWorkingDir(env.getWorkspace())
-            .addArg(modTidyValue.buildozer().getPathString())
-            .addArgs(
-                Stream.concat(
-                        modTidyValue.fixups().stream()
-                            .map(RootModuleFileFixup::buildozerCommands)
-                            .flatMap(Collection::stream),
-                        Stream.of("format"))
-                    .collect(toImmutableList()))
-            .addArg("MODULE.bazel:all");
-    try {
-      buildozerCommand.build().execute();
-    } catch (InterruptedException | CommandException e) {
+    try (var stdin = CharSource.wrap(buildozerInput).asByteSource(UTF_8).openStream()) {
+      new CommandBuilder()
+          .setWorkingDir(env.getWorkspace())
+          .addArg(modTidyValue.buildozer().getPathString())
+          .addArg("-f")
+          .addArg("-")
+          .build()
+          .executeAsync(stdin, /* killSubprocessOnInterrupt= */ true)
+          .get();
+    } catch (InterruptedException | CommandException | IOException e) {
       String suffix = "";
       if (e instanceof AbnormalTerminationException abnormalTerminationException) {
         if (abnormalTerminationException.getResult().getTerminationStatus().getRawExitCode() == 3) {
@@ -610,70 +596,6 @@ public final class ModCommand implements BlazeCommand {
 
     for (RootModuleFileFixup fixupEvent : modTidyValue.fixups()) {
       env.getReporter().handle(Event.info(fixupEvent.getSuccessMessage()));
-    }
-
-    if (modTidyValue.lockfileMode().equals(LockfileMode.UPDATE)) {
-      // We cannot safely rerun Skyframe evaluation here to pick up the updated module file.
-      // Instead, we construct a new BazelModuleResolutionEvent with the updated module file
-      // contents to be picked up by BazelLockFileModule. Since changing use_repos doesn't affect
-      // module resolution or module extension evaluation, we can reuse the existing lockfile
-      // information except for the root module file value.
-      RootedPath moduleFilePath = ModuleFileFunction.getModuleFilePath(env.getWorkspace());
-      byte[] moduleFileContents;
-      try {
-        moduleFileContents = FileSystemUtils.readContent(moduleFilePath.asPath());
-      } catch (IOException e) {
-        return reportAndCreateFailureResult(
-            env,
-            "Unexpected error while reading module file after running buildozer: " + e.getMessage(),
-            Code.BUILDOZER_FAILED);
-      }
-      CompiledModuleFile compiledModuleFile;
-      try {
-        compiledModuleFile =
-            CompiledModuleFile.parseAndCompile(
-                ModuleFile.create(moduleFileContents, moduleFilePath.asPath().getPathString()),
-                ModuleKey.ROOT,
-                modTidyValue.starlarkSemantics(),
-                env.getRuntime().getRuleClassProvider().getBazelStarlarkEnvironment(),
-                env.getReporter());
-      } catch (ExternalDepsException e) {
-        return reportAndCreateFailureResult(
-            env,
-            "Unexpected error while compiling module file after running buildozer: "
-                + e.getMessage(),
-            Code.BUILDOZER_FAILED);
-      }
-      ModuleFileValue.RootModuleFileValue newRootModuleFileValue;
-      try {
-        newRootModuleFileValue =
-            ModuleFileFunction.evaluateRootModuleFile(
-                compiledModuleFile,
-                modTidyValue.includeLabelToCompiledModuleFile(),
-                ModuleFileFunction.getBuiltinModules(
-                    env.getDirectories().getEmbeddedBinariesRoot()),
-                modTidyValue.moduleOverrides(),
-                modTidyValue.ignoreDevDeps(),
-                modTidyValue.starlarkSemantics(),
-                env.getReporter(),
-                // Not persisted to Skyframe.
-                SymbolGenerator.createTransient());
-      } catch (SkyFunctionException | InterruptedException e) {
-        return reportAndCreateFailureResult(
-            env,
-            "Unexpected error parsing module file after running buildozer: " + e.getMessage(),
-            Code.BUILDOZER_FAILED);
-      }
-      // BazelModuleResolutionEvent is cached by Skyframe and thus always emitted.
-      BazelModuleResolutionEvent updatedModuleResolutionEvent =
-          BazelModuleResolutionEvent.create(
-              eventRecorder.bazelModuleResolutionEvent.getOnDiskLockfileValue(),
-              eventRecorder
-                  .bazelModuleResolutionEvent
-                  .getResolutionOnlyLockfileValue()
-                  .withShallowlyReplacedRootModule(newRootModuleFileValue),
-              eventRecorder.bazelModuleResolutionEvent.getExtensionUsagesById());
-      env.getReporter().post(updatedModuleResolutionEvent);
     }
 
     return BlazeCommandResult.success();

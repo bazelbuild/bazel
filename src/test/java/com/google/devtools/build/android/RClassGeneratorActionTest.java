@@ -471,6 +471,55 @@ public class RClassGeneratorActionTest {
     }
   }
 
+  @Test
+  public void withRPackage() throws Exception {
+    Path binaryManifest =
+        ManifestBuilder.of(tempDir.resolve("binary"))
+            .createManifest("AndroidManifest.xml", "com.google.app", "");
+    Path libFooManifest =
+        ManifestBuilder.of(tempDir.resolve("libFoo"))
+            .createManifest("AndroidManifest.xml", "com.google.foo", "");
+
+    Path binarySymbols =
+        createFile("R.txt", "int attr attrName 0x7f010000", "int id idName 0x7f080000");
+    Path libFooSymbols = createFile("libFoo.R.txt", "int id idName 0x1");
+
+    Path jarPath = tempDir.resolve("app_resources.jar");
+
+    RClassGeneratorAction.main(
+        ImmutableList.<String>of(
+                "--primaryRTxt",
+                binarySymbols.toString(),
+                "--primaryManifest",
+                binaryManifest.toString(),
+                "--library",
+                libFooSymbols + "," + libFooManifest,
+                "--classJarOutput",
+                jarPath.toString(),
+                "--useRPackage=true",
+                "--targetLabel",
+                "//foo:foo")
+            .toArray(new String[0]));
+
+    assertThat(Files.exists(jarPath)).isTrue();
+
+    try (ZipFile zip = new ZipFile(jarPath.toFile())) {
+      List<? extends ZipEntry> zipEntries = Collections.list(zip.entries());
+      Iterable<String> entries = getZipFilenames(zipEntries);
+      assertThat(entries)
+          .containsExactly(
+              "com/google/foo/R$id.class",
+              "com/google/foo/R.class",
+              "com/google/app/R$attr.class",
+              "com/google/app/R$id.class",
+              "com/google/app/R.class",
+              "com/google/app/RPackage.class",
+              "META-INF/",
+              "META-INF/MANIFEST.MF");
+      ZipMtimeAsserter.assertEntries(zipEntries);
+    }
+  }
+
   private Path createFile(String name, String... contents) throws IOException {
     Path path = tempDir.resolve(name);
     Files.createDirectories(path.getParent());

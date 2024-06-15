@@ -32,9 +32,9 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -80,6 +80,7 @@ import java.util.regex.Pattern;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -639,9 +640,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "ruleContext.expand_location('$(location :gl)')");
 
     // We have to use "locations" for multiple targets
-    runExpansion(
-        "locations :gl",
-        "[blaze]*-out/.*/bin/foo/gl.a [blaze]*-out/.*/bin/foo/gl.gcgox");
+    runExpansion("locations :gl", "[blaze]*-out/.*/bin/foo/gl.a [blaze]*-out/.*/bin/foo/gl.gcgox");
 
     // LocationExpander just returns the input string if there is no label
     runExpansion("location", "\\$\\(location\\)");
@@ -895,8 +894,10 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  substitutions = {'a': 'b'},",
         "  is_executable = False)");
 
-    TemplateExpansionAction action = (TemplateExpansionAction) Iterables.getOnlyElement(
-        ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    TemplateExpansionAction action =
+        (TemplateExpansionAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     assertThat(action.getInputs().getSingleton().getExecPathString()).isEqualTo("foo/a.txt");
     assertThat(Iterables.getOnlyElement(action.getOutputs()).getExecPathString())
         .isEqualTo("foo/b.img");
@@ -929,8 +930,10 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  output = ruleContext.files.srcs[1],",
         "  substitutions = {'a': '" + new String(bytesToDecode, latin1) + "'},",
         "  is_executable = False)");
-    TemplateExpansionAction action = (TemplateExpansionAction) Iterables.getOnlyElement(
-        ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    TemplateExpansionAction action =
+        (TemplateExpansionAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     List<Substitution> substitutions = action.getSubstitutions();
     assertThat(substitutions).hasSize(1);
     assertThat(substitutions.get(0).getValue()).isEqualTo(new String(bytesToDecode, utf8));
@@ -1558,8 +1561,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
     assertThat(expected)
         .hasMessageThat()
-        .contains("rule advertised the 'FooInfo' provider, "
-            + "but this provider was not among those returned");
+        .contains(
+            "rule advertised the 'FooInfo' provider, "
+                + "but this provider was not among those returned");
   }
 
   @Test
@@ -1587,8 +1591,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
     assertThat(expected)
         .hasMessageThat()
-        .contains("rule advertised the 'JavaInfo' provider, "
-            + "but this provider was not among those returned");
+        .contains(
+            "rule advertised the 'JavaInfo' provider, "
+                + "but this provider was not among those returned");
   }
 
   @Test
@@ -2093,7 +2098,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         """);
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_glob");
-    assertContainsEvent("glob() can only be used while evaluating a BUILD file and its macros");
+    assertContainsEvent(
+        "glob() can only be used while evaluating a BUILD file, a WORKSPACE file, or a macro loaded"
+            + " from there");
   }
 
   @Test
@@ -2978,7 +2985,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
-    assertThat(expected).hasMessageThat()
+    assertThat(expected)
+        .hasMessageThat()
         .contains("invalid configuration fragment name 'notarealfragment'");
   }
 
@@ -3038,7 +3046,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
 
-    assertThat(expected).hasMessageThat()
+    assertThat(expected)
+        .hasMessageThat()
         .contains("invalid configuration field name 'notarealfield' on fragment 'apple'");
   }
 
@@ -3069,9 +3078,11 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
 
-    assertThat(expected).hasMessageThat()
-        .contains("When an attribute value is a function, "
-            + "the attribute must be private (i.e. start with '_')");
+    assertThat(expected)
+        .hasMessageThat()
+        .contains(
+            "When an attribute value is a function, "
+                + "the attribute must be private (i.e. start with '_')");
   }
 
   @Test
@@ -3680,7 +3691,7 @@ args.add_all(depset([Label("@@canonical1~//foo:bar"), Label("@@canonical2~//foo:
 
   private String getDigest(CommandLine commandLine)
       throws CommandLineExpansionException, InterruptedException {
-    return getDigest(commandLine, /*artifactExpander=*/ null);
+    return getDigest(commandLine, /* artifactExpander= */ null);
   }
 
   private String getDigest(CommandLine commandLine, ArtifactExpander artifactExpander)
@@ -3718,7 +3729,13 @@ args.add_all(depset([Label("@@canonical1~//foo:bar"), Label("@@canonical2~//foo:
     setRuleContext(createRuleContext("//foo:foo"));
     ev.exec("args = ruleContext.actions.args()", "args.add_all(['--foo', '--bar'])");
     Args args = (Args) ev.eval("args");
-    assertThat(new Printer().debugPrint(args, getStarlarkSemantics()).toString())
+    assertThat(
+            new Printer()
+                .debugPrint(
+                    args,
+                    StarlarkThread.createTransient(
+                        Mutability.create("test"), getStarlarkSemantics()))
+                .toString())
         .isEqualTo("--foo --bar");
   }
 

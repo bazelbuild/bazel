@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -53,8 +53,7 @@ public final class ExtraActionInfoFileWriteAction extends AbstractFileWriteActio
         shadowedAction.discoversInputs()
             ? NestedSetBuilder.<Artifact>stableOrder().addAll(shadowedAction.getOutputs()).build()
             : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        primaryOutput,
-        /*makeExecutable=*/ false);
+        primaryOutput);
 
     this.shadowedAction = Preconditions.checkNotNull(shadowedAction, primaryOutput);
   }

@@ -35,7 +35,9 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionType;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -720,7 +722,7 @@ public class RuleClass implements RuleClassData {
         ImmutableList.builder();
     private boolean ignoreLicenses = false;
     private ImplicitOutputsFunction implicitOutputsFunction = SafeImplicitOutputsFunction.NONE;
-    @Nullable private TransitionFactory<RuleTransitionData> transitionFactory;
+    private TransitionFactory<RuleTransitionData> transitionFactory = NoTransition.getFactory();
     private ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory = null;
     private final AdvertisedProviderSet.Builder advertisedProviders =
         AdvertisedProviderSet.builder();
@@ -819,6 +821,13 @@ public class RuleClass implements RuleClassData {
         allowlistCheckers.addAll(parent.getAllowlistCheckers());
 
         advertisedProviders.addParent(parent.getAdvertisedProviders());
+
+        if (parent.getDefaultImplicitOutputsFunction() != SafeImplicitOutputsFunction.NONE) {
+          if (implicitOutputsFunction != SafeImplicitOutputsFunction.NONE) {
+            throw new IllegalArgumentException("Only a single parent may set implicit outputs");
+          }
+          implicitOutputsFunction = parent.getDefaultImplicitOutputsFunction();
+        }
       }
       // TODO(bazel-team): move this testonly attribute setting to somewhere else
       // preferably to some base RuleClass implementation.
@@ -892,7 +901,6 @@ public class RuleClass implements RuleClassData {
 
       if (starlark
           && (type == RuleClassType.NORMAL || type == RuleClassType.TEST)
-          && implicitOutputsFunction == SafeImplicitOutputsFunction.NONE
           && outputsToBindir
           && !starlarkTestable
           && !isAnalysisTest
@@ -1134,8 +1142,11 @@ public class RuleClass implements RuleClassData {
           type != RuleClassType.ABSTRACT,
           "Setting not inherited property (cfg) of abstract rule class '%s'",
           name);
-      Preconditions.checkState(this.transitionFactory == null, "Property cfg has already been set");
+      Preconditions.checkState(
+          NoTransition.isInstance(this.transitionFactory), "Property cfg has already been set");
       Preconditions.checkNotNull(transitionFactory);
+      Preconditions.checkArgument(
+          transitionFactory.transitionType().isCompatibleWith(TransitionType.RULE));
       Preconditions.checkArgument(!transitionFactory.isSplit());
       this.transitionFactory = transitionFactory;
       return this;
@@ -1148,20 +1159,14 @@ public class RuleClass implements RuleClassData {
     }
 
     /**
-     * State that the rule class being built possibly supplies the specified provider to its direct
-     * dependencies.
+     * State that the rule class being built always supplies the specified provider.
      *
      * <p>When computing the set of aspects required for a rule, only the providers listed here are
-     * considered. The presence of a provider here does not mean that the rule <b>must</b> implement
-     * said provider, merely that it <b>can</b>. After the configured target is constructed from
-     * this rule, aspects will be filtered according to the set of actual providers.
+     * considered. The presence of a provider here means that the rule <b>must</b> implement said
+     * provider.
      *
      * <p>This is here so that we can do the loading phase overestimation required for "blaze
      * query", which does not have the configured targets available.
-     *
-     * <p>It's okay for the rule class eventually not to supply it (possibly based on analysis phase
-     * logic), but if a provider is not advertised but is supplied, aspects that require the it will
-     * not be evaluated for the rule.
      */
     @CanIgnoreReturnValue
     public Builder advertiseProvider(Class<?>... providers) {
@@ -1671,7 +1676,7 @@ public class RuleClass implements RuleClassData {
    * A factory which will produce a configuration transition that should be applied on any edge of
    * the configured target graph that leads into a target of this rule class.
    */
-  @Nullable private final TransitionFactory<RuleTransitionData> transitionFactory;
+  private final TransitionFactory<RuleTransitionData> transitionFactory;
 
   /** The factory that creates configured targets from this rule. */
   private final ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory;
@@ -1779,7 +1784,7 @@ public class RuleClass implements RuleClassData {
       ImmutableList<AllowlistChecker> allowlistCheckers,
       boolean ignoreLicenses,
       ImplicitOutputsFunction implicitOutputsFunction,
-      @Nullable TransitionFactory<RuleTransitionData> transitionFactory,
+      TransitionFactory<RuleTransitionData> transitionFactory,
       ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory,
       AdvertisedProviderSet advertisedProviders,
       @Nullable StarlarkCallable configuredTargetFunction,
@@ -1889,7 +1894,6 @@ public class RuleClass implements RuleClassData {
     return implicitOutputsFunction;
   }
 
-  @Nullable
   public TransitionFactory<RuleTransitionData> getTransitionFactory() {
     return transitionFactory;
   }

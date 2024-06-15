@@ -109,7 +109,6 @@ gRPC and `grpcs://` for gRPC with TLS enabled.
 Bazel has several flags related to the Build Event Service protocol, including:
 
 *  `--bes_backend`
-*  `--[no]bes_best_effort`
 *  `--[no]bes_lifecycle_events`
 *  `--bes_results_url`
 *  `--bes_timeout`

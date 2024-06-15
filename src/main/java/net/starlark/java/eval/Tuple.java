@@ -47,19 +47,16 @@ public abstract class Tuple extends AbstractList<Object>
   // Prohibit instantiation outside of package.
   Tuple() {}
 
-  // The shared (sole) empty tuple.
-  private static final Tuple EMPTY = new RegularTuple(new Object[] {});
-
   /** Returns the empty tuple. */
   public static Tuple empty() {
-    return EMPTY;
+    return RegularTuple.EMPTY;
   }
 
   /** Returns a Tuple that wraps the specified array, which must not be subsequently modified. */
   static Tuple wrap(Object[] array) {
     switch (array.length) {
       case 0:
-        return EMPTY;
+        return RegularTuple.EMPTY;
       case 1:
         return new SingletonTuple(array[0]);
       default:

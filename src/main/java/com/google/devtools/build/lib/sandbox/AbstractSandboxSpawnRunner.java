@@ -360,13 +360,11 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   /**
    * Gets the list of directories that the spawn will assume to be writable.
    *
-   * @param sandboxExecRoot the exec root of the sandbox from the point of view of the Bazel process
-   * @param withinSandboxExecRoot the exec root from the point of view of the sandboxed processes
+   * @param sandboxExecRoot the exec root of the sandbox
    * @param env the environment of the sandboxed processes
    * @throws IOException because we might resolve symlinks, which throws {@link IOException}.
    */
-  protected ImmutableSet<Path> getWritableDirs(
-      Path sandboxExecRoot, Path withinSandboxExecRoot, Map<String, String> env)
+  protected ImmutableSet<Path> getWritableDirs(Path sandboxExecRoot, Map<String, String> env)
       throws IOException {
     // We have to make the TEST_TMPDIR directory writable if it is specified.
     ImmutableSet.Builder<Path> writablePaths = ImmutableSet.builder();
@@ -374,7 +372,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     // On Windows, sandboxExecRoot is actually the main execroot. We will specify
     // exactly which output path is writable.
     if (OS.getCurrent() != OS.WINDOWS) {
-      writablePaths.add(withinSandboxExecRoot);
+      writablePaths.add(sandboxExecRoot);
     }
 
     String testTmpdir = env.get("TEST_TMPDIR");

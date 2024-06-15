@@ -15,6 +15,12 @@
 """Utility functions for C++ rules."""
 
 load(":common/cc/cc_common.bzl", "cc_common")
+load(
+    ":common/cc/cc_helper_internal.bzl",
+    "is_versioned_shared_library_extension_valid",
+    "should_create_per_object_debug_info",
+    _artifact_category = "artifact_category",
+)
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/objc/objc_common.bzl", "objc_common")
 load(":common/objc/semantics.bzl", objc_semantics = "semantics")
@@ -26,26 +32,7 @@ config_common = _builtins.toplevel.config_common
 coverage_common = _builtins.toplevel.coverage_common
 platform_common = _builtins.toplevel.platform_common
 
-artifact_category = struct(
-    STATIC_LIBRARY = "STATIC_LIBRARY",
-    ALWAYSLINK_STATIC_LIBRARY = "ALWAYSLINK_STATIC_LIBRARY",
-    DYNAMIC_LIBRARY = "DYNAMIC_LIBRARY",
-    EXECUTABLE = "EXECUTABLE",
-    INTERFACE_LIBRARY = "INTERFACE_LIBRARY",
-    PIC_FILE = "PIC_FILE",
-    INCLUDED_FILE_LIST = "INCLUDED_FILE_LIST",
-    SERIALIZED_DIAGNOSTICS_FILE = "SERIALIZED_DIAGNOSTICS_FILE",
-    OBJECT_FILE = "OBJECT_FILE",
-    PIC_OBJECT_FILE = "PIC_OBJECT_FILE",
-    CPP_MODULE = "CPP_MODULE",
-    GENERATED_ASSEMBLY = "GENERATED_ASSEMBLY",
-    PROCESSED_HEADER = "PROCESSED_HEADER",
-    GENERATED_HEADER = "GENERATED_HEADER",
-    PREPROCESSED_C_SOURCE = "PREPROCESSED_C_SOURCE",
-    PREPROCESSED_CPP_SOURCE = "PREPROCESSED_CPP_SOURCE",
-    COVERAGE_DATA_FILE = "COVERAGE_DATA_FILE",
-    CLIF_OUTPUT_PROTO = "CLIF_OUTPUT_PROTO",
-)
+artifact_category = _artifact_category
 
 linker_mode = struct(
     LINKING_DYNAMIC = "dynamic_linking_mode",
@@ -74,7 +61,7 @@ def _build_linking_context_from_libraries(ctx, libraries):
 
 def _check_file_extension(file, allowed_extensions, allow_versioned_shared_libraries):
     extension = "." + file.extension
-    if _matches_extension(extension, allowed_extensions) or (allow_versioned_shared_libraries and _is_versioned_shared_library_extension_valid(file.path)):
+    if _matches_extension(extension, allowed_extensions) or (allow_versioned_shared_libraries and is_versioned_shared_library_extension_valid(file.path)):
         return True
     return False
 
@@ -132,7 +119,7 @@ def _create_strip_action(ctx, cc_toolchain, cpp_config, input, output, feature_c
     ctx.actions.run(
         inputs = depset(
             direct = [input],
-            transitive = [cc_toolchain.all_files],
+            transitive = [cc_toolchain._strip_files],
         ),
         outputs = [output],
         use_default_shell_env = True,
@@ -525,22 +512,6 @@ def _build_precompiled_files(ctx):
         shared_libraries,
     )
 
-def _is_versioned_shared_library_extension_valid(shared_library_name):
-    # validate agains the regex "^.+\\.((so)|(dylib))(\\.\\d\\w*)+$",
-    # must match VERSIONED_SHARED_LIBRARY.
-    for ext in (".so.", ".dylib."):
-        name, _, version = shared_library_name.rpartition(ext)
-        if name and version:
-            version_parts = version.split(".")
-            for part in version_parts:
-                if not part[0].isdigit():
-                    return False
-                for c in part[1:].elems():
-                    if not (c.isalnum() or c == "_"):
-                        return False
-            return True
-    return False
-
 # NOTE: Prefer to use _is_valid_shared_library_artifact() instead of this method since
 # it has better performance (checking for extension in a short list rather than multiple
 # string.endswith() checks)
@@ -551,7 +522,7 @@ def _is_valid_shared_library_name(shared_library_name):
         shared_library_name.endswith(".wasm")):
         return True
 
-    return _is_versioned_shared_library_extension_valid(shared_library_name)
+    return is_versioned_shared_library_extension_valid(shared_library_name)
 
 _SHARED_LIBRARY_EXTENSIONS = ["so", "dll", "dylib", "wasm"]
 
@@ -559,7 +530,7 @@ def _is_valid_shared_library_artifact(shared_library):
     if (shared_library.extension in _SHARED_LIBRARY_EXTENSIONS):
         return True
 
-    return _is_versioned_shared_library_extension_valid(shared_library.basename)
+    return is_versioned_shared_library_extension_valid(shared_library.basename)
 
 def _get_providers(deps, provider):
     providers = []
@@ -580,13 +551,6 @@ def _get_static_mode_params_for_dynamic_library_libraries(libs):
         else:
             linker_inputs.append(lib.dynamic_library)
     return linker_inputs
-
-def _should_create_per_object_debug_info(feature_configuration, cpp_configuration):
-    return cpp_configuration.fission_active_for_current_compilation_mode() and \
-           cc_common.is_enabled(
-               feature_configuration = feature_configuration,
-               feature_name = "per_object_debug_info",
-           )
 
 def _libraries_from_linking_context(linking_context):
     libraries = []
@@ -980,26 +944,37 @@ def _map_to_list(m):
         result.append((k, v))
     return result
 
-# Returns a list of (Artifact, Label) tuples. Each tuple represents an input source
-# file and the label of the rule that generates it (or the label of the source file itself if it
-# is an input file).
+def _calculate_artifact_label_map(attr_list, attr_name):
+    """
+    Converts a label_list attribute into a list of (Artifact, Label) tuples.
+
+    Each tuple represents an input source file and the label of the rule that generates it
+    (or the label of the source file itself if it is an input file).
+    """
+    artifact_label_map = {}
+    for attr in attr_list:
+        if DefaultInfo in attr:
+            for artifact in attr[DefaultInfo].files.to_list():
+                if "." + artifact.extension not in CC_HEADER:
+                    old_label = artifact_label_map.get(artifact, None)
+                    artifact_label_map[artifact] = attr.label
+                    if old_label != None and not _are_labels_equal(old_label, attr.label) and ("." + artifact.extension in CC_AND_OBJC or attr_name == "module_interfaces"):
+                        fail(
+                            "Artifact '{}' is duplicated (through '{}' and '{}')".format(artifact, old_label, attr),
+                            attr = attr_name,
+                        )
+    return artifact_label_map
+
 def _get_srcs(ctx):
     if not hasattr(ctx.attr, "srcs"):
         return []
+    artifact_label_map = _calculate_artifact_label_map(ctx.attr.srcs, "srcs")
+    return _map_to_list(artifact_label_map)
 
-    # "srcs" attribute is a LABEL_LIST in cc_rules, which might also contain files.
-    artifact_label_map = {}
-    for src in ctx.attr.srcs:
-        if DefaultInfo in src:
-            for artifact in src[DefaultInfo].files.to_list():
-                if "." + artifact.extension not in CC_HEADER:
-                    old_label = artifact_label_map.get(artifact, None)
-                    artifact_label_map[artifact] = src.label
-                    if old_label != None and not _are_labels_equal(old_label, src.label) and "." + artifact.extension in CC_AND_OBJC:
-                        fail(
-                            "Artifact '{}' is duplicated (through '{}' and '{}')".format(artifact, old_label, src),
-                            attr = "srcs",
-                        )
+def _get_cpp_module_interfaces(ctx):
+    if not hasattr(ctx.attr, "module_interfaces"):
+        return []
+    artifact_label_map = _calculate_artifact_label_map(ctx.attr.module_interfaces, "module_interfaces")
     return _map_to_list(artifact_label_map)
 
 # Returns a list of (Artifact, Label) tuples. Each tuple represents an input source
@@ -1212,6 +1187,17 @@ def _should_use_pic(ctx, cc_toolchain, feature_configuration):
         )
     )
 
+def _check_cpp_modules(ctx, feature_configuration):
+    if len(ctx.files.module_interfaces) == 0:
+        return
+    if not ctx.fragments.cpp.experimental_cpp_modules():
+        fail("requires --experimental_cpp_modules", attr = "module_interfaces")
+    if not cc_common.is_enabled(
+        feature_configuration = feature_configuration,
+        feature_name = "cpp_modules",
+    ):
+        fail("to use C++ modules, the feature cpp_modules must be enabled")
+
 cc_helper = struct(
     CPP_TOOLCHAIN_TYPE = _CPP_TOOLCHAIN_TYPE,
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
@@ -1235,7 +1221,7 @@ cc_helper = struct(
     is_compilation_outputs_empty = _is_compilation_outputs_empty,
     matches_extension = _matches_extension,
     get_static_mode_params_for_dynamic_library_libraries = _get_static_mode_params_for_dynamic_library_libraries,
-    should_create_per_object_debug_info = _should_create_per_object_debug_info,
+    should_create_per_object_debug_info = should_create_per_object_debug_info,
     check_file_extensions = _check_file_extensions,
     check_srcs_extensions = _check_srcs_extensions,
     libraries_from_linking_context = _libraries_from_linking_context,
@@ -1261,6 +1247,7 @@ cc_helper = struct(
     get_local_defines_for_runfiles_lookup = _get_local_defines_for_runfiles_lookup,
     are_labels_equal = _are_labels_equal,
     get_srcs = _get_srcs,
+    get_cpp_module_interfaces = _get_cpp_module_interfaces,
     get_private_hdrs = _get_private_hdrs,
     get_public_hdrs = _get_public_hdrs,
     report_invalid_options = _report_invalid_options,
@@ -1278,4 +1265,5 @@ cc_helper = struct(
     package_source_root = _package_source_root,
     tokenize = _tokenize,
     should_use_pic = _should_use_pic,
+    check_cpp_modules = _check_cpp_modules,
 )

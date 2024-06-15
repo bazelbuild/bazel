@@ -4907,31 +4907,6 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCcToolchainInfoFromStarlarkRequiredTargetSystemName() throws Exception {
-    setupStarlarkRuleForStringFieldsTesting("target_system_name");
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("missing 1 required keyword-only argument: target_system_name");
-  }
-
-  @Test
-  public void testCcToolchainInfoFromStarlarkRequiredTargetCpu() throws Exception {
-    setupStarlarkRuleForStringFieldsTesting("target_cpu");
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e).hasMessageThat().contains("missing 1 required keyword-only argument: target_cpu");
-  }
-
-  @Test
-  public void testCcToolchainInfoFromStarlarkRequiredTargetLibc() throws Exception {
-    setupStarlarkRuleForStringFieldsTesting("target_libc");
-    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
-    assertThat(e)
-        .hasMessageThat()
-        .contains("missing 1 required keyword-only argument: target_libc");
-  }
-
-  @Test
   public void testCcToolchainInfoFromStarlarkRequiredCompiler() throws Exception {
     setupStarlarkRuleForStringFieldsTesting("compiler");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
@@ -7408,6 +7383,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             "build_test_dwp()",
             "grte_top()",
             "experimental_cc_implementation_deps()",
+            "experimental_cpp_modules()",
             "share_native_deps()",
             "experimental_platform_cc_test()");
     scratch.file(

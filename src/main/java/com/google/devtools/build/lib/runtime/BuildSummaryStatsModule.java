@@ -65,6 +65,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
   private long executionEndMillis;
   private SpawnStats spawnStats;
   private Path profilePath;
+  private Profiler.Format profileFormat;
   private AtomicBoolean executionStarted;
 
   @Override
@@ -123,6 +124,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
   @Subscribe
   public void profileStarting(ProfilerStartedEvent event) {
     this.profilePath = event.getProfilePath();
+    this.profileFormat = event.getFormat();
   }
 
   @Subscribe
@@ -189,7 +191,12 @@ public class BuildSummaryStatsModule extends BlazeModule {
           event
               .getResult()
               .getBuildToolLogCollection()
-              .addLocalFile(profilePath.getBaseName(), profilePath);
+              .addLocalFile(
+                  switch (profileFormat) {
+                    case JSON_TRACE_FILE_FORMAT -> "command.profile.json";
+                    case JSON_TRACE_FILE_COMPRESSED_FORMAT -> "command.profile.gz";
+                  },
+                  profilePath);
         } catch (IOException e) {
           reporter.handle(Event.error("Error while writing profile file: " + e.getMessage()));
         }

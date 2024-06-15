@@ -30,11 +30,11 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder.LinkActionConstruction;
+import com.google.devtools.build.lib.rules.cpp.LegacyLinkerInputs.LibraryInput;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.Picness;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.LinkingInfoApi;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -45,6 +45,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.SymbolGenerator;
 
+// LINT.IfChange
 /**
  * A class to create C/C++ link actions in a way that is consistent with cc_library. Rules that
  * generate source files and emulate cc_library on top of that should use this class instead of the
@@ -55,30 +56,6 @@ import net.starlark.java.eval.SymbolGenerator;
  * these require explicit calls to the corresponding setter methods.
  */
 public final class CcLinkingHelper {
-
-  /** Contains the providers as well as the linking outputs. */
-  // TODO(plf): Only used by Starlark API. Remove after migrating.
-  @Deprecated
-  public static final class LinkingInfo implements LinkingInfoApi {
-    private final CcLinkingContext ccLinkingContext;
-    private final CcLinkingOutputs linkingOutputs;
-
-    public LinkingInfo(CcLinkingContext ccLinkingContext, CcLinkingOutputs linkingOutputs) {
-      this.ccLinkingContext = ccLinkingContext;
-      this.linkingOutputs = linkingOutputs;
-    }
-
-    @Override
-    public CcLinkingContext getCcLinkingContext() {
-      return ccLinkingContext;
-    }
-
-    @Override
-    public CcLinkingOutputs getCcLinkingOutputs() {
-      return linkingOutputs;
-    }
-  }
-
   private final CppSemantics semantics;
 
   private final NestedSetBuilder<Artifact> additionalLinkerInputsBuilder =
@@ -563,7 +540,7 @@ public final class CcLinkingHelper {
     }
 
     if (createNoPicAction) {
-      LinkerInputs.LibraryToLink staticLibrary =
+      LibraryInput staticLibrary =
           registerActionForStaticLibrary(
               staticLinkType, ccOutputs, /* usePic= */ false, libraryIdentifier);
       libraryToLinkBuilder
@@ -587,7 +564,7 @@ public final class CcLinkingHelper {
                 ? LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY
                 : LinkTargetType.PIC_STATIC_LIBRARY;
       }
-      LinkerInputs.LibraryToLink picStaticLibrary =
+      LibraryInput picStaticLibrary =
           registerActionForStaticLibrary(
               linkTargetTypeUsedForNaming, ccOutputs, /* usePic= */ true, libraryIdentifier);
       libraryToLinkBuilder
@@ -608,7 +585,7 @@ public final class CcLinkingHelper {
         && fdoContext.getPropellerOptimizeInputFile().getLdArtifact() != null;
   }
 
-  private LinkerInputs.LibraryToLink registerActionForStaticLibrary(
+  private LibraryInput registerActionForStaticLibrary(
       LinkTargetType linkTargetTypeUsedForNaming,
       CcCompilationOutputs ccOutputs,
       boolean usePic,
@@ -729,13 +706,15 @@ public final class CcLinkingHelper {
             || dynamicLinkType != LinkTargetType.NODEPS_DYNAMIC_LIBRARY;
 
     if (shouldLinkTransitively) {
+      // LINT.IfChange
       CcLinkingContext ccLinkingContext = CcLinkingContext.merge(ccLinkingContexts);
-      List<LinkerInputs.LibraryToLink> libraries =
+      ImmutableList<LibraryInput> libraries =
           convertLibraryToLinkListToLinkerInputList(
               ccLinkingContext.getLibraries(),
               linkingMode != LinkingMode.DYNAMIC,
               dynamicLinkType.isDynamicLibrary(),
               featureConfiguration);
+      // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/convert_linker_inputs.bzl)
       ImmutableList<CcLinkingContext.Linkstamp> linkstamps =
           ccLinkingContext.getLinkstamps().toList();
       if (dynamicLinkType == LinkTargetType.NODEPS_DYNAMIC_LIBRARY) {
@@ -783,9 +762,8 @@ public final class CcLinkingHelper {
     }
     linkActionConstruction.getContext().registerAction(dynamicLinkAction);
 
-    LinkerInputs.LibraryToLink dynamicLibrary = dynamicLinkActionBuilder.getOutputLibrary();
-    LinkerInputs.LibraryToLink interfaceLibrary =
-        dynamicLinkActionBuilder.getInterfaceOutputLibrary();
+    LibraryInput dynamicLibrary = dynamicLinkActionBuilder.getOutputLibrary();
+    LibraryInput interfaceLibrary = dynamicLinkActionBuilder.getInterfaceOutputLibrary();
 
     // If shared library has neverlink=1, then leave it untouched. Otherwise,
     // create a mangled symlink for it and from now on reference it through
@@ -910,70 +888,72 @@ public final class CcLinkingHelper {
         artifactFragment);
   }
 
-  private static List<LinkerInputs.LibraryToLink> convertLibraryToLinkListToLinkerInputList(
+  // LINT.IfChange
+  private static ImmutableList<LibraryInput> convertLibraryToLinkListToLinkerInputList(
       NestedSet<LibraryToLink> librariesToLink,
       boolean staticMode,
       boolean forDynamicLibrary,
       FeatureConfiguration featureConfiguration) {
-    ImmutableList.Builder<LinkerInputs.LibraryToLink> librariesToLinkBuilder =
-        ImmutableList.builder();
+    ImmutableList.Builder<LibraryInput> libraryInputsBuilder = ImmutableList.builder();
     for (LibraryToLink libraryToLink : librariesToLink.toList()) {
-      LinkerInputs.LibraryToLink staticLibraryToLink =
-          libraryToLink.getStaticLibrary() == null ? null : libraryToLink.getStaticLibraryToLink();
-      LinkerInputs.LibraryToLink picStaticLibraryToLink =
+      LibraryInput staticLibraryInput =
+          libraryToLink.getStaticLibrary() == null ? null : libraryToLink.getStaticLibraryInput();
+      LibraryInput picStaticLibraryInput =
           libraryToLink.getPicStaticLibrary() == null
               ? null
-              : libraryToLink.getPicStaticLibraryToLink();
-      LinkerInputs.LibraryToLink libraryToLinkToUse = null;
+              : libraryToLink.getPicStaticLibraryInput();
+      LibraryInput libraryInputToUse = null;
       if (staticMode) {
         if (forDynamicLibrary) {
-          if (picStaticLibraryToLink != null) {
-            libraryToLinkToUse = picStaticLibraryToLink;
-          } else if (staticLibraryToLink != null) {
-            libraryToLinkToUse = staticLibraryToLink;
+          if (picStaticLibraryInput != null) {
+            libraryInputToUse = picStaticLibraryInput;
+          } else if (staticLibraryInput != null) {
+            libraryInputToUse = staticLibraryInput;
           }
         } else {
-          if (staticLibraryToLink != null) {
-            libraryToLinkToUse = staticLibraryToLink;
-          } else if (picStaticLibraryToLink != null) {
-            libraryToLinkToUse = picStaticLibraryToLink;
+          if (staticLibraryInput != null) {
+            libraryInputToUse = staticLibraryInput;
+          } else if (picStaticLibraryInput != null) {
+            libraryInputToUse = picStaticLibraryInput;
           }
         }
-        if (libraryToLinkToUse == null) {
+        if (libraryInputToUse == null) {
           if (libraryToLink.getInterfaceLibrary() != null) {
-            libraryToLinkToUse = libraryToLink.getInterfaceLibraryToLink();
+            libraryInputToUse = libraryToLink.getInterfaceLibraryInput();
           } else if (libraryToLink.getDynamicLibrary() != null) {
-            libraryToLinkToUse = libraryToLink.getDynamicLibraryToLink();
+            libraryInputToUse = libraryToLink.getDynamicLibraryInput();
           }
         }
       } else {
         if (libraryToLink.getInterfaceLibrary() != null) {
-          libraryToLinkToUse = libraryToLink.getInterfaceLibraryToLink();
+          libraryInputToUse = libraryToLink.getInterfaceLibraryInput();
         } else if (libraryToLink.getDynamicLibrary() != null) {
-          libraryToLinkToUse = libraryToLink.getDynamicLibraryToLink();
+          libraryInputToUse = libraryToLink.getDynamicLibraryInput();
         }
-        if (libraryToLinkToUse == null
+        if (libraryInputToUse == null
             || !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER)) {
           if (forDynamicLibrary) {
-            if (picStaticLibraryToLink != null) {
-              libraryToLinkToUse = picStaticLibraryToLink;
-            } else if (staticLibraryToLink != null) {
-              libraryToLinkToUse = staticLibraryToLink;
+            if (picStaticLibraryInput != null) {
+              libraryInputToUse = picStaticLibraryInput;
+            } else if (staticLibraryInput != null) {
+              libraryInputToUse = staticLibraryInput;
             }
           } else {
-            if (staticLibraryToLink != null) {
-              libraryToLinkToUse = staticLibraryToLink;
-            } else if (picStaticLibraryToLink != null) {
-              libraryToLinkToUse = picStaticLibraryToLink;
+            if (staticLibraryInput != null) {
+              libraryInputToUse = staticLibraryInput;
+            } else if (picStaticLibraryInput != null) {
+              libraryInputToUse = picStaticLibraryInput;
             }
           }
         }
       }
-      Preconditions.checkNotNull(libraryToLinkToUse);
-      librariesToLinkBuilder.add(libraryToLinkToUse);
+      Preconditions.checkNotNull(libraryInputToUse);
+      libraryInputsBuilder.add(libraryInputToUse);
     }
-    return librariesToLinkBuilder.build();
+    return libraryInputsBuilder.build();
   }
+
+  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/convert_linker_inputs.bzl)
 
   @Nullable
   private Artifact getDynamicLibrarySolibSymlinkOutput(Artifact linkerOutputArtifact)
@@ -995,3 +975,4 @@ public final class CcLinkingHelper {
         /* prefixConsumer= */ false);
   }
 }
+// LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/cc_linking_helper.bzl)

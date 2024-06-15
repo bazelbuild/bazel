@@ -1933,6 +1933,7 @@ EOF
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
     --instrumentation_filter=//java/factorial \
+    --build_event_text_file=bes.txt \
     //java/factorial:fact-test &> $TEST_log || fail "Shouldn't fail"
 
   # Test binary shouldn't be downloaded
@@ -1958,6 +1959,10 @@ end_of_record"
   expect_log "$expected_result"
   cat bazel-out/_coverage/_coverage_report.dat > $TEST_log
   expect_log "$expected_result"
+
+  cat bes.txt | tr '\n' ' ' > $TEST_log
+  report_sha=$(sha256sum bazel-out/_coverage/_coverage_report.dat | cut -d ' ' -f 1)
+  expect_log "log {     name: \"coverage_report.lcov\"     uri: \"bytestream://[^\"]*/${report_sha}/[^\"]*\""
 }
 
 function test_remote_cache_eviction_retries() {

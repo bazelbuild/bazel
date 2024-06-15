@@ -221,7 +221,7 @@ public class WorkerTestUtils {
         Path logFile,
         FakeSubprocess fakeSubprocess,
         WorkerOptions options) {
-      super(workerKey, workerId, workDir, logFile, options);
+      super(workerKey, workerId, workDir, logFile, options, null);
       this.fakeSubprocess = fakeSubprocess;
     }
 

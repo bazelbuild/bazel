@@ -135,6 +135,7 @@ def _check_cc_shared_library_tags(ctx):
     pass
 
 semantics = struct(
+    toolchain = "@bazel_tools//tools/cpp:toolchain_type",
     ALLOWED_RULES_IN_DEPS = [
         "cc_library",
         "objc_library",

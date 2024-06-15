@@ -20,16 +20,20 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Table;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -46,6 +50,7 @@ import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -139,66 +144,51 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
     if (!useWorkers) {
       return fetchInternal(args);
     }
-    var state = env.getState(() -> new RepoFetchingSkyKeyComputeState(rule.getName()));
-    if (state.workerExecutorService.isShutdown()) {
-      // If we get here and the worker executor is shut down, this can only mean that the worker
-      // future was cancelled while we (the host Skyframe thread) were inactive (as in, having
-      // returned `null` but not yet restarted). So we wait for the previous worker thread to finish
-      // first.
-      // TODO: instead of this complicated dance, consider making it legal for
-      //  `SkyKeyComputeState#close()` to block. This would undo the advice added in commit 8ef0a51,
-      //  but would allow us to merge `close()` and `closeAndWaitForTermination()` and avoid some
-      //  headache.
-      state.closeAndWaitForTermination();
-    }
-    boolean shouldShutDownWorkerExecutorInFinally = true;
-    try {
-      var workerFuture = state.workerFuture;
-      if (workerFuture == null) {
-        // No worker is running yet, which means we're just starting to fetch this repo. Start with
-        // a clean slate, and create the worker.
-        setupRepoRoot(outputDirectory);
-        Environment workerEnv = new RepoFetchingWorkerSkyFunctionEnvironment(state, env);
-        workerFuture =
-            state.startWorker(
-                () -> fetchInternal(args.toWorkerArgs(workerEnv, state.recordedInputValues)));
-      } else {
-        // A worker is already running. This can only mean one thing -- we just had a Skyframe
-        // restart, and need to send over a fresh Environment.
+    // See below (the `catch CancellationException` clause) for why there's a `while` loop here.
+    while (true) {
+      var state = env.getState(() -> new RepoFetchingSkyKeyComputeState(rule.getName()));
+      ListenableFuture<RepositoryDirectoryValue.Builder> workerFuture =
+          state.getOrStartWorker(
+              () -> {
+                Environment workerEnv = new RepoFetchingWorkerSkyFunctionEnvironment(state);
+                setupRepoRoot(outputDirectory);
+                return fetchInternal(args.toWorkerArgs(workerEnv, state.recordedInputValues));
+              });
+      try {
         state.delegateEnvQueue.put(env);
-      }
-      state.signalSemaphore.acquire();
-      if (!workerFuture.isDone()) {
-        // This means that the worker is still running, and expecting a fresh Environment. Return
-        // null to trigger a Skyframe restart, but *don't* shut down the worker executor.
-        shouldShutDownWorkerExecutorInFinally = false;
-        return null;
-      }
-      RepositoryDirectoryValue.Builder result = workerFuture.get();
-      recordedInputValues.putAll(state.recordedInputValues);
-      return result;
-    } catch (ExecutionException e) {
-      Throwables.throwIfInstanceOf(e.getCause(), RepositoryFunctionException.class);
-      Throwables.throwIfUnchecked(e.getCause());
-      throw new IllegalStateException("unexpected exception type: " + e.getClass(), e.getCause());
-    } catch (CancellationException e) {
-      // This can only happen if the state object was invalidated due to memory pressure, in
-      // which case we can simply reattempt the fetch.
-      env.getListener()
-          .post(
-              RepositoryFetchProgress.ongoing(
-                  RepositoryName.createUnvalidated(rule.getName()),
-                  "fetch interrupted due to memory pressure; restarting."));
-      return fetch(rule, outputDirectory, directories, env, recordedInputValues, key);
-    } finally {
-      if (shouldShutDownWorkerExecutorInFinally) {
-        // Unless we know the worker is waiting on a fresh Environment, we should *always* shut down
-        // the worker executor and reset the state by the time we finish executing (successfully or
-        // otherwise). This ensures that 1) no background work happens without our knowledge, and
-        // 2) if the SkyFunction is re-entered for any reason (for example b/330892334 and
-        // https://github.com/bazelbuild/bazel/issues/21238), we don't have lingering state messing
-        // things up.
-        state.closeAndWaitForTermination();
+        state.signalSemaphore.acquire();
+        if (!workerFuture.isDone()) {
+          // This means that the worker is still running, and expecting a fresh Environment. Return
+          // null to trigger a Skyframe restart, but *don't* shut down the worker executor.
+          return null;
+        }
+        RepositoryDirectoryValue.Builder result = workerFuture.get();
+        recordedInputValues.putAll(state.recordedInputValues);
+        return result;
+      } catch (ExecutionException e) {
+        Throwables.throwIfInstanceOf(e.getCause(), RepositoryFunctionException.class);
+        Throwables.throwIfUnchecked(e.getCause());
+        throw new IllegalStateException(
+            "unexpected exception type: " + e.getCause().getClass(), e.getCause());
+      } catch (CancellationException e) {
+        // This can only happen if the state object was invalidated due to memory pressure, in
+        // which case we can simply reattempt the fetch. Show a message and continue into the next
+        // `while` iteration.
+        env.getListener()
+            .post(
+                RepositoryFetchProgress.ongoing(
+                    RepositoryName.createUnvalidated(rule.getName()),
+                    "fetch interrupted due to memory pressure; restarting."));
+      } finally {
+        if (workerFuture.isDone()) {
+          // Unless we know the worker is waiting on a fresh Environment, we should *always* shut
+          // down the worker executor by the time we finish executing (successfully or otherwise).
+          // This ensures that 1) no background work happens without our knowledge, and 2) if the
+          // SkyFunction is re-entered for any reason (for example b/330892334 and
+          // https://github.com/bazelbuild/bazel/issues/21238), we know we'll need to create a new
+          // worker from scratch.
+          state.close();
+        }
       }
     }
   }
@@ -242,6 +232,27 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       return null;
     }
 
+    boolean enableBzlmod = starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD);
+    @Nullable RepositoryMapping mainRepoMapping;
+    String ruleClass =
+        rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel().getUnambiguousCanonicalForm()
+            + "%"
+            + rule.getRuleClass();
+    if (NonRegistryOverride.BOOTSTRAP_RULE_CLASSES.contains(ruleClass)) {
+      // Avoid a cycle.
+      mainRepoMapping = null;
+    } else if (enableBzlmod || !isWorkspaceRepo(rule)) {
+      var mainRepoMappingValue =
+          (RepositoryMappingValue)
+              env.getValue(RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS);
+      if (mainRepoMappingValue == null) {
+        return null;
+      }
+      mainRepoMapping = mainRepoMappingValue.getRepositoryMapping();
+    } else {
+      mainRepoMapping = rule.getPackage().getRepositoryMapping();
+    }
+
     IgnoredPackagePrefixesValue ignoredPackagesValue =
         (IgnoredPackagePrefixesValue) env.getValue(IgnoredPackagePrefixesValue.key());
     if (env.valuesMissing()) {
@@ -264,7 +275,9 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
         thread.setThreadLocal(Label.RepoMappingRecorder.class, repoMappingRecorder);
       }
 
-      new BazelStarlarkContext(BazelStarlarkContext.Phase.LOADING).storeInThread(thread); // "fetch"
+      // We sort of want a starlark thread context here, but no extra info is needed. So we just
+      // use an anonymous class.
+      new StarlarkThreadContext(() -> mainRepoMapping) {}.storeInThread(thread);
 
       StarlarkRepositoryContext starlarkRepositoryContext =
           new StarlarkRepositoryContext(
@@ -313,8 +326,8 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
             Starlark.call(
                 thread,
                 function,
-                /*args=*/ ImmutableList.of(starlarkRepositoryContext),
-                /*kwargs=*/ ImmutableMap.of());
+                /* args= */ ImmutableList.of(starlarkRepositoryContext),
+                /* kwargs= */ ImmutableMap.of());
         fetchSuccessful = true;
       } finally {
         if (starlarkRepositoryContext.ensureNoPendingAsyncTasks(
@@ -336,16 +349,14 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
         env.getListener().handle(Event.debug(defInfo));
       }
 
-      // Modify marker data to include the files/dirents used by the rule's implementation function.
+      // Modify marker data to include the files/dirents/env vars used by the rule's implementation
+      // function.
       recordedInputValues.putAll(starlarkRepositoryContext.getRecordedFileInputs());
       recordedInputValues.putAll(starlarkRepositoryContext.getRecordedDirentsInputs());
       recordedInputValues.putAll(starlarkRepositoryContext.getRecordedDirTreeInputs());
-
-      // Ditto for environment variables accessed via `getenv`.
-      for (String envKey : starlarkRepositoryContext.getAccumulatedEnvKeys()) {
-        recordedInputValues.put(
-            new RepoRecordedInput.EnvVar(envKey), clientEnvironment.get(envKey));
-      }
+      recordedInputValues.putAll(
+          Maps.transformValues(
+              starlarkRepositoryContext.getRecordedEnvVarInputs(), v -> v.orElse(null)));
 
       for (Table.Cell<RepositoryName, String, RepositoryName> repoMappings :
           repoMappingRecorder.recordedEntries().cellSet()) {
@@ -377,7 +388,8 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       env.getListener()
           .handle(Event.info(RepositoryResolvedEvent.getRuleDefinitionInformation(rule)));
 
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      throw new RepositoryFunctionException(
+          new AlreadyReportedRepositoryAccessException(e), Transience.TRANSIENT);
     }
 
     if (!outputDirectory.isDirectory()) {

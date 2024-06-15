@@ -491,8 +491,8 @@ public interface SkyFunction {
        *
        * <p>Implementations <strong>MUST</strong> be idempotent.
        *
-       * <p>Note also that this method should not perform any heavy work (especially blocking
-       * operations).
+       * <p>Note also that this method could be invoked from arbitrary threads, so avoid heavy
+       * operations if possible.
        */
       @Override
       default void close() {}

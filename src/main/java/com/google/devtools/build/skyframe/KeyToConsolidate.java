@@ -106,6 +106,7 @@ public abstract class KeyToConsolidate {
    * to {@link #op} when decoding an operation emitted by this method.
    */
   static Object create(SkyKey key, Op op, IncrementalInMemoryNodeEntry entry) {
+    Preconditions.checkNotNull(key);
     if (op == ReverseDepsUtility.getOpToStoreBare(entry)) {
       return key;
     }

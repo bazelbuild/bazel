@@ -22,7 +22,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.Futures;
@@ -91,7 +90,6 @@ import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkMethod;
@@ -214,9 +212,12 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     return ImmutableMap.copyOf(recordedDirentsInputs);
   }
 
-  /** Returns set of environment variable keys encountered so far. */
-  public ImmutableSet<String> getAccumulatedEnvKeys() {
-    return ImmutableSet.copyOf(accumulatedEnvKeys);
+  public ImmutableMap<RepoRecordedInput.EnvVar, Optional<String>> getRecordedEnvVarInputs()
+      throws InterruptedException {
+    // getEnvVarValues doesn't return null since the Skyframe dependencies have already been
+    // established by getenv calls.
+    return RepoRecordedInput.EnvVar.wrap(
+        ImmutableSortedMap.copyOf(RepositoryFunction.getEnvVarValues(env, accumulatedEnvKeys)));
   }
 
   protected void checkInOutputDirectory(String operation, StarlarkPath path)
@@ -946,6 +947,18 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
               env.getListener(),
               envVariables,
               getIdentifyingStringForLogging());
+      // Ensure that the download is cancelled if the repo rule is restarted as it runs in its own
+      // executor.
+      PendingDownload pendingTask =
+          new PendingDownload(
+              /* executable= */ false,
+              allowFail,
+              outputPath,
+              checksum,
+              checksumValidation,
+              pendingDownload,
+              thread.getCallerLocation());
+      registerAsyncTask(pendingTask);
       downloadedPath = downloadManager.finalizeDownload(pendingDownload);
     } catch (IOException e) {
       env.getListener().post(w);
@@ -1583,6 +1596,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             doc = """
               Working directory for command execution.
               Can be relative to the repository root or absolute.
+              The default is the repository root.
               """),
       })
   public StarlarkExecutionResult execute(

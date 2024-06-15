@@ -55,11 +55,6 @@ public abstract class PackageLookupValue implements SkyValue {
   @SerializationConstant
   public static final DeletedPackageLookupValue DELETED_PACKAGE_VALUE =
       new DeletedPackageLookupValue();
-
-  @SerializationConstant
-  public static final InvalidProjectLookupValue INVALID_PROJECT_VALUE =
-      new InvalidProjectLookupValue();
-
   enum ErrorReason {
     /** There is no BUILD file. */
     NO_BUILD_FILE,
@@ -72,9 +67,6 @@ public abstract class PackageLookupValue implements SkyValue {
 
     /** The repository was not found. */
     REPOSITORY_NOT_FOUND,
-
-    /** The project file isn't actually a file. */
-    INVALID_PROJECT_FILE
   }
 
   protected PackageLookupValue() {}
@@ -85,12 +77,7 @@ public abstract class PackageLookupValue implements SkyValue {
   }
 
   public static PackageLookupValue success(Root root, BuildFileName buildFileName) {
-    return success(root, buildFileName, /* hasProjectFile= */ false);
-  }
-
-  public static PackageLookupValue success(
-      Root root, BuildFileName buildFileName, boolean hasProjectFile) {
-    return SuccessfulPackageLookupValue.create(root, buildFileName, hasProjectFile);
+    return SuccessfulPackageLookupValue.create(root, buildFileName);
   }
 
   public static PackageLookupValue invalidPackageName(String errorMsg) {
@@ -113,8 +100,6 @@ public abstract class PackageLookupValue implements SkyValue {
 
   /** Returns whether the package lookup was successful. */
   public abstract boolean packageExists();
-
-  public abstract boolean hasProjectFile();
 
   /**
    * For a successful package lookup, returns the {@link RootedPath} for the build file that defines
@@ -191,36 +176,23 @@ public abstract class PackageLookupValue implements SkyValue {
     private final Root root;
     private final BuildFileName buildFileName;
 
-    private final boolean hasProjectFile;
-
-    SuccessfulPackageLookupValue(
-        Root root,
-        BuildFileName buildFileName,
-        boolean hasProjectFile) {
+    SuccessfulPackageLookupValue(Root root, BuildFileName buildFileName) {
       this.root = root;
       this.buildFileName = buildFileName;
-      this.hasProjectFile = hasProjectFile;
     }
 
     @AutoCodec.Instantiator
     @VisibleForSerialization
-    static SuccessfulPackageLookupValue create(
-        Root root, BuildFileName buildFileName, boolean hasProjectFile) {
+    static SuccessfulPackageLookupValue create(Root root, BuildFileName buildFileName) {
       // In practice there will be very few unique values. Most successful package lookups succeed
       // against the first root (maybe there's only a single root!), there are only a few possible
-      // build file names (for Blaze there's just one!), and hasProjectFile is just a bit of
-      // information.
-      return INTERNER.intern(new SuccessfulPackageLookupValue(root, buildFileName, hasProjectFile));
+      // build file names (for Blaze there's just one!).
+      return INTERNER.intern(new SuccessfulPackageLookupValue(root, buildFileName));
     }
 
     @Override
     public boolean packageExists() {
       return true;
-    }
-
-    @Override
-    public boolean hasProjectFile() {
-      return hasProjectFile;
     }
 
     @Override
@@ -248,14 +220,12 @@ public abstract class PackageLookupValue implements SkyValue {
       if (!(obj instanceof SuccessfulPackageLookupValue other)) {
         return false;
       }
-      return root.equals(other.root)
-          && buildFileName == other.buildFileName
-          && hasProjectFile == other.hasProjectFile;
+      return root.equals(other.root) && buildFileName == other.buildFileName;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(root.hashCode(), buildFileName.hashCode(), hasProjectFile);
+      return Objects.hashCode(root.hashCode(), buildFileName.hashCode());
     }
   }
 
@@ -271,11 +241,8 @@ public abstract class PackageLookupValue implements SkyValue {
     private final RepositoryDirectoryValue repository;
 
     SuccessfulExternalPackageLookupValue(
-        RepositoryDirectoryValue repository,
-        Root root,
-        BuildFileName buildFileName,
-        boolean hasProjectFile) {
-      super(root, buildFileName, hasProjectFile);
+        RepositoryDirectoryValue repository, Root root, BuildFileName buildFileName) {
+      super(root, buildFileName);
       this.repository = repository;
     }
 
@@ -284,8 +251,7 @@ public abstract class PackageLookupValue implements SkyValue {
     static SuccessfulExternalPackageLookupValue create(
         RepositoryDirectoryValue repository, Root root, BuildFileName buildFileName) {
       return INTERNER.intern(
-          new SuccessfulExternalPackageLookupValue(
-              repository, root, buildFileName, /* hasProjectFile= */ false));
+          new SuccessfulExternalPackageLookupValue(repository, root, buildFileName));
     }
 
     @Override
@@ -313,11 +279,6 @@ public abstract class PackageLookupValue implements SkyValue {
     }
 
     @Override
-    public boolean hasProjectFile() {
-      return false;
-    }
-
-    @Override
     public Root getRoot() {
       throw new IllegalStateException();
     }
@@ -341,21 +302,6 @@ public abstract class PackageLookupValue implements SkyValue {
     @Override
     public String getErrorMsg() {
       return "BUILD file not found on package path";
-    }
-  }
-
-  /** Marker for project file not actually being a file. */
-  public static class InvalidProjectLookupValue extends UnsuccessfulPackageLookupValue {
-    private InvalidProjectLookupValue() {}
-
-    @Override
-    ErrorReason getErrorReason() {
-      return ErrorReason.INVALID_PROJECT_FILE;
-    }
-
-    @Override
-    public String getErrorMsg() {
-      return "PROJECT.scl not a file";
     }
   }
 

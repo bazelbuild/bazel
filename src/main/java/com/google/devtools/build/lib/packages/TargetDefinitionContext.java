@@ -14,9 +14,12 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
+
 /**
- * A context object, usually stored in a {@link StarlarkThread}, upon which rules and symbolic
- * macros can be instantiated.
+ * A context object, usually stored in a {@link net.starlark.java.eval.StarlarkThread}, upon which
+ * rules and symbolic macros can be instantiated.
  */
 // TODO(#19922): This class isn't really needed until we implement lazy macro evaluation. At that
 // point, we'll need to split the concept of a Package.Builder into a separate PackagePiece.Builder
@@ -24,7 +27,7 @@ package com.google.devtools.build.lib.packages;
 // accessors and mutations that are common to BUILD files / lazy macros and to symbolic macros into
 // this common parent class, while Package.Builder retains the stuff that's prohibited inside
 // symbolic macros.
-public abstract class TargetDefinitionContext extends BazelStarlarkContext {
+public abstract class TargetDefinitionContext extends StarlarkThreadContext {
 
   /**
    * An exception used when the name of a target or symbolic macro clashes with another entity
@@ -40,7 +43,7 @@ public abstract class TargetDefinitionContext extends BazelStarlarkContext {
     }
   }
 
-  protected TargetDefinitionContext(Phase phase) {
-    super(phase);
+  protected TargetDefinitionContext(RepositoryMapping mainRepoMapping) {
+    super(() -> mainRepoMapping);
   }
 }

@@ -386,10 +386,6 @@ public final class AndroidRuleClasses {
                   .cfg(ExecutionTransitionFactory.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:databinding_exec")))
-          .advertiseStarlarkProvider(
-              StarlarkProviderIdentifier.forKey(AndroidResourcesInfo.PROVIDER.getKey()))
-          .advertiseStarlarkProvider(
-              StarlarkProviderIdentifier.forKey(AndroidNativeLibsInfo.PROVIDER.getKey()))
           .build();
     }
 

@@ -93,7 +93,6 @@ tools_dir="$(dirname $(rlocation io_bazel/tools/BUILD))"
 
 # Platforms
 default_host_platform="@@platforms//host:host"
-default_host_platform_alias="@@bazel_tools//tools:host_platform"
 
 # Sandbox tools
 process_wrapper="${BAZEL_RUNFILES}/src/main/tools/process-wrapper"
@@ -258,9 +257,19 @@ function try_with_timeout() {
 
 function setup_localjdk_javabase() {
   if [[ $PLATFORM =~ msys ]]; then
-    jdk_dir="$(cygpath -m $(cd $(rlocation local_jdk/bin/java.exe)/../..; pwd))"
+    jdk_binary=local_jdk/bin/java.exe
   else
-    jdk_dir="$(dirname $(dirname $(rlocation local_jdk/bin/java)))"
+    jdk_binary=local_jdk/bin/java
+  fi
+  jdk_binary_rlocation=$(rlocation ${jdk_binary})
+  if [[ -z "${jdk_binary_rlocation}" ]]; then
+    echo "error: failed to find $jdk_binary, make sure you have java \
+installed or pass --java_runtime_verison=XX with the correct version" >&2
+  fi
+  if [[ $PLATFORM =~ msys ]]; then
+    jdk_dir="$(cygpath -m $(cd ${jdk_binary_rlocation}/../..; pwd))"
+  else
+    jdk_dir="$(dirname $(dirname ${jdk_binary_rlocation}))"
   fi
   bazel_javabase="${jdk_dir}"
 }

@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -89,8 +88,9 @@ class ArtifactConflictFinder {
 
   /**
    * Simultaneously construct an action graph for all the actions in Skyframe and a map from {@link
-   * PathFragment}s to their respective {@link Artifact}s. We do this in a threadpool to save around
-   * 1.5 seconds on a mid-sized build versus a single-threaded operation.
+   * com.google.devtools.build.lib.vfs.PathFragment}s to their respective {@link Artifact}s. We do
+   * this in a threadpool to save around 1.5 seconds on a mid-sized build versus a single-threaded
+   * operation.
    */
   private static void constructActionGraphAndArtifactList(
       MutableActionGraph actionGraph,

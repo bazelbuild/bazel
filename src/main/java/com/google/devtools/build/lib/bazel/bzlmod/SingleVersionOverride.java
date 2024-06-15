@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.Label;
 
 /**
  * Specifies that the module should:
@@ -33,7 +34,7 @@ public abstract class SingleVersionOverride implements RegistryOverride {
   public static SingleVersionOverride create(
       Version version,
       String registry,
-      ImmutableList<Object> patches,
+      ImmutableList<Label> patches,
       ImmutableList<String> patchCmds,
       int patchStrip) {
     return new AutoValue_SingleVersionOverride(version, registry, patches, patchCmds, patchStrip);
@@ -49,7 +50,7 @@ public abstract class SingleVersionOverride implements RegistryOverride {
   public abstract String getRegistry();
 
   /** The labels of patches to apply after retrieving per the registry. */
-  public abstract ImmutableList<Object> getPatches();
+  public abstract ImmutableList<Label> getPatches();
 
   /**
    * The patch commands to execute after retrieving per the registry. Should be a list of commands.

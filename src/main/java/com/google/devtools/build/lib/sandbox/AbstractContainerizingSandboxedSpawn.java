@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.sandbox;
 
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -27,7 +26,6 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -142,6 +140,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
     try (SilentCloseable c = Profiler.instance().profile("sandbox.createInputs")) {
       createInputs(inputsToCreate, inputs);
     }
+    SandboxStash.setLastModified(sandboxPath, System.currentTimeMillis());
   }
 
   protected void filterInputsAndDirsToCreate(
@@ -163,9 +162,9 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
       }
       Path key = sandboxExecRoot.getRelative(fragment);
       if (inputs.getFiles().containsKey(fragment)) {
-        RootedPath fileDest = inputs.getFiles().get(fragment);
+        Path fileDest = inputs.getFiles().get(fragment);
         if (fileDest != null) {
-          copyFile(fileDest.asPath(), key);
+          copyFile(fileDest, key);
         } else {
           FileSystemUtils.createEmptyFile(key);
         }

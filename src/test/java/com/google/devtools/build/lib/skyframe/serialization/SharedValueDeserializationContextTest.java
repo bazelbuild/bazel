@@ -13,19 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.createRandomLeafArray;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructureWithEquivalenceReduction;
 import static com.google.devtools.build.lib.unsafe.UnsafeProvider.getFieldOffset;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NestedArrayCodec;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NotNestedSetCodec;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NotNestedSetDeferredCodec;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.GetRecordingStore;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.GetRecordingStore.GetRequest;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
@@ -36,9 +35,7 @@ import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.LinkedBlockingQueue;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -60,7 +57,7 @@ public final class SharedValueDeserializationContextTest {
   @TestParameters("{size: 64, useDeferredCodec: false}")
   @TestParameters("{size: 128, useDeferredCodec: false}")
   public void codec_roundTrips(int size, boolean useDeferredCodec) throws Exception {
-    new SerializationTester(NotNestedSet.createRandom(rng, size, size))
+    new SerializationTester(NotNestedSet.createRandom(rng, size, size, Random::nextInt))
         .addCodec(
             useDeferredCodec
                 ? new NotNestedSetDeferredCodec(new NestedArrayCodec())
@@ -69,47 +66,6 @@ public final class SharedValueDeserializationContextTest {
         .setVerificationFunction(
             SharedValueDeserializationContextTest::verifyDeserializedNotNestedSet)
         .runTests();
-  }
-
-  private static final class GetRecordingStore implements FingerprintValueStore {
-    private final ConcurrentHashMap<ByteString, byte[]> fingerprintToContents =
-        new ConcurrentHashMap<>();
-
-    private final LinkedBlockingQueue<GetRequest> requestQueue = new LinkedBlockingQueue<>();
-
-    @Override
-    public ListenableFuture<Void> put(ByteString fingerprint, byte[] serializedBytes) {
-      fingerprintToContents.put(fingerprint, serializedBytes);
-      return immediateVoidFuture();
-    }
-
-    @Override
-    public ListenableFuture<byte[]> get(ByteString fingerprint) {
-      SettableFuture<byte[]> response = SettableFuture.create();
-      requestQueue.offer(new GetRequest(this, fingerprint, response));
-      return response;
-    }
-
-    private GetRequest takeFirstRequest() throws InterruptedException {
-      return requestQueue.take();
-    }
-  }
-
-  private static class GetRequest {
-    private final GetRecordingStore parent;
-    private final ByteString fingerprint;
-    private final SettableFuture<byte[]> response;
-
-    private GetRequest(
-        GetRecordingStore parent, ByteString fingerprint, SettableFuture<byte[]> response) {
-      this.parent = parent;
-      this.fingerprint = fingerprint;
-      this.response = response;
-    }
-
-    private void complete() {
-      response.set(checkNotNull(parent.fingerprintToContents.get(fingerprint)));
-    }
   }
 
   @Test
@@ -125,7 +81,9 @@ public final class SharedValueDeserializationContextTest {
     NotNestedSet subject =
         new NotNestedSet(
             new Object[] {
-              createRandomLeafArray(rng), createRandomLeafArray(rng), createRandomLeafArray(rng)
+              createRandomLeafArray(rng, Random::nextInt),
+              createRandomLeafArray(rng, Random::nextInt),
+              createRandomLeafArray(rng, Random::nextInt)
             });
 
     SerializationResult<ByteString> serialized =
@@ -284,9 +242,10 @@ public final class SharedValueDeserializationContextTest {
     if (doesSecondAliasFirst) {
       subject =
           new NotNestedSetContainer(
-              NotNestedSet.createRandom(rng, 4, 4), NotNestedSet.createRandom(rng, 4, 4));
+              NotNestedSet.createRandom(rng, 4, 4, Random::nextInt),
+              NotNestedSet.createRandom(rng, 4, 4, Random::nextInt));
     } else {
-      NotNestedSet contained = NotNestedSet.createRandom(rng, 5, 5);
+      NotNestedSet contained = NotNestedSet.createRandom(rng, 5, 5, Random::nextInt);
       subject = new NotNestedSetContainer(contained, contained);
     }
     new SerializationTester(subject)

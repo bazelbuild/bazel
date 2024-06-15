@@ -111,7 +111,7 @@ public class RepositoryOptions extends OptionsBase {
 
   @Option(
       name = "experimental_repository_downloader_retries",
-      defaultValue = "0",
+      defaultValue = "5",
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
@@ -320,9 +320,11 @@ public class RepositoryOptions extends OptionsBase {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
           "Specifies how and whether or not to use the lockfile. Valid values are `update` to"
-              + " use the lockfile and update it if there are changes, `error` to use the lockfile"
-              + " but throw an error if it's not up-to-date, or `off` to neither read from or write"
-              + " to the lockfile.")
+              + " use the lockfile and update it if there are changes, `refresh` to additionally"
+              + " refresh mutable information (yanked versions and previously missing modules)"
+              + " from remote registries from time to time, `error` to use the lockfile but throw"
+              + " an error if it's not up-to-date, or `off` to neither read from or write to the"
+              + " lockfile.")
   public LockfileMode lockfileMode;
 
   @Option(
@@ -369,10 +371,11 @@ public class RepositoryOptions extends OptionsBase {
   /** An enum for specifying how to use the lockfile. */
   public enum LockfileMode {
     OFF, // Don't use the lockfile at all.
-    UPDATE, // Update the lockfile when it mismatches the module.
-    ERROR; // Throw an error when it mismatches the module.
+    UPDATE, // Update the lockfile wh
+    REFRESH,
+    ERROR; // Throw an error when it mismatc
 
-    /** Converts to {@link BazelLockfileMode}. */
+    /** Converts to {@link LockfileMode}. */
     public static class Converter extends EnumConverter<LockfileMode> {
       public Converter() {
         super(LockfileMode.class, "Lockfile mode");

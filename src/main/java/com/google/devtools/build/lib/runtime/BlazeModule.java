@@ -46,9 +46,11 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
+import java.util.Optional;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
@@ -107,17 +109,31 @@ public abstract class BlazeModule {
   public abstract static class ModuleFileSystem {
     public abstract FileSystem fileSystem();
 
-    /** Non-null if this filesystem virtualizes the execroot folder. */
-    @Nullable
-    abstract Path virtualExecRootBase();
+    /**
+     * Present if this filesystem virtualizes the source root. See {@link
+     * ServerDirectories#getVirtualSourceRoot}.
+     */
+    abstract Optional<Root> virtualSourceRoot();
 
-    public static ModuleFileSystem create(
-        FileSystem fileSystem, @Nullable Path virtualExecRootBase) {
-      return new AutoValue_BlazeModule_ModuleFileSystem(fileSystem, virtualExecRootBase);
+    /**
+     * Present if this filesystem virtualizes the execroot folder. See {@link
+     * ServerDirectories#getExecRootBase}.
+     */
+    abstract Optional<Path> virtualExecRootBase();
+
+    public static ModuleFileSystem createWithVirtualization(
+        FileSystem fileSystem, PathFragment virtualSourceRoot, PathFragment virtualExecRootBase) {
+      return new AutoValue_BlazeModule_ModuleFileSystem(
+          fileSystem,
+          Optional.of(Root.fromPath(fileSystem.getPath(virtualSourceRoot))),
+          Optional.of(fileSystem.getPath(virtualExecRootBase)));
     }
 
     public static ModuleFileSystem create(FileSystem fileSystem) {
-      return create(fileSystem, /*virtualExecRootBase=*/ null);
+      return new AutoValue_BlazeModule_ModuleFileSystem(
+          fileSystem,
+          /* virtualSourceRoot= */ Optional.empty(),
+          /* virtualExecRootBase= */ Optional.empty());
     }
   }
 
@@ -203,19 +219,20 @@ public abstract class BlazeModule {
    * Returns additional listeners to the console output stream. Called at the beginning of each
    * command (after #beforeCommand).
    */
-  @SuppressWarnings("unused")
   @Nullable
   public OutErr getOutputListener() {
     return null;
   }
 
   /**
-   * Returns the output service to be used. It is an error if more than one module returns an output
-   * service.
+   * Returns the {@link OutputService} to be used.
    *
-   * <p>This method will be called at the beginning of each command (after #beforeCommand).
+   * <p>It is an error if more than one module returns a non-null output service. If all modules
+   * return {@code null}, then {@link com.google.devtools.build.lib.vfs.LocalOutputService} will be
+   * used.
+   *
+   * <p>This method is called at the beginning of each command (after {@link #beforeCommand}).
    */
-  @SuppressWarnings("unused")
   public OutputService getOutputService() throws AbruptExitException {
     return null;
   }

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.analysis.producers;
 
 import static com.google.devtools.build.lib.analysis.AspectCollection.buildAspectKey;
-import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.aspectMatchesConfiguredTarget;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AspectCollection;
@@ -104,7 +103,7 @@ final class ConfiguredAspectProducer
     var configuredAspects = new ArrayList<ConfiguredAspect>(usedAspects.size());
     for (AspectCollection.AspectDeps depAspect : usedAspects) {
       var value = aspectValues.get(depAspect.getAspect());
-      if (!aspectMatchesConfiguredTarget(prerequisite, value.getAspect())) {
+      if (value == ConfiguredAspect.NonApplicableAspect.INSTANCE) {
         continue;
       }
       configuredAspects.add(value);

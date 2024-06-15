@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.metrics;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -44,13 +43,25 @@ public class MetricsModule extends BlazeModule {
                 + " instances for RuleClass and Asepcts. Setting this option will write statistics"
                 + " for all mnemonics, rule classes and aspects.")
     public boolean recordMetricsForAllMnemonics;
+
+    @Option(
+        name = "experimental_record_skyframe_metrics",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Controls the output of BEP BuildGraphMetrics, including expensive"
+                + "to compute skyframe metrics about Skykeys, RuleClasses and Aspects."
+                + "With this flag set to false BuildGraphMetrics.rule_count and aspect"
+                + "fields will not be populated in the BEP.")
+    public boolean recordSkyframeMetrics;
   }
 
   private final AtomicInteger numAnalyses = new AtomicInteger();
   private final AtomicInteger numBuilds = new AtomicInteger();
 
   @Override
-  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
+  public Iterable<Class<? extends OptionsBase>> getCommonCommandOptions() {
     return ImmutableList.of(Options.class);
   }
 

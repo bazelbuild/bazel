@@ -1510,9 +1510,9 @@ public abstract class AbstractQueryTest<T> {
     writeFile("x/BUILD", "cc_library(name='x', srcs=['a.cc', 'a.cc'])");
     String expectedError = "Label '//x:a.cc' is duplicated in the 'srcs' attribute of rule 'x'";
     if (helper.isKeepGoing()) {
-      assertThat(evalThrows("//x", false).getMessage()).isEqualTo(expectedError);
+      assertThat(evalThrows("//x:all", false).getMessage()).contains(expectedError);
     } else {
-      evalThrows("//x", false);
+      evalThrows("//x:all", false);
       assertContainsEvent(expectedError);
     }
   }
@@ -2394,25 +2394,6 @@ public abstract class AbstractQueryTest<T> {
     assertThat(evalToString("visible(//bar:bar, //foo:foo)")).isEmpty();
   }
 
-  // Regression test for default visibility of output file targets being traversed even with
-  // --noimplicit_deps is set.
-  @Test
-  public void testDefaultVisibilityOfOutputTarget_noImplicitDeps() throws Exception {
-    writeFile(
-        "foo/BUILD",
-        """
-        package(default_visibility = [':pg'])
-        genrule(name = 'gen', srcs = ['in'], outs = ['out'], cmd = 'doesntmatter')
-        package_group(name = 'pg', includes = [':other-pg'])
-        package_group(name = 'other-pg')
-        """);
-    assertEqualsFiltered(
-        "deps(//foo:gen) + //foo:out + //foo:pg + //foo:other-pg"
-            + getDependencyCorrectionWithGen(),
-        "deps(//foo:out)" + getDependencyCorrectionWithGen(),
-        Setting.NO_IMPLICIT_DEPS);
-  }
-
   @Test
   public void testDeepNestedLet() throws Exception {
     writeFile("foo/BUILD", "sh_library(name = 'foo')");
@@ -2690,7 +2671,9 @@ public abstract class AbstractQueryTest<T> {
 
     void setUniverseScope(String universeScope);
 
-    void setBlockUniverseEvaluationErrors(boolean blockUniverseEvaluationErrors);
+    default boolean reportsUniverseEvaluationErrors() {
+      return true;
+    }
 
     /** Re-initializes the query environment with the given settings. */
     void setQuerySettings(Setting... settings);

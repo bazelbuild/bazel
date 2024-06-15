@@ -66,12 +66,10 @@ import com.google.devtools.build.lib.exec.TestPolicy;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
@@ -542,8 +540,7 @@ public class RunCommand implements BlazeCommand {
             .add(
                 CommandProtos.PathToReplace.newBuilder()
                     .setType(PathToReplace.Type.BUILD_WORKSPACE_DIRECTORY)
-                    .setValue(
-                        ByteString.copyFrom(env.getWorkingDirectory().getPathString(), ISO_8859_1))
+                    .setValue(ByteString.copyFrom(env.getWorkspace().getPathString(), ISO_8859_1))
                     .build());
     if (isTestTarget) {
       pathsToReplace.add(
@@ -1124,10 +1121,7 @@ public class RunCommand implements BlazeCommand {
     if (!(target instanceof Rule rule)) {
       return false;
     }
-    if (rule.getRuleClassObject().hasAttr("$is_executable", Type.BOOLEAN)) {
-      return NonconfigurableAttributeMapper.of(rule).get("$is_executable", Type.BOOLEAN);
-    }
-    return false;
+    return rule.isExecutable();
   }
 
   private static boolean isPlainFile(Target target) {

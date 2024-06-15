@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.cmdline;
 
 import static com.google.devtools.build.lib.cmdline.LabelParser.validateAndProcessTargetName;
+import static com.google.devtools.build.lib.cmdline.PackageIdentifier.packageIdentifierCodec;
+import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
 import static java.util.Comparator.naturalOrder;
 
 import com.google.auto.value.AutoValue;
@@ -33,9 +35,17 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.errorprone.annotations.Keep;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.concurrent.locks.Lock;
@@ -63,10 +73,14 @@ import net.starlark.java.eval.StarlarkValue;
     name = "Label",
     category = DocCategory.BUILTIN,
     doc =
-        "A BUILD target identifier."
-            + "<p>For every <code>Label</code> instance <code>l</code>, the string representation"
-            + " <code>str(l)</code> has the property that <code>Label(str(l)) == l</code>,"
-            + " regardless of where the <code>Label()</code> call occurs.")
+        "A BUILD target identifier.<p>For every <code>Label</code> instance <code>l</code>, the"
+            + " string representation <code>str(l)</code> has the property that <code>Label(str(l))"
+            + " == l</code>, regardless of where the <code>Label()</code> call occurs.<p>When"
+            + " passed as positional arguments to <code>print()</code> or <code>fail()</code>,"
+            + " <code>Label</code> use a string representation optimized for human readability"
+            + " instead. This representation uses an <a"
+            + " href=\"/external/overview#apparent-repo-name\">apparent repository name</a> from"
+            + " the perspective of the main repository if possible.")
 @Immutable
 @ThreadSafe
 public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, CommandLineItem {
@@ -442,7 +456,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    * @param mainRepositoryMapping the {@link RepositoryMapping} of the main repository
    * @return analogous to {@link PackageIdentifier#getDisplayForm(RepositoryMapping)}
    */
-  public String getDisplayForm(RepositoryMapping mainRepositoryMapping) {
+  public String getDisplayForm(@Nullable RepositoryMapping mainRepositoryMapping) {
     return packageIdentifier.getDisplayForm(mainRepositoryMapping) + ":" + name;
   }
 
@@ -656,6 +670,20 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   }
 
   @Override
+  public void debugPrint(Printer printer, StarlarkThread thread) {
+    StarlarkThreadContext threadContext = thread.getThreadLocal(StarlarkThreadContext.class);
+    RepositoryMapping mainRepoMapping = null;
+    if (threadContext != null) {
+      try {
+        mainRepoMapping = threadContext.getMainRepoMapping();
+      } catch (InterruptedException e) {
+        // ignore
+      }
+    }
+    printer.append(getDisplayForm(mainRepoMapping));
+  }
+
+  @Override
   public void str(Printer printer, StarlarkSemantics semantics) {
     if (getRepository().isMain()
         && !semantics.getBool(
@@ -741,6 +769,35 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
 
     public boolean enabled() {
       return globalPool != null;
+    }
+  }
+
+  public static Codec labelCodec() {
+    return Codec.INSTANCE;
+  }
+
+  @Keep
+  private static final class Codec extends LeafObjectCodec<Label> {
+    private static final Codec INSTANCE = new Codec();
+
+    @Override
+    public Class<Label> getEncodedClass() {
+      return Label.class;
+    }
+
+    @Override
+    public void serialize(LeafSerializationContext context, Label obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serializeLeaf(obj.getPackageIdentifier(), packageIdentifierCodec(), codedOut);
+      context.serializeLeaf(obj.getName(), stringCodec(), codedOut);
+    }
+
+    @Override
+    public Label deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      PackageIdentifier pkgId = context.deserializeLeaf(codedIn, packageIdentifierCodec());
+      String name = context.deserializeLeaf(codedIn, stringCodec());
+      return Label.createUnvalidated(pkgId, name);
     }
   }
 }

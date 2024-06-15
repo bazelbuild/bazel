@@ -70,6 +70,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -1743,7 +1744,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
     getConfiguredTarget("//test/starlark:cr");
     assertContainsEvent("output function cr");
-    assertContainsEvent("implementation @@//test/starlark:cr");
+    assertContainsEvent("implementation //test/starlark:cr");
   }
 
   @Test
@@ -3656,6 +3657,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  @Ignore("http://b/344577554")
   public void testNoRuleOutputsParam() throws Exception {
     setBuildLanguageOptions("--incompatible_no_rule_outputs_param=true");
     scratch.file(

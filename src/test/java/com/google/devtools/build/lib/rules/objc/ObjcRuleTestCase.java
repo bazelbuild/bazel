@@ -85,16 +85,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     setBuildLanguageOptions("--noincompatible_disable_objc_library_transition");
   }
 
-  /** Specification of code coverage behavior. */
-  public enum CodeCoverageMode {
-    // No code coverage information.
-    NONE,
-    // Code coverage in gcov format.
-    GCOV,
-    // Code coverage in llvm-covmap format.
-    LLVMCOV;
-  }
-
   protected String execPathEndingWith(Iterable<Artifact> artifacts, String suffix) {
     return getFirstArtifactEndingWith(artifacts, suffix).getExecPathString();
   }
@@ -289,9 +279,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    'darwin_x86_64': '" + MockObjcSupport.DARWIN_X86_64 + "',",
         "    'ios_x86_64': '" + MockObjcSupport.IOS_X86_64 + "',",
         "    'ios_arm64': '" + MockObjcSupport.IOS_ARM64 + "',",
+        "    'ios_arm64e': '" + MockObjcSupport.IOS_ARM64E + "',",
         "    'ios_i386': '" + MockObjcSupport.IOS_I386 + "',", // legacy platform used in tests
         "    'ios_armv7': '" + MockObjcSupport.IOS_ARMV7 + "',", // legacy platform used in tests
         "    'watchos_armv7k': '" + MockObjcSupport.WATCHOS_ARMV7K + "',",
+        "    'watchos_arm64_32': '" + MockObjcSupport.WATCHOS_ARM64_32 + "',",
         "}",
         "_apple_platform_transition_inputs = [",
         "    '//command_line_option:apple_crosstool_top',",
@@ -573,38 +565,17 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     return rootedPaths.build();
   }
 
-  protected void checkClangCoptsForCompilationMode(
-      RuleType ruleType, CompilationMode mode, CodeCoverageMode codeCoverageMode) throws Exception {
+  protected void checkClangCoptsForCompilationMode(RuleType ruleType, CompilationMode mode)
+      throws Exception {
     ImmutableList.Builder<String> allExpectedCoptsBuilder =
         ImmutableList.<String>builder()
             .addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS)
             .addAll(compilationModeCopts(mode));
+    useConfiguration(
+        "--platforms=" + MockObjcSupport.IOS_X86_64,
+        "--apple_platform_type=ios",
+        "--compilation_mode=" + compilationModeFlag(mode));
 
-    switch (codeCoverageMode) {
-      case NONE:
-        useConfiguration(
-            "--apple_platform_type=ios",
-            "--compilation_mode=" + compilationModeFlag(mode),
-            "--cpu=k8");
-        break;
-      case GCOV:
-        allExpectedCoptsBuilder.addAll(CompilationSupport.CLANG_GCOV_COVERAGE_FLAGS);
-        useConfiguration(
-            "--apple_platform_type=ios",
-            "--collect_code_coverage",
-            "--compilation_mode=" + compilationModeFlag(mode),
-            "--cpu=k8");
-        break;
-      case LLVMCOV:
-        allExpectedCoptsBuilder.addAll(CompilationSupport.CLANG_LLVM_COVERAGE_FLAGS);
-        useConfiguration(
-            "--apple_platform_type=ios",
-            "--collect_code_coverage",
-            "--experimental_use_llvm_covmap",
-            "--compilation_mode=" + compilationModeFlag(mode),
-            "--cpu=k8");
-        break;
-    }
     scratch.file("x/a.m");
     ruleType.scratchTarget(scratch, "srcs", "['a.m']");
 
@@ -621,10 +592,11 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             .addAll(ObjcConfiguration.DBG_COPTS);
 
     useConfiguration(
+        "--platforms=" + MockObjcSupport.IOS_X86_64,
         "--apple_platform_type=ios",
         "--compilation_mode=dbg",
         "--objc_debug_with_GLIBCXX=false",
-        "--cpu=k8");
+        "--experimental_platform_in_output_dir");
     scratch.file("x/a.m");
     ruleType.scratchTarget(scratch, "srcs", "['a.m']");
 

@@ -427,7 +427,8 @@ public class CcCommonTest extends BuildViewTestCase {
     SpawnAction action = (SpawnAction) getGeneratingAction(getExecutable(target));
     for (Artifact input : action.getInputs().toList()) {
       String name = input.getFilename();
-      assertThat(!CppFileTypes.ARCHIVE.matches(name) && !CppFileTypes.PIC_ARCHIVE.matches(name))
+      assertWithMessage("Expect '%s' not to be an archive", name)
+          .that(!CppFileTypes.ARCHIVE.matches(name) && !CppFileTypes.PIC_ARCHIVE.matches(name))
           .isTrue();
     }
   }
@@ -857,7 +858,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
         "  ],",
         ")");
-    useConfiguration("--cpu=darwin_x86_64", "--platforms=//platforms:darwin_x86_64");
+    useConfiguration("--platforms=//platforms:darwin_x86_64");
 
     checkError(
         "badlib",
@@ -1589,7 +1590,6 @@ public class CcCommonTest extends BuildViewTestCase {
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.GENERATE_LINKMAP_FEATURE_NAME));
-    useConfiguration("--cpu=k8");
     ConfiguredTarget generateLinkMapTest =
         scratchConfiguredTarget(
             "generate_linkmap",

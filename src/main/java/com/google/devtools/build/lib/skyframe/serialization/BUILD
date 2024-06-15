@@ -24,8 +24,9 @@ java_library(
     srcs = glob(
         ["**/*.java"],
         exclude = [
-            "SerializationConstants.java",
+            "AbstractExportedStarlarkSymbolCodec.java",
             "CodecScanningConstants.java",
+            "SerializationConstants.java",
             "VisibleForSerialization.java",
         ],
     ),
@@ -36,10 +37,12 @@ java_library(
         ":codec-scanning-constants",
         ":constants",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:registered-singleton",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:auto_value",
         "//third_party:caffeine",
         "//third_party:error_prone_annotations",
@@ -63,4 +66,16 @@ java_library(
 java_library(
     name = "visible-for-serialization",
     srcs = ["VisibleForSerialization.java"],
+)
+
+java_library(
+    name = "abstract-exported-starlark-symbol-codec",
+    srcs = ["AbstractExportedStarlarkSymbolCodec.java"],
+    deps = [
+        ":serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
+        "//third_party/protobuf:protobuf_java",
+    ],
 )

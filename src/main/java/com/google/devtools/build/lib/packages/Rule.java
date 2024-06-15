@@ -94,6 +94,8 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
 
   private static final OutputFile[] NO_OUTPUTS = new OutputFile[0];
 
+  public static final String IS_EXECUTABLE_ATTRIBUTE_NAME = "$is_executable";
+
   private final Package pkg;
   private final Label label;
   private final RuleClass ruleClass;
@@ -1279,6 +1281,14 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     } else {
       return false;
     }
+  }
+
+  public boolean isExecutable() {
+    if (getRuleClassObject().hasAttr(IS_EXECUTABLE_ATTRIBUTE_NAME, Type.BOOLEAN)) {
+      return NonconfigurableAttributeMapper.of(this)
+          .get(IS_EXECUTABLE_ATTRIBUTE_NAME, Type.BOOLEAN);
+    }
+    return false;
   }
 
   public RepositoryName getRepository() {

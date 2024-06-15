@@ -19,6 +19,7 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkConfig;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -76,6 +77,8 @@ public final class BazelEvaluationTestCase {
   private Module module = null; // created lazily by getModule
 
   private ImmutableMap<String, Class<?>> fragmentNameToClass = ImmutableMap.of();
+
+  private Object threadOwner = "test";
 
   public BazelEvaluationTestCase() {
     this(DEFAULT_LABEL);
@@ -163,7 +166,8 @@ public final class BazelEvaluationTestCase {
             /* transitiveDigest= */ new byte[0], // dummy value for tests
             TestConstants.TOOLS_REPOSITORY,
             /* networkAllowlistForTests= */ Optional.empty(),
-            fragmentNameToClass)
+            fragmentNameToClass,
+            /* mainRepoMapping= */ null)
         .storeInThread(thread);
   }
 
@@ -181,6 +185,7 @@ public final class BazelEvaluationTestCase {
     predeclared.putAll(StarlarkGlobalsImpl.INSTANCE.getFixedBzlToplevels());
     predeclared.put("platform_common", new PlatformCommon());
     predeclared.put("config_common", new ConfigStarlarkCommon());
+    predeclared.put("config", new StarlarkConfig());
     Starlark.addMethods(predeclared, new ConfigGlobalLibrary());
 
     // Return the module's client data. (This one uses dummy values for tests.)
@@ -192,11 +197,16 @@ public final class BazelEvaluationTestCase {
         /* bzlTransitiveDigest= */ new byte[0]);
   }
 
+  /** Sets a thread owner, for cases where the default value of {@code "test"} doesn't work. */
+  public void setThreadOwner(Object owner) {
+    this.threadOwner = owner;
+  }
+
   public StarlarkThread getStarlarkThread() {
     if (this.thread == null) {
       Mutability mu = Mutability.create("test");
       StarlarkThread thread =
-          StarlarkThread.create(mu, semantics, "test", SymbolGenerator.create("test"));
+          StarlarkThread.create(mu, semantics, "test", SymbolGenerator.create(threadOwner));
       thread.setPrintHandler(Event.makeDebugPrintHandler(getEventHandler()));
       newThread(thread);
       this.thread = thread;

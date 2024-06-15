@@ -138,6 +138,7 @@ public final class RemoteModule extends BlazeModule {
   @Nullable private TempPathGenerator tempPathGenerator;
   @Nullable private BlockWaitingModule blockWaitingModule;
   @Nullable private RemoteOutputChecker remoteOutputChecker;
+  @Nullable private String lastBuildId;
 
   private ChannelFactory channelFactory =
       new ChannelFactory() {
@@ -301,11 +302,28 @@ public final class RemoteModule extends BlazeModule {
     }
     boolean enableGrpcCache = GrpcCacheClient.isRemoteCacheOptions(remoteOptions);
     boolean enableRemoteDownloader = shouldEnableRemoteDownloader(remoteOptions);
+    boolean enableRemoteOutputService = !Strings.isNullOrEmpty(remoteOptions.remoteOutputService);
 
     if (enableRemoteDownloader && !enableGrpcCache) {
       throw createOptionsExitException(
           "The remote downloader can only be used in combination with gRPC caching",
           FailureDetails.RemoteOptions.Code.DOWNLOADER_WITHOUT_GRPC_CACHE);
+    }
+
+    if (enableRemoteOutputService) {
+      if (enableDiskCache) {
+        env.getReporter()
+            .handle(
+                Event.warn(
+                    "--disk_cache is ignored when --experimental_remote_output_service is set."));
+      }
+
+      if (Strings.isNullOrEmpty(remoteOptions.remoteCache)) {
+        throw createOptionsExitException(
+            "--experimental_remote_output_service can only be used in combination with"
+                + " --remote_cache or --remote_executor.",
+            FailureDetails.RemoteOptions.Code.EXECUTION_WITH_INVALID_CACHE);
+      }
     }
 
     if (!enableDiskCache && !enableHttpCache && !enableGrpcCache && !enableRemoteExecution) {
@@ -451,17 +469,15 @@ public final class RemoteModule extends BlazeModule {
               env::getExecRoot,
               () -> env.getDirectories().getOutputPath(env.getWorkspaceName()),
               digestUtil.getDigestFunction(),
-              remoteOptions,
+              remoteOptions.remoteCache,
+              remoteOptions.remoteInstanceName,
+              remoteOptions.remoteOutputServiceOutputPathPrefix,
               verboseFailures,
               retrier,
-              bazelOutputServiceChannel);
-
-      throw createExitException(
-          "Remote Output Service is still WIP",
-          ExitCode.REMOTE_ERROR,
-          Code.REMOTE_EXECUTION_UNKNOWN);
+              bazelOutputServiceChannel,
+              lastBuildId);
     } else {
-      outputService = new RemoteOutputService(env);
+      outputService = new RemoteOutputService(env.getDirectories());
     }
 
     if ((enableHttpCache || enableDiskCache) && !enableGrpcCache) {
@@ -581,7 +597,7 @@ public final class RemoteModule extends BlazeModule {
           cacheClient =
               RemoteCacheClientFactory.createDiskAndRemoteClient(
                   env.getWorkingDirectory(),
-                  remoteOptions.diskCache,
+                  remoteOptions,
                   digestUtil,
                   executorService,
                   remoteOptions.remoteVerifyDownloads,
@@ -643,7 +659,7 @@ public final class RemoteModule extends BlazeModule {
           cacheClient =
               RemoteCacheClientFactory.createDiskAndRemoteClient(
                   env.getWorkingDirectory(),
-                  remoteOptions.diskCache,
+                  remoteOptions,
                   digestUtil,
                   executorService,
                   remoteOptions.remoteVerifyDownloads,
@@ -904,6 +920,8 @@ public final class RemoteModule extends BlazeModule {
       blockWaitingModule.submit(
           () -> afterCommandTask(actionContextProviderRef, tempPathGeneratorRef, rpcLogFileRef));
     }
+
+    lastBuildId = Preconditions.checkNotNull(env).getCommandId().toString();
 
     buildEventArtifactUploaderFactoryDelegate.reset();
     repositoryRemoteExecutorFactoryDelegate.reset();

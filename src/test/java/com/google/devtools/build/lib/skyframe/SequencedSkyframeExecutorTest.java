@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -127,6 +128,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.LocalOutputService;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -210,6 +212,11 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   public void createVisitorAndParseOptions() throws Exception {
     visitor = skyframeExecutor.getQueryTransitivePackagePreloader();
     options.parse("--jobs=20");
+  }
+
+  @Before
+  public void setOutputService() {
+    skyframeExecutor.setOutputService(new LocalOutputService(directories));
   }
 
   @Override
@@ -1404,7 +1411,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     @Override
     public String getKey(
-        ActionKeyContext actionKeyContext, @Nullable Artifact.ArtifactExpander artifactExpander) {
+        ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander) {
       Fingerprint fp = new Fingerprint();
       fp.addPath(inputArtifact.getPath());
       fp.addPath(outputArtifact.getPath());
@@ -1870,7 +1877,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     @Override
     protected void computeKey(
         ActionKeyContext actionKeyContext,
-        @Nullable Artifact.ArtifactExpander artifactExpander,
+        @Nullable ArtifactExpander artifactExpander,
         Fingerprint fp) {
       fp.addString(warningText);
       fp.addPath(getPrimaryOutput().getExecPath());
@@ -2713,6 +2720,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             /* repoEnvOption= */ ImmutableMap.of(),
             tsgm,
             QuiescingExecutorsImpl.forTesting(),
-            options);
+            options,
+            /* commandName= */ "build");
   }
 }

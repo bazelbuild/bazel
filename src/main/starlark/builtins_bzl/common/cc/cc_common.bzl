@@ -14,8 +14,14 @@
 
 """Utilities related to C++ support."""
 
+load(
+    ":common/cc/cc_helper_internal.bzl",
+    _CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES = "CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES",
+    _PRIVATE_STARLARKIFICATION_ALLOWLIST = "PRIVATE_STARLARKIFICATION_ALLOWLIST",
+)
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
+load(":common/cc/link/link_build_variables.bzl", "create_link_variables")
 
 cc_common_internal = _builtins.internal.cc_common
 CcNativeLibraryInfo = _builtins.internal.CcNativeLibraryInfo
@@ -25,20 +31,6 @@ _UnboundValueProviderDoNotUse = provider("This provider is used as an unique sym
 _UNBOUND = _UnboundValueProviderDoNotUse()
 
 _OLD_STARLARK_API_ALLOWLISTED_PACKAGES = [("", "tools/build_defs/cc"), ("_builtins", "")]
-
-_CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES = [("", "devtools/rust/cc_interop"), ("", "third_party/crubit")]
-
-_PRIVATE_STARLARKIFICATION_ALLOWLIST = [
-    ("_builtins", ""),
-    ("", "bazel_internal/test_rules/cc"),
-    ("", "tools/build_defs/android"),
-    ("", "third_party/bazel_rules/rules_android"),
-    ("build_bazel_rules_android", ""),
-    ("rules_android", ""),
-    ("", "rust/private"),
-    ("rules_rust", "rust/private"),
-    ("", "third_party/gpus/cuda"),
-] + _CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES
 
 _BUILTINS = [("_builtins", "")]
 
@@ -60,57 +52,55 @@ def _check_all_sources_contain_tuples_or_none_of_them(files):
 def _link(
         *,
         actions,
+        name,
         feature_configuration,
         cc_toolchain,
-        name,
-        compilation_outputs = None,
-        user_link_flags = [],
-        linking_contexts = [],
         language = "c++",
         output_type = "executable",
         link_deps_statically = True,
+        compilation_outputs = _builtins.internal.cc_internal.empty_compilation_outputs(),
+        linking_contexts = [],
+        user_link_flags = [],
         stamp = 0,
         additional_inputs = [],
-        link_artifact_name_suffix = _UNBOUND,
-        never_link = _UNBOUND,
-        always_link = _UNBOUND,
-        test_only_target = _UNBOUND,
+        additional_outputs = [],
         variables_extension = {},
+        use_test_only_flags = _UNBOUND,
+        never_link = _UNBOUND,
+        test_only_target = _UNBOUND,
         native_deps = _UNBOUND,
         whole_archive = _UNBOUND,
         additional_linkstamp_defines = _UNBOUND,
+        always_link = _UNBOUND,
         only_for_dynamic_libs = _UNBOUND,
+        link_artifact_name_suffix = _UNBOUND,
         main_output = _UNBOUND,
-        additional_outputs = [],
-        use_test_only_flags = _UNBOUND,
         use_shareable_artifact_factory = _UNBOUND,
         build_config = _UNBOUND):
+    if output_type == "archive":
+        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
+
     # TODO(b/205690414): Keep linkedArtifactNameSuffixObject protected. Use cases that are
     #  passing the suffix should be migrated to using mainOutput instead where the suffix is
     #  taken into account. Then this parameter should be removed.
-    if link_artifact_name_suffix != _UNBOUND or \
+    if use_test_only_flags != _UNBOUND or \
        never_link != _UNBOUND or \
-       always_link != _UNBOUND or \
        test_only_target != _UNBOUND or \
        native_deps != _UNBOUND or \
        whole_archive != _UNBOUND or \
        additional_linkstamp_defines != _UNBOUND or \
+       always_link != _UNBOUND or \
        only_for_dynamic_libs != _UNBOUND or \
+       link_artifact_name_suffix != _UNBOUND or \
        main_output != _UNBOUND or \
-       use_test_only_flags != _UNBOUND or \
        use_shareable_artifact_factory != _UNBOUND or \
        build_config != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
-    if output_type == "archive":
-        cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
-
-    if link_artifact_name_suffix == _UNBOUND:
-        link_artifact_name_suffix = ""
+    if use_test_only_flags == _UNBOUND:
+        use_test_only_flags = False
     if never_link == _UNBOUND:
         never_link = False
-    if always_link == _UNBOUND:
-        always_link = False
     if test_only_target == _UNBOUND:
         test_only_target = False
     if native_deps == _UNBOUND:
@@ -119,14 +109,14 @@ def _link(
         whole_archive = False
     if additional_linkstamp_defines == _UNBOUND:
         additional_linkstamp_defines = []
+    if always_link == _UNBOUND:
+        always_link = False
     if only_for_dynamic_libs == _UNBOUND:
         only_for_dynamic_libs = False
+    if link_artifact_name_suffix == _UNBOUND:
+        link_artifact_name_suffix = ""
     if main_output == _UNBOUND:
         main_output = None
-    if additional_outputs == _UNBOUND:
-        additional_outputs = []
-    if use_test_only_flags == _UNBOUND:
-        use_test_only_flags = False
     if use_shareable_artifact_factory == _UNBOUND:
         use_shareable_artifact_factory = False
     if build_config == _UNBOUND:
@@ -134,29 +124,29 @@ def _link(
 
     return cc_common_internal.link(
         actions = actions,
+        name = name,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
-        compilation_outputs = compilation_outputs,
-        name = name,
-        user_link_flags = user_link_flags,
-        linking_contexts = linking_contexts,
         language = language,
         output_type = output_type,
         link_deps_statically = link_deps_statically,
+        compilation_outputs = compilation_outputs,
+        linking_contexts = linking_contexts,
+        user_link_flags = user_link_flags,
         stamp = stamp,
         additional_inputs = additional_inputs,
-        link_artifact_name_suffix = link_artifact_name_suffix,
-        never_link = never_link,
-        always_link = always_link,
-        test_only_target = test_only_target,
+        additional_outputs = additional_outputs,
         variables_extension = variables_extension,
+        use_test_only_flags = use_test_only_flags,
+        never_link = never_link,
+        test_only_target = test_only_target,
         native_deps = native_deps,
         whole_archive = whole_archive,
         additional_linkstamp_defines = additional_linkstamp_defines,
+        always_link = always_link,
         only_for_dynamic_libs = only_for_dynamic_libs,
+        link_artifact_name_suffix = link_artifact_name_suffix,
         main_output = main_output,
-        additional_outputs = additional_outputs,
-        use_test_only_flags = use_test_only_flags,
         use_shareable_artifact_factory = use_shareable_artifact_factory,
         build_config = build_config,
     )
@@ -257,35 +247,6 @@ def _create_compile_variables(
         variables_extension = variables_extension,
         strip_opts = strip_opts,
         input_file = input_file,
-    )
-
-def _create_link_variables(
-        *,
-        cc_toolchain,
-        feature_configuration,
-        library_search_directories = None,
-        runtime_library_search_directories = None,
-        user_link_flags = None,
-        output_file = None,
-        param_file = None,
-        is_using_linker = True,
-        is_linking_dynamic_library = False,
-        must_keep_debug = True,
-        use_test_only_flags = False,
-        is_static_linking_mode = True):
-    return cc_common_internal.create_link_variables(
-        cc_toolchain = cc_toolchain,
-        feature_configuration = feature_configuration,
-        library_search_directories = library_search_directories,
-        runtime_library_search_directories = runtime_library_search_directories,
-        user_link_flags = user_link_flags,
-        output_file = output_file,
-        param_file = param_file,
-        is_using_linker = is_using_linker,
-        is_linking_dynamic_library = is_linking_dynamic_library,
-        must_keep_debug = must_keep_debug,
-        use_test_only_flags = use_test_only_flags,
-        is_static_linking_mode = is_static_linking_mode,
     )
 
 def _empty_variables():
@@ -533,15 +494,15 @@ def _create_cc_toolchain_config_info(
         *,
         ctx,
         toolchain_identifier,
-        target_system_name,
-        target_cpu,
-        target_libc,
         compiler,
         features = [],
         action_configs = [],
         artifact_name_patterns = [],
         cxx_builtin_include_directories = [],
         host_system_name = None,
+        target_system_name = None,
+        target_cpu = None,
+        target_libc = None,
         abi_version = None,
         abi_libc_version = None,
         tool_paths = [],
@@ -570,17 +531,17 @@ def _create_cc_toolchain_config_info(
 def _create_linking_context_from_compilation_outputs(
         *,
         actions,
+        name,
         feature_configuration,
         cc_toolchain,
-        compilation_outputs,
-        name,
-        user_link_flags = [],
-        linking_contexts = [],
         language = "c++",
-        alwayslink = False,
-        additional_inputs = [],
         disallow_static_libraries = False,
         disallow_dynamic_library = False,
+        compilation_outputs,
+        linking_contexts = [],
+        user_link_flags = [],
+        alwayslink = False,
+        additional_inputs = [],
         variables_extension = {},
         stamp = _UNBOUND,
         linked_dll_name_suffix = _UNBOUND,
@@ -599,17 +560,17 @@ def _create_linking_context_from_compilation_outputs(
 
     return cc_common_internal.create_linking_context_from_compilation_outputs(
         actions = actions,
+        name = name,
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
-        compilation_outputs = compilation_outputs,
-        name = name,
-        user_link_flags = user_link_flags,
-        linking_contexts = linking_contexts,
         language = language,
-        alwayslink = alwayslink,
-        additional_inputs = additional_inputs,
         disallow_static_libraries = disallow_static_libraries,
         disallow_dynamic_library = disallow_dynamic_library,
+        compilation_outputs = compilation_outputs,
+        linking_contexts = linking_contexts,
+        user_link_flags = user_link_flags,
+        alwayslink = alwayslink,
+        additional_inputs = additional_inputs,
         variables_extension = variables_extension,
         stamp = stamp,
         linked_dll_name_suffix = linked_dll_name_suffix,
@@ -715,6 +676,7 @@ def _compile(
         purpose = _UNBOUND,
         copts_filter = _UNBOUND,
         separate_module_headers = _UNBOUND,
+        module_interfaces = _UNBOUND,
         non_compilation_additional_inputs = _UNBOUND):
     if module_map != _UNBOUND or \
        additional_module_maps != _UNBOUND or \
@@ -727,6 +689,7 @@ def _compile(
        implementation_compilation_contexts != _UNBOUND or \
        copts_filter != _UNBOUND or \
        separate_module_headers != _UNBOUND or \
+       module_interfaces != _UNBOUND or \
        non_compilation_additional_inputs != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
@@ -752,10 +715,12 @@ def _compile(
         copts_filter = None
     if separate_module_headers == _UNBOUND:
         separate_module_headers = []
+    if module_interfaces == _UNBOUND:
+        module_interfaces = []
     if non_compilation_additional_inputs == _UNBOUND:
         non_compilation_additional_inputs = []
 
-    has_tuple = _check_all_sources_contain_tuples_or_none_of_them([srcs, private_hdrs, public_hdrs])
+    has_tuple = _check_all_sources_contain_tuples_or_none_of_them([srcs, module_interfaces, private_hdrs, public_hdrs])
     if has_tuple:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
@@ -765,6 +730,7 @@ def _compile(
         cc_toolchain = cc_toolchain,
         name = name,
         srcs = srcs,
+        module_interfaces = module_interfaces,
         public_hdrs = public_hdrs,
         private_hdrs = private_hdrs,
         textual_hdrs = textual_hdrs,
@@ -886,7 +852,7 @@ cc_common = struct(
     get_memory_inefficient_command_line = _get_memory_inefficient_command_line,
     get_environment_variables = _get_environment_variables,
     create_compile_variables = _create_compile_variables,
-    create_link_variables = _create_link_variables,
+    create_link_variables = create_link_variables,
     empty_variables = _empty_variables,
     create_library_to_link = _create_library_to_link,
     create_linker_input = _create_linker_input,

@@ -35,21 +35,6 @@ source "${CURRENT_DIR}/../../integration_test_setup.sh" \
 
 resolve_android_toolchains
 
-function test_sdk_library_deps() {
-  create_new_workspace
-  setup_android_sdk_support
-
-  mkdir -p java/a
-  cat > java/a/BUILD<<EOF
-android_library(
-    name = "a",
-    exports = ["@androidsdk//com.android.support:mediarouter-v7-24.0.0"],
-)
-EOF
-
-  bazel build --nobuild //java/a:a || fail "build failed"
-}
-
 function test_allow_custom_manifest_name() {
   create_new_workspace
   setup_android_sdk_support

@@ -26,10 +26,11 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ArgChunk;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
-import com.google.devtools.build.lib.actions.Artifact.MissingExpansionException;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactExpander.MissingExpansionException;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
@@ -407,9 +408,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     private static List<Object> expandDirectories(
-        Artifact.ArtifactExpander artifactExpander,
-        List<Object> originalValues,
-        PathMapper pathMapper)
+        ArtifactExpander artifactExpander, List<Object> originalValues, PathMapper pathMapper)
         throws CommandLineExpansionException {
       List<Object> expandedValues = new ArrayList<>(originalValues.size());
       for (Object object : originalValues) {
@@ -430,7 +429,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     private static void expandFileset(
-        Artifact.ArtifactExpander artifactExpander,
+        ArtifactExpander artifactExpander,
         Artifact fileset,
         List<Object> expandedValues,
         PathMapper pathMapper)

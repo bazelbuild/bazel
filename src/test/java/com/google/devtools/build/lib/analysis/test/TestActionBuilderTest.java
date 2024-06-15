@@ -273,8 +273,10 @@ public class TestActionBuilderTest extends BuildViewTestCase {
 
   @Test
   public void testIllegalBooleanFlakySetting() throws Exception {
-    checkError("flaky", "bad_test",
-        "boolean is not one of [0, 1]",
+    checkError(
+        "flaky",
+        "bad_test",
+        "expected one of [False, True, 0, 1]",
         "sh_test(name = 'bad_test',",
         "        srcs = ['a.sh'],",
         "        flaky = 2)");

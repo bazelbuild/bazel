@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.packages.producers.GlobComputationProducer;
@@ -130,7 +131,7 @@ public final class GlobsFunction implements SkyFunction {
                 // IncludeParser.
                 PathFragment.EMPTY_FRAGMENT,
                 globRequest.getPattern(),
-                globRequest.getGlobOeration());
+                globRequest.getGlobOperation());
         state.globDrivers.add(
             new Driver(
                 new GlobComputationProducer(
@@ -144,7 +145,7 @@ public final class GlobsFunction implements SkyFunction {
     ConcurrentSkyFunctionEnvironment concurrentEnvironment =
         new ConcurrentSkyFunctionEnvironment((SkyFunctionEnvironment) env);
     AtomicBoolean allComplete = new AtomicBoolean(true);
-    AtomicReference<InterruptedException> possibleException = new AtomicReference<>();
+    AtomicReference<InterruptedException> possibleInterruptedExceptionRef = new AtomicReference<>();
     BlockingQueue<Runnable> stateMachineRunnablesQueue = new LinkedBlockingQueue<>();
     CountDownLatch countDownLatch = new CountDownLatch(state.globDrivers.size());
     for (Driver driver : state.globDrivers) {
@@ -155,7 +156,7 @@ public final class GlobsFunction implements SkyFunction {
                 allComplete.set(false);
               }
             } catch (InterruptedException e) {
-              possibleException.compareAndSet(/* expected= */ null, e);
+              possibleInterruptedExceptionRef.compareAndSet(/* expectedValue= */ null, e);
             } finally {
               countDownLatch.countDown();
             }
@@ -168,6 +169,11 @@ public final class GlobsFunction implements SkyFunction {
           Runnable next;
           while ((next = stateMachineRunnablesQueue.poll()) != null) {
             next.run();
+            if (Thread.interrupted()) {
+              possibleInterruptedExceptionRef.compareAndSet(
+                  /* expectedValue= */ null, new InterruptedException());
+              return;
+            }
           }
         };
 
@@ -186,7 +192,18 @@ public final class GlobsFunction implements SkyFunction {
 
     // It is possible State Machines run on external threads finish later than the ones on current
     // thread. So we need to wait for all State Machine `Runnable`s to complete before proceeding.
-    countDownLatch.await();
+    // Using `Uninterruptibles.awaitUninterruptibly` is necessary in that all State Machine workers
+    // threads should complete before GlobsFunction#compute() re-throws the InterruptedException.
+    // Otherwise, downstream logic on the main thread could race with unfinished State Machine
+    // workers threads.
+    Uninterruptibles.awaitUninterruptibly(countDownLatch);
+    if (Thread.interrupted()) {
+      possibleInterruptedExceptionRef.compareAndSet(
+          /* expectedValue= */ null, new InterruptedException());
+    }
+    if (possibleInterruptedExceptionRef.get() != null) {
+      throw possibleInterruptedExceptionRef.get();
+    }
 
     if (!allComplete.get()) {
       GlobException.handleExceptions(state.error);

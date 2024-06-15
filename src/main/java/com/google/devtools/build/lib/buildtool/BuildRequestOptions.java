@@ -257,7 +257,7 @@ public class BuildRequestOptions extends OptionsBase {
 
   @Option(
       name = "experimental_convenience_symlinks_bep_event",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
@@ -421,29 +421,18 @@ public class BuildRequestOptions extends OptionsBase {
   public int fsvcThreads;
 
   @Option(
-      name = "experimental_aquery_dump_after_build_format",
+      name = "experimental_skyframe_memory_dump",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Writes the state of Skyframe (which includes previous invocations on this blaze"
-              + " instance as well) to stdout after a build, in the same format as aquery's."
-              + " Possible formats: proto|textproto|jsonproto.")
-  @Nullable
-  public String aqueryDumpAfterBuildFormat;
-
-  @Option(
-      name = "experimental_aquery_dump_after_build_output_file",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      converter = OptionsUtils.PathFragmentConverter.class,
-      help =
-          "Specify the output file for the aquery dump after a build. Use in conjunction with"
-              + " --experimental_aquery_dump_after_build_format. The path provided is relative to"
-              + " Bazel's output base, unless it's an absolute path.")
-  @Nullable
-  public PathFragment aqueryDumpAfterBuildOutputFile;
+          "Dump the memory use of individual nodes in the Skyframe graph after the build. This"
+              + " option takes a number of flags separated by commas: 'json' (no-op, that's the"
+              + " only format), 'notransient' (don't traverse transient fields), 'noconfig' (ignore"
+              + " objects related to configurations), 'noprecomputed' (ignore precomputed values)"
+              + " and 'noworkspacestatus' (ignore objects related to the workspace status"
+              + " machinery)")
+  public String skyframeMemoryDump;
 
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and

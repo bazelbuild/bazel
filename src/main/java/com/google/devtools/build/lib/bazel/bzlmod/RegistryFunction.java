@@ -15,29 +15,68 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
+import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.net.URISyntaxException;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** A simple SkyFunction that creates a {@link Registry} with a given URL. */
 public class RegistryFunction implements SkyFunction {
-  private final RegistryFactory registryFactory;
+  /**
+   * Set to the current time in {@link com.google.devtools.build.lib.bazel.BazelRepositoryModule}
+   * after {@link #INVALIDATION_INTERVAL} has passed. This is used to refresh the mutable registry
+   * contents cached in memory from time to time.
+   */
+  public static final Precomputed<Instant> LAST_INVALIDATION =
+      new Precomputed<>("last_registry_invalidation");
 
-  public RegistryFunction(RegistryFactory registryFactory) {
+  /**
+   * The interval after which the mutable registry contents cached in memory should be refreshed.
+   */
+  public static final Duration INVALIDATION_INTERVAL = Duration.ofHours(1);
+
+  private final RegistryFactory registryFactory;
+  private final Path workspaceRoot;
+
+  public RegistryFunction(RegistryFactory registryFactory, Path workspaceRoot) {
     this.registryFactory = registryFactory;
+    this.workspaceRoot = workspaceRoot;
   }
 
   @Override
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, RegistryException {
+    LockfileMode lockfileMode = BazelLockFileFunction.LOCKFILE_MODE.get(env);
+    Optional<Path> vendorDir = RepositoryDelegatorFunction.VENDOR_DIRECTORY.get(env);
+
+    if (lockfileMode == LockfileMode.REFRESH) {
+      RegistryFunction.LAST_INVALIDATION.get(env);
+    }
+
+    BazelLockFileValue lockfile = (BazelLockFileValue) env.getValue(BazelLockFileValue.KEY);
+    if (lockfile == null) {
+      return null;
+    }
+
     RegistryKey key = (RegistryKey) skyKey.argument();
     try {
-      return registryFactory.createRegistry(key.getUrl());
+      return registryFactory.createRegistry(
+          key.getUrl().replace("%workspace%", workspaceRoot.getPathString()),
+          lockfileMode,
+          lockfile.getRegistryFileHashes(),
+          lockfile.getSelectedYankedVersions(),
+          vendorDir);
     } catch (URISyntaxException e) {
       throw new RegistryException(
           ExternalDepsException.withCauseAndMessage(

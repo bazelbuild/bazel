@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.util.Fingerprint;
 import javax.annotation.Nullable;

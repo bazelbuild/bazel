@@ -26,40 +26,81 @@ import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec.MemoizationStrategy;
 import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link DeserializationContext}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class DeserializationContextTest {
 
   @Test
-  public void nullDeserialize() throws Exception {
+  public void nullDeserialize(@TestParameter boolean useLeaf) throws Exception {
     ObjectCodecRegistry registry = mock(ObjectCodecRegistry.class);
     CodedInputStream codedInputStream = mock(CodedInputStream.class);
     when(codedInputStream.readSInt32()).thenReturn(0);
     DeserializationContext deserializationContext =
         new ImmutableDeserializationContext(registry, ImmutableClassToInstanceMap.of());
-    assertThat((Object) deserializationContext.deserialize(codedInputStream)).isNull();
+    if (useLeaf) {
+      // Deserialization doesn't touch the codec if the value is null.
+      assertThat(
+              deserializationContext.<Object>deserializeLeaf(codedInputStream, /* codec= */ null))
+          .isNull();
+    } else {
+      assertThat((Object) deserializationContext.deserialize(codedInputStream)).isNull();
+    }
     verify(codedInputStream).readSInt32();
     verifyNoInteractions(registry);
   }
 
   @Test
-  public void constantDeserialize() throws Exception {
+  public void constantDeserialize(@TestParameter boolean useLeaf) throws Exception {
     ObjectCodecRegistry registry = mock(ObjectCodecRegistry.class);
-    Object constant = new Object();
+    String constant = "abcdef";
     when(registry.maybeGetConstantByTag(1)).thenReturn(constant);
     CodedInputStream codedInputStream = mock(CodedInputStream.class);
     when(codedInputStream.readSInt32()).thenReturn(1);
     DeserializationContext deserializationContext =
         new ImmutableDeserializationContext(registry, ImmutableClassToInstanceMap.of());
-    assertThat((Object) deserializationContext.deserialize(codedInputStream))
-        .isSameInstanceAs(constant);
+    if (useLeaf) {
+      assertThat(
+              deserializationContext.deserializeLeaf(
+                  codedInputStream, LeafCodecForCastingOnly.INSTANCE))
+          .isSameInstanceAs(constant);
+    } else {
+      assertThat((Object) deserializationContext.deserialize(codedInputStream))
+          .isSameInstanceAs(constant);
+    }
     verify(codedInputStream).readSInt32();
     verify(registry).maybeGetConstantByTag(1);
+  }
+
+  private static final class LeafCodecForCastingOnly extends LeafObjectCodec<String> {
+    private static final LeafCodecForCastingOnly INSTANCE = new LeafCodecForCastingOnly();
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public Class<String> getEncodedClass() {
+      return String.class;
+    }
+
+    @Override
+    public void serialize(
+        LeafSerializationContext context, String obj, CodedOutputStream codedOut) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public String deserialize(LeafDeserializationContext context, CodedInputStream codedIn) {
+      throw new UnsupportedOperationException();
+    }
   }
 
   @Test

@@ -187,6 +187,20 @@ public final class StarlarkListTest {
     }
   }
 
+  @Test
+  public void concat_failsCleanlyOnOverflow() throws Exception {
+    System.gc();
+    Mutability mu = Mutability.create("test");
+    // veryBigArray is large enough that veryBigArray.size * 2 > StarlarkList.MAX_ALLOC
+    Object[] veryBigArray = new Object[(1 << 29) + 1]; // This will OOM if jvm max heap is too low.
+    StarlarkList<Object> veryBigList = StarlarkList.wrap(mu, veryBigArray);
+    EvalException e =
+        assertThrows(EvalException.class, () -> StarlarkList.concat(veryBigList, veryBigList, mu));
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("excessive capacity requested (536870913 + 536870913 elements)");
+  }
+
   @FormatMethod
   private static void fail(@FormatString String format, Object... args) {
     throw new AssertionError(String.format(format, args));

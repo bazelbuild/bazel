@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ByteStringDeterministicWriter;
@@ -67,11 +68,7 @@ public final class AndroidDeployInfoAction extends AbstractFileWriteAction {
       Artifact mergedManifest,
       ImmutableList<Artifact> additionalMergedManifests,
       ImmutableList<Artifact> apksToDeploy) {
-    super(
-        owner,
-        makeInputs(mergedManifest, additionalMergedManifests, apksToDeploy),
-        outputFile,
-        false);
+    super(owner, makeInputs(mergedManifest, additionalMergedManifests, apksToDeploy), outputFile);
     this.mergedManifest = mergedManifest;
     this.additionalMergedManifests = additionalMergedManifests;
     this.apksToDeploy = apksToDeploy;
@@ -119,7 +116,7 @@ public final class AndroidDeployInfoAction extends AbstractFileWriteAction {
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable Artifact.ArtifactExpander artifactExpander,
+      @Nullable ArtifactExpander artifactExpander,
       Fingerprint fp) {
     fp.addString(GUID);
 

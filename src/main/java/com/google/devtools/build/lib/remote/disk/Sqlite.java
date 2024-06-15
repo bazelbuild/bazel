@@ -30,11 +30,59 @@ import javax.annotation.Nullable;
  */
 public final class Sqlite {
 
+  private Sqlite() {}
+
+  public static final int ERR_ERROR = 1;
+  public static final int ERR_INTERNAL = 2;
+  public static final int ERR_PERM = 3;
+  public static final int ERR_ABORT = 4;
+  public static final int ERR_BUSY = 5;
+  public static final int ERR_LOCKED = 6;
+  public static final int ERR_NOMEM = 7;
+  public static final int ERR_READONLY = 8;
+  public static final int ERR_INTERRUPT = 9;
+  public static final int ERR_IOERR = 10;
+  public static final int ERR_CORRUPT = 11;
+  public static final int ERR_NOTFOUND = 12;
+  public static final int ERR_FULL = 13;
+  public static final int ERR_CANTOPEN = 14;
+  public static final int ERR_PROTOCOL = 15;
+  public static final int ERR_EMPTY = 16;
+  public static final int ERR_SCHEMA = 17;
+  public static final int ERR_TOOBIG = 18;
+  public static final int ERR_CONSTRAINT = 19;
+  public static final int ERR_MISMATCH = 20;
+  public static final int ERR_MISUSE = 21;
+  public static final int ERR_NOLFS = 22;
+  public static final int ERR_AUTH = 23;
+  public static final int ERR_FORMAT = 24;
+  public static final int ERR_RANGE = 25;
+  public static final int ERR_NOTADB = 26;
+  public static final int ERR_NOTICE = 27;
+  public static final int ERR_WARNING = 28;
+
   static {
     JniLoader.loadJni();
   }
 
-  private Sqlite() {}
+  /** An exception thrown when the SQLite C API returns an error. */
+  public static final class SqliteException extends IOException {
+    private final int code;
+
+    public SqliteException(int code) {
+      super(String.format("SQLite error: %s (%d)", errStr(code), code));
+      this.code = code;
+    }
+
+    /**
+     * Returns the SQLite error code.
+     *
+     * <p>Error codes SQLITE_OK, SQLITE_ROW and SQLITE_DONE never cause an exception to be thrown.
+     */
+    public int getCode() {
+      return code;
+    }
+  }
 
   /**
    * Opens a connection to a database, creating it in an empty state if it doesn't yet exist.
@@ -102,14 +150,13 @@ public final class Sqlite {
     }
 
     /**
-     * Executes a statement not expected to return a result.
+     * Executes a statement to completion and discards its result.
      *
-     * <p>For statements expected to return a result, or statements that will be executed multiple
-     * times, use {@link #newStatement}.
+     * <p>For statements whose result is of interest, or statements that will be executed multiple
+     * times, use {@link #newStatement} and {@link Statement#executeQuery}.
      *
      * @throws IOException if the string contains multiple SQL statements; or the single SQL
-     *     statement could not be parsed and validated; or the statement returned a non-empty
-     *     result; or an execution error occurred
+     *     statement could not be parsed and validated; or an execution error occurred
      */
     public void executeUpdate(String sql) throws IOException {
       try (Statement stmt = new Statement(this, sql)) {
@@ -245,7 +292,7 @@ public final class Sqlite {
     }
 
     /**
-     * Executes a statement expected to return a result.
+     * Executes a statement.
      *
      * <p>Execution doesn't actually start until the first call to {@link Result#next}.
      *
@@ -258,21 +305,20 @@ public final class Sqlite {
     }
 
     /**
-     * Executes a statement not expected to return a result.
+     * Executes a statement to completion and discards its result.
+     *
+     * <p>For statements whose result is of interest, use {@link #executeQuery}.
      *
      * <p>Must not be called after {@link #executeQuery} until the returned {@link Result} has been
      * closed.
      *
-     * @throws IOException if the statement returned a non-empty result or an execution error
-     *     occurred
+     * @throws IOException if an execution error occurred
      */
     public void executeUpdate() throws IOException {
       checkState(stmtPtr != 0 && currentResult == null, "executeUpdate() called in invalid state");
       currentResult = new Result(this);
       try {
-        if (currentResult.next()) {
-          throw new IOException("unexpected non-empty result");
-        }
+        while (currentResult.next()) {}
       } finally {
         currentResult.close();
       }
@@ -404,6 +450,8 @@ public final class Sqlite {
       return columnString(stmt.stmtPtr, i);
     }
   }
+
+  private static native String errStr(int code);
 
   private static native long openConn(String path) throws IOException;
 

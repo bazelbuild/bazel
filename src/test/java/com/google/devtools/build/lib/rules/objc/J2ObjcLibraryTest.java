@@ -15,11 +15,12 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.collect.ImmutableSortedSet;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.packages.util.MockJ2ObjcSupport;
+import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Before;
@@ -77,7 +78,12 @@ public class J2ObjcLibraryTest extends ObjcRuleTestCase {
     MockJ2ObjcSupport.setup(mockToolsConfig);
     MockProtoSupport.setup(mockToolsConfig);
 
-    useConfiguration("--proto_toolchain_for_java=//tools/proto/toolchains:java");
+    useConfiguration(
+        "--proto_toolchain_for_java=//tools/proto/toolchains:java",
+        "--platforms=" + MockObjcSupport.DARWIN_X86_64,
+        "--experimental_platform_in_output_dir");
+
+    setBuildLanguageOptions("--incompatible_disable_objc_library_transition");
 
     mockToolsConfig.append(
         "tools/proto/toolchains/BUILD",

@@ -6,7 +6,7 @@ Book: /_book.yaml
 {% include "_buttons.html" %}
 
 `BUILD` files are intended to be simple and declarative. They will typically
-consist of a series of a target declarations. As your code base and your `BUILD`
+consist of a series of target declarations. As your code base and your `BUILD`
 files get larger, you will probably notice some duplication, such as:
 
 ``` python

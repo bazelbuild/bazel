@@ -27,8 +27,14 @@ CcToolchainConfigInfo = _builtins.toplevel.CcToolchainConfigInfo
 
 def _files(ctx, attr_name):
     attr = getattr(ctx.attr, attr_name, None)
+    files = []
     if attr != None and DefaultInfo in attr:
-        return attr[DefaultInfo].files
+        # NOTE: This does not currently handle symlinks.
+        # Also note: this does not cause the .runfiles/ tree to be materialized.
+        # TODO: Modify the link action to properly handle runfiles.
+        files.append(attr[DefaultInfo].files)
+        files.append(attr[DefaultInfo].default_runfiles.files)
+        return depset(transitive = files)
     return depset()
 
 def _provider(attr, provider):

@@ -13,18 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.config;
 
+import static com.google.devtools.build.lib.cmdline.RepositoryName.MAIN;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
-import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import com.google.devtools.build.lib.skyframe.ProjectValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.config.ParsedFlagsFunction.ParsedFlagsFunctionException;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -61,29 +59,25 @@ public class FlagSetFunction implements SkyFunction {
       return FlagSetValue.create(key.getTargetOptions());
     }
 
-    String parentDirectoryString = key.getProjectFile().getParentDirectory().getPathString();
-    String baseName = key.getProjectFile().getBaseName();
-    String projectFileLabelString = parentDirectoryString + ":" + baseName;
-
-    BzlLoadValue sclLoadValue = loadSclFile(projectFileLabelString, env);
-
-    if (sclLoadValue == null) {
+    ProjectValue projectValue =
+        (ProjectValue) env.getValue(new ProjectValue.Key(key.getProjectFile()));
+    if (projectValue == null) {
       return null;
     }
 
     RepositoryMappingValue mainRepositoryMappingValue =
-        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
+        (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(MAIN));
     if (mainRepositoryMappingValue == null) {
       return null;
     }
 
     RepoContext mainRepoContext =
-        RepoContext.of(RepositoryName.MAIN, mainRepositoryMappingValue.getRepositoryMapping());
+        RepoContext.of(MAIN, mainRepositoryMappingValue.getRepositoryMapping());
 
     List<String> rawFlags = new ArrayList<>();
-    if (sclLoadValue.getModule().getGlobal(key.getSclConfig()) != null) {
+    if (projectValue.getResidualGlobal(key.getSclConfig()) != null) {
       rawFlags.addAll(
-          (Collection<? extends String>) sclLoadValue.getModule().getGlobal(key.getSclConfig()));
+          (Collection<? extends String>) projectValue.getResidualGlobal(key.getSclConfig()));
     } else {
       return FlagSetValue.create(key.getTargetOptions());
     }
@@ -117,21 +111,6 @@ public class FlagSetFunction implements SkyFunction {
     }
 
     return FlagSetValue.create(adjustedBuildOptions);
-  }
-
-  private BzlLoadValue loadSclFile(String sclFile, Environment env)
-      throws FlagSetFunctionException, InterruptedException {
-    BzlLoadValue bzlLoadValue;
-    try {
-      Label sclFileLabel = Label.parseCanonical(sclFile);
-      bzlLoadValue =
-          (BzlLoadValue)
-              env.getValueOrThrow(
-                  BzlLoadValue.keyForBuild(sclFileLabel), BzlLoadFailedException.class);
-    } catch (BzlLoadFailedException | LabelSyntaxException e) {
-      throw new FlagSetFunctionException(e, Transience.PERSISTENT);
-    }
-    return bzlLoadValue;
   }
 
   private static final class FlagSetFunctionException extends SkyFunctionException {
