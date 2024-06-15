@@ -138,10 +138,11 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
   @StarlarkBuiltin(
       name = "repository_rule",
       category = DocCategory.BUILTIN,
-      doc =
-          "A callable value that may be invoked during evaluation of the WORKSPACE file or within"
-              + " the implementation function of a module extension to instantiate and return a"
-              + " repository rule.")
+      doc = """
+        A callable value that may be invoked during evaluation of the WORKSPACE file or within \
+        the implementation function of a module extension to instantiate and return a \
+        repository rule.
+        """)
   public static final class RepositoryRuleFunction
       implements StarlarkCallable, StarlarkExportable, RuleFunction {
     private final RuleClass.Builder builder;

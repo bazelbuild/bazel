@@ -83,25 +83,26 @@ public final class StarlarkPath implements StarlarkValue {
 
   @StarlarkMethod(
       name = "readdir",
-      doc =
-          "Returns the list of entries in the directory denoted by this path. Each entry is a "
-              + "<code>path</code> object itself.",
+      doc = """
+        Returns the list of entries in the directory denoted by this path. Each entry is a \
+        <code>path</code> object itself.
+        """,
       parameters = {
         @Param(
             name = "watch",
             defaultValue = "'auto'",
             positional = false,
             named = true,
-            doc =
-                "whether Bazel should watch the list of entries in this directory and refetch the "
-                    + "repository or re-evaluate the module extension next time when any changes "
-                    + "are detected. Changes to detect include entry creation, deletion, and "
-                    + "renaming. Note that this doesn't watch the <em>contents</em> of any entries "
-                    + "in the directory.<p>Can be the string 'yes', 'no', or 'auto'. If set to "
-                    + "'auto', Bazel will only watch this directory when it is legal to do so (see "
-                    + "<a "
-                    + "href=\"repository_ctx.html#watch\"><code>repository_ctx.watch()</code></a> "
-                    + "docs for more information)."),
+            doc = """
+              whether Bazel should watch the list of entries in this directory and refetch the \
+              repository or re-evaluate the module extension next time when any changes \
+              are detected. Changes to detect include entry creation, deletion, and \
+              renaming. Note that this doesn't watch the <em>contents</em> of any entries \
+              in the directory.<p>Can be the string 'yes', 'no', or 'auto'. If set to \
+              'auto', Bazel will only watch this directory when it is legal to do so (see \
+              <a href="repository_ctx.html#watch"><code>repository_ctx.watch()</code></a> \
+              docs for more information).
+              """),
       })
   public ImmutableList<StarlarkPath> readdir(String watch)
       throws EvalException, RepositoryFunctionException, InterruptedException {
@@ -137,9 +138,10 @@ public final class StarlarkPath implements StarlarkValue {
       extraPositionals =
           @Param(
               name = "relative_paths",
-              doc =
-                  "Zero or more relative path strings to append to this path with path separators"
-                      + "added as needed."))
+              doc = """
+                Zero or more relative path strings to append to this path with path separators \
+                added as needed.
+                """))
   public StarlarkPath getChild(Tuple relativePaths) throws EvalException {
     return new StarlarkPath(
         ctx,
@@ -152,11 +154,12 @@ public final class StarlarkPath implements StarlarkValue {
   @StarlarkMethod(
       name = "exists",
       structField = true,
-      doc =
-          "Returns true if the file or directory denoted by this path exists.<p>Note that "
-              + "accessing this field does <em>not</em> cause the path to be watched. If you'd "
-              + "like the repo rule or module extension to be sensitive to the path's existence, "
-              + "use the <code>watch()</code> method on the context object.")
+      doc = """
+        Returns true if the file or directory denoted by this path exists.<p>Note that \
+        accessing this field does <em>not</em> cause the path to be watched. If you'd \
+        like the repo rule or module extension to be sensitive to the path's existence, \
+        use the <code>watch()</code> method on the context object.
+        """)
   public boolean exists() {
     return path.exists();
   }
@@ -164,11 +167,12 @@ public final class StarlarkPath implements StarlarkValue {
   @StarlarkMethod(
       name = "is_dir",
       structField = true,
-      doc =
-          "Returns true if this path points to a directory.<p>Note that accessing this field does "
-              + "<em>not</em> cause the path to be watched. If you'd like the repo rule or module "
-              + "extension to be sensitive to whether the path is a directory or a file, use the "
-              + "<code>watch()</code> method on the context object.")
+      doc = """
+        Returns true if this path points to a directory.<p>Note that accessing this field does \
+        <em>not</em> cause the path to be watched. If you'd like the repo rule or module \
+        extension to be sensitive to whether the path is a directory or a file, use the \
+        <code>watch()</code> method on the context object.
+        """)
   public boolean isDir() {
     return path.isDirectory();
   }
@@ -176,9 +180,10 @@ public final class StarlarkPath implements StarlarkValue {
   @StarlarkMethod(
       name = "realpath",
       structField = true,
-      doc =
-          "Returns the canonical path for this path by repeatedly replacing all symbolic links "
-              + "with their referents.")
+      doc = """
+        Returns the canonical path for this path by repeatedly replacing all symbolic links \
+        with their referents.
+        """)
   public StarlarkPath realpath() throws IOException {
     return new StarlarkPath(ctx, path.resolveSymbolicLinks());
   }
