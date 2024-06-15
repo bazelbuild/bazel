@@ -37,7 +37,14 @@ machines without the file in the cache. This behavior can be disabled with
 """.format(env = DEFAULT_CANONICAL_ID_ENV)
 
 def get_default_canonical_id(repository_ctx, urls):
-    """Returns the default canonical id to use for downloads."""
+    """Returns the default canonical id to use for downloads.
+    
+    Args:
+      repository_ctx: The repository context of the repository rule calling this utility
+        function.
+      urls: A list of URLs matching what is passed to `repository_ctx.download` and
+        `repository_ctx.download_and_extract`.
+    """
     if repository_ctx.os.environ.get(DEFAULT_CANONICAL_ID_ENV) == "0":
         return ""
 
