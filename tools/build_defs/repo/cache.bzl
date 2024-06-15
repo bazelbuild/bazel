@@ -20,7 +20,7 @@
 
 """Returns the default canonical id to use for downloads."""
 
-visibility("private")
+visibility("public")
 
 DEFAULT_CANONICAL_ID_ENV = "BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID"
 

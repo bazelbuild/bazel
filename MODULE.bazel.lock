@@ -286,7 +286,7 @@
         "usagesDigest": "S0vNSOLxzaSWBw2qFrqtiXI9txwZdU8Tc5Bmz/zBoJA=",
         "recordedFileInputs": {
           "@@//MODULE.bazel": "d944444e1624a90a47831d10fa134b9d6d2d387c22c97481c493a1a6ea86f467",
-          "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "1b05fa65f3b7cb10e2d018eb5183171dca5d84e64820892e9d78290aa089f262"
+          "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "d2a0c7def36e78e92c57b8ca01538fefdf44268328855cd157b7df684e9ae37b"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
