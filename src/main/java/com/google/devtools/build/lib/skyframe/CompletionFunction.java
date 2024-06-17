@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingArtifactValue;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
@@ -447,7 +448,14 @@ public final class CompletionFunction<
       throw new CompletionFunctionException(
           new TopLevelOutputException(
               e.getMessage(),
-              DetailedExitCode.of(FailureDetail.newBuilder().setMessage(e.getMessage()).build())));
+              DetailedExitCode.of(
+                  FailureDetail.newBuilder()
+                      .setMessage(e.getMessage())
+                      .setRemoteExecution(
+                          RemoteExecution.newBuilder()
+                              .setCode(RemoteExecution.Code.TOPLEVEL_OUTPUTS_DOWNLOAD_FAILURE)
+                              .build())
+                      .build())));
     }
   }
 
