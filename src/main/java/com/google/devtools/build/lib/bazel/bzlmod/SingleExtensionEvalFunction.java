@@ -938,6 +938,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           // Restart by returning null.
           return null;
         }
+        moduleContext.markSuccessful();
         return RunModuleExtensionResult.create(
             moduleContext.getRecordedFileInputs(),
             moduleContext.getRecordedDirentsInputs(),
