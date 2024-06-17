@@ -185,13 +185,21 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
                 .factory());
   }
 
+  /**
+   * Mark the evaluation using this context as otherwise successful. This is used to determine how
+   * to clean up resources in {@link #close()}.
+   */
   public final void markSuccessful() {
     wasSuccessful = true;
   }
 
   @Override
   public final void close() throws EvalException, IOException {
+    // Cancel all pending async tasks.
     boolean hadPendingItems = ensureNoPendingAsyncTasks();
+    // Wait for all (cancelled) async tasks to complete before cleaning up the working directory.
+    // This is necessary because downloads may still be in progress and could end up writing to the
+    // working directory during deletion, which would cause an error.
     executorService.close();
     if (shouldDeleteWorkingDirectory(wasSuccessful)) {
       workingDirectory.deleteTree();
@@ -203,7 +211,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     }
   }
 
-  public final boolean ensureNoPendingAsyncTasks() {
+  private boolean ensureNoPendingAsyncTasks() {
     boolean hadPendingItems = false;
     for (AsyncTask task : asyncTasks) {
       if (!task.cancel()) {
@@ -225,7 +233,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 
   // There is no unregister(). We don't have that many futures in each repository and it just
   // introduces the failure mode of erroneously unregistering async work that's not done.
-  protected void registerAsyncTask(AsyncTask task) {
+  protected final void registerAsyncTask(AsyncTask task) {
     asyncTasks.add(task);
   }
 
