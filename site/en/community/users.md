@@ -178,14 +178,6 @@ requirements of reproducibility and platform/language support. All software at
 Google is built using Bazel. Google uses Bazel and its rules for millions of
 builds every day.
 
-### [TypeDB](https://typedb.com){: .external}
-<img src="/community/images/typedb.png" alt="TypeDB Logo" width="150" align="right">
-
-Bazel enables the TypeDB team to build a highly-orchestrated CI and distribution
-pipeline that manages many repositories in a wide variety of languages, and
-deploys to numerous platforms seamlessly. The TypeDB team has also released
-Bazel rules for assembling and deploying software distributions.
-
 ### [Huawei](http://www.huawei.com/){: .external}
 
 > Huawei Technologies is using Bazel in about 30 projects, they are Java/Scala/Go
@@ -684,6 +676,14 @@ An open source software library for machine intelligence.
 ### [Turbo Santa](https://github.com/turbo-santa/turbo-santa-common){: .external}
 
 A platform-independent GameBoy emulator.
+
+### [TypeDB](https://typedb.com){: .external}
+<img src="/community/images/typedb.png" alt="TypeDB Logo" width="150" align="right">
+
+Bazel enables the TypeDB team to build a highly-orchestrated CI and distribution
+pipeline that manages many repositories in a wide variety of languages, and
+deploys to numerous platforms seamlessly. The TypeDB team has also released
+Bazel rules for assembling and deploying software distributions.
 
 ### [Wycheproof](https://github.com/google/wycheproof){: .external}
 
