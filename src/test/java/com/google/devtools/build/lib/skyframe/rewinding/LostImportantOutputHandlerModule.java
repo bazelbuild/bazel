@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -73,7 +74,26 @@ final class LostImportantOutputHandlerModule extends BlazeModule {
       CommandEnvironment env,
       BuildRequest buildRequest) {
     execRoot = env.getExecRoot().asFragment();
-    registryBuilder.register(ImportantOutputHandler.class, this::getLostOutputs);
+    registryBuilder.register(
+        ImportantOutputHandler.class,
+        new ImportantOutputHandler() {
+          @Override
+          public ImmutableMap<String, ActionInput> processOutputsAndGetLostArtifacts(
+              Iterable<Artifact> outputs,
+              ArtifactExpander expander,
+              InputMetadataProvider metadataProvider) {
+            return getLostOutputs(outputs, expander, metadataProvider);
+          }
+
+          @Override
+          public ImmutableMap<String, ActionInput> processRunfilesAndGetLostArtifacts(
+              PathFragment runfilesDir,
+              Map<PathFragment, Artifact> runfiles,
+              ArtifactExpander expander,
+              InputMetadataProvider metadataProvider) {
+            return getLostOutputs(runfiles.values(), expander, metadataProvider);
+          }
+        });
   }
 
   private ImmutableMap<String, ActionInput> getLostOutputs(

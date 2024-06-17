@@ -509,7 +509,7 @@ public final class CompletionFunction<
   }
 
   /**
-   * Calls {@link ImportantOutputHandler#processAndGetLostArtifacts}.
+   * Calls {@link ImportantOutputHandler#processOutputsAndGetLostArtifacts}.
    *
    * <p>If any outputs are lost, returns a {@link Reset} which can be used to initiate action
    * rewinding and regenerate the lost outputs. Otherwise, returns {@code null}.
@@ -544,7 +544,7 @@ public final class CompletionFunction<
               "Informing important output handler of top-level outputs for " + label,
               IMPORTANT_OUTPUT_HANDLER_LOGGING_THRESHOLD)) {
         lostOutputs =
-            importantOutputHandler.processAndGetLostArtifacts(
+            importantOutputHandler.processOutputsAndGetLostArtifacts(
                 key.topLevelArtifactContext().expandFilesets()
                     ? importantArtifacts
                     : Iterables.filter(importantArtifacts, artifact -> !artifact.isFileset()),
