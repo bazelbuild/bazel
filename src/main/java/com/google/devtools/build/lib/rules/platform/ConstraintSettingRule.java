@@ -38,7 +38,7 @@ public class ConstraintSettingRule implements RuleDefinition {
         .advertiseStarlarkProvider(ConstraintSettingInfo.PROVIDER.id())
         .cfg(NoConfigTransition.getFactory())
         .exemptFromConstraintChecking("this rule helps *define* a constraint")
-        .useToolchainResolution(ToolchainResolutionMode.DISABLED)
+        .toolchainResolutionMode(ToolchainResolutionMode.DISABLED)
         .removeAttribute(":action_listener")
         .removeAttribute(RuleClass.APPLICABLE_METADATA_ATTR)
         .override(

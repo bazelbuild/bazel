@@ -164,7 +164,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
               (builder, env) ->
                   builder
                       .add(attr("deps", LABEL_LIST).allowedFileTypes())
-                      .useToolchainResolution(ToolchainResolutionMode.DISABLED));
+                      .toolchainResolutionMode(ToolchainResolutionMode.DISABLED));
 
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {

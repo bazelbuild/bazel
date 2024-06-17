@@ -85,7 +85,7 @@ public final class LabelBuildSettings {
         .add(attr(":alias", LABEL).value(ACTUAL))
         .setBuildSetting(BuildSetting.create(flag, NODEP_LABEL))
         .canHaveAnyProvider()
-        .useToolchainResolution(ToolchainResolutionMode.DISABLED)
+        .toolchainResolutionMode(ToolchainResolutionMode.DISABLED)
         .build();
   }
 
