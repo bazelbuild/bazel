@@ -69,7 +69,7 @@ even posted a
 [nice piece about how their switch to Bazel went](https://www.pgrs.net/2015/09/01/migrating-from-gradle-to-bazel/).
 
 ### [Canva](https://www.canva.com/){: .external}
-<img src="https://upload.wikimedia.org/wikipedia/en/3/3b/Canva_Logo.png" width="90" align="right">
+<img src="https://upload.wikimedia.org/wikipedia/commons/b/bb/Canva_Logo.svg" width="90" align="right">
 
 Canva leverages Bazel to manage its large polyglot codebase, which includes
 Java, TypeScript, Scala, Python, and more. Migration to Bazel has delivered
