@@ -38,7 +38,7 @@ public class VendorManager {
 
   private static final String REGISTRIES_DIR = "_registries";
 
-  public static final String EXTERNAL_ROOT_SYMLINK_NAME = "_bazel-external";
+  public static final String EXTERNAL_ROOT_SYMLINK_NAME = "bazel-external";
 
   private final Path vendorDirectory;
 
