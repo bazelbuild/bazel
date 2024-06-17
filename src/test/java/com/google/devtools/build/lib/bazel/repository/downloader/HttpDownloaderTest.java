@@ -43,10 +43,12 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -114,7 +116,8 @@ public class HttpDownloaderTest {
               });
 
       Path resultingFile =
-          downloadManager.download(
+          download(
+              downloadManager,
               Collections.singletonList(
                   new URL(String.format("http://localhost:%d/foo", server.getLocalPort()))),
               Collections.emptyMap(),
@@ -180,7 +183,8 @@ public class HttpDownloaderTest {
       urls.add(new URL(String.format("http://localhost:%d/foo", server2.getLocalPort())));
 
       Path resultingFile =
-          downloadManager.download(
+          download(
+              downloadManager,
               urls,
               Collections.emptyMap(),
               Collections.emptyMap(),
@@ -248,7 +252,8 @@ public class HttpDownloaderTest {
       urls.add(new URL(String.format("http://localhost:%d/foo", server2.getLocalPort())));
 
       Path resultingFile =
-          downloadManager.download(
+          download(
+              downloadManager,
               urls,
               Collections.emptyMap(),
               Collections.emptyMap(),
@@ -318,7 +323,8 @@ public class HttpDownloaderTest {
 
       Path outputFile = fs.getPath(workingDir.newFile().getAbsolutePath());
       try {
-        downloadManager.download(
+        download(
+            downloadManager,
             urls,
             Collections.emptyMap(),
             Collections.emptyMap(),
@@ -657,7 +663,8 @@ public class HttpDownloaderTest {
     assertThrows(
         ContentLengthMismatchException.class,
         () ->
-            downloadManager.download(
+            download(
+                downloadManager,
                 ImmutableList.of(new URL("http://localhost")),
                 Collections.emptyMap(),
                 ImmutableMap.of(),
@@ -697,7 +704,8 @@ public class HttpDownloaderTest {
         .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
 
     Path result =
-        downloadManager.download(
+        download(
+            downloadManager,
             ImmutableList.of(new URL("http://localhost")),
             ImmutableMap.of(),
             ImmutableMap.of(),
@@ -742,7 +750,8 @@ public class HttpDownloaderTest {
         .download(any(), any(), any(), any(), any(), any(), any(), any(), any());
 
     Path result =
-        downloadManager.download(
+        download(
+            downloadManager,
             ImmutableList.of(new URL("http://localhost")),
             ImmutableMap.of(),
             ImmutableMap.of(),
@@ -757,5 +766,36 @@ public class HttpDownloaderTest {
     assertThat(times.get()).isEqualTo(4);
     String content = new String(result.getInputStream().readAllBytes(), UTF_8);
     assertThat(content).isEqualTo("content");
+  }
+
+  public Path download(
+      DownloadManager downloadManager,
+      List<URL> originalUrls,
+      Map<String, List<String>> headers,
+      Map<URI, Map<String, List<String>>> authHeaders,
+      Optional<Checksum> checksum,
+      String canonicalId,
+      Optional<String> type,
+      Path output,
+      ExtendedEventHandler eventHandler,
+      Map<String, String> clientEnv,
+      String context)
+      throws IOException, InterruptedException {
+    try (ExecutorService executorService = Executors.newSingleThreadExecutor()) {
+      Future<Path> future =
+          downloadManager.startDownload(
+              executorService,
+              originalUrls,
+              headers,
+              authHeaders,
+              checksum,
+              canonicalId,
+              type,
+              output,
+              eventHandler,
+              clientEnv,
+              context);
+      return downloadManager.finalizeDownload(future);
+    }
   }
 }

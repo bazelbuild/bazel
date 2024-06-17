@@ -83,6 +83,13 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
   }
 
   @Override
+  protected boolean shouldDeleteWorkingDirectory(boolean successful) {
+    // The contents of the working directory are purely ephemeral, only the repos instantiated by
+    // the extension are considered its results.
+    return true;
+  }
+
+  @Override
   protected String getIdentifyingStringForLogging() {
     return ModuleExtensionEvaluationProgress.moduleExtensionEvaluationContextString(extensionId);
   }

@@ -889,12 +889,13 @@ public class SingleExtensionEvalFunction implements SkyFunction {
               mainRepositoryMapping,
               directories,
               env.getListener());
-      ModuleExtensionContext moduleContext;
       Optional<ModuleExtensionMetadata> moduleExtensionMetadata;
       var repoMappingRecorder = new Label.RepoMappingRecorder();
       repoMappingRecorder.mergeEntries(bzlLoadValue.getRecordedRepoMappings());
       try (Mutability mu =
-          Mutability.create("module extension", usagesValue.getExtensionUniqueName())) {
+              Mutability.create("module extension", usagesValue.getExtensionUniqueName());
+          ModuleExtensionContext moduleContext =
+              createContext(env, usagesValue, starlarkSemantics, extensionId)) {
         StarlarkThread thread =
             StarlarkThread.create(
                 mu,
@@ -902,7 +903,6 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                 /* contextDescription= */ "",
                 SymbolGenerator.create(extensionId));
         thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
-        moduleContext = createContext(env, usagesValue, starlarkSemantics, extensionId);
         threadContext.storeInThread(thread);
         // This is used by the `Label()` constructor in Starlark, to record any attempts to resolve
         // apparent repo names to canonical repo names. See #20721 for why this is necessary.
@@ -935,39 +935,33 @@ public class SingleExtensionEvalFunction implements SkyFunction {
             moduleExtensionMetadata = Optional.empty();
           }
         } catch (NeedsSkyframeRestartException e) {
-          // Clean up and restart by returning null.
-          try {
-            if (moduleContext.getWorkingDirectory().exists()) {
-              moduleContext.getWorkingDirectory().deleteTree();
-            }
-          } catch (IOException e1) {
-            ExternalDepsException externalDepsException =
-                ExternalDepsException.withCauseAndMessage(
-                    ExternalDeps.Code.EXTERNAL_DEPS_UNKNOWN,
-                    e1,
-                    "Failed to clean up module context directory");
-            throw new SingleExtensionEvalFunctionException(
-                externalDepsException, Transience.TRANSIENT);
-          }
+          // Restart by returning null.
           return null;
-        } catch (EvalException e) {
-          env.getListener().handle(Event.error(e.getMessageWithStack()));
-          throw new SingleExtensionEvalFunctionException(
-              ExternalDepsException.withMessage(
-                  ExternalDeps.Code.BAD_MODULE,
-                  "error evaluating module extension %s in %s",
-                  extensionId.getExtensionName(),
-                  extensionId.getBzlFileLabel()),
-              Transience.TRANSIENT);
         }
+        return RunModuleExtensionResult.create(
+            moduleContext.getRecordedFileInputs(),
+            moduleContext.getRecordedDirentsInputs(),
+            moduleContext.getRecordedEnvVarInputs(),
+            threadContext.getGeneratedRepoSpecs(),
+            moduleExtensionMetadata,
+            repoMappingRecorder.recordedEntries());
+      } catch (EvalException e) {
+        env.getListener().handle(Event.error(e.getMessageWithStack()));
+        throw new SingleExtensionEvalFunctionException(
+            ExternalDepsException.withMessage(
+                ExternalDeps.Code.BAD_MODULE,
+                "error evaluating module extension %s in %s",
+                extensionId.getExtensionName(),
+                extensionId.getBzlFileLabel()),
+            Transience.TRANSIENT);
+      } catch (IOException e) {
+        ExternalDepsException externalDepsException =
+            ExternalDepsException.withCauseAndMessage(
+                ExternalDeps.Code.EXTERNAL_DEPS_UNKNOWN,
+                e,
+                "Failed to clean up module context directory");
+        throw new SingleExtensionEvalFunctionException(externalDepsException, Transience.TRANSIENT);
       }
-      return RunModuleExtensionResult.create(
-          moduleContext.getRecordedFileInputs(),
-          moduleContext.getRecordedDirentsInputs(),
-          moduleContext.getRecordedEnvVarInputs(),
-          threadContext.getGeneratedRepoSpecs(),
-          moduleExtensionMetadata,
-          repoMappingRecorder.recordedEntries());
     }
 
     private ModuleExtensionContext createContext(

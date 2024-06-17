@@ -132,6 +132,11 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   }
 
   @Override
+  protected boolean shouldDeleteWorkingDirectory(boolean successful) {
+    return !successful;
+  }
+
+  @Override
   protected String getIdentifyingStringForLogging() {
     return RepositoryFetchProgress.repositoryFetchContextString(repoName);
   }

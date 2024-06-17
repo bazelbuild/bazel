@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -67,6 +66,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
+import com.google.errorprone.annotations.ForOverride;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -87,8 +87,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -107,7 +107,7 @@ import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
 /** A common base class for Starlark "ctx" objects related to external dependencies. */
-public abstract class StarlarkBaseExternalContext implements StarlarkValue {
+public abstract class StarlarkBaseExternalContext implements AutoCloseable, StarlarkValue {
 
   /**
    * An asynchronous task run as part of fetching the repository.
@@ -151,6 +151,9 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   private final RepositoryRemoteExecutor remoteExecutor;
   private final List<AsyncTask> asyncTasks;
   private final boolean allowWatchingPathsOutsideWorkspace;
+  private final ExecutorService executorService;
+
+  private boolean wasSuccessful = false;
 
   protected StarlarkBaseExternalContext(
       Path workingDirectory,
@@ -175,19 +178,44 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     this.remoteExecutor = remoteExecutor;
     this.asyncTasks = new ArrayList<>();
     this.allowWatchingPathsOutsideWorkspace = allowWatchingPathsOutsideWorkspace;
+    this.executorService =
+        Executors.newThreadPerTaskExecutor(
+            Thread.ofVirtual()
+                .name("downloads-" + workingDirectory.getBaseName())
+                .factory());
   }
 
-  public boolean ensureNoPendingAsyncTasks(EventHandler eventHandler, boolean forSuccessfulFetch) {
+  public final void markSuccessful() {
+    wasSuccessful = true;
+  }
+
+  @Override
+  public final void close() throws EvalException, IOException {
+    boolean hadPendingItems = ensureNoPendingAsyncTasks();
+    executorService.close();
+    if (shouldDeleteWorkingDirectory(wasSuccessful)) {
+      workingDirectory.deleteTree();
+    }
+    if (hadPendingItems && wasSuccessful) {
+      throw Starlark.errorf(
+          "Pending asynchronous work after %s finished execution",
+          getIdentifyingStringForLogging());
+    }
+  }
+
+  public final boolean ensureNoPendingAsyncTasks() {
     boolean hadPendingItems = false;
     for (AsyncTask task : asyncTasks) {
       if (!task.cancel()) {
         hadPendingItems = true;
-        if (forSuccessfulFetch) {
-          eventHandler.handle(
-              Event.error(
-                  task.getLocation(),
-                  "Work pending after repository rule finished execution: "
-                      + task.getDescription()));
+        if (wasSuccessful) {
+          env.getListener()
+              .handle(
+                  Event.error(
+                      task.getLocation(),
+                      String.format(
+                          "Work pending after %s finished execution: %s",
+                          getIdentifyingStringForLogging(), task.getDescription())));
         }
       }
     }
@@ -203,6 +231,9 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
 
   /** A string that can be used to identify this context object. Used for logging purposes. */
   protected abstract String getIdentifyingStringForLogging();
+
+  @ForOverride
+  protected abstract boolean shouldDeleteWorkingDirectory(boolean successful);
 
   /** Returns the file digests used by this context object so far. */
   public ImmutableMap<RepoRecordedInput.File, String> getRecordedFileInputs() {
@@ -513,18 +544,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
 
     @Override
     public boolean cancel() {
-      if (!future.cancel(true)) {
-        return true;
-      }
-
-      try {
-        future.get();
-        return false;
-      } catch (InterruptedException | ExecutionException | CancellationException e) {
-        // Ignore. The only thing we care about is that there is no async work in progress after
-        // this point. Any error reporting should have been done before.
-        return false;
-      }
+      return !future.cancel(true);
     }
 
     @StarlarkMethod(
@@ -721,6 +741,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     if (download == null) {
       Future<Path> downloadFuture =
           downloadManager.startDownload(
+              executorService,
               urls,
               headers,
               authHeaders,
@@ -922,6 +943,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
 
       Future<Path> pendingDownload =
           downloadManager.startDownload(
+              executorService,
               urls,
               headers,
               authHeaders,
