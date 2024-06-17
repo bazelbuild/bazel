@@ -151,16 +151,17 @@ public interface OutputService {
   @Nullable
   BatchStat getBatchStatter();
 
-  /**
-   * @return true iff createSymlinkTree() is available.
-   */
+  /** Returns true iff {@link #createSymlinkTree} is available. */
   boolean canCreateSymlinkTree();
 
   /**
-   * Creates the symlink tree
+   * Creates a symlink tree.
    *
-   * @param symlinks the symlinks to create
-   * @param symlinkTreeRoot the symlink tree root, relative to the execRoot
+   * @param symlinks map from {@code symlinkTreeRoot}-relative path to symlink target; may contain
+   *     null values to represent an empty file instead of a symlink (can happen with {@code
+   *     __init__.py} files, see {@link
+   *     com.google.devtools.build.lib.rules.python.PythonUtils.GetInitPyFiles})
+   * @param symlinkTreeRoot the symlink tree root, relative to the exec root
    * @throws ExecException on failure
    */
   void createSymlinkTree(Map<PathFragment, PathFragment> symlinks, PathFragment symlinkTreeRoot)
