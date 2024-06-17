@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.AllowlistChecker;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -426,6 +427,7 @@ public class ConfigRuleClasses {
           .add(ConfigFeatureFlag.getAllowlistAttribute(env))
           .addAllowlistChecker(ALWAYS_CHECK_ALLOWLIST)
           .removeAttribute(BaseRuleClasses.TAGGED_TRIMMING_ATTR)
+          .toolchainResolutionMode(ToolchainResolutionMode.DISABLED)
           .build();
     }
 
