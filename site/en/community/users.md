@@ -391,6 +391,14 @@ build tool
 Two Sigma is a New York-headquartered technology company dedicated to finding
 value in the world’s data.
 
+### [TypeDB](https://typedb.com){: .external}
+<img src="/community/images/typedb.png" alt="TypeDB Logo" width="150" align="right">
+
+Bazel enables the TypeDB team to build a highly-orchestrated CI and distribution
+pipeline that manages many repositories in a wide variety of languages, and
+deploys to numerous platforms seamlessly. The TypeDB team has also released
+Bazel rules for assembling and deploying software distributions.
+
 ### [Uber](https://www.uber.com){: .external}
 
 Uber is a ride-hailing company. With 900 active developers, Uber’s Go monorepo
@@ -676,14 +684,6 @@ An open source software library for machine intelligence.
 ### [Turbo Santa](https://github.com/turbo-santa/turbo-santa-common){: .external}
 
 A platform-independent GameBoy emulator.
-
-### [TypeDB](https://typedb.com){: .external}
-<img src="/community/images/typedb.png" alt="TypeDB Logo" width="150" align="right">
-
-Bazel enables the TypeDB team to build a highly-orchestrated CI and distribution
-pipeline that manages many repositories in a wide variety of languages, and
-deploys to numerous platforms seamlessly. The TypeDB team has also released
-Bazel rules for assembling and deploying software distributions.
 
 ### [Wycheproof](https://github.com/google/wycheproof){: .external}
 
