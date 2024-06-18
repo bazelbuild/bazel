@@ -319,6 +319,14 @@ genrule(
         -libraryjars '<java.home>/jmods/java.base.jmod(!**.jar;!module-info.class)' \
         @$(location fastutil.proguard) \
       | tail -n +2 # Skip the "ProGuard, version X" line
+    # Null out the file times stored in the jar to make the output reproducible.
+    TMPDIR=$$(mktemp -d)
+    trap 'rm -rf $$TMPDIR' EXIT
+    unzip -q $@ -d $$TMPDIR
+    rm $@
+    find $$TMPDIR -type f -print0 | xargs -0 touch -t 198001010000.00
+    OUTPUT="$$(pwd)/$@"
+    (cd $$TMPDIR && find . -type f | LC_ALL=C sort | zip -qDX0r@ "$$OUTPUT")
     """,
     tools = [
         "fastutil.proguard",
