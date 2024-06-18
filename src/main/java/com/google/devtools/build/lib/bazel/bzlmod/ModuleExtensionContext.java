@@ -71,6 +71,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
         timeoutScaling,
         processWrapper,
         starlarkSemantics,
+        ModuleExtensionEvaluationProgress.moduleExtensionEvaluationContextString(extensionId),
         remoteExecutor,
         /* allowWatchingPathsOutsideWorkspace= */ false);
     this.extensionId = extensionId;
@@ -83,15 +84,10 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
   }
 
   @Override
-  protected boolean shouldDeleteWorkingDirectory(boolean successful) {
+  protected boolean shouldDeleteWorkingDirectoryOnClose(boolean successful) {
     // The contents of the working directory are purely ephemeral, only the repos instantiated by
     // the extension are considered its results.
     return true;
-  }
-
-  @Override
-  protected String getIdentifyingStringForLogging() {
-    return ModuleExtensionEvaluationProgress.moduleExtensionEvaluationContextString(extensionId);
   }
 
   @Override

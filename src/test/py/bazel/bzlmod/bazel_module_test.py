@@ -1047,10 +1047,7 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile(
       'extensions.bzl',
       [
-        'def _rule_impl(ctx):',
-        '  ctx.file("REPO.bazel")',
-        '  ctx.file("BUILD")',
-        'repo_rule = repository_rule(_rule_impl)',
+        'repo_rule = repository_rule(lambda _: None)',
         'def ext_impl(module_ctx):',
         '  repo_rule(name = "ext")',
         '  module_ctx.download(url = "https://bcr.bazel.build", output = "download", block = False)',
@@ -1066,6 +1063,7 @@ class BazelModuleTest(test_base.TestBase):
       'ERROR: Pending asynchronous work after module extension ext in @@//:extensions.bzl finished execution',
       stderr,
     )
+
 
 if __name__ == '__main__':
   absltest.main()

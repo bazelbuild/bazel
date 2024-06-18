@@ -145,6 +145,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   protected final double timeoutScaling;
   @Nullable private final ProcessWrapper processWrapper;
   protected final StarlarkSemantics starlarkSemantics;
+  protected final String identifyingStringForLogging;
   private final HashMap<RepoRecordedInput.File, String> recordedFileInputs = new HashMap<>();
   private final HashMap<RepoRecordedInput.Dirents, String> recordedDirentsInputs = new HashMap<>();
   private final HashSet<String> accumulatedEnvKeys = new HashSet<>();
@@ -164,6 +165,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
       StarlarkSemantics starlarkSemantics,
+      String identifyingStringForLogging,
       @Nullable RepositoryRemoteExecutor remoteExecutor,
       boolean allowWatchingPathsOutsideWorkspace) {
     this.workingDirectory = workingDirectory;
@@ -175,13 +177,14 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     this.timeoutScaling = timeoutScaling;
     this.processWrapper = processWrapper;
     this.starlarkSemantics = starlarkSemantics;
+    this.identifyingStringForLogging = identifyingStringForLogging;
     this.remoteExecutor = remoteExecutor;
     this.asyncTasks = new ArrayList<>();
     this.allowWatchingPathsOutsideWorkspace = allowWatchingPathsOutsideWorkspace;
     this.executorService =
         Executors.newThreadPerTaskExecutor(
             Thread.ofVirtual()
-                .name("downloads-" + workingDirectory.getBaseName())
+                .name("downloads[" + identifyingStringForLogging + "]-", 0)
                 .factory());
   }
 
@@ -196,22 +199,21 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   @Override
   public final void close() throws EvalException, IOException {
     // Cancel all pending async tasks.
-    boolean hadPendingItems = ensureNoPendingAsyncTasks();
+    boolean hadPendingItems = cancelPendingAsyncTasks();
     // Wait for all (cancelled) async tasks to complete before cleaning up the working directory.
     // This is necessary because downloads may still be in progress and could end up writing to the
     // working directory during deletion, which would cause an error.
     executorService.close();
-    if (shouldDeleteWorkingDirectory(wasSuccessful)) {
+    if (shouldDeleteWorkingDirectoryOnClose(wasSuccessful)) {
       workingDirectory.deleteTree();
     }
     if (hadPendingItems && wasSuccessful) {
       throw Starlark.errorf(
-          "Pending asynchronous work after %s finished execution",
-          getIdentifyingStringForLogging());
+          "Pending asynchronous work after %s finished execution", identifyingStringForLogging);
     }
   }
 
-  private boolean ensureNoPendingAsyncTasks() {
+  private boolean cancelPendingAsyncTasks() {
     boolean hadPendingItems = false;
     for (AsyncTask task : asyncTasks) {
       if (!task.cancel()) {
@@ -223,7 +225,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
                       task.getLocation(),
                       String.format(
                           "Work pending after %s finished execution: %s",
-                          getIdentifyingStringForLogging(), task.getDescription())));
+                          identifyingStringForLogging, task.getDescription())));
         }
       }
     }
@@ -237,11 +239,8 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     asyncTasks.add(task);
   }
 
-  /** A string that can be used to identify this context object. Used for logging purposes. */
-  protected abstract String getIdentifyingStringForLogging();
-
   @ForOverride
-  protected abstract boolean shouldDeleteWorkingDirectory(boolean successful);
+  protected abstract boolean shouldDeleteWorkingDirectoryOnClose(boolean successful);
 
   /** Returns the file digests used by this context object so far. */
   public ImmutableMap<RepoRecordedInput.File, String> getRecordedFileInputs() {
@@ -455,7 +454,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
         warnAboutChecksumError(urls, e.getMessage());
         throw new RepositoryFunctionException(
             Starlark.errorf(
-                "Checksum error in %s: %s", getIdentifyingStringForLogging(), e.getMessage()),
+                "Checksum error in %s: %s", identifyingStringForLogging, e.getMessage()),
             Transience.PERSISTENT);
       }
     }
@@ -469,8 +468,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     } catch (Checksum.InvalidChecksumException e) {
       warnAboutChecksumError(urls, e.getMessage());
       throw new RepositoryFunctionException(
-          Starlark.errorf(
-              "Checksum error in %s: %s", getIdentifyingStringForLogging(), e.getMessage()),
+          Starlark.errorf("Checksum error in %s: %s", identifyingStringForLogging, e.getMessage()),
           Transience.PERSISTENT);
     }
   }
@@ -728,7 +726,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
             sha256,
             integrity,
             executable,
-            getIdentifyingStringForLogging(),
+            identifyingStringForLogging,
             thread.getCallerLocation());
     env.getListener().post(w);
 
@@ -759,7 +757,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
               outputPath.getPath(),
               env.getListener(),
               envVariables,
-              getIdentifyingStringForLogging());
+              identifyingStringForLogging);
       download =
           new PendingDownload(
               executable,
@@ -933,7 +931,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
             type,
             stripPrefix,
             renameFilesMap,
-            getIdentifyingStringForLogging(),
+            identifyingStringForLogging,
             thread.getCallerLocation());
 
     StarlarkPath outputPath = getPath("download_and_extract()", output);
@@ -961,7 +959,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
               downloadDirectory,
               env.getListener(),
               envVariables,
-              getIdentifyingStringForLogging());
+              identifyingStringForLogging);
       // Ensure that the download is cancelled if the repo rule is restarted as it runs in its own
       // executor.
       PendingDownload pendingTask =
@@ -989,14 +987,14 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     }
     env.getListener().post(w);
     try (SilentCloseable c =
-        Profiler.instance().profile("extracting: " + getIdentifyingStringForLogging())) {
+        Profiler.instance().profile("extracting: " + identifyingStringForLogging)) {
       env.getListener()
           .post(
               new ExtractProgress(
                   outputPath.getPath().toString(), "Extracting " + downloadedPath.getBaseName()));
       DecompressorValue.decompress(
           DecompressorDescriptor.builder()
-              .setContext(getIdentifyingStringForLogging())
+              .setContext(identifyingStringForLogging)
               .setArchivePath(downloadedPath)
               .setDestinationPath(outputPath.getPath())
               .setPrefix(stripPrefix)
@@ -1103,7 +1101,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
             p.toString(),
             content,
             executable,
-            getIdentifyingStringForLogging(),
+            identifyingStringForLogging,
             thread.getCallerLocation());
     env.getListener().post(w);
     try {
@@ -1233,7 +1231,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     StarlarkPath p = getPath("read()", path);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newReadEvent(
-            p.toString(), getIdentifyingStringForLogging(), thread.getCallerLocation());
+            p.toString(), identifyingStringForLogging, thread.getCallerLocation());
     env.getListener().post(w);
     maybeWatch(p, ShouldWatch.fromString(watch));
     if (p.isDir()) {
@@ -1410,7 +1408,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
             new FetchProgress() {
               @Override
               public String getResourceIdentifier() {
-                return getIdentifyingStringForLogging();
+                return identifyingStringForLogging;
               }
 
               @Override
@@ -1435,7 +1433,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     // manually inspect the code where this context object is used if they wish to find the
     // offending ctx.os expression.
     WorkspaceRuleEvent w =
-        WorkspaceRuleEvent.newOsEvent(getIdentifyingStringForLogging(), Location.BUILTIN);
+        WorkspaceRuleEvent.newOsEvent(identifyingStringForLogging, Location.BUILTIN);
     env.getListener().post(w);
     return osObject;
   }
@@ -1644,7 +1642,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
             forceEnvVariables,
             workingDirectory.getPathString(),
             quiet,
-            getIdentifyingStringForLogging(),
+            identifyingStringForLogging,
             thread.getCallerLocation());
     env.getListener().post(w);
     createDirectory(workingDirectory);
@@ -1694,7 +1692,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   public StarlarkPath which(String program, StarlarkThread thread) throws EvalException {
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newWhichEvent(
-            program, getIdentifyingStringForLogging(), thread.getCallerLocation());
+            program, identifyingStringForLogging, thread.getCallerLocation());
     env.getListener().post(w);
     if (program.contains("/") || program.contains("\\")) {
       throw Starlark.errorf(

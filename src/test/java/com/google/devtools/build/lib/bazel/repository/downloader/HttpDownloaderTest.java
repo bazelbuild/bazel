@@ -781,7 +781,7 @@ public class HttpDownloaderTest {
       Map<String, String> clientEnv,
       String context)
       throws IOException, InterruptedException {
-    try (ExecutorService executorService = Executors.newSingleThreadExecutor()) {
+    try (ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor()) {
       Future<Path> future =
           downloadManager.startDownload(
               executorService,
