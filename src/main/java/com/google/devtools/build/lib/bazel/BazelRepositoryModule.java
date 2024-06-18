@@ -460,6 +460,10 @@ public class BazelRepositoryModule extends BlazeModule {
         // We use a LinkedHashMap to preserve the iteration order.
         Map<RepositoryName, PathFragment> overrideMap = new LinkedHashMap<>();
         for (RepositoryOverride override : repoOptions.repositoryOverrides) {
+          if (override.path().isEmpty()) {
+            overrideMap.remove(override.repositoryName());
+            continue;
+          }
           String repoPath = getAbsolutePath(override.path(), env);
           overrideMap.put(override.repositoryName(), PathFragment.create(repoPath));
         }
@@ -474,6 +478,10 @@ public class BazelRepositoryModule extends BlazeModule {
       if (repoOptions.moduleOverrides != null) {
         Map<String, ModuleOverride> moduleOverrideMap = new LinkedHashMap<>();
         for (RepositoryOptions.ModuleOverride override : repoOptions.moduleOverrides) {
+          if (override.path().isEmpty()) {
+            moduleOverrideMap.remove(override.moduleName());
+            continue;
+          }
           String modulePath = getAbsolutePath(override.path(), env);
           moduleOverrideMap.put(override.moduleName(), LocalPathOverride.create(modulePath));
         }
