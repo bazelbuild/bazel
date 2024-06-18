@@ -13,12 +13,14 @@
 {% dynamic if not setvar.original_path %}
 {% dynamic setvar original_path %}{% dynamic print request.path %}{% dynamic endsetvar %}
 {% dynamic endif %}
-<span style="float: right; line-height: 36px">
+<span class="bazel-version-indicator">
 {% dynamic if not setvar.version %}
 <strong>Nightly</strong>
 {% dynamic else %}
 <a href="{% dynamic print setvar.original_path %}">Nightly</a>
 {% dynamic endif %}
+<!-- The lines below are updated by //scripts/docs:gen_new_toc -->
+<!-- BEGIN_VERSION_INDICATOR -->
 ·
 {% dynamic if setvar.version == "7.2.0" %}
 <strong>7.2</strong>
@@ -49,5 +51,6 @@
 {% dynamic else %}
 <a href="/versions/6.4.0{% dynamic print setvar.original_path %}">6.4</a>
 {% dynamic endif %}
+<!-- END_VERSION_INDICATOR -->
 </span>
 </p>

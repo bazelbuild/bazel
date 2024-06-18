@@ -136,3 +136,8 @@
   margin-inline-start: 8px;
   vertical-align: text-bottom;
 }
+
+.bazel-version-indicator {
+  float: right;
+  line-height: 36px;
+}

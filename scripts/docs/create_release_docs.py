@@ -35,6 +35,11 @@ flags.DEFINE_string(
     "Path to the _toc.yaml file that contains the table of contents for the versions menu.",
 )
 flags.DEFINE_string(
+  "buttons_path",
+  None,
+  "Path to the _buttons.html file that contains the version indicator.",
+)
+flags.DEFINE_string(
     "narrative_docs_path",
     None,
     "Path of the archive (zip or tar) that contains the narrative documentation.",
@@ -70,7 +75,7 @@ def validate_flag(name):
   exit(1)
 
 
-def create_docs_tree(version, toc_path, narrative_docs_path,
+def create_docs_tree(version, toc_path, buttons_path, narrative_docs_path,
                      reference_docs_path):
   """Creates a directory tree containing the docs for the Bazel version.
 
@@ -78,6 +83,8 @@ def create_docs_tree(version, toc_path, narrative_docs_path,
     version: Version of this Bazel release.
     toc_path: Absolute path to the _toc.yaml file that lists the most recent
       Bazel versions.
+    buttons_path: Absolute path of the _buttons.html file that contains the
+      version indicator.
     narrative_docs_path: Absolute path of an archive that contains the narrative
       documentation (can be .zip or .tar).
     reference_docs_path: Absolute path of an archive that contains the reference
@@ -100,6 +107,10 @@ def create_docs_tree(version, toc_path, narrative_docs_path,
 
   try_extract(narrative_docs_path, release_dir)
   try_extract(reference_docs_path, release_dir)
+
+  buttons_dest_path = os.path.join(release_dir, "_buttons.html")
+  os.remove(buttons_dest_path)
+  shutil.copyfile(buttons_path, buttons_dest_path)
 
   return root_dir, toc_dest_path, release_dir
 
@@ -179,6 +190,7 @@ def main(unused_argv):
   root_dir, toc_path, release_dir = create_docs_tree(
       version=version,
       toc_path=validate_flag("toc_path"),
+    buttons_path=validate_flag("buttons_path"),
       narrative_docs_path=validate_flag("narrative_docs_path"),
       reference_docs_path=validate_flag("reference_docs_path"),
   )
