@@ -41,7 +41,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.HashMap;
@@ -94,22 +93,16 @@ public class UrlRewriter {
       return new UrlRewriter(log, "", new StringReader(""));
     }
 
-    // If the `configPath` is absolute, use that. Otherwise, prepend the `workspaceRoot`.
     // There have been reports (eg. https://github.com/bazelbuild/bazel/issues/22104) that
     // there are occasional errors when `configFile` can't be found, and when this happens
     // investigation suggests that the current working directory isn't the workspace root.
-    Path actualConfigPath;
-    if (Paths.get(configPath).isAbsolute()) {
-      actualConfigPath = workspaceRoot.getFileSystem().getPath(configPath);
-    } else {
-      actualConfigPath = workspaceRoot.getRelative(configPath);
-    }
+    Path actualConfigPath = workspaceRoot.getRelative(configPath);
 
     if (!actualConfigPath.exists()) {
       throw new UrlRewriterParseException(String.format("Unable to find downloader config file %s", configPath));
     }
 
-    try (BufferedReader reader = Files.newBufferedReader(Paths.get(configPath))) {
+    try (BufferedReader reader = Files.newBufferedReader(actualConfigPath.getPathFile().toPath())) {
       return new UrlRewriter(log, configPath, reader);
     } catch (IOException e) {
       throw new UrlRewriterParseException(e.getMessage());
