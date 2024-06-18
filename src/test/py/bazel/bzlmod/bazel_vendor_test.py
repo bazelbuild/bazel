@@ -164,10 +164,7 @@ class BazelVendorTest(test_base.TestBase):
 
     _, stdout, _ = self.RunBazel(['info', 'output_base'])
     repo_path = stdout[0] + '/external/aaa~'
-    if self.IsWindows():
-      self.assertTrue(self.IsJunction(repo_path))
-    else:
-      self.assertTrue(os.path.islink(repo_path))
+    self.AssertPathIsSymlink(repo_path)
 
   def testVendorRepo(self):
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
@@ -659,10 +656,7 @@ class BazelVendorTest(test_base.TestBase):
     _, stdout, _ = self.RunBazel(['info', 'output_base'])
     for repo in ['aaa~', 'bbb~']:
       repo_path = stdout[0] + '/external/' + repo
-      if self.IsWindows():
-        self.assertTrue(self.IsJunction(repo_path))
-      else:
-        self.assertTrue(os.path.islink(repo_path))
+      self.AssertPathIsSymlink(repo_path)
 
   def testVendorConflictRegistryFile(self):
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
@@ -697,6 +691,88 @@ class BazelVendorTest(test_base.TestBase):
         'ERROR: Error while vendoring repos: Vendor paths conflict detected for'
         ' registry URLs:',
         stderr,
+    )
+
+  def testVendorRepoWithSymlinks(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "foo", "bar")',
+        ],
+    )
+    abs_foo = self.ScratchFile('abs', ['Hello from abs!']).replace('\\', '/')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_foo_impl(ctx):',
+            '    ctx.file("REPO.bazel")',
+            '    ctx.file("data", "Hello from foo!\\n")',
+            # Symlink to an absolute path outside of external root
+            f'    ctx.symlink("{abs_foo}", "sym_abs")',
+            # Symlink to a file in the same repo
+            '    ctx.symlink("data", "sym_foo")',
+            # Symlink to a file in another repo
+            '    ctx.symlink(ctx.path(Label("@bar//:data")), "sym_bar")',
+            # Symlink to a directory in another repo
+            '    ctx.symlink("../_main~ext~bar/pkg", "sym_pkg")',
+            (
+                '    ctx.file("BUILD", "exports_files([\'sym_abs\','
+                " 'sym_foo','sym_bar', 'sym_pkg/data'])\")"
+            ),
+            'repo_foo = repository_rule(implementation=_repo_foo_impl)',
+            '',
+            'def _repo_bar_impl(ctx):',
+            '    ctx.file("REPO.bazel")',
+            '    ctx.file("data", "Hello from bar!\\n")',
+            '    ctx.file("pkg/data", "Hello from pkg bar!\\n")',
+            '    ctx.file("BUILD", "exports_files([\'data\'])")',
+            'repo_bar = repository_rule(implementation=_repo_bar_impl)',
+            '',
+            'def _ext_impl(ctx):',
+            '    repo_foo(name="foo")',
+            '    repo_bar(name="bar")',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'genrule(',
+            '  name = "print_paths",',
+            (
+                '  srcs = ["@foo//:sym_abs", "@foo//:sym_foo",'
+                ' "@foo//:sym_bar", "@foo//:sym_pkg/data"],'
+            ),
+            '  outs = ["output.txt"],',
+            '  cmd = "cat $(SRCS) > $@",',
+            ')',
+        ],
+    )
+    self.RunBazel(['vendor', '--vendor_dir=vendor', '--repo=@foo'])
+    self.RunBazel(['clean', '--expunge'])
+    self.AssertPathIsSymlink(self._test_cwd + '/vendor/bazel-external')
+
+    # Move the vendor directory to a new location and use a new output base,
+    # it should still work
+    os.rename(self._test_cwd + '/vendor', self._test_cwd + '/vendor_new')
+    output_base = tempfile.mkdtemp(dir=self._tests_root)
+    self.RunBazel([
+        f'--output_base={output_base}',
+        'build',
+        '//:print_paths',
+        '--vendor_dir=vendor_new',
+        '--verbose_failures',
+    ])
+    _, stdout, _ = self.RunBazel(
+        [f'--output_base={output_base}', 'info', 'output_base']
+    )
+    self.AssertPathIsSymlink(stdout[0] + '/external/_main~ext~foo')
+    output = os.path.join(self._test_cwd, './bazel-bin/output.txt')
+    self.AssertFileContentContains(
+        output,
+        'Hello from abs!\nHello from foo!\nHello from bar!\nHello from pkg'
+        ' bar!\n',
     )
 
 
