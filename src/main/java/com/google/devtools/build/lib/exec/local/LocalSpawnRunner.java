@@ -52,12 +52,10 @@ import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
-import com.google.devtools.build.lib.shell.ExecutionStatistics;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.NetUtil;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.FormatMethod;
@@ -470,29 +468,8 @@ public class LocalSpawnRunner implements SpawnRunner {
         if (status != Status.SUCCESS) {
           spawnResultBuilder.setFailureDetail(makeFailureDetail(exitCode, status, actionType));
         }
-        if (statisticsPath != null && statisticsPath.exists()) {
-          ExecutionStatistics.getResourceUsage(statisticsPath)
-              .ifPresent(
-                  resourceUsage -> {
-                    spawnResultBuilder.setUserTimeInMs(
-                        (int) resourceUsage.getUserExecutionTime().toMillis());
-                    spawnResultBuilder.setSystemTimeInMs(
-                        (int) resourceUsage.getSystemExecutionTime().toMillis());
-                    spawnResultBuilder.setNumBlockOutputOperations(
-                        resourceUsage.getBlockOutputOperations());
-                    spawnResultBuilder.setNumBlockInputOperations(
-                        resourceUsage.getBlockInputOperations());
-                    spawnResultBuilder.setNumInvoluntaryContextSwitches(
-                        resourceUsage.getInvoluntaryContextSwitches());
-                    // The memory usage of the largest child process. For Darwin maxrss returns size
-                    // in bytes.
-                    if (OS.getCurrent() == OS.DARWIN) {
-                      spawnResultBuilder.setMemoryInKb(
-                          resourceUsage.getMaximumResidentSetSize() / 1000);
-                    } else {
-                      spawnResultBuilder.setMemoryInKb(resourceUsage.getMaximumResidentSetSize());
-                    }
-                  });
+        if (statisticsPath != null) {
+          spawnResultBuilder.setResourceUsageFromProto(statisticsPath);
         }
         spawnMetrics.setTotalTimeInMs((int) totalTimeStopwatch.elapsed().toMillis());
         spawnResultBuilder.setSpawnMetrics(spawnMetrics.build());
