@@ -41,7 +41,6 @@ import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.Program;
 import net.starlark.java.syntax.StarlarkFile;
@@ -121,8 +120,7 @@ public class VendorFileFunction implements SkyFunction {
               starlarkSemantics, starlarkEnv.getStarlarkGlobals().getVendorToplevels());
       Program program = Program.compileFile(vendorFile, predeclaredEnv);
       StarlarkThread thread =
-          StarlarkThread.create(
-              mu, starlarkSemantics, /* contextDescription= */ "", SymbolGenerator.create(skyKey));
+          new StarlarkThread(mu, starlarkSemantics, /* contextDescription= */ "");
       VendorThreadContext context = new VendorThreadContext();
       context.storeInThread(thread);
       Starlark.execFileProgram(program, predeclaredEnv, thread);
