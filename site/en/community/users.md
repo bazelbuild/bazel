@@ -394,6 +394,11 @@ value in the world’s data.
 ### [TypeDB](https://typedb.com){: .external}
 <img src="/community/images/typedb.png" alt="TypeDB Logo" width="150" align="right">
 
+TypeDB is a database technology that can be used to intuitively model
+interconnected data. Through its type-theoretic and polymorphic query language,
+TypeQL, the data can be accessed with simple, human-readable queries that run at
+lightspeed.
+
 Bazel enables the TypeDB team to build a highly-orchestrated CI and distribution
 pipeline that manages many repositories in a wide variety of languages, and
 deploys to numerous platforms seamlessly. The TypeDB team has also released
