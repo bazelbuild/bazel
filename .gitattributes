@@ -4,3 +4,7 @@ site/* linguist-documentation
 
 # Files that should not use CRLF line endings, even on Windows.
 tools/genrule/genrule-setup.sh -text
+
+# A custom merge driver for the Bazel lockfile.
+# https://bazel.build/external/lockfile#automatic-resolution
+MODULE.bazel.lock merge=bazel-lockfile-merge
