@@ -200,7 +200,7 @@ public final class RemoteModule extends BlazeModule {
                   || status == HttpResponseStatus.GATEWAY_TIMEOUT.code();
         } else if (e instanceof IOException) {
           String msg = Ascii.toLowerCase(e.getMessage());
-          if (msg.contains("connection reset by peer")) {
+          if (msg.contains("connection reset")) {
             retry = true;
           } else if (msg.contains("operation timed out")) {
             retry = true;
