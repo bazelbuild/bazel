@@ -291,10 +291,16 @@ message BuildEventId {
 message Progress {
   // The next chunk of stdout that bazel produced since the last progress event
   // or the beginning of the build.
+  // Consumers that need to reason about the relative order of stdout and stderr
+  // can assume that stderr has been emitted before stdout if both are present,
+  // on a best-effort basis.
   string stdout = 1;
 
   // The next chunk of stderr that bazel produced since the last progress event
   // or the beginning of the build.
+  // Consumers that need to reason about the relative order of stdout and stderr
+  // can assume that stderr has been emitted before stdout if both are present,
+  // on a best-effort basis.
   string stderr = 2;
 }
 

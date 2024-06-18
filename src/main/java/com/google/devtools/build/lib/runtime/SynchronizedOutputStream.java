@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * {@link OutputStream} suitably synchronized for producer-consumer use cases. The method {@link
@@ -43,20 +44,25 @@ public class SynchronizedOutputStream extends OutputStream {
   // {@link write(byte[] buffer, int offset, int count)} method.
   private final int maxBufferedLength;
 
-  private final int maxChunkSize;
+  private final Splitter maxChunkSizeSplitter;
 
+  private final boolean isStderr;
+
+  @GuardedBy("this")
   private byte[] buf;
+
   private long count;
 
   // The event streamer that is supposed to flush stdout/stderr.
   private BuildEventStreamer streamer;
 
-  public SynchronizedOutputStream(int maxBufferedLength, int maxChunkSize) {
+  public SynchronizedOutputStream(int maxBufferedLength, int maxChunkSize, boolean isStderr) {
     Preconditions.checkArgument(maxChunkSize > 0);
     buf = new byte[64];
     count = 0;
     this.maxBufferedLength = maxBufferedLength;
-    this.maxChunkSize = Math.max(maxChunkSize, maxBufferedLength);
+    this.maxChunkSizeSplitter = Splitter.fixedLength(Math.max(maxChunkSize, maxBufferedLength));
+    this.isStderr = isStderr;
   }
 
   public void registerStreamer(BuildEventStreamer streamer) {
@@ -71,9 +77,7 @@ public class SynchronizedOutputStream extends OutputStream {
     String content = new String(buf, 0, (int) count, UTF_8);
     buf = new byte[64];
     count = 0;
-    return content.isEmpty()
-        ? ImmutableList.of()
-        : Splitter.fixedLength(maxChunkSize).split(content);
+    return content.isEmpty() ? ImmutableList.of() : maxChunkSizeSplitter.split(content);
   }
 
   @Override
@@ -94,7 +98,8 @@ public class SynchronizedOutputStream extends OutputStream {
     boolean didWrite = false;
     while (!didWrite) {
       synchronized (this) {
-        if (this.count + (long) count < maxBufferedLength || this.count == 0) {
+        if ((this.count + (long) count < maxBufferedLength || this.count == 0)
+            && streamer.canWriteWithoutFlush(isStderr)) {
           if (this.count + (long) count >= (long) buf.length) {
             // We need to increase the buffer; if within the permissible range range for array
             // sizes, we at least double it, otherwise we only increase as far as needed.
