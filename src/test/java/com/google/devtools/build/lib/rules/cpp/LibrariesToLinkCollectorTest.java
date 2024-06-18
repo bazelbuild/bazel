@@ -286,10 +286,10 @@ public final class LibrariesToLinkCollectorTest extends BuildViewTestCase {
     List<String> linkArgs = linkAction.getArguments();
     assertThat(linkArgs)
         .contains(
-            "--runtime_library=../../../../toolchain/k8-fastbuild/bin/_solib__0db3de82a7_C_Cc_Utoolchain/");
+            "--runtime_library=../../../../toolchain/k8-fastbuild/bin/_solib__toolchain_A_Cc_Utoolchain/");
     assertThat(linkArgs)
-        .contains("--runtime_library=foo.runfiles/toolchain/_solib__0db3de82a7_C_Cc_Utoolchain/");
+        .contains("--runtime_library=foo.runfiles/toolchain/_solib__toolchain_A_Cc_Utoolchain/");
     assertThat(linkArgs)
-        .contains("--runtime_library=../../../toolchain/_solib__0db3de82a7_C_Cc_Utoolchain/");
+        .contains("--runtime_library=../../../toolchain/_solib__toolchain_A_Cc_Utoolchain/");
   }
 }

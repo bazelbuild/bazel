@@ -23,12 +23,10 @@ import com.google.common.collect.Iterators;
 import com.google.common.escape.Escaper;
 import com.google.common.escape.Escapers;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.SkyframeAwareAction;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
@@ -42,12 +40,14 @@ import java.util.Optional;
 public final class Actions {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private static final Escaper PATH_ESCAPER = Escapers.builder()
-      .addEscape('_', "_U")
-      .addEscape('/', "_S")
-      .addEscape('\\', "_B")
-      .addEscape(':', "_C")
-      .build();
+  private static final Escaper PATH_ESCAPER =
+      Escapers.builder()
+          .addEscape('_', "_U")
+          .addEscape('/', "_S")
+          .addEscape('\\', "_B")
+          .addEscape(':', "_C")
+          .addEscape('@', "_A")
+          .build();
 
   private Actions() {}
 
@@ -375,15 +375,7 @@ public final class Actions {
   public static String escapeLabel(Label label) {
     String path = label.getPackageName() + ":" + label.getName();
     if (!label.getRepository().isMain()) {
-      // Canonical repository names can be long and the resulting segment should be usable as a file
-      // name (less than 256 characters), so use a truncated hash instead.
-      path =
-          Hashing.sha256()
-                  .hashString(label.getRepository().getName(), StandardCharsets.UTF_8)
-                  .toString()
-                  .substring(0, 10)
-              + ":"
-              + path;
+      path = label.getRepository().getName() + "@" + path;
     }
     return PATH_ESCAPER.escape(path);
   }
