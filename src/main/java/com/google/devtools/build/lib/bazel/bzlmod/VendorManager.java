@@ -20,6 +20,9 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.Hasher;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -62,41 +65,44 @@ public class VendorManager {
     }
 
     for (RepositoryName repo : reposToVendor) {
-      Path repoUnderExternal = externalRepoRoot.getChild(repo.getName());
-      Path repoUnderVendor = vendorDirectory.getChild(repo.getName());
-      // This could happen when running the vendor command twice without changing anything.
-      if (repoUnderExternal.isSymbolicLink()
-          && repoUnderExternal.resolveSymbolicLinks().equals(repoUnderVendor)) {
-        continue;
-      }
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.REPOSITORY_VENDOR, repo.toString())) {
+        Path repoUnderExternal = externalRepoRoot.getChild(repo.getName());
+        Path repoUnderVendor = vendorDirectory.getChild(repo.getName());
+        // This could happen when running the vendor command twice without changing anything.
+        if (repoUnderExternal.isSymbolicLink()
+            && repoUnderExternal.resolveSymbolicLinks().equals(repoUnderVendor)) {
+          continue;
+        }
 
-      // At this point, the repo should exist under external dir, but check if the vendor src is
-      // already up-to-date.
-      Path markerUnderExternal = externalRepoRoot.getChild(repo.getMarkerFileName());
-      Path markerUnderVendor = vendorDirectory.getChild(repo.getMarkerFileName());
-      if (isRepoUpToDate(markerUnderVendor, markerUnderExternal)) {
-        continue;
-      }
+        // At this point, the repo should exist under external dir, but check if the vendor src is
+        // already up-to-date.
+        Path markerUnderExternal = externalRepoRoot.getChild(repo.getMarkerFileName());
+        Path markerUnderVendor = vendorDirectory.getChild(repo.getMarkerFileName());
+        if (isRepoUpToDate(markerUnderVendor, markerUnderExternal)) {
+          continue;
+        }
 
-      // Actually vendor the repo:
-      // 1. Clean up existing marker file and vendor dir.
-      markerUnderVendor.delete();
-      repoUnderVendor.deleteTree();
-      repoUnderVendor.createDirectory();
-      // 2. Move the marker file to a temporary one under vendor dir.
-      Path tMarker = vendorDirectory.getChild(repo.getMarkerFileName() + ".tmp");
-      FileSystemUtils.moveFile(markerUnderExternal, tMarker);
-      // 3. Move the external repo to vendor dir. It's fine if this step fails or is interrupted,
-      // because the marker file under external is gone anyway.
-      FileSystemUtils.moveTreesBelow(repoUnderExternal, repoUnderVendor);
-      // 4. Re-plant symlinks pointing a path under the external root to a relative path
-      // to make sure the vendor src keep working after being moved or output base changed
-      replantSymlinks(repoUnderVendor, externalRepoRoot);
-      // 5. Rename to temporary marker file after the move is done.
-      tMarker.renameTo(markerUnderVendor);
-      // 6. Leave a symlink in external dir.
-      repoUnderExternal.deleteTree();
-      FileSystemUtils.ensureSymbolicLink(repoUnderExternal, repoUnderVendor);
+        // Actually vendor the repo:
+        // 1. Clean up existing marker file and vendor dir.
+        markerUnderVendor.delete();
+        repoUnderVendor.deleteTree();
+        repoUnderVendor.createDirectory();
+        // 2. Move the marker file to a temporary one under vendor dir.
+        Path tMarker = vendorDirectory.getChild(repo.getMarkerFileName() + ".tmp");
+        FileSystemUtils.moveFile(markerUnderExternal, tMarker);
+        // 3. Move the external repo to vendor dir. It's fine if this step fails or is interrupted,
+        // because the marker file under external is gone anyway.
+        FileSystemUtils.moveTreesBelow(repoUnderExternal, repoUnderVendor);
+        // 4. Re-plant symlinks pointing a path under the external root to a relative path
+        // to make sure the vendor src keep working after being moved or output base changed
+        replantSymlinks(repoUnderVendor, externalRepoRoot);
+        // 5. Rename the temporary marker file after the move is done.
+        tMarker.renameTo(markerUnderVendor);
+        // 6. Leave a symlink in external dir to keep things working.
+        repoUnderExternal.deleteTree();
+        FileSystemUtils.ensureSymbolicLink(repoUnderExternal, repoUnderVendor);
+      }
     }
   }
 
