@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
-import com.google.devtools.build.lib.shell.ExecutionStatistics;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.TerminationStatus;
@@ -309,28 +308,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
     Path statisticsPath = sandbox.getStatisticsPath();
     if (statisticsPath != null) {
-      ExecutionStatistics.getResourceUsage(statisticsPath)
-          .ifPresent(
-              resourceUsage -> {
-                spawnResultBuilder.setUserTimeInMs(
-                    (int) resourceUsage.getUserExecutionTime().toMillis());
-                spawnResultBuilder.setSystemTimeInMs(
-                    (int) resourceUsage.getSystemExecutionTime().toMillis());
-                spawnResultBuilder.setNumBlockOutputOperations(
-                    resourceUsage.getBlockOutputOperations());
-                spawnResultBuilder.setNumBlockInputOperations(
-                    resourceUsage.getBlockInputOperations());
-                spawnResultBuilder.setNumInvoluntaryContextSwitches(
-                    resourceUsage.getInvoluntaryContextSwitches());
-                // The memory usage of the largest child process. For Darwin maxrss returns size in
-                // bytes.
-                if (OS.getCurrent() == OS.DARWIN) {
-                  spawnResultBuilder.setMemoryInKb(
-                      resourceUsage.getMaximumResidentSetSize() / 1000);
-                } else {
-                  spawnResultBuilder.setMemoryInKb(resourceUsage.getMaximumResidentSetSize());
-                }
-              });
+      spawnResultBuilder.setResourceUsageFromProto(statisticsPath);
     }
 
     return spawnResultBuilder.build();
