@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.shell;
 
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
@@ -31,11 +32,6 @@ public final class ExecutionStatistics {
    */
   public static Optional<ResourceUsage> getResourceUsage(Path executionStatisticsProtoPath)
       throws IOException {
-    if (!executionStatisticsProtoPath.exists()) {
-      // Collecting resource usage is best-effort and the file may be missing if the wrapper around
-      // the command terminated abnormally.
-      return Optional.empty();
-    }
     try (InputStream protoInputStream =
         new BufferedInputStream(executionStatisticsProtoPath.getInputStream())) {
       Protos.ExecutionStatistics executionStatisticsProto =
@@ -45,6 +41,10 @@ public final class ExecutionStatistics {
       } else {
         return Optional.empty();
       }
+    } catch (FileNotFoundException e) {
+      // Collecting resource usage is best-effort and the file may be missing if the wrapper around
+      // the command terminated abnormally.
+      return Optional.empty();
     }
   }
 
