@@ -51,7 +51,7 @@ class RewriteLinksTest(parameterized.TestCase):
     input_path, content = read_data_file(basename, "input")
     _, version = read_data_file("VERSION", "input")
 
-    actual = rewriter.rewrite_links(input_path, content, version)
+    actual = rewriter.rewrite_links(input_path, content, basename, version)
 
     _, expected = read_data_file(basename, "expected_output")
 
