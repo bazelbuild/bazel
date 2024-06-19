@@ -28,7 +28,7 @@ if os.name == 'nt':
     _GetShortPathNameW.argtypes = [wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD]
     _GetShortPathNameW.restype = wintypes.DWORD
 
-    def get_short_path_name(long_name):
+    def _get_short_path_name(long_name):
         """
         Gets the short path name of a given long path.
         http://stackoverflow.com/a/23598461/200291
