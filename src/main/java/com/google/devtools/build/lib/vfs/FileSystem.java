@@ -729,6 +729,7 @@ public abstract class FileSystem {
   /**
    * Creates an InputStream accessing the file denoted by the path.
    *
+   * @throws FileNotFoundException if the file does not exist
    * @throws IOException if there was an error opening the file for reading
    */
   protected abstract InputStream getInputStream(PathFragment path) throws IOException;
