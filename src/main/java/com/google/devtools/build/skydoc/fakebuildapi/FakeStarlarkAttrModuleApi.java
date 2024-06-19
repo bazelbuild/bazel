@@ -74,7 +74,7 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
       Object allowRules,
       Object cfg,
       Sequence<?> aspects,
-      Object flags,
+      Sequence<?> flags,
       StarlarkThread thread)
       throws EvalException {
     List<List<String>> allNameGroups = new ArrayList<>();
