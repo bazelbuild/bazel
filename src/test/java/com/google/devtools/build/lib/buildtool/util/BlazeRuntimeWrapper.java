@@ -312,7 +312,7 @@ public class BlazeRuntimeWrapper {
   void executeNonBuildCommand() throws Exception {
     checkNotNull(command, "No command created, try calling newCommand()");
     checkState(
-        !env.commandActuallyBuilds(),
+        !env.getCommand().builds(),
         "%s is a build command, did you mean to call executeBuild()?",
         env.getCommandName());
 
@@ -353,7 +353,7 @@ public class BlazeRuntimeWrapper {
       newCommand(BuildCommand.class); // If you didn't create a command we do it for you.
     }
     checkState(
-        env.commandActuallyBuilds(),
+        env.getCommand().builds(),
         "%s is not a build command, did you mean to call executeNonBuildCommand()?",
         env.getCommandName());
 

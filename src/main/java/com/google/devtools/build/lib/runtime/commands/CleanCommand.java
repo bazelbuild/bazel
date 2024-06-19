@@ -54,7 +54,6 @@ import java.util.logging.LogManager;
 /** Implements 'blaze clean'. */
 @Command(
     name = "clean",
-    builds = true, // Does not, but people expect build options to be there
     allowResidue = true, // Does not, but need to allow so we can ignore Starlark options.
     writeCommandLog = false, // Do not create a command.log, otherwise we couldn't delete it.
     options = {CleanCommand.Options.class},
