@@ -24,7 +24,6 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
@@ -48,7 +47,6 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import javax.annotation.Nullable;
 
@@ -59,17 +57,6 @@ import javax.annotation.Nullable;
  * to disk.
  */
 public class DownloadManager {
-  private static final ExecutorService DOWNLOAD_EXECUTOR =
-      Executors.newFixedThreadPool(
-          // There is also GrpcRemoteDownloader so if we set the thread pool to the same size as
-          // the allowed number of HTTP downloads, it might unnecessarily block. No, this is not a
-          // very
-          // principled approach; ideally, we'd grow the thread pool as needed with some generous
-          // upper
-          // limit.
-          2 * HttpDownloader.MAX_PARALLEL_DOWNLOADS,
-          new ThreadFactoryBuilder().setNameFormat("download-manager-%d").build());
-
   private final RepositoryCache repositoryCache;
   private List<Path> distdir = ImmutableList.of();
   private UrlRewriter rewriter;
@@ -115,6 +102,7 @@ public class DownloadManager {
   }
 
   public Future<Path> startDownload(
+      ExecutorService executorService,
       List<URL> originalUrls,
       Map<String, List<String>> headers,
       Map<URI, Map<String, List<String>>> authHeaders,
@@ -125,7 +113,7 @@ public class DownloadManager {
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
       String context) {
-    return DOWNLOAD_EXECUTOR.submit(
+    return executorService.submit(
         () -> {
           try (SilentCloseable c = Profiler.instance().profile("fetching: " + context)) {
             return downloadInExecutor(
@@ -152,33 +140,6 @@ public class DownloadManager {
       Throwables.throwIfUnchecked(e.getCause());
       throw new IllegalStateException(e);
     }
-  }
-
-  public Path download(
-      List<URL> originalUrls,
-      Map<String, List<String>> headers,
-      Map<URI, Map<String, List<String>>> authHeaders,
-      Optional<Checksum> checksum,
-      String canonicalId,
-      Optional<String> type,
-      Path output,
-      ExtendedEventHandler eventHandler,
-      Map<String, String> clientEnv,
-      String context)
-      throws IOException, InterruptedException {
-    Future<Path> future =
-        startDownload(
-            originalUrls,
-            headers,
-            authHeaders,
-            checksum,
-            canonicalId,
-            type,
-            output,
-            eventHandler,
-            clientEnv,
-            context);
-    return finalizeDownload(future);
   }
 
   /**
