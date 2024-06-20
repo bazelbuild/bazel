@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROU
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -846,15 +845,6 @@ public class RuleContext extends TargetContext
   }
 
   /**
-   * Returns the prerequisites keyed by their transition keys. If the split transition is not active
-   * (e.g. split() returned an empty list), the key is an empty Optional.
-   */
-  public Map<Optional<String>, List<ConfiguredTargetAndData>> getSplitPrerequisites(
-      String attributeName) {
-    return getOwningPrerequisitesCollection(attributeName).getSplitPrerequisites(attributeName);
-  }
-
-  /**
    * Returns the specified provider of the prerequisite referenced by the attribute in the argument.
    * If the attribute is empty or it does not support the specified provider, returns null.
    */
@@ -892,18 +882,6 @@ public class RuleContext extends TargetContext
   }
 
   /**
-   * For a given attribute, returns all declared provider provided by targets of that attribute.
-   * Each declared provider is keyed by the {@link BuildConfigurationValue} under which the provider
-   * was created.
-   */
-  public <C extends Info>
-      ImmutableListMultimap<BuildConfigurationValue, C> getPrerequisitesByConfiguration(
-          String attributeName, BuiltinProvider<C> provider) {
-    return getOwningPrerequisitesCollection(attributeName)
-        .getPrerequisitesByConfiguration(attributeName, provider);
-  }
-
-  /**
    * Returns the list of transitive info collections that feed into this target through the
    * specified attribute.
    */
@@ -922,16 +900,6 @@ public class RuleContext extends TargetContext
   }
 
   /**
-   * Returns all the declared Starlark wrapped providers for the specified constructor under the
-   * specified attribute of this target in the BUILD file.
-   */
-  public <T> ImmutableList<T> getPrerequisites(
-      String attributeName, StarlarkProviderWrapper<T> starlarkKey) throws RuleErrorException {
-    return getOwningPrerequisitesCollection(attributeName)
-        .getPrerequisites(attributeName, starlarkKey);
-  }
-
-  /**
    * Returns all the declared providers (native and Starlark) for the specified constructor under
    * the specified attribute of this target in the BUILD file.
    */
@@ -939,27 +907,6 @@ public class RuleContext extends TargetContext
       String attributeName, BuiltinProvider<T> starlarkKey) {
     return getOwningPrerequisitesCollection(attributeName)
         .getPrerequisites(attributeName, starlarkKey);
-  }
-
-  /**
-   * Returns all the providers of the specified type that are listed under the specified attribute
-   * of this target in the BUILD file, and that contain the specified provider.
-   */
-  public <C extends TransitiveInfoProvider>
-      Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
-          String attributeName, Class<C> classType) {
-    return getOwningPrerequisitesCollection(attributeName)
-        .getPrerequisitesIf(attributeName, classType);
-  }
-
-  /**
-   * Returns all the providers of the specified type that are listed under the specified attribute
-   * of this target in the BUILD file, and that contain the specified provider.
-   */
-  public <C extends Info> Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
-      String attributeName, BuiltinProvider<C> classType) {
-    return getOwningPrerequisitesCollection(attributeName)
-        .getPrerequisitesIf(attributeName, classType);
   }
 
   /**

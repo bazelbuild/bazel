@@ -520,7 +520,7 @@ public final class StarlarkRuleContext
         continue;
       }
       Map<Optional<String>, List<ConfiguredTargetAndData>> splitPrereqs =
-          ruleContext.getSplitPrerequisites(attr.getName());
+          ruleContext.getRulePrerequisitesCollection().getSplitPrerequisites(attr.getName());
 
       Map<Object, Object> splitPrereqsMap = new LinkedHashMap<>();
       for (Map.Entry<Optional<String>, List<ConfiguredTargetAndData>> splitPrereq :
