@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.google.common.collect.ImmutableCollection;
@@ -56,6 +55,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingArtifactValue;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
@@ -433,7 +433,15 @@ public final class CompletionFunction<
                               action,
                               true,
                               DetailedExitCode.of(
-                                  FailureDetail.newBuilder().setMessage(e.getMessage()).build()))),
+                                  FailureDetail.newBuilder()
+                                      .setMessage(e.getMessage())
+                                      .setRemoteExecution(
+                                          RemoteExecution.newBuilder()
+                                              .setCode(
+                                                  RemoteExecution.Code
+                                                      .TOPLEVEL_OUTPUTS_DOWNLOAD_FAILURE)
+                                              .build())
+                                      .build()))),
                   directExecutor()));
         }
       }
