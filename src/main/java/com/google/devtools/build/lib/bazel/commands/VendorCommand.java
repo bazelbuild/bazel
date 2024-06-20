@@ -402,12 +402,10 @@ public final class VendorCommand implements BlazeCommand {
     vendorManager.vendorRepos(externalPath, reposToVendor);
 
     // 3. Invalidate RepositoryDirectoryValue for vendored repos.
-    for (RepositoryName repo : reposToVendor) {
-      env.getSkyframeExecutor().getEvaluator().delete(
-          k -> k.functionName().equals(SkyFunctions.REPOSITORY_DIRECTORY)
-              && k.argument().equals(repo)
-      );
-    }
+    env.getSkyframeExecutor().getEvaluator().delete(
+        k -> k.functionName().equals(SkyFunctions.REPOSITORY_DIRECTORY)
+            && reposToVendor.contains((RepositoryName) k.argument())
+    );
   }
 
   private static BlazeCommandResult createFailedBlazeCommandResult(
