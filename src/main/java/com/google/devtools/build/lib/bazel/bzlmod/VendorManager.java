@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
@@ -99,9 +100,6 @@ public class VendorManager {
         replantSymlinks(repoUnderVendor, externalRepoRoot);
         // 5. Rename the temporary marker file after the move is done.
         tMarker.renameTo(markerUnderVendor);
-        // 6. Leave a symlink in external dir to keep things working.
-        repoUnderExternal.deleteTree();
-        FileSystemUtils.ensureSymbolicLink(repoUnderExternal, repoUnderVendor);
       }
     }
   }

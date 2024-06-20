@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FetchCommand.Code;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
@@ -58,6 +59,7 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsParser;
@@ -398,6 +400,14 @@ public final class VendorCommand implements BlazeCommand {
             .getOutputBase()
             .getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
     vendorManager.vendorRepos(externalPath, reposToVendor);
+
+    // 3. Invalidate RepositoryDirectoryValue for vendored repos.
+    for (RepositoryName repo : reposToVendor) {
+      env.getSkyframeExecutor().getEvaluator().delete(
+          k -> k.functionName().equals(SkyFunctions.REPOSITORY_DIRECTORY)
+              && k.argument().equals(repo)
+      );
+    }
   }
 
   private static BlazeCommandResult createFailedBlazeCommandResult(
