@@ -41,7 +41,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.HashMap;
@@ -85,8 +84,8 @@ public class UrlRewriter {
    * @param configPath Path to the config file to use. May be null.
    * @param reporter Used for logging when URLs are rewritten.
    */
-  public static UrlRewriter getDownloaderUrlRewriter(String configPath, Reporter reporter)
-      throws UrlRewriterParseException {
+  public static UrlRewriter getDownloaderUrlRewriter(
+      Path workspaceRoot, String configPath, Reporter reporter) throws UrlRewriterParseException {
     Consumer<String> log = str -> reporter.handle(Event.info(str));
 
     // "empty" UrlRewriter shouldn't alter auth headers
@@ -94,7 +93,17 @@ public class UrlRewriter {
       return new UrlRewriter(log, "", new StringReader(""));
     }
 
-    try (BufferedReader reader = Files.newBufferedReader(Paths.get(configPath))) {
+    // There have been reports (eg. https://github.com/bazelbuild/bazel/issues/22104) that
+    // there are occasional errors when `configFile` can't be found, and when this happens
+    // investigation suggests that the current working directory isn't the workspace root.
+    Path actualConfigPath = workspaceRoot.getRelative(configPath);
+
+    if (!actualConfigPath.exists()) {
+      throw new UrlRewriterParseException(
+          String.format("Unable to find downloader config file %s", configPath));
+    }
+
+    try (BufferedReader reader = Files.newBufferedReader(actualConfigPath.getPathFile().toPath())) {
       return new UrlRewriter(log, configPath, reader);
     } catch (IOException e) {
       throw new UrlRewriterParseException(e.getMessage());
