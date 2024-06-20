@@ -421,7 +421,7 @@ public class IndexRegistry implements Registry {
         sourceJsonOverlay.entrySet().stream()
             .collect(
                 toImmutableMap(
-                    entry -> entry.getKey(),
+                    Entry::getKey,
                     entry ->
                         new ArchiveRepoSpecBuilder.RemoteFile(
                             entry.getValue(), // integrity
@@ -432,6 +432,7 @@ public class IndexRegistry implements Registry {
                                     "modules",
                                     key.getName(),
                                     key.getVersion().toString(),
+                                    "overlay",
                                     entry.getKey())))));
 
     return new ArchiveRepoSpecBuilder()
