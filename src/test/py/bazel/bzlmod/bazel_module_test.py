@@ -1068,6 +1068,12 @@ class BazelModuleTest(test_base.TestBase):
         stderr,
     )
 
+  def testRegression22754(self):
+    """Regression test for issue #22754."""
+    self.ScratchFile('BUILD.bazel', ['print(glob(["testdata/**"]))'])
+    self.ScratchFile('testdata/WORKSPACE')
+    self.RunBazel(['build', ':all'])
+
 
 if __name__ == '__main__':
   absltest.main()
