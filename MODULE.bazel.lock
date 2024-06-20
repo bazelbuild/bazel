@@ -84,8 +84,8 @@
     "https://bcr.bazel.build/modules/rules_java/6.4.0/MODULE.bazel": "e986a9fe25aeaa84ac17ca093ef13a4637f6107375f64667a15999f77db6c8f6",
     "https://bcr.bazel.build/modules/rules_java/7.3.2/MODULE.bazel": "50dece891cfdf1741ea230d001aa9c14398062f2b7c066470accace78e412bc2",
     "https://bcr.bazel.build/modules/rules_java/7.6.1/MODULE.bazel": "2f14b7e8a1aa2f67ae92bc69d1ec0fa8d9f827c4e17ff5e5f02e91caa3b2d0fe",
-    "https://bcr.bazel.build/modules/rules_java/7.6.3/MODULE.bazel": "c2b6ace50614007f95d788a50f9fc7bb35ba535deebf90b60acc2a60c01e0b1b",
-    "https://bcr.bazel.build/modules/rules_java/7.6.3/source.json": "a32ddce6b75dbe8aa73e790b11182bd23abba80012bb1390cce3f4c8e8888f6c",
+    "https://bcr.bazel.build/modules/rules_java/7.6.5/MODULE.bazel": "481164be5e02e4cab6e77a36927683263be56b7e36fef918b458d7a8a1ebadb1",
+    "https://bcr.bazel.build/modules/rules_java/7.6.5/source.json": "a805b889531d1690e3c72a7a7e47a870d00323186a9904b36af83aa3d053ee8d",
     "https://bcr.bazel.build/modules/rules_jvm_external/4.4.2/MODULE.bazel": "a56b85e418c83eb1839819f0b515c431010160383306d13ec21959ac412d2fe7",
     "https://bcr.bazel.build/modules/rules_jvm_external/5.3/MODULE.bazel": "bf93870767689637164657731849fb887ad086739bd5d360d90007a581d5527d",
     "https://bcr.bazel.build/modules/rules_jvm_external/6.0/MODULE.bazel": "37c93a5a78d32e895d52f86a8d0416176e915daabd029ccb5594db422e87c495",
@@ -285,8 +285,8 @@
         "bzlTransitiveDigest": "VcSwKK3aFaFrY0hyocpNs4D/GueKeLHlKy6aIBA5zuU=",
         "usagesDigest": "S0vNSOLxzaSWBw2qFrqtiXI9txwZdU8Tc5Bmz/zBoJA=",
         "recordedFileInputs": {
-          "@@//MODULE.bazel": "d944444e1624a90a47831d10fa134b9d6d2d387c22c97481c493a1a6ea86f467",
-          "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "1b05fa65f3b7cb10e2d018eb5183171dca5d84e64820892e9d78290aa089f262"
+          "@@//MODULE.bazel": "031fa348dcc85eb085233bdaedb30e8b1118d422de0ca7e64746847fe1a2a342",
+          "@@//src/test/tools/bzlmod/MODULE.bazel.lock": "be4fad50f11cea9240c9aa937876596bd3d88dc896e4feb5136df3c5f44da768"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
