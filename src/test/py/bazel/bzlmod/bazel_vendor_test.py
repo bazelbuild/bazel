@@ -15,6 +15,7 @@
 # pylint: disable=g-long-ternary
 
 import os
+import shutil
 import tempfile
 from absl.testing import absltest
 from src.test.py.bazel import test_base
@@ -601,6 +602,15 @@ class BazelVendorTest(test_base.TestBase):
         ['vendor', '@aaa//:lib_aaa', '@bbb//:lib_bbb', '--vendor_dir=vendor']
     )
     # Assert aaa & bbb and are vendored
+    self.assertIn('aaa~', os.listdir(self._test_cwd + '/vendor'))
+    self.assertIn('bbb~', os.listdir(self._test_cwd + '/vendor'))
+    self.assertNotIn('ccc~', os.listdir(self._test_cwd + '/vendor'))
+
+    # Delete vendor source and re-vendor should work without server restart
+    shutil.rmtree(self._test_cwd + '/vendor')
+    self.RunBazel(
+        ['vendor', '@aaa//:lib_aaa', '@bbb//:lib_bbb', '--vendor_dir=vendor']
+    )
     self.assertIn('aaa~', os.listdir(self._test_cwd + '/vendor'))
     self.assertIn('bbb~', os.listdir(self._test_cwd + '/vendor'))
     self.assertNotIn('ccc~', os.listdir(self._test_cwd + '/vendor'))
