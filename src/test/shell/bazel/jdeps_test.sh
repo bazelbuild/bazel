@@ -72,7 +72,8 @@ function test_jdeps() {
   # src/test/shell/bazel/jdeps_class_denylist.txt.
   find . -type f -iname \*class | \
     grep -vFf "$denylist" | \
-    xargs -s 262144 ../jdk/reduced/bin/jdeps --list-reduced-deps --ignore-missing-deps | \
+    sort -r | \
+    xargs -s 400000 ../jdk/reduced/bin/jdeps --list-reduced-deps --ignore-missing-deps | \
     grep -v "unnamed module" > ../jdeps \
     || fail "Failed to run jdeps on non denylisted class files."
   cd ..
