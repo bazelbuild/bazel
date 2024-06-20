@@ -16,6 +16,7 @@
 
 import os
 import shutil
+import stat
 import tempfile
 from absl.testing import absltest
 from src.test.py.bazel import test_base
@@ -607,7 +608,10 @@ class BazelVendorTest(test_base.TestBase):
     self.assertNotIn('ccc~', os.listdir(self._test_cwd + '/vendor'))
 
     # Delete vendor source and re-vendor should work without server restart
-    shutil.rmtree(self._test_cwd + '/vendor')
+    def on_rm_error(func, path, exc_info):
+       os.chmod(path, stat.S_IWRITE)
+       func(path)
+    shutil.rmtree(self._test_cwd + '/vendor', onerror=on_rm_error)
     self.RunBazel(
         ['vendor', '@aaa//:lib_aaa', '@bbb//:lib_bbb', '--vendor_dir=vendor']
     )
