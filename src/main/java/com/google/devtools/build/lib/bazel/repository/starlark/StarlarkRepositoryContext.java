@@ -77,7 +77,6 @@ import net.starlark.java.eval.StarlarkThread;
             + " repository rule.")
 public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   private final Rule rule;
-  private final RepositoryName repoName;
   private final PathPackageLocator packageLocator;
   private final StructImpl attrObject;
   private final ImmutableSet<PathFragment> ignoredPatterns;
@@ -112,10 +111,11 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
         timeoutScaling,
         processWrapper,
         starlarkSemantics,
+        RepositoryFetchProgress.repositoryFetchContextString(
+            RepositoryName.createUnvalidated(rule.getName())),
         remoteExecutor,
         /* allowWatchingPathsOutsideWorkspace= */ true);
     this.rule = rule;
-    this.repoName = RepositoryName.createUnvalidated(rule.getName());
     this.packageLocator = packageLocator;
     this.ignoredPatterns = ignoredPatterns;
     this.syscallCache = syscallCache;
@@ -132,8 +132,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   }
 
   @Override
-  protected String getIdentifyingStringForLogging() {
-    return RepositoryFetchProgress.repositoryFetchContextString(repoName);
+  protected boolean shouldDeleteWorkingDirectoryOnClose(boolean successful) {
+    return !successful;
   }
 
   public ImmutableMap<RepoRecordedInput.DirTree, String> getRecordedDirTreeInputs() {
@@ -217,7 +217,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
         WorkspaceRuleEvent.newSymlinkEvent(
             targetPath.toString(),
             linkPath.toString(),
-            getIdentifyingStringForLogging(),
+            identifyingStringForLogging,
             thread.getCallerLocation());
     env.getListener().post(w);
     try {
@@ -309,7 +309,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             t.toString(),
             substitutionMap,
             executable,
-            getIdentifyingStringForLogging(),
+            identifyingStringForLogging,
             thread.getCallerLocation());
     env.getListener().post(w);
     if (t.isDir()) {
@@ -374,7 +374,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     StarlarkPath starlarkPath = externalPath("delete()", pathObject);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newDeleteEvent(
-            starlarkPath.toString(), getIdentifyingStringForLogging(), thread.getCallerLocation());
+            starlarkPath.toString(), identifyingStringForLogging, thread.getCallerLocation());
     env.getListener().post(w);
     try {
       Path path = starlarkPath.getPath();
@@ -432,7 +432,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
         WorkspaceRuleEvent.newPatchEvent(
             starlarkPath.toString(),
             strip,
-            getIdentifyingStringForLogging(),
+            identifyingStringForLogging,
             thread.getCallerLocation());
     env.getListener().post(w);
     if (starlarkPath.isDir()) {
@@ -543,7 +543,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
             output.toString(),
             stripPrefix,
             renameFilesMap,
-            getIdentifyingStringForLogging(),
+            identifyingStringForLogging,
             thread.getCallerLocation());
     env.getListener().post(w);
 
@@ -553,7 +553,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
                 outputPath.getPath().toString(), "Extracting " + archivePath.getBasename()));
     DecompressorValue.decompress(
         DecompressorDescriptor.builder()
-            .setContext(getIdentifyingStringForLogging())
+            .setContext(identifyingStringForLogging)
             .setArchivePath(archivePath.getPath())
             .setDestinationPath(outputPath.getPath())
             .setPrefix(stripPrefix)

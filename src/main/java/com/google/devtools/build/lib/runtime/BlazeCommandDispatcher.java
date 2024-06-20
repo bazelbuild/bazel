@@ -374,7 +374,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     if (commonOptions.enableTracer == TriState.YES) {
       tracerEnabled = true;
     } else if (commonOptions.enableTracer == TriState.AUTO) {
-      boolean commandSupportsProfile = commandName.equals("query") || env.commandActuallyBuilds();
+      boolean commandSupportsProfile = commandName.equals("query") || env.getCommand().builds();
       tracerEnabled = commandSupportsProfile || commonOptions.profilePath != null;
     }
 
@@ -572,12 +572,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         }
       }
 
-      // It is not sufficient to check commandAnnotation.builds(), because
-      // {@link CleanCommand} is annotated with {@code builds = true} to have
-      // access to relevant build options but don't actually do building.  Same
-      // for {@link InfoCommand}, which is annotated with {@code builds = true}
-      // but only conditionally does this step based on some complicated logic.
-      if (env.commandActuallyBuilds()) {
+      if (env.getCommand().builds()) {
         try {
           env.syncPackageLoading(options);
         } catch (InterruptedException e) {

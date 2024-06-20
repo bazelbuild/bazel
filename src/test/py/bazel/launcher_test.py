@@ -21,7 +21,32 @@ from src.test.py.bazel import test_base
 
 # pylint: disable=g-import-not-at-top
 if os.name == 'nt':
-  import win32api
+  import ctypes
+  from ctypes import wintypes
+
+  kernel32 = ctypes.WinDLL('kernel32')
+  _GetShortPathNameW = kernel32.GetShortPathNameW
+  _GetShortPathNameW.argtypes = [
+      wintypes.LPCWSTR,
+      wintypes.LPWSTR,
+      wintypes.DWORD,
+  ]
+  _GetShortPathNameW.restype = wintypes.DWORD
+
+  def _get_short_path_name(long_name):
+    # Gets the short path name of a given long path.
+    # http://stackoverflow.com/a/23598461/200291
+
+    output_buf_size = len(long_name)
+    while True:
+      output_buf = ctypes.create_unicode_buffer(output_buf_size)
+      needed = _GetShortPathNameW(long_name, output_buf, output_buf_size)
+      if needed == 0:
+        raise ctypes.WinError()
+      elif output_buf_size >= needed:
+        return output_buf.value
+      else:
+        output_buf_size = needed
 
 
 class LauncherTest(test_base.TestBase):
@@ -670,7 +695,7 @@ class LauncherTest(test_base.TestBase):
     _, stdout, _ = self.RunProgram([long_binary_path], shell=True)
     self.assertEqual('helloworld', ''.join(stdout))
     # Make sure we can launch the binary with a shortened Windows 8dot3 path
-    short_binary_path = win32api.GetShortPathName(long_binary_path)
+    short_binary_path = _get_short_path_name(long_binary_path)
     self.assertIn('~', os.path.basename(short_binary_path))
     _, stdout, _ = self.RunProgram([short_binary_path], shell=True)
     self.assertEqual('helloworld', ''.join(stdout))
@@ -680,7 +705,7 @@ class LauncherTest(test_base.TestBase):
     _, stdout, _ = self.RunProgram([long_binary_path], shell=True)
     self.assertEqual('helloworld', ''.join(stdout))
     # Make sure we can launch the binary with a shortened Windows 8dot3 path
-    short_binary_path = win32api.GetShortPathName(long_binary_path)
+    short_binary_path = _get_short_path_name(long_binary_path)
     self.assertIn('~', os.path.basename(short_binary_path))
     _, stdout, _ = self.RunProgram([short_binary_path], shell=True)
     self.assertEqual('helloworld', ''.join(stdout))
@@ -690,7 +715,7 @@ class LauncherTest(test_base.TestBase):
     _, stdout, _ = self.RunProgram([long_binary_path], shell=True)
     self.assertEqual('helloworld', ''.join(stdout))
     # Make sure we can launch the binary with a shortened Windows 8dot3 path
-    short_binary_path = win32api.GetShortPathName(long_binary_path)
+    short_binary_path = _get_short_path_name(long_binary_path)
     self.assertIn('~', os.path.basename(short_binary_path))
     _, stdout, _ = self.RunProgram([short_binary_path], shell=True)
     self.assertEqual('helloworld', ''.join(stdout))

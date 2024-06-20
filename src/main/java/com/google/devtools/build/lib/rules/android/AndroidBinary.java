@@ -975,7 +975,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         attr -> !"deps".equals(attr),
         validations -> builder.addOutputGroup(OutputGroupInfo.VALIDATION_TRANSITIVE, validations));
     boolean filterSplitValidations = false; // propagate validations from first split unfiltered
-    for (List<ConfiguredTargetAndData> deps : ruleContext.getSplitPrerequisites("deps").values()) {
+    for (List<ConfiguredTargetAndData> deps :
+        ruleContext.getRulePrerequisitesCollection().getSplitPrerequisites("deps").values()) {
       for (OutputGroupInfo provider :
           AnalysisUtils.getProviders(
               getConfiguredTargets(deps), OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
@@ -1043,7 +1044,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     // libraries across multiple architectures, e.g. x86 and armeabi-v7a, and need to be packed
     // into the APK.
     NestedSetBuilder<Artifact> transitiveNativeLibs = NestedSetBuilder.naiveLinkOrder();
-    for (List<ConfiguredTargetAndData> deps : ruleContext.getSplitPrerequisites("deps").values()) {
+    for (List<ConfiguredTargetAndData> deps :
+        ruleContext.getRulePrerequisitesCollection().getSplitPrerequisites("deps").values()) {
       for (AndroidNativeLibsInfo provider :
           AnalysisUtils.getProviders(getConfiguredTargets(deps), AndroidNativeLibsInfo.PROVIDER)) {
         transitiveNativeLibs.addTransitive(provider.getNativeLibs());

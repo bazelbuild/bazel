@@ -853,7 +853,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     if (!execCompatibleWith.isEmpty()) {
       builder.addExecutionPlatformConstraints(
-          parseExecCompatibleWith(execCompatibleWith, labelConverter));
+          parseLabels(execCompatibleWith, labelConverter, "exec_compatible_with"));
     }
 
     return new StarlarkRuleFunction(
@@ -912,15 +912,21 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     return attributes.build();
   }
 
-  private static ImmutableSet<Label> parseExecCompatibleWith(
-      Sequence<?> inputs, LabelConverter labelConverter) throws EvalException {
+  private static ImmutableSet<Label> parseLabels(
+      Sequence<?> inputs, LabelConverter labelConverter, String attributeName)
+      throws EvalException {
+    if (inputs.isEmpty()) {
+      return ImmutableSet.of();
+    }
     ImmutableSet.Builder<Label> parsedLabels = new ImmutableSet.Builder<>();
-    for (String input : Sequence.cast(inputs, String.class, "exec_compatible_with")) {
+    for (String input : Sequence.cast(inputs, String.class, attributeName)) {
       try {
         Label label = labelConverter.convert(input);
         parsedLabels.add(label);
       } catch (LabelSyntaxException e) {
-        throw Starlark.errorf("Unable to parse constraint label '%s': %s", input, e.getMessage());
+        throw Starlark.errorf(
+            "Unable to parse label '%s' in attribute '%s': %s",
+            input, attributeName, e.getMessage());
       }
     }
     return parsedLabels.build();
@@ -930,6 +936,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   public StarlarkAspect aspect(
       StarlarkFunction implementation,
       Sequence<?> attributeAspects,
+      Sequence<?> rawToolchainsAspects,
       Dict<?, ?> attrs,
       Sequence<?> requiredProvidersArg,
       Sequence<?> requiredAspectProvidersArg,
@@ -1071,10 +1078,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           "An aspect cannot simultaneously have required providers and apply to generating rules.");
     }
 
-    ImmutableSet<Label> execCompatibleWith = ImmutableSet.of();
-    if (!rawExecCompatibleWith.isEmpty()) {
-      execCompatibleWith = parseExecCompatibleWith(rawExecCompatibleWith, labelConverter);
-    }
+    ImmutableSet<Label> execCompatibleWith =
+        parseLabels(rawExecCompatibleWith, labelConverter, "exec_compatible_with");
+
+    ImmutableSet<Label> toolchainsAspects =
+        parseLabels(rawToolchainsAspects, labelConverter, "toolchains_aspects");
 
     ImmutableMap<String, ExecGroup> execGroups = ImmutableMap.of();
     if (rawExecGroups != Starlark.NONE) {
@@ -1099,6 +1107,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         implementation,
         Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString),
         attrAspects.build(),
+        toolchainsAspects,
         attributes.build(),
         StarlarkAttrModule.buildProviderPredicate(requiredProvidersArg, "required_providers"),
         StarlarkAttrModule.buildProviderPredicate(
@@ -1723,7 +1732,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     LabelConverter labelConverter = LabelConverter.forBzlEvaluatingThread(thread);
     ImmutableSet<ToolchainTypeRequirement> toolchainTypes =
         parseToolchainTypes(toolchains, labelConverter);
-    ImmutableSet<Label> constraints = parseExecCompatibleWith(execCompatibleWith, labelConverter);
+    ImmutableSet<Label> constraints =
+        parseLabels(execCompatibleWith, labelConverter, "exec_compatible_with");
     return ExecGroup.builder()
         .toolchainTypes(toolchainTypes)
         .execCompatibleWith(constraints)

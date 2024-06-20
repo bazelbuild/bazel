@@ -109,7 +109,9 @@ public class AndroidAssets {
       return null;
     }
 
-    return ruleContext.getPrerequisitesIf(ASSETS_ATTR, FileProvider.class);
+    return ruleContext
+        .getRulePrerequisitesCollection()
+        .getPrerequisitesIf(ASSETS_ATTR, FileProvider.class);
   }
 
   @Nullable

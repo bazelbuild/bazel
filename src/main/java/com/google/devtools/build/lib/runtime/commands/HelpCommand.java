@@ -424,7 +424,7 @@ public final class HelpCommand implements BlazeCommand {
           continue;
         }
         List<String> inheritedCmdNames = new ArrayList<>();
-        for (Class<? extends BlazeCommand> base : annotation.inherits()) {
+        for (Class<? extends BlazeCommand> base : annotation.inheritsOptionsFrom()) {
           String name = base.getAnnotation(Command.class).name();
           inheritedCmdNames.add(String.format("<a href=\"#%s\">%s</a>", name, name));
         }

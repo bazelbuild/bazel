@@ -72,7 +72,7 @@ import javax.annotation.Nullable;
 @Command(
     name = "config",
     builds = true,
-    inherits = {BuildCommand.class},
+    inheritsOptionsFrom = {BuildCommand.class},
     options = {ConfigOptions.class},
     usesConfigurationOptions = true,
     shortDescription = "Displays details of configurations.",

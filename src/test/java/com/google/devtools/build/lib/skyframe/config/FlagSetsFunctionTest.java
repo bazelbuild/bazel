@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.config;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -33,6 +34,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+/** Tests for {@link FlagSetFunction}. */
 @RunWith(JUnit4.class)
 public final class FlagSetsFunctionTest extends BuildViewTestCase {
 
@@ -48,7 +50,12 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
   public void flagSetsFunction_returns_modified_buildOptions() throws Exception {
     rewriteWorkspace("workspace(name = 'my_workspace')");
     scratch.file(
-        "test/PROJECT.scl", "test_config = ['--platforms=//buildenv/platforms/android:x86']");
+        "test/PROJECT.scl",
+        """
+        configs = {
+          "test_config": ['--platforms=//buildenv/platforms/android:x86'],
+        }
+        """);
     scratch.file("test/BUILD");
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     // given original BuildOptions and a valid key
@@ -57,7 +64,10 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
             ruleClassProvider.getFragmentRegistry().getOptionsClasses());
     FlagSetValue.Key key =
         FlagSetValue.Key.create(
-            Label.parseCanonical("//test:PROJECT.scl"), "test_config", buildOptions);
+            Label.parseCanonical("//test:PROJECT.scl"),
+            "test_config",
+            buildOptions,
+            /* enforceCanonical= */ false);
     FlagSetValue flagSetsValue = executeFunction(key);
 
     // expects the modified BuildOptions
@@ -70,7 +80,12 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
       throws Exception {
     rewriteWorkspace("workspace(name = 'my_workspace')");
     scratch.file(
-        "test/PROJECT.scl", "test_config = ['--platforms=//buildenv/platforms/android:x86']");
+        "test/PROJECT.scl",
+        """
+        configs = {
+          "test_config": ['--platforms=//buildenv/platforms/android:x86'],
+        }
+        """);
     scratch.file("test/BUILD");
     setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
     // given valid project file but a nonexistent scl config
@@ -79,7 +94,10 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
             ruleClassProvider.getFragmentRegistry().getOptionsClasses());
     FlagSetValue.Key key =
         FlagSetValue.Key.create(
-            Label.parseCanonical("//test:PROJECT.scl"), "unknown_config", buildOptions);
+            Label.parseCanonical("//test:PROJECT.scl"),
+            "unknown_config",
+            buildOptions,
+            /* enforceCanonical= */ false);
     FlagSetValue flagSetsValue = executeFunction(key);
 
     // expects the original BuildOptions
@@ -93,11 +111,299 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
         BuildOptions.getDefaultBuildOptionsForFragments(
             ruleClassProvider.getFragmentRegistry().getOptionsClasses());
     FlagSetValue.Key key =
-        FlagSetValue.Key.create(Label.parseCanonical("//test:PROJECT.scl"), "", buildOptions);
+        FlagSetValue.Key.create(
+            Label.parseCanonical("//test:PROJECT.scl"),
+            "",
+            buildOptions,
+            /* enforceCanonical= */ false);
     FlagSetValue flagSetsValue = executeFunction(key);
 
     // expects the original BuildOptions
     assertThat(flagSetsValue.getTopLevelBuildOptions()).isEqualTo(buildOptions);
+  }
+
+  @Test
+  public void noEnforceCanonicalConfigs_unknownConfigisNoop() throws Exception {
+    scratch.file("test/PROJECT.scl", "");
+    scratch.file("test/BUILD");
+    BuildOptions buildOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(
+            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            Label.parseCanonical("//test:PROJECT.scl"),
+            "random_config_name",
+            buildOptions,
+            /* enforceCanonical= */ false);
+    FlagSetValue flagSetsValue = executeFunction(key);
+
+    // Without enforced configs, unknown configs are a no-op.
+    assertThat(flagSetsValue.getTopLevelBuildOptions()).isEqualTo(buildOptions);
+  }
+
+  @Test
+  public void enforceCanonicalConfigsSupportedConfig() throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        """
+string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
+""");
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_settings.bzl", "string_flag")
+        string_flag(
+            name = "myflag",
+            build_setting_default = "default",
+        )
+        """);
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        configs = {
+          "test_config": ['--//test:myflag=test_config_value'],
+          "other_config": ['--//test:myflag=other_config_value'],
+        }
+        supported_configs = {
+          "test_config": "User documentation for what this config means",
+        }
+        """);
+    BuildOptions buildOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(
+            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            Label.parseCanonical("//test:PROJECT.scl"),
+            "test_config",
+            buildOptions,
+            /* enforceCanonical= */ true);
+    FlagSetValue flagSetsValue = executeFunction(key);
+
+    assertThat(
+            flagSetsValue
+                .getTopLevelBuildOptions()
+                .getStarlarkOptions()
+                .get(Label.parseCanonical("//test:myflag")))
+        .isEqualTo("test_config_value");
+  }
+
+  @Test
+  public void enforceCanonicalConfigsUnsupportedConfig() throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        """
+string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
+""");
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_settings.bzl", "string_flag")
+        string_flag(
+            name = "myflag",
+            build_setting_default = "default",
+        )
+        """);
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        configs = {
+          "test_config": ['--//test:myflag=test_config_value'],
+          "other_config": ['--//test:myflag=other_config_value'],
+        }
+        supported_configs = {
+          "test_config": "User documentation for what this config means",
+        }
+        """);
+    BuildOptions buildOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(
+            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            Label.parseCanonical("//test:PROJECT.scl"),
+            "other_config",
+            buildOptions,
+            /* enforceCanonical= */ true);
+
+    var thrown = assertThrows(Exception.class, () -> executeFunction(key));
+    assertThat(thrown).hasMessageThat().contains("--scl_config=other_config unsupported");
+  }
+
+  @Test
+  public void enforceCanonicalConfigsNonExistentConfig() throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        """
+string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
+""");
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_settings.bzl", "string_flag")
+        string_flag(
+            name = "myflag",
+            build_setting_default = "default",
+        )
+        """);
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        configs = {
+          "test_config": ['--//test:myflag=test_config_value'],
+          "other_config": ['--//test:myflag=other_config_value'],
+        }
+        supported_configs = {
+          "test_config": "User documentation for what this config means",
+        }
+        """);
+    BuildOptions buildOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(
+            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            Label.parseCanonical("//test:PROJECT.scl"),
+            "non_existent_config",
+            buildOptions,
+            /* enforceCanonical= */ true);
+
+    var thrown = assertThrows(Exception.class, () -> executeFunction(key));
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains("--scl_config=non_existent_config not found. Must be one of");
+  }
+
+  @Test
+  public void enforceCanonicalConfigsNoSclConfigFlag() throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        """
+string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
+""");
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_settings.bzl", "string_flag")
+        string_flag(
+            name = "myflag",
+            build_setting_default = "default",
+        )
+        """);
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        configs = {
+          "test_config": ['--//test:myflag=test_config_value'],
+          "other_config": ['--//test:myflag=other_config_value'],
+        }
+        supported_configs = {
+          "test_config": "User documentation for what this config means",
+        }
+        """);
+    BuildOptions buildOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(
+            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            Label.parseCanonical("//test:PROJECT.scl"),
+            /* sclConfig= */ "",
+            buildOptions,
+            /* enforceCanonical= */ true);
+
+    var thrown = assertThrows(Exception.class, () -> executeFunction(key));
+    assertThat(thrown).hasMessageThat().contains("--scl_config not set. Must be one of");
+  }
+
+  @Test
+  public void enforceCanonicalConfigsNoSupportedConfigsWithNoSclConfig() throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        """
+string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
+""");
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_settings.bzl", "string_flag")
+        string_flag(
+            name = "myflag",
+            build_setting_default = "default",
+        )
+        """);
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        configs = {
+          "test_config": ['--//test:myflag=test_config_value'],
+          "other_config": ['--//test:myflag=other_config_value'],
+        }
+        """);
+    BuildOptions buildOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(
+            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            Label.parseCanonical("//test:PROJECT.scl"),
+            /* sclConfig= */ "",
+            buildOptions,
+            /* enforceCanonical= */ true);
+    FlagSetValue flagSetsValue = executeFunction(key);
+
+    assertThat(flagSetsValue.getTopLevelBuildOptions().getStarlarkOptions()).isEmpty();
+  }
+
+  @Test
+  public void enforceCanonicalConfigsNoSupportedConfigsWithSclConfig() throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        """
+string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
+""");
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_settings.bzl", "string_flag")
+        string_flag(
+            name = "myflag",
+            build_setting_default = "default",
+        )
+        """);
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        configs = {
+          "test_config": ['--//test:myflag=test_config_value'],
+          "other_config": ['--//test:myflag=other_config_value'],
+        }
+        """);
+    BuildOptions buildOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(
+            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            Label.parseCanonical("//test:PROJECT.scl"),
+            /* sclConfig= */ "test_config",
+            buildOptions,
+            /* enforceCanonical= */ true);
+    FlagSetValue flagSetsValue = executeFunction(key);
+
+    assertThat(
+            flagSetsValue
+                .getTopLevelBuildOptions()
+                .getStarlarkOptions()
+                .get(Label.parseCanonical("//test:myflag")))
+        .isEqualTo("test_config_value");
   }
 
   private FlagSetValue executeFunction(FlagSetValue.Key key) throws Exception {

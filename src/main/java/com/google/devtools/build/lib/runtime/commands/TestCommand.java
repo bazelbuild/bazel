@@ -59,17 +59,16 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.Collection;
 import java.util.List;
 
-/**
- * Handles the 'test' command on the Blaze command line.
- */
-@Command(name = "test",
-         builds = true,
-         inherits = { BuildCommand.class },
-         options = { TestSummaryOptions.class },
-         shortDescription = "Builds and runs the specified test targets.",
-         help = "resource:test.txt",
-         completion = "label-test",
-         allowResidue = true)
+/** Handles the 'test' command on the Blaze command line. */
+@Command(
+    name = "test",
+    builds = true,
+    inheritsOptionsFrom = {BuildCommand.class},
+    options = {TestSummaryOptions.class},
+    shortDescription = "Builds and runs the specified test targets.",
+    help = "resource:test.txt",
+    completion = "label-test",
+    allowResidue = true)
 public class TestCommand implements BlazeCommand {
   /** Returns the name of the command to ask the project file for. */
   // TODO(hdm): move into BlazeRuntime?  It feels odd to duplicate the annotation here.

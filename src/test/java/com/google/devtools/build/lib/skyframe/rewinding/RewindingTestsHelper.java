@@ -3163,6 +3163,28 @@ public class RewindingTestsHelper {
     Map<Label, TargetCompleteEvent> targetCompleteEvents = recordTargetCompleteEvents();
     listenForNoCompletionEventsBeforeRewinding(fooLostTreeFoundAndFailed, targetCompleteEvents);
 
+    if (!keepGoing()) {
+      // Block the failing action on the completion of the TreeArtifactValue (produced by
+      // ArtifactFunction). Otherwise, the build may be aborted without considering it as built,
+      // meaning it won't be observed to be lost.
+      CountDownLatch treeArtifactDone = new CountDownLatch(1);
+      testCase.injectListenerAtStartOfNextBuild(
+          (key, type, order, context) -> {
+            if (key instanceof Artifact artifact
+                && artifact.isTreeArtifact()
+                && type == EventType.SET_VALUE
+                && order == Order.AFTER) {
+              treeArtifactDone.countDown();
+            }
+          });
+      addSpawnShim(
+          "Action foo/failed.out",
+          (spawn, context) -> {
+            treeArtifactDone.await();
+            return ExecResult.delegate();
+          });
+    }
+
     assertThrows(
         BuildFailedException.class, () -> testCase.buildTarget("//foo:lost_tree_found_and_failed"));
 

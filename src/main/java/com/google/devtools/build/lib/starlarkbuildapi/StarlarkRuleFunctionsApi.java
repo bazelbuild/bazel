@@ -648,6 +648,14 @@ site of the rule. Such attributes can be assigned a default value (as in
                     + "single string <code>\"*\"</code> to propagate along all dependencies of a "
                     + "target."),
         @Param(
+            name = "toolchains_aspects",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = Object.class)},
+            named = true,
+            defaultValue = "[]",
+            doc =
+                "[Currtenly no-op] List of toolchain types. The aspect propagates to target"
+                    + " toolchains which match these toolchain types."),
+        @Param(
             name = "attrs",
             allowedTypes = {
               @ParamType(type = Dict.class),
@@ -816,6 +824,7 @@ site of the rule. Such attributes can be assigned a default value (as in
   StarlarkAspectApi aspect(
       StarlarkFunction implementation,
       Sequence<?> attributeAspects,
+      Sequence<?> toolchainsAspects,
       Dict<?, ?> attrs,
       Sequence<?> requiredProvidersArg,
       Sequence<?> requiredAspectProvidersArg,

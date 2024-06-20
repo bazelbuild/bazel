@@ -9,6 +9,8 @@ keywords: product:Bazel,Bzlmod,vendor
 
 # Vendor Mode
 
+{% include "_buttons.html" %}
+
 Vendor mode is a feature of Bzlmod that lets you create a local copy of
 external dependencies. This is useful for offline builds, or when you want to
 control the source of an external dependency.
