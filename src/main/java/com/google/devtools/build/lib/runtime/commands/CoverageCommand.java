@@ -105,7 +105,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 @Command(
     name = "coverage",
     builds = true,
-    inherits = {TestCommand.class},
+    inheritsOptionsFrom = {TestCommand.class},
     shortDescription = "Generates code coverage report for specified test targets.",
     completion = "label-test",
     help = "resource:coverage.txt",

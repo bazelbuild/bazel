@@ -101,7 +101,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
       options = {FooOptions.class},
       shortDescription = "",
       help = "",
-      inherits = ReportAllCommand.class)
+      inheritsOptionsFrom = ReportAllCommand.class)
   private static class ReportAllInheritedCommand extends ReportAllCommand {}
 
   private final Scratch scratch = new Scratch();

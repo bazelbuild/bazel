@@ -557,7 +557,7 @@ public final class BlazeOptionHandler {
 
   private static void getCommandNamesToParseHelper(
       Command commandAnnotation, List<String> accumulator) {
-    for (Class<? extends BlazeCommand> base : commandAnnotation.inherits()) {
+    for (Class<? extends BlazeCommand> base : commandAnnotation.inheritsOptionsFrom()) {
       getCommandNamesToParseHelper(base.getAnnotation(Command.class), accumulator);
     }
     accumulator.add(commandAnnotation.name());

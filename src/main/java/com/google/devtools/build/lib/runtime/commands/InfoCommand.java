@@ -98,7 +98,7 @@ import java.util.stream.Collectors;
     // (Ideally there would be a way to make {@code info} inherit just the bare
     // minimum of relevant options from {@code build}, i.e. those that affect the
     // values it prints.  But there's no such mechanism.)
-    inherits = {BuildCommand.class})
+    inheritsOptionsFrom = {BuildCommand.class})
 public class InfoCommand implements BlazeCommand {
 
   /** Options for the info command. */

@@ -93,7 +93,7 @@ import javax.annotation.Nullable;
 @Command(
     name = VendorCommand.NAME,
     builds = true,
-    inherits = {TestCommand.class},
+    inheritsOptionsFrom = {TestCommand.class},
     options = {
       VendorOptions.class,
       PackageOptions.class,

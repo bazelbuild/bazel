@@ -60,7 +60,7 @@ import java.util.logging.LogManager;
     help = "resource:clean.txt",
     shortDescription = "Removes output files and optionally stops the server.",
     // TODO(bazel-team): Remove this - we inherit a huge number of unused options.
-    inherits = {BuildCommand.class})
+    inheritsOptionsFrom = {BuildCommand.class})
 public final class CleanCommand implements BlazeCommand {
   /** An interface for special options for the clean command. */
   public static class Options extends OptionsBase {
