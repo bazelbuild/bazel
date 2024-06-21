@@ -625,7 +625,7 @@ public final class Profiler {
    * @param description task description. May be stored until end of build.
    */
   private void logTask(long startTimeNanos, long duration, ProfilerTask type, String description) {
-    var threadId = borrowLaneAndGetLaneId();
+    var lane = borrowLane();
     try {
       checkNotNull(description);
       checkState(!description.isEmpty(), "No description -> not helpful");
@@ -644,7 +644,7 @@ public final class Profiler {
         // #clear.
         JsonTraceFileWriter currentWriter = writerRef.get();
         if (wasTaskSlowEnoughToRecord(type, duration)) {
-          TaskData data = new TaskData(threadId, startTimeNanos, type, description);
+          TaskData data = new TaskData(getLaneId(lane), startTimeNanos, type, description);
           data.durationNanos = duration;
           if (currentWriter != null) {
             currentWriter.enqueue(data);
@@ -658,7 +658,7 @@ public final class Profiler {
         }
       }
     } finally {
-      releaseLane();
+      releaseLane(lane);
     }
   }
 
@@ -722,12 +722,12 @@ public final class Profiler {
 
   private SilentCloseable reallyProfile(ProfilerTask type, String description) {
     final long startTimeNanos = clock.nanoTime();
-    long laneId = borrowLaneAndGetLaneId();
+    var lane = borrowLane();
     return () -> {
       try {
-        completeTask(laneId, startTimeNanos, type, description);
+        completeTask(getLaneId(lane), startTimeNanos, type, description);
       } finally {
-        releaseLane();
+        releaseLane(lane);
       }
     };
   }
@@ -800,11 +800,11 @@ public final class Profiler {
     checkNotNull(description);
     if (isActive() && isProfiling(type)) {
       final long startTimeNanos = clock.nanoTime();
-      var laneId = borrowLaneAndGetLaneId();
+      var lane = borrowLane();
       return () -> {
         try {
           completeAction(
-              laneId,
+              getLaneId(lane),
               startTimeNanos,
               type,
               description,
@@ -812,7 +812,7 @@ public final class Profiler {
               includePrimaryOutput ? primaryOutput : null,
               includeTargetLabel ? targetLabel : null);
         } finally {
-          releaseLane();
+          releaseLane(lane);
         }
       };
     } else {
@@ -833,11 +833,11 @@ public final class Profiler {
   }
 
   public void completeTask(long startTimeNanos, ProfilerTask type, String description) {
-    var laneId = borrowLaneAndGetLaneId();
+    var lane = borrowLane();
     try {
-      completeTask(laneId, startTimeNanos, type, description);
+      completeTask(getLaneId(lane), startTimeNanos, type, description);
     } finally {
-      releaseLane();
+      releaseLane(lane);
     }
   }
 
@@ -926,9 +926,9 @@ public final class Profiler {
       return laneGenerator.acquire();
     }
 
-    private void release(String prefix, Lane lane) {
+    private void release(Lane lane) {
       checkState(isActive());
-      var laneGenerator = checkNotNull(laneGenerators.get(prefix));
+      var laneGenerator = lane.laneGenerator;
       laneGenerator.release(lane);
     }
 
@@ -938,10 +938,12 @@ public final class Profiler {
   }
 
   private static class Lane implements Comparable<Lane> {
+    private final LaneGenerator laneGenerator;
     private final long id;
     private int refCount;
 
-    private Lane(long id) {
+    private Lane(LaneGenerator laneGenerator, long id) {
+      this.laneGenerator = laneGenerator;
       this.id = id;
     }
 
@@ -966,15 +968,15 @@ public final class Profiler {
       var lane = availableLanes.poll();
       // It might create more virtual lanes, but it's fine for our purpose.
       if (lane == null) {
-        long newLaneId = nextLaneId.getAndIncrement();
+        lane = new Lane(this, nextLaneId.getAndIncrement());
+
         int newLaneIndex = count.getAndIncrement();
         String newLaneName = prefix + newLaneIndex + " (Virtual)";
-        var threadMetadata = new ThreadMetadata(newLaneName, newLaneId);
+        var threadMetadata = new ThreadMetadata(newLaneName, lane.id);
         var writer = Profiler.this.writerRef.get();
         if (writer != null) {
           writer.enqueue(threadMetadata);
         }
-        lane = new Lane(newLaneId);
       }
       return lane;
     }
@@ -995,31 +997,32 @@ public final class Profiler {
             return lane;
           });
 
-  private long borrowLaneAndGetLaneId() {
-    var currentThread = Thread.currentThread();
-    var threadId = currentThread.threadId();
-    if (!currentThread.isVirtual() || !isActive()) {
-      return threadId;
+  @Nullable
+  private Lane borrowLane() {
+    if (!Thread.currentThread().isVirtual() || !isActive()) {
+      return null;
     }
 
     var lane = borrowedLane.get();
     lane.refCount += 1;
+    return lane;
+  }
+
+  private long getLaneId(@Nullable Lane lane) {
+    if (lane == null) {
+      return Thread.currentThread().threadId();
+    }
     return lane.id;
   }
 
-  private void releaseLane() {
-    var currentThread = Thread.currentThread();
-    if (!currentThread.isVirtual() || !isActive()) {
+  private void releaseLane(@Nullable Lane lane) {
+    if (lane == null) {
       return;
     }
-
-    var lane = borrowedLane.get();
     lane.refCount -= 1;
-    checkState(lane.refCount >= 0);
     if (lane.refCount == 0) {
       borrowedLane.remove();
-      var prefix = virtualThreadPrefix.get();
-      multiLaneGenerator.release(prefix, lane);
+      multiLaneGenerator.release(lane);
     }
   }
 
