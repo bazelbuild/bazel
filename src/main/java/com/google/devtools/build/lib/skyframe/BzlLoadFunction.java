@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.StarlarkLoading.Code;
+import com.google.devtools.build.lib.skyframe.BzlLoadValue.KeyForBuild;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsFailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -610,12 +611,15 @@ public class BzlLoadFunction implements SkyFunction {
       return StarlarkBuiltinsValue.createEmpty(starlarkSemantics);
     }
     try {
+      // See: --incompatible_load_rules_externally, --incompatible_load_symbols_externally/
+      boolean withAutoloads = key instanceof KeyForBuild && !key.isBuildPrelude();
       if (inliningState == null) {
         return (StarlarkBuiltinsValue)
-            env.getValueOrThrow(StarlarkBuiltinsValue.key(), BuiltinsFailedException.class);
+            env.getValueOrThrow(StarlarkBuiltinsValue.key(withAutoloads),
+                BuiltinsFailedException.class);
       } else {
         return StarlarkBuiltinsFunction.computeInline(
-            StarlarkBuiltinsValue.key(),
+            StarlarkBuiltinsValue.key(withAutoloads),
             inliningState,
             ruleClassProvider.getBazelStarlarkEnvironment(),
             /* bzlLoadFunction= */ this);
@@ -627,12 +631,13 @@ public class BzlLoadFunction implements SkyFunction {
 
   private static boolean requiresBuiltinsInjection(BzlLoadValue.Key key) {
     return key instanceof BzlLoadValue.KeyForBuild
+        || key instanceof BzlLoadValue.KeyForAutoloads
         || key instanceof BzlLoadValue.KeyForWorkspace
         // https://github.com/bazelbuild/bazel/issues/17713
         // `@_builtins` depends on `@bazel_tools` for repo mapping, so we ignore some bzl files
         // to avoid a cyclic dependency
         || (key instanceof BzlLoadValue.KeyForBzlmod
-            && !(key instanceof BzlLoadValue.KeyForBzlmodBootstrap));
+        && !(key instanceof BzlLoadValue.KeyForBzlmodBootstrap));
   }
 
   /**
@@ -1193,12 +1198,12 @@ public class BzlLoadFunction implements SkyFunction {
 
   /**
    * Computes the BzlLoadValue for all given .bzl load keys using ordinary Skyframe evaluation,
-   * returning {@code null} if Skyframe deps were missing and have been requested. {@code
-   * programLoads} provides the locations of the load statements in source order, for error
+   * returning {@code null} if Skyframe deps were missing and have been requested.
+   * {@code programLoads} provides the locations of the load statements in source order, for error
    * reporting.
    */
   @Nullable
-  private static List<BzlLoadValue> computeBzlLoadsWithSkyframe(
+  static List<BzlLoadValue> computeBzlLoadsWithSkyframe(
       Environment env, List<BzlLoadValue.Key> keys, List<Pair<String, Location>> programLoads)
       throws BzlLoadFailedException, InterruptedException {
     List<BzlLoadValue> bzlLoads = Lists.newArrayListWithExpectedSize(keys.size());
@@ -1223,7 +1228,7 @@ public class BzlLoadFunction implements SkyFunction {
    *     request, or if this was a duplicate unsuccessful visitation
    */
   @Nullable
-  private List<BzlLoadValue> computeBzlLoadsWithInlining(
+  List<BzlLoadValue> computeBzlLoadsWithInlining(
       Environment env,
       List<BzlLoadValue.Key> keys,
       List<Pair<String, Location>> programLoads,
@@ -1355,8 +1360,8 @@ public class BzlLoadFunction implements SkyFunction {
               .starlarkSemantics
               .get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH)
               .isEmpty();
-      if (key instanceof BzlLoadValue.KeyForBuild) {
-        if (injectionDisabled) {
+      if (key instanceof BzlLoadValue.KeyForBuild || key instanceof BzlLoadValue.KeyForAutoloads) {
+        if (injectionDisabled) { // TODO: just use builtins without the condition here
           return starlarkEnv.getUninjectedBuildBzlEnv();
         }
         fp.addBytes(builtins.transitiveDigest);

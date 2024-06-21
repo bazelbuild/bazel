@@ -20,6 +20,7 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.common.options.Converters.CommaSeparatedNonEmptyOptionListConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionSetConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -96,6 +97,33 @@ public final class BuildLanguageOptions extends OptionsBase {
               + "Bazel within its own source tree. Finally, a value of the empty string disables "
               + "the builtins injection mechanism entirely.")
   public String experimentalBuiltinsBzlPath;
+
+
+  @Option(
+      name = "incompatible_load_rules_externally",
+      converter = CommaSeparatedOptionSetConverter.class,
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "A list of rules (that were previously in Bazel) that are automatically loaded from "
+              + "external repositories. Prefixed an existing rule with '-' to see it removed.")
+  public List<String> incompatibleLoadRulesExternally;
+
+  @Option(
+      name = "incompatible_load_symbols_externally",
+      converter = CommaSeparatedOptionSetConverter.class,
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "A list of toplevel symbols (that were previously in Bazel) that are automatically loaded from "
+              + "external repositories. Prefixed an existing rule with '-' to see it removed.")
+  public List<String> incompatibleLoadSymbolsExternally;
 
   @Option(
       name = "experimental_builtins_dummy",
@@ -735,6 +763,8 @@ public final class BuildLanguageOptions extends OptionsBase {
                 incompatibleStopExportingLanguageModules)
             .setBool(INCOMPATIBLE_ALLOW_TAGS_PROPAGATION, experimentalAllowTagsPropagation)
             .set(EXPERIMENTAL_BUILTINS_BZL_PATH, experimentalBuiltinsBzlPath)
+            .set(INCOMPATIBLE_LOAD_RULES_EXTERNALLY, incompatibleLoadRulesExternally)
+            .set(INCOMPATIBLE_LOAD_SYMBOLS_EXTERNALLY, incompatibleLoadSymbolsExternally)
             .setBool(EXPERIMENTAL_BUILTINS_DUMMY, experimentalBuiltinsDummy)
             .set(EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE, experimentalBuiltinsInjectionOverride)
             .setBool(EXPERIMENTAL_BZL_VISIBILITY, experimentalBzlVisibility)
@@ -927,6 +957,10 @@ public final class BuildLanguageOptions extends OptionsBase {
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =
       new StarlarkSemantics.Key<>("experimental_builtins_bzl_path", "%bundled%");
+  public static final StarlarkSemantics.Key<List<String>> INCOMPATIBLE_LOAD_RULES_EXTERNALLY =
+      new StarlarkSemantics.Key<>("incompatible_load_rules_externally", ImmutableList.of());
+  public static final StarlarkSemantics.Key<List<String>> INCOMPATIBLE_LOAD_SYMBOLS_EXTERNALLY =
+      new StarlarkSemantics.Key<>("incompatible_load_symbols_externally", ImmutableList.of());
   public static final StarlarkSemantics.Key<List<String>> EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE =
       new StarlarkSemantics.Key<>("experimental_builtins_injection_override", ImmutableList.of());
   public static final StarlarkSemantics.Key<Long> MAX_COMPUTATION_STEPS =

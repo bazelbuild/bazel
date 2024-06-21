@@ -103,9 +103,11 @@ public class BzlLoadValue implements SkyValue {
 
   /** SkyKey for a Starlark load. */
   public abstract static sealed class Key implements SkyKey
-      permits KeyForBuild, KeyForWorkspace, KeyForBuiltins, KeyForBzlmod {
+      permits KeyForBuild, KeyForWorkspace, KeyForBuiltins, KeyForAutoloads, KeyForBzlmod {
+
     // Closed, for class-based equals()/hashCode().
-    private Key() {}
+    private Key() {
+    }
 
     /**
      * Returns the absolute label of the .bzl file to be loaded.
@@ -254,6 +256,42 @@ public class BzlLoadValue implements SkyValue {
       } else {
         return BzlCompileValue.key(root, label);
       }
+    }
+  }
+
+  @Immutable
+  @VisibleForSerialization
+  static final class KeyForAutoloads extends Key {
+
+    private final Label label;
+
+
+    private KeyForAutoloads(Label label) {
+      this.label = checkNotNull(label);
+    }
+
+    @Override
+    public Label getLabel() {
+      return label;
+    }
+
+
+    @Override
+    Key getKeyForLoad(Label loadLabel) {
+      // Note that the returned key always has !isBuildPrelude. I.e., if the prelude file loads
+      // another .bzl, the loaded .bzl is processed as normal with no special prelude magic. This is
+      // because 1) only the prelude file, not its dependencies, should automatically re-export its
+      // loaded symbols; and 2) we don't want prelude-loaded modules to end up cloned if they're
+      // also loaded through normal means.
+
+      // Keep the context in build prelude, so that we don't create cycles
+      // All the loads starting from prelude stay in prelude mode, so that we don't load prelude again
+      return keyForBuildAutoloads(loadLabel);
+    }
+
+    @Override
+    BzlCompileValue.Key getCompileKey(Root root) {
+      return BzlCompileValue.key(root, label);
     }
   }
 
@@ -420,17 +458,27 @@ public class BzlLoadValue implements SkyValue {
     return keyInterner.intern(new KeyForWorkspace(label, workspaceChunk, workspacePath));
   }
 
-  /** Constructs a key for loading a .bzl file within the {@code @_builtins} pseudo-repository. */
+  /**
+   * Constructs a key for loading a .bzl file within the {@code @_builtins} pseudo-repository.
+   */
   public static Key keyForBuiltins(Label label) {
     return keyInterner.intern(new KeyForBuiltins(label));
   }
 
-  /** Constructs a key for loading the special prelude .bzl. */
+  /**
+   * Constructs a key for loading the special prelude .bzl.
+   */
   static Key keyForBuildPrelude(Label label) {
     return keyInterner.intern(new KeyForBuild(label, /* isBuildPrelude= */ true));
   }
 
-  /** Constructs a key for loading a .bzl for Bzlmod repos */
+  static Key keyForBuildAutoloads(Label label) {
+    return keyInterner.intern(new KeyForAutoloads(label));
+  }
+
+  /**
+   * Constructs a key for loading a .bzl for Bzlmod repos
+   */
   public static Key keyForBzlmod(Label label) {
     return keyInterner.intern(new KeyForBzlmod(label));
   }
@@ -472,11 +520,14 @@ public class BzlLoadValue implements SkyValue {
           context.serializeLeaf(obj.getLabel(), labelCodec(), codedOut);
           codedOut.writeBoolNoTag(true);
         }
-          // This codec is only used serialize global Starlark symbols which isn't expected for the
-          // following types.
-        case KeyForWorkspace forWorkspace ->
-            throw new UnsupportedOperationException(
-                "KeyForWorkspace not expected " + obj.toString());
+        // This codec is only used serialize global Starlark symbols which isn't expected for the
+        // following types.
+        case KeyForAutoloads forAutoloads -> {
+          throw new UnsupportedOperationException(
+              "KeyForAutoloads not expected " + obj.toString());
+        }
+        case KeyForWorkspace forWorkspace -> throw new UnsupportedOperationException(
+            "KeyForWorkspace not expected " + obj.toString());
         case KeyForBzlmod forBzlmod ->
             throw new UnsupportedOperationException("KeyForBzlmod not expected " + obj.toString());
       }
