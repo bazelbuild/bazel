@@ -46,6 +46,30 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
     return builder.build();
   }
 
+  /**
+   * Given "//foo:myflag" and "default_value", creates the BUILD and .bzl files to realize a
+   * string_flag with that label and default value.
+   */
+  private void createStringFlag(String labelName, String defaultValue) throws Exception {
+    String flagDir = labelName.substring(2, labelName.indexOf(":"));
+    String flagName = labelName.substring(labelName.indexOf(":") + 1);
+    scratch.file(
+        flagDir + "/build_settings.bzl",
+        """
+string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
+""");
+    scratch.file(
+        flagDir + "/BUILD",
+        """
+        load(":build_settings.bzl", "string_flag")
+        string_flag(
+            name = "%s",
+            build_setting_default = "%s",
+        )
+        """
+            .formatted(flagName, defaultValue));
+  }
+
   @Test
   public void flagSetsFunction_returns_modified_buildOptions() throws Exception {
     rewriteWorkspace("workspace(name = 'my_workspace')");
@@ -144,20 +168,7 @@ public final class FlagSetsFunctionTest extends BuildViewTestCase {
 
   @Test
   public void enforceCanonicalConfigsSupportedConfig() throws Exception {
-    scratch.file(
-        "test/build_settings.bzl",
-        """
-string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
-""");
-    scratch.file(
-        "test/BUILD",
-        """
-        load("//test:build_settings.bzl", "string_flag")
-        string_flag(
-            name = "myflag",
-            build_setting_default = "default",
-        )
-        """);
+    createStringFlag("//test:myflag", /* defaultValue= */ "default");
     scratch.file(
         "test/PROJECT.scl",
         """
@@ -192,20 +203,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
 
   @Test
   public void enforceCanonicalConfigsUnsupportedConfig() throws Exception {
-    scratch.file(
-        "test/build_settings.bzl",
-        """
-string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
-""");
-    scratch.file(
-        "test/BUILD",
-        """
-        load("//test:build_settings.bzl", "string_flag")
-        string_flag(
-            name = "myflag",
-            build_setting_default = "default",
-        )
-        """);
+    createStringFlag("//test:myflag", /* defaultValue= */ "default");
     scratch.file(
         "test/PROJECT.scl",
         """
@@ -230,25 +228,14 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             /* enforceCanonical= */ true);
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
-    assertThat(thrown).hasMessageThat().contains("--scl_config=other_config unsupported");
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains("--scl_config=other_config is not a valid configuration for this project");
   }
 
   @Test
   public void enforceCanonicalConfigsNonExistentConfig() throws Exception {
-    scratch.file(
-        "test/build_settings.bzl",
-        """
-string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
-""");
-    scratch.file(
-        "test/BUILD",
-        """
-        load("//test:build_settings.bzl", "string_flag")
-        string_flag(
-            name = "myflag",
-            build_setting_default = "default",
-        )
-        """);
+    createStringFlag("//test:myflag", /* defaultValue= */ "default");
     scratch.file(
         "test/PROJECT.scl",
         """
@@ -275,25 +262,12 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
     assertThat(thrown)
         .hasMessageThat()
-        .contains("--scl_config=non_existent_config not found. Must be one of");
+        .contains("--scl_config=non_existent_config is not a valid configuration for this project");
   }
 
   @Test
   public void enforceCanonicalConfigsNoSclConfigFlag() throws Exception {
-    scratch.file(
-        "test/build_settings.bzl",
-        """
-string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
-""");
-    scratch.file(
-        "test/BUILD",
-        """
-        load("//test:build_settings.bzl", "string_flag")
-        string_flag(
-            name = "myflag",
-            build_setting_default = "default",
-        )
-        """);
+    createStringFlag("//test:myflag", /* defaultValue= */ "default");
     scratch.file(
         "test/PROJECT.scl",
         """
@@ -318,25 +292,12 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
             /* enforceCanonical= */ true);
 
     var thrown = assertThrows(Exception.class, () -> executeFunction(key));
-    assertThat(thrown).hasMessageThat().contains("--scl_config not set. Must be one of");
+    assertThat(thrown).hasMessageThat().contains("This project's builds must set --scl_config.");
   }
 
   @Test
   public void enforceCanonicalConfigsNoSupportedConfigsWithNoSclConfig() throws Exception {
-    scratch.file(
-        "test/build_settings.bzl",
-        """
-string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
-""");
-    scratch.file(
-        "test/BUILD",
-        """
-        load("//test:build_settings.bzl", "string_flag")
-        string_flag(
-            name = "myflag",
-            build_setting_default = "default",
-        )
-        """);
+    createStringFlag("//test:myflag", /* defaultValue= */ "default");
     scratch.file(
         "test/PROJECT.scl",
         """
@@ -363,20 +324,7 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
 
   @Test
   public void enforceCanonicalConfigsNoSupportedConfigsWithSclConfig() throws Exception {
-    scratch.file(
-        "test/build_settings.bzl",
-        """
-string_flag = rule(implementation = lambda ctx: [], build_setting = config.string(flag = True))
-""");
-    scratch.file(
-        "test/BUILD",
-        """
-        load("//test:build_settings.bzl", "string_flag")
-        string_flag(
-            name = "myflag",
-            build_setting_default = "default",
-        )
-        """);
+    createStringFlag("//test:myflag", /* defaultValue= */ "default");
     scratch.file(
         "test/PROJECT.scl",
         """
@@ -404,6 +352,46 @@ string_flag = rule(implementation = lambda ctx: [], build_setting = config.strin
                 .getStarlarkOptions()
                 .get(Label.parseCanonical("//test:myflag")))
         .isEqualTo("test_config_value");
+  }
+
+  @Test
+  public void clearUserDocumentationOfSupportedConfigs() throws Exception {
+    createStringFlag("//test:myflag", /* defaultValue= */ "default");
+    scratch.file(
+        "test/PROJECT.scl",
+        """
+        configs = {
+          "debug": ['--//test:myflag=debug_value'],
+          "release": ['--//test:myflag=debug_value'],
+        }
+        supported_configs = {
+          "debug": "build binaries for local debugging",
+          "release": "build binaries for product releases",
+        }
+        """);
+    BuildOptions buildOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(
+            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    FlagSetValue.Key key =
+        FlagSetValue.Key.create(
+            Label.parseCanonical("//test:PROJECT.scl"),
+            /* sclConfig= */ "",
+            buildOptions,
+            /* enforceCanonical= */ true);
+
+    var thrown = assertThrows(Exception.class, () -> executeFunction(key));
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains(
+            """
+This project's builds must set --scl_config.
+This project supports:
+  --scl_config=debug: build binaries for local debugging
+  --scl_config=release: build binaries for product releases
+
+This policy is defined in test/PROJECT.scl.""");
   }
 
   private FlagSetValue executeFunction(FlagSetValue.Key key) throws Exception {

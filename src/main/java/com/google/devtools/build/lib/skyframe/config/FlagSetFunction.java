@@ -19,6 +19,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -78,7 +79,8 @@ public class FlagSetFunction implements SkyFunction {
       return FlagSetValue.create(key.getTargetOptions());
     }
     ImmutableList<String> sclConfigAsStarlarkList =
-        getSclConfig(projectValue, key.getSclConfig(), key.enforceCanonical());
+        getSclConfig(
+            key.getProjectFile(), projectValue, key.getSclConfig(), key.enforceCanonical());
     ParsedFlagsValue parsedFlags = parseFlags(sclConfigAsStarlarkList, env);
     if (parsedFlags == null) {
       return null;
@@ -92,50 +94,51 @@ public class FlagSetFunction implements SkyFunction {
    */
   @SuppressWarnings("unchecked")
   private ImmutableList<String> getSclConfig(
-      ProjectValue sclContent, String sclConfigName, boolean enforceCanonical)
+      Label projectFile, ProjectValue sclContent, String sclConfigName, boolean enforceCanonical)
       throws FlagSetFunctionException {
     var configs = (Dict<String, Collection<String>>) sclContent.getResidualGlobal(CONFIGS);
     var sclConfigValue = configs.get(sclConfigName);
-    var supportedConfigs =
-        (Dict<String, Collection<String>>) sclContent.getResidualGlobal(SUPPORTED_CONFIGS);
+    var supportedConfigs = (Dict<String, String>) sclContent.getResidualGlobal(SUPPORTED_CONFIGS);
 
     // Look for invalid use cases.
-    String errorMsg = null;
     if (!enforceCanonical) {
       // Calling code already handled non-existent --scl_config values and !enforceCanonical.
       Preconditions.checkNotNull(sclConfigValue);
+    } else if (supportedConfigs == null) {
+      // This project doesn't declare supported configs. Allow any --scl_config just as if
+      // --enforce_project_configs isn't set. This also means --scl_config=<name doesn't resolve>
+      // is silently consider a no-op.
+      return sclConfigValue == null ? ImmutableList.of() : ImmutableList.copyOf(sclConfigValue);
     } else if (sclConfigName.isEmpty()) {
-      if (supportedConfigs == null) {
-        // No --scl_config but no project-declared supported configs. This is a valid use case.
-        return ImmutableList.of();
-      }
-      errorMsg =
-          String.format(
-              "--scl_config not set. Must be one of [%s]",
-              String.join(",", supportedConfigs.keySet()));
-    } else if (sclConfigValue == null) {
-      if (supportedConfigs == null) {
-        // Bad --scl_config but no project-declared supported configs. No-op just like in
-        // --noenforce_canonical_configs mode.
-        return ImmutableList.of();
-      }
-      errorMsg =
-          String.format(
-              "--scl_config=%s not found. Must be one of [%s]",
-              sclConfigName, String.join(",", supportedConfigs.keySet()));
-    } else if (supportedConfigs != null && !supportedConfigs.containsKey(sclConfigName)) {
-      errorMsg =
-          String.format(
-              "--scl_config=%s unsupported. Must be one of [%s]",
-              sclConfigName, String.join(",", supportedConfigs.keySet()));
-    }
-
-    // Error out or return the flags to set.
-    if (errorMsg != null) {
+      // This project declares supported configs and user didn't specify any config.
       throw new FlagSetFunctionException(
-          new UnsupportedConfigException(errorMsg), Transience.PERSISTENT);
-    }
+          new UnsupportedConfigException(
+              String.format(
+                  "This project's builds must set --scl_config.%s",
+                  supportedConfigsDesc(projectFile, supportedConfigs))),
+          Transience.PERSISTENT);
+    } else if (!supportedConfigs.containsKey(sclConfigName)) {
+      // This project declares supported configs and user set --scl_config to an unsupported config.
+      throw new FlagSetFunctionException(
+          new UnsupportedConfigException(
+              String.format(
+                  "--scl_config=%s is not a valid configuration for this project.%s",
+                  sclConfigName, supportedConfigsDesc(projectFile, supportedConfigs))),
+          Transience.PERSISTENT);
+      }
+
     return ImmutableList.copyOf(sclConfigValue);
+  }
+
+  /** Returns a user-friendly description of project-supported configurations. */
+  private static String supportedConfigsDesc(
+      Label projectFile, Dict<String, String> supportedConfigs) {
+    String ans = "\nThis project supports:\n";
+    for (var configInfo : supportedConfigs.entrySet()) {
+      ans += String.format("  --scl_config=%s: %s\n", configInfo.getKey(), configInfo.getValue());
+    }
+    ans += String.format("\nThis policy is defined in %s.\n", projectFile.toPathFragment());
+    return ans;
   }
 
   /**
