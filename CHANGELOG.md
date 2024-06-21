@@ -1,3 +1,83 @@
+## Release 8.0.0-pre.20240607.2 (2024-06-21)
+
+```
+Baseline: 08ef9b200d1b62ed66e10d89d32c709b70e7adbd
+```
+
+Incompatible changes:
+
+  - path attribute is removed from filegroup
+
+Important changes:
+
+  - Git merge conflicts in `MODULE.bazel.lock` files can be resolved
+    automatically. See
+    https://bazel.build/external/lockfile#automatic-resolution for
+    the required setup.
+  - Deleted Bazel's builtin aar_import helper tools. They live in
+    rules_android now.
+
+This release contains contributions from many people at Google, as well as dependabot[bot], Fabian Meumertzheim, Greg Magolan, Matthieu MOREL, Ted.
+
+## Release 8.0.0-pre.20240603.2 (2024-06-14)
+
+```
+Baseline: 1d335316e755216808791bdfbdcc448fc68141dc
+
+Cherry picks:
+
+   + 642b571962ca9e6cf40ce94a8f53b8618f12080a:
+     Disable SkyframeStats collection unless specifically requested
+     by flag. Removes the logic to limit on the number of reported
+     types, if you're requesting the stats already you just get all
+     of them.
+```
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson.
+
+## Release 7.2.0 (2024-06-10)
+
+```
+
+Release Notes:
+
+Configurability:
++ aquery: `//foo:bar` now means "all configured targets with label `//foo:bar`" instead of "choose an arbitrary configured target with label `//foo:bar`". This is in line with cquery behavior. (#22135)
++ Added a new flag `--incompatible_disable_native_repo_rules` to disable native repo rule usage in WORKSPACE. All native repo rules now have a Starlark counterpart that can be used in both WORKSPACE and Bzlmod; see #22080 for more details. (#22203)
++ Starlark command-line flags can now be referred to through `alias` targets. (#22212)
+
+ExternalDeps:
++ bzlmod `git_repository` now accepts the `strip_prefix` arg and passes it to the underlying `git_repository` call. (#22137)
++ Added a new `include()` directive to `MODULE.bazel` files, which allows the root module file to be divided into multiple segments. (#22204)
++ Fixed certain deadlocks in repo fetching with worker threads (`--experimental_worker_for_repo_fetching=auto`). (#22261)
++ `print` statements in module files are now only executed for the root module and modules subject to non-registry overrides (e.g. `local_path_override`). (#22263)
++ The new `refresh` value for `--lockfile_mode` behaves like the `update` mode, but additionally forces a refresh of mutable registry content (yanked versions and missing module versions) when switched to or from time to time while enabled. (#22371)
++ `Label` instances passed to `print` or `fail` as positional arguments are now formatted with apparent repository names (optimized for human readability). (#22460)
++ Changes to environment variables read via `getenv` now correctly invalidate module extensions. (#22541)
++ Git merge conflicts in `MODULE.bazel.lock` files can be resolved automatically. See https://bazel.build/external/lockfile#automatic-resolution for the required setup. (#22650)
+
+OSS:
++ Bazel on Linux and BSD now respects the XDG_CACHE_HOME environment variable instead of assuming that ~/.cache/bazel is writable. (#21817)
+
+Performance:
++ Paths in the Linux sandbox are now again identical to those outside the sandbox, even with `--incompatible_sandbox_hermetic_tmp`. (#22407)
+
+Remote-Exec:
++ The combined coverage report produced via `--combined_report=lcov` is now announced on the BES via the new `CoverageReport` event. (#22327)
++ The compact and full execution logs now contain start times for spawns (if available). (#22341)
+
+Rules-CPP:
++ The default Unix C++ toolchain now supports the `parse_headers` feature to validate header files with `--process_headers_in_dependencies`. (#22369)
+
+Starlark-Interpreter:
++ Starlark `min` and `max` buitins now allow a `key` callback, similarly to `sorted`. (#21960)
+
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as bazel.build machine account, Brentley Jones, Cameron Martin, Daniel Wagner-Hall, Douglas Thor, Fabian Meumertzheim, George Gensure, hvd, Isaac Torres, Keith Smiley, Mark Elliot, oquenchil, Romain Chossart, Son Luong Ngoc, Spencer Putt, Thomas Weischuh, Xdng Yng, Xùdōng Yáng, Zheng Wei Tan.
+```
+
 ## Release 8.0.0-pre.20240530.1 (2024-06-05)
 
 ```
