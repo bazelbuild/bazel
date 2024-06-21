@@ -265,7 +265,7 @@ public final class SpawnStrategyRegistry
   public static final class Builder {
 
     private final StrategyMapper strategyMapper = new StrategyMapper();
-    private final ArrayList<SpawnStrategy> strategiesInRegistrationOrder = new ArrayList<>();
+    private final ArrayList<String> strategiesInRegistrationOrder = new ArrayList<>();
 
     private ImmutableList<String> explicitDefaultStrategies = ImmutableList.of();
 
@@ -368,8 +368,8 @@ public final class SpawnStrategyRegistry
           commandlineIdentifiers.length >= 1, "At least one commandLineIdentifier must be given");
       for (String identifier : commandlineIdentifiers) {
         strategyMapper.registerStrategy(identifier, strategy);
+        strategiesInRegistrationOrder.add(identifier);
       }
-      strategiesInRegistrationOrder.add(strategy);
       return this;
     }
 
@@ -492,10 +492,14 @@ public final class SpawnStrategyRegistry
       ImmutableList<? extends SpawnStrategy> defaultStrategies;
       if (explicitDefaultStrategies.isEmpty()) {
         // Use the strategies as registered, in reverse order.
-        defaultStrategies = ImmutableList.copyOf(Lists.reverse(strategiesInRegistrationOrder));
+        defaultStrategies =
+            strategyMapper.toStrategies(
+                strategyPolicy.apply(Lists.reverse(strategiesInRegistrationOrder)),
+                "implicit default strategies");
       } else {
         defaultStrategies =
-            strategyMapper.toStrategies(explicitDefaultStrategies, "default strategies");
+            strategyMapper.toStrategies(
+                strategyPolicy.apply(explicitDefaultStrategies), "explicit default strategies");
       }
 
       return new SpawnStrategyRegistry(

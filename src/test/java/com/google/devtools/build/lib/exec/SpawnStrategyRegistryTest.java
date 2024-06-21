@@ -111,6 +111,28 @@ public class SpawnStrategyRegistryTest {
   }
 
   @Test
+  public void strategyPolicyAppliedToPerDefaulttrategies() throws Exception {
+    NoopStrategy strategy1 = new NoopStrategy("1");
+    NoopStrategy strategy2 = new NoopStrategy("2");
+    StrategyPolicy strategyPolicyProto =
+        StrategyPolicy.newBuilder()
+            .setMnemonicPolicy(MnemonicPolicy.newBuilder().addDefaultAllowlist("foo"))
+            .build();
+    SpawnStrategyRegistry strategyRegistry =
+        SpawnStrategyRegistry.builder(strategyPolicyProto)
+            .registerStrategy(strategy1, "foo")
+            .registerStrategy(strategy2, "bar")
+            .build();
+
+    List<? extends SpawnStrategy> strategies =
+        strategyRegistry.getStrategies(
+            createSpawnWithMnemonicAndDescription("some-mnemonic", ""),
+            SpawnStrategyRegistryTest::noopEventHandler);
+
+    assertThat(strategies).containsExactly(strategy1);
+  }
+
+  @Test
   public void strategyPolicyAppliedToRegexpFilter_sanitizeStrategy() throws Exception {
     NoopStrategy strategy1 = new NoopStrategy("1");
     NoopStrategy strategy2 = new NoopStrategy("2");
@@ -340,25 +362,6 @@ public class SpawnStrategyRegistryTest {
                 createSpawnWithMnemonicAndDescription("", ""),
                 SpawnStrategyRegistryTest::noopEventHandler))
         .containsExactly(strategy1, strategy2);
-  }
-
-  @Test
-  public void testImplicitDefaultWithDuplicateIdentifiers() throws Exception {
-    NoopStrategy strategy1 = new NoopStrategy("1");
-    NoopStrategy strategy2 = new NoopStrategy("2");
-    NoopStrategy strategy3 = new NoopStrategy("3");
-    SpawnStrategyRegistry strategyRegistry =
-        SpawnStrategyRegistry.builder()
-            .registerStrategy(strategy1, "foo")
-            .registerStrategy(strategy2, "bar")
-            .registerStrategy(strategy3, "foo")
-            .build();
-
-    assertThat(
-            strategyRegistry.getStrategies(
-                createSpawnWithMnemonicAndDescription("", ""),
-                SpawnStrategyRegistryTest::noopEventHandler))
-        .containsExactly(strategy1, strategy2, strategy3);
   }
 
   @Test

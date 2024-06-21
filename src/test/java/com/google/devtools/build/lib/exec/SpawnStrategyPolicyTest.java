@@ -76,6 +76,17 @@ public class SpawnStrategyPolicyTest {
         .inOrder();
   }
 
+  @Test
+  public void applyDefaultAllowList() {
+    SpawnStrategyPolicy underTest =
+        SpawnStrategyPolicy.create(
+            mnemonicPolicy(ImmutableList.of(), ImmutableList.of("foo", "baz")));
+
+    assertThat(underTest.apply(ImmutableList.of("foo", "bar", "baz")))
+        .containsExactly("foo", "baz")
+        .inOrder();
+  }
+
   private static MnemonicPolicy mnemonicPolicy(
       List<StrategiesForMnemonic> strategyAllowList, List<String> defaultAllowlist) {
     return MnemonicPolicy.newBuilder()

@@ -28,6 +28,9 @@ public interface SpawnStrategyPolicy {
   /** Returns result of applying policy to per-mnemonic strategies. */
   ImmutableList<String> apply(String mnemonic, List<String> strategies);
 
+  /** Returns result of applying default policy to strategies. */
+  ImmutableList<String> apply(List<String> strategies);
+
   /** Creates new policy from proto descriptor. Empty proto policy implies everything allowed. */
   static SpawnStrategyPolicy create(MnemonicPolicy policy) {
     if (MnemonicPolicy.getDefaultInstance().equals(policy)) {
@@ -55,6 +58,11 @@ public interface SpawnStrategyPolicy {
     public ImmutableList<String> apply(String mnemonic, List<String> strategies) {
       return ImmutableList.copyOf(strategies);
     }
+
+    @Override
+    public ImmutableList<String> apply(List<String> strategies) {
+      return ImmutableList.copyOf(strategies);
+    }
   }
 
   /** Enforces a real strategy policy based on provided config. */
@@ -75,6 +83,11 @@ public interface SpawnStrategyPolicy {
       ImmutableSet<String> allowList =
           perMnemonicAllowList.getOrDefault(mnemonic, defaultAllowList);
       return strategies.stream().filter(allowList::contains).collect(toImmutableList());
+    }
+
+    @Override
+    public ImmutableList<String> apply(List<String> strategies) {
+      return strategies.stream().filter(defaultAllowList::contains).collect(toImmutableList());
     }
   }
 }
