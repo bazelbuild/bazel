@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -56,6 +57,7 @@ import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions.JobsConverter;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase.RecordingBugReporter;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -144,6 +146,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * </ol>
  */
 public class RewindingTestsHelper {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   final ActionEventRecorder recorder;
   final BuildIntegrationTestCase testCase;
@@ -1289,7 +1293,7 @@ public class RewindingTestsHelper {
     // future, then 2B gets reset when 1B clears its ActionExecutionState. Re-evaluations of dep
     // actions may proceed non-deterministically, but this test makes 2A win the "rewound A" race,
     // and then 1B win the "rewound B" race.
-
+    ensureMultipleJobs();
     setUpParallelTrackSharedActionPackage();
 
     addSpawnShim(
@@ -2586,6 +2590,7 @@ public class RewindingTestsHelper {
    * </ol>
    */
   public final void runDoneToDirtyDepForNodeInError() throws Exception {
+    ensureMultipleJobs();
     testCase.write(
         "foo/BUILD",
         """
@@ -2633,7 +2638,14 @@ public class RewindingTestsHelper {
         });
     testCase.injectListenerAtStartOfNextBuild(
         (key, type, order, context) -> {
+          if (key instanceof ActionLookupData
+              && type == EventType.SET_VALUE
+              && order == Order.AFTER) {
+            logger.atInfo().log("Action done: %s=%s", key, context);
+          }
           if (isActionExecutionKey(key, fail) && type == EventType.CREATE_IF_ABSENT) {
+            logger.atInfo().log(
+                "[%s] about to block %s", Thread.currentThread().getName(), context);
             awaitUninterruptibly(depDone);
           } else if (isActionExecutionKey(key, dep)
               && type == EventType.SET_VALUE
@@ -2656,6 +2668,7 @@ public class RewindingTestsHelper {
   }
 
   private void runFlakyActionFailsAfterRewind_raceWithIndirectConsumer() throws Exception {
+    ensureMultipleJobs();
     testCase.write(
         "foo/defs.bzl",
         """
@@ -3133,6 +3146,7 @@ public class RewindingTestsHelper {
 
   public final void runTopLevelOutputRewound_partiallyBuiltTarget_fileInTreeArtifact()
       throws Exception {
+    ensureMultipleJobs();
     testCase.write(
         "foo/defs.bzl",
         """
@@ -3341,6 +3355,25 @@ public class RewindingTestsHelper {
     assertThat(
             Uninterruptibles.awaitUninterruptibly(latch, TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS))
         .isTrue();
+  }
+
+  /**
+   * Ensures that the value of the {@code --jobs} flag is at least 2.
+   *
+   * <p>Several tests use artificial synchronization to exercise certain race conditions and require
+   * a multiple execution phase threads to guarantee progress.
+   *
+   * <p>Note that the default value for {@code --jobs} is automatically calculated based on host
+   * CPU.
+   */
+  private void ensureMultipleJobs() throws Exception {
+    int autoJobs = new JobsConverter().convert("auto");
+    if (autoJobs == 1) {
+      logger.atInfo().log("Setting --jobs=2 (was 1)");
+      testCase.addOptions("--jobs=2");
+    } else {
+      logger.atInfo().log("Keeping default value of --jobs=%s", autoJobs);
+    }
   }
 
   private boolean keepGoing() {
