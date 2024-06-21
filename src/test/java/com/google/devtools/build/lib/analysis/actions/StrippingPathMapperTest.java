@@ -229,4 +229,66 @@ public class StrippingPathMapperTest extends BuildViewTestCase {
             "<pkg/source.txt:pkg/source.txt::pkg>")
         .inOrder();
   }
+
+  @Test
+  public void starlarkRule_stringExecutablePath() throws Exception {
+    scratch.file("defs/BUILD");
+    scratch.file(
+        "defs/defs.bzl",
+        """
+        def my_rule_impl(ctx):
+            out = ctx.actions.declare_file(ctx.label.name)
+            ctx.actions.run(
+                executable = ctx.executable.tool.path,
+                arguments = [ctx.actions.args().add(out)],
+                outputs = [out],
+                tools = [ctx.executable.tool],
+                execution_requirements = {"supports-path-mapping": "1"},
+            )
+            return DefaultInfo(files = depset([out]))
+
+        my_rule = rule(
+            implementation = my_rule_impl,
+            attrs = {
+                "tool": attr.label(
+                    default = "//tools:script",
+                    cfg = "exec",
+                    executable = True,
+                ),
+            },
+        )
+        """);
+    scratch.file(
+        "tools/BUILD",
+        """
+        sh_binary(
+            name = 'script',
+            srcs = ['script.sh'],
+            visibility = ['//visibility:public'],
+        )
+        """);
+    scratch.file(
+        "BUILD",
+        """
+        load("//defs:defs.bzl", "my_rule")
+        my_rule(name = "my_rule")
+        """);
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//:my_rule");
+    Artifact outputArtifact =
+        configuredTarget.getProvider(FileProvider.class).getFilesToBuild().toList().get(0);
+    SpawnAction action = (SpawnAction) getGeneratingAction(outputArtifact);
+    Spawn spawn =
+        action.getSpawn(
+            new ActionExecutionContextBuilder()
+                .setMetadataProvider(new FakeActionInputFileCache())
+                .build());
+
+    assertThat(spawn.getPathMapper().isNoop()).isFalse();
+    String outDir = analysisMock.getProductName() + "-out";
+    assertThat(spawn.getArguments().stream().collect(toImmutableList()))
+        .containsExactly(
+            "%s/cfg/bin/tools/script".formatted(outDir), "%s/cfg/bin/my_rule".formatted(outDir))
+        .inOrder();
+  }
 }

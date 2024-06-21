@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
@@ -938,7 +937,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @CanIgnoreReturnValue
     public Builder setExecutable(Artifact executable) {
       addTool(executable);
-      this.executableArg = ensureCallable(executable);
+      this.executableArg = executable;
       this.executableArgs = null;
       return this;
     }
@@ -968,7 +967,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       Artifact executable =
           checkNotNull(
               executableProvider.getExecutable(), "The target does not have an executable");
-      this.executableArg = ensureCallable(executable);
+      this.executableArg = executable;
       this.executableArgs = null;
       return addTool(executableProvider);
     }
@@ -1213,23 +1212,5 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.execGroup = execGroup;
       return this;
     }
-  }
-
-  /**
-   * Returns a {@link CommandLineItem} for the given executable.
-   *
-   * <p>In the common case that the executable's exec path is already {@linkplain
-   * PathFragment#getCallablePathString callable} (contains {@link PathFragment#SEPARATOR_CHAR}),
-   * returns the executable as-is to avoid creating a new object.
-   *
-   * <p>The only time this method can't return {@code executable} as-is is for source artifacts in
-   * the root package, since their exec path contains no path separator. Note that derived artifacts
-   * are necessarily callable since they are always under an output directory.
-   */
-  private static CommandLineItem ensureCallable(Artifact executable) {
-    PathFragment execPath = executable.getExecPath();
-    return execPath.getCallablePathString().equals(executable.expandToCommandLine())
-        ? executable
-        : execPath::getCallablePathString;
   }
 }
