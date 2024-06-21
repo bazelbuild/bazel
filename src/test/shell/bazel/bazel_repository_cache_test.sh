@@ -192,7 +192,7 @@ function test_fetch() {
 
   bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
     || echo "Expected fetch to succeed"
-  expect_log "All external dependencies for these targets fetched successfully"
+  expect_log "All external dependencies for the requested targets fetched successfully."
 }
 
 function test_directory_structure() {
@@ -231,7 +231,7 @@ function test_fetch_value_with_existing_cache_and_no_network() {
   bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
       || echo "Expected fetch to succeed"
 
-  expect_log "All external dependencies for these targets fetched successfully"
+  expect_log "All external dependencies for the requested targets fetched successfully."
 }
 
 
@@ -249,7 +249,7 @@ function test_load_cached_value() {
   bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
     || echo "Expected fetch to succeed"
 
-  expect_log "All external dependencies for these targets fetched successfully"
+  expect_log "All external dependencies for the requested targets fetched successfully."
 }
 
 function test_write_cache_without_hash() {
@@ -388,7 +388,7 @@ EOF
   bazel fetch --repository_cache="$repo_cache_dir" @foo//:all >& $TEST_log \
     || echo "Expected fetch to succeed"
 
-  expect_log "All external dependencies for these targets fetched successfully"
+  expect_log "All external dependencies for the requested targets fetched successfully."
 }
 
 function test_starlark_download_fail_without_cache() {
@@ -441,7 +441,7 @@ EOF
   bazel fetch --repository_cache="$repo_cache_dir" @foo//:all >& $TEST_log \
     || echo "Expected fetch to succeed"
 
-  expect_log "All external dependencies for these targets fetched successfully"
+  expect_log "All external dependencies for the requested targets fetched successfully."
 }
 
 function test_starlark_download_and_extract_fail_without_cache() {

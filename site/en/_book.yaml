@@ -132,6 +132,8 @@ upper_tabs:
         path: /external/extension
       - title: Module lockfile
         path: /external/lockfile
+      - title: Vendor mode
+        path: /external/vendor
       - title: '`mod` command'
         path: /external/mod-command
       - title: Bzlmod migration guide
