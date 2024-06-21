@@ -25,18 +25,14 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
-import java.util.Queue;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import javax.annotation.Nullable;
 
 /** Writes the profile in Json Trace file format. */
 class JsonTraceFileWriter implements Runnable {
-  protected final Queue<TraceData> queue;
-  private final ReentrantLock lock = new ReentrantLock();
-  private final Condition condition = lock.newCondition();
+  protected final BlockingQueue<TraceData> queue;
   protected final Thread thread;
   protected IOException savedException;
 
@@ -61,7 +57,7 @@ class JsonTraceFileWriter implements Runnable {
       boolean slimProfile,
       String outputBase,
       UUID buildID) {
-    this.queue = new ConcurrentLinkedQueue<>();
+    this.queue = new LinkedBlockingQueue<>();
     this.thread = new Thread(this, "profile-writer-thread");
     this.outStream = outStream;
     this.profileStartTimeNanos = profileStartTimeNanos;
@@ -73,8 +69,6 @@ class JsonTraceFileWriter implements Runnable {
   public void shutdown() throws IOException {
     // Add poison pill to queue and then wait for writer thread to shut down.
     queue.add(POISON_PILL);
-    notifyConsumer(/* force= */ true);
-
     try {
       thread.join();
     } catch (InterruptedException e) {
@@ -98,10 +92,6 @@ class JsonTraceFileWriter implements Runnable {
       queue.add(new ThreadMetadata());
     }
     queue.add(data);
-    // Not forcing notification to avoid blocking on the lock. This might cause this signal failed
-    // to be sent if the consumer is holding the lock (to start wait on the condition). But the
-    // assumption is we have events in continuous so that the next event can notify the consumer.
-    notifyConsumer(/* force= */ false);
   }
 
   private static final class MergedEvent {
@@ -171,36 +161,6 @@ class JsonTraceFileWriter implements Runnable {
         && data.type != ProfilerTask.CRITICAL_PATH_COMPONENT;
   }
 
-  private void notifyConsumer(boolean force) {
-    boolean locked;
-    if (force) {
-      lock.lock();
-      locked = true;
-    } else {
-      locked = lock.tryLock();
-    }
-    if (locked) {
-      try {
-        condition.signal();
-      } finally {
-        lock.unlock();
-      }
-    }
-  }
-
-  private TraceData takeData() throws InterruptedException {
-    TraceData data;
-    while ((data = queue.poll()) == null) {
-      lock.lock();
-      try {
-        condition.await();
-      } finally {
-        lock.unlock();
-      }
-    }
-    return data;
-  }
-
   /**
    * Saves all gathered information from taskQueue queue to the file. Method is invoked internally
    * by the Timer-based thread and at the end of profiling session.
@@ -235,7 +195,7 @@ class JsonTraceFileWriter implements Runnable {
         HashMap<Long, MergedEvent> eventsPerThread = new HashMap<>();
         int eventCount = 0;
         TraceData data;
-        while ((data = takeData()) != POISON_PILL) {
+        while ((data = queue.take()) != POISON_PILL) {
           Preconditions.checkNotNull(data);
           eventCount++;
 
@@ -265,7 +225,7 @@ class JsonTraceFileWriter implements Runnable {
       } catch (IOException e) {
         this.savedException = e;
         if (!receivedPoisonPill) {
-          while (takeData() != POISON_PILL) {
+          while (queue.take() != POISON_PILL) {
             // We keep emptying the queue, but we can't write anything.
           }
         }
