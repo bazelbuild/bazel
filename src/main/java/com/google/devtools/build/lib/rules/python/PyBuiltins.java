@@ -444,11 +444,7 @@ public abstract class PyBuiltins implements StarlarkValue {
     private static final String GUID = "67513fa7-3824-493b-aeab-95a8b778ea07";
 
     CopyWithoutCachingAction(ActionOwner owner, Artifact readFrom, Artifact writeTo) {
-      super(
-          owner,
-          NestedSetBuilder.create(Order.STABLE_ORDER, readFrom),
-          writeTo,
-          /* makeExecutable= */ false);
+      super(owner, NestedSetBuilder.create(Order.STABLE_ORDER, readFrom), writeTo);
     }
 
     @Override

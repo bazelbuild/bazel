@@ -27,8 +27,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.util.Fingerprint;
-import java.io.IOException;
-import java.io.OutputStream;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 
@@ -64,7 +62,7 @@ public final class LazyWritePathsFileAction extends AbstractFileWriteAction {
       Function<Artifact, String> converter) {
     // We don't need to pass the given files as explicit inputs to this action; we don't care about
     // them, we only need their names, which we already know.
-    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), output, false);
+    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), output);
     this.files = files;
     this.includeDerivedArtifacts = includeDerivedArtifacts;
     this.filesToIgnore = filesToIgnore;
@@ -73,12 +71,7 @@ public final class LazyWritePathsFileAction extends AbstractFileWriteAction {
 
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
-    return new DeterministicWriter() {
-      @Override
-      public void writeOutputFile(OutputStream out) throws IOException {
-        out.write(getContents().toString().getBytes(UTF_8));
-      }
-    };
+    return out -> out.write(getContents().getBytes(UTF_8));
   }
 
   /** Computes the Action key for this action by computing the fingerprint for the file contents. */

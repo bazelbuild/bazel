@@ -53,8 +53,7 @@ public final class ExtraActionInfoFileWriteAction extends AbstractFileWriteActio
         shadowedAction.discoversInputs()
             ? NestedSetBuilder.<Artifact>stableOrder().addAll(shadowedAction.getOutputs()).build()
             : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-        primaryOutput,
-        /*makeExecutable=*/ false);
+        primaryOutput);
 
     this.shadowedAction = Preconditions.checkNotNull(shadowedAction, primaryOutput);
   }
