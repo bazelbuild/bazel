@@ -48,7 +48,7 @@ public abstract class BazelModuleResolutionValue implements SkyValue {
   /**
    * Hashes of files obtained (or known to be missing) from registries while performing resolution.
    */
-  abstract ImmutableMap<String, Optional<Checksum>> getRegistryFileHashes();
+  public abstract ImmutableMap<String, Optional<Checksum>> getRegistryFileHashes();
 
   /**
    * Selected module versions that are known to be yanked (and hence must have been explicitly

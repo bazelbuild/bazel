@@ -221,6 +221,9 @@ public interface QueryableGraph {
     /** The node is being looked up to service another "graph lookup" function. */
     WALKABLE_GRAPH_OTHER,
 
+    /** The node is being looked up to vendor external repos from its dependencies. */
+    VENDOR_EXTERNAL_REPOS,
+
     /** Some other reason than one of the above that needs the node's value and deps. */
     OTHER_NEEDING_VALUE_AND_DEPS,
 

@@ -34,13 +34,13 @@ public class TargetFetcher {
   }
 
   /** Creates a no-build build request to fetch all repos needed to build these targets */
-  public static void fetchTargets(
+  public static BuildResult fetchTargets(
       CommandEnvironment env, OptionsParsingResult options, List<String> targets)
       throws TargetFetcherException {
-    new TargetFetcher(env).fetchTargets(options, targets);
+    return new TargetFetcher(env).fetchTargets(options, targets);
   }
 
-  private void fetchTargets(OptionsParsingResult options, List<String> targets)
+  private BuildResult fetchTargets(OptionsParsingResult options, List<String> targets)
       throws TargetFetcherException {
     BuildRequest request =
         BuildRequest.builder()
@@ -59,6 +59,7 @@ public class TargetFetcher {
           "Fetching some target dependencies failed with errors: "
               + result.getDetailedExitCode().getFailureDetail().getMessage());
     }
+    return result;
   }
 
   static void injectNoBuildOption(OptionsParser optionsParser) {
