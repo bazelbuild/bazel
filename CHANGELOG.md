@@ -1,3 +1,24 @@
+## Release 8.0.0-pre.20240607.2 (2024-06-21)
+
+```
+Baseline: 08ef9b200d1b62ed66e10d89d32c709b70e7adbd
+```
+
+Incompatible changes:
+
+  - path attribute is removed from filegroup
+
+Important changes:
+
+  - Git merge conflicts in `MODULE.bazel.lock` files can be resolved
+    automatically. See
+    https://bazel.build/external/lockfile#automatic-resolution for
+    the required setup.
+  - Deleted Bazel's builtin aar_import helper tools. They live in
+    rules_android now.
+
+This release contains contributions from many people at Google, as well as dependabot[bot], Fabian Meumertzheim, Greg Magolan, Matthieu MOREL, Ted.
+
 ## Release 8.0.0-pre.20240603.2 (2024-06-14)
 
 ```
