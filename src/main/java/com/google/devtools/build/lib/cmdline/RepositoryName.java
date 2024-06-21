@@ -182,6 +182,11 @@ public final class RepositoryName {
     return name;
   }
 
+  /** Returns the marker file name for this repository. */
+  public String getMarkerFileName() {
+    return "@" + name + ".marker";
+  }
+
   /**
    * Create a {@link RepositoryName} instance that indicates the requested repository name is
    * actually not visible from the owner repository and should fail in {@code

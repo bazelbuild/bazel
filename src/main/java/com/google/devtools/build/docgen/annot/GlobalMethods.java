@@ -32,7 +32,7 @@ public @interface GlobalMethods {
     ALL(
         "All Bazel files",
         "Methods available in all Bazel files, including .bzl files, BUILD, MODULE.bazel,"
-            + " and WORKSPACE."),
+            + " VENDOR.bazel, and WORKSPACE."),
     BZL(".bzl files", "Global methods available in all .bzl files."),
     BUILD(
         "BUILD files",
@@ -40,6 +40,7 @@ public @interface GlobalMethods {
             + " Encyclopedia for extra <a href=\"${link functions}\">functions</a> and build rules,"
             + " which can also be used in BUILD files."),
     MODULE("MODULE.bazel files", "Methods available in MODULE.bazel files."),
+    VENDOR("VENDOR.bazel files", "Methods available in VENDOR.bazel files."),
     WORKSPACE("WORKSPACE files", "Methods available in WORKSPACE files.");
 
     private final String title;
