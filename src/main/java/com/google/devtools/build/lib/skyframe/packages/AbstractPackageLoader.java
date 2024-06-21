@@ -311,6 +311,9 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         makePreinjectedDiff(
             starlarkSemantics,
             builder.pkgLocator,
+            ruleClassProvider
+                .getBazelStarlarkEnvironment()
+                .createUninjectedBuildBzlEnv(starlarkSemantics),
             ImmutableList.copyOf(builder.extraPrecomputedValues));
     pkgFactory =
         new PackageFactory(
@@ -325,6 +328,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   private static ImmutableDiff makePreinjectedDiff(
       StarlarkSemantics starlarkSemantics,
       PathPackageLocator pkgLocator,
+      ImmutableMap<String, Object> uninjectedBuildBzlEnvironment,
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues) {
     final Map<SkyKey, Delta> valuesToInject = new HashMap<>();
     Injectable injectable =
@@ -347,6 +351,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     PrecomputedValue.CONFIG_SETTING_VISIBILITY_POLICY.set(
         injectable, ConfigSettingVisibilityPolicy.LEGACY_OFF);
     PrecomputedValue.STARLARK_SEMANTICS.set(injectable, starlarkSemantics);
+    PrecomputedValue.UNINJECTED_BUILD_BZL_ENV.set(injectable, uninjectedBuildBzlEnvironment);
     return new ImmutableDiff(ImmutableList.of(), valuesToInject);
   }
 

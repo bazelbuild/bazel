@@ -15,25 +15,32 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment.InjectionException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.InlineCacheManager;
+import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.RecordingSkyFunctionEnvironment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.LinkedHashMap;
+import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.syntax.Location;
 
 // TODO(#11437): Update the design doc to change `@builtins` -> `@_builtins`.
 
@@ -105,10 +112,13 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws StarlarkBuiltinsFunctionException, InterruptedException {
-    // skyKey is a singleton, unused.
     try {
       return computeInternal(
-          env, bazelStarlarkEnvironment, /* inliningState= */ null, /* bzlLoadFunction= */ null);
+          env,
+          bazelStarlarkEnvironment,
+          /* inliningState= */ null,
+          /* bzlLoadFunction= */ null,
+          ((StarlarkBuiltinsValue.Key) skyKey.argument()).isWithAutoloads());
     } catch (BuiltinsFailedException e) {
       throw new StarlarkBuiltinsFunctionException(e);
     }
@@ -146,7 +156,8 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
             inliningState.getEnvironment(),
             bazelStarlarkEnvironment,
             inliningState,
-            bzlLoadFunction);
+            bzlLoadFunction,
+            key.isWithAutoloads());
     if (computedBuiltins == null) {
       return null;
     }
@@ -162,7 +173,8 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
       Environment env,
       BazelStarlarkEnvironment bazelStarlarkEnvironment,
       @Nullable BzlLoadFunction.InliningState inliningState,
-      @Nullable BzlLoadFunction bzlLoadFunction)
+      @Nullable BzlLoadFunction bzlLoadFunction,
+      boolean isWithAutoloads)
       throws BuiltinsFailedException, InterruptedException {
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
@@ -194,24 +206,132 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
     // Apply declarations of exports.bzl to the native predeclared symbols.
     byte[] transitiveDigest = exportsValue.getTransitiveDigest();
     Module module = exportsValue.getModule();
+    ImmutableMap<String, Object> exportedToplevels;
+    ImmutableMap<String, Object> exportedRules;
+    ImmutableMap<String, Object> exportedToJava;
     try {
-      ImmutableMap<String, Object> exportedToplevels = getDict(module, "exported_toplevels");
-      ImmutableMap<String, Object> exportedRules = getDict(module, "exported_rules");
-      ImmutableMap<String, Object> exportedToJava = getDict(module, "exported_to_java");
+      exportedToplevels = getDict(module, "exported_toplevels");
+      exportedRules = getDict(module, "exported_rules");
+      exportedToJava = getDict(module, "exported_to_java");
+    } catch (EvalException ex) {
+      throw BuiltinsFailedException.errorApplyingExports(ex);
+    }
+
+    if (isWithAutoloads) {
+      ImmutableList<String> symbolsToLoad =
+          starlarkSemantics.get(BuildLanguageOptions.INCOMPATIBLE_LOAD_SYMBOLS_EXTERNALLY).stream()
+              .filter(s -> !s.startsWith("-"))
+              .collect(toImmutableList());
+      ImmutableList<String> rulesToLoad =
+          starlarkSemantics.get(BuildLanguageOptions.INCOMPATIBLE_LOAD_RULES_EXTERNALLY).stream()
+              .filter(s -> !s.startsWith("-"))
+              .collect(toImmutableList());
+
+      // Inject loads for rules and symbols removed from Bazel
+      // This could be optimized for only symbols that were used during compilation
+      ImmutableList.Builder<BzlLoadValue.Key> loadKeysBuilder = ImmutableList.builder();
+      ImmutableList.Builder<Pair<String, Location>> additionalLoads = ImmutableList.builder();
+
+      for (String symbol : symbolsToLoad) {
+        // Load with prelude key, to avoid cycles
+        loadKeysBuilder.add(
+            BzlLoadValue.keyForBuildAutoloads(
+                Label.parseCanonicalUnchecked(
+                    "@bazel_tools//tools/redirects_do_not_use:" + symbol + ".bzl")));
+        additionalLoads.add(Pair.of(symbol, Location.BUILTIN));
+      }
+      for (String rule : rulesToLoad) {
+        // Load with prelude key, to avoid cycles
+        loadKeysBuilder.add(
+            BzlLoadValue.keyForBuildAutoloads(
+                Label.parseCanonicalUnchecked(
+                    "@bazel_tools//tools/redirects_do_not_use:" + rule + ".bzl")));
+        additionalLoads.add(Pair.of(rule, Location.BUILTIN));
+      }
+
+      List<BzlLoadValue> loadValues;
+      try {
+        if (inliningState == null) {
+          loadValues =
+              BzlLoadFunction.computeBzlLoadsWithSkyframe(
+                  env, loadKeysBuilder.build(), additionalLoads.build());
+        } else {
+          loadValues =
+              bzlLoadFunction.computeBzlLoadsWithInlining(
+                  env, loadKeysBuilder.build(), additionalLoads.build(), inliningState);
+        }
+        if (loadValues == null) {
+          return null;
+        }
+      } catch (BzlLoadFailedException ex) {
+        throw new BuiltinsFailedException(
+            String.format(
+                "There's no load specification for toplevel symbol or rule set by"
+                    + " --incompatible_load_symbols_externally or"
+                    + " --incompatible_load_rules_externally. Most likely a typo."),
+            ex,
+            Transience.PERSISTENT);
+      }
+
+      Fingerprint fp = new Fingerprint();
+      fp.addBytes(transitiveDigest);
+
+      String workspaceWarning =
+          starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)
+              ? ""
+              : " Most likely you need to upgrade the version of rules repository providing it your"
+                  + " WORKSPACE file.";
+
+      // Substitute-in loaded rules and symbols (that were removed from Bazel)
+      LinkedHashMap<String, Object> exportedToplevelsBuilder =
+          new LinkedHashMap<>(exportedToplevels);
+      int i = 0;
+      for (String symbol : symbolsToLoad) {
+        BzlLoadValue v = loadValues.get(i++);
+        if (v.getModule().getGlobal(symbol) == null) {
+          throw new BuiltinsFailedException(
+              String.format(
+                  "The toplevel symbol '%s' set by --incompatible_load_symbols_externally couldn't"
+                      + " be loaded.%s",
+                  symbol, workspaceWarning),
+              null,
+              Transience.PERSISTENT);
+        }
+        exportedToplevelsBuilder.put(symbol, v.getModule().getGlobal(symbol));
+        fp.addBytes(v.getTransitiveDigest());
+      }
+      exportedToplevels = ImmutableMap.copyOf(exportedToplevelsBuilder);
+
+      LinkedHashMap<String, Object> exportedRulesBuilder = new LinkedHashMap<>(exportedRules);
+      for (String rule : rulesToLoad) {
+        BzlLoadValue v = loadValues.get(i++);
+        if (v.getModule().getGlobal(rule) == null) {
+          throw new BuiltinsFailedException(
+              String.format(
+                  "The rule '%s' et by --incompatible_load_rules_externally couldn't be loaded.%s",
+                  rule, workspaceWarning),
+              null,
+              Transience.PERSISTENT);
+        }
+        exportedRulesBuilder.put(rule, v.getModule().getGlobal(rule));
+        fp.addBytes(v.getTransitiveDigest());
+      }
+      exportedRules = ImmutableMap.copyOf(exportedRulesBuilder);
+
+      transitiveDigest = fp.digestAndReset();
+    }
+
+    try {
       ImmutableMap<String, Object> predeclaredForBuildBzl =
           bazelStarlarkEnvironment.createBuildBzlEnvUsingInjection(
-              exportedToplevels,
-              exportedRules,
-              starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE));
+              exportedToplevels, exportedRules, starlarkSemantics);
       ImmutableMap<String, Object> predeclaredForWorkspaceBzl =
           bazelStarlarkEnvironment.createWorkspaceBzlEnvUsingInjection(
               exportedToplevels,
               exportedRules,
               starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE));
       ImmutableMap<String, Object> predeclaredForBuild =
-          bazelStarlarkEnvironment.createBuildEnvUsingInjection(
-              exportedRules,
-              starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE));
+          bazelStarlarkEnvironment.createBuildEnvUsingInjection(exportedRules, starlarkSemantics);
       return StarlarkBuiltinsValue.create(
           predeclaredForBuildBzl,
           predeclaredForWorkspaceBzl,
@@ -219,7 +339,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
           exportedToJava,
           transitiveDigest,
           starlarkSemantics);
-    } catch (EvalException | InjectionException ex) {
+    } catch (InjectionException ex) {
       throw BuiltinsFailedException.errorApplyingExports(ex);
     }
   }
