@@ -99,6 +99,7 @@ public enum ProfilerTask {
   CONFLICT_CHECK("Conflict checking"),
   DYNAMIC_LOCK("Acquiring dynamic execution output lock", Threshold.FIFTY_MILLIS),
   REPOSITORY_FETCH("Fetching repository"),
+  REPOSITORY_VENDOR("Vendoring repository"),
   UNKNOWN("Unknown event");
 
   private static class Threshold {

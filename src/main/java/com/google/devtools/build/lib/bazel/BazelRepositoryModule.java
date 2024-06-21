@@ -54,6 +54,8 @@ import com.google.devtools.build.lib.bazel.bzlmod.RepoSpecFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionUsagesFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.VendorFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.VendorManager;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.commands.FetchCommand;
@@ -81,6 +83,7 @@ import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRul
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -113,7 +116,9 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersH
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -164,7 +169,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private Clock clock;
   private Instant lastRegistryInvalidation = Instant.EPOCH;
 
-  private Optional<Path> vendorDirectory;
+  private Optional<Path> vendorDirectory = Optional.empty();
   private List<String> allowedYankedVersions = ImmutableList.of();
   private boolean disableNativeRepoRules;
   private SingleExtensionEvalFunction singleExtensionEvalFunction;
@@ -223,7 +228,7 @@ public class BazelRepositoryModule extends BlazeModule {
     builder.addCommands(new FetchCommand());
     builder.addCommands(new ModCommand());
     builder.addCommands(new SyncCommand());
-    builder.addCommands(new VendorCommand());
+    builder.addCommands(new VendorCommand(downloadManager, clientEnvironmentSupplier));
     builder.addInfoItems(new RepositoryCacheInfoItem(repositoryCache));
   }
 
@@ -278,6 +283,9 @@ public class BazelRepositoryModule extends BlazeModule {
                 directories.getWorkspace()))
         .addSkyFunction(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
         .addSkyFunction(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
+        .addSkyFunction(
+            SkyFunctions.VENDOR_FILE,
+            new VendorFileFunction(runtime.getRuleClassProvider().getBazelStarlarkEnvironment()))
         .addSkyFunction(
             SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
             new ModuleExtensionRepoMappingEntriesFunction());
@@ -499,15 +507,37 @@ public class BazelRepositoryModule extends BlazeModule {
       bazelCompatibilityMode = repoOptions.bazelCompatibilityMode;
       bazelLockfileMode = repoOptions.lockfileMode;
       allowedYankedVersions = repoOptions.allowedYankedVersions;
-
-      if (repoOptions.vendorDirectory != null) {
+      if (env.getWorkspace() != null) {
         vendorDirectory =
-            Optional.of(
-                repoOptions.vendorDirectory.isAbsolute()
-                    ? filesystem.getPath(repoOptions.vendorDirectory)
-                    : env.getWorkspace().getRelative(repoOptions.vendorDirectory));
-      } else {
-        vendorDirectory = Optional.empty();
+            Optional.ofNullable(repoOptions.vendorDirectory)
+                .map(vendorDirectory -> env.getWorkspace().getRelative(vendorDirectory));
+
+        if (vendorDirectory.isPresent()) {
+          try {
+            Path externalRoot =
+                env.getOutputBase().getRelative(LabelConstants.EXTERNAL_PATH_PREFIX);
+            FileSystemUtils.ensureSymbolicLink(
+                vendorDirectory.get().getChild(VendorManager.EXTERNAL_ROOT_SYMLINK_NAME),
+                externalRoot);
+            if (OS.getCurrent() == OS.WINDOWS) {
+              // On Windows, symlinks are resolved differently.
+              // Given <external>/repo_foo/link,
+              // where <external>/repo_foo points to <vendor dir>/repo_foo in vendor mode
+              // and repo_foo/link points to a relative path ../bazel-external/repo_bar/data.
+              // Windows won't resolve `repo_foo` before resolving `link`, which causes
+              // <external>/repo_foo/link to be resolved to <external>/bazel-external/repo_bar/data
+              // To work around this, we create a symlink <external>/bazel-external -> <external>.
+              FileSystemUtils.ensureSymbolicLink(
+                  externalRoot.getChild(VendorManager.EXTERNAL_ROOT_SYMLINK_NAME), externalRoot);
+            }
+          } catch (IOException e) {
+            env.getReporter()
+                .handle(
+                    Event.error(
+                        "Failed to create symlink to external repo root under vendor directory: "
+                            + e.getMessage()));
+          }
+        }
       }
 
       if (repoOptions.registries != null && !repoOptions.registries.isEmpty()) {
