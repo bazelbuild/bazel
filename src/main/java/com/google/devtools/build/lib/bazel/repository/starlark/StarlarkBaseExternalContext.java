@@ -1021,6 +1021,118 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     return downloadResult;
   }
 
+  @StarlarkMethod(
+      name = "extract",
+      doc = "Extract an archive to the repository directory.",
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "archive",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = StarlarkPath.class)
+            },
+            named = true,
+            doc =
+                "path to the archive that will be unpacked,"
+                    + " relative to the repository directory."),
+        @Param(
+            name = "output",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = StarlarkPath.class)
+            },
+            defaultValue = "''",
+            named = true,
+            doc =
+                "path to the directory where the archive will be unpacked,"
+                    + " relative to the repository directory."),
+        @Param(
+            name = "stripPrefix",
+            defaultValue = "''",
+            named = true,
+            doc =
+                "a directory prefix to strip from the extracted files."
+                    + "\nMany archives contain a top-level directory that contains all files in the"
+                    + " archive. Instead of needing to specify this prefix over and over in the"
+                    + " <code>build_file</code>, this field can be used to strip it from extracted"
+                    + " files."),
+        @Param(
+            name = "rename_files",
+            defaultValue = "{}",
+            named = true,
+            positional = false,
+            doc =
+                "An optional dict specifying files to rename during the extraction. Archive entries"
+                    + " with names exactly matching a key will be renamed to the value, prior to"
+                    + " any directory prefix adjustment. This can be used to extract archives that"
+                    + " contain non-Unicode filenames, or which have files that would extract to"
+                    + " the same path on case-insensitive filesystems."),
+        @Param(
+            name = "watch_archive",
+            defaultValue = "'auto'",
+            positional = false,
+            named = true,
+            doc =
+                "whether to <a href=\"#watch\">watch</a> the archive file. Can be the string "
+                    + "'yes', 'no', or 'auto'. Passing 'yes' is equivalent to immediately invoking "
+                    + "the <a href=\"#watch\"><code>watch()</code></a> method; passing 'no' does "
+                    + "not attempt to watch the file; passing 'auto' will only attempt to watch "
+                    + "the file when it is legal to do so (see <code>watch()</code> docs for more "
+                    + "information."),
+      })
+  public void extract(
+      Object archive,
+      Object output,
+      String stripPrefix,
+      Dict<?, ?> renameFiles, // <String, String> expected
+      String watchArchive,
+      StarlarkThread thread)
+      throws RepositoryFunctionException, InterruptedException, EvalException {
+    StarlarkPath archivePath = getPath("extract()", archive);
+
+    if (!archivePath.exists()) {
+      throw new RepositoryFunctionException(
+          Starlark.errorf("Archive path '%s' does not exist.", archivePath), Transience.TRANSIENT);
+    }
+    if (archivePath.isDir()) {
+      throw Starlark.errorf("attempting to extract a directory: %s", archivePath);
+    }
+    maybeWatch(archivePath, ShouldWatch.fromString(watchArchive));
+
+    StarlarkPath outputPath = getPath("extract()", output);
+    checkInOutputDirectory("write", outputPath);
+
+    Map<String, String> renameFilesMap =
+        Dict.cast(renameFiles, String.class, String.class, "rename_files");
+
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newExtractEvent(
+            archive.toString(),
+            output.toString(),
+            stripPrefix,
+            renameFilesMap,
+            identifyingStringForLogging,
+            thread.getCallerLocation());
+    env.getListener().post(w);
+
+    env.getListener()
+        .post(
+            new ExtractProgress(
+                outputPath.getPath().toString(), "Extracting " + archivePath.getBasename()));
+    DecompressorValue.decompress(
+        DecompressorDescriptor.builder()
+            .setContext(identifyingStringForLogging)
+            .setArchivePath(archivePath.getPath())
+            .setDestinationPath(outputPath.getPath())
+            .setPrefix(stripPrefix)
+            .setRenameFiles(renameFilesMap)
+            .build());
+    env.getListener().post(new ExtractProgress(outputPath.getPath().toString()));
+  }
+
   /** A progress event that reports about archive extraction. */
   protected static class ExtractProgress implements FetchProgress {
     private final String repositoryPath;
