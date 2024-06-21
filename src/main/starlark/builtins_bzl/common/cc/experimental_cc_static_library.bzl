@@ -43,10 +43,10 @@ def _flatten_and_get_objects(linker_inputs):
     transitive_objects = []
     for linker_input in linker_inputs.to_list():
         for lib in linker_input.libraries:
-            if lib.pic_objects != None:
-                transitive_objects.append(depset(lib.pic_objects))
-            elif lib.objects != None:
-                transitive_objects.append(depset(lib.objects))
+            if lib.pic_objects_private() != None:
+                transitive_objects.append(depset(lib.pic_objects_private()))
+            elif lib.objects_private() != None:
+                transitive_objects.append(depset(lib.objects_private()))
 
     return depset(transitive = transitive_objects, order = "topological")
 
@@ -156,7 +156,7 @@ def _pretty_label(label):
 def _linkdeps_map_each(linker_input):
     has_library = False
     for lib in linker_input.libraries:
-        if lib.pic_objects != None or lib.objects != None:
+        if lib.pic_objects_private() != None or lib.objects_private() != None:
             # Has been added to the archive.
             return None
         if lib.pic_static_library != None or lib.static_library != None or lib.dynamic_library != None or lib.interface_library != None:
