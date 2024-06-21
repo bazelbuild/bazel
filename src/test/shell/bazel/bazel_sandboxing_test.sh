@@ -93,7 +93,8 @@ EOF
 
   local output_file="bazel-genfiles/pkg/breaks.txt"
 
-  bazel build --sandbox_block_path="${block_path}" pkg:breaks \
+  bazel build --sandbox_block_path="${block_path}" \
+    --sandbox_block_path=/doesnotexist pkg:breaks \
     &> $TEST_log \
     && fail "Non-hermetic genrule succeeded: examples/genrule:breaks" || true
 
@@ -257,8 +258,9 @@ EOF
   bazel build --test_output=streamed :a &>$TEST_log || fail "expected build to succeed"
 }
 
-# Regression test for https://github.com/bazelbuild/bazel/issues/20032.
-function test_read_only_tree_artifact() {
+# Regression test for https://github.com/bazelbuild/bazel/issues/20032 and
+# https://github.com/bazelbuild/bazel/issues/22260.
+function test_permissionless_tree_artifact() {
   create_workspace_with_default_repos WORKSPACE
 
   cat > def.bzl <<'EOF'
@@ -266,7 +268,7 @@ def _r(ctx):
   d = ctx.actions.declare_directory(ctx.label.name)
   ctx.actions.run_shell(
     outputs = [d],
-    command = "touch $1/file.txt && chmod -w $1",
+    command = "touch $1/file.txt && chmod 000 $1",
     arguments = [d.path],
   )
   return DefaultInfo(files = depset([d]))

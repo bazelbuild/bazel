@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.SelectorList;
 import com.google.devtools.build.lib.packages.StarlarkGlobals;
 import com.google.devtools.build.lib.packages.StarlarkNativeModule;
 import com.google.devtools.build.lib.packages.StructProvider;
+import com.google.devtools.build.lib.packages.VendorFileGlobals;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.lib.json.Json;
 
@@ -133,6 +134,13 @@ public final class StarlarkGlobalsImpl implements StarlarkGlobals {
   public ImmutableMap<String, Object> getRepoToplevels() {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     Starlark.addMethods(env, RepoCallable.INSTANCE);
+    return env.buildOrThrow();
+  }
+
+  @Override
+  public ImmutableMap<String, Object> getVendorToplevels() {
+    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
+    Starlark.addMethods(env, VendorFileGlobals.INSTANCE);
     return env.buildOrThrow();
   }
 }

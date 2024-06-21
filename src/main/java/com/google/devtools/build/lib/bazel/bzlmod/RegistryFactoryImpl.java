@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.IndexRegistry.KnownFileHashesM
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.vfs.Path;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
@@ -42,7 +43,8 @@ public class RegistryFactoryImpl implements RegistryFactory {
       String url,
       LockfileMode lockfileMode,
       ImmutableMap<String, Optional<Checksum>> knownFileHashes,
-      ImmutableMap<ModuleKey, String> previouslySelectedYankedVersions)
+      ImmutableMap<ModuleKey, String> previouslySelectedYankedVersions,
+      Optional<Path> vendorDir)
       throws URISyntaxException {
     URI uri = new URI(url);
     if (uri.getScheme() == null) {
@@ -75,6 +77,7 @@ public class RegistryFactoryImpl implements RegistryFactory {
         clientEnvironmentSupplier.get(),
         knownFileHashes,
         knownFileHashesMode,
-        previouslySelectedYankedVersions);
+        previouslySelectedYankedVersions,
+        vendorDir);
   }
 }

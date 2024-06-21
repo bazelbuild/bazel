@@ -932,6 +932,18 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
               env.getListener(),
               envVariables,
               getIdentifyingStringForLogging());
+      // Ensure that the download is cancelled if the repo rule is restarted as it runs in its own
+      // executor.
+      PendingDownload pendingTask =
+          new PendingDownload(
+              /* executable= */ false,
+              allowFail,
+              outputPath,
+              checksum,
+              checksumValidation,
+              pendingDownload,
+              thread.getCallerLocation());
+      registerAsyncTask(pendingTask);
       downloadedPath = downloadManager.finalizeDownload(pendingDownload);
     } catch (IOException e) {
       env.getListener().post(w);
