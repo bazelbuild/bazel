@@ -317,7 +317,7 @@ genrule(
         -injars $< \
         -outjars $@ \
         -libraryjars '<java.home>/jmods/java.base.jmod(!**.jar;!module-info.class)' \
-        @$(location fastutil.proguard) \
+        @$(location //tools:fastutil.proguard) \
       | tail -n +2 # Skip the "ProGuard, version X" line
     # Null out the file times stored in the jar to make the output reproducible.
     TMPDIR=$$(mktemp -d)
@@ -329,8 +329,8 @@ genrule(
     (cd $$TMPDIR && find . -type f | LC_ALL=C sort | zip -qDX0r@ "$$OUTPUT")
     """,
     tools = [
-        "fastutil.proguard",
         ":proguard",
+        "//tools:fastutil.proguard",
     ],
 )
 
