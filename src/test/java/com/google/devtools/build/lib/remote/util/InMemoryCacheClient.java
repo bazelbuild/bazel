@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote.util;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.DigestFunction;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
@@ -37,6 +38,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /** A {@link RemoteCacheClient} that stores its contents in memory. */
 public class InMemoryCacheClient implements RemoteCacheClient {
@@ -83,7 +85,10 @@ public class InMemoryCacheClient implements RemoteCacheClient {
 
   @Override
   public ListenableFuture<Void> downloadBlob(
-      RemoteActionExecutionContext context, Digest digest, OutputStream out) {
+      RemoteActionExecutionContext context,
+      Digest digest,
+      @Nullable DigestFunction.Value unused,
+      OutputStream out) {
     Exception failure = downloadFailures.get(digest);
     if (failure != null) {
       numFailures.incrementAndGet();

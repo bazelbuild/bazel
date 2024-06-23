@@ -173,7 +173,9 @@ public class RemoteCacheTest {
     RemoteCacheClient remoteCacheClient = mock(RemoteCacheClient.class);
     SettableFuture<Void> future = SettableFuture.create();
     // Return a future that never completes
-    doAnswer(invocationOnMock -> future).when(remoteCacheClient).downloadBlob(any(), any(), any());
+    doAnswer(invocationOnMock -> future)
+        .when(remoteCacheClient)
+        .downloadBlob(any(), any(), any(), any());
     RemoteCache remoteCache = newRemoteCache(remoteCacheClient);
     Digest digest = fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file"), "content");
     Path file = execRoot.getRelative("file");

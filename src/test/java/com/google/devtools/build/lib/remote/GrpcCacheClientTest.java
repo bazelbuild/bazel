@@ -129,6 +129,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -217,10 +218,13 @@ public class GrpcCacheClientTest {
   }
 
   private static byte[] downloadBlob(
-      RemoteActionExecutionContext context, GrpcCacheClient cacheClient, Digest digest)
+      RemoteActionExecutionContext context,
+      GrpcCacheClient cacheClient,
+      Digest digest,
+      @Nullable DigestFunction.Value digestFunction)
       throws IOException, InterruptedException {
     try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-      getFromFuture(cacheClient.downloadBlob(context, digest, out));
+      getFromFuture(cacheClient.downloadBlob(context, digest, digestFunction, out));
       return out.toByteArray();
     }
   }
@@ -392,7 +396,7 @@ public class GrpcCacheClientTest {
 
     // act
     try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-      ListenableFuture<Void> download = cacheClient.downloadBlob(context, digest, out);
+      ListenableFuture<Void> download = cacheClient.downloadBlob(context, digest, null, out);
       download.cancel(/* mayInterruptIfRunning= */ true);
     }
 
@@ -455,7 +459,7 @@ public class GrpcCacheClientTest {
     GrpcCacheClient client = newClient();
     Digest emptyDigest = DIGEST_UTIL.compute(new byte[0]);
     // Will not call the mock Bytestream interface at all.
-    assertThat(downloadBlob(context, client, emptyDigest)).isEmpty();
+    assertThat(downloadBlob(context, client, emptyDigest, null)).isEmpty();
   }
 
   @Test
@@ -472,7 +476,7 @@ public class GrpcCacheClientTest {
             responseObserver.onCompleted();
           }
         });
-    assertThat(new String(downloadBlob(context, client, digest), UTF_8)).isEqualTo("abcdefg");
+    assertThat(new String(downloadBlob(context, client, digest, null), UTF_8)).isEqualTo("abcdefg");
   }
 
   @Test
@@ -493,7 +497,30 @@ public class GrpcCacheClientTest {
             responseObserver.onCompleted();
           }
         });
-    assertThat(new String(downloadBlob(context, client, digest), UTF_8)).isEqualTo("abcdefg");
+    assertThat(new String(downloadBlob(context, client, digest, null), UTF_8)).isEqualTo("abcdefg");
+  }
+
+  @Test
+  public void testSHA384Download() throws IOException, InterruptedException {
+    final DigestUtil sha384DigestUtil =
+        new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA384);
+    final GrpcCacheClient client = newClient();
+    final byte[] data = "abcdefg".getBytes(UTF_8);
+    final Digest digest = sha384DigestUtil.compute(data);
+
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            assertThat(request.getResourceName().contains(digest.getHash())).isTrue();
+            responseObserver.onNext(
+                ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("abcdefg")).build());
+            responseObserver.onCompleted();
+          }
+        });
+    assertThat(
+            new String(downloadBlob(context, client, digest, DigestFunction.Value.SHA384), UTF_8))
+        .isEqualTo("abcdefg");
   }
 
   @Test
@@ -1145,7 +1172,7 @@ public class GrpcCacheClientTest {
             }
           }
         });
-    assertThat(new String(downloadBlob(context, client, digest), UTF_8)).isEqualTo("abcdefg");
+    assertThat(new String(downloadBlob(context, client, digest, null), UTF_8)).isEqualTo("abcdefg");
     Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis(any(Exception.class));
   }
 
@@ -1166,7 +1193,7 @@ public class GrpcCacheClientTest {
             responseObserver.onError(Status.INTERNAL.asException());
           }
         });
-    assertThat(new String(downloadBlob(context, client, digest), UTF_8)).isEqualTo("abcdefg");
+    assertThat(new String(downloadBlob(context, client, digest, null), UTF_8)).isEqualTo("abcdefg");
     Mockito.verify(mockBackoff, Mockito.never()).nextDelayMillis(any(Exception.class));
   }
 
@@ -1189,7 +1216,8 @@ public class GrpcCacheClientTest {
             responseObserver.onError(Status.DEADLINE_EXCEEDED.asException());
           }
         });
-    IOException e = assertThrows(IOException.class, () -> downloadBlob(context, client, digest));
+    IOException e =
+        assertThrows(IOException.class, () -> downloadBlob(context, client, digest, null));
     Status st = Status.fromThrowable(e);
     assertThat(st.getCode()).isEqualTo(Status.Code.DEADLINE_EXCEEDED);
     Mockito.verify(mockBackoff, Mockito.times(1)).nextDelayMillis(any(Exception.class));
@@ -1210,7 +1238,8 @@ public class GrpcCacheClientTest {
             responseObserver.onCompleted();
           }
         });
-    IOException e = assertThrows(IOException.class, () -> downloadBlob(context, client, digest));
+    IOException e =
+        assertThrows(IOException.class, () -> downloadBlob(context, client, digest, null));
     assertThat(e).hasMessageThat().contains(digest.getHash());
     assertThat(e).hasMessageThat().contains(DIGEST_UTIL.computeAsUtf8("bar").getHash());
   }
@@ -1234,7 +1263,8 @@ public class GrpcCacheClientTest {
           }
         });
 
-    assertThat(downloadBlob(context, client, digest)).isEqualTo(downloadContents.toByteArray());
+    assertThat(downloadBlob(context, client, digest, null))
+        .isEqualTo(downloadContents.toByteArray());
   }
 
   @Test
@@ -1276,7 +1306,7 @@ public class GrpcCacheClientTest {
             responseObserver.onError(Status.DEADLINE_EXCEEDED.asException());
           }
         });
-    assertThat(new String(downloadBlob(context, client, digest), UTF_8)).isEqualTo("abcdefg");
+    assertThat(new String(downloadBlob(context, client, digest, null), UTF_8)).isEqualTo("abcdefg");
   }
 
   @Test
@@ -1320,7 +1350,7 @@ public class GrpcCacheClientTest {
             responseObserver.onCompleted();
           }
         });
-    assertThat(downloadBlob(context, client, digest)).isEqualTo(data);
+    assertThat(downloadBlob(context, client, digest, null)).isEqualTo(data);
   }
 
   @Test

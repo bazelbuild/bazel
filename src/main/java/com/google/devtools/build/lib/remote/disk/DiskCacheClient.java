@@ -21,6 +21,7 @@ import build.bazel.remote.execution.v2.ActionCacheUpdateCapabilities;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import build.bazel.remote.execution.v2.Tree;
@@ -40,6 +41,7 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistryLite;
@@ -174,9 +176,16 @@ public class DiskCacheClient implements RemoteCacheClient {
 
   @Override
   public ListenableFuture<Void> downloadBlob(
-      RemoteActionExecutionContext context, Digest digest, OutputStream out) {
-    @Nullable
-    DigestOutputStream digestOut = verifyDownloads ? digestUtil.newDigestOutputStream(out) : null;
+      RemoteActionExecutionContext context,
+      Digest digest,
+      @Nullable DigestFunction.Value digestFunction,
+      OutputStream out) {
+    @Nullable DigestOutputStream digestOut;
+    try {
+      digestOut = verifyDownloads ? digestUtil.newDigestOutputStream(out, digestFunction) : null;
+    } catch (AbruptExitException e) {
+      return Futures.immediateFailedFuture(e);
+    }
     return Futures.transformAsync(
         download(digest, digestOut != null ? digestOut : out, Store.CAS),
         (v) -> {

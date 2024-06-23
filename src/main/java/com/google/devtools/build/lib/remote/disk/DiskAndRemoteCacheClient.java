@@ -20,6 +20,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.DigestFunction;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
+import javax.annotation.Nullable;
 
 /**
  * A {@link RemoteCacheClient} implementation combining two blob stores. A local disk blob store and
@@ -161,27 +163,35 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
 
   @Override
   public ListenableFuture<Void> downloadBlob(
-      RemoteActionExecutionContext context, Digest digest, OutputStream out) {
+      RemoteActionExecutionContext context,
+      Digest digest,
+      @Nullable DigestFunction.Value digestFunction,
+      OutputStream out) {
     if (context.getReadCachePolicy().allowDiskCache()) {
       return Futures.catchingAsync(
-          diskCache.downloadBlob(context, digest, out),
+          diskCache.downloadBlob(context, digest, digestFunction, out),
           CacheNotFoundException.class,
-          (unused) -> downloadBlobFromRemote(context, digest, out),
+          (unused) -> downloadBlobFromRemote(context, digest, digestFunction, out),
           directExecutor());
     } else {
-      return downloadBlobFromRemote(context, digest, out);
+      return downloadBlobFromRemote(context, digest, digestFunction, out);
     }
   }
 
   private ListenableFuture<Void> downloadBlobFromRemote(
-      RemoteActionExecutionContext context, Digest digest, OutputStream out) {
+      RemoteActionExecutionContext context,
+      Digest digest,
+      @Nullable DigestFunction.Value digestFunction,
+      OutputStream out) {
     if (context.getReadCachePolicy().allowRemoteCache()) {
       Path tempPath = getTempPath();
       LazyFileOutputStream tempOut = new LazyFileOutputStream(tempPath);
 
       ListenableFuture<Void> download =
           cleanupTempFileOnError(
-              remoteCache.downloadBlob(context, digest, tempOut), tempPath, tempOut);
+              remoteCache.downloadBlob(context, digest, digestFunction, tempOut),
+              tempPath,
+              tempOut);
       return Futures.transformAsync(
           download,
           (unused) -> {
@@ -194,7 +204,7 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
             } catch (IOException e) {
               return immediateFailedFuture(e);
             }
-            return diskCache.downloadBlob(context, digest, out);
+            return diskCache.downloadBlob(context, digest, digestFunction, out);
           },
           directExecutor());
     } else {

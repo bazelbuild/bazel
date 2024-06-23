@@ -17,6 +17,7 @@ import build.bazel.remote.execution.v2.ActionCacheUpdateCapabilities;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import io.netty.bootstrap.Bootstrap;
@@ -457,9 +459,20 @@ public final class HttpCacheClient implements RemoteCacheClient {
 
   @Override
   public ListenableFuture<Void> downloadBlob(
-      RemoteActionExecutionContext context, Digest digest, OutputStream out) {
-    final DigestOutputStream digestOut =
-        verifyDownloads ? digestUtil.newDigestOutputStream(out) : null;
+      RemoteActionExecutionContext context,
+      Digest digest,
+      @Nullable DigestFunction.Value digestFunction,
+      OutputStream out) {
+    final @Nullable DigestOutputStream digestOut;
+    if (verifyDownloads) {
+      try {
+        digestOut = digestUtil.newDigestOutputStream(out, digestFunction);
+      } catch (AbruptExitException e) {
+        return Futures.immediateFailedFuture(e);
+      }
+    } else {
+      digestOut = null;
+    }
     final AtomicLong casBytesDownloaded = new AtomicLong();
     return Futures.transformAsync(
         retrier.executeAsync(

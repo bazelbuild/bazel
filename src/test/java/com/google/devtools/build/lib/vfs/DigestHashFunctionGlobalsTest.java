@@ -31,38 +31,34 @@ public class DigestHashFunctionGlobalsTest {
 
   @Test
   public void convertReturnsTheSameValueAsTheConstant() throws Exception {
-    assertThat(converter.convert("sha-256")).isSameInstanceAs(DigestHashFunction.SHA256);
-    assertThat(converter.convert("SHA-256")).isSameInstanceAs(DigestHashFunction.SHA256);
-    assertThat(converter.convert("SHA256")).isSameInstanceAs(DigestHashFunction.SHA256);
-    assertThat(converter.convert("sha256")).isSameInstanceAs(DigestHashFunction.SHA256);
-
-    assertThat(converter.convert("SHA-1")).isSameInstanceAs(DigestHashFunction.SHA1);
-    assertThat(converter.convert("sha-1")).isSameInstanceAs(DigestHashFunction.SHA1);
-    assertThat(converter.convert("SHA1")).isSameInstanceAs(DigestHashFunction.SHA1);
-    assertThat(converter.convert("sha1")).isSameInstanceAs(DigestHashFunction.SHA1);
-  }
-
-  @Test
-  public void lateRegistrationGetsPickedUpByConverter() throws Exception {
-    DigestHashFunction.register(Hashing.goodFastHash(32), "SHA-512");
-
-    assertThat(converter.convert("SHA-512")).isSameInstanceAs(converter.convert("sha-512"));
+    for (String name : new String[] {"sha-256", "SHA-256", "SHA256", "sha256"}) {
+      assertThat(converter.convert(name)).isSameInstanceAs(DigestHashFunction.SHA256);
+    }
+    for (String name : new String[] {"sha-1", "SHA-1", "SHA1", "sha1"}) {
+      assertThat(converter.convert(name)).isSameInstanceAs(DigestHashFunction.SHA1);
+    }
+    for (String name : new String[] {"sha-512", "SHA-512", "SHA512", "sha512"}) {
+      assertThat(converter.convert(name)).isSameInstanceAs(DigestHashFunction.SHA512);
+    }
+    for (String name : new String[] {"sha-384", "SHA-384", "SHA384", "sha384"}) {
+      assertThat(converter.convert(name)).isSameInstanceAs(DigestHashFunction.SHA384);
+    }
   }
 
   @Test
   public void lateRegistrationWithAlternativeNamesGetsPickedUpByConverter() throws Exception {
-    DigestHashFunction.register(Hashing.goodFastHash(64), "SHA-384", "SHA384", "SHA_384");
+    DigestHashFunction.register(Hashing.goodFastHash(64), "MD5", "MD-5", "MD_5");
 
-    assertThat(converter.convert("SHA-384")).isSameInstanceAs(converter.convert("SHA-384"));
-    assertThat(converter.convert("Sha-384")).isSameInstanceAs(converter.convert("SHA-384"));
-    assertThat(converter.convert("sha-384")).isSameInstanceAs(converter.convert("SHA-384"));
+    assertThat(converter.convert("MD-5")).isSameInstanceAs(converter.convert("MD-5"));
+    assertThat(converter.convert("Md-5")).isSameInstanceAs(converter.convert("MD-5"));
+    assertThat(converter.convert("md-5")).isSameInstanceAs(converter.convert("MD-5"));
 
-    assertThat(converter.convert("SHA384")).isSameInstanceAs(converter.convert("SHA-384"));
-    assertThat(converter.convert("Sha384")).isSameInstanceAs(converter.convert("SHA-384"));
-    assertThat(converter.convert("sha384")).isSameInstanceAs(converter.convert("SHA-384"));
+    assertThat(converter.convert("MD5")).isSameInstanceAs(converter.convert("MD-5"));
+    assertThat(converter.convert("Md5")).isSameInstanceAs(converter.convert("MD-5"));
+    assertThat(converter.convert("md5")).isSameInstanceAs(converter.convert("MD-5"));
 
-    assertThat(converter.convert("SHA_384")).isSameInstanceAs(converter.convert("SHA-384"));
-    assertThat(converter.convert("Sha_384")).isSameInstanceAs(converter.convert("SHA-384"));
-    assertThat(converter.convert("sha_384")).isSameInstanceAs(converter.convert("SHA-384"));
+    assertThat(converter.convert("MD_5")).isSameInstanceAs(converter.convert("MD-5"));
+    assertThat(converter.convert("Md_5")).isSameInstanceAs(converter.convert("MD-5"));
+    assertThat(converter.convert("md_5")).isSameInstanceAs(converter.convert("MD-5"));
   }
 }

@@ -150,7 +150,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
           () -> {
             try (OutputStream out = newOutputStream(destination, checksum)) {
               Utils.getFromFuture(
-                  cacheClient.downloadBlob(remoteActionExecutionContext, blobDigest, out));
+                  cacheClient.downloadBlob(
+                      remoteActionExecutionContext, blobDigest, response.getDigestFunction(), out));
             }
             return null;
           });

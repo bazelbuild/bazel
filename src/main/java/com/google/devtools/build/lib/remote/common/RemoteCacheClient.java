@@ -18,6 +18,7 @@ import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.DigestFunction;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -133,7 +134,10 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
    *     does not exist in the cache the Future fails with a {@link CacheNotFoundException}.
    */
   ListenableFuture<Void> downloadBlob(
-      RemoteActionExecutionContext context, Digest digest, OutputStream out);
+      RemoteActionExecutionContext context,
+      Digest digest,
+      @Nullable DigestFunction.Value digestFunction,
+      OutputStream out);
 
   /**
    * Uploads a {@code file} to the CAS.

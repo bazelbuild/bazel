@@ -67,6 +67,8 @@ public class DigestHashFunction {
 
   public static final DigestHashFunction SHA1 = register(Hashing.sha1(), "SHA-1", "SHA1");
   public static final DigestHashFunction SHA256 = register(Hashing.sha256(), "SHA-256", "SHA256");
+  public static final DigestHashFunction SHA384 = register(Hashing.sha384(), "SHA-384", "SHA384");
+  public static final DigestHashFunction SHA512 = register(Hashing.sha512(), "SHA-512", "SHA512");
 
   private final HashFunction hashFunction;
   private final DigestLength digestLength;
@@ -136,7 +138,7 @@ public class DigestHashFunction {
           return possibleFunctions.getValue();
         }
       }
-      throw new OptionsParsingException("Not a valid hash function.");
+      throw new OptionsParsingException(input + "is not a valid hash function.");
     }
 
     @Override

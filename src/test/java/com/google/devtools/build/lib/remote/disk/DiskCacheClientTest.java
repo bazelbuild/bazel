@@ -255,7 +255,7 @@ public class DiskCacheClientTest {
     populateCas(digest, "contents");
     Path out = tmpDir.getChild("out");
 
-    var unused = getFromFuture(client.downloadBlob(context, digest, out.getOutputStream()));
+    var unused = getFromFuture(client.downloadBlob(context, digest, null, out.getOutputStream()));
 
     assertThat(FileSystemUtils.readContent(out, UTF_8)).isEqualTo("contents");
   }
@@ -268,7 +268,7 @@ public class DiskCacheClientTest {
         CacheNotFoundException.class,
         () ->
             getFromFuture(
-                client.downloadBlob(context, getDigest("contents"), out.getOutputStream())));
+                client.downloadBlob(context, getDigest("contents"), null, out.getOutputStream())));
   }
 
   @Test
@@ -279,7 +279,7 @@ public class DiskCacheClientTest {
 
     assertThrows(
         OutputDigestMismatchException.class,
-        () -> getFromFuture(client.downloadBlob(context, digest, out.getOutputStream())));
+        () -> getFromFuture(client.downloadBlob(context, digest, null, out.getOutputStream())));
   }
 
   @Test

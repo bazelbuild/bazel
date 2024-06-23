@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.zstd.ZstdDecompressingOutputStream;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import io.grpc.Channel;
@@ -329,16 +330,23 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
 
   @Override
   public ListenableFuture<Void> downloadBlob(
-      RemoteActionExecutionContext context, Digest digest, OutputStream out) {
+      RemoteActionExecutionContext context,
+      Digest digest,
+      @Nullable DigestFunction.Value digestFunction,
+      OutputStream out) {
     if (digest.getSizeBytes() == 0) {
       return Futures.immediateVoidFuture();
     }
 
     @Nullable Supplier<Digest> digestSupplier = null;
     if (options.remoteVerifyDownloads) {
-      DigestOutputStream digestOut = digestUtil.newDigestOutputStream(out);
-      digestSupplier = digestOut::digest;
-      out = digestOut;
+      try {
+        DigestOutputStream digestOut = digestUtil.newDigestOutputStream(out, digestFunction);
+        digestSupplier = digestOut::digest;
+        out = digestOut;
+      } catch (AbruptExitException e) {
+        return Futures.immediateFailedFuture(e);
+      }
     }
 
     return downloadBlob(context, digest, new CountingOutputStream(out), digestSupplier);

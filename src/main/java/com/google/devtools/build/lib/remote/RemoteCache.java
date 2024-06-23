@@ -254,7 +254,7 @@ public class RemoteCache extends AbstractReferenceCounted {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
     }
-    var download = cacheProtocol.downloadBlob(context, digest, out);
+    var download = cacheProtocol.downloadBlob(context, digest, null, out);
     SettableFuture<Void> future = SettableFuture.create();
     future.addListener(
         () -> {
@@ -425,7 +425,7 @@ public class RemoteCache extends AbstractReferenceCounted {
     reporter.started();
     OutputStream out = new ReportingOutputStream(new LazyFileOutputStream(path), reporter);
 
-    ListenableFuture<Void> f = cacheProtocol.downloadBlob(context, digest, out);
+    ListenableFuture<Void> f = cacheProtocol.downloadBlob(context, digest, null, out);
     f.addListener(
         () -> {
           try {
