@@ -1183,14 +1183,19 @@ def _impl(ctx):
             ),
             flag_set(
                 actions = [ACTION_NAMES.cpp_link_static_library],
+                flag_groups = ([
+                    flag_group(
+                        flags = ctx.attr.archive_flags,
+                    ),
+                ] if ctx.attr.archive_flags else []),
+            ),
+            flag_set(
+                actions = [ACTION_NAMES.cpp_link_static_library],
                 flag_groups = [
                     flag_group(
                         flags = ["%{user_archiver_flags}"],
                         iterate_over = "user_archiver_flags",
                         expand_if_available = "user_archiver_flags",
-                    ),
-                    flag_group(
-                        flags = ctx.attr.archive_flags or [],
                     ),
                 ],
             ),
