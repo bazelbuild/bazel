@@ -148,8 +148,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
     SpawnResult spawnResult;
     ExecException ex = null;
-    try {
-      CacheHandle cacheHandle = cache.lookup(spawn, context);
+    try (CacheHandle cacheHandle = cache.lookup(spawn, context)) {
       if (cacheHandle.hasResult()) {
         spawnResult = Preconditions.checkNotNull(cacheHandle.getResult());
       } else {
@@ -227,7 +226,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
               ? resultMessage
               : CommandFailureUtils.describeCommandFailure(
                   executionOptions.verboseFailures, cwd, spawn);
-      throw new SpawnExecException(message, spawnResult, /*forciblyRunRemotely=*/ false);
+      throw new SpawnExecException(message, spawnResult, /* forciblyRunRemotely= */ false);
     }
     return ImmutableList.of(spawnResult);
   }
