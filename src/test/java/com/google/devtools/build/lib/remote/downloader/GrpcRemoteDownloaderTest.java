@@ -27,6 +27,7 @@ import build.bazel.remote.asset.v1.FetchBlobResponse;
 import build.bazel.remote.asset.v1.FetchGrpc.FetchImplBase;
 import build.bazel.remote.asset.v1.Qualifier;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.collect.ImmutableList;
@@ -294,6 +295,87 @@ public class GrpcRemoteDownloaderTest {
             downloader,
             new URL("http://example.com/content.txt"),
             Optional.of(Checksum.fromString(KeyType.SHA256, contentDigest.getHash())));
+
+    assertThat(downloaded).isEqualTo(content);
+  }
+
+  @Test
+  public void testSHA384Integrity() throws Exception {
+    final DigestUtil digestUtil = new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA384);
+    final byte[] content = "example content".getBytes(UTF_8);
+    final Digest contentDigest = digestUtil.compute(content);
+    final Checksum checksum = Checksum.fromString(KeyType.SHA384, contentDigest.getHash());
+
+    serviceRegistry.addService(
+        new FetchImplBase() {
+          @Override
+          public void fetchBlob(
+              FetchBlobRequest request, StreamObserver<FetchBlobResponse> responseObserver) {
+            assertThat(request)
+                .isEqualTo(
+                    FetchBlobRequest.newBuilder()
+                        .setDigestFunction(DIGEST_UTIL.getDigestFunction())
+                        .addUris("http://example.com/content.txt")
+                        .addQualifiers(
+                            Qualifier.newBuilder()
+                                .setName("checksum.sri")
+                                .setValue(checksum.toSubresourceIntegrity()))
+                        .build());
+            responseObserver.onNext(
+                FetchBlobResponse.newBuilder()
+                    .setDigestFunction(DigestFunction.Value.SHA384)
+                    .setBlobDigest(contentDigest)
+                    .build());
+            responseObserver.onCompleted();
+          }
+        });
+
+    final RemoteCacheClient cacheClient = new InMemoryCacheClient();
+    final GrpcRemoteDownloader downloader = newDownloader(cacheClient);
+
+    getFromFuture(cacheClient.uploadBlob(context, contentDigest, ByteString.copyFrom(content)));
+    final byte[] downloaded =
+        downloadBlob(downloader, new URL("http://example.com/content.txt"), Optional.of(checksum));
+
+    assertThat(downloaded).isEqualTo(content);
+  }
+
+  @Test
+  public void testSHA384IntegrityLegacyServer() throws Exception {
+    final DigestUtil sha384DigestUtil =
+        new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA384);
+    final byte[] content = "example content".getBytes(UTF_8);
+    final Digest contentSHA384Digest = sha384DigestUtil.compute(content);
+    final Digest contentDigest = DIGEST_UTIL.compute(content);
+    final Checksum checksum = Checksum.fromString(KeyType.SHA384, contentSHA384Digest.getHash());
+
+    serviceRegistry.addService(
+        new FetchImplBase() {
+          @Override
+          public void fetchBlob(
+              FetchBlobRequest request, StreamObserver<FetchBlobResponse> responseObserver) {
+            assertThat(request)
+                .isEqualTo(
+                    FetchBlobRequest.newBuilder()
+                        .setDigestFunction(DIGEST_UTIL.getDigestFunction())
+                        .addUris("http://example.com/content.txt")
+                        .addQualifiers(
+                            Qualifier.newBuilder()
+                                .setName("checksum.sri")
+                                .setValue(checksum.toSubresourceIntegrity()))
+                        .build());
+            responseObserver.onNext(
+                FetchBlobResponse.newBuilder().setBlobDigest(contentDigest).build());
+            responseObserver.onCompleted();
+          }
+        });
+
+    final RemoteCacheClient cacheClient = new InMemoryCacheClient();
+    final GrpcRemoteDownloader downloader = newDownloader(cacheClient);
+
+    getFromFuture(cacheClient.uploadBlob(context, contentDigest, ByteString.copyFrom(content)));
+    final byte[] downloaded =
+        downloadBlob(downloader, new URL("http://example.com/content.txt"), Optional.of(checksum));
 
     assertThat(downloaded).isEqualTo(content);
   }
