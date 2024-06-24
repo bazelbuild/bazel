@@ -2638,14 +2638,7 @@ public class RewindingTestsHelper {
         });
     testCase.injectListenerAtStartOfNextBuild(
         (key, type, order, context) -> {
-          if (key instanceof ActionLookupData
-              && type == EventType.SET_VALUE
-              && order == Order.AFTER) {
-            logger.atInfo().log("Action done: %s=%s", key, context);
-          }
           if (isActionExecutionKey(key, fail) && type == EventType.CREATE_IF_ABSENT) {
-            logger.atInfo().log(
-                "[%s] about to block %s", Thread.currentThread().getName(), context);
             awaitUninterruptibly(depDone);
           } else if (isActionExecutionKey(key, dep)
               && type == EventType.SET_VALUE
