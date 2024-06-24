@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.FailAction;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.Expander;
@@ -292,7 +293,7 @@ public class CppHelper {
       FeatureConfiguration featureConfiguration, CcToolchainVariables variables, String actionName)
       throws EvalException {
     try {
-      return featureConfiguration.getEnvironmentVariables(actionName, variables);
+      return featureConfiguration.getEnvironmentVariables(actionName, variables, PathMapper.NOOP);
     } catch (ExpansionException e) {
       throw new EvalException(e);
     }
