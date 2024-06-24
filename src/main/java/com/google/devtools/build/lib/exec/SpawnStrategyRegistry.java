@@ -415,6 +415,10 @@ public final class SpawnStrategyRegistry
       return this;
     }
 
+    public boolean isStrategyRegistered(String strategy) {
+      return strategiesInRegistrationOrder.contains(strategy);
+    }
+
     /**
      * Finalizes the construction of the registry.
      *
