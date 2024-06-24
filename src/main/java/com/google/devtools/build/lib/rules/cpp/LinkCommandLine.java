@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionExce
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkerOrArchiver;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
@@ -197,13 +196,16 @@ public final class LinkCommandLine extends CommandLine {
         String linkerParamFile =
             variables
                 .getVariable(LINKER_PARAM_FILE.getVariableName())
-                .getStringValue(LINKER_PARAM_FILE.getVariableName());
+                .getStringValue(LINKER_PARAM_FILE.getVariableName(), PathMapper.NOOP);
         argv.addAll(
-            featureConfiguration.getCommandLine(actionName, variables, expander).stream()
+            featureConfiguration
+                .getCommandLine(actionName, variables, expander, PathMapper.NOOP)
+                .stream()
                 .filter(s -> s.contains(linkerParamFile))
                 .collect(toImmutableList()));
       } else {
-        argv.addAll(featureConfiguration.getCommandLine(actionName, variables, expander));
+        argv.addAll(
+            featureConfiguration.getCommandLine(actionName, variables, expander, PathMapper.NOOP));
       }
     } catch (ExpansionException e) {
       throw new CommandLineExpansionException(e.getMessage());
@@ -220,13 +222,16 @@ public final class LinkCommandLine extends CommandLine {
         String linkerParamFile =
             variables
                 .getVariable(LINKER_PARAM_FILE.getVariableName())
-                .getStringValue(LINKER_PARAM_FILE.getVariableName());
+                .getStringValue(LINKER_PARAM_FILE.getVariableName(), PathMapper.NOOP);
         argv.addAll(
-            featureConfiguration.getCommandLine(actionName, variables, expander).stream()
+            featureConfiguration
+                .getCommandLine(actionName, variables, expander, PathMapper.NOOP)
+                .stream()
                 .filter(s -> !s.contains(linkerParamFile))
                 .collect(toImmutableList()));
       } else {
-        argv.addAll(featureConfiguration.getCommandLine(actionName, variables, expander));
+        argv.addAll(
+            featureConfiguration.getCommandLine(actionName, variables, expander, PathMapper.NOOP));
       }
     } catch (ExpansionException e) {
       throw new CommandLineExpansionException(e.getMessage());
