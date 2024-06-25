@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -28,6 +29,34 @@ import net.starlark.java.eval.StarlarkThread;
 // helper? But it seems like a lot of existing allowlist machinery is geared toward allowlists on
 // rule attributes rather than what .bzl you're in.
 public final class BuiltinRestriction {
+
+  /** The "default" allowlist for restricted APIs added to aid the Java to Starlark migration. */
+  public static final ImmutableList<BuiltinRestriction.AllowlistEntry>
+      INTERNAL_STARLARK_API_ALLOWLIST =
+          ImmutableList.of(
+              // Testing
+              BuiltinRestriction.allowlistEntry("", "test"),
+              BuiltinRestriction.allowlistEntry("", "bazel_internal/test_rules"),
+
+              // BuildInfo
+              BuiltinRestriction.allowlistEntry("", "tools/build_defs/build_info"),
+              BuiltinRestriction.allowlistEntry("bazel_tools", "tools/build_defs/build_info"),
+
+              // Android rules
+              BuiltinRestriction.allowlistEntry("", "bazel_internal/test_rules/cc"),
+              BuiltinRestriction.allowlistEntry("", "tools/build_defs/android"),
+              BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_android"),
+              BuiltinRestriction.allowlistEntry("rules_android", ""),
+              BuiltinRestriction.allowlistEntry("build_bazel_rules_android", ""),
+
+              // Rust rules
+              BuiltinRestriction.allowlistEntry(
+                  "", "third_party/bazel_rules/rules_rust/rust/private"),
+              BuiltinRestriction.allowlistEntry("", "third_party/crubit"),
+              BuiltinRestriction.allowlistEntry("rules_rust", "rust/private"),
+
+              // CUDA rules
+              BuiltinRestriction.allowlistEntry("", "third_party/gpus/cuda"));
 
   private BuiltinRestriction() {}
 
@@ -88,6 +117,18 @@ public final class BuiltinRestriction {
   }
 
   /**
+   * Throws {@code EvalException} if the call is made outside of the default allowlist or outside of
+   * builtins.
+   *
+   * @throws NullPointerException if there is no currently executing Starlark function, or the
+   *     innermost Starlark function's module is not a .bzl file
+   */
+  public static void failIfCalledOutsideDefaultAllowlist(StarlarkThread thread)
+      throws EvalException {
+    failIfCalledOutsideAllowlist(thread, INTERNAL_STARLARK_API_ALLOWLIST);
+  }
+
+  /**
    * Throws {@code EvalException} if the given {@link BazelModuleContext} is not within either 1)
    * the builtins repository, or 2) a package or subpackage of an entry in the given allowlist.
    */
@@ -110,4 +151,5 @@ public final class BuiltinRestriction {
       throw Starlark.errorf("file '%s' cannot use private API", label.getCanonicalForm());
     }
   }
+   
 }
