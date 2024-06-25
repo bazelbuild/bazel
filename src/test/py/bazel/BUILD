@@ -395,6 +395,7 @@ py_test(
     tags = [
         "requires-network",
     ],
+    shard_count = 8,
     deps = [
         ":bzlmod_test_utils",
         ":test_base",
