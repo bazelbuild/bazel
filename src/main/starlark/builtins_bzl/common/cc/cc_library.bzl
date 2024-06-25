@@ -850,8 +850,6 @@ The list of other libraries that the library target depends on. Unlike with
 transitive deps) are only used for compilation of this library, and not libraries that
 depend on it. Libraries specified with <code>implementation_deps</code> are still linked in
 binary targets that depend on this library.
-<p>For now usage is limited to cc_libraries and guarded by the flag
-<code>--experimental_cc_implementation_deps</code>.</p>
 """),
         "strip_include_prefix": attr.string(doc = """
 The prefix to strip from the paths of the headers of this rule.
