@@ -33,9 +33,9 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.cmdline.SymbolGenerator;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.cmdline.SymbolGenerator;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -260,7 +260,22 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
     }
     ImmutableSet<PathFragment> ignoredPatterns = checkNotNull(ignoredPackagesValue).getPatterns();
 
-    try (Mutability mu = Mutability.create("Starlark repository")) {
+    try (Mutability mu = Mutability.create("Starlark repository");
+        StarlarkRepositoryContext starlarkRepositoryContext =
+            new StarlarkRepositoryContext(
+                rule,
+                packageLocator,
+                outputDirectory,
+                ignoredPatterns,
+                env,
+                ImmutableMap.copyOf(clientEnvironment),
+                downloadManager,
+                timeoutScaling,
+                processWrapper,
+                starlarkSemantics,
+                repositoryRemoteExecutor,
+                syscallCache,
+                directories)) {
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
       var repoMappingRecorder = new Label.RepoMappingRecorder();
@@ -278,22 +293,6 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
               new SymbolGenerator<>(key),
               () -> mainRepoMapping)
           .storeInThread(thread);
-
-      StarlarkRepositoryContext starlarkRepositoryContext =
-          new StarlarkRepositoryContext(
-              rule,
-              packageLocator,
-              outputDirectory,
-              ignoredPatterns,
-              env,
-              ImmutableMap.copyOf(clientEnvironment),
-              downloadManager,
-              timeoutScaling,
-              processWrapper,
-              starlarkSemantics,
-              repositoryRemoteExecutor,
-              syscallCache,
-              directories);
 
       if (starlarkRepositoryContext.isRemotable()) {
         // If a rule is declared remotable then invalidate it if remote execution gets
@@ -318,7 +317,6 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       // it possible to return null and not block but it doesn't seem to be easy with Starlark
       // structure as it is.
       Object result;
-      boolean fetchSuccessful = false;
       try (SilentCloseable c =
           Profiler.instance()
               .profile(ProfilerTask.STARLARK_REPOSITORY_FN, () -> rule.getLabel().toString())) {
@@ -326,19 +324,9 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
             Starlark.call(
                 thread,
                 function,
-                /*args=*/ ImmutableList.of(starlarkRepositoryContext),
-                /*kwargs=*/ ImmutableMap.of());
-        fetchSuccessful = true;
-      } finally {
-        if (starlarkRepositoryContext.ensureNoPendingAsyncTasks(
-            env.getListener(), fetchSuccessful)) {
-          if (fetchSuccessful) {
-            throw new RepositoryFunctionException(
-                new EvalException(
-                    "Pending asynchronous work after repository rule finished running"),
-                Transience.PERSISTENT);
-          }
-        }
+                /* args= */ ImmutableList.of(starlarkRepositoryContext),
+                /* kwargs= */ ImmutableMap.of());
+        starlarkRepositoryContext.markSuccessful();
       }
 
       RepositoryResolvedEvent resolved =
@@ -368,14 +356,6 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
 
       env.getListener().post(resolved);
     } catch (NeedsSkyframeRestartException e) {
-      // A dependency is missing, cleanup and returns null
-      try {
-        if (outputDirectory.exists()) {
-          outputDirectory.deleteTree();
-        }
-      } catch (IOException e1) {
-        throw new RepositoryFunctionException(e1, Transience.TRANSIENT);
-      }
       return null;
     } catch (EvalException e) {
       env.getListener()
@@ -390,6 +370,8 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
 
       throw new RepositoryFunctionException(
           new AlreadyReportedRepositoryAccessException(e), Transience.TRANSIENT);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
 
     if (!outputDirectory.isDirectory()) {
