@@ -424,7 +424,7 @@ public class BuildConfigurationValue
   @Override
   public boolean hasSeparateGenfilesDirectoryForStarlark(StarlarkThread thread)
       throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return hasSeparateGenfilesDirectory();
   }
 
@@ -528,7 +528,7 @@ public class BuildConfigurationValue
 
   @Override
   public boolean isSiblingRepositoryLayoutForStarlark(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return isSiblingRepositoryLayout();
   }
 
@@ -658,7 +658,7 @@ public class BuildConfigurationValue
 
   @Override
   public boolean stampBinariesForStarlark(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return stampBinaries();
   }
 
@@ -878,7 +878,7 @@ public class BuildConfigurationValue
 
   @Override
   public boolean runfilesEnabledForStarlark(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return runfilesEnabled();
   }
 

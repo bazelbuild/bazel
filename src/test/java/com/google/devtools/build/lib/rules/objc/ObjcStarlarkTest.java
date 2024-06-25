@@ -1996,7 +1996,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
     getConfiguredTarget("//foo:myrule");
 
-    assertContainsEvent("file '//foo:rule.bzl' cannot use private @_builtins API");
+    assertContainsEvent("file '//foo:rule.bzl' cannot use private API");
   }
 
   @Test
@@ -2015,7 +2015,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
     getConfiguredTarget("//foo:myrule");
 
-    assertContainsEvent("file '//foo:rule.bzl' cannot use private @_builtins API");
+    assertContainsEvent("file '//foo:rule.bzl' cannot use private API");
   }
 
   @Test
@@ -2035,7 +2035,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
 
     getConfiguredTarget("//foo:myrule");
 
-    assertContainsEvent("file '//foo:rule.bzl' cannot use private @_builtins API");
+    assertContainsEvent("file '//foo:rule.bzl' cannot use private API");
   }
 
   @Test
