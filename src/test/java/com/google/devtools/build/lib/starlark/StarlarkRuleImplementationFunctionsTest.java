@@ -3148,51 +3148,6 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs())).contains("a_Stool-runfiles");
   }
 
-  @Test
-  public void testCallableExecutablePath() throws Exception {
-    scratch.file("a/BUILD");
-    scratch.file(
-        "a/a.bzl",
-        """
-        def _impl(ctx):
-            f = ctx.actions.declare_file('output')
-            ctx.actions.run(
-                inputs = [],
-                outputs = [f],
-                arguments = [f.path],
-                tools = [ctx.executable._tool],
-                executable = ctx.executable._tool.path,
-                toolchain = None
-            )
-            return [DefaultInfo(files = depset([f]))]
-        r = rule(
-            implementation = _impl,
-            attrs = {
-                '_tool': attr.label(
-                    default = '//:tool.sh',
-                    executable = True,
-                    cfg = 'exec',
-                    allow_single_file = True,
-                ),
-            },
-        )
-        """);
-
-    scratch.file(
-        "BUILD",
-        """
-        load('//a:a.bzl', 'r')
-        r(name='r')
-        exports_files(["tool.sh"])
-        """);
-
-    ConfiguredTarget r = getConfiguredTarget("//:r");
-    SpawnAction action =
-        (SpawnAction)
-            getGeneratingAction(r.getProvider(FileProvider.class).getFilesToBuild().getSingleton());
-    assertThat(action.getArguments().getFirst()).isEqualTo("./tool.sh");
-  }
-
   // Verifies that configuration_field can only be used on 'label' attributes.
   @Test
   public void testConfigurationField_invalidAttributeType() throws Exception {

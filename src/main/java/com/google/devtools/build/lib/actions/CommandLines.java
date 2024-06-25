@@ -389,12 +389,8 @@ public abstract class CommandLines {
     }
   }
 
-  private static CommandLine toCommandLine(Object obj, boolean isFirst) {
-    if (obj instanceof CommandLine commandLine) {
-      return commandLine;
-    } else {
-      return isFirst ? new CallableSingletonCommandLine(obj) : new SingletonCommandLine(obj);
-    }
+  private static CommandLine toCommandLine(Object obj) {
+    return obj instanceof CommandLine ? (CommandLine) obj : new SingletonCommandLine(obj);
   }
 
   private static final class OnePartCommandLines extends CommandLines {
@@ -406,8 +402,7 @@ public abstract class CommandLines {
 
     @Override
     public ImmutableList<CommandLineAndParamFileInfo> unpack() {
-      return ImmutableList.of(
-          new CommandLineAndParamFileInfo(toCommandLine(part1, /* isFirst= */ true), null));
+      return ImmutableList.of(new CommandLineAndParamFileInfo(toCommandLine(part1), null));
     }
   }
 
@@ -425,9 +420,8 @@ public abstract class CommandLines {
     @Override
     public ImmutableList<CommandLineAndParamFileInfo> unpack() {
       return ImmutableList.of(
-          new CommandLineAndParamFileInfo(toCommandLine(part1, /* isFirst= */ true), null),
-          new CommandLineAndParamFileInfo(
-              toCommandLine(part2, /* isFirst= */ false), part2ParamFileInfo));
+          new CommandLineAndParamFileInfo(toCommandLine(part1), null),
+          new CommandLineAndParamFileInfo(toCommandLine(part2), part2ParamFileInfo));
     }
   }
 
@@ -445,9 +439,9 @@ public abstract class CommandLines {
     @Override
     public ImmutableList<CommandLineAndParamFileInfo> unpack() {
       return ImmutableList.of(
-          new CommandLineAndParamFileInfo(toCommandLine(part1, /* isFirst= */ true), null),
-          new CommandLineAndParamFileInfo(toCommandLine(part2, /* isFirst= */ false), null),
-          new CommandLineAndParamFileInfo(toCommandLine(part3, /* isFirst= */ false), null));
+          new CommandLineAndParamFileInfo(toCommandLine(part1), null),
+          new CommandLineAndParamFileInfo(toCommandLine(part2), null),
+          new CommandLineAndParamFileInfo(toCommandLine(part3), null));
     }
   }
 
@@ -474,11 +468,9 @@ public abstract class CommandLines {
     @Override
     public ImmutableList<CommandLineAndParamFileInfo> unpack() {
       return ImmutableList.of(
-          new CommandLineAndParamFileInfo(toCommandLine(part1, /* isFirst= */ true), null),
-          new CommandLineAndParamFileInfo(
-              toCommandLine(part2, /* isFirst= */ false), part2ParamFileInfo),
-          new CommandLineAndParamFileInfo(
-              toCommandLine(part3, /* isFirst= */ false), part3ParamFileInfo));
+          new CommandLineAndParamFileInfo(toCommandLine(part1), null),
+          new CommandLineAndParamFileInfo(toCommandLine(part2), part2ParamFileInfo),
+          new CommandLineAndParamFileInfo(toCommandLine(part3), part3ParamFileInfo));
     }
   }
 
@@ -512,7 +504,7 @@ public abstract class CommandLines {
             paramFileInfo = (ParamFileInfo) commandLines[++i];
           }
         } else {
-          commandLine = toCommandLine(obj, i == 0);
+          commandLine = new SingletonCommandLine(obj);
         }
 
         result.add(new CommandLineAndParamFileInfo(commandLine, paramFileInfo));
@@ -529,46 +521,21 @@ public abstract class CommandLines {
     }
 
     @Override
-    public Iterable<String> arguments() {
+    public Iterable<String> arguments() throws CommandLineExpansionException, InterruptedException {
       return arguments(null, PathMapper.NOOP);
     }
 
     @Override
     public Iterable<String> arguments(
         @Nullable ArtifactExpander artifactExpander, PathMapper pathMapper) {
-      if (arg instanceof PathStrippable pathStrippable) {
-        return ImmutableList.of(pathStrippable.expand(pathMapper::map));
-      }
-      return ImmutableList.of(CommandLineItem.expandToCommandLine(arg));
-    }
-  }
-
-  /** A command line implementation for the single (first) executable path argument. */
-  private static class CallableSingletonCommandLine extends AbstractCommandLine {
-    private final Object arg;
-
-    CallableSingletonCommandLine(Object arg) {
-      this.arg = arg;
-    }
-
-    @Override
-    public Iterable<String> arguments() {
-      return arguments(null, PathMapper.NOOP);
-    }
-
-    @Override
-    public Iterable<String> arguments(
-        @Nullable ArtifactExpander artifactExpander, PathMapper pathMapper) {
-      PathFragment path;
-      if (arg instanceof String s) {
-        // StarlarkAction stores the executable path as a string to save memory.
-        path = pathMapper.map(PathFragment.create(s));
-      } else if (arg instanceof PathStrippable pathStrippable) {
-        path = PathFragment.create(pathStrippable.expand(pathMapper::map));
-      } else {
-        path = PathFragment.create(CommandLineItem.expandToCommandLine(arg));
-      }
-      return ImmutableList.of(path.getCallablePathString());
+      return ImmutableList.of(
+          switch (arg) {
+            case PathStrippable ps -> ps.expand(pathMapper::map);
+              // StarlarkAction stores the executable path as a string to save memory, but it should
+              // still be mapped just like a PathFragment.
+            case String s -> pathMapper.map(PathFragment.create(s)).getPathString();
+            default -> CommandLineItem.expandToCommandLine(arg);
+          });
     }
   }
 }
