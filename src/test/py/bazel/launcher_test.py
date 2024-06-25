@@ -78,15 +78,15 @@ class LauncherTest(test_base.TestBase):
     self.assertEqual(len(stdout), 4)
     self.assertEqual(stdout[0], 'hello java')
     if self.IsWindows():
-      self.assertRegexpMatches(
+      self.assertRegex(
           stdout[1], r'java_runfiles=.*foo\\foo%s.runfiles' % binary_suffix)
       self.assertEqual(stdout[2], 'runfiles_manifest_only=1')
-      self.assertRegexpMatches(
+      self.assertRegex(
           stdout[3], r'^runfiles_manifest_file=[a-zA-Z]:[/\\].*MANIFEST$')
     else:
-      self.assertRegexpMatches(stdout[1], r'java_runfiles=.*/foo/foo.runfiles')
+      self.assertRegex(stdout[1], r'java_runfiles=.*/foo/foo.runfiles')
       self.assertEqual(stdout[2], 'runfiles_manifest_only=')
-      self.assertRegexpMatches(stdout[3], r'^runfiles_manifest_file.*MANIFEST$')
+      self.assertRegex(stdout[3], r'^runfiles_manifest_file.*MANIFEST$')
 
   def _buildShBinaryTargets(self, bazel_bin, bin1_suffix):
     self.RunBazel(['build', '//foo:bin1.sh'])
@@ -159,7 +159,7 @@ class LauncherTest(test_base.TestBase):
     self.assertEqual(stdout[0], 'hello shell')
     if self.IsWindows():
       self.assertEqual(stdout[1], 'runfiles_manifest_only=1')
-      self.assertRegexpMatches(
+      self.assertRegex(
           stdout[2],
           (r'^runfiles_manifest_file='
            r'[a-zA-Z]:/.*/foo/bin1.sh%s.runfiles/MANIFEST$' % bin1_suffix))
@@ -572,7 +572,7 @@ class LauncherTest(test_base.TestBase):
     _, stdout, _ = self.RunProgram([binary, '--classpath_limit=0', print_cmd])
     self.assertIn('-classpath', stdout)
     classpath = stdout[stdout.index('-classpath') + 1]
-    self.assertRegexpMatches(classpath, r'foo-[A-Za-z0-9]+-classpath.jar$')
+    self.assertRegex(classpath, r'foo-[A-Za-z0-9]+-classpath.jar$')
 
   def testWindowsNativeLauncherInNonEnglishPath(self):
     if not self.IsWindows():
