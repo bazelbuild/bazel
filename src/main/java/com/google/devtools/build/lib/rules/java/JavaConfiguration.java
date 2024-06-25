@@ -485,7 +485,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   @Override
   public boolean autoCreateJavaTestDeployJars(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return autoCreateDeployJarForJavaTests;
   }
 }
