@@ -82,13 +82,6 @@ public class BuildConfigurationValue
   private static final Interner<ImmutableSortedMap<Class<? extends Fragment>, Fragment>>
       fragmentsInterner = BlazeInterners.newWeakInterner();
 
-  private static final ImmutableSet<BuiltinRestriction.AllowlistEntry> ANDROID_ALLOWLIST =
-      ImmutableSet.of(
-          BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_android"),
-          BuiltinRestriction.allowlistEntry("build_bazel_rules_android", ""),
-          BuiltinRestriction.allowlistEntry("rules_android", ""),
-          BuiltinRestriction.allowlistEntry("", "tools/build_defs/android"));
-
   /** Global state necessary to build a BuildConfiguration. */
   public interface GlobalStateProvider {
     /** Computes the default shell environment for actions from the command line options. */
@@ -741,7 +734,7 @@ public class BuildConfigurationValue
 
   @Override
   public boolean isToolConfigurationForStarlark(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ANDROID_ALLOWLIST);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return isToolConfiguration();
   }
 
