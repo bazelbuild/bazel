@@ -56,7 +56,10 @@ public final class BuiltinRestriction {
               BuiltinRestriction.allowlistEntry("rules_rust", "rust/private"),
 
               // CUDA rules
-              BuiltinRestriction.allowlistEntry("", "third_party/gpus/cuda"));
+              BuiltinRestriction.allowlistEntry("", "third_party/gpus/cuda"),
+
+              // Go rules
+              BuiltinRestriction.allowlistEntry("", "tools/build_defs/go"));
 
   private BuiltinRestriction() {}
 
