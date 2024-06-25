@@ -191,7 +191,7 @@ OS constraint. To migrate the CPU constraint, check this chart:
 
 CPU Value     | Platform
 ------------- | ------------------------------------------
-`armeabi-v7a` | `@platforms//cpu:arm`
+`armeabi-v7a` | `@platforms//cpu:armv7`
 `arm64-v8a`   | `@platforms//cpu:arm64`
 `x86`         | `@platforms//cpu:x86_32`
 `x86_64`      | `@platforms//cpu:x86_64`
