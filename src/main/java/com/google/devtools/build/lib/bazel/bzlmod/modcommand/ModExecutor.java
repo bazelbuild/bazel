@@ -140,7 +140,8 @@ public class ModExecutor {
   }
 
   public void showExtension(
-      ImmutableSet<ModuleExtensionId> extensions, ImmutableSet<ModuleKey> fromUsages) {
+      ImmutableSet<ModuleExtensionId> extensions, ImmutableSet<ModuleKey> fromUsages)
+      throws InvalidArgumentException {
     for (ModuleExtensionId extension : extensions) {
       displayExtension(extension, fromUsages);
     }
@@ -463,11 +464,16 @@ public class ModExecutor {
   }
 
   /** Helper to display show_extension info. */
-  private void displayExtension(ModuleExtensionId extension, ImmutableSet<ModuleKey> fromUsages) {
+  private void displayExtension(ModuleExtensionId extension, ImmutableSet<ModuleKey> fromUsages)
+      throws InvalidArgumentException {
     printer.printf("## %s:\n", extension.asTargetString());
     printer.println();
     printer.println("Fetched repositories:");
-    // TODO(wyv): if `extension` doesn't exist, we crash. We should report a good error instead!
+    if (!extensionRepoImports.containsKey(extension)) {
+      throw new InvalidArgumentException(
+          String.format(
+              "No extension %s exists in the dependency graph", extension.asTargetString()));
+    }
     ImmutableSortedSet<String> usedRepos =
         ImmutableSortedSet.copyOf(extensionRepoImports.get(extension).keySet());
     ImmutableSortedSet<String> unusedRepos =
