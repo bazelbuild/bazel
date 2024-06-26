@@ -104,6 +104,7 @@ public class AndroidManifestProcessor {
   public Path mergeManifest(
       Path manifest,
       Map<Path, String> mergeeManifests,
+      Map<Path, String> featureManifests,
       MergeType mergeType,
       Map<String, String> values,
       String customPackage,
@@ -111,7 +112,10 @@ public class AndroidManifestProcessor {
       Path logFile,
       boolean logWarnings)
       throws ManifestProcessingException {
-    if (mergeeManifests.isEmpty() && values.isEmpty() && Strings.isNullOrEmpty(customPackage)) {
+    if (mergeeManifests.isEmpty() &&
+            featureManifests.isEmpty() &&
+            values.isEmpty() && 
+            Strings.isNullOrEmpty(customPackage)) {
       return manifest;
     }
 
@@ -126,6 +130,19 @@ public class AndroidManifestProcessor {
     for (Map.Entry<Path, String> mergeeManifest : mergeeManifests.entrySet()) {
       manifestMerger.addLibraryManifest(
           mergeeManifest.getValue(), mergeeManifest.getKey().toFile());
+    }
+
+    // Add dynamic features merge manifests
+    // If there is a feature manifest, there should only be one feature manifest to be merged
+    if (featureManifests.size() > 1) {
+          throw new ManifestProcessingException(
+              "More than one feature manifest to merge. At most there can only be one.");
+    }
+    for (Map.Entry<Path, String> featureManifest: featureManifests.entrySet()) {
+        manifestMerger.addFlavorAndBuildTypeManifest(
+              featureManifest.getKey().toFile());
+        manifestMerger.withFeatures(Feature.ADD_DYNAMIC_FEATURE_ATTRIBUTES);
+        manifestMerger.setFeatureName(featureManifest.getValue());
     }
 
     // Extract SystemProperties from the provided values.
