@@ -18,6 +18,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.RuleVisibility;
@@ -83,6 +84,9 @@ public final class PrecomputedValue implements SkyValue {
 
   public static final Precomputed<StarlarkSemantics> STARLARK_SEMANTICS =
       new Precomputed<>("starlark_semantics");
+
+  public static final Precomputed<ImmutableMap<String, Object>> UNINJECTED_BUILD_BZL_ENV =
+      new Precomputed<>("uninjected_build_bzl_env");
 
   public static final Precomputed<UUID> BUILD_ID =
       new Precomputed<>("build_id", /* shareable= */ false);

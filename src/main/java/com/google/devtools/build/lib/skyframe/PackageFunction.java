@@ -460,11 +460,13 @@ public abstract class PackageFunction implements SkyFunction {
       if (bzlLoadFunctionForInlining == null) {
         starlarkBuiltinsValue =
             (StarlarkBuiltinsValue)
-                env.getValueOrThrow(StarlarkBuiltinsValue.key(), BuiltinsFailedException.class);
+                env.getValueOrThrow(
+                    StarlarkBuiltinsValue.key(/* withAutoloads= */ true),
+                    BuiltinsFailedException.class);
       } else {
         starlarkBuiltinsValue =
             StarlarkBuiltinsFunction.computeInline(
-                StarlarkBuiltinsValue.key(),
+                StarlarkBuiltinsValue.key(/* withAutoloads= */ true),
                 BzlLoadFunction.InliningState.create(env),
                 packageFactory.getRuleClassProvider().getBazelStarlarkEnvironment(),
                 bzlLoadFunctionForInlining);
@@ -1244,6 +1246,7 @@ public abstract class PackageFunction implements SkyFunction {
     // TODO(#11437): Remove conditional once disabling injection is no longer allowed.
     Map<String, Object> predeclared =
         semantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH).isEmpty()
+            // TODO: just use builtins without the condition here
             ? packageFactory
                 .getRuleClassProvider()
                 .getBazelStarlarkEnvironment()

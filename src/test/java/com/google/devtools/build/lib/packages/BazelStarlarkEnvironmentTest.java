@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -105,7 +104,7 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
             InjectionException.class,
             () ->
                 starlarkEnv.createBuildBzlEnvUsingInjection(
-                    exportedToplevels, exportedRules, /*overridesList=*/ ImmutableList.of()));
+                    exportedToplevels, exportedRules, getStarlarkSemantics()));
     assertThat(ex).hasMessageThat().contains(message);
   }
 
@@ -117,9 +116,7 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
     InjectionException ex =
         assertThrows(
             InjectionException.class,
-            () ->
-                starlarkEnv.createBuildEnvUsingInjection(
-                    exportedRules, /*overridesList=*/ ImmutableList.of()));
+            () -> starlarkEnv.createBuildEnvUsingInjection(exportedRules, getStarlarkSemantics()));
     assertThat(ex).hasMessageThat().contains(message);
   }
 
@@ -129,7 +126,7 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
         starlarkEnv.createBuildBzlEnvUsingInjection(
             ImmutableMap.of("overridable_symbol", "new_value"),
             ImmutableMap.of("overridable_rule", "new_rule"),
-            /*overridesList=*/ ImmutableList.of());
+            getStarlarkSemantics());
     assertThat(env).containsEntry("overridable_symbol", "new_value");
     assertThat(((Structure) env.get("native")).getValue("overridable_rule")).isEqualTo("new_rule");
   }
@@ -138,7 +135,7 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
   public void buildInjection() throws Exception {
     Map<String, Object> env =
         starlarkEnv.createBuildEnvUsingInjection(
-            ImmutableMap.of("overridable_rule", "new_rule"), /*overridesList=*/ ImmutableList.of());
+            ImmutableMap.of("overridable_rule", "new_rule"), getStarlarkSemantics());
     assertThat(env).containsEntry("overridable_rule", "new_rule");
   }
 
@@ -209,7 +206,7 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
                 "-another_overridable_symbol",
                 "another_new_value"),
             ImmutableMap.of("-overridable_rule", "new_rule"),
-            /*overridesList=*/ ImmutableList.of());
+            getStarlarkSemantics());
     assertThat(env).containsEntry("overridable_symbol", "new_value");
     assertThat(env).containsEntry("another_overridable_symbol", "another_original_value");
     // Match the original rule's toString since the actual specific object is not easily accessible.
@@ -219,6 +216,8 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
 
   @Test
   public void injectionStatus_canBeOverridden() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=-overridable_symbol,+another_overridable_symbol,+overridable_rule");
     Map<String, Object> env =
         starlarkEnv.createBuildBzlEnvUsingInjection(
             ImmutableMap.of(
@@ -227,8 +226,7 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
                 "-another_overridable_symbol",
                 "another_new_value"),
             ImmutableMap.of("-overridable_rule", "new_rule"),
-            ImmutableList.of(
-                "-overridable_symbol", "+another_overridable_symbol", "+overridable_rule"));
+            getStarlarkSemantics());
     assertThat(env).containsEntry("overridable_symbol", "original_value");
     assertThat(env).containsEntry("another_overridable_symbol", "another_new_value");
     assertThat(((Structure) env.get("native")).getValue("overridable_rule")).isEqualTo("new_rule");
@@ -236,6 +234,8 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
 
   @Test
   public void injectionStatus_cannotBeOverriddenForUnprefixedKeys() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=+overridable_symbol,-another_overridable_symbol");
     Map<String, Object> env =
         starlarkEnv.createBuildBzlEnvUsingInjection(
             ImmutableMap.of(
@@ -244,7 +244,7 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
                 "another_overridable_symbol",
                 "another_new_value"),
             ImmutableMap.of(),
-            ImmutableList.of("+overridable_symbol", "-another_overridable_symbol"));
+            getStarlarkSemantics());
     // Both the + and - are no-ops since the keys aren't prefixed.
     assertThat(env).containsEntry("overridable_symbol", "new_value");
     assertThat(env).containsEntry("another_overridable_symbol", "another_new_value");
@@ -252,54 +252,60 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
 
   @Test
   public void injectionStatus_overridingUnknownKeysIsNoop() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=+overridable_symbol,+unknown_symbol,-another_unknown_symbol");
     Map<String, Object> env =
         starlarkEnv.createBuildBzlEnvUsingInjection(
             ImmutableMap.of("-overridable_symbol", "new_value"),
             ImmutableMap.of(),
-            ImmutableList.of("+overridable_symbol", "+unknown_symbol", "-another_unknown_symbol"));
+            getStarlarkSemantics());
     // Both the + and - are no-ops since the keys aren't prefixed.
     assertThat(env).containsEntry("overridable_symbol", "new_value");
   }
 
   @Test
   public void injectionStatus_lastOverrideTakesPrecedence() throws Exception {
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=+overridable_symbol,-overridable_symbol");
     Map<String, Object> env =
         starlarkEnv.createBuildBzlEnvUsingInjection(
             ImmutableMap.of("-overridable_symbol", "new_value"),
             ImmutableMap.of(),
-            ImmutableList.of("+overridable_symbol", "-overridable_symbol"));
+            getStarlarkSemantics());
     // Both the + and - are no-ops since the keys aren't prefixed.
     assertThat(env).containsEntry("overridable_symbol", "original_value");
   }
 
   @Test
   public void injectionStatus_invalidOverrideItem_empty() throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_injection_override=''");
     InjectionException ex =
         assertThrows(
             InjectionException.class,
             () ->
                 starlarkEnv.createBuildBzlEnvUsingInjection(
-                    ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of("")));
+                    ImmutableMap.of(), ImmutableMap.of(), getStarlarkSemantics()));
     assertThat(ex).hasMessageThat().contains("Invalid injection override item: ''");
   }
 
   @Test
   public void injectionStatus_invalidOverrideItem_unprefixed() throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_injection_override=foo");
     InjectionException ex =
         assertThrows(
             InjectionException.class,
             () ->
                 starlarkEnv.createBuildBzlEnvUsingInjection(
-                    ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of("foo")));
+                    ImmutableMap.of(), ImmutableMap.of(), getStarlarkSemantics()));
     assertThat(ex).hasMessageThat().contains("Invalid injection override item: 'foo'");
   }
 
   @Test
   public void injectionStatus_appliesToBuildFiles() throws Exception {
+    setBuildLanguageOptions("--experimental_builtins_injection_override=-overridable_rule");
     Map<String, Object> env =
         starlarkEnv.createBuildEnvUsingInjection(
-            ImmutableMap.of("+overridable_rule", "new_rule"),
-            ImmutableList.of("-overridable_rule"));
+            ImmutableMap.of("+overridable_rule", "new_rule"), getStarlarkSemantics());
     // Match the original rule's toString since the actual specific object is not easily accessible.
     assertThat(env.get("overridable_rule").toString()).contains("overridable_rule");
   }
