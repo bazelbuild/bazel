@@ -287,7 +287,6 @@ bazel_fragments["CppOptions"] = fragment(
         "//command_line_option:incompatible_require_ctx_in_configure_features",
         "//command_line_option:incompatible_make_thinlto_command_lines_standalone",
         "//command_line_option:incompatible_use_specific_tool_files",
-        "//command_line_option:incompatible_disable_nocopts",
         "//command_line_option:incompatible_validate_top_level_header_inclusions",
         "//command_line_option:strict_system_includes",
         "//command_line_option:experimental_use_cpp_compile_action_args_params_file",

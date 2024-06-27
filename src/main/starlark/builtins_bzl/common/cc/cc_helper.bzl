@@ -1153,10 +1153,6 @@ def _copts_filter(ctx, additional_make_variable_substitutions):
     if nocopts == None or len(nocopts) == 0:
         return nocopts
 
-    # Check if nocopts is disabled.
-    if ctx.fragments.cpp.disable_nocopts():
-        fail("This attribute was removed. See https://github.com/bazelbuild/bazel/issues/8706 for details.", attr = "nocopts")
-
     # Expand nocopts and create CoptsFilter.
     return _expand(ctx, nocopts, additional_make_variable_substitutions)
 

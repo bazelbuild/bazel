@@ -959,38 +959,6 @@ public class CcBinaryThinLtoObjDirTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCoptNoCoptAttributes() throws Exception {
-    createBuildFiles("copts = ['acopt', 'nocopt1'], nocopts = 'nocopt1|nocopt2',");
-
-    setupThinLTOCrosstool(CppRuleClasses.SUPPORTS_PIC);
-    useConfiguration("--copt=nocopt2", "--noincompatible_disable_nocopts");
-
-    /*
-    We follow the chain from the final product backwards.
-
-    binary <=[Link]=
-    .lto-obj/...o <=[LTOBackend]=
-    */
-    ConfiguredTarget pkg = getConfiguredTarget("//pkg:bin");
-
-    Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
-    String rootExecPath = pkgArtifact.getRoot().getExecPathString();
-
-    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
-    assertThat(linkAction.getOutputs()).containsExactly(pkgArtifact);
-
-    LtoBackendAction backendAction =
-        (LtoBackendAction)
-            getPredecessorByInputName(
-                linkAction, "pkg/bin.lto-obj/" + rootExecPath + "/pkg/_objs/bin/binfile.pic.o");
-    assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
-    assertThat(backendAction.getArguments()).contains("acopt");
-    // TODO(b/122303926): Remove when nocopts are removed, or uncomment and fix if not removing.
-    // assertThat(backendAction.getArguments()).doesNotContain("nocopt1");
-    // assertThat(backendAction.getArguments()).doesNotContain("nocopt2");
-  }
-
-  @Test
   public void testLtoBackendOpt() throws Exception {
     createBuildFiles();
 

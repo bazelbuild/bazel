@@ -861,16 +861,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.useSpecificToolFiles;
   }
 
-  public boolean disableNoCopts() {
-    return cppOptions.disableNoCopts;
-  }
-
-  @Override
-  public boolean disableNocoptsStarlark(StarlarkThread thread) throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return disableNoCopts();
-  }
-
   @Override
   public boolean appleGenerateDsym() {
     return appleGenerateDsym;
