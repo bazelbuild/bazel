@@ -127,6 +127,11 @@ def _create_strip_action(ctx, cc_toolchain, cpp_config, input, output, feature_c
         action_name = "strip",
         variables = variables,
     )
+    env = cc_common.get_environment_variables(
+        feature_configuration = feature_configuration,
+        action_name = "strip",
+        variables = variables,
+    )
     execution_info = {}
     for execution_requirement in cc_common.get_tool_requirement_for_action(feature_configuration = feature_configuration, action_name = "strip"):
         execution_info[execution_requirement] = ""
@@ -137,6 +142,7 @@ def _create_strip_action(ctx, cc_toolchain, cpp_config, input, output, feature_c
         ),
         outputs = [output],
         use_default_shell_env = True,
+        env = env,
         executable = cc_common.get_tool_for_action(feature_configuration = feature_configuration, action_name = "strip"),
         toolchain = cc_helper.CPP_TOOLCHAIN_TYPE,
         execution_requirements = execution_info,
