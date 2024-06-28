@@ -100,7 +100,7 @@ def _java_runtime_rule_impl(ctx):
     java_binary_exec_path = paths.get_relative(java_home, _get_bin_java(ctx))
     java_binary_runfiles_path = _get_runfiles_java_executable(ctx, java_home, ctx.label)
 
-    java = ctx.executable.java.path
+    java = ctx.executable.java
     if java:
         if paths.is_absolute(java_home):
             fail("'java_home' with an absolute path requires 'java' to be empty.")
