@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -71,7 +72,8 @@ final class HeaderDiscovery {
       NestedSet<Artifact> allowedDerivedInputs,
       Path execRoot,
       ArtifactResolver artifactResolver,
-      boolean siblingRepositoryLayout)
+      boolean siblingRepositoryLayout,
+      PathMapper pathMapper)
       throws ActionExecutionException {
     Map<PathFragment, Artifact> regularDerivedArtifacts = new HashMap<>();
     Map<PathFragment, SpecialArtifact> treeArtifacts = new HashMap<>();
@@ -89,9 +91,9 @@ final class HeaderDiscovery {
       // whose path changed, that is not taken into account by the action cache, and it will get an
       // action cache hit using the remaining un-renamed artifact.
       if (a.isTreeArtifact()) {
-        treeArtifacts.putIfAbsent(a.getExecPath(), (SpecialArtifact) a);
+        treeArtifacts.putIfAbsent(pathMapper.map(a.getExecPath()), (SpecialArtifact) a);
       } else {
-        regularDerivedArtifacts.putIfAbsent(a.getExecPath(), a);
+        regularDerivedArtifacts.putIfAbsent(pathMapper.map(a.getExecPath()), a);
       }
     }
 

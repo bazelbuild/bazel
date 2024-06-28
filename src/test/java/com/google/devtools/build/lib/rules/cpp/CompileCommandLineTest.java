@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
@@ -100,7 +101,7 @@ public class CompileCommandLineTest extends BuildViewTestCase {
             .build();
     assertThat(
             compileCommandLine.getArguments(
-                /* parameterFilePath= */ null, /* overwrittenVariables= */ null))
+                /* parameterFilePath= */ null, /* overwrittenVariables= */ null, PathMapper.NOOP))
         .contains("-some_foo_flag");
   }
 
@@ -143,7 +144,7 @@ public class CompileCommandLineTest extends BuildViewTestCase {
             .setCoptsFilter(CoptsFilter.fromRegex(Pattern.compile(".*i_am_a_flag.*")))
             .build();
     return compileCommandLine.getArguments(
-        /* parameterFilePath= */ null, /* overwrittenVariables= */ null);
+        /* parameterFilePath= */ null, /* overwrittenVariables= */ null, PathMapper.NOOP);
   }
 
   private CompileCommandLine.Builder makeCompileCommandLineBuilder() throws Exception {

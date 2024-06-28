@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -1431,7 +1432,12 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             ActionExecutionException.class,
             () ->
                 compileAction.discoverInputsFromDotdFiles(
-                    new ActionExecutionContextBuilder().build(), null, null, null, false));
+                    new ActionExecutionContextBuilder().build(),
+                    null,
+                    null,
+                    null,
+                    false,
+                    PathMapper.NOOP));
     assertThat(expected).hasMessageThat().contains("error while parsing .d file");
   }
 
@@ -2218,7 +2224,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     useConfiguration("--apple_platform_type=ios", "--cpu=ios_x86_64");
 
     CppCompileAction compileA = (CppCompileAction) compileAction("//bin:lib", "lib1.o");
-    assertThat(compileA.compileCommandLine.getCopts())
+    assertThat(compileA.compileCommandLine.getCopts(PathMapper.NOOP))
         .containsAtLeast("bin/lib1.m", "bin/lib2.m", "bin/data.data", "bin/header.h");
   }
 

@@ -459,9 +459,9 @@ public enum CompileBuildVariables {
     }
 
     if (!externalIncludeDirs.isEmpty()) {
-      buildVariables.addStringSequenceVariable(
+      buildVariables.addPathFragmentSequenceVariable(
           EXTERNAL_INCLUDE_PATHS.getVariableName(),
-          Iterables.transform(externalIncludeDirs, PathFragment::getSafePathString));
+          NestedSetBuilder.wrap(Order.STABLE_ORDER, externalIncludeDirs));
     }
 
     buildVariables.addAllStringVariables(additionalBuildVariables);

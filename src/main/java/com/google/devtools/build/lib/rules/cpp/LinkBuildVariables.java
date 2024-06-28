@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -282,7 +283,10 @@ public enum LinkBuildVariables {
       opts.addAll(userLinkFlags);
       opts.addAll(
           featureConfiguration.getCommandLine(
-              CppActionNames.LTO_INDEXING, buildVariables.build(), /* expander= */ null));
+              CppActionNames.LTO_INDEXING,
+              buildVariables.build(),
+              /* expander= */ null,
+              PathMapper.NOOP));
       opts.addAll(cppConfiguration.getLtoIndexOptions());
       userLinkFlagsWithLtoIndexingIfNeeded = opts.build();
     }

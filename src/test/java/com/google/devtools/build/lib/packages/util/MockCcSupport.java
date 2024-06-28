@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
@@ -179,7 +180,8 @@ public abstract class MockCcSupport {
         .isAvailable(LinkBuildVariables.USER_LINK_FLAGS.getVariableName())) {
       return CcToolchainVariables.toStringList(
           linkCommandLine.getBuildVariables(),
-          LinkBuildVariables.USER_LINK_FLAGS.getVariableName());
+          LinkBuildVariables.USER_LINK_FLAGS.getVariableName(),
+          PathMapper.NOOP);
     } else {
       return ImmutableList.of();
     }

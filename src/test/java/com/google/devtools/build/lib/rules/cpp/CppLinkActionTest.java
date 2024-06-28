@@ -313,10 +313,11 @@ public final class CppLinkActionTest extends BuildViewTestCase {
             .getLinkCommandLineForTesting()
             .getBuildVariables()
             .getSequenceVariable(
-                LinkBuildVariables.RUNTIME_LIBRARY_SEARCH_DIRECTORIES.getVariableName());
+                LinkBuildVariables.RUNTIME_LIBRARY_SEARCH_DIRECTORIES.getVariableName(),
+                PathMapper.NOOP);
     List<String> directories = new ArrayList<>();
     for (VariableValue value : runtimeLibrarySearchDirectories) {
-      directories.add(value.getStringValue("runtime_library_search_directory"));
+      directories.add(value.getStringValue("runtime_library_search_directory", PathMapper.NOOP));
     }
     assertThat(Joiner.on(" ").join(directories)).matches(".*some-dir .*some-other-dir");
   }

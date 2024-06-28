@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -502,7 +503,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(environmentVariables)
         .containsExactlyEntriesIn(
             featureConfiguration.getEnvironmentVariables(
-                CppActionNames.CPP_COMPILE, CcToolchainVariables.EMPTY));
+                CppActionNames.CPP_COMPILE, CcToolchainVariables.EMPTY, PathMapper.NOOP));
   }
 
   @Test
@@ -7445,9 +7446,21 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     CppCompileAction action =
         (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
 
-    action.getCompileCommandLine().getVariables().getSequenceVariable("string_sequence_variable");
-    action.getCompileCommandLine().getVariables().getStringVariable("string_variable");
-    action.getCompileCommandLine().getVariables().getSequenceVariable("string_depset_variable");
+    var unused1 =
+        action
+            .getCompileCommandLine()
+            .getVariables()
+            .getSequenceVariable("string_sequence_variable", PathMapper.NOOP);
+    var unused2 =
+        action
+            .getCompileCommandLine()
+            .getVariables()
+            .getStringVariable("string_variable", PathMapper.NOOP);
+    var unused3 =
+        action
+            .getCompileCommandLine()
+            .getVariables()
+            .getSequenceVariable("string_depset_variable", PathMapper.NOOP);
   }
 
   @Test
@@ -7461,12 +7474,15 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     action
         .getLinkCommandLineForTesting()
         .getBuildVariables()
-        .getSequenceVariable("string_sequence_variable");
-    action.getLinkCommandLineForTesting().getBuildVariables().getStringVariable("string_variable");
+        .getSequenceVariable("string_sequence_variable", PathMapper.NOOP);
     action
         .getLinkCommandLineForTesting()
         .getBuildVariables()
-        .getSequenceVariable("string_depset_variable");
+        .getStringVariable("string_variable", PathMapper.NOOP);
+    action
+        .getLinkCommandLineForTesting()
+        .getBuildVariables()
+        .getSequenceVariable("string_depset_variable", PathMapper.NOOP);
   }
 
   @Test
@@ -7482,12 +7498,15 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     action
         .getLinkCommandLineForTesting()
         .getBuildVariables()
-        .getSequenceVariable("string_sequence_variable");
-    action.getLinkCommandLineForTesting().getBuildVariables().getStringVariable("string_variable");
+        .getSequenceVariable("string_sequence_variable", PathMapper.NOOP);
     action
         .getLinkCommandLineForTesting()
         .getBuildVariables()
-        .getSequenceVariable("string_depset_variable");
+        .getStringVariable("string_variable", PathMapper.NOOP);
+    action
+        .getLinkCommandLineForTesting()
+        .getBuildVariables()
+        .getSequenceVariable("string_depset_variable", PathMapper.NOOP);
   }
 
   @Test

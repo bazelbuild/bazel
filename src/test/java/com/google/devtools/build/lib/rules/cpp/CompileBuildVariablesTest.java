@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -59,9 +60,13 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
 
     CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
-    assertThat(variables.getStringVariable(CompileBuildVariables.SOURCE_FILE.getVariableName()))
+    assertThat(
+            variables.getStringVariable(
+                CompileBuildVariables.SOURCE_FILE.getVariableName(), PathMapper.NOOP))
         .contains("x/bin.cc");
-    assertThat(variables.getStringVariable(CompileBuildVariables.OUTPUT_FILE.getVariableName()))
+    assertThat(
+            variables.getStringVariable(
+                CompileBuildVariables.OUTPUT_FILE.getVariableName(), PathMapper.NOOP))
         .contains("_objs/bin/bin");
   }
 
@@ -76,7 +81,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
 
     ImmutableList<String> userCopts =
         CcToolchainVariables.toStringList(
-            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName());
+            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), PathMapper.NOOP);
     assertThat(userCopts)
         .containsAtLeastElementsIn(ImmutableList.<String>of("-foo", "-bar"))
         .inOrder();
@@ -93,7 +98,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
 
     ImmutableList<String> copts =
         CcToolchainVariables.toStringList(
-            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName());
+            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), PathMapper.NOOP);
     assertThat(copts).contains("-foo");
   }
 
@@ -110,7 +115,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
 
     ImmutableList<String> copts =
         CcToolchainVariables.toStringList(
-            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName());
+            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), PathMapper.NOOP);
     assertThat(copts).containsExactly("-foo").inOrder();
   }
 
@@ -129,7 +134,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
 
     ImmutableList<String> copts =
         CcToolchainVariables.toStringList(
-            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName());
+            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), PathMapper.NOOP);
     assertThat(copts).contains("-foo");
     assertThat(copts).doesNotContain("-bar");
     assertThat(copts).doesNotContain("-baz");
@@ -148,7 +153,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
 
     CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
-    assertThat(variables.getStringVariable(CcCommon.SYSROOT_VARIABLE_NAME))
+    assertThat(variables.getStringVariable(CcCommon.SYSROOT_VARIABLE_NAME, PathMapper.NOOP))
         .isEqualTo("/usr/local/custom-sysroot");
   }
 
@@ -166,7 +171,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
 
     CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
-    assertThat(variables.getStringVariable(CcCommon.SYSROOT_VARIABLE_NAME))
+    assertThat(variables.getStringVariable(CcCommon.SYSROOT_VARIABLE_NAME, PathMapper.NOOP))
         .isEqualTo("target_libc");
   }
 
@@ -188,7 +193,7 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
 
     CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
-    assertThat(variables.getStringVariable(CcCommon.SYSROOT_VARIABLE_NAME))
+    assertThat(variables.getStringVariable(CcCommon.SYSROOT_VARIABLE_NAME, PathMapper.NOOP))
         .isEqualTo("target_libc");
   }
 
@@ -208,7 +213,8 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
 
     assertThat(
             variables.getStringVariable(
-                CompileBuildVariables.PER_OBJECT_DEBUG_INFO_FILE.getVariableName()))
+                CompileBuildVariables.PER_OBJECT_DEBUG_INFO_FILE.getVariableName(),
+                PathMapper.NOOP))
         .isNotNull();
   }
 
@@ -227,7 +233,8 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
     assertThat(
-            variables.getStringVariable(CompileBuildVariables.IS_USING_FISSION.getVariableName()))
+            variables.getStringVariable(
+                CompileBuildVariables.IS_USING_FISSION.getVariableName(), PathMapper.NOOP))
         .isNotNull();
   }
 
@@ -298,7 +305,8 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
 
     assertThat(
             variables.getStringVariable(
-                CompileBuildVariables.PER_OBJECT_DEBUG_INFO_FILE.getVariableName()))
+                CompileBuildVariables.PER_OBJECT_DEBUG_INFO_FILE.getVariableName(),
+                PathMapper.NOOP))
         .isNotNull();
   }
 
@@ -313,7 +321,8 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     scratch.file("x/bin.cc");
 
     CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
-    assertThat(variables.getStringVariable(CcCommon.MINIMUM_OS_VERSION_VARIABLE_NAME))
+    assertThat(
+            variables.getStringVariable(CcCommon.MINIMUM_OS_VERSION_VARIABLE_NAME, PathMapper.NOOP))
         .isEqualTo("6");
   }
 
@@ -362,7 +371,9 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
 
     assertThat(
             CcToolchainVariables.toStringList(
-                    variables, CompileBuildVariables.EXTERNAL_INCLUDE_PATHS.getVariableName())
+                    variables,
+                    CompileBuildVariables.EXTERNAL_INCLUDE_PATHS.getVariableName(),
+                    PathMapper.NOOP)
                 .stream()
                 .map(x -> removeOutDirectory(x))
                 .collect(ImmutableList.toImmutableList()))

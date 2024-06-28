@@ -44,9 +44,9 @@ function assert_paths_stripped() {
   # "set -e" and silently ignored.
   output_paths=$(echo "$cmd" | tr -s ' ' '\n' | xargs -n 1 | grep -E -o "${bazel_out}[^)]*")
   for o in $output_paths; do
-    echo "$o" | grep -v "${bazel_out}/cfg/bin" \
+    echo "$o" | grep -Ev "${bazel_out}/cfg/bin|${bazel_out}/cfg/genfiles" \
       && fail "expected all \"${bazel_out}\" paths to start with " \
-      "\"${bazel_out}/cfg/bin.*\": $o"
+      "\"${bazel_out}/cfg/bin.*\" or \"${bazel_out}/cfg/genfiles.*\": $o"
     if [[ "$o" == *"$identifying_action_output"* ]]; then
       found_identifying_output=1
     fi
@@ -64,9 +64,9 @@ function assert_paths_stripped() {
     fi
     param_file_paths=$(grep "${bazel_out}" $local_path || true)
     for k in $param_file_paths; do
-      echo "$k" | grep -v "${bazel_out}/cfg/bin" \
+      echo "$k" | grep -Ev "${bazel_out}/cfg/bin|${bazel_out}/cfg/genfiles" \
         && fail "$local_path: expected all \"${bazel_out}\" paths to start " \
-        "with \"${bazel_out}/cfg/bin.*\": $k"
+        "with \"${bazel_out}/cfg/bin.*\" or \"${bazel_out}/cfg/genfiles.*\": $k"
       if [[ "$k" == *"$identifying_action_output"* ]]; then
         found_identifying_output=1
       fi
