@@ -336,8 +336,8 @@ EOF
 
   # Test the genrule that specifically depends on :bar_runtime.
   bazel cquery --max_config_changes_to_show=0 --implicit_deps 'deps(//:with_java)' >& $TEST_log
-  expect_not_log "foo"
-  expect_log "bar"
+  expect_log "dummy_java"
+  expect_log "dummy_javac"
   expect_not_log "embedded_jdk"
   expect_not_log "remotejdk_"
   expect_not_log "remotejdk11_"
@@ -348,6 +348,93 @@ EOF
      --tool_java_runtime_version=foo_javabase >& $TEST_log
   expect_not_log "foo"
   expect_log "bar"
+  expect_not_log "embedded_jdk"
+  expect_not_log "remotejdk_"
+  expect_not_log "remotejdk11_"
+}
+
+
+function test_fully_generated_jdk() {
+  cat << EOF >> WORKSPACE
+load("@bazel_tools//tools/jdk:local_java_repository.bzl", "local_java_repository")
+local_java_repository(
+    name = "foo_javabase",
+    java_home = "$PWD/foo",
+    version = "11",
+)
+EOF
+
+  mkdir -p foo/bin bar/bin
+
+  cat << EOF > defs.bzl
+
+def _make_jdk_impl(ctx):
+    dummy_java = ctx.actions.declare_file(ctx.attr.name + "_dummy_java")
+    ctx.actions.write(dummy_java, "dummy_java", is_executable = True)
+    dummy_javac = ctx.actions.declare_file(ctx.attr.name + "_dummy_javac")
+    ctx.actions.write(dummy_javac, "dummy_javac", is_executable = True)
+
+    return [DefaultInfo(
+        executable = dummy_java,
+        files = depset([dummy_java, dummy_javac])
+    )]
+
+make_jdk = rule(implementation = _make_jdk_impl, executable = True)
+
+EOF
+
+  cat << EOF > BUILD
+load(":defs.bzl", "make_jdk")
+
+make_jdk(name = "generated_jdk")
+
+java_runtime(
+    name = "bar_runtime",
+    visibility = ["//visibility:public"],
+    executable = "generated_jdk",
+)
+
+genrule(
+    name = "without_java",
+    srcs = ["in"],
+    outs = ["out_without"],
+    cmd = "cat \$(SRCS) > \$(OUTS)",
+)
+
+genrule(
+    name = "with_java",
+    srcs = ["in"],
+    outs = ["out_with"],
+    cmd = "echo \$(JAVA) > \$(OUTS)",
+    toolchains = [":bar_runtime"],
+)
+EOF
+
+  # Use --max_config_changes_to_show=0, as changed option names may otherwise
+  # erroneously match the expected regexes.
+
+  # Test the genrule with no java dependencies.
+  bazel cquery --max_config_changes_to_show=0 --implicit_deps 'deps(//:without_java)' >& $TEST_log
+  expect_not_log "dummy_java"
+  expect_not_log "dummy_javac"
+  expect_not_log "embedded_jdk"
+  expect_not_log "remotejdk_"
+  expect_not_log "remotejdk11_"
+
+  # Test the genrule that specifically depends on :bar_runtime.
+  bazel cquery --max_config_changes_to_show=0 --implicit_deps 'deps(//:with_java)' >& $TEST_log
+  expect_log "dummy_java"
+  expect_log "dummy_javac"
+  expect_not_log "embedded_jdk"
+  expect_not_log "remotejdk_"
+  expect_not_log "remotejdk11_"
+
+  # Setting the javabase should not change the use of :bar_runtime from the
+  # roolchains attribute.
+  bazel cquery --max_config_changes_to_show=0 --implicit_deps 'deps(//:with_java)' \
+     --tool_java_runtime_version=foo_javabase >& $TEST_log
+  expect_log "dummy_java"
+  expect_log "dummy_javac"
   expect_not_log "embedded_jdk"
   expect_not_log "remotejdk_"
   expect_not_log "remotejdk11_"
