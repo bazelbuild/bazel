@@ -587,7 +587,7 @@ EOF
   expect_log 'Hello, TreeArtifact!'
   # Compilation actions for lib1, lib2 and main should result in cache hits due
   # to path stripping, utils is legitimately different and should not.
-  expect_log ' 3 remote cache hit'
+  expect_log ' 4 remote cache hit'
 }
 
 run_suite "path mapping tests"
