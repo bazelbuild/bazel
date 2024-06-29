@@ -53,7 +53,7 @@ import com.google.devtools.common.options.OptionsParsingResult;
 @Command(
     name = "aquery",
     builds = true,
-    inherits = {BuildCommand.class},
+    inheritsOptionsFrom = {BuildCommand.class},
     options = {AqueryOptions.class},
     usesConfigurationOptions = true,
     shortDescription = "Analyzes the given targets and queries the action graph.",

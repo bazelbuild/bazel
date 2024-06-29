@@ -36,7 +36,6 @@ import com.sun.tools.javac.api.JavacTaskImpl;
 import com.sun.tools.javac.api.JavacTool;
 import com.sun.tools.javac.file.CacheFSInfo;
 import com.sun.tools.javac.file.JavacFileManager;
-import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.main.Main.Result;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
@@ -120,7 +119,6 @@ public class BlazeJavacMain {
     // it and handling exceptions directly in callers.
     PrintWriter errWriter = new PrintWriter(errOutput);
     Listener diagnosticsBuilder = new Listener(arguments.failFast(), maybeWerrorCustom, context);
-    BlazeJavaCompiler compiler;
 
     // Initialize parts of context that the filemanager depends on
     context.put(DiagnosticListener.class, diagnosticsBuilder);
@@ -170,8 +168,6 @@ public class BlazeJavacMain {
       }
       t.printStackTrace(errWriter);
       status = Status.CRASH;
-    } finally {
-      compiler = (BlazeJavaCompiler) JavaCompiler.instance(context);
     }
     errWriter.flush();
     ImmutableList<FormattedDiagnostic> diagnostics = diagnosticsBuilder.build();
@@ -191,11 +187,7 @@ public class BlazeJavacMain {
     }
 
     return BlazeJavacResult.createFullResult(
-        status,
-        filterDiagnostics(werror, diagnostics),
-        errOutput.toString(),
-        compiler,
-        builder.build());
+        status, filterDiagnostics(werror, diagnostics), errOutput.toString(), builder.build());
   }
 
   private static Status fromResult(Result result) {

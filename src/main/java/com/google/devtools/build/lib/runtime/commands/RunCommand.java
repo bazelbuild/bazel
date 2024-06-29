@@ -111,7 +111,7 @@ import javax.annotation.Nullable;
     name = "run",
     builds = true,
     options = {RunCommand.RunOptions.class},
-    inherits = {BuildCommand.class},
+    inheritsOptionsFrom = {BuildCommand.class},
     shortDescription = "Runs the specified target.",
     help = "resource:run.txt",
     allowResidue = true,

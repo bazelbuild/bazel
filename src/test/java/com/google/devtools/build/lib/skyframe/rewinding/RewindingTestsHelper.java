@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -56,6 +57,7 @@ import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions.JobsConverter;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase.RecordingBugReporter;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -144,6 +146,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * </ol>
  */
 public class RewindingTestsHelper {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   final ActionEventRecorder recorder;
   final BuildIntegrationTestCase testCase;
@@ -1289,7 +1293,7 @@ public class RewindingTestsHelper {
     // future, then 2B gets reset when 1B clears its ActionExecutionState. Re-evaluations of dep
     // actions may proceed non-deterministically, but this test makes 2A win the "rewound A" race,
     // and then 1B win the "rewound B" race.
-
+    ensureMultipleJobs();
     setUpParallelTrackSharedActionPackage();
 
     addSpawnShim(
@@ -2586,6 +2590,7 @@ public class RewindingTestsHelper {
    * </ol>
    */
   public final void runDoneToDirtyDepForNodeInError() throws Exception {
+    ensureMultipleJobs();
     testCase.write(
         "foo/BUILD",
         """
@@ -2656,6 +2661,7 @@ public class RewindingTestsHelper {
   }
 
   private void runFlakyActionFailsAfterRewind_raceWithIndirectConsumer() throws Exception {
+    ensureMultipleJobs();
     testCase.write(
         "foo/defs.bzl",
         """
@@ -3133,6 +3139,7 @@ public class RewindingTestsHelper {
 
   public final void runTopLevelOutputRewound_partiallyBuiltTarget_fileInTreeArtifact()
       throws Exception {
+    ensureMultipleJobs();
     testCase.write(
         "foo/defs.bzl",
         """
@@ -3162,6 +3169,28 @@ public class RewindingTestsHelper {
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
     Map<Label, TargetCompleteEvent> targetCompleteEvents = recordTargetCompleteEvents();
     listenForNoCompletionEventsBeforeRewinding(fooLostTreeFoundAndFailed, targetCompleteEvents);
+
+    if (!keepGoing()) {
+      // Block the failing action on the completion of the TreeArtifactValue (produced by
+      // ArtifactFunction). Otherwise, the build may be aborted without considering it as built,
+      // meaning it won't be observed to be lost.
+      CountDownLatch treeArtifactDone = new CountDownLatch(1);
+      testCase.injectListenerAtStartOfNextBuild(
+          (key, type, order, context) -> {
+            if (key instanceof Artifact artifact
+                && artifact.isTreeArtifact()
+                && type == EventType.SET_VALUE
+                && order == Order.AFTER) {
+              treeArtifactDone.countDown();
+            }
+          });
+      addSpawnShim(
+          "Action foo/failed.out",
+          (spawn, context) -> {
+            treeArtifactDone.await();
+            return ExecResult.delegate();
+          });
+    }
 
     assertThrows(
         BuildFailedException.class, () -> testCase.buildTarget("//foo:lost_tree_found_and_failed"));
@@ -3319,6 +3348,25 @@ public class RewindingTestsHelper {
     assertThat(
             Uninterruptibles.awaitUninterruptibly(latch, TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS))
         .isTrue();
+  }
+
+  /**
+   * Ensures that the value of the {@code --jobs} flag is at least 2.
+   *
+   * <p>Several tests use artificial synchronization to exercise certain race conditions and require
+   * a multiple execution phase threads to guarantee progress.
+   *
+   * <p>Note that the default value for {@code --jobs} is automatically calculated based on host
+   * CPU.
+   */
+  private void ensureMultipleJobs() throws Exception {
+    int autoJobs = new JobsConverter().convert("auto");
+    if (autoJobs == 1) {
+      logger.atInfo().log("Setting --jobs=2 (was 1)");
+      testCase.addOptions("--jobs=2");
+    } else {
+      logger.atInfo().log("Keeping default value of --jobs=%s", autoJobs);
+    }
   }
 
   private boolean keepGoing() {

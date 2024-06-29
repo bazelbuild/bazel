@@ -369,6 +369,8 @@ bool WriteFile(const void* data, size_t size, const Path& path,
   return actually_written == size;
 }
 
+void InitializeStdOutErrForUtf8() { SetConsoleOutputCP(CP_UTF8); }
+
 int WriteToStdOutErr(const void* data, size_t size, bool to_stdout) {
   DWORD written = 0;
   HANDLE h = ::GetStdHandle(to_stdout ? STD_OUTPUT_HANDLE : STD_ERROR_HANDLE);

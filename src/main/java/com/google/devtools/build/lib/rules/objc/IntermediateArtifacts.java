@@ -176,7 +176,7 @@ public final class IntermediateArtifacts implements StarlarkValue {
 
   @StarlarkMethod(name = "archive", documented = false, useStarlarkThread = true)
   public Artifact archiveForStarlark(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return archive();
   }
 

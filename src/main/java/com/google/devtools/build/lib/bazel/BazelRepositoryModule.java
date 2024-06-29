@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionUsagesFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.VendorFileFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.VendorManager;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.commands.FetchCommand;
@@ -82,6 +83,7 @@ import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRul
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
@@ -113,7 +115,9 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersH
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -385,7 +389,8 @@ public class BazelRepositoryModule extends BlazeModule {
       }
       try {
         UrlRewriter rewriter =
-            UrlRewriter.getDownloaderUrlRewriter(repoOptions.downloaderConfig, env.getReporter());
+            UrlRewriter.getDownloaderUrlRewriter(
+                env.getWorkspace(), repoOptions.downloaderConfig, env.getReporter());
         downloadManager.setUrlRewriter(rewriter);
       } catch (UrlRewriterParseException e) {
         // It's important that the build stops ASAP, because this config file may be required for
@@ -463,6 +468,10 @@ public class BazelRepositoryModule extends BlazeModule {
         // We use a LinkedHashMap to preserve the iteration order.
         Map<RepositoryName, PathFragment> overrideMap = new LinkedHashMap<>();
         for (RepositoryOverride override : repoOptions.repositoryOverrides) {
+          if (override.path().isEmpty()) {
+            overrideMap.remove(override.repositoryName());
+            continue;
+          }
           String repoPath = getAbsolutePath(override.path(), env);
           overrideMap.put(override.repositoryName(), PathFragment.create(repoPath));
         }
@@ -477,6 +486,10 @@ public class BazelRepositoryModule extends BlazeModule {
       if (repoOptions.moduleOverrides != null) {
         Map<String, ModuleOverride> moduleOverrideMap = new LinkedHashMap<>();
         for (RepositoryOptions.ModuleOverride override : repoOptions.moduleOverrides) {
+          if (override.path().isEmpty()) {
+            moduleOverrideMap.remove(override.moduleName());
+            continue;
+          }
           String modulePath = getAbsolutePath(override.path(), env);
           moduleOverrideMap.put(override.moduleName(), LocalPathOverride.create(modulePath));
         }
@@ -498,6 +511,33 @@ public class BazelRepositoryModule extends BlazeModule {
         vendorDirectory =
             Optional.ofNullable(repoOptions.vendorDirectory)
                 .map(vendorDirectory -> env.getWorkspace().getRelative(vendorDirectory));
+
+        if (vendorDirectory.isPresent()) {
+          try {
+            Path externalRoot =
+                env.getOutputBase().getRelative(LabelConstants.EXTERNAL_PATH_PREFIX);
+            FileSystemUtils.ensureSymbolicLink(
+                vendorDirectory.get().getChild(VendorManager.EXTERNAL_ROOT_SYMLINK_NAME),
+                externalRoot);
+            if (OS.getCurrent() == OS.WINDOWS) {
+              // On Windows, symlinks are resolved differently.
+              // Given <external>/repo_foo/link,
+              // where <external>/repo_foo points to <vendor dir>/repo_foo in vendor mode
+              // and repo_foo/link points to a relative path ../bazel-external/repo_bar/data.
+              // Windows won't resolve `repo_foo` before resolving `link`, which causes
+              // <external>/repo_foo/link to be resolved to <external>/bazel-external/repo_bar/data
+              // To work around this, we create a symlink <external>/bazel-external -> <external>.
+              FileSystemUtils.ensureSymbolicLink(
+                  externalRoot.getChild(VendorManager.EXTERNAL_ROOT_SYMLINK_NAME), externalRoot);
+            }
+          } catch (IOException e) {
+            env.getReporter()
+                .handle(
+                    Event.error(
+                        "Failed to create symlink to external repo root under vendor directory: "
+                            + e.getMessage()));
+          }
+        }
       }
 
       if (repoOptions.registries != null && !repoOptions.registries.isEmpty()) {

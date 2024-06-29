@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -67,6 +66,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
+import com.google.errorprone.annotations.ForOverride;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -87,8 +87,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -107,7 +107,7 @@ import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
 /** A common base class for Starlark "ctx" objects related to external dependencies. */
-public abstract class StarlarkBaseExternalContext implements StarlarkValue {
+public abstract class StarlarkBaseExternalContext implements AutoCloseable, StarlarkValue {
 
   /**
    * An asynchronous task run as part of fetching the repository.
@@ -145,12 +145,16 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   protected final double timeoutScaling;
   @Nullable private final ProcessWrapper processWrapper;
   protected final StarlarkSemantics starlarkSemantics;
+  protected final String identifyingStringForLogging;
   private final HashMap<RepoRecordedInput.File, String> recordedFileInputs = new HashMap<>();
   private final HashMap<RepoRecordedInput.Dirents, String> recordedDirentsInputs = new HashMap<>();
   private final HashSet<String> accumulatedEnvKeys = new HashSet<>();
   private final RepositoryRemoteExecutor remoteExecutor;
   private final List<AsyncTask> asyncTasks;
   private final boolean allowWatchingPathsOutsideWorkspace;
+  private final ExecutorService executorService;
+
+  private boolean wasSuccessful = false;
 
   protected StarlarkBaseExternalContext(
       Path workingDirectory,
@@ -161,6 +165,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
       StarlarkSemantics starlarkSemantics,
+      String identifyingStringForLogging,
       @Nullable RepositoryRemoteExecutor remoteExecutor,
       boolean allowWatchingPathsOutsideWorkspace) {
     this.workingDirectory = workingDirectory;
@@ -172,22 +177,55 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     this.timeoutScaling = timeoutScaling;
     this.processWrapper = processWrapper;
     this.starlarkSemantics = starlarkSemantics;
+    this.identifyingStringForLogging = identifyingStringForLogging;
     this.remoteExecutor = remoteExecutor;
     this.asyncTasks = new ArrayList<>();
     this.allowWatchingPathsOutsideWorkspace = allowWatchingPathsOutsideWorkspace;
+    this.executorService =
+        Executors.newThreadPerTaskExecutor(
+            Thread.ofVirtual()
+                .name("downloads[" + identifyingStringForLogging + "]-", 0)
+                .factory());
   }
 
-  public boolean ensureNoPendingAsyncTasks(EventHandler eventHandler, boolean forSuccessfulFetch) {
+  /**
+   * Mark the evaluation using this context as otherwise successful. This is used to determine how
+   * to clean up resources in {@link #close()}.
+   */
+  public final void markSuccessful() {
+    wasSuccessful = true;
+  }
+
+  @Override
+  public final void close() throws EvalException, IOException {
+    // Cancel all pending async tasks.
+    boolean hadPendingItems = cancelPendingAsyncTasks();
+    // Wait for all (cancelled) async tasks to complete before cleaning up the working directory.
+    // This is necessary because downloads may still be in progress and could end up writing to the
+    // working directory during deletion, which would cause an error.
+    executorService.close();
+    if (shouldDeleteWorkingDirectoryOnClose(wasSuccessful)) {
+      workingDirectory.deleteTree();
+    }
+    if (hadPendingItems && wasSuccessful) {
+      throw Starlark.errorf(
+          "Pending asynchronous work after %s finished execution", identifyingStringForLogging);
+    }
+  }
+
+  private boolean cancelPendingAsyncTasks() {
     boolean hadPendingItems = false;
     for (AsyncTask task : asyncTasks) {
       if (!task.cancel()) {
         hadPendingItems = true;
-        if (forSuccessfulFetch) {
-          eventHandler.handle(
-              Event.error(
-                  task.getLocation(),
-                  "Work pending after repository rule finished execution: "
-                      + task.getDescription()));
+        if (wasSuccessful) {
+          env.getListener()
+              .handle(
+                  Event.error(
+                      task.getLocation(),
+                      String.format(
+                          "Work pending after %s finished execution: %s",
+                          identifyingStringForLogging, task.getDescription())));
         }
       }
     }
@@ -197,12 +235,12 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
 
   // There is no unregister(). We don't have that many futures in each repository and it just
   // introduces the failure mode of erroneously unregistering async work that's not done.
-  protected void registerAsyncTask(AsyncTask task) {
+  protected final void registerAsyncTask(AsyncTask task) {
     asyncTasks.add(task);
   }
 
-  /** A string that can be used to identify this context object. Used for logging purposes. */
-  protected abstract String getIdentifyingStringForLogging();
+  @ForOverride
+  protected abstract boolean shouldDeleteWorkingDirectoryOnClose(boolean successful);
 
   /** Returns the file digests used by this context object so far. */
   public ImmutableMap<RepoRecordedInput.File, String> getRecordedFileInputs() {
@@ -416,7 +454,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
         warnAboutChecksumError(urls, e.getMessage());
         throw new RepositoryFunctionException(
             Starlark.errorf(
-                "Checksum error in %s: %s", getIdentifyingStringForLogging(), e.getMessage()),
+                "Checksum error in %s: %s", identifyingStringForLogging, e.getMessage()),
             Transience.PERSISTENT);
       }
     }
@@ -430,8 +468,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     } catch (Checksum.InvalidChecksumException e) {
       warnAboutChecksumError(urls, e.getMessage());
       throw new RepositoryFunctionException(
-          Starlark.errorf(
-              "Checksum error in %s: %s", getIdentifyingStringForLogging(), e.getMessage()),
+          Starlark.errorf("Checksum error in %s: %s", identifyingStringForLogging, e.getMessage()),
           Transience.PERSISTENT);
     }
   }
@@ -513,18 +550,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
 
     @Override
     public boolean cancel() {
-      if (!future.cancel(true)) {
-        return true;
-      }
-
-      try {
-        future.get();
-        return false;
-      } catch (InterruptedException | ExecutionException | CancellationException e) {
-        // Ignore. The only thing we care about is that there is no async work in progress after
-        // this point. Any error reporting should have been done before.
-        return false;
-      }
+      return !future.cancel(true);
     }
 
     @StarlarkMethod(
@@ -707,7 +733,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             sha256,
             integrity,
             executable,
-            getIdentifyingStringForLogging(),
+            identifyingStringForLogging,
             thread.getCallerLocation());
     env.getListener().post(w);
 
@@ -728,6 +754,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     if (download == null) {
       Future<Path> downloadFuture =
           downloadManager.startDownload(
+              executorService,
               urls,
               headers,
               authHeaders,
@@ -737,7 +764,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
               outputPath.getPath(),
               env.getListener(),
               envVariables,
-              getIdentifyingStringForLogging());
+              identifyingStringForLogging);
       download =
           new PendingDownload(
               executable,
@@ -920,7 +947,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             type,
             stripPrefix,
             renameFilesMap,
-            getIdentifyingStringForLogging(),
+            identifyingStringForLogging,
             thread.getCallerLocation());
 
     StarlarkPath outputPath = getPath("download_and_extract()", output);
@@ -938,6 +965,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
 
       Future<Path> pendingDownload =
           downloadManager.startDownload(
+              executorService,
               urls,
               headers,
               authHeaders,
@@ -947,7 +975,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
               downloadDirectory,
               env.getListener(),
               envVariables,
-              getIdentifyingStringForLogging());
+              identifyingStringForLogging);
       // Ensure that the download is cancelled if the repo rule is restarted as it runs in its own
       // executor.
       PendingDownload pendingTask =
@@ -975,14 +1003,14 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     }
     env.getListener().post(w);
     try (SilentCloseable c =
-        Profiler.instance().profile("extracting: " + getIdentifyingStringForLogging())) {
+        Profiler.instance().profile("extracting: " + identifyingStringForLogging)) {
       env.getListener()
           .post(
               new ExtractProgress(
                   outputPath.getPath().toString(), "Extracting " + downloadedPath.getBaseName()));
       DecompressorValue.decompress(
           DecompressorDescriptor.builder()
-              .setContext(getIdentifyingStringForLogging())
+              .setContext(identifyingStringForLogging)
               .setArchivePath(downloadedPath)
               .setDestinationPath(outputPath.getPath())
               .setPrefix(stripPrefix)
@@ -1007,6 +1035,118 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
           Transience.TRANSIENT);
     }
     return downloadResult;
+  }
+
+  @StarlarkMethod(
+      name = "extract",
+      doc = "Extract an archive to the repository directory.",
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "archive",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = StarlarkPath.class)
+            },
+            named = true,
+            doc =
+                "path to the archive that will be unpacked,"
+                    + " relative to the repository directory."),
+        @Param(
+            name = "output",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = StarlarkPath.class)
+            },
+            defaultValue = "''",
+            named = true,
+            doc =
+                "path to the directory where the archive will be unpacked,"
+                    + " relative to the repository directory."),
+        @Param(
+            name = "stripPrefix",
+            defaultValue = "''",
+            named = true,
+            doc =
+                "a directory prefix to strip from the extracted files."
+                    + "\nMany archives contain a top-level directory that contains all files in the"
+                    + " archive. Instead of needing to specify this prefix over and over in the"
+                    + " <code>build_file</code>, this field can be used to strip it from extracted"
+                    + " files."),
+        @Param(
+            name = "rename_files",
+            defaultValue = "{}",
+            named = true,
+            positional = false,
+            doc =
+                "An optional dict specifying files to rename during the extraction. Archive entries"
+                    + " with names exactly matching a key will be renamed to the value, prior to"
+                    + " any directory prefix adjustment. This can be used to extract archives that"
+                    + " contain non-Unicode filenames, or which have files that would extract to"
+                    + " the same path on case-insensitive filesystems."),
+        @Param(
+            name = "watch_archive",
+            defaultValue = "'auto'",
+            positional = false,
+            named = true,
+            doc =
+                "whether to <a href=\"#watch\">watch</a> the archive file. Can be the string "
+                    + "'yes', 'no', or 'auto'. Passing 'yes' is equivalent to immediately invoking "
+                    + "the <a href=\"#watch\"><code>watch()</code></a> method; passing 'no' does "
+                    + "not attempt to watch the file; passing 'auto' will only attempt to watch "
+                    + "the file when it is legal to do so (see <code>watch()</code> docs for more "
+                    + "information."),
+      })
+  public void extract(
+      Object archive,
+      Object output,
+      String stripPrefix,
+      Dict<?, ?> renameFiles, // <String, String> expected
+      String watchArchive,
+      StarlarkThread thread)
+      throws RepositoryFunctionException, InterruptedException, EvalException {
+    StarlarkPath archivePath = getPath("extract()", archive);
+
+    if (!archivePath.exists()) {
+      throw new RepositoryFunctionException(
+          Starlark.errorf("Archive path '%s' does not exist.", archivePath), Transience.TRANSIENT);
+    }
+    if (archivePath.isDir()) {
+      throw Starlark.errorf("attempting to extract a directory: %s", archivePath);
+    }
+    maybeWatch(archivePath, ShouldWatch.fromString(watchArchive));
+
+    StarlarkPath outputPath = getPath("extract()", output);
+    checkInOutputDirectory("write", outputPath);
+
+    Map<String, String> renameFilesMap =
+        Dict.cast(renameFiles, String.class, String.class, "rename_files");
+
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newExtractEvent(
+            archive.toString(),
+            output.toString(),
+            stripPrefix,
+            renameFilesMap,
+            identifyingStringForLogging,
+            thread.getCallerLocation());
+    env.getListener().post(w);
+
+    env.getListener()
+        .post(
+            new ExtractProgress(
+                outputPath.getPath().toString(), "Extracting " + archivePath.getBasename()));
+    DecompressorValue.decompress(
+        DecompressorDescriptor.builder()
+            .setContext(identifyingStringForLogging)
+            .setArchivePath(archivePath.getPath())
+            .setDestinationPath(outputPath.getPath())
+            .setPrefix(stripPrefix)
+            .setRenameFiles(renameFilesMap)
+            .build());
+    env.getListener().post(new ExtractProgress(outputPath.getPath().toString()));
   }
 
   /** A progress event that reports about archive extraction. */
@@ -1090,7 +1230,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             p.toString(),
             content,
             executable,
-            getIdentifyingStringForLogging(),
+            identifyingStringForLogging,
             thread.getCallerLocation());
     env.getListener().post(w);
     try {
@@ -1223,7 +1363,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     StarlarkPath p = getPath("read()", path);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newReadEvent(
-            p.toString(), getIdentifyingStringForLogging(), thread.getCallerLocation());
+            p.toString(), identifyingStringForLogging, thread.getCallerLocation());
     env.getListener().post(w);
     maybeWatch(p, ShouldWatch.fromString(watch));
     if (p.isDir()) {
@@ -1401,7 +1541,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             new FetchProgress() {
               @Override
               public String getResourceIdentifier() {
-                return getIdentifyingStringForLogging();
+                return identifyingStringForLogging;
               }
 
               @Override
@@ -1426,7 +1566,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     // manually inspect the code where this context object is used if they wish to find the
     // offending ctx.os expression.
     WorkspaceRuleEvent w =
-        WorkspaceRuleEvent.newOsEvent(getIdentifyingStringForLogging(), Location.BUILTIN);
+        WorkspaceRuleEvent.newOsEvent(identifyingStringForLogging, Location.BUILTIN);
     env.getListener().post(w);
     return osObject;
   }
@@ -1638,7 +1778,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             forceEnvVariables,
             workingDirectory.getPathString(),
             quiet,
-            getIdentifyingStringForLogging(),
+            identifyingStringForLogging,
             thread.getCallerLocation());
     env.getListener().post(w);
     createDirectory(workingDirectory);
@@ -1689,7 +1829,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   public StarlarkPath which(String program, StarlarkThread thread) throws EvalException {
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newWhichEvent(
-            program, getIdentifyingStringForLogging(), thread.getCallerLocation());
+            program, identifyingStringForLogging, thread.getCallerLocation());
     env.getListener().post(w);
     if (program.contains("/") || program.contains("\\")) {
       throw Starlark.errorf(

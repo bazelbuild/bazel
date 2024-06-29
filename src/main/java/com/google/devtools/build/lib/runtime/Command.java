@@ -38,10 +38,10 @@ public @interface Command {
   Class<? extends OptionsBase>[] options() default {};
 
   /**
-   * The set of other Blaze commands that this annotation's command "inherits"
-   * options from.  These classes must be annotated with {@link Command}.
+   * The set of other Blaze commands that this annotation's command "inherits" options from. These
+   * classes must be annotated with {@link Command}.
    */
-  Class<? extends BlazeCommand>[] inherits() default {};
+  Class<? extends BlazeCommand>[] inheritsOptionsFrom() default {};
 
   /**
    * A short description, which appears in 'blaze help'.

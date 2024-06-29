@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -166,61 +167,13 @@ public class RuleClass implements RuleClassData {
 
   public static final String APPLICABLE_METADATA_ATTR_ALT = "applicable_licenses";
 
-  /** Possible values for setting whether a rule uses toolchain resolution. */
-  public enum ToolchainResolutionMode {
-    /** The rule should use toolchain resolution. */
-    ENABLED,
-    /** The rule should not use toolchain resolution. */
-    DISABLED,
-    /**
-     * The rule instance uses toolchain resolution if it has a select() or has a
-     * target_compatible_with attribute.
-     *
-     * <p>This is for rules that don't intrinsically use toolchains but have select()s on {@link
-     * com.google.devtools.build.lib.rules.platform.ConstraintValue} or have a
-     * target_compatible_with attribute with {@link
-     * com.google.devtools.build.lib.rules.platform.ConstraintValue} targets, which are part of the
-     * build's platform. Such instances need to know what platform the build is targeting, which
-     * Bazel won't provide unless toolchain resolution is enabled.
-     *
-     * <p>This is set statically in rule definitions on an opt-in basis. Bazel doesn't automatically
-     * infer this for any target with a select().
-     *
-     * <p>Ultimately, we should remove this when <a
-     * href="https://github.com/bazelbuild/bazel/issues/12899#issuecomment-767759147}#12899</a>is
-     * addressed, so platforms are unconditionally provided for all rules.
-     */
-    ENABLED_ONLY_FOR_COMMON_LOGIC,
-    /** The rule should inherit the value from its parent rules. */
-    INHERIT;
+  /** Interface for determining whether a rule needs toolchain resolution or not. */
+  @FunctionalInterface
+  public interface ToolchainResolutionMode extends Serializable {
+    boolean useToolchainResolution(Rule rule);
 
-    /** Determine the correct value to use based on the current setting and the parent's value. */
-    ToolchainResolutionMode apply(String name, ToolchainResolutionMode parent) {
-      if (this == INHERIT) {
-        return parent;
-      } else if (parent == INHERIT) {
-        return this;
-      } else if (this != parent) {
-        throw new IllegalArgumentException(
-            String.format(
-                "Rule %s has useToolchainResolution set to %s, but the parent is trying to set it"
-                    + " to %s",
-                name, this, parent));
-      }
-      return this;
-    }
-
-    boolean isActive() {
-      switch (this) {
-        case ENABLED:
-          return true;
-        case DISABLED:
-        case ENABLED_ONLY_FOR_COMMON_LOGIC: // Not true for RuleClass, but Rule may enable it.
-          return false;
-        default:
-      }
-      return true; // Default is that toolchain resolution is enabled.
-    }
+    ToolchainResolutionMode ENABLED = (unused) -> true;
+    ToolchainResolutionMode DISABLED = (unused) -> false;
   }
 
   /** A factory or builder class for rule implementations. */
@@ -328,7 +281,7 @@ public class RuleClass implements RuleClassData {
    *       we need to make sure its coverage remains complete.
    *   <li>Manual configuration trimming uses the normal dependency resolution process to work
    *       correctly and config_setting keys are subject to this trimming.
-   *   <li>{@link Rule#useToolchainResolution() supports conditional toolchain resolution for
+   *   <li>{@link Rule#useToolchainResolution(Rule) supports conditional toolchain resolution for
    *      targets with non-empty select()s. This requirement would go away if platform info was
    *      prepared for all rules regardless of toolchain needs.
    * </ol>
@@ -754,7 +707,7 @@ public class RuleClass implements RuleClassData {
 
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
     private final Set<ToolchainTypeRequirement> toolchainTypes = new HashSet<>();
-    private ToolchainResolutionMode useToolchainResolution = ToolchainResolutionMode.INHERIT;
+    private ToolchainResolutionMode toolchainResolutionMode = ToolchainResolutionMode.ENABLED;
     private final Set<Label> executionPlatformConstraints = new HashSet<>();
     private OutputFile.Kind outputFileKind = OutputFile.Kind.FILE;
     private final Map<String, ExecGroup> execGroups = new HashMap<>();
@@ -795,8 +748,6 @@ public class RuleClass implements RuleClassData {
         supportsConstraintChecking = parent.supportsConstraintChecking;
 
         addToolchainTypes(parent.getToolchainTypes());
-        this.useToolchainResolution =
-            this.useToolchainResolution.apply(name, parent.useToolchainResolution);
         addExecutionPlatformConstraints(parent.getExecutionPlatformConstraints());
         try {
           addExecGroups(parent.getExecGroups());
@@ -896,7 +847,7 @@ public class RuleClass implements RuleClassData {
 
         // Build setting rules should opt out of toolchain resolution, since they form part of the
         // configuration.
-        this.useToolchainResolution(ToolchainResolutionMode.DISABLED);
+        this.toolchainResolutionMode(ToolchainResolutionMode.DISABLED);
       }
 
       if (starlark
@@ -951,7 +902,7 @@ public class RuleClass implements RuleClassData {
           configurationFragmentPolicy.build(),
           supportsConstraintChecking,
           toolchainTypes,
-          useToolchainResolution,
+          toolchainResolutionMode,
           executionPlatformConstraints,
           execGroups,
           outputFileKind,
@@ -1586,8 +1537,8 @@ public class RuleClass implements RuleClassData {
      * DISABLED}.
      */
     @CanIgnoreReturnValue
-    public Builder useToolchainResolution(ToolchainResolutionMode mode) {
-      this.useToolchainResolution = mode;
+    public Builder toolchainResolutionMode(ToolchainResolutionMode mode) {
+      this.toolchainResolutionMode = mode;
       return this;
     }
 
@@ -1738,7 +1689,7 @@ public class RuleClass implements RuleClassData {
   private final boolean supportsConstraintChecking;
 
   private final ImmutableSet<ToolchainTypeRequirement> toolchainTypes;
-  private final ToolchainResolutionMode useToolchainResolution;
+  private final ToolchainResolutionMode toolchainResolutionMode;
   private final ImmutableSet<Label> executionPlatformConstraints;
   private final ImmutableMap<String, ExecGroup> execGroups;
 
@@ -1799,7 +1750,7 @@ public class RuleClass implements RuleClassData {
       ConfigurationFragmentPolicy configurationFragmentPolicy,
       boolean supportsConstraintChecking,
       Set<ToolchainTypeRequirement> toolchainTypes,
-      ToolchainResolutionMode useToolchainResolution,
+      ToolchainResolutionMode toolchainResolutionMode,
       Set<Label> executionPlatformConstraints,
       Map<String, ExecGroup> execGroups,
       OutputFile.Kind outputFileKind,
@@ -1841,7 +1792,7 @@ public class RuleClass implements RuleClassData {
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.supportsConstraintChecking = supportsConstraintChecking;
     this.toolchainTypes = ImmutableSet.copyOf(toolchainTypes);
-    this.useToolchainResolution = useToolchainResolution;
+    this.toolchainResolutionMode = toolchainResolutionMode;
     this.executionPlatformConstraints = ImmutableSet.copyOf(executionPlatformConstraints);
     this.execGroups = ImmutableMap.copyOf(execGroups);
     this.buildSetting = buildSetting;
@@ -2647,12 +2598,8 @@ public class RuleClass implements RuleClassData {
     return toolchainTypes;
   }
 
-  /**
-   * Public callers should use {@link Rule#useToolchainResolution()}, which also takes into account
-   * target-specific information.
-   */
-  ToolchainResolutionMode useToolchainResolution() {
-    return this.useToolchainResolution;
+  boolean useToolchainResolution(Rule rule) {
+    return this.toolchainResolutionMode.useToolchainResolution(rule);
   }
 
   public ImmutableSet<Label> getExecutionPlatformConstraints() {

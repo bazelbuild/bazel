@@ -578,7 +578,11 @@ public final class BlazeCommandDispatcherTest {
     assertThat(result.getExitCode()).isEqualTo(ExitCode.COMMAND_LINE_ERROR);
   }
 
-  @Command(name = "wiz", inherits = {FooCommand.class}, shortDescription = "", help = "")
+  @Command(
+      name = "wiz",
+      inheritsOptionsFrom = {FooCommand.class},
+      shortDescription = "",
+      help = "")
   private static class WizCommand extends FooCommand {}
 
   @Test

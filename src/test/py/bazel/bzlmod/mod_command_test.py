@@ -381,6 +381,21 @@ class ModCommandTest(test_base.TestBase):
         '\n'.join(stderr),
     )
 
+  def testShowExtensionWithUnknownExtension(self):
+    _, _, stderr = self.RunBazel(
+        [
+            'mod',
+            'show_extension',
+            '@ext//foo:unknown.bzl%x',
+        ],
+        allow_failure=True,
+        rstrip=True,
+    )
+    self.assertIn(
+        'No extension @@ext~//foo:unknown.bzl%x exists in the dependency graph',
+        '\n'.join(stderr),
+    )
+
   def testShowModuleAndExtensionReposFromBaseModule(self):
     _, stdout, _ = self.RunBazel(
         [

@@ -950,7 +950,7 @@ public final class CppConfiguration extends Fragment
   private static void checkInExpandedApiAllowlist(StarlarkThread thread, String feature)
       throws EvalException {
     try {
-      BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+      BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     } catch (EvalException e) {
       throw Starlark.errorf("%s (feature '%s' in CppConfiguration)", e.getMessage(), feature);
     }

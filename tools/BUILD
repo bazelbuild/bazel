@@ -2,6 +2,8 @@ load(":build_defs.bzl", "BZLMOD_ENABLED")
 
 package(default_visibility = ["//visibility:public"])
 
+exports_files(["fastutil.proguard"])
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
@@ -41,7 +43,10 @@ filegroup(
 # Sources in the built in repo '@bazel_tools'
 filegroup(
     name = "embedded_tools_srcs",
-    srcs = glob(["**"]) + [
+    srcs = glob(
+        ["**"],
+        exclude = ["fastutil.proguard"],
+    ) + [
         "//tools/allowlists:srcs",
         "//tools/android:embedded_tools",
         "//tools/bash:embedded_tools",

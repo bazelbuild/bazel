@@ -20,12 +20,15 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.shell.ExecutionStatistics;
 import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
+import java.io.IOException;
 import java.io.InputStream;
 import java.time.Instant;
 import java.util.Locale;
@@ -668,6 +671,28 @@ public interface SpawnResult {
     @CanIgnoreReturnValue
     public Builder setDigest(Digest digest) {
       this.digest = digest;
+      return this;
+    }
+
+    /** Adds execution statistics based on a {@code execution_statistics.proto} file. */
+    @CanIgnoreReturnValue
+    public Builder setResourceUsageFromProto(Path statisticsPath) throws IOException {
+      ExecutionStatistics.getResourceUsage(statisticsPath)
+          .ifPresent(
+              resourceUsage -> {
+                setUserTimeInMs((int) resourceUsage.getUserExecutionTime().toMillis());
+                setSystemTimeInMs((int) resourceUsage.getSystemExecutionTime().toMillis());
+                setNumBlockOutputOperations(resourceUsage.getBlockOutputOperations());
+                setNumBlockInputOperations(resourceUsage.getBlockInputOperations());
+                setNumInvoluntaryContextSwitches(resourceUsage.getInvoluntaryContextSwitches());
+                // The memory usage of the largest child process. For Darwin maxrss returns size in
+                // bytes.
+                if (OS.getCurrent() == OS.DARWIN) {
+                  setMemoryInKb(resourceUsage.getMaximumResidentSetSize() / 1000);
+                } else {
+                  setMemoryInKb(resourceUsage.getMaximumResidentSetSize());
+                }
+              });
       return this;
     }
   }

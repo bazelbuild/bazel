@@ -33,13 +33,6 @@ public interface Target extends TargetApi, TargetData {
   Package getPackage();
 
   /**
-   * Returns the {@code Package.Metadata} associated with the package to which this target belongs.
-   */
-  default Package.Metadata getPackageMetadata() {
-    return getPackage().getMetadata();
-  }
-
-  /**
    * Returns the rule associated with this target, if any.
    *
    * If this is a Rule, returns itself; it this is an OutputFile, returns its
