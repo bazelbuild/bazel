@@ -20,12 +20,19 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.Hasher;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.net.URLDecoder;
+import java.nio.file.Files;
+import java.util.Collection;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -33,6 +40,8 @@ import java.util.Objects;
 public class VendorManager {
 
   private static final String REGISTRIES_DIR = "_registries";
+
+  public static final String EXTERNAL_ROOT_SYMLINK_NAME = "bazel-external";
 
   private final Path vendorDirectory;
 
@@ -56,38 +65,88 @@ public class VendorManager {
     }
 
     for (RepositoryName repo : reposToVendor) {
-      Path repoUnderExternal = externalRepoRoot.getChild(repo.getName());
-      Path repoUnderVendor = vendorDirectory.getChild(repo.getName());
-      // This could happen when running the vendor command twice without changing anything.
-      if (repoUnderExternal.isSymbolicLink()
-          && repoUnderExternal.resolveSymbolicLinks().equals(repoUnderVendor)) {
-        continue;
-      }
+      try (SilentCloseable c =
+          Profiler.instance().profile(ProfilerTask.REPOSITORY_VENDOR, repo.toString())) {
+        Path repoUnderExternal = externalRepoRoot.getChild(repo.getName());
+        Path repoUnderVendor = vendorDirectory.getChild(repo.getName());
+        // This could happen when running the vendor command twice without changing anything.
+        if (repoUnderExternal.isSymbolicLink()
+            && repoUnderExternal.resolveSymbolicLinks().equals(repoUnderVendor)) {
+          continue;
+        }
 
-      // At this point, the repo should exist under external dir, but check if the vendor src is
-      // already up-to-date.
-      Path markerUnderExternal = externalRepoRoot.getChild(repo.getMarkerFileName());
-      Path markerUnderVendor = vendorDirectory.getChild(repo.getMarkerFileName());
-      if (isRepoUpToDate(markerUnderVendor, markerUnderExternal)) {
-        continue;
-      }
+        // At this point, the repo should exist under external dir, but check if the vendor src is
+        // already up-to-date.
+        Path markerUnderExternal = externalRepoRoot.getChild(repo.getMarkerFileName());
+        Path markerUnderVendor = vendorDirectory.getChild(repo.getMarkerFileName());
+        if (isRepoUpToDate(markerUnderVendor, markerUnderExternal)) {
+          continue;
+        }
 
-      // Actually vendor the repo:
-      // 1. Clean up existing marker file and vendor dir.
-      markerUnderVendor.delete();
-      repoUnderVendor.deleteTree();
-      repoUnderVendor.createDirectory();
-      // 2. Move the marker file to a temporary one under vendor dir.
-      Path tMarker = vendorDirectory.getChild(repo.getMarkerFileName() + ".tmp");
-      FileSystemUtils.moveFile(markerUnderExternal, tMarker);
-      // 3. Move the external repo to vendor dir. It's fine if this step fails or is interrupted,
-      // because the marker file under external is gone anyway.
-      FileSystemUtils.moveTreesBelow(repoUnderExternal, repoUnderVendor);
-      // 4. Rename to temporary marker file after the move is done.
-      tMarker.renameTo(markerUnderVendor);
-      // 5. Leave a symlink in external dir.
-      repoUnderExternal.deleteTree();
-      FileSystemUtils.ensureSymbolicLink(repoUnderExternal, repoUnderVendor);
+        // Actually vendor the repo:
+        // 1. Clean up existing marker file and vendor dir.
+        markerUnderVendor.delete();
+        repoUnderVendor.deleteTree();
+        repoUnderVendor.createDirectory();
+        // 2. Move the marker file to a temporary one under vendor dir.
+        Path tMarker = vendorDirectory.getChild(repo.getMarkerFileName() + ".tmp");
+        FileSystemUtils.moveFile(markerUnderExternal, tMarker);
+        // 3. Move the external repo to vendor dir. It's fine if this step fails or is interrupted,
+        // because the marker file under external is gone anyway.
+        FileSystemUtils.moveTreesBelow(repoUnderExternal, repoUnderVendor);
+        // 4. Re-plant symlinks pointing a path under the external root to a relative path
+        // to make sure the vendor src keep working after being moved or output base changed
+        replantSymlinks(repoUnderVendor, externalRepoRoot);
+        // 5. Rename the temporary marker file after the move is done.
+        tMarker.renameTo(markerUnderVendor);
+        // 6. Leave a symlink in external dir to keep things working.
+        repoUnderExternal.deleteTree();
+        FileSystemUtils.ensureSymbolicLink(repoUnderExternal, repoUnderVendor);
+      }
+    }
+  }
+
+  /**
+   * Replants the symlinks under the specified repository directory.
+   *
+   * <p>Re-write symlinks that originally pointing to a path under the external root to a relative
+   * path pointing to an external root symlink under the vendor directory.
+   *
+   * @param repoUnderVendor The path to the repository directory under the vendor directory.
+   * @param externalRepoRoot The path to the root of external repositories.
+   * @throws IOException If an I/O error occurs while replanting the symlinks.
+   */
+  private void replantSymlinks(Path repoUnderVendor, Path externalRepoRoot) throws IOException {
+    try {
+      Collection<Path> symlinks =
+          FileSystemUtils.traverseTree(repoUnderVendor, Path::isSymbolicLink);
+      Path externalSymlinkUnderVendor = vendorDirectory.getChild(EXTERNAL_ROOT_SYMLINK_NAME);
+      FileSystemUtils.ensureSymbolicLink(externalSymlinkUnderVendor, externalRepoRoot);
+      for (Path symlink : symlinks) {
+        PathFragment target = symlink.readSymbolicLink();
+        if (!target.startsWith(externalRepoRoot.asFragment())) {
+          // TODO: print a warning for absolute symlinks?
+          continue;
+        }
+        PathFragment newTarget =
+            PathFragment.create(
+                    "../".repeat(symlink.relativeTo(vendorDirectory).segmentCount() - 1))
+                .getRelative(EXTERNAL_ROOT_SYMLINK_NAME)
+                .getRelative(target.relativeTo(externalRepoRoot.asFragment()));
+        if (OS.getCurrent() == OS.WINDOWS) {
+          // On Windows, FileSystemUtils.ensureSymbolicLink always resolves paths to absolute path.
+          // Use Files.createSymbolicLink here instead to preserve relative target path.
+          symlink.delete();
+          Files.createSymbolicLink(
+              java.nio.file.Path.of(symlink.getPathString()),
+              java.nio.file.Path.of(newTarget.getPathString()));
+        } else {
+          FileSystemUtils.ensureSymbolicLink(symlink, newTarget);
+        }
+      }
+    } catch (IOException e) {
+      throw new IOException(
+          String.format("Failed to rewrite symlinks under %s: ", repoUnderVendor), e);
     }
   }
 

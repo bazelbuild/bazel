@@ -57,7 +57,7 @@ import java.util.logging.Level;
     name = "canonicalize-flags",
     options = {CanonicalizeCommand.Options.class, PackageOptions.class},
     // inherits from build to get proper package loading options and rc flag aliases.
-    inherits = {BuildCommand.class},
+    inheritsOptionsFrom = {BuildCommand.class},
     allowResidue = true,
     mustRunInWorkspace = false,
     shortDescription = "Canonicalizes a list of %{product} options.",

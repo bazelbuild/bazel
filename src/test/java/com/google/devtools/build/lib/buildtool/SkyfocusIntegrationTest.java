@@ -1092,4 +1092,23 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     assertThat(getSkyframeExecutor().getSkyfocusState().workingSet()).hasSize(2);
   }
 
+  @Test
+  public void actionCache_canBeNull() throws Exception {
+    addOptions("--nouse_action_cache");
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt"],
+            outs = ["out"],
+            cmd = "cat $< > $@",
+        )
+        """);
+
+    buildTarget("//hello/..."); // does not crash.
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("hello", "hello/BUILD", "hello/x.txt");
+  }
 }

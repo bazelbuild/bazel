@@ -54,6 +54,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParser.HelpVerbosity;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -423,7 +424,7 @@ public final class HelpCommand implements BlazeCommand {
           continue;
         }
         List<String> inheritedCmdNames = new ArrayList<>();
-        for (Class<? extends BlazeCommand> base : annotation.inherits()) {
+        for (Class<? extends BlazeCommand> base : annotation.inheritsOptionsFrom()) {
           String name = base.getAnnotation(Command.class).name();
           inheritedCmdNames.add(String.format("<a href=\"#%s\">%s</a>", name, name));
         }
@@ -437,7 +438,7 @@ public final class HelpCommand implements BlazeCommand {
         for (BlazeModule blazeModule : runtime.getBlazeModules()) {
           Iterables.addAll(options, blazeModule.getCommandOptions(annotation));
         }
-        appendOptionsHtml(result, options);
+        List<String> optionsToIgnore = appendOptionsHtml(result, options);
         result.append("\n");
 
         // For now, we print all the configuration options in a list after all the non-configuration
@@ -446,7 +447,7 @@ public final class HelpCommand implements BlazeCommand {
           options.clear();
           Collections.addAll(options, annotation.options());
           options.addAll(runtime.getRuleClassProvider().getFragmentRegistry().getOptionsClasses());
-          appendOptionsHtml(result, options);
+          appendOptionsHtml(result, options, optionsToIgnore);
           result.append("\n");
         }
       }
@@ -493,12 +494,33 @@ public final class HelpCommand implements BlazeCommand {
       outErr.printOut(result.toString());
     }
 
-    private void appendOptionsHtml(
+    // Returns the list of appended option names.
+    @CanIgnoreReturnValue
+    private List<String> appendOptionsHtml(
         StringBuilder result, Iterable<Class<? extends OptionsBase>> optionsClasses) {
+      return appendOptionsHtml(result, optionsClasses, ImmutableList.of());
+    }
+
+    // Returns the list of appended option names.
+    @CanIgnoreReturnValue
+    private List<String> appendOptionsHtml(
+        StringBuilder result,
+        Iterable<Class<? extends OptionsBase>> optionsClasses,
+        List<String> optionsToIgnore) {
       OptionsParser parser = OptionsParser.builder().optionsClasses(optionsClasses).build();
       String productName = runtime.getProductName();
       result.append(
-          parser.describeOptionsHtml(HTML_ESCAPER, productName).replace("%{product}", productName));
+          parser
+              .describeOptionsHtml(HTML_ESCAPER, productName, optionsToIgnore)
+              .replace("%{product}", productName));
+
+      List<String> optionNames = new ArrayList<>();
+      for (List<OptionDefinition> category : parser.getOptionsSortedByCategory().values()) {
+        for (OptionDefinition option : category) {
+          optionNames.add(option.getOptionName());
+        }
+      }
+      return optionNames;
     }
 
   }

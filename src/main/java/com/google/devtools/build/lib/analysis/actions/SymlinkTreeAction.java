@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
@@ -33,12 +35,11 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
 /**
- * Action responsible for the symlink tree creation.
- * Used to generate runfiles and fileset symlink farms.
+ * Action responsible for the symlink tree creation. Used to generate runfiles and fileset symlink
+ * trees.
  */
 @Immutable
 public final class SymlinkTreeAction extends AbstractAction {
@@ -46,12 +47,14 @@ public final class SymlinkTreeAction extends AbstractAction {
   private static final String GUID = "7a16371c-cd4a-494d-b622-963cd89f5212";
 
   private final Artifact inputManifest;
-  private final Runfiles runfiles;
   private final Artifact outputManifest;
-  @Nullable private final String filesetRoot;
   private final ActionEnvironment env;
   private final RunfileSymlinksMode runfileSymlinksMode;
   private final Artifact repoMappingManifest;
+
+  // Exactly one of these two fields is non-null.
+  @Nullable private final Runfiles runfiles;
+  @Nullable private final String workspaceNameForFileset;
 
   /**
    * Creates SymlinkTreeAction instance.
@@ -63,7 +66,6 @@ public final class SymlinkTreeAction extends AbstractAction {
    * @param outputManifest the generated symlink tree manifest (must have "MANIFEST" base name).
    *     Symlink tree root will be set to the artifact's parent directory.
    * @param repoMappingManifest the repository mapping manifest
-   * @param filesetRoot non-null if this is a fileset symlink tree
    */
   public SymlinkTreeAction(
       ActionOwner owner,
@@ -71,17 +73,16 @@ public final class SymlinkTreeAction extends AbstractAction {
       Artifact inputManifest,
       @Nullable Runfiles runfiles,
       Artifact outputManifest,
-      @Nullable Artifact repoMappingManifest,
-      String filesetRoot) {
+      @Nullable Artifact repoMappingManifest) {
     this(
         owner,
         inputManifest,
         runfiles,
         outputManifest,
         repoMappingManifest,
-        filesetRoot,
         config.getActionEnvironment(),
-        config.getRunfileSymlinksMode());
+        config.getRunfileSymlinksMode(),
+        config.getWorkspaceName());
   }
 
   /**
@@ -95,7 +96,7 @@ public final class SymlinkTreeAction extends AbstractAction {
    * @param outputManifest the generated symlink tree manifest (must have "MANIFEST" base name).
    *     Symlink tree root will be set to the artifact's parent directory.
    * @param repoMappingManifest the repository mapping manifest
-   * @param filesetRoot non-null if this is a fileset symlink tree,
+   * @param workspaceName name of the workspace
    */
   @VisibleForTesting
   public SymlinkTreeAction(
@@ -104,24 +105,27 @@ public final class SymlinkTreeAction extends AbstractAction {
       @Nullable Runfiles runfiles,
       Artifact outputManifest,
       @Nullable Artifact repoMappingManifest,
-      @Nullable String filesetRoot,
       ActionEnvironment env,
-      RunfileSymlinksMode runfileSymlinksMode) {
+      RunfileSymlinksMode runfileSymlinksMode,
+      String workspaceName) {
     super(
         owner,
         computeInputs(runfileSymlinksMode, runfiles, inputManifest, repoMappingManifest),
         ImmutableSet.of(outputManifest));
-    Preconditions.checkArgument(outputManifest.getPath().getBaseName().equals("MANIFEST"));
-    Preconditions.checkArgument(
-        (runfiles == null) == (filesetRoot != null),
-        "Runfiles must be null iff this is a fileset action");
-    this.runfiles = runfiles;
+    checkArgument(outputManifest.getExecPath().getBaseName().equals("MANIFEST"), outputManifest);
     this.outputManifest = outputManifest;
-    this.filesetRoot = filesetRoot;
     this.env = env;
     this.runfileSymlinksMode = runfileSymlinksMode;
     this.inputManifest = inputManifest;
     this.repoMappingManifest = repoMappingManifest;
+    if (inputManifest.isFileset()) {
+      checkArgument(runfiles == null, "Runfiles present for fileset %s", inputManifest);
+      this.runfiles = null;
+      this.workspaceNameForFileset = checkNotNull(workspaceName);
+    } else {
+      this.runfiles = checkNotNull(runfiles);
+      this.workspaceNameForFileset = null;
+    }
   }
 
   private static NestedSet<Artifact> computeInputs(
@@ -169,11 +173,11 @@ public final class SymlinkTreeAction extends AbstractAction {
   }
 
   public boolean isFilesetTree() {
-    return filesetRoot != null;
+    return workspaceNameForFileset != null;
   }
 
-  public PathFragment getFilesetRoot() {
-    return PathFragment.create(filesetRoot);
+  public String getWorkspaceNameForFileset() {
+    return checkNotNull(workspaceNameForFileset, "Not a fileset tree: %s", outputManifest);
   }
 
   public RunfileSymlinksMode getRunfileSymlinksMode() {
@@ -197,7 +201,7 @@ public final class SymlinkTreeAction extends AbstractAction {
       @Nullable ArtifactExpander artifactExpander,
       Fingerprint fp) {
     fp.addString(GUID);
-    fp.addNullableString(filesetRoot);
+    fp.addNullableString(workspaceNameForFileset);
     fp.addInt(runfileSymlinksMode.ordinal());
     env.addTo(fp);
     // We need to ensure that the fingerprints for two different instances of this action are

@@ -541,7 +541,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     if (options.memoryProfilePath != null) {
       Path memoryProfilePath = env.getWorkingDirectory().getRelative(options.memoryProfilePath);
       MemoryProfiler.instance()
-          .setStableMemoryParameters(options.memoryProfileStableHeapParameters);
+          .setStableMemoryParameters(
+              options.memoryProfileStableHeapParameters,
+              env.getOptions()
+                  .getOptions(MemoryPressureOptions.class)
+                  .jvmHeapHistogramInternalObjectPattern
+                  .regexPattern());
       try {
         MemoryProfiler.instance().start(memoryProfilePath.getOutputStream());
       } catch (IOException e) {

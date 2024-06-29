@@ -77,6 +77,12 @@ final class ExecLogConverter {
       System.exit(1);
     }
 
+    if (!Files.exists(options.input.path()) && !Files.isReadable(options.input.path())) {
+      System.err.println(
+          "Input path '" + options.input.path() + "' does not exist or is not readable.");
+      System.exit(1);
+    }
+
     try (MessageInputStream<SpawnExec> in = getMessageInputStream(options.input);
         MessageOutputStream<SpawnExec> out = getMessageOutputStream(options.output)) {
       if (options.sort) {

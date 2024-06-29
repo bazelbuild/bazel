@@ -215,6 +215,15 @@ class TestBase(absltest.TestCase):
       if entry in f.read():
         self.fail('File "%s" does contain "%s"' % (file_path, entry))
 
+  def AssertPathIsSymlink(self, path):
+    if self.IsWindows():
+      self.assertTrue(
+          self.IsReparsePoint(path),
+          "Path '%s' is not a symlink or junction" % path,
+      )
+    else:
+      self.assertTrue(os.path.islink(path), "Path '%s' is not a symlink" % path)
+
   def CreateWorkspaceWithDefaultRepos(self, path, lines=None):
     """Creates a `WORKSPACE` file with default repos and register C++ toolchains."""
     rule_definition = [
@@ -283,8 +292,8 @@ class TestBase(absltest.TestCase):
     """Returns true if the current platform is Linux."""
     return sys.platform.startswith('linux')
 
-  def IsJunction(self, path):
-    """Returns whether a folder is a junction or not. Used with Windows folders.
+  def IsReparsePoint(self, path):
+    """Returns whether a path is a reparse point (symlink or junction) on Windows.
 
     Args:
       path: string; an absolute path to a folder e.g. "C://foo/bar/aaa"

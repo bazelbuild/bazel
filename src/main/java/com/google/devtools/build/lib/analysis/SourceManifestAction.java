@@ -76,10 +76,11 @@ public final class SourceManifestAction extends AbstractFileWriteAction
      *
      * @param manifestWriter the output stream
      * @param rootRelativePath path of an entry relative to the manifest's root
-     * @param symlink (optional) symlink that resolves the above path
+     * @param symlinkTarget target of the entry at {@code rootRelativePath} if it is a symlink,
+     *     otherwise {@code null}
      */
     void writeEntry(
-        Writer manifestWriter, PathFragment rootRelativePath, @Nullable Artifact symlink)
+        Writer manifestWriter, PathFragment rootRelativePath, @Nullable PathFragment symlinkTarget)
         throws IOException;
 
     /** Fulfills {@link com.google.devtools.build.lib.actions.AbstractAction#getMnemonic()} */
@@ -144,7 +145,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction
       @Nullable Artifact repoMappingManifest,
       boolean remotableSourceManifestActions) {
     // The real set of inputs is computed in #getInputs().
-    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), primaryOutput, false);
+    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), primaryOutput);
     this.manifestWriter = manifestWriter;
     this.runfiles = runfiles;
     this.repoMappingManifest = repoMappingManifest;
@@ -235,7 +236,16 @@ public final class SourceManifestAction extends AbstractFileWriteAction
     List<Map.Entry<PathFragment, Artifact>> sortedManifest = new ArrayList<>(output.entrySet());
     sortedManifest.sort(ENTRY_COMPARATOR);
     for (Map.Entry<PathFragment, Artifact> line : sortedManifest) {
-      manifestWriter.writeEntry(manifestFile, line.getKey(), line.getValue());
+      Artifact artifact = line.getValue();
+      PathFragment symlinkTarget;
+      if (artifact == null) {
+        symlinkTarget = null;
+      } else if (artifact.isSymlink()) {
+        symlinkTarget = artifact.getPath().readSymbolicLink();
+      } else {
+        symlinkTarget = artifact.getPath().asFragment();
+      }
+      manifestWriter.writeEntry(manifestFile, line.getKey(), symlinkTarget);
     }
 
     manifestFile.flush();
@@ -287,17 +297,16 @@ public final class SourceManifestAction extends AbstractFileWriteAction
      */
     SOURCE_SYMLINKS {
       @Override
-      public void writeEntry(Writer manifestWriter, PathFragment rootRelativePath, Artifact symlink)
+      public void writeEntry(
+          Writer manifestWriter,
+          PathFragment rootRelativePath,
+          @Nullable PathFragment symlinkTarget)
           throws IOException {
         manifestWriter.append(rootRelativePath.getPathString());
         // This trailing whitespace is REQUIRED to process the single entry line correctly.
         manifestWriter.append(' ');
-        if (symlink != null) {
-          if (symlink.isSymlink()) {
-            manifestWriter.append(symlink.getPath().readSymbolicLink().getPathString());
-          } else {
-            manifestWriter.append(symlink.getPath().getPathString());
-          }
+        if (symlinkTarget != null) {
+          manifestWriter.append(symlinkTarget.getPathString());
         }
         manifestWriter.append('\n');
       }
@@ -335,7 +344,10 @@ public final class SourceManifestAction extends AbstractFileWriteAction
      */
     SOURCES_ONLY {
       @Override
-      public void writeEntry(Writer manifestWriter, PathFragment rootRelativePath, Artifact symlink)
+      public void writeEntry(
+          Writer manifestWriter,
+          PathFragment rootRelativePath,
+          @Nullable PathFragment symlinkTarget)
           throws IOException {
         manifestWriter.append(rootRelativePath.getPathString());
         manifestWriter.append('\n');

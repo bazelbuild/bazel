@@ -350,7 +350,7 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
             try {
               args.addAll(
                   featureConfiguration.getCommandLine(
-                      CppActionNames.LTO_BACKEND, buildVariables, artifactExpander));
+                      CppActionNames.LTO_BACKEND, buildVariables, artifactExpander, pathMapper));
             } catch (ExpansionException e) {
               throw new CommandLineExpansionException(e.getMessage());
             }

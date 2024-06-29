@@ -69,7 +69,7 @@ import java.util.Set;
 @Command(
     name = "print_action",
     builds = true,
-    inherits = {BuildCommand.class},
+    inheritsOptionsFrom = {BuildCommand.class},
     options = {PrintActionCommand.PrintActionOptions.class},
     help = "resource:print_action.txt",
     shortDescription = "Prints the command line args for compiling a file.",

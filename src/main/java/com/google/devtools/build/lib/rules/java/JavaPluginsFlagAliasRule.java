@@ -80,7 +80,9 @@ public final class JavaPluginsFlagAliasRule implements RuleDefinition {
 
       JavaPluginInfo javaPluginInfo =
           JavaPluginInfo.mergeWithoutJavaOutputs(
-              ruleContext.getPrerequisites(":java_plugins", JavaPluginInfo.PROVIDER));
+              ruleContext
+                  .getRulePrerequisitesCollection()
+                  .getPrerequisites(":java_plugins", JavaPluginInfo.PROVIDER));
 
       return new RuleConfiguredTargetBuilder(ruleContext)
           .addStarlarkDeclaredProvider(javaPluginInfo)

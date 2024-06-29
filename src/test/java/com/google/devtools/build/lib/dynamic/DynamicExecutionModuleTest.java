@@ -69,21 +69,25 @@ public class DynamicExecutionModuleTest {
   @Test
   public void testGetLocalStrategies_getsDefaultWithNoOptions()
       throws AbruptExitException, OptionsParsingException {
-    assertThat(module.getLocalStrategies(options)).isEqualTo(parseStrategies("worker,sandboxed"));
+    assertThat(module.getLocalStrategies(options, /* sandboxingSupported= */ true))
+        .isEqualTo(parseStrategies("worker,sandboxed"));
+    assertThat(module.getLocalStrategies(options, /* sandboxingSupported= */ false))
+        .isEqualTo(parseStrategies("worker"));
   }
 
   @Test
   public void testGetLocalStrategies_genericOptionOverridesFallbacks()
       throws AbruptExitException, OptionsParsingException {
     options.dynamicLocalStrategy = parseStrategiesToOptions("local,worker");
-    assertThat(module.getLocalStrategies(options)).isEqualTo(parseStrategies("local,worker"));
+    assertThat(module.getLocalStrategies(options, /* sandboxingSupported= */ true))
+        .isEqualTo(parseStrategies("local,worker"));
   }
 
   @Test
   public void testGetLocalStrategies_specificOptionKeepsFallbacks()
       throws AbruptExitException, OptionsParsingException {
     options.dynamicLocalStrategy = parseStrategiesToOptions("Foo=local,worker");
-    assertThat(module.getLocalStrategies(options))
+    assertThat(module.getLocalStrategies(options, /* sandboxingSupported= */ true))
         .isEqualTo(parseStrategies("Foo=local,worker", "worker,sandboxed"));
   }
 
@@ -91,7 +95,7 @@ public class DynamicExecutionModuleTest {
   public void testGetLocalStrategies_canMixSpecificsAndGenericOptions()
       throws AbruptExitException, OptionsParsingException {
     options.dynamicLocalStrategy = parseStrategiesToOptions("Foo=local,worker", "worker");
-    assertThat(module.getLocalStrategies(options))
+    assertThat(module.getLocalStrategies(options, /* sandboxingSupported= */ true))
         .isEqualTo(parseStrategies("Foo=local,worker", "worker"));
   }
 

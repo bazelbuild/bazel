@@ -61,6 +61,9 @@ import javax.annotation.concurrent.GuardedBy;
  * <p>This class is also in charge of planting the necessary symlinks.
  */
 public class IncrementalPackageRoots implements PackageRoots {
+  // This work is I/O bound: set the parallelism to something similar to the default number of
+  // loading threads.
+  private static final int SYMLINK_PLANTING_PARALLELISM = 200;
 
   // We only keep track of PackageIdentifier from external repos here as a memory optimization:
   // packages belong to the main repository all share the same root, which is singleSourceRoot.
@@ -109,7 +112,7 @@ public class IncrementalPackageRoots implements PackageRoots {
     this.symlinkPlantingPool =
         MoreExecutors.listeningDecorator(
             Executors.newFixedThreadPool(
-                Runtime.getRuntime().availableProcessors(),
+                SYMLINK_PLANTING_PARALLELISM,
                 new ThreadFactoryBuilder().setNameFormat("Non-eager Symlink planter %d").build()));
   }
 

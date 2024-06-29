@@ -409,12 +409,8 @@ public final class BlazeOptionHandler {
    */
   DetailedExitCode parseStarlarkOptions(CommandEnvironment env) {
     // For now, restrict starlark options to commands that already build to ensure that loading
-    // will work. We may want to open this up to other commands in the future. The "info"
-    // and "clean" commands have builds=true set in their annotation but don't actually do any
-    // building (b/120041419).
-    if (!commandAnnotation.builds()
-        || commandAnnotation.name().equals("info")
-        || commandAnnotation.name().equals("clean")) {
+    // will work. We may want to open this up to other commands in the future.
+    if (!commandAnnotation.builds()) {
       return DetailedExitCode.success();
     }
     try {
@@ -561,7 +557,7 @@ public final class BlazeOptionHandler {
 
   private static void getCommandNamesToParseHelper(
       Command commandAnnotation, List<String> accumulator) {
-    for (Class<? extends BlazeCommand> base : commandAnnotation.inherits()) {
+    for (Class<? extends BlazeCommand> base : commandAnnotation.inheritsOptionsFrom()) {
       getCommandNamesToParseHelper(base.getAnnotation(Command.class), accumulator);
     }
     accumulator.add(commandAnnotation.name());

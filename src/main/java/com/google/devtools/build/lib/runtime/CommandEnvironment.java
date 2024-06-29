@@ -269,7 +269,7 @@ public class CommandEnvironment {
             : UUID.randomUUID().toString();
 
     this.repoEnv.putAll(clientEnv);
-    if (command.builds()) {
+    if (command.builds() || command.name().equals("info")) {
       // Compute the set of environment variables that are allowlisted on the commandline
       // for inheritance.
       for (Map.Entry<String, String> entry :
@@ -791,7 +791,7 @@ public class CommandEnvironment {
 
     outputService = null;
     BlazeModule outputModule = null;
-    if (command.builds()) {
+    if (command.builds() || command.name().equals("clean")) {
       for (BlazeModule module : runtime.getBlazeModules()) {
         OutputService moduleService = module.getOutputService();
         if (moduleService != null) {
@@ -822,7 +822,7 @@ public class CommandEnvironment {
     // Modules that are subscribed to CommandStartEvent may create pending exceptions.
     throwPendingException();
 
-    if (commandActuallyBuilds()) {
+    if (getCommand().builds()) {
       // Need to determine if Skyfocus will run for this command. If so, the evaluator
       // will need to be configured to remember additional state (e.g. root keys) that it
       // otherwise doesn't need to for a non-Skyfocus build. Alternately, it might reset
@@ -951,25 +951,5 @@ public class CommandEnvironment {
    */
   public int getAttemptNumber() {
     return attemptNumber;
-  }
-
-  /**
-   * Checks if the command builds.
-   *
-   * <p>Not all 'build = true' annotated commands actually run a build.
-   */
-  public boolean commandActuallyBuilds() {
-    if (!command.builds()) {
-      return false;
-    }
-    // 'clean' and 'info' set 'build = true' to make build options accessible to users (and info
-    // uses them), but does not run a build.
-    if (command.name().equals("clean")) {
-      return false;
-    }
-    if (command.name().equals("info")) {
-      return false;
-    }
-    return true;
   }
 }

@@ -378,10 +378,6 @@ tasks:
   rbe_ubuntu2004:
     platform: ubuntu2004
     name: "RBE"
-    environment:
-      # Use last_green to pickup the fix for https://github.com/bazelbuild/bazel/issues/21604.
-      # TODO(chiwang): Remove this after Bazel 7.2.0 is released.
-      USE_BAZEL_VERSION: last_green
     shell_commands:
       - sed -i.bak
         -e 's/^# android_sdk_repository/android_sdk_repository/'

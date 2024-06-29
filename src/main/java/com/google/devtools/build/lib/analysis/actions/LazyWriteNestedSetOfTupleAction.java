@@ -26,8 +26,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.util.Fingerprint;
-import java.io.IOException;
-import java.io.OutputStream;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Tuple;
 
@@ -44,20 +42,14 @@ public final class LazyWriteNestedSetOfTupleAction extends AbstractFileWriteActi
 
   public LazyWriteNestedSetOfTupleAction(
       ActionOwner owner, Artifact output, NestedSet<Tuple> tuplesToWrite, String delimiter) {
-    super(
-        owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), output, /* makeExecutable= */ false);
+    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), output);
     this.tuplesToWrite = tuplesToWrite;
     this.delimiter = delimiter;
   }
 
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
-    return new DeterministicWriter() {
-      @Override
-      public void writeOutputFile(OutputStream out) throws IOException {
-        out.write(getContents(delimiter).getBytes(UTF_8));
-      }
-    };
+    return out -> out.write(getContents(delimiter).getBytes(UTF_8));
   }
 
   /** Computes the Action key for this action by computing the fingerprint for the file contents. */

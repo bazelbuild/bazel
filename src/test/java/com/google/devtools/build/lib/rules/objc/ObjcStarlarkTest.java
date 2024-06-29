@@ -397,11 +397,11 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         package(default_visibility = ["//visibility:public"])
 
         swift_binary(
-            name = "my_target",
+           name="my_target",
         )
         """);
 
-    useConfiguration("--apple_platform_type=ios", "--ios_multi_cpus=i386", "--xcode_version=7.3");
+    useConfiguration("--apple_platform_type=ios", "--ios_multi_cpus=x86_64", "--xcode_version=7.3");
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
 
@@ -410,13 +410,13 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     Map<String, String> env = (Map<String, String>) myInfo.getValue("env");
     Object sdkVersion = myInfo.getValue("sdk_version");
 
-    assertThat(iosCpu).isEqualTo("i386");
+    assertThat(iosCpu).isEqualTo("x86_64");
     assertThat(env).containsEntry("APPLE_SDK_PLATFORM", "iPhoneSimulator");
     assertThat(env).containsEntry("APPLE_SDK_VERSION_OVERRIDE", "8.4");
     assertThat(sdkVersion).isEqualTo("8.4");
     assertThat(myInfo.getValue("xcode_version")).isEqualTo("7.3");
     assertThat(myInfo.getValue("single_arch_platform")).isEqualTo("ios_simulator");
-    assertThat(myInfo.getValue("single_arch_cpu")).isEqualTo("i386");
+    assertThat(myInfo.getValue("single_arch_cpu")).isEqualTo("x86_64");
     assertThat(myInfo.getValue("platform_type")).isEqualTo("ios");
     assertThat(myInfo.getValue("dead_code_report")).isEqualTo("None");
   }
@@ -598,7 +598,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         )
         """);
 
-    useConfiguration("--cpu=ios_i386", "--apple_platform_type=ios");
+    useConfiguration("--ios_multi_cpus=x86_64", "--apple_platform_type=ios");
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
 
     Object name = getMyInfoFromTarget(starlarkTarget).getValue("name");
@@ -642,7 +642,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         )
         """);
 
-    useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386");
+    useConfiguration("--apple_platform_type=ios", "--ios_multi_cpus=x86_64");
     ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
 
@@ -1552,7 +1552,7 @@ swift_binary = rule(
 
     getConfiguredTarget("//foo:myrule");
 
-    assertContainsEvent("file '//foo:rule.bzl' cannot use private @_builtins API");
+    assertContainsEvent("file '//foo:rule.bzl' cannot use private API");
   }
 
   @Test
@@ -1580,7 +1580,7 @@ swift_binary = rule(
 
     getConfiguredTarget("//foo:myrule");
 
-    assertContainsEvent("file '//foo:rule.bzl' cannot use private @_builtins API");
+    assertContainsEvent("file '//foo:rule.bzl' cannot use private API");
   }
 
   @Test
@@ -1609,7 +1609,7 @@ swift_binary = rule(
 
     getConfiguredTarget("//foo:myrule");
 
-    assertContainsEvent("file '//foo:rule.bzl' cannot use private @_builtins API");
+    assertContainsEvent("file '//foo:rule.bzl' cannot use private API");
   }
 
   @Test

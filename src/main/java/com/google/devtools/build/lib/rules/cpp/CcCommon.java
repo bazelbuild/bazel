@@ -147,7 +147,9 @@ public final class CcCommon implements StarlarkValue {
   public static List<Pair<Artifact, Label>> getHeaders(RuleContext ruleContext) {
     Map<Artifact, Label> map = Maps.newLinkedHashMap();
     for (TransitiveInfoCollection target :
-        ruleContext.getPrerequisitesIf("hdrs", FileProvider.class)) {
+        ruleContext
+            .getRulePrerequisitesCollection()
+            .getPrerequisitesIf("hdrs", FileProvider.class)) {
       FileProvider provider = target.getProvider(FileProvider.class);
       for (Artifact artifact : provider.getFilesToBuild().toList()) {
         if (CppRuleClasses.DISALLOWED_HDRS_FILES.matches(artifact.getFilename())) {

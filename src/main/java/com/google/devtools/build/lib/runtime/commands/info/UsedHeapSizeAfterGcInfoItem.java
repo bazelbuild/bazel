@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.runtime.commands.info;
 
 import com.google.common.base.Supplier;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
+import com.google.devtools.build.lib.runtime.MemoryPressureOptions;
 import com.google.devtools.build.lib.util.HeapOffsetHelper;
 import com.google.devtools.build.lib.util.StringUtilities;
 
@@ -38,7 +40,11 @@ public final class UsedHeapSizeAfterGcInfoItem extends InfoItem {
     return print(
         StringUtilities.prettyPrintBytes(
             InfoItemUtils.getMemoryUsage().getUsed()
-                - HeapOffsetHelper.getSizeOfFillerArrayOnHeap()));
+                - HeapOffsetHelper.getSizeOfFillerArrayOnHeap(
+                    env.getOptions()
+                        .getOptions(MemoryPressureOptions.class)
+                        .jvmHeapHistogramInternalObjectPattern
+                        .regexPattern(),
+                    BugReporter.defaultInstance())));
   }
-
 }

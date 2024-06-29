@@ -295,7 +295,8 @@ public class BuildTool {
                 topLevelTargets,
                 projectDirectories,
                 env.getReporter(),
-                env.getBlazeWorkspace().getPersistentActionCache());
+                env.getBlazeWorkspace().getPersistentActionCache(),
+                env.getOptions());
       }
     }
   }
@@ -332,7 +333,11 @@ public class BuildTool {
       if (projectFile != null) {
         postFlagSetsBuildOptions =
             applySclConfigs(
-                buildOptionsBeforeFlagSets, projectFile, env.getSkyframeExecutor(), getReporter());
+                buildOptionsBeforeFlagSets,
+                projectFile,
+                request.getBuildOptions().enforceProjectConfigs,
+                env.getSkyframeExecutor(),
+                getReporter());
       } else {
         postFlagSetsBuildOptions = buildOptionsBeforeFlagSets;
       }
@@ -837,13 +842,18 @@ public class BuildTool {
   public static BuildOptions applySclConfigs(
       BuildOptions buildOptionsBeforeFlagSets,
       Label projectFile,
+      boolean enforceCanonicalConfigs,
       SkyframeExecutor skyframeExecutor,
       ExtendedEventHandler eventHandler)
       throws InvalidConfigurationException {
 
     FlagSetValue flagSetValue =
         Project.modifyBuildOptionsWithFlagSets(
-            projectFile, buildOptionsBeforeFlagSets, eventHandler, skyframeExecutor);
+            projectFile,
+            buildOptionsBeforeFlagSets,
+            enforceCanonicalConfigs,
+            eventHandler,
+            skyframeExecutor);
 
     // BuildOptions after Flagsets
     return flagSetValue.getTopLevelBuildOptions();

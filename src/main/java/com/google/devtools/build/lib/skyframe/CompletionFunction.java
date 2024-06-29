@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingArtifactValue;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
@@ -447,7 +448,14 @@ public final class CompletionFunction<
       throw new CompletionFunctionException(
           new TopLevelOutputException(
               e.getMessage(),
-              DetailedExitCode.of(FailureDetail.newBuilder().setMessage(e.getMessage()).build())));
+              DetailedExitCode.of(
+                  FailureDetail.newBuilder()
+                      .setMessage(e.getMessage())
+                      .setRemoteExecution(
+                          RemoteExecution.newBuilder()
+                              .setCode(RemoteExecution.Code.TOPLEVEL_OUTPUTS_DOWNLOAD_FAILURE)
+                              .build())
+                      .build())));
     }
   }
 
@@ -501,7 +509,7 @@ public final class CompletionFunction<
   }
 
   /**
-   * Calls {@link ImportantOutputHandler#processAndGetLostArtifacts}.
+   * Calls {@link ImportantOutputHandler#processOutputsAndGetLostArtifacts}.
    *
    * <p>If any outputs are lost, returns a {@link Reset} which can be used to initiate action
    * rewinding and regenerate the lost outputs. Otherwise, returns {@code null}.
@@ -536,7 +544,7 @@ public final class CompletionFunction<
               "Informing important output handler of top-level outputs for " + label,
               IMPORTANT_OUTPUT_HANDLER_LOGGING_THRESHOLD)) {
         lostOutputs =
-            importantOutputHandler.processAndGetLostArtifacts(
+            importantOutputHandler.processOutputsAndGetLostArtifacts(
                 key.topLevelArtifactContext().expandFilesets()
                     ? importantArtifacts
                     : Iterables.filter(importantArtifacts, artifact -> !artifact.isFileset()),

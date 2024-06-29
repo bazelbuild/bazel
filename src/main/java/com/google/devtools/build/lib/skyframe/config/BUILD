@@ -42,7 +42,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/configuration_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/patch_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis/producers:build_configuration_key_producer",
+        "//src/main/java/com/google/devtools/build/lib/analysis/producers:build_configuration_key_map_producer",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",

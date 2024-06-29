@@ -16,11 +16,17 @@ package com.google.devtools.build.lib.pkgcache;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuildFileName;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.PackageOptions.Code;
+import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
@@ -28,6 +34,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -220,6 +227,32 @@ public final class PathPackageLocator {
     }
 
     return new PathPackageLocator(outputBase, resolvedPaths, buildFilesByPriority);
+  }
+
+  /**
+   * Extracts the package path from the {@code --package_path} flag, which is expected to have a
+   * single entry.
+   *
+   * <p>May be used to get the real package path when a {@linkplain
+   * BlazeDirectories#getVirtualSourceRoot virtual source root} is installed.
+   */
+  public static String getSingletonPackagePathFromFlag(
+      OptionsProvider options, BlazeDirectories directories) throws AbruptExitException {
+    List<String> packagePaths = options.getOptions(PackageOptions.class).packagePath;
+    if (packagePaths.size() != 1) {
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(
+                      String.format(
+                          "Package path option must have exactly 1 value: %s", packagePaths))
+                  .setPackageOptions(
+                      FailureDetails.PackageOptions.newBuilder()
+                          .setCode(Code.NONSINGLETON_PACKAGE_PATH))
+                  .build()));
+    }
+    return maybeReplaceWorkspaceInString(
+        packagePaths.getFirst(), directories.getWorkspace().asFragment());
   }
 
   /**

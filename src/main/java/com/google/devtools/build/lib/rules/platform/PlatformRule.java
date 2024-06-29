@@ -39,6 +39,7 @@ public class PlatformRule implements RuleDefinition {
   public static final String REMOTE_EXECUTION_PROPS_ATTR = "remote_execution_properties";
   public static final String EXEC_PROPS_ATTR = "exec_properties";
   public static final String FLAGS_ATTR = "flags";
+  public static final String REQUIRED_SETTINGS_ATTR = "required_settings";
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -48,7 +49,7 @@ public class PlatformRule implements RuleDefinition {
         .advertiseStarlarkProvider(PlatformInfo.PROVIDER.id())
         .cfg(NoConfigTransition.getFactory())
         .exemptFromConstraintChecking("this rule helps *define* a constraint")
-        .useToolchainResolution(ToolchainResolutionMode.DISABLED)
+        .toolchainResolutionMode(ToolchainResolutionMode.DISABLED)
         .removeAttribute(":action_listener")
         .removeAttribute(RuleClass.APPLICABLE_METADATA_ATTR)
         .override(
@@ -121,6 +122,16 @@ public class PlatformRule implements RuleDefinition {
             attr(FLAGS_ATTR, Types.STRING_LIST)
                 .value(ImmutableList.of())
                 .nonconfigurable("Part of the configuration"))
+        /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(required_settings) -->
+        A list of <code>config_setting</code>s that must be satisfied by the target configuration
+        in order for this platform to be used as an execution platform during toolchain resolution.
+
+        Required settings are not inherited from parent platforms.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr(REQUIRED_SETTINGS_ATTR, BuildType.LABEL_LIST)
+                .allowedRuleClasses("config_setting")
+                .allowedFileTypes(FileTypeSet.NO_FILE))
         .build();
   }
 

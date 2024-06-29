@@ -41,10 +41,26 @@ sh_test(
 )
 
 filegroup(
+    name = "jq_linux",
+    srcs = select({
+        "@platforms//cpu:arm64": ["@jq_linux_arm64//file"],
+        "@platforms//cpu:x86_64": ["@jq_linux_amd64//file"],
+    }),
+)
+
+filegroup(
+    name = "jq_macos",
+    srcs = select({
+        "@platforms//cpu:arm64": ["@jq_macos_arm64//file"],
+        "@platforms//cpu:x86_64": ["@jq_macos_amd64//file"],
+    }),
+)
+
+filegroup(
     name = "jq",
     srcs = select({
-        "@platforms//os:linux": ["@jq_linux_amd64//file"],
-        "@platforms//os:macos": ["@jq_macos_amd64//file"],
+        "@platforms//os:linux": [":jq_linux"],
+        "@platforms//os:macos": [":jq_macos"],
         "@platforms//os:windows": ["@jq_windows_amd64//file"],
     }),
 )

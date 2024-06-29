@@ -36,7 +36,7 @@ def _target_os_version(ctx):
     xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
     return xcode_config.minimum_os_for_platform_type(platform_type)
 
-def layering_check_features(compiler, is_macos):
+def layering_check_features(compiler, extra_flags_per_feature, is_macos):
     if compiler != "clang":
         return []
     return [
@@ -58,7 +58,7 @@ def layering_check_features(compiler, is_macos):
                                 "-fmodule-name=%{module_name}",
                             ] + (["-Xclang"] if is_macos else []) + [
                                 "-fmodule-map-file=%{module_map_file}",
-                            ],
+                            ] + extra_flags_per_feature.get("use_module_maps", []),
                         ),
                     ],
                 ),
@@ -395,6 +395,70 @@ def _impl(ctx):
                     flag_group(
                         flags = ["--sysroot=%{sysroot}"],
                         expand_if_available = "sysroot",
+                    ),
+                ],
+            ),
+        ],
+    )
+
+    compiler_input_flags_feature = feature(
+        name = "compiler_input_flags",
+        enabled = True,
+        flag_sets = [
+            flag_set(
+                actions = [
+                    ACTION_NAMES.assemble,
+                    ACTION_NAMES.preprocess_assemble,
+                    ACTION_NAMES.linkstamp_compile,
+                    ACTION_NAMES.c_compile,
+                    ACTION_NAMES.cpp_compile,
+                    ACTION_NAMES.cpp_header_parsing,
+                    ACTION_NAMES.cpp_module_compile,
+                    ACTION_NAMES.cpp_module_codegen,
+                    ACTION_NAMES.objc_compile,
+                    ACTION_NAMES.objcpp_compile,
+                    ACTION_NAMES.lto_backend,
+                ],
+                flag_groups = [
+                    flag_group(
+                        flags = ["-c", "%{source_file}"],
+                        expand_if_available = "source_file",
+                    ),
+                ],
+            ),
+        ],
+    )
+
+    compiler_output_flags_feature = feature(
+        name = "compiler_output_flags",
+        enabled = True,
+        flag_sets = [
+            flag_set(
+                actions = [
+                    ACTION_NAMES.assemble,
+                    ACTION_NAMES.preprocess_assemble,
+                    ACTION_NAMES.linkstamp_compile,
+                    ACTION_NAMES.c_compile,
+                    ACTION_NAMES.cpp_compile,
+                    ACTION_NAMES.cpp_header_parsing,
+                    ACTION_NAMES.cpp_module_compile,
+                    ACTION_NAMES.cpp_module_codegen,
+                    ACTION_NAMES.objc_compile,
+                    ACTION_NAMES.objcpp_compile,
+                    ACTION_NAMES.lto_backend,
+                ],
+                flag_groups = [
+                    flag_group(
+                        flags = ["-S"],
+                        expand_if_available = "output_assembly_file",
+                    ),
+                    flag_group(
+                        flags = ["-E"],
+                        expand_if_available = "output_preprocess_file",
+                    ),
+                    flag_group(
+                        flags = ["-o", "%{output_file}"],
+                        expand_if_available = "output_file",
                     ),
                 ],
             ),
@@ -1429,11 +1493,22 @@ def _impl(ctx):
         ],
     )
 
+    # Tell bazel we support C++ modules now
+    cpp_modules_feature = feature(
+        name = "cpp_modules",
+        # set default value to False
+        # to enable the feature
+        # use --features=cpp_modules
+        # or add cpp_modules to features attr
+        enabled = False,
+    )
+
     # TODO(#8303): Mac crosstool should also declare every feature.
     if is_linux:
         # Linux artifact name patterns are the default.
         artifact_name_patterns = []
         features = [
+            cpp_modules_feature,
             dependency_file_feature,
             serialized_diagnostics_file_feature,
             random_seed_feature,
@@ -1486,10 +1561,12 @@ def _impl(ctx):
             opt_feature,
             user_compile_flags_feature,
             sysroot_feature,
+            compiler_input_flags_feature,
+            compiler_output_flags_feature,
             unfiltered_compile_flags_feature,
             treat_warnings_as_errors_feature,
             archive_param_file_feature,
-        ] + layering_check_features(ctx.attr.compiler, is_macos = False)
+        ] + layering_check_features(ctx.attr.compiler, ctx.attr.extra_flags_per_feature, is_macos = False)
     else:
         # macOS artifact name patterns differ from the defaults only for dynamic
         # libraries.
@@ -1501,8 +1578,10 @@ def _impl(ctx):
             ),
         ]
         features = [
+            cpp_modules_feature,
             macos_minimum_os_feature,
             macos_default_link_flags_feature,
+            dependency_file_feature,
             libtool_feature,
             archiver_flags_feature,
             asan_feature,
@@ -1526,11 +1605,13 @@ def _impl(ctx):
             opt_feature,
             user_compile_flags_feature,
             sysroot_feature,
+            compiler_input_flags_feature,
+            compiler_output_flags_feature,
             unfiltered_compile_flags_feature,
             treat_warnings_as_errors_feature,
             archive_param_file_feature,
             generate_linkmap_feature,
-        ] + layering_check_features(ctx.attr.compiler, is_macos = True)
+        ] + layering_check_features(ctx.attr.compiler, ctx.attr.extra_flags_per_feature, is_macos = True)
 
     parse_headers_action_configs, parse_headers_features = parse_headers_support(
         parse_headers_tool_path = ctx.attr.tool_paths.get("parse_headers"),
@@ -1583,6 +1664,7 @@ cc_toolchain_config = rule(
         "coverage_link_flags": attr.string_list(),
         "supports_start_end_lib": attr.bool(),
         "builtin_sysroot": attr.string(),
+        "extra_flags_per_feature": attr.string_list_dict(),
         "_xcode_config": attr.label(default = configuration_field(
             fragment = "apple",
             name = "xcode_config_label",

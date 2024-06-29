@@ -22,6 +22,9 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
@@ -30,9 +33,11 @@ import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.runtime.TestResultAggregator.AggregationPolicy;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
-import java.util.stream.Stream;
+import java.util.stream.IntStream;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -231,10 +236,16 @@ public final class TestResultAggregatorTest {
   }
 
   private TestResultAggregator createAggregatorWithTestRuns(int testRuns) {
+    ArtifactRoot root =
+        ArtifactRoot.asDerivedRoot(
+            new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/output_base"),
+            RootType.Output,
+            "execroot");
     when(mockParams.getTestStatusArtifacts())
         .thenReturn(
-            Stream.generate(() -> mock(DerivedArtifact.class))
-                .limit(testRuns)
+            IntStream.range(0, testRuns)
+                .mapToObj(
+                    i -> (DerivedArtifact) ActionsTestUtil.createArtifact(root, "status." + i))
                 .collect(toImmutableList()));
     when(mockParams.getRuns()).thenReturn(testRuns);
 
@@ -245,8 +256,10 @@ public final class TestResultAggregatorTest {
         mockTarget,
         mock(BuildConfigurationValue.class),
         new AggregationPolicy(
-            new EventBus(), /*testCheckUpToDate=*/ false, /*testVerboseTimeoutWarnings=*/ false),
-        /*skippedThisTest=*/ false);
+            new EventBus(),
+            /* testCheckUpToDate= */ false,
+            /* testVerboseTimeoutWarnings= */ false),
+        /* skippedThisTest= */ false);
   }
 
   private static TestResult testResult(TestResultData.Builder data, boolean locallyCached) {

@@ -23,6 +23,10 @@ import java.util.Arrays;
  * array.
  */
 final class RegularTuple extends Tuple {
+
+  // The shared (sole) empty tuple.
+  static final Tuple EMPTY = new RegularTuple(new Object[] {});
+
   final Object[] elems;
 
   RegularTuple(Object[] elems) {

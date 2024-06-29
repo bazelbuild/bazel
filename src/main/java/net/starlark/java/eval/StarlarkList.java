@@ -114,19 +114,10 @@ public abstract class StarlarkList<E> extends AbstractCollection<E>
     throw Starlark.errorf("unhashable type: 'list'");
   }
 
-  /**
-   * A shared instance for the empty list with immutable mutability.
-   *
-   * <p>Other immutable empty list objects can exist, e.g. lists that were once mutable but whose
-   * environments were then frozen. This instance is for empty lists that were always frozen from
-   * the beginning.
-   */
-  private static final StarlarkList<?> EMPTY = new RegularImmutableStarlarkList<>(EMPTY_ARRAY);
-
   /** Returns an empty frozen list of the desired type. */
   @SuppressWarnings("unchecked")
   public static <T> StarlarkList<T> empty() {
-    return (StarlarkList<T>) EMPTY;
+    return (StarlarkList<T>) RegularImmutableStarlarkList.EMPTY;
   }
 
   /** Returns a new, empty list with the specified Mutability. */

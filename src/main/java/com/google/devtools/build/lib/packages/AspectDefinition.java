@@ -75,6 +75,9 @@ public final class AspectDefinition {
    */
   @Nullable private final ImmutableSet<String> restrictToAttributes;
 
+  /** Toolchain types for which the aspect will propagate to matching resolved toolchains. */
+  private final ImmutableSet<Label> propagateToToolchainsTypes;
+
   @Nullable private final ConfigurationFragmentPolicy configurationFragmentPolicy;
   private final boolean applyToFiles;
   private final boolean applyToGeneratingRules;
@@ -97,6 +100,7 @@ public final class AspectDefinition {
       ImmutableMap<String, Attribute> attributes,
       ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
       @Nullable ImmutableSet<String> restrictToAttributes,
+      ImmutableSet<Label> propagateToToolchainsTypes,
       @Nullable ConfigurationFragmentPolicy configurationFragmentPolicy,
       boolean applyToFiles,
       boolean applyToGeneratingRules,
@@ -111,6 +115,7 @@ public final class AspectDefinition {
     this.attributes = attributes;
     this.toolchainTypes = toolchainTypes;
     this.restrictToAttributes = restrictToAttributes;
+    this.propagateToToolchainsTypes = propagateToToolchainsTypes;
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.applyToFiles = applyToFiles;
     this.applyToGeneratingRules = applyToGeneratingRules;
@@ -180,6 +185,11 @@ public final class AspectDefinition {
       return restrictToAttributes.contains(attributeName);
     }
     return true;
+  }
+
+  /** Returns whether the aspect propagates to toolchains of the given {@code toolchainType}. */
+  public boolean canPropagateToToolchainType(Label toolchainType) {
+    return propagateToToolchainsTypes.contains(toolchainType);
   }
 
   /** Returns the set of configuration fragments required by this Aspect. */
@@ -262,6 +272,7 @@ public final class AspectDefinition {
     private final RequiredProviders.Builder requiredAspectProviders =
         RequiredProviders.acceptNoneBuilder();
     @Nullable private LinkedHashSet<String> propagateAlongAttributes = new LinkedHashSet<>();
+    private ImmutableSet<Label> propagateToToolchainsTypes = ImmutableSet.of();
     private final ConfigurationFragmentPolicy.Builder configurationFragmentPolicy =
         new ConfigurationFragmentPolicy.Builder();
     private boolean applyToFiles = false;
@@ -374,6 +385,13 @@ public final class AspectDefinition {
           this.propagateAlongAttributes.isEmpty(),
           "Specify either aspects for all attributes, or for specific attributes, not both");
       this.propagateAlongAttributes = null;
+      return this;
+    }
+
+    /** Declares that this aspect propagates to toolchains of the given types. */
+    @CanIgnoreReturnValue
+    public Builder propagateToToolchainsTypes(ImmutableSet<Label> toolchainsTypes) {
+      this.propagateToToolchainsTypes = toolchainsTypes;
       return this;
     }
 
@@ -553,6 +571,7 @@ public final class AspectDefinition {
           ImmutableMap.copyOf(attributes),
           ImmutableSet.copyOf(toolchainTypes),
           propagateAlongAttributes == null ? null : ImmutableSet.copyOf(propagateAlongAttributes),
+          propagateToToolchainsTypes,
           configurationFragmentPolicy.build(),
           applyToFiles,
           applyToGeneratingRules,

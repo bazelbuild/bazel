@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import com.google.devtools.build.lib.analysis.config.AdditionalConfigurationChangeEvent;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ConfigRequestedEvent;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.constraints.PlatformRestrictionsResult;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSema
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
+import com.google.devtools.build.lib.analysis.test.TestTrimmingTransitionFactory.TestTrimmingTransition;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -291,7 +293,13 @@ public class BuildView {
                 .forcedRerun(buildConfigChanged)
                 .build());
       }
-      eventBus.post(new ConfigRequestedEvent(topLevelConfig, /* parentChecksum= */ null));
+      BuildOptions topLevelConfigTrimmedOfTestOptions =
+          getTopLevelConfigurationTrimmedOfTestOptions(topLevelConfig.getOptions(), eventHandler);
+      eventBus.post(
+          new ConfigRequestedEvent(
+              topLevelConfig,
+              /* parentChecksum= */ null,
+              topLevelConfigTrimmedOfTestOptions.checksum()));
     }
     if (buildConfigurationsCreatedCallback != null) {
       buildConfigurationsCreatedCallback.run(topLevelConfig);
@@ -918,5 +926,13 @@ public class BuildView {
     }
     skyframeExecutor.injectCoverageReportData(actionsWrapper.getActions());
     return ImmutableSet.copyOf(actionsWrapper.getCoverageOutputs());
+  }
+
+  private BuildOptions getTopLevelConfigurationTrimmedOfTestOptions(
+      BuildOptions buildOptions, ExtendedEventHandler eventHandler) throws InterruptedException {
+    return TestTrimmingTransition.INSTANCE.patch(
+        new BuildOptionsView(
+            buildOptions, TestTrimmingTransition.INSTANCE.requiresOptionFragments()),
+        eventHandler);
   }
 }

@@ -69,7 +69,7 @@ even posted a
 [nice piece about how their switch to Bazel went](https://www.pgrs.net/2015/09/01/migrating-from-gradle-to-bazel/).
 
 ### [Canva](https://www.canva.com/){: .external}
-<img src="https://upload.wikimedia.org/wikipedia/en/3/3b/Canva_Logo.png" width="90" align="right">
+<img src="https://upload.wikimedia.org/wikipedia/commons/b/bb/Canva_Logo.svg" width="90" align="right">
 
 Canva leverages Bazel to manage its large polyglot codebase, which includes
 Java, TypeScript, Scala, Python, and more. Migration to Bazel has delivered
@@ -177,16 +177,6 @@ Bazel was designed to be able to scale to Google's needs and meet Google's
 requirements of reproducibility and platform/language support. All software at
 Google is built using Bazel. Google uses Bazel and its rules for millions of
 builds every day.
-
-### [GRAKN.AI](https://grakn.ai){: .external}
-<img src="/community/images/grakn.jpeg" alt="GRAKN AI Logo" width="150" align="right">
-
-Grakn is a database technology that serves as the knowledge-base foundation to
-intelligent systems. Grakn allows intelligent systems to interpret complex
-datasets as a single body of knowledge that can be logically reasoned over.
-Bazel enables the @graknlabs team to build a highly-orchestrated CI and
-distribution pipeline that manages multiple repositories of multiple languages,
-and deploys to numerous platforms seamlessly.
 
 ### [Huawei](http://www.huawei.com/){: .external}
 
@@ -400,6 +390,19 @@ build tool
 
 Two Sigma is a New York-headquartered technology company dedicated to finding
 value in the world’s data.
+
+### [TypeDB](https://typedb.com){: .external}
+<img src="/community/images/typedb.png" alt="TypeDB Logo" width="150" align="right">
+
+TypeDB is a database technology that can be used to intuitively model
+interconnected data. Through its type-theoretic and polymorphic query language,
+TypeQL, the data can be accessed with simple, human-readable queries that run at
+lightspeed.
+
+Bazel enables the TypeDB team to build a highly-orchestrated CI and distribution
+pipeline that manages many repositories in a wide variety of languages, and
+deploys to numerous platforms seamlessly. The TypeDB team has also released
+Bazel rules for assembling and deploying software distributions.
 
 ### [Uber](https://www.uber.com){: .external}
 

@@ -222,13 +222,21 @@ public final class SymlinkTreeHelper {
         .build();
   }
 
+  /**
+   * Processes a list of fileset symlinks into a map that can be passed to {@link
+   * com.google.devtools.build.lib.vfs.OutputService#createSymlinkTree}.
+   *
+   * <p>By convention, all symlinks are placed under a directory with the given workspace name.
+   */
   static ImmutableMap<PathFragment, PathFragment> processFilesetLinks(
-      ImmutableList<FilesetOutputSymlink> links, PathFragment root, PathFragment execRoot) {
-    Map<PathFragment, PathFragment> symlinks = new HashMap<>();
+      ImmutableList<FilesetOutputSymlink> links, String workspaceName, PathFragment execRoot) {
+    PathFragment root = PathFragment.create(workspaceName);
+    var symlinks = ImmutableMap.<PathFragment, PathFragment>builderWithExpectedSize(links.size());
     for (FilesetOutputSymlink symlink : links) {
       symlinks.put(root.getRelative(symlink.getName()), symlink.reconstituteTargetPath(execRoot));
     }
-    return ImmutableMap.copyOf(symlinks);
+    // Fileset links are already deduplicated by name in SkyframeFilesetManifestAction.
+    return symlinks.buildOrThrow();
   }
 
   private static final class Directory {

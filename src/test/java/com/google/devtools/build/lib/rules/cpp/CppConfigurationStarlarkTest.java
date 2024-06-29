@@ -99,8 +99,7 @@ public final class CppConfigurationStarlarkTest extends BuildViewTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains(
-            String.format(
-                "cannot use private @_builtins API (feature '%s' in CppConfiguration)", feature));
+            String.format("cannot use private API (feature '%s' in CppConfiguration)", feature));
   }
 
   @Test

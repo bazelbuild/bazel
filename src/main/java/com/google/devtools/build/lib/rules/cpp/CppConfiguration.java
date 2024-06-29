@@ -924,8 +924,18 @@ public final class CppConfiguration extends Fragment
     return experimentalCcImplementationDeps();
   }
 
+  @StarlarkMethod(name = "experimental_cpp_modules", documented = false, useStarlarkThread = true)
+  public boolean experimentalCppModulesForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return experimentalCppModules();
+  }
+
   public boolean experimentalCcImplementationDeps() {
     return cppOptions.experimentalCcImplementationDeps;
+  }
+
+  public boolean experimentalCppModules() {
+    return cppOptions.experimentalCppModules;
   }
 
   public boolean getExperimentalCppCompileResourcesEstimation() {
@@ -940,7 +950,7 @@ public final class CppConfiguration extends Fragment
   private static void checkInExpandedApiAllowlist(StarlarkThread thread, String feature)
       throws EvalException {
     try {
-      BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+      BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     } catch (EvalException e) {
       throw Starlark.errorf("%s (feature '%s' in CppConfiguration)", e.getMessage(), feature);
     }

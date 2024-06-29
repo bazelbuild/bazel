@@ -637,6 +637,7 @@ java_library(
         ":make_environment_event",
         ":test/coverage_report_action_factory",
         ":test/instrumented_files_info",
+        ":test/test_trimming_transition_factory",
         ":top_level_artifact_context",
         ":view_creation_failed_exception",
         "//src/main/java/com/google/devtools/build/lib/actions",

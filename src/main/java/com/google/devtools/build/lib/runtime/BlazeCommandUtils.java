@@ -97,7 +97,7 @@ public class BlazeCommandUtils {
       Iterables.addAll(options, blazeModule.getCommandOptions(commandAnnotation));
     }
 
-    for (Class<? extends BlazeCommand> base : commandAnnotation.inherits()) {
+    for (Class<? extends BlazeCommand> base : commandAnnotation.inheritsOptionsFrom()) {
       options.addAll(getOptions(base, modules, ruleClassProvider));
     }
     return ImmutableList.copyOf(options);

@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.analysis.producers;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CommonOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
@@ -33,7 +33,6 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -115,6 +114,15 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     assertThat(result.getOptions().contains(DummyTestOptions.class)).isTrue();
     assertThat(result.getOptions().get(DummyTestOptions.class).internalOption)
         .isEqualTo("from_cmd");
+  }
+
+  @Test
+  public void createKey_emptyConfig() throws Exception {
+    BuildOptions baseOptions = CommonOptions.EMPTY_OPTIONS;
+    BuildConfigurationKey result = fetch(baseOptions);
+
+    assertThat(result).isNotNull();
+    assertThat(result.getOptionsChecksum()).isEqualTo(CommonOptions.EMPTY_OPTIONS.checksum());
   }
 
   @Test
@@ -302,35 +310,29 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
         .isEqualTo("from_platform");
   }
 
+  private static final String CONTEXT = "context";
+
   private BuildConfigurationKey fetch(BuildOptions options)
       throws InterruptedException,
           OptionsParsingException,
           PlatformMappingException,
           InvalidPlatformException {
-    ImmutableMap<String, BuildConfigurationKey> result = fetch(ImmutableMap.of("only", options));
-    return result.get("only");
-  }
-
-  private ImmutableMap<String, BuildConfigurationKey> fetch(Map<String, BuildOptions> options)
-      throws InterruptedException,
-          OptionsParsingException,
-          PlatformMappingException,
-          InvalidPlatformException {
     Sink sink = new Sink();
-    BuildConfigurationKeyProducer producer =
-        new BuildConfigurationKeyProducer(sink, StateMachine.DONE, options);
+    BuildConfigurationKeyProducer<String> producer =
+        new BuildConfigurationKeyProducer<>(sink, StateMachine.DONE, CONTEXT, options);
     // Ignore the return value: sink will either return a result or re-throw whatever exception it
     // received from the producer.
     var unused = executeProducer(producer);
-    return sink.options();
+    return sink.options(CONTEXT);
   }
 
   /** Receiver for platform info from {@link PlatformInfoProducer}. */
-  private static class Sink implements BuildConfigurationKeyProducer.ResultSink {
+  private static class Sink implements BuildConfigurationKeyProducer.ResultSink<String> {
     @Nullable private OptionsParsingException optionsParsingException;
     @Nullable private PlatformMappingException platformMappingException;
     @Nullable private InvalidPlatformException invalidPlatformException;
-    @Nullable private ImmutableMap<String, BuildConfigurationKey> keys;
+    @Nullable private String context;
+    @Nullable private BuildConfigurationKey key;
 
     @Override
     public void acceptTransitionError(OptionsParsingException e) {
@@ -348,11 +350,12 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     }
 
     @Override
-    public void acceptTransitionedConfigurations(ImmutableMap<String, BuildConfigurationKey> keys) {
-      this.keys = keys;
+    public void acceptTransitionedConfiguration(String context, BuildConfigurationKey key) {
+      this.context = context;
+      this.key = key;
     }
 
-    ImmutableMap<String, BuildConfigurationKey> options()
+    BuildConfigurationKey options(String expectedContext)
         throws OptionsParsingException, PlatformMappingException, InvalidPlatformException {
       if (this.optionsParsingException != null) {
         throw this.optionsParsingException;
@@ -363,8 +366,9 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
       if (this.invalidPlatformException != null) {
         throw this.invalidPlatformException;
       }
-      if (this.keys != null) {
-        return this.keys;
+      if (this.key != null) {
+        assertThat(this.context).isEqualTo(expectedContext);
+        return this.key;
       }
       throw new IllegalStateException("Value and exception not set");
     }

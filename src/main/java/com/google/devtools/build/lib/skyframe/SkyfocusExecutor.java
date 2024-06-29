@@ -40,13 +40,13 @@ import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.build.skyframe.InMemoryGraphImpl;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 
 /** A class that prepares the working set to run the core SkyframeFocuser algorithm. */
 public class SkyfocusExecutor {
@@ -75,9 +75,6 @@ public class SkyfocusExecutor {
         !topLevelTargetLabels.isEmpty(),
         "Cannot prepare working set without top level targets to focus on.");
 
-    // TODO: b/312819241 - add support for SerializationCheckingGraph for use in tests.
-    InMemoryGraphImpl graph = (InMemoryGraphImpl) evaluator.getInMemoryGraph();
-
     SkyfocusState.Builder newSkyfocusStateBuilder =
         skyfocusState.toBuilder()
             .focusedTargetLabels(
@@ -102,52 +99,58 @@ public class SkyfocusExecutor {
 
         // For each FSK, add to the working set if the FSK's parent dir shares the same
         // package as one of the top level targets.
-        graph.parallelForEach(
-            node -> {
-              if (node.getKey() instanceof FileStateKey fileStateKey) {
-                Preconditions.checkState(
-                    node.isDone(),
-                    "FileState node is not done. This is an internal inconsistency.");
-                if (node.getValue().equals(NONEXISTENT_FILE_STATE_NODE)) {
-                  return;
-                }
-
-                // Check if the file belongs to a project directory (defined in PROJECT.scl)
-                //
-                // If this end up being costly, we could represent projectDirectories as a trie
-                // and iterate with PathFragment#segments.
-                for (PathFragment projectDirectory : projectDirectories) {
-                  if (fileStateKey.argument().getRootRelativePath().startsWith(projectDirectory)) {
-                    newWorkingSet.add(fileStateKey.argument());
-                    return;
-                  }
-                }
-
-                // Check if the file belongs to the package of a top level target being built.
-                PathFragment currPath = fileStateKey.argument().getRootRelativePath();
-                while (currPath != null) {
-                  try {
-                    if (packageManager.isPackage(
-                        eventHandler, PackageIdentifier.create(RepositoryName.MAIN, currPath))) {
-                      if (topLevelTargetPackages.contains(currPath)) {
-                        newWorkingSet.add(fileStateKey.argument());
-                      }
-                      break;
+        evaluator
+            .getInMemoryGraph()
+            .parallelForEach(
+                node -> {
+                  if (node.getKey() instanceof FileStateKey fileStateKey) {
+                    Preconditions.checkState(
+                        node.isDone(),
+                        "FileState node is not done. This is an internal inconsistency.");
+                    if (node.getValue().equals(NONEXISTENT_FILE_STATE_NODE)) {
+                      return;
                     }
-                  } catch (InconsistentFilesystemException e) {
-                    throw new IllegalStateException(e);
-                  } catch (InterruptedException e) {
-                    // Swallow interrupted exceptions at this level, since this is probably from
-                    // the main thread, and so there's not much else to do here.
-                    //
-                    // If this is a stray SIGINT, then we can't do much here either.
-                  }
 
-                  // traverse up the path until we find a valid package
-                  currPath = currPath.getParentDirectory();
-                }
-              }
-            });
+                    // Check if the file belongs to a project directory (defined in PROJECT.scl)
+                    //
+                    // If this end up being costly, we could represent projectDirectories as a trie
+                    // and iterate with PathFragment#segments.
+                    for (PathFragment projectDirectory : projectDirectories) {
+                      if (fileStateKey
+                          .argument()
+                          .getRootRelativePath()
+                          .startsWith(projectDirectory)) {
+                        newWorkingSet.add(fileStateKey.argument());
+                        return;
+                      }
+                    }
+
+                    // Check if the file belongs to the package of a top level target being built.
+                    PathFragment currPath = fileStateKey.argument().getRootRelativePath();
+                    while (currPath != null) {
+                      try {
+                        if (packageManager.isPackage(
+                            eventHandler,
+                            PackageIdentifier.create(RepositoryName.MAIN, currPath))) {
+                          if (topLevelTargetPackages.contains(currPath)) {
+                            newWorkingSet.add(fileStateKey.argument());
+                          }
+                          break;
+                        }
+                      } catch (InconsistentFilesystemException e) {
+                        throw new IllegalStateException(e);
+                      } catch (InterruptedException e) {
+                        // Swallow interrupted exceptions at this level, since this is probably from
+                        // the main thread, and so there's not much else to do here.
+                        //
+                        // If this is a stray SIGINT, then we can't do much here either.
+                      }
+
+                      // traverse up the path until we find a valid package
+                      currPath = currPath.getParentDirectory();
+                    }
+                  }
+                });
 
         if (!skyfocusState.forcedRerun()
             && skyfocusState.workingSet().containsAll(newWorkingSet)
@@ -187,15 +190,17 @@ public class SkyfocusExecutor {
                   Stream.of("MODULE.bazel.lock"))
               .map(k -> toFileStateKey(pkgLocator, k))
               .collect(toImmutableSet());
-      graph.parallelForEach(
-          node -> {
-            if (node.getKey() instanceof FileStateKey fileStateKey) {
-              RootedPath rootedPath = fileStateKey.argument();
-              if (workingSetRootedPaths.contains(rootedPath)) {
-                newWorkingSet.add(fileStateKey);
-              }
-            }
-          });
+      evaluator
+          .getInMemoryGraph()
+          .parallelForEach(
+              node -> {
+                if (node.getKey() instanceof FileStateKey fileStateKey) {
+                  RootedPath rootedPath = fileStateKey.argument();
+                  if (workingSetRootedPaths.contains(rootedPath)) {
+                    newWorkingSet.add(fileStateKey);
+                  }
+                }
+              });
 
       int missingCount = workingSetRootedPaths.size() - newWorkingSet.size();
       if (missingCount > 0) {
@@ -233,7 +238,7 @@ public class SkyfocusExecutor {
       ImmutableSet<FileStateKey> workingSet,
       InMemoryMemoizingEvaluator evaluator,
       ExtendedEventHandler eventHandler,
-      ActionCache actionCache)
+      @Nullable ActionCache actionCache)
       throws InterruptedException {
 
     Set<SkyKey> roots = evaluator.getLatestTopLevelEvaluations();

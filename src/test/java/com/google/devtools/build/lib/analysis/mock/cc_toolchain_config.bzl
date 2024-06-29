@@ -32,6 +32,7 @@ load(
 )
 
 _FEATURE_NAMES = struct(
+    cpp_modules = "cpp_modules",
     generate_pdb_file = "generate_pdb_file",
     no_legacy_features = "no_legacy_features",
     do_not_split_linking_cmdline = "do_not_split_linking_cmdline",
@@ -121,6 +122,11 @@ _FEATURE_NAMES = struct(
     cpp_compile_with_requirements = "cpp_compile_with_requirements",
     no_copts_tokenization = "no_copts_tokenization",
     generate_linkmap = "generate_linkmap",
+)
+
+_cpp_modules_feature = feature(
+    name = _FEATURE_NAMES.cpp_modules,
+    enabled = False,
 )
 
 _no_copts_tokenization_feature = feature(name = _FEATURE_NAMES.no_copts_tokenization)
@@ -1365,6 +1371,7 @@ _generate_linkmap_feature = feature(
 )
 
 _feature_name_to_feature = {
+    _FEATURE_NAMES.cpp_modules: _cpp_modules_feature,
     _FEATURE_NAMES.no_legacy_features: _no_legacy_features_feature,
     _FEATURE_NAMES.do_not_split_linking_cmdline: _do_not_split_linking_cmdline_feature,
     _FEATURE_NAMES.supports_dynamic_linker: _supports_dynamic_linker_feature,

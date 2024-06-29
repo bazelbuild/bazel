@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.MemoryPressureModule;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
@@ -70,11 +71,14 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
   }
 
   private BuildMetricsEventListener buildMetricsEventListener = new BuildMetricsEventListener();
+  // needed for HeapOffset options.
+  private final MemoryPressureModule memoryPressureModule = new MemoryPressureModule();
 
   @Override
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
     return super.getRuntimeBuilder()
-        .addBlazeModule(buildMetricsEventListener);
+        .addBlazeModule(buildMetricsEventListener)
+        .addBlazeModule(memoryPressureModule);
   }
 
   @Before

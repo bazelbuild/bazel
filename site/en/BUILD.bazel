@@ -7,6 +7,7 @@ exports_files(
     [
         "docs/user-manual.md",
         "versions/_toc.yaml",
+        "_buttons.html",
     ],
     visibility = [
         "//scripts/docs:__pkg__",

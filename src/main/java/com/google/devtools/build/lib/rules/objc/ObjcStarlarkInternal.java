@@ -316,6 +316,7 @@ public class ObjcStarlarkInternal implements StarlarkValue {
     return MultiArchBinarySupport.getSplitTargetTripletFromCtads(
         starlarkRuleContext
             .getRuleContext()
+            .getRulePrerequisitesCollection()
             .getSplitPrerequisites(ObjcRuleClasses.CHILD_CONFIG_ATTR));
   }
 
@@ -328,6 +329,7 @@ public class ObjcStarlarkInternal implements StarlarkValue {
     Map<Optional<String>, List<ConfiguredTargetAndData>> ctads =
         starlarkRuleContext
             .getRuleContext()
+            .getRulePrerequisitesCollection()
             .getSplitPrerequisites(ObjcRuleClasses.CHILD_CONFIG_ATTR);
     Dict.Builder<String, BuildConfigurationValue> result = Dict.builder();
     for (Optional<String> splitTransitionKey : ctads.keySet()) {

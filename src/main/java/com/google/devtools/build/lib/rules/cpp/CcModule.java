@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -133,20 +134,6 @@ public abstract class CcModule
 
   private static final ImmutableList<String> SUPPORTED_OUTPUT_TYPES =
       ImmutableList.of("executable", "dynamic_library", "archive");
-
-  private static final ImmutableList<BuiltinRestriction.AllowlistEntry>
-      PRIVATE_STARLARKIFICATION_ALLOWLIST =
-          ImmutableList.of(
-              BuiltinRestriction.allowlistEntry("", "bazel_internal/test_rules/cc"),
-              BuiltinRestriction.allowlistEntry("", "tools/build_defs/android"),
-              BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_android"),
-              BuiltinRestriction.allowlistEntry(
-                  "", "rust/private"),
-              BuiltinRestriction.allowlistEntry("", "third_party/crubit"),
-              BuiltinRestriction.allowlistEntry("build_bazel_rules_android", ""),
-              BuiltinRestriction.allowlistEntry("rules_android", ""),
-              BuiltinRestriction.allowlistEntry("rules_rust", "rust/private"),
-              BuiltinRestriction.allowlistEntry("", "third_party/gpus/cuda"));
 
   // TODO(bazel-team): This only makes sense for the parameter in cc_common.compile()
   //  additional_include_scanning_roots which is technical debt and should go away.
@@ -288,7 +275,7 @@ public abstract class CcModule
     return Dict.immutableCopyOf(
         featureConfiguration
             .getFeatureConfiguration()
-            .getEnvironmentVariables(actionName, variables));
+            .getEnvironmentVariables(actionName, variables, PathMapper.NOOP));
   }
 
   @Override
@@ -1940,7 +1927,7 @@ public abstract class CcModule
 
   public static void checkPrivateStarlarkificationAllowlist(StarlarkThread thread)
       throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_STARLARKIFICATION_ALLOWLIST);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
   }
 
   public static boolean isStarlarkCcCommonCalledFromBuiltins(StarlarkThread thread) {
@@ -2063,6 +2050,7 @@ public abstract class CcModule
       Object purposeObject,
       Object coptsFilterObject,
       Object separateModuleHeadersObject,
+      Sequence<?> moduleInterfacesUnchecked, // <Artifact> expected
       Object nonCompilationAdditionalInputsObject,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
@@ -2151,23 +2139,37 @@ public abstract class CcModule
                 configuration.getFragment(CppConfiguration.class)));
     boolean tuple =
         (!sourcesUnchecked.isEmpty() && sourcesUnchecked.get(0) instanceof Tuple)
+            || (!moduleInterfacesUnchecked.isEmpty()
+                && moduleInterfacesUnchecked.get(0) instanceof Tuple)
             || (!publicHeadersUnchecked.isEmpty() && publicHeadersUnchecked.get(0) instanceof Tuple)
             || (!privateHeadersUnchecked.isEmpty()
                 && privateHeadersUnchecked.get(0) instanceof Tuple);
     if (tuple) {
       ImmutableList<Pair<Artifact, Label>> sources = convertSequenceTupleToPair(sourcesUnchecked);
+      ImmutableList<Pair<Artifact, Label>> moduleInterfaces =
+          convertSequenceTupleToPair(moduleInterfacesUnchecked);
       ImmutableList<Pair<Artifact, Label>> publicHeaders =
           convertSequenceTupleToPair(publicHeadersUnchecked);
       ImmutableList<Pair<Artifact, Label>> privateHeaders =
           convertSequenceTupleToPair(privateHeadersUnchecked);
-      helper.addPublicHeaders(publicHeaders).addPrivateHeaders(privateHeaders).addSources(sources);
+      helper
+          .addPublicHeaders(publicHeaders)
+          .addPrivateHeaders(privateHeaders)
+          .addSources(sources)
+          .addModuleInterfaceSources(moduleInterfaces);
     } else {
       List<Artifact> sources = Sequence.cast(sourcesUnchecked, Artifact.class, "srcs");
+      List<Artifact> moduleInterfaces =
+          Sequence.cast(moduleInterfacesUnchecked, Artifact.class, "module_interfaces");
       List<Artifact> publicHeaders =
           Sequence.cast(publicHeadersUnchecked, Artifact.class, "public_hdrs");
       List<Artifact> privateHeaders =
           Sequence.cast(privateHeadersUnchecked, Artifact.class, "private_hdrs");
-      helper.addPublicHeaders(publicHeaders).addPrivateHeaders(privateHeaders).addSources(sources);
+      helper
+          .addPublicHeaders(publicHeaders)
+          .addPrivateHeaders(privateHeaders)
+          .addSources(sources)
+          .addModuleInterfaceSources(moduleInterfaces);
     }
 
     List<String> includes =

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Globber;
@@ -72,7 +74,7 @@ public class GlobsValue implements SkyValue {
       return pattern;
     }
 
-    public Operation getGlobOeration() {
+    public Operation getGlobOperation() {
       return globOperation;
     }
 
@@ -108,7 +110,7 @@ public class GlobsValue implements SkyValue {
      *
      * <p>@throws InvalidGlobPatternException if the pattern is not valid.
      */
-    public static GlobRequest create(String pattern, Globber.Operation globOeration)
+    public static GlobRequest create(String pattern, Globber.Operation globOperation)
         throws InvalidGlobPatternException {
       if (pattern.indexOf('?') != -1) {
         throw new InvalidGlobPatternException(pattern, "wildcard ? forbidden");
@@ -118,7 +120,7 @@ public class GlobsValue implements SkyValue {
       if (error != null) {
         throw new InvalidGlobPatternException(pattern, error);
       }
-      return new GlobRequest(pattern, globOeration);
+      return new GlobRequest(pattern, globOperation);
     }
   }
 
@@ -226,12 +228,11 @@ public class GlobsValue implements SkyValue {
 
     @Override
     public String toString() {
-      StringBuilder stringBuilder = new StringBuilder();
-      stringBuilder.append(
-          String.format(
-              "<GlobsKey packageRoot = %s, packageIdentifier = %s, globRequests = %s>",
-              packageRoot, packageIdentifier, globRequests));
-      return stringBuilder.toString();
+      return String.format(
+          "<GlobsKey packageRoot = %s, packageIdentifier = %s, globRequests = [%s]>",
+          packageRoot,
+          packageIdentifier,
+          globRequests.stream().map(GlobRequest::toString).sorted().collect(joining(",")));
     }
 
     @Override

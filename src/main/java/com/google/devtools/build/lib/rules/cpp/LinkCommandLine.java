@@ -98,13 +98,16 @@ public final class LinkCommandLine extends AbstractCommandLine {
         String linkerParamFile =
             variables
                 .getVariable(LINKER_PARAM_FILE.getVariableName())
-                .getStringValue(LINKER_PARAM_FILE.getVariableName());
+                .getStringValue(LINKER_PARAM_FILE.getVariableName(), PathMapper.NOOP);
         argv.addAll(
-            featureConfiguration.getCommandLine(actionName, variables, expander).stream()
+            featureConfiguration
+                .getCommandLine(actionName, variables, expander, PathMapper.NOOP)
+                .stream()
                 .filter(s -> !s.contains(linkerParamFile))
                 .collect(toImmutableList()));
       } else {
-        argv.addAll(featureConfiguration.getCommandLine(actionName, variables, expander));
+        argv.addAll(
+            featureConfiguration.getCommandLine(actionName, variables, expander, PathMapper.NOOP));
       }
     } catch (ExpansionException e) {
       throw new CommandLineExpansionException(e.getMessage());
@@ -125,7 +128,9 @@ public final class LinkCommandLine extends AbstractCommandLine {
     if (splitCommandLine) {
       try {
         Optional<String> formatString =
-            featureConfiguration.getCommandLine(actionName, variables, null).stream()
+            featureConfiguration
+                .getCommandLine(actionName, variables, null, PathMapper.NOOP)
+                .stream()
                 .filter(s -> s.contains("LINKER_PARAM_FILE_PLACEHOLDER"))
                 .findAny();
         if (formatString.isPresent()) {

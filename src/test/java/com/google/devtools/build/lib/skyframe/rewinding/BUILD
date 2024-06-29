@@ -21,6 +21,7 @@ java_library(
     ],
     data = ["//src/test/java/com/google/devtools/build/lib:embedded_scripts"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -57,6 +58,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:spawn_input_utils",
         "//src/test/java/com/google/devtools/build/skyframe:testutil",
         "//third_party:error_prone_annotations",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:mockito",

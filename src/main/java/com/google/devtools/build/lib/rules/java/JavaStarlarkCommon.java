@@ -20,7 +20,6 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -66,9 +65,6 @@ public class JavaStarlarkCommon
         StarlarkRuleContext,
         StarlarkActionFactory> {
 
-  private static final ImmutableSet<BuiltinRestriction.AllowlistEntry>
-      PRIVATE_STARLARKIFACTION_ALLOWLIST =
-          ImmutableSet.of(BuiltinRestriction.allowlistEntry("", "bazel_internal/test_rules"));
   private final JavaSemantics javaSemantics;
 
   private static StrictDepsMode getStrictDepsMode(String strictDepsMode) {
@@ -282,7 +278,7 @@ public class JavaStarlarkCommon
   }
 
   protected static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_STARLARKIFACTION_ALLOWLIST);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
   }
 
   @Override

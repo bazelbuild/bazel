@@ -93,8 +93,7 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
     if (!supportFilesBuilder.isEmpty()
         || !reportedToActualSources.isEmpty()
         || !environmentDict.isEmpty()) {
-      BuiltinRestriction.failIfCalledOutsideAllowlist(
-          thread, StarlarkRuleContext.PRIVATE_STARLARKIFICATION_ALLOWLIST);
+      BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     }
     return createInstrumentedFilesInfo(
         starlarkRuleContext.getRuleContext(),
