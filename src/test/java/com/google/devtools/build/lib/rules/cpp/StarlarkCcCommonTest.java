@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -587,7 +588,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(environmentVariables)
         .containsExactlyEntriesIn(
             featureConfiguration.getEnvironmentVariables(
-                CppActionNames.CPP_COMPILE, CcToolchainVariables.EMPTY));
+                CppActionNames.CPP_COMPILE, CcToolchainVariables.EMPTY, PathMapper.NOOP));
   }
 
   @Test
@@ -7937,9 +7938,21 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     CppCompileAction action =
         (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
 
-    action.getCompileCommandLine().getVariables().getSequenceVariable("string_sequence_variable");
-    action.getCompileCommandLine().getVariables().getStringVariable("string_variable");
-    action.getCompileCommandLine().getVariables().getSequenceVariable("string_depset_variable");
+    var unused1 =
+        action
+            .getCompileCommandLine()
+            .getVariables()
+            .getSequenceVariable("string_sequence_variable", PathMapper.NOOP);
+    var unused2 =
+        action
+            .getCompileCommandLine()
+            .getVariables()
+            .getStringVariable("string_variable", PathMapper.NOOP);
+    var unused3 =
+        action
+            .getCompileCommandLine()
+            .getVariables()
+            .getSequenceVariable("string_depset_variable", PathMapper.NOOP);
   }
 
   @Test
@@ -7950,9 +7963,18 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     SpawnAction action =
         (SpawnAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".a"));
 
-    getLinkCommandLine(action).getBuildVariables().getSequenceVariable("string_sequence_variable");
-    getLinkCommandLine(action).getBuildVariables().getStringVariable("string_variable");
-    getLinkCommandLine(action).getBuildVariables().getSequenceVariable("string_depset_variable");
+    var unused1 =
+        getLinkCommandLine(action)
+            .getBuildVariables()
+            .getSequenceVariable("string_sequence_variable", PathMapper.NOOP);
+    var unused2 =
+        getLinkCommandLine(action)
+            .getBuildVariables()
+            .getStringVariable("string_variable", PathMapper.NOOP);
+    var unused3 =
+        getLinkCommandLine(action)
+            .getBuildVariables()
+            .getSequenceVariable("string_depset_variable", PathMapper.NOOP);
   }
 
   @Test
@@ -7965,9 +7987,18 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         (SpawnAction)
             getGeneratingAction((Artifact) getMyInfoFromTarget(target).getValue("executable"));
 
-    getLinkCommandLine(action).getBuildVariables().getSequenceVariable("string_sequence_variable");
-    getLinkCommandLine(action).getBuildVariables().getStringVariable("string_variable");
-    getLinkCommandLine(action).getBuildVariables().getSequenceVariable("string_depset_variable");
+    var unused1 =
+        getLinkCommandLine(action)
+            .getBuildVariables()
+            .getSequenceVariable("string_sequence_variable", PathMapper.NOOP);
+    var unused2 =
+        getLinkCommandLine(action)
+            .getBuildVariables()
+            .getStringVariable("string_variable", PathMapper.NOOP);
+    var unused3 =
+        getLinkCommandLine(action)
+            .getBuildVariables()
+            .getSequenceVariable("string_depset_variable", PathMapper.NOOP);
   }
 
   @Test
@@ -8166,9 +8197,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     AssertionError e =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
 
-    assertThat(e)
-        .hasMessageThat()
-        .contains("file '//foo:custom_rule.bzl' cannot use private @_builtins API");
+    assertThat(e).hasMessageThat().contains("file '//foo:custom_rule.bzl' cannot use private API");
   }
 
   @Test

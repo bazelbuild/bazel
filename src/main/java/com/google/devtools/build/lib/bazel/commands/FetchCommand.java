@@ -58,7 +58,7 @@ import javax.annotation.Nullable;
 @Command(
     name = FetchCommand.NAME,
     builds = true,
-    inherits = {TestCommand.class},
+    inheritsOptionsFrom = {TestCommand.class},
     options = {
       FetchOptions.class,
       PackageOptions.class,

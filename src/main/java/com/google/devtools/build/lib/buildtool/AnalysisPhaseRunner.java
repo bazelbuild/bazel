@@ -114,6 +114,7 @@ public final class AnalysisPhaseRunner {
             BuildTool.applySclConfigs(
                 buildOptionsBeforeFlagSets,
                 projectFile,
+                request.getBuildOptions().enforceProjectConfigs,
                 env.getSkyframeExecutor(),
                 env.getReporter());
       } else {

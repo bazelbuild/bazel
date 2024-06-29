@@ -133,7 +133,7 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
 
   @Override
   public boolean getRemoveDeadCodeForStarlark(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return removeDeadCode;
   }
 
@@ -148,7 +148,7 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
   @Override
   public boolean getExperimentalJ2ObjcHeaderMapForStarlark(StarlarkThread thread)
       throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return experimentalJ2ObjcHeaderMap;
   }
 
@@ -162,7 +162,7 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
   @Override
   public boolean experimentalShorterHeaderPathforStarlark(StarlarkThread thread)
       throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return experimentalShorterHeaderPath;
   }
 

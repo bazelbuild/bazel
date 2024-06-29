@@ -1552,7 +1552,7 @@ swift_binary = rule(
 
     getConfiguredTarget("//foo:myrule");
 
-    assertContainsEvent("file '//foo:rule.bzl' cannot use private @_builtins API");
+    assertContainsEvent("file '//foo:rule.bzl' cannot use private API");
   }
 
   @Test
@@ -1580,7 +1580,7 @@ swift_binary = rule(
 
     getConfiguredTarget("//foo:myrule");
 
-    assertContainsEvent("file '//foo:rule.bzl' cannot use private @_builtins API");
+    assertContainsEvent("file '//foo:rule.bzl' cannot use private API");
   }
 
   @Test
@@ -1609,7 +1609,7 @@ swift_binary = rule(
 
     getConfiguredTarget("//foo:myrule");
 
-    assertContainsEvent("file '//foo:rule.bzl' cannot use private @_builtins API");
+    assertContainsEvent("file '//foo:rule.bzl' cannot use private API");
   }
 
   @Test

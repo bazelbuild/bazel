@@ -406,10 +406,11 @@ TEST_F(RcOptionsTest, FileDoesNotExist) {
   EXPECT_EQ(error, RcFile::ParseError::UNREADABLE_FILE);
   ASSERT_THAT(
       error_text,
-      MatchesRegex(kIsWindows
-        ? "Unexpected error reading \\.blazerc file '.*not_a_file\\.bazelrc':.*"
-        : "Unexpected error reading \\.blazerc file '.*not_a_file\\.bazelrc': "
-          "\\(error: 2\\): No such file or directory"));
+      MatchesRegex(kIsWindows ? "Unexpected error reading config file "
+                                "'.*not_a_file\\.bazelrc':.*"
+                              : "Unexpected error reading config file "
+                                "'.*not_a_file\\.bazelrc': "
+                                "\\(error: 2\\): No such file or directory"));
 }
 
 TEST_F(RcOptionsTest, ImportedFileDoesNotExist) {
@@ -422,12 +423,14 @@ TEST_F(RcOptionsTest, ImportedFileDoesNotExist) {
       Parse("import_fake_file.bazelrc", &error, &error_text);
   EXPECT_EQ(error, RcFile::ParseError::UNREADABLE_FILE);
   if (kIsWindows) {
-    ASSERT_THAT(error_text, MatchesRegex(
-      "Unexpected error reading \\.blazerc file 'somefile':.*"));
+    ASSERT_THAT(
+        error_text,
+        MatchesRegex("Unexpected error reading config file 'somefile':.*"));
   } else {
-    ASSERT_EQ(error_text,
-      "Unexpected error reading .blazerc file 'somefile': (error: 2): No such "
-      "file or directory");
+    ASSERT_EQ(
+        error_text,
+        "Unexpected error reading config file 'somefile': (error: 2): No such "
+        "file or directory");
   }
 }
 
@@ -449,7 +452,7 @@ TEST_F(RcOptionsTest, ImportHasTooManyArgs) {
   EXPECT_EQ(error, RcFile::ParseError::INVALID_FORMAT);
   ASSERT_THAT(
       error_text,
-      MatchesRegex("Invalid import declaration in .blazerc file "
+      MatchesRegex("Invalid import declaration in config file "
                    "'.*bad_import.bazelrc': 'import somefile bar' \\(are you "
                    "in your source checkout/WORKSPACE\\?\\)"));
 }
@@ -463,7 +466,7 @@ TEST_F(RcOptionsTest, TryImportHasTooManyArgs) {
   EXPECT_EQ(error, RcFile::ParseError::INVALID_FORMAT);
   ASSERT_THAT(
       error_text,
-      MatchesRegex("Invalid import declaration in .blazerc file "
+      MatchesRegex("Invalid import declaration in config file "
                    "'.*bad_import.bazelrc': 'try-import somefile bar' \\(are "
                    "you in your source checkout/WORKSPACE\\?\\)"));
 }

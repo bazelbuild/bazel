@@ -434,6 +434,20 @@ public class BuildRequestOptions extends OptionsBase {
               + " machinery)")
   public String skyframeMemoryDump;
 
+  @Option(
+      name = "enforce_project_configs",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      // TODO: b/341931019 - link to user documentation when available.
+      help =
+          "If true, interactive builds may only pass the --scl_config build flag; they may not use"
+              + " any other build flags. --scl_config must be set to an officially suported project"
+              + " configuration. Supported configurations are defined in the target's PROJECT.scl,"
+              + " which can be found by walking up the target's packagge path. See b/324126745.")
+  public boolean enforceProjectConfigs;
+
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and
    * MAX_JOBS.

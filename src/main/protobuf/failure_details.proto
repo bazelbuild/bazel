@@ -420,6 +420,7 @@ message RemoteExecution {
         [(metadata) = { exit_code: 1 }];
     ILLEGAL_OUTPUT = 15 [(metadata) = { exit_code: 1 }];
     INVALID_EXEC_AND_PLATFORM_PROPERTIES = 16 [(metadata) = { exit_code: 1 }];
+    TOPLEVEL_OUTPUTS_DOWNLOAD_FAILURE = 17 [(metadata) = { exit_code: 34 }];
   }
 
   Code code = 1;

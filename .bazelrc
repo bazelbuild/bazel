@@ -25,11 +25,6 @@ build:remote --config=ubuntu2004
 
 build:macos --macos_minimum_os=10.13
 
-# On Windows, we need pywin32 pip package, which doesn't work with the Python hermetic toolchain.
-# See https://github.com/bazelbuild/rules_python/issues/1356
-# Therefore, use the local detected Python toolchain on Windows.
-build:windows --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain
-
 build:windows_arm64 --platforms=//:windows_arm64
 build:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows
 

@@ -23,12 +23,13 @@ import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.AllowlistChecker;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -140,7 +141,12 @@ public class ConfigRuleClasses {
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .setIgnoreLicenses()
-          .requiresConfigurationFragments(PlatformConfiguration.class)
+          .toolchainResolutionMode(
+              (rule) -> {
+                RawAttributeMapper attr = RawAttributeMapper.of(rule);
+                return attr.has(CONSTRAINT_VALUES_ATTRIBUTE)
+                    && !attr.get(CONSTRAINT_VALUES_ATTRIBUTE, LABEL_LIST).isEmpty();
+              })
 
           /* <!-- #BLAZE_RULE(config_setting).ATTRIBUTE(values) -->
           The set of configuration values that match this rule (expressed as build flags)
@@ -421,6 +427,7 @@ public class ConfigRuleClasses {
           .add(ConfigFeatureFlag.getAllowlistAttribute(env))
           .addAllowlistChecker(ALWAYS_CHECK_ALLOWLIST)
           .removeAttribute(BaseRuleClasses.TAGGED_TRIMMING_ATTR)
+          .toolchainResolutionMode(ToolchainResolutionMode.DISABLED)
           .build();
     }
 

@@ -29,6 +29,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.Collectors;
 
 /** Options for execution log converter. */
 public class ConverterOptions extends OptionsBase {
@@ -86,12 +87,32 @@ public class ConverterOptions extends OptionsBase {
     @Override
     public FormatAndPath convert(String input) throws OptionsParsingException {
       List<String> parts = COLON_SPLITTER.splitToList(input);
-      if (parts.size() != 2
-          || !FORMAT_BY_NAME.containsKey(parts.get(0))
-          || parts.get(1).isEmpty()) {
-        throw new OptionsParsingException("'" + input + "' is not a valid log format and path.");
+      String formats =
+          Arrays.stream(Format.values())
+              .map(Enum::name)
+              .map(String::toLowerCase)
+              .collect(Collectors.joining(","));
+      if (parts.size() != 2) {
+        throw new OptionsParsingException(
+            "Expected input to be in the form of <type>:<path>,"
+                + " where <type> is one of "
+                + formats
+                + ".");
       }
-      return FormatAndPath.of(FORMAT_BY_NAME.get(parts.get(0)), Path.of(parts.get(1)));
+
+      String format = parts.get(0);
+      if (!FORMAT_BY_NAME.containsKey(format)) {
+        throw new OptionsParsingException(
+            "Invalid type '" + format + "' specified; valid types: " + formats);
+      }
+
+      String path = parts.get(1);
+      if (path.isEmpty()) {
+        throw new OptionsParsingException(
+            "Empty path specified, expected input to be in the form of <type>:<path>.");
+      }
+
+      return FormatAndPath.of(FORMAT_BY_NAME.get(format), Path.of(path));
     }
 
     @Override

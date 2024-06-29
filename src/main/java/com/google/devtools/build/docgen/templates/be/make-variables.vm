@@ -435,6 +435,14 @@
     architectures.
   </li>
 
+
+  <li> <code>DUMPBIN</code>: Microsoft COFF Binary File Dumper (dumpbin.exe) from
+    from Microsoft Visual Studio. </li>
+
+  <li> <code>NM</code>: The "nm" command from crosstool. </li>
+  <li> <code>OBJCOPY</code>: The objcopy command from the same suite as the C/C++
+    compiler. </li>
+
   <li> <code>STRIP</code>: The strip command from the same suite as the C/C++
     compiler.</li>
 </ul>

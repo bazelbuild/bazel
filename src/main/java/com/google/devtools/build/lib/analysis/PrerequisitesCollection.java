@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimaps;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -312,36 +311,6 @@ public final class PrerequisitesCollection {
           String attributeName, Class<C> classType) {
     AnalysisUtils.checkProvider(classType);
     return AnalysisUtils.filterByProvider(getPrerequisites(attributeName), classType);
-  }
-
-  /**
-   * Returns all the providers of the specified type that are listed under the specified attribute
-   * of this target in the BUILD file, and that contain the specified provider.
-   */
-  public <C extends Info> Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
-      String attributeName, BuiltinProvider<C> classType) {
-    return AnalysisUtils.filterByProvider(getPrerequisites(attributeName), classType);
-  }
-
-  /**
-   * For a given attribute, returns all declared provider provided by targets of that attribute.
-   * Each declared provider is keyed by the {@link BuildConfigurationValue} under which the provider
-   * was created.
-   */
-  public <C extends Info>
-      ImmutableListMultimap<BuildConfigurationValue, C> getPrerequisitesByConfiguration(
-          String attributeName, BuiltinProvider<C> provider) {
-    checkAttributeIsDependency(attributeName);
-    List<ConfiguredTargetAndData> ctatCollection = getPrerequisiteConfiguredTargets(attributeName);
-    ImmutableListMultimap.Builder<BuildConfigurationValue, C> result =
-        ImmutableListMultimap.builder();
-    for (ConfiguredTargetAndData prerequisite : ctatCollection) {
-      C prerequisiteProvider = prerequisite.getConfiguredTarget().get(provider);
-      if (prerequisiteProvider != null) {
-        result.put(prerequisite.getConfiguration(), prerequisiteProvider);
-      }
-    }
-    return result.build();
   }
 
   private void checkAttributeIsDependency(String attributeName) {

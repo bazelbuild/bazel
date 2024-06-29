@@ -165,7 +165,7 @@ TEST_F(TransientBytesTest, ReadEntryContents) {
       continue;
     }
     ASSERT_EQ(Z_NO_COMPRESSION, lh->compression_method());
-    transient_bytes_->ReadEntryContents(lh);
+    transient_bytes_->ReadEntryContents(cdh, lh);
     ASSERT_EQ(cdh->uncompressed_file_size(), transient_bytes_->data_size());
     struct Sink {
       Sink(const LH *lh)

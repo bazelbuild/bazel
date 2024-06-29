@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -48,6 +49,10 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   // @Nullable rather than Optional for the sake of serialization.
   @Nullable private final String documentation;
   private final ImmutableList<String> attributeAspects;
+
+  // Toolchain types for which the aspect will propagate to matching resolved toolchains.
+  private final ImmutableSet<Label> toolchainsAspects;
+
   private final ImmutableList<Attribute> attributes;
   private final ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredProviders;
   private final ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredAspectProviders;
@@ -77,6 +82,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
       StarlarkCallable implementation,
       Optional<String> documentation,
       ImmutableList<String> attributeAspects,
+      ImmutableSet<Label> toolchainsAspects,
       ImmutableList<Attribute> attributes,
       ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredProviders,
       ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredAspectProviders,
@@ -93,6 +99,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     this.implementation = implementation;
     this.documentation = documentation.orElse(null);
     this.attributeAspects = attributeAspects;
+    this.toolchainsAspects = toolchainsAspects;
     this.attributes = attributes;
     this.requiredProviders = requiredProviders;
     this.requiredAspectProviders = requiredAspectProviders;
@@ -123,6 +130,12 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
   /** Returns the names of rule attributes along which the aspect will propagate. */
   public ImmutableList<String> getAttributeAspects() {
     return attributeAspects;
+  }
+
+  /** Returns toolchain types to which resolved toolchains the aspect can propagate. */
+  @VisibleForTesting
+  public ImmutableSet<Label> getToolchainsAspects() {
+    return toolchainsAspects;
   }
 
   public ImmutableList<Attribute> getAttributes() {
@@ -200,7 +213,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
         builder.propagateAlongAttribute(attributeAspect);
       }
     }
-
+    builder.propagateToToolchainsTypes(toolchainsAspects);
     for (Attribute attribute : attributes) {
       Attribute attr = attribute; // Might be reassigned.
       if (!aspectParams.getAttribute(attr.getName()).isEmpty()) {

@@ -17,27 +17,58 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Map;
 
 /** Context to be informed of top-level outputs and their runfiles. */
 public interface ImportantOutputHandler extends ActionContext {
 
   /**
-   * Informs this handler that top-level outputs or their runfiles have been built.
+   * Informs this handler that top-level outputs have been built.
    *
    * <p>The handler may verify that remotely stored outputs are still available. Returns a map from
    * digest to output for any artifacts that need to be regenerated via action rewinding.
    *
-   * <p>{@code outputs} may contain {@linkplain Artifact#isDirectory directory artifacts}, in which
-   * case the handler is responsible for expanding them using {@code expander}.
-   *
+   * @param outputs top-level outputs
+   * @param expander used to expand {@linkplain Artifact#isDirectory directory artifacts} in {@code
+   *     outputs}
+   * @param metadataProvider provides metadata for artifacts in {@code outputs} and their expansions
+   * @return a map from digest to output for any artifacts that need to be regenerated via action
+   *     rewinding
    * @throws ImportantOutputException for an issue processing the outputs, not including lost
    *     outputs which are reported in the returned map
    */
-  ImmutableMap<String, ActionInput> processAndGetLostArtifacts(
+  ImmutableMap<String, ActionInput> processOutputsAndGetLostArtifacts(
       Iterable<Artifact> outputs, ArtifactExpander expander, InputMetadataProvider metadataProvider)
       throws ImportantOutputException, InterruptedException;
 
-  /** Represents an exception encountered during {@link #processAndGetLostArtifacts}. */
+  /**
+   * Informs this handler that the runfiles of a top-level target have been built.
+   *
+   * <p>The handler may verify that remotely stored outputs are still available. Returns a map from
+   * digest to output for any artifacts that need to be regenerated via action rewinding.
+   *
+   * @param runfilesDir exec path of the runfiles directory
+   * @param runfiles mapping from {@code runfilesDir}-relative path to target artifact; values may
+   *     be {@code null} to represent an empty file (can happen with {@code __init__.py} files, see
+   *     {@link com.google.devtools.build.lib.rules.python.PythonUtils.GetInitPyFiles})
+   * @param expander used to expand {@linkplain Artifact#isDirectory directory artifacts} in {@code
+   *     runfiles}
+   * @param metadataProvider provides metadata for artifacts in {@code runfiles} and their
+   *     expansions
+   * @return a map from digest to output for any artifacts that need to be regenerated via action
+   *     rewinding
+   * @throws ImportantOutputException for an issue processing the runfiles, not including lost
+   *     outputs which are reported in the returned map
+   */
+  ImmutableMap<String, ActionInput> processRunfilesAndGetLostArtifacts(
+      PathFragment runfilesDir,
+      Map<PathFragment, Artifact> runfiles,
+      ArtifactExpander expander,
+      InputMetadataProvider metadataProvider)
+      throws ImportantOutputException, InterruptedException;
+
+  /** Represents an exception encountered during processing of important outputs. */
   final class ImportantOutputException extends Exception implements DetailedException {
     private final FailureDetail failureDetail;
 

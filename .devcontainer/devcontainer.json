@@ -1,0 +1,22 @@
+{
+	"name": "Bazel from master",
+	"build": {
+		"dockerfile": "./Dockerfile"
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"bazelbuild.vscode-bazel",
+				"zxh404.vscode-proto3",
+				"ms-vscode.cpptools",
+				"galexite.bazel-cpp-tools",
+				"siliconsoldier.java-with-bazel"
+			],
+			"settings": {
+				"bazel.enableCodeLens": true,
+				"bazel.lsp.command": "starpls",
+				"bazel.lsp.args": ["server"]
+			}
+		}
+	}
+}

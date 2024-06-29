@@ -794,7 +794,7 @@ TEST_F(BlazercImportTest, BazelRcImportFailsForMissingFile) {
   const std::vector<std::string> args = {"bazel", "build"};
   ParseOptionsAndCheckOutput(
       args, blaze_exit_code::INTERNAL_ERROR,
-      "Unexpected error reading .blazerc file '.*myimportedbazelrc'", "");
+      "Unexpected error reading config file '.*myimportedbazelrc'", "");
 }
 
 TEST_F(BlazercImportTest, BazelRcTryImportDoesNotFailForMissingFile) {

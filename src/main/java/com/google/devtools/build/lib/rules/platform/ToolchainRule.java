@@ -49,7 +49,7 @@ public class ToolchainRule implements RuleDefinition {
                 .nonconfigurable("low-level attribute, used in platform configuration"))
         .removeAttribute(":action_listener")
         .exemptFromConstraintChecking("this rule *defines* a constraint")
-        .useToolchainResolution(ToolchainResolutionMode.DISABLED)
+        .toolchainResolutionMode(ToolchainResolutionMode.DISABLED)
 
         /* <!-- #BLAZE_RULE(toolchain).ATTRIBUTE(toolchain_type) -->
         The label of a <code>toolchain_type</code> target that represents the role that this

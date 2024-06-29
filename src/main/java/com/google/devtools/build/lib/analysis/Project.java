@@ -108,11 +108,11 @@ public final class Project {
   }
 
   /**
-   * applies {@link CoreOptions.sclConfig} to the top-level {@link BuildOptions}
+   * Applies {@link CoreOptions.sclConfig} to the top-level {@link BuildOptions}.
    *
-   * <p>given an existing PROJECT.scl file and an {@link CoreOptions.sclConfig}, the method creates
+   * <p>Given an existing PROJECT.scl file and an {@link CoreOptions.sclConfig}, the method creates
    * a {@link SkyKey} containing the {@link PathFragment} of the scl file and the config name which
-   * is evaluated by the {@link FlagSetFunction}
+   * is evaluated by the {@link FlagSetFunction}.
    *
    * @return {@link FlagSetValue} which has the effective top-level {@link BuildOptions} after
    *     project file resolution.
@@ -120,19 +120,25 @@ public final class Project {
   public static FlagSetValue modifyBuildOptionsWithFlagSets(
       Label projectFile,
       BuildOptions targetOptions,
+      boolean enforceCanonicalConfigs,
       ExtendedEventHandler eventHandler,
       SkyframeExecutor skyframeExecutor)
       throws InvalidConfigurationException {
 
     FlagSetValue.Key flagSetKey =
         FlagSetValue.Key.create(
-            projectFile, targetOptions.get(CoreOptions.class).sclConfig, targetOptions);
+            projectFile,
+            targetOptions.get(CoreOptions.class).sclConfig,
+            targetOptions,
+            enforceCanonicalConfigs);
 
     EvaluationResult<SkyValue> result =
         skyframeExecutor.evaluateSkyKeys(
             eventHandler, ImmutableList.of(flagSetKey), /* keepGoing= */ false);
     if (result.hasError()) {
-      throw new InvalidConfigurationException("Cannot parse options", Code.INVALID_BUILD_OPTIONS);
+      throw new InvalidConfigurationException(
+          "Cannot parse options: " + result.getError().getException().getMessage(),
+          Code.INVALID_BUILD_OPTIONS);
     }
     return (FlagSetValue) result.get(flagSetKey);
   }

@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -133,20 +134,6 @@ public abstract class CcModule
 
   private static final ImmutableList<String> SUPPORTED_OUTPUT_TYPES =
       ImmutableList.of("executable", "dynamic_library", "archive");
-
-  private static final ImmutableList<BuiltinRestriction.AllowlistEntry>
-      PRIVATE_STARLARKIFICATION_ALLOWLIST =
-          ImmutableList.of(
-              BuiltinRestriction.allowlistEntry("", "bazel_internal/test_rules/cc"),
-              BuiltinRestriction.allowlistEntry("", "tools/build_defs/android"),
-              BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_android"),
-              BuiltinRestriction.allowlistEntry(
-                  "", "rust/private"),
-              BuiltinRestriction.allowlistEntry("", "third_party/crubit"),
-              BuiltinRestriction.allowlistEntry("build_bazel_rules_android", ""),
-              BuiltinRestriction.allowlistEntry("rules_android", ""),
-              BuiltinRestriction.allowlistEntry("rules_rust", "rust/private"),
-              BuiltinRestriction.allowlistEntry("", "third_party/gpus/cuda"));
 
   // TODO(bazel-team): This only makes sense for the parameter in cc_common.compile()
   //  additional_include_scanning_roots which is technical debt and should go away.
@@ -288,7 +275,7 @@ public abstract class CcModule
     return Dict.immutableCopyOf(
         featureConfiguration
             .getFeatureConfiguration()
-            .getEnvironmentVariables(actionName, variables));
+            .getEnvironmentVariables(actionName, variables, PathMapper.NOOP));
   }
 
   @Override
@@ -1940,7 +1927,7 @@ public abstract class CcModule
 
   public static void checkPrivateStarlarkificationAllowlist(StarlarkThread thread)
       throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_STARLARKIFICATION_ALLOWLIST);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
   }
 
   public static boolean isStarlarkCcCommonCalledFromBuiltins(StarlarkThread thread) {

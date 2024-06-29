@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.platform;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -25,6 +27,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
@@ -74,6 +77,11 @@ public class Platform implements RuleConfiguredTargetFactory {
     if (flags != null && !flags.isEmpty()) {
       platformBuilder.addFlags(flags);
     }
+    ImmutableList<ConfigMatchingProvider> requiredSettings =
+        ruleContext.getPrerequisites(PlatformRule.REQUIRED_SETTINGS_ATTR).stream()
+            .map(target -> target.getProvider(ConfigMatchingProvider.class))
+            .collect(toImmutableList());
+    platformBuilder.addRequiredSettings(requiredSettings);
 
     PlatformInfo platformInfo;
     try {

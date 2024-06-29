@@ -48,6 +48,7 @@ diffing tools, but may break the logical sequence of actions in
 # Execution Log Converter
 
 This tool is used to convert between Bazel execution log formats.
+Currently supported formats are `binary`, `json`, and `compact`.
 
 For example, to convert from the binary format to the JSON format:
 
@@ -56,4 +57,8 @@ For example, to convert from the binary format to the JSON format:
             --input binary:/tmp/binary.log --output json:/tmp/json.log
 
 By default, the output will be in the same order as the input. To sort in a
-deterministic order, use --sort.
+deterministic order, use `--sort`.
+
+For large log files, you might need to increase the JVM heap size. To do so,
+pass a corresponding `--jvm_flag`, for example `--jvm_flag=-Xmx4g` for 4GB of heap.
+

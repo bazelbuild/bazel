@@ -216,6 +216,10 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
       return false;
     }
 
+    if (constraintValues.isEmpty()) {
+      return true;
+    }
+
     // The set of constraint_values in a config_setting should never contain multiple
     // constraint_values that map to the same constraint_setting. This method checks if there are
     // duplicates and records an error if so.
@@ -225,6 +229,11 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
       ruleContext.ruleError(
           ConstraintCollection.DuplicateConstraintException.formatError(e.duplicateConstraints()));
         return false;
+    }
+
+    if (ruleContext.getToolchainContext() == null) {
+      ruleContext.attributeError(
+          ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE, "No target platform is present");
     }
 
     return ruleContext

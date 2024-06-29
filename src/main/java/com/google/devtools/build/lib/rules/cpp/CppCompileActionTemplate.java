@@ -31,6 +31,8 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.MiddlemanType;
+import com.google.devtools.build.lib.actions.PathMapper;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -203,16 +205,20 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
           actionKeyContext,
           fp,
           cppCompileActionBuilder.getActionEnvironment(),
-          commandLine.getEnvironment(),
+          commandLine.getEnvironment(PathMapper.NOOP),
           cppCompileActionBuilder.getExecutionInfo(),
           CppCompileAction.computeCommandLineKey(
-              commandLine.getCompilerOptions(/* overwrittenVariables= */ null)),
+              commandLine.getCompilerOptions(/* overwrittenVariables= */ null, PathMapper.NOOP)),
           cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeSrcs(),
           mandatoryInputs,
           mandatoryInputs,
           cppCompileActionBuilder.getPrunableHeaders(),
           cppCompileActionBuilder.getBuiltinIncludeDirectories(),
-          cppCompileActionBuilder.getInputsForInvalidation());
+          cppCompileActionBuilder.getInputsForInvalidation(),
+          getMnemonic(),
+          // TODO(fmeum): Replace this with the actual value once CppCompileActionTemplate supports
+          //  path mapping.
+          OutputPathsMode.OFF);
     } catch (EvalException e) {
       throw new CommandLineExpansionException(e.getMessage());
     }

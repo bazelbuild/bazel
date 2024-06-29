@@ -26,20 +26,32 @@ _HTML_LINK_PATTERN = re.compile(
     r"((href|src)\s*=\s*[\"']({})?)/".format(_BASE_URL))
 
 
-def _fix_html_links(content, version):
+def _fix_html_links(content, rel_path, version):
+  del rel_path  # unused
   return _HTML_LINK_PATTERN.sub(r"\1/versions/{}/".format(version), content)
 
 
-def _fix_html_metadata(content, version):
+def _fix_html_metadata(content, rel_path, version):
+  del rel_path  # unused
   return content.replace("value=\"/_book.yaml\"",
                          "value=\"/versions/{}/_book.yaml\"".format(version))
+
+
+def _set_header_vars(content, rel_path, version):
+  return content.replace(
+      """{% include "_buttons.html" %}""",
+      f"""{{% dynamic setvar version "{version}" %}}
+{{% dynamic setvar original_path "/{os.path.splitext(rel_path)[0]}" %}}
+{{% include "_buttons.html" %}}""",
+  )
 
 
 _MD_LINK_OR_IMAGE_PATTERN = re.compile(
     r"(\!?\[.*?\]\(({})?)(/.*?)\)".format(_BASE_URL))
 
 
-def _fix_md_links_and_images(content, version):
+def _fix_md_links_and_images(content, rel_path, version):
+  del rel_path  # unused
   return _MD_LINK_OR_IMAGE_PATTERN.sub(r"\1/versions/{}\3)".format(version),
                                        content)
 
@@ -47,7 +59,8 @@ def _fix_md_links_and_images(content, version):
 _MD_METADATA_PATTERN = re.compile(r"^(Book: )(/.+)$", re.MULTILINE)
 
 
-def _fix_md_metadata(content, version):
+def _fix_md_metadata(content, rel_path, version):
+  del rel_path  # unused
   return _MD_METADATA_PATTERN.sub(r"\1/versions/{}\2".format(version), content)
 
 
@@ -59,8 +72,8 @@ _YAML_IGNORE_LIST = frozenset(
     ["/", "/_project.yaml", "/versions/", "/versions/_toc.yaml"])
 
 
-def _fix_yaml_paths(content, version):
-
+def _fix_yaml_paths(content, rel_path, version):
+  del rel_path  # unused
   def sub(m):
     prefix, path, suffix = m.group(1, 4, 5)
     if path in _YAML_IGNORE_LIST:
@@ -72,7 +85,7 @@ def _fix_yaml_paths(content, version):
 
 
 _PURE_HTML_FIXES = [_fix_html_links, _fix_html_metadata]
-_PURE_MD_FIXES = [_fix_md_links_and_images, _fix_md_metadata]
+_PURE_MD_FIXES = [_fix_md_links_and_images, _fix_md_metadata, _set_header_vars]
 _PURE_YAML_FIXES = [_fix_yaml_paths]
 
 _FIXES = {
@@ -99,12 +112,13 @@ def can_rewrite(path):
   return bool(_get_fixes(path))
 
 
-def rewrite_links(path, content, version):
+def rewrite_links(path, content, rel_path, version):
   """Rewrites links in the given file to point to versioned docs.
 
   Args:
     path: Absolute path of the file to be rewritten.
     content: Content of said file, as text.
+    rel_path: Relative path of the file to be rewritten.
     version: Version of the Bazel release that is being built.
 
   Returns:
@@ -118,6 +132,6 @@ def rewrite_links(path, content, version):
 
   new_content = content
   for f in fixes:
-    new_content = f(new_content, version)
+    new_content = f(new_content, rel_path, version)
 
   return new_content

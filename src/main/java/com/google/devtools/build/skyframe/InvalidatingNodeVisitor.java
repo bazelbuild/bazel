@@ -482,7 +482,9 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
         if (setToCheck.add(key)) {
           Preconditions.checkState(
               !isChanged || key.functionName().getHermeticity() != FunctionHermeticity.HERMETIC,
-              key);
+              "Nodes with hermetic functions cannot be marked 'changed': "
+                  + "%s function:%s hermeticity:%s"
+                      .formatted(key, key.functionName(), key.functionName().getHermeticity()));
           keysToGet.add(key);
         }
       }

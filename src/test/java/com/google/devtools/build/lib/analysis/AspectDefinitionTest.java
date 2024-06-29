@@ -165,6 +165,43 @@ public class AspectDefinitionTest {
   }
 
   @Test
+  public void testAspectWithToolchainsAspects_differentTypes_propagatesCorrectly()
+      throws Exception {
+    AspectDefinition aspect =
+        new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+            .propagateToToolchainsTypes(
+                ImmutableSet.of(
+                    Label.parseCanonicalUnchecked("//toolchains:type_1"),
+                    Label.parseCanonicalUnchecked("//toolchains:type_2")))
+            .build();
+
+    assertThat(
+            aspect.canPropagateToToolchainType(
+                Label.parseCanonicalUnchecked("//toolchains:type_1")))
+        .isTrue();
+    assertThat(
+            aspect.canPropagateToToolchainType(
+                Label.parseCanonicalUnchecked("//toolchains:type_2")))
+        .isTrue();
+  }
+
+  @Test
+  public void testAspectWithToolchainsAspects_missingType_noPropagation() throws Exception {
+    AspectDefinition aspect =
+        new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+            .propagateToToolchainsTypes(
+                ImmutableSet.of(
+                    Label.parseCanonicalUnchecked("//toolchains:type_1"),
+                    Label.parseCanonicalUnchecked("//toolchains:type_2")))
+            .build();
+
+    assertThat(
+            aspect.canPropagateToToolchainType(
+                Label.parseCanonicalUnchecked("//toolchains:type_3")))
+        .isFalse();
+  }
+
+  @Test
   public void testRequireStarlarkProviders_addsFlatSetOfRequiredProviders() throws Exception {
     AspectDefinition requiresProviders =
         new AspectDefinition.Builder(TEST_ASPECT_CLASS)
