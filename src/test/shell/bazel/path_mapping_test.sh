@@ -330,6 +330,10 @@ EOF
 function test_path_stripping_cc_remote() {
   local -r pkg="${FUNCNAME[0]}"
 
+  cat > MODULE.bazel <<EOF
+bazel_dep(name = "apple_support", version = "1.15.1")
+EOF
+
   mkdir -p "$pkg"
   cat > "$pkg/BUILD" <<EOF
 load("//$pkg/common/utils:defs.bzl", "gen_cc", "transition_wrapper")
@@ -565,7 +569,6 @@ EOF
     --modify_execution_info=CppCompile=+supports-path-mapping \
     --remote_executor=grpc://localhost:${worker_port} \
     --features=-module_maps \
-    --features=-supports_start_end_lib \
     "//$pkg:main" &>"$TEST_log" || fail "Expected success"
 
   expect_log 'Hello, lib1!'
@@ -579,7 +582,6 @@ EOF
     --modify_execution_info=CppCompile=+supports-path-mapping \
     --remote_executor=grpc://localhost:${worker_port} \
     --features=-module_maps \
-    --features=-supports_start_end_lib \
     "//$pkg:transitioned_main" &>"$TEST_log" || fail "Expected success"
 
   expect_log 'Hi there, lib1!'
