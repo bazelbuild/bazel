@@ -65,6 +65,7 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
   public ImmutableMap<String, String> rewriteLocalEnv(
       Map<String, String> env, BinTools binTools, String fallbackTmpDir)
       throws IOException, InterruptedException {
+    System.err.println("env: " + env);
     boolean containsDeveloperDir = env.containsKey(AppleConfiguration.DEVELOPER_DIR_ENV_NAME);
     boolean containsXcodeVersion = env.containsKey(AppleConfiguration.XCODE_VERSION_ENV_NAME);
     boolean containsAppleSdkPlatform =
