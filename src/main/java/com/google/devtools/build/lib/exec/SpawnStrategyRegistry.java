@@ -110,11 +110,11 @@ public final class SpawnStrategyRegistry
   }
 
   public List<? extends SpawnStrategy> getStrategies(
-      @Nullable ActionExecutionMetadata resourceOwner,
+      ActionExecutionMetadata resourceOwner,
       String mnemonic,
       @Nullable EventHandler reporter) {
     // Don't override test strategies by --strategy_regexp for backwards compatibility.
-    if (resourceOwner != null && !"TestRunner".equals(mnemonic)) {
+    if (!"TestRunner".equals(mnemonic)) {
       String description = resourceOwner.getProgressMessage();
       if (description != null) {
         ImmutableList<? extends SpawnStrategy> regexStrategies =
