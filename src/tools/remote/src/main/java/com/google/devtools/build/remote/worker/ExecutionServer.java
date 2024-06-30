@@ -220,7 +220,7 @@ final class ExecutionServer extends ExecutionImplBase {
         .setOnCancelHandler(
             () -> {
               future.cancel(false);
-              operationsCache.remove(opName)
+              operationsCache.remove(opName);
             });
     // Send the first operation.
     responseObserver.onNext(Operation.newBuilder().setName(opName).build());
