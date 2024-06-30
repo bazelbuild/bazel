@@ -217,7 +217,11 @@ final class ExecutionServer extends ExecutionImplBase {
         executorService.submit(() -> execute(context, request, opName));
     operationsCache.put(opName, future);
     ((ServerCallStreamObserver<Operation>) responseObserver)
-        .setOnCancelHandler(() -> operationsCache.remove(opName));
+        .setOnCancelHandler(
+            () -> {
+              future.cancel(false);
+              operationsCache.remove(opName)
+            });
     // Send the first operation.
     responseObserver.onNext(Operation.newBuilder().setName(opName).build());
     // When the operation completes, send the result.
