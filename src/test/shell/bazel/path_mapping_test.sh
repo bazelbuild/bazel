@@ -569,7 +569,7 @@ EOF
     --modify_execution_info=CppCompile=+supports-path-mapping \
     --remote_executor=grpc://localhost:${worker_port} \
     --features=-module_maps \
-    "//$pkg:main" &>"$TEST_log" || fail "Expected success"
+    "//$pkg:main" &>"$TEST_log" && fail "Expected success"
 
   expect_log 'Hello, lib1!'
   expect_log 'Hello, lib2!'
