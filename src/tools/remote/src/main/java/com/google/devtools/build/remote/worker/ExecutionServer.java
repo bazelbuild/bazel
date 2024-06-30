@@ -437,7 +437,7 @@ final class ExecutionServer extends ExecutionImplBase {
     for (EnvironmentVariable v : command.getEnvironmentVariablesList()) {
       result.put(v.getName(), v.getValue());
     }
-    return localEnvProvider.rewriteLocalEnv(result, binTools, "/tmp");
+    return new HashMap<>(localEnvProvider.rewriteLocalEnv(result, binTools, "/tmp"));
   }
 
   // Gets the uid of the current user. If uid could not be successfully fetched (e.g., on other

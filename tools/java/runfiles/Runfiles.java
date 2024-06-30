@@ -495,7 +495,6 @@ public final class Runfiles {
           int index = line.indexOf(' ');
           String runfile = (index == -1) ? line : line.substring(0, index);
           String realPath = (index == -1) ? line : line.substring(index + 1);
-          System.err.println(runfile + ": " + realPath);
           result.put(runfile, realPath);
         }
       }
