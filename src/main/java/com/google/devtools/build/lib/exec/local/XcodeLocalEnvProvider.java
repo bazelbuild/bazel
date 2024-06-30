@@ -65,7 +65,6 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
   public ImmutableMap<String, String> rewriteLocalEnv(
       Map<String, String> env, BinTools binTools, String fallbackTmpDir)
       throws IOException, InterruptedException {
-    System.err.println("env: " + env);
     boolean containsDeveloperDir = env.containsKey(AppleConfiguration.DEVELOPER_DIR_ENV_NAME);
     boolean containsXcodeVersion = env.containsKey(AppleConfiguration.XCODE_VERSION_ENV_NAME);
     boolean containsAppleSdkPlatform =
@@ -84,7 +83,6 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
     newEnvBuilder.put("TMPDIR", p);
 
     if (!containsXcodeVersion && !containsAppleSdkPlatform) {
-      System.err.println("no extra env");
       return newEnvBuilder.buildOrThrow();
     }
 
@@ -96,13 +94,11 @@ public final class XcodeLocalEnvProvider implements LocalEnvProvider {
       String version = env.get(AppleConfiguration.XCODE_VERSION_ENV_NAME);
       developerDir = getDeveloperDir(binTools, DottedVersion.fromStringUnchecked(version));
       newEnvBuilder.put("DEVELOPER_DIR", developerDir);
-      System.err.println("developer_dir: " + developerDir);
     }
     if (containsAppleSdkPlatform) {
       String appleSdkPlatform = env.get(AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME);
       newEnvBuilder.put("SDKROOT", getSdkRoot(developerDir, appleSdkPlatform));
     }
-    System.err.println(newEnvBuilder.buildOrThrow());
 
     return newEnvBuilder.buildOrThrow();
   }
