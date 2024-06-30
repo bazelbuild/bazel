@@ -541,10 +541,8 @@ public final class SpawnStrategyRegistry
           Multimaps.asMap(filterToIdentifiers).entrySet()) {
         if (filterToIdentifiers.getKey().isIncluded(description)) {
           // TODO(schmitt): Why is this done here and not after running canExec?
-          if (reporter != null) {
-            reporter.handle(
-                Event.progress(description + " with context " + filterToIdentifiers.getValue()));
-          }
+          reporter.handle(
+              Event.progress(description + " with context " + filterToIdentifiers.getValue()));
           // Apply the policy to the identifiers.
           ImmutableList<String> sanitizedStrategies =
               strategyPolicy.apply(mnemonic, filterToIdentifiers.getValue());
