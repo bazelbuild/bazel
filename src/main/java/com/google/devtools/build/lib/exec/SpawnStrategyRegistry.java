@@ -112,7 +112,7 @@ public final class SpawnStrategyRegistry
   public List<? extends SpawnStrategy> getStrategies(
       ActionExecutionMetadata resourceOwner,
       String mnemonic,
-      @Nullable EventHandler reporter) {
+      EventHandler reporter) {
     // Don't override test strategies by --strategy_regexp for backwards compatibility.
     if (!"TestRunner".equals(mnemonic)) {
       String description = resourceOwner.getProgressMessage();
