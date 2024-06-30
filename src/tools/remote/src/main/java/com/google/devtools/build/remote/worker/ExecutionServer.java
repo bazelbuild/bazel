@@ -153,7 +153,7 @@ final class ExecutionServer extends ExecutionImplBase {
     ((ServerCallStreamObserver<Operation>) responseObserver)
         .setOnCancelHandler(
             () -> {
-              future.cancel(true);
+              future.cancel(false);
               operationsCache.remove(opName);
             });
     waitExecution(opName, future, responseObserver);
