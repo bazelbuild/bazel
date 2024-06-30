@@ -104,15 +104,9 @@ public final class SpawnStrategyRegistry
    * <p>If the reason for selecting the context is worth mentioning to the user, logs a message
    * using the given {@link Reporter}.
    */
-  @VisibleForTesting
   public List<? extends SpawnStrategy> getStrategies(Spawn spawn, EventHandler reporter) {
-    return getStrategies(spawn.getResourceOwner(), spawn.getMnemonic(), reporter);
-  }
-
-  public List<? extends SpawnStrategy> getStrategies(
-      ActionExecutionMetadata resourceOwner,
-      String mnemonic,
-      EventHandler reporter) {
+    ActionExecutionMetadata resourceOwner = spawn.getResourceOwner();
+    String mnemonic = spawn.getMnemonic();
     // Don't override test strategies by --strategy_regexp for backwards compatibility.
     if (!"TestRunner".equals(mnemonic)) {
       String description = resourceOwner.getProgressMessage();
