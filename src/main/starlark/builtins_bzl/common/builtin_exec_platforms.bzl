@@ -461,6 +461,12 @@ bazel_fragments["ShellConfiguration$Options"] = fragment(
     ],
 )
 
+bazel_fragments["GenQueryConfiguration$GenQueryOptions"] = fragment(
+    propagate = [
+        "//command_line_option:experimental_skip_ttvs_for_genquery",
+    ],
+)
+
 # TestConfiguration$TestOptions: handled in native code. See b/295936652.
 
 # Bazel's exec transition.
