@@ -25,9 +25,12 @@ import com.google.devtools.build.buildjar.proto.JavaCompilation.Manifest;
 import com.google.devtools.common.options.Options;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Set;
@@ -41,6 +44,29 @@ import java.util.jar.JarFile;
  */
 public class IdlClass {
 
+  /** Recursively delete a directory. */
+  private static void deleteTree(Path directory) throws IOException {
+    if (directory.toFile().exists()) {
+      Files.walkFileTree(
+              directory,
+              new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+                        throws IOException {
+                  Files.delete(file);
+                  return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult postVisitDirectory(Path dir, IOException exc)
+                        throws IOException {
+                  Files.delete(dir);
+                  return FileVisitResult.CONTINUE;
+                }
+              });
+    }
+  }
+
   public static void main(String[] args) throws IOException {
     Options<IdlClassOptions> options =
         Options.parseAndExitUponError(IdlClassOptions.class, /*allowResidue=*/ true, args);
@@ -51,6 +77,7 @@ public class IdlClass {
     Preconditions.checkNotNull(idlClassOptions.outputClassJar);
     Preconditions.checkNotNull(idlClassOptions.outputSourceJar);
     Preconditions.checkNotNull(idlClassOptions.tempDir);
+    deleteTree(idlClassOptions.tempDir);
 
     List<Path> idlSources = Lists.newArrayList();
     for (String idlSource : options.getRemainingArgs()) {
