@@ -78,21 +78,13 @@ public class JavaSubprocessFactory implements SubprocessFactory {
 
     @Override
     public void waitFor() throws InterruptedException {
-      if (deadlineMillis > 0) {
-        // Careful: I originally used Long.MAX_VALUE if there's no timeout. This is safe with
-        // Process, but not for the UNIXProcess subclass, which has an integer overflow for very
-        // large timeouts. As of this writing, it converts the passed in value to nanos (which
-        // saturates at Long.MAX_VALUE), then adds 999999 to round up (which overflows), converts
-        // back to millis, and then calls Object.wait with a negative timeout, which throws.
-        long waitTimeMillis = deadlineMillis - System.currentTimeMillis();
-        boolean exitedInTime = process.waitFor(waitTimeMillis, TimeUnit.MILLISECONDS);
-        if (!exitedInTime && deadlineExceeded.compareAndSet(false, true)) {
-          process.destroy();
-          // The destroy call returns immediately, so we still need to wait for the actual exit. The
-          // sole caller assumes that waitFor only exits when the process is gone (or throws).
-          process.waitFor();
-        }
-      } else {
+      var waitTimeMillis =
+          (deadlineMillis > 0) ? deadlineMillis - System.currentTimeMillis() : Long.MAX_VALUE;
+      var exitedInTime = process.waitFor(waitTimeMillis, TimeUnit.MILLISECONDS);
+      if (!exitedInTime && deadlineExceeded.compareAndSet(false, true)) {
+        process.destroy();
+        // The destroy call returns immediately, so we still need to wait for the actual exit. The
+        // sole caller assumes that waitFor only exits when the process is gone (or throws).
         process.waitFor();
       }
     }
