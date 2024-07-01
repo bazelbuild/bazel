@@ -1272,4 +1272,6 @@ cc_helper = struct(
     tokenize = _tokenize,
     should_use_pic = _should_use_pic,
     check_cpp_modules = _check_cpp_modules,
+    get_base_name = _get_base_name,
+    replace_name = _replace_name,
 )
