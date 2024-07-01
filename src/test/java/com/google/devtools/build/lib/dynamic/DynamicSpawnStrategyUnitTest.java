@@ -500,7 +500,7 @@ public class DynamicSpawnStrategyUnitTest {
             .build();
     DynamicExecutionOptions options = new DynamicExecutionOptions();
     options.excludeTools = true;
-    options.localExecutionDelay = 0;
+    options.localExecutionDelays = ImmutableList.of(Maps.immutableEntry("", 0));
     DynamicSpawnStrategy dynamicSpawnStrategy =
         createDynamicSpawnStrategy(ExecutionPolicy.ANYWHERE, (s) -> Optional.empty(), options);
 

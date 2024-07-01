@@ -309,7 +309,7 @@ public class DynamicSpawnStrategyTest {
     options.dynamicLocalStrategy = dynamicLocalStrategies.build();
     options.dynamicRemoteStrategy = dynamicRemoteStrategies.build();
     options.internalSpawnScheduler = true;
-    options.localExecutionDelay = 0;
+    options.localExecutionDelays = ImmutableList.of(Maps.immutableEntry("", 0));
 
     checkState(executorServiceForCleanup == null);
     executorServiceForCleanup = executorService;
