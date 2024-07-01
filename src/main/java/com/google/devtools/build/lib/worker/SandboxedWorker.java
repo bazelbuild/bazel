@@ -46,9 +46,6 @@ import javax.annotation.Nullable;
 
 /** A {@link SingleplexWorker} that runs inside a sandboxed execution root. */
 final class SandboxedWorker extends SingleplexWorker {
-
-  public static final String TMP_DIR_MOUNT_NAME = "_tmp";
-
   @AutoValue
   public abstract static class WorkerSandboxOptions {
     // Need to have this data class because we can't depend on SandboxOptions in here.
@@ -113,11 +110,12 @@ final class SandboxedWorker extends SingleplexWorker {
       TreeDeleter treeDeleter,
       @Nullable VirtualCgroupFactory cgroupFactory) {
     super(workerKey, workerId, workDir, logFile, workerOptions, cgroupFactory);
+    Path tmpDirPath = SandboxHelpers.getTmpDirPath(workDir);
     this.workerExecRoot =
         new WorkerExecRoot(
             workDir,
             hardenedSandboxOptions != null
-                ? ImmutableList.of(PathFragment.create("../" + TMP_DIR_MOUNT_NAME))
+                ? ImmutableList.of(PathFragment.create(tmpDirPath.getPathString()))
                 : ImmutableList.of());
     this.hardenedSandboxOptions = hardenedSandboxOptions;
     this.treeDeleter = treeDeleter;
@@ -153,8 +151,6 @@ final class SandboxedWorker extends SingleplexWorker {
     FileSystem fs = sandboxExecRoot.getFileSystem();
     Path tmpPath = fs.getPath("/tmp");
     final SortedMap<Path, Path> bindMounts = Maps.newTreeMap();
-    // Mount a fresh, empty temporary directory as /tmp for each sandbox rather than reusing the
-    // host filesystem's /tmp. Since we're in a worker, we clean this dir between requests.
     bindMounts.put(tmpPath, sandboxTmp);
     SandboxHelpers.mountAdditionalPaths(
         hardenedSandboxOptions.additionalMountPaths(), sandboxExecRoot, bindMounts);
@@ -192,9 +188,7 @@ final class SandboxedWorker extends SingleplexWorker {
 
     // TODO(larsrc): Check that execRoot and outputBase are not under /tmp
     if (hardenedSandboxOptions != null) {
-      // In hardened mode, we bindmount a temp dir. We put the mount dir in the parent directory to
-      // avoid clashes with workspace files.
-      Path sandboxTmp = workDir.getParentDirectory().getRelative(TMP_DIR_MOUNT_NAME);
+      Path sandboxTmp = SandboxHelpers.getTmpDirPath(workDir);
       sandboxTmp.createDirectoryAndParents();
 
       // Mostly tests require network, and some blaze run commands, but no workers.
@@ -267,6 +261,9 @@ final class SandboxedWorker extends SingleplexWorker {
         cgroup.destroy();
       }
       workDir.deleteTree();
+      if (hardenedSandboxOptions != null) {
+        SandboxHelpers.getTmpDirPath(workDir).deleteTree();
+      }
     } catch (IOException e) {
       logger.atWarning().withCause(e).log("Caught IOException while deleting workdir.");
     }
