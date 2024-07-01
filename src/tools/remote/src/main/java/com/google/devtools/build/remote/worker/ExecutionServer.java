@@ -148,7 +148,7 @@ final class ExecutionServer extends ExecutionImplBase {
           Runfiles.preload()
               .withSourceRepository("")
               .rlocation(
-                  "io_bazel/src/tools/remote/src/main/java/com/google/devtools/build/remote/xcode-locator");
+                  "io_bazel/src/tools/remote/src/main/java/com/google/devtools/build/remote/worker/xcode-locator");
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }
