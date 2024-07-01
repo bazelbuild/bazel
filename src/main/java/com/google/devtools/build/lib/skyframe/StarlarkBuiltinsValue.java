@@ -131,13 +131,19 @@ public final class StarlarkBuiltinsValue implements SkyValue {
         /* predeclaredForWorkspaceBzl= */ ImmutableMap.of(),
         /* predeclaredForBuild= */ ImmutableMap.of(),
         /* exportedToJava= */ ImmutableMap.of(),
-        /* transitiveDigest= */ new byte[] {},
+        /* transitiveDigest= */ new byte[]{},
         starlarkSemantics);
   }
 
-  /** Returns the singleton SkyKey for this type of value. */
+  /**
+   * Returns the singleton SkyKey for this type of value.
+   */
   public static Key key() {
     return Key.INSTANCE;
+  }
+
+  public static Key key(boolean withAutoloads) {
+    return withAutoloads ? Key.INSTANCE_WITH_AUTOLOADS : Key.INSTANCE;
   }
 
   /**
@@ -147,9 +153,18 @@ public final class StarlarkBuiltinsValue implements SkyValue {
    */
   static final class Key implements SkyKey {
 
-    private static final Key INSTANCE = new Key();
+    private boolean withAutoloads;
 
-    private Key() {}
+    private static final Key INSTANCE = new Key(false);
+    private static final Key INSTANCE_WITH_AUTOLOADS = new Key(true);
+
+    private Key(boolean withAutoloads) {
+      this.withAutoloads = withAutoloads;
+    }
+
+    public boolean isWithAutoloads() {
+      return withAutoloads;
+    }
 
     @Override
     public SkyFunctionName functionName() {
@@ -163,12 +178,12 @@ public final class StarlarkBuiltinsValue implements SkyValue {
 
     @Override
     public boolean equals(Object other) {
-      return other instanceof Key;
+      return other instanceof Key key && this.withAutoloads == key.withAutoloads;
     }
 
     @Override
     public int hashCode() {
-      return 7727; // more or less xkcd/221
+      return withAutoloads ? 7727 : 7277; // more or less xkcd/221
     }
   }
 }

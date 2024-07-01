@@ -264,12 +264,14 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                 .build(),
             differencer);
 
-    PrecomputedValue.STARLARK_SEMANTICS.set(
-        differencer,
-        StarlarkSemantics.builder()
-            .setBool(BuildLanguageOptions.ENABLE_BZLMOD, true)
-            .setBool(BuildLanguageOptions.EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, true)
-            .build());
+    StarlarkSemantics semantics = StarlarkSemantics.builder()
+        .setBool(BuildLanguageOptions.ENABLE_BZLMOD, true)
+        .setBool(BuildLanguageOptions.EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, true)
+        .build();
+    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, semantics);
+    PrecomputedValue.UNINJECTED_BUILD_BZL_ENV.set(differencer,
+        ruleClassProvider.getBazelStarlarkEnvironment()
+            .createUninjectedBuildBzlEnv(semantics));
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.FORCE_FETCH.set(
         differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
