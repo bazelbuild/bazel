@@ -93,6 +93,13 @@ bool WriteFile(const std::string &content, const Path &path,
   return WriteFile(content.c_str(), content.size(), path, perm);
 }
 
+CallbackDirEntryConsumer::CallbackDirEntryConsumer(
+  std::function<void(const std::string&)> adder_callback) : _adder_callback(adder_callback) {}
+
+void CallbackDirEntryConsumer::Consume(const std::string &path, bool is_directory) {
+  _adder_callback(path);
+}
+
 class DirectoryTreeWalker : public DirectoryEntryConsumer {
  public:
   DirectoryTreeWalker(vector<string> *files,
