@@ -1,0 +1,5 @@
+{
+  "image": "gcr.io/bazel-public/bazel:latest",
+  "features": {
+  }
+}
