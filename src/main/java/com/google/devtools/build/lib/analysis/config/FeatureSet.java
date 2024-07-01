@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.config;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
@@ -44,6 +45,11 @@ public abstract class FeatureSet {
 
   /** Parses a {@link FeatureSet} instance from a list of strings. */
   public static FeatureSet parse(Iterable<String> features) {
+    for (String feature : features) {
+      Preconditions.checkArgument(
+          !feature.contains(","),
+          String.format("Feature %s contains a comma `,`. If provided via the command-line, use multiple --features instead.", feature));
+    }
     Map<String, Boolean> featureToState = new HashMap<>();
     for (String feature : features) {
       if (feature.startsWith("-")) {
