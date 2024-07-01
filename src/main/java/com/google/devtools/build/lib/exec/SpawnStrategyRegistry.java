@@ -104,17 +104,11 @@ public final class SpawnStrategyRegistry
    * <p>If the reason for selecting the context is worth mentioning to the user, logs a message
    * using the given {@link Reporter}.
    */
-  @VisibleForTesting
   public List<? extends SpawnStrategy> getStrategies(Spawn spawn, EventHandler reporter) {
-    return getStrategies(spawn.getResourceOwner(), spawn.getMnemonic(), reporter);
-  }
-
-  public List<? extends SpawnStrategy> getStrategies(
-      @Nullable ActionExecutionMetadata resourceOwner,
-      String mnemonic,
-      @Nullable EventHandler reporter) {
+    ActionExecutionMetadata resourceOwner = spawn.getResourceOwner();
+    String mnemonic = spawn.getMnemonic();
     // Don't override test strategies by --strategy_regexp for backwards compatibility.
-    if (resourceOwner != null && !"TestRunner".equals(mnemonic)) {
+    if (!"TestRunner".equals(mnemonic)) {
       String description = resourceOwner.getProgressMessage();
       if (description != null) {
         ImmutableList<? extends SpawnStrategy> regexStrategies =
@@ -547,10 +541,8 @@ public final class SpawnStrategyRegistry
           Multimaps.asMap(filterToIdentifiers).entrySet()) {
         if (filterToIdentifiers.getKey().isIncluded(description)) {
           // TODO(schmitt): Why is this done here and not after running canExec?
-          if (reporter != null) {
-            reporter.handle(
-                Event.progress(description + " with context " + filterToIdentifiers.getValue()));
-          }
+          reporter.handle(
+              Event.progress(description + " with context " + filterToIdentifiers.getValue()));
           // Apply the policy to the identifiers.
           ImmutableList<String> sanitizedStrategies =
               strategyPolicy.apply(mnemonic, filterToIdentifiers.getValue());

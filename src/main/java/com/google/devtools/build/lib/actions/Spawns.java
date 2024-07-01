@@ -185,7 +185,7 @@ public final class Spawns {
    * {@code toString()} of Spawns.
    */
   public static String prettyPrint(Spawn spawn) {
-    if (spawn.getResourceOwner() != null && spawn.getResourceOwner().getPrimaryOutput() != null) {
+    if (spawn.getResourceOwner().getPrimaryOutput() != null) {
       return spawn.getClass().getSimpleName()
           + " for "
           + spawn.getResourceOwner().getPrimaryOutput().prettyPrint();

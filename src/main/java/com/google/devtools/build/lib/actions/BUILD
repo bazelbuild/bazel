@@ -85,7 +85,6 @@ java_library(
         "CommandLineLimits.java",
         "CommandLines.java",
         "CompletionContext.java",
-        "DelegateSpawn.java",
         "DelegatingPairInputMetadataProvider.java",
         "DigestOfDirectoryException.java",
         "DiscoveredInputsEvent.java",

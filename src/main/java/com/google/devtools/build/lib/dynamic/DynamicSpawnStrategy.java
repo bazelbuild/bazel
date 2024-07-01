@@ -697,10 +697,6 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
 
   private static String getSpawnReadableId(Spawn spawn) {
     ActionExecutionMetadata action = spawn.getResourceOwner();
-    if (action == null) {
-      return spawn.getMnemonic();
-    }
-
     Artifact primaryOutput = action.getPrimaryOutput();
     // In some cases, primary output could be null despite the method promises. And in that case, we
     // can't use action.prettyPrint as it assumes a non-null primary output.
