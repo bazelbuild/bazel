@@ -95,6 +95,53 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void javaTestJavaRuntimeAttribute() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "java_runtime(",
+        "    name = 'jvm17',",
+        "    java = 'java17_home/bin/java',",
+        "    version = 17,",
+        ")",
+        "java_runtime(",
+        "    name = 'jvm21',",
+        "    java = 'java21_home/bin/java',",
+        "    version = 21,",
+        ")",
+        "toolchain(",
+        "    name = 'java_runtime_toolchain17',",
+        "    toolchain = ':jvm17',",
+        "    toolchain_type = '" + TOOLS_REPOSITORY + "//tools/jdk:runtime_toolchain_type',",
+        ")",
+        "java_test(",
+        "    name = 'test',",
+        "    srcs = ['FooTest.java'],",
+        "    test_class = 'FooTest',",
+        "    # in the absence of java_runtime, should use current toolchain",
+        ")",
+        "java_test(",
+        "    name = 'test_jvm21',",
+        "    srcs = ['FooTest.java'],",
+        "    test_class = 'FooTest',",
+        "    java_runtime = ':jvm21',",
+        ")");
+    useConfiguration("--extra_toolchains=//a:java_runtime_toolchain17");
+
+    var ct = getConfiguredTarget("//a:test");
+    var ct21 = getConfiguredTarget("//a:test_jvm21");
+
+    String javaBinPath =
+        JavaTestUtil.getJavaBinForJavaBinaryExecutable(
+            getRuleContext(ct), getGeneratingAction(getExecutable(ct)));
+    assertThat(javaBinPath).contains("java17_home");
+
+    String javaBinPath21 =
+        JavaTestUtil.getJavaBinForJavaBinaryExecutable(
+            getRuleContext(ct21), getGeneratingAction(getExecutable(ct21)));
+    assertThat(javaBinPath21).contains("java21_home");
+  }
+
+  @Test
   public void javaTestSetsSecurityManagerPropertyOnVersion17() throws Exception {
     scratch.file(
         "a/BUILD",
