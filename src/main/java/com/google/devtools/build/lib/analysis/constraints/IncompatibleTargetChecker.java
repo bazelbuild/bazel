@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.constraints;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationId;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -50,6 +51,7 @@ import com.google.devtools.build.lib.packages.RuleClassId;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -224,7 +226,8 @@ public class IncompatibleTargetChecker {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap,
       ConfigConditions configConditions,
       @Nullable PlatformInfo platformInfo,
-      TransitiveDependencyState transitiveState) {
+      TransitiveDependencyState transitiveState)
+      throws ConfiguredValueCreationException {
     Target target = targetAndConfiguration.getTarget();
     Rule rule = target.getAssociatedRule();
 
@@ -243,14 +246,43 @@ public class IncompatibleTargetChecker {
       return Optional.empty();
     }
 
+
     BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
     Label platformLabel = platformInfo != null ? platformInfo.label() : null;
+    IncompatiblePlatformProvider incompatiblePlatformProvider =
+        IncompatiblePlatformProvider.incompatibleDueToTargets(platformLabel, incompatibleDeps);
+    // At this point the target is indirectly incompatible due to its dependencies, but passed the
+    // check for direct incompatibility, which means that any explicitly specified
+    // target_compatible_with value isn't accurate.
+    if (configuration != null
+        && configuration.explicitTargetCompatibleWith()
+        && rule.isAttributeValueExplicitlySpecified("target_compatible_with")) {
+      throw new ConfiguredValueCreationException(
+          targetAndConfiguration.getTarget(),
+          configurationId(targetAndConfiguration.getConfiguration()),
+          String.format(
+              "The target %s has an explicit target_compatible_with attribute, but is indirectly "
+                  + "incompatible with the current platform %s due to its dependencies. Either "
+                  + "remove the target_compatible_with attribute or ensure that it doesn't match "
+                  + "the constraints that are incompatible with its dependencies. This error "
+                  + "can be temporarily disabled with "
+                  + "--noincompatible_explicit_target_compatible_with.%s",
+              target.getLabel(),
+              platformLabel,
+              IncompatibleTargetUtils.reportOnIncompatibility(
+                  targetAndConfiguration.getLabel(),
+                  targetAndConfiguration.getConfiguration().checksum(),
+                  incompatiblePlatformProvider)),
+          null,
+          null);
+    }
+
     return Optional.of(
         createIncompatibleRuleConfiguredTarget(
             configuredTargetKey,
             configuration,
             configConditions,
-            IncompatiblePlatformProvider.incompatibleDueToTargets(platformLabel, incompatibleDeps),
+            incompatiblePlatformProvider,
             rule.getRuleClassObject().getRuleClassId(),
             transitiveState));
   }

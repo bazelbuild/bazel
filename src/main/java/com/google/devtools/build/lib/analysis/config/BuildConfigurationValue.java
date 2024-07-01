@@ -794,6 +794,10 @@ public class BuildConfigurationValue
     return options.compilationMode;
   }
 
+  public boolean explicitTargetCompatibleWith() {
+    return options.explicitTargetCompatibleWith;
+  }
+
   @Override
   public String checksum() {
     return buildOptions.checksum();
