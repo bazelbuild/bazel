@@ -167,6 +167,11 @@ function test_bazel_layering_check() {
   fi
 
   CC="${clang_tool}" bazel build \
+    //hello:hello --copt=-DFORCE_REBUILD=1 \
+    --spawn_strategy=local --features=layering_check \
+    &> "${TEST_log}" || fail "Build with layering_check failed without sandboxing"
+
+  CC="${clang_tool}" bazel build \
     --copt=-D=private_header \
     //hello:hello --features=layering_check \
     &> "${TEST_log}" && fail "Build of private header violation with "\
