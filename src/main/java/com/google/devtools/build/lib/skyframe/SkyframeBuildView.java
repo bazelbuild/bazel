@@ -228,8 +228,7 @@ public final class SkyframeBuildView {
 
     ImmutableSet<OptionDefinition> nativeCacheInvalidatingDifferences =
         getNativeCacheInvalidatingDifferences(configuration, diff);
-    if (nativeCacheInvalidatingDifferences.isEmpty()
-        && diff.getChangedStarlarkOptions().isEmpty()) {
+    if (nativeCacheInvalidatingDifferences.isEmpty()) {
       // The configuration may have changed, but none of the changes required a cache reset. For
       // example, test trimming was turned on and a test option changed. In this case, nothing needs
       // to be done.
