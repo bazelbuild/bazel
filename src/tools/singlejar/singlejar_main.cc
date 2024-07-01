@@ -28,6 +28,8 @@ int main(int argc, char *argv[]) {
   } else {
     output_jar.ExtraCombiner("META-INF/desugar_deps", new NullCombiner());
   }
+  output_jar.ExtraCombiner("META-INF/org/apache/logging/log4j/core/config/plugins/Log4j2Plugins.dat",
+                           new Log4J2PluginDatCombiner("META-INF/org/apache/logging/log4j/core/config/plugins/Log4j2Plugins.dat", options.no_duplicates));
   output_jar.ExtraCombiner("reference.conf",
                            new Concatenator("reference.conf"));
   return output_jar.Doit(&options);
