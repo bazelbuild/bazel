@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidToolsDefaul
 import com.google.devtools.build.lib.bazel.rules.android.BazelDexArchiveAspect;
 import com.google.devtools.build.lib.bazel.rules.android.BazelSdkToolchainRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBinaryRule;
+import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.PackageCallable;
@@ -429,8 +430,8 @@ public class BazelRuleClassProvider {
               "py_internal",
               ContextGuardedValue.onlyInAllowedRepos(
                   Starlark.NONE, PyBootstrap.allowedRepositories));
-          // builder.addStarlarkBuiltinsInternal(BazelPyBuiltins.NAME, new BazelPyBuiltins());
-          // builder.addStarlarkBootstrap(new PyBootstrap());
+          builder.addStarlarkBuiltinsInternal(BazelPyBuiltins.NAME, new BazelPyBuiltins());
+          builder.addStarlarkBootstrap(new PyBootstrap());
 
           try {
             builder.addWorkspaceFileSuffix(

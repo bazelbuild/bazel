@@ -209,11 +209,19 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
     ImmutableMap<String, Object> exportedToplevels;
     ImmutableMap<String, Object> exportedRules;
     ImmutableMap<String, Object> exportedToJava;
+    ImmutableMap<String, Object> predeclaredForWorkspaceBzl;
     try {
       exportedToplevels = getDict(module, "exported_toplevels");
       exportedRules = getDict(module, "exported_rules");
       exportedToJava = getDict(module, "exported_to_java");
+      predeclaredForWorkspaceBzl =
+          bazelStarlarkEnvironment.createWorkspaceBzlEnvUsingInjection(
+              exportedToplevels,
+              exportedRules,
+              starlarkSemantics);
     } catch (EvalException ex) {
+      throw BuiltinsFailedException.errorApplyingExports(ex);
+    } catch (InjectionException ex) {
       throw BuiltinsFailedException.errorApplyingExports(ex);
     }
 
@@ -325,11 +333,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
       ImmutableMap<String, Object> predeclaredForBuildBzl =
           bazelStarlarkEnvironment.createBuildBzlEnvUsingInjection(
               exportedToplevels, exportedRules, starlarkSemantics);
-      ImmutableMap<String, Object> predeclaredForWorkspaceBzl =
-          bazelStarlarkEnvironment.createWorkspaceBzlEnvUsingInjection(
-              exportedToplevels,
-              exportedRules,
-              starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE));
+
       ImmutableMap<String, Object> predeclaredForBuild =
           bazelStarlarkEnvironment.createBuildEnvUsingInjection(exportedRules, starlarkSemantics);
       return StarlarkBuiltinsValue.create(

@@ -114,7 +114,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   @Option(
       name = "incompatible_load_symbols_externally",
       converter = CommaSeparatedOptionSetConverter.class,
-      defaultValue = "PyCcLinkParamsProvider,PyInfo,PyRuntimeInfo",
+      defaultValue = "",
       allowMultiple = false,
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},

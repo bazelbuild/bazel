@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -487,7 +488,7 @@ public final class BazelStarlarkEnvironment {
     return createBzlEnvUsingInjection(
         exportedToplevels,
         exportedRules,
-        semantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE),
+        semantics,
         ImmutableMap.copyOf(envBuilder));
   }
 
@@ -501,29 +502,41 @@ public final class BazelStarlarkEnvironment {
   public ImmutableMap<String, Object> createWorkspaceBzlEnvUsingInjection(
       Map<String, Object> exportedToplevels,
       Map<String, Object> exportedRules,
-      List<String> overridesList)
+      StarlarkSemantics semantics)
       throws InjectionException {
     return createBzlEnvUsingInjection(
-        exportedToplevels, exportedRules, overridesList, workspaceBzlNativeBindings);
+        exportedToplevels, exportedRules, semantics, workspaceBzlNativeBindings);
   }
 
   private ImmutableMap<String, Object> createBzlEnvUsingInjection(
       Map<String, Object> exportedToplevels,
       Map<String, Object> exportedRules,
-      List<String> overridesList,
+      StarlarkSemantics semantics,
       Map<String, Object> nativeBase)
       throws InjectionException {
-    Map<String, Boolean> overridesMap = parseInjectionOverridesList(overridesList);
+    Map<String, Boolean> overridesMap = parseInjectionOverridesList(
+        semantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE));
 
     Map<String, Object> env = new HashMap<>(bzlToplevelsWithoutNative);
 
     // Determine "native" bindings.
     // TODO(#11954): See above comment in createUninjectedBuildBzlEnv.
+
+    // Add or remove rules
+    Set<String> ruleFunctions = new HashSet<>(this.ruleFunctions.keySet());
+    for (String rule : semantics.get(BuildLanguageOptions.INCOMPATIBLE_LOAD_RULES_EXTERNALLY)) {
+      if (rule.startsWith("-")) {
+        ruleFunctions.remove(rule.substring(1));
+      } else {
+        ruleFunctions.add(rule);
+      }
+    }
+
     Map<String, Object> nativeBindings = new HashMap<>(nativeBase);
     for (Map.Entry<String, Object> entry : exportedRules.entrySet()) {
       String key = entry.getKey();
       String name = getKeySuffix(key);
-      validateSymbolIsInjectable(name, nativeBindings.keySet(), ruleFunctions.keySet(), "rule");
+      validateSymbolIsInjectable(name, nativeBindings.keySet(), ruleFunctions, "rule");
       if (injectionApplies(key, overridesMap)) {
         nativeBindings.put(name, entry.getValue());
       }
@@ -571,11 +584,14 @@ public final class BazelStarlarkEnvironment {
 
     // Implementation of --incompatible_load_rules_externally
     // The flags can either load rules or symbols automatically or drop them from existence.
+    Set<String> ruleFunctions = new HashSet<>(this.ruleFunctions.keySet());
     for (String rule : semantics.get(BuildLanguageOptions.INCOMPATIBLE_LOAD_RULES_EXTERNALLY)) {
       if (rule.startsWith("-")) {
         env.remove(rule.substring(1));
+        ruleFunctions.remove(rule.substring(1));
       } else {
         env.put(rule, Starlark.NONE);
+        ruleFunctions.add(rule);
       }
     }
 
@@ -585,7 +601,7 @@ public final class BazelStarlarkEnvironment {
       validateSymbolIsInjectable(
           name,
           Sets.union(env.keySet(), Starlark.UNIVERSE.keySet()),
-          ruleFunctions.keySet(),
+          ruleFunctions,
           "rule");
       if (injectionApplies(key, overridesMap)) {
         env.put(name, entry.getValue());

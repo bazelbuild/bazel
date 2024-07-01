@@ -33,7 +33,7 @@ load("@_builtins//:common/proto/proto_common.bzl", "proto_common_do_not_use")
 load("@_builtins//:common/proto/proto_info.bzl", "ProtoInfo")
 load("@_builtins//:common/proto/proto_lang_toolchain.bzl", "proto_lang_toolchain")
 
-#load("@_builtins//:common/python/providers.bzl", "PyCcLinkParamsProvider", "PyInfo", "PyRuntimeInfo")
+load("@_builtins//:common/python/providers.bzl", "PyCcLinkParamsProvider", "PyInfo", "PyRuntimeInfo")
 #load("@_builtins//:common/python/py_runtime_macro.bzl", "py_runtime")
 load("@_builtins//:common/xcode/available_xcodes.bzl", "available_xcodes")
 load("@_builtins//:common/xcode/xcode_config.bzl", "xcode_config")
@@ -57,9 +57,9 @@ exported_toplevels = {
     "CcSharedLibraryInfo": CcSharedLibraryInfo,
     "CcSharedLibraryHintInfo": CcSharedLibraryHintInfo,
     "proto_common_do_not_use": proto_common_do_not_use,
-    #    "PyRuntimeInfo": PyRuntimeInfo,
-    #    "PyInfo": PyInfo,
-    #    "PyCcLinkParamsProvider": PyCcLinkParamsProvider,
+    "PyRuntimeInfo": PyRuntimeInfo,
+    "PyInfo": PyInfo,
+    "PyCcLinkParamsProvider": PyCcLinkParamsProvider,
     "ProtoInfo": ProtoInfo,
     "cc_common": cc_common,
     "+JavaPluginInfo": JavaPluginInfo,
