@@ -70,7 +70,7 @@ import javax.annotation.Nullable;
  *       described in its javadocs and has its mnemonic listed in {@link
  *       PathMappers#SUPPORTED_MNEMONICS}. Such an action must pass the {@link PathMapper} to all
  *       structured command line constructions. If any unstructured command line arguments refer to
- *       artifact paths, custom handling needs to be added to {@code mapCustomStarlarkArgv} or
+ *       artifact paths, custom handling needs to be added to {@code mapCustomStarlarkArgs} or
  *       {@code getMapFn} below.
  *   <li>A supporting executor strips paths from qualifying actions' inputs and outputs before
  *       staging for execution by taking {@link Spawn#getPathMapper()} into account.
