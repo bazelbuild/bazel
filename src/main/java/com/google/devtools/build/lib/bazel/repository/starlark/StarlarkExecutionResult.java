@@ -49,10 +49,11 @@ import net.starlark.java.eval.StarlarkValue;
 @StarlarkBuiltin(
     name = "exec_result",
     category = DocCategory.BUILTIN,
-    doc =
-        "A structure storing result of repository_ctx.execute() method. It contains the standard"
-            + " output stream content, the standard error stream content and the execution return"
-            + " code.")
+    doc = """
+      A structure storing result of repository_ctx.execute() method. It contains the standard \
+      output stream content, the standard error stream content and the execution return \
+      code.
+      """)
 final class StarlarkExecutionResult implements StarlarkValue {
   private final int returnCode;
   private final String stdout;
@@ -72,10 +73,11 @@ final class StarlarkExecutionResult implements StarlarkValue {
   @StarlarkMethod(
       name = "return_code",
       structField = true,
-      doc =
-          "The return code returned after the execution of the program. 256 if the process was"
-              + " terminated by a time out; values larger than 128 indicate termination by a"
-              + " signal.")
+      doc = """
+        The return code returned after the execution of the program. 256 if the process was \
+        terminated by a time out; values larger than 128 indicate termination by a \
+        signal.
+        """)
   public int getReturnCode() {
     return returnCode;
   }
