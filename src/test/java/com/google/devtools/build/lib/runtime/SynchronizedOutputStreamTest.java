@@ -41,7 +41,12 @@ public class SynchronizedOutputStreamTest {
   @Test
   public void testReadAndResetReturnsChunkedWritesSinceLastCall() throws IOException {
     SynchronizedOutputStream underTest =
-        new SynchronizedOutputStream(/*maxBufferedLength=*/ 5, /*maxChunkSize=*/ 5);
+        new SynchronizedOutputStream(
+            /* maxBufferedLength= */ 5, /* maxChunkSize= */ 5, /* isStderr= */ false);
+
+    BuildEventStreamer mockStreamer = mock(BuildEventStreamer.class);
+    doAnswer(inv -> true).when(mockStreamer).canWriteWithoutFlush(false);
+    underTest.registerStreamer(mockStreamer);
 
     underTest.write(new byte[] {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'});
     assertThat(underTest.readAndReset()).containsExactly("abcde", "fgh").inOrder();
@@ -55,7 +60,8 @@ public class SynchronizedOutputStreamTest {
   @Test
   public void testWriteFlushesStreamerWhenMaxBufferedLengthReached() throws IOException {
     SynchronizedOutputStream underTest =
-        new SynchronizedOutputStream(/*maxBufferedLength=*/ 3, /*maxChunkSize=*/ 3);
+        new SynchronizedOutputStream(
+            /* maxBufferedLength= */ 3, /* maxChunkSize= */ 3, /* isStderr= */ false);
 
     List<List<String>> writes = new ArrayList<>();
     BuildEventStreamer mockStreamer = mock(BuildEventStreamer.class);
@@ -66,6 +72,7 @@ public class SynchronizedOutputStreamTest {
             })
         .when(mockStreamer)
         .flush();
+    doAnswer(inv -> true).when(mockStreamer).canWriteWithoutFlush(false);
     underTest.registerStreamer(mockStreamer);
 
     underTest.write(new byte[] {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'});
@@ -84,7 +91,12 @@ public class SynchronizedOutputStreamTest {
   @Test
   public void testUsesMaxOfMaxBufferedSizeAndMaxChunkSizeForChunking() throws IOException {
     SynchronizedOutputStream underTest =
-        new SynchronizedOutputStream(/*maxBufferedLength=*/ 2, /*maxChunkSize=*/ 1);
+        new SynchronizedOutputStream(
+            /* maxBufferedLength= */ 2, /* maxChunkSize= */ 1, /* isStderr= */ false);
+
+    BuildEventStreamer mockStreamer = mock(BuildEventStreamer.class);
+    doAnswer(inv -> true).when(mockStreamer).canWriteWithoutFlush(false);
+    underTest.registerStreamer(mockStreamer);
 
     underTest.write(new byte[] {'a', 'b', 'c', 'd'});
     assertThat(underTest.readAndReset()).containsExactly("ab", "cd").inOrder();
@@ -95,7 +107,8 @@ public class SynchronizedOutputStreamTest {
   @Test
   public void testHandlesArbitraryBinaryDataCorrectly() throws IOException {
     SynchronizedOutputStream underTest =
-        new SynchronizedOutputStream(/*maxBufferedLength=*/ 1, /*maxChunkSize=*/ 1);
+        new SynchronizedOutputStream(
+            /* maxBufferedLength= */ 1, /* maxChunkSize= */ 1, /* isStderr= */ false);
 
     byte[] input = new byte[] {(byte) 0xff};
     underTest.write(input);
