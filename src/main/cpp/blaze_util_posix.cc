@@ -409,6 +409,12 @@ int ExecuteDaemon(const blaze_util::Path& exe,
   if (daemon_output_append) {
     daemonize_args.push_back("-a");
   }
+#ifdef __linux__
+  if (!options.cgroup_parent.empty()) {
+    daemonize_args.push_back("-c");
+    daemonize_args.push_back(options.cgroup_parent);
+  }
+#endif
   daemonize_args.push_back("--");
   daemonize_args.push_back(exe.AsNativePath());
   std::copy(args_vector.begin(), args_vector.end(),
