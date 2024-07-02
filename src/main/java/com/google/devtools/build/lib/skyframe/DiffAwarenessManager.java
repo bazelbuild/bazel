@@ -107,14 +107,15 @@ public final class DiffAwarenessManager {
       ImmutableSet<Path> ignoredPaths,
       OptionsProvider options)
       throws InterruptedException {
-    DiffAwarenessState diffAwarenessState = maybeGetDiffAwarenessState(pathEntry, ignoredPaths);
+    DiffAwarenessState diffAwarenessState =
+        maybeGetDiffAwarenessState(pathEntry, ignoredPaths, options);
     if (diffAwarenessState == null) {
       return BrokenProcessableModifiedFileSet.INSTANCE;
     }
     DiffAwareness diffAwareness = diffAwarenessState.diffAwareness;
     View newView;
     try (SilentCloseable c = Profiler.instance().profile("diffAwareness.getCurrentView")) {
-      newView = diffAwareness.getCurrentView(options);
+      newView = diffAwareness.getCurrentView(options, eventHandler);
     } catch (BrokenDiffAwarenessException e) {
       handleBrokenDiffAwareness(eventHandler, pathEntry, ignoredPaths, e);
       return BrokenProcessableModifiedFileSet.INSTANCE;
@@ -160,7 +161,7 @@ public final class DiffAwarenessManager {
    */
   @Nullable
   private DiffAwarenessState maybeGetDiffAwarenessState(
-      Root pathEntry, ImmutableSet<Path> ignoredPaths) {
+      Root pathEntry, ImmutableSet<Path> ignoredPaths, OptionsProvider options) {
     StateKey stateKey = StateKey.create(pathEntry, ignoredPaths);
     DiffAwarenessState diffAwarenessState = currentDiffAwarenessStates.get(stateKey);
     if (diffAwarenessState != null) {
@@ -168,7 +169,7 @@ public final class DiffAwarenessManager {
     }
 
     for (DiffAwareness.Factory factory : diffAwarenessFactories) {
-      DiffAwareness newDiffAwareness = factory.maybeCreate(pathEntry, ignoredPaths);
+      DiffAwareness newDiffAwareness = factory.maybeCreate(pathEntry, ignoredPaths, options);
       if (newDiffAwareness != null) {
         logger.atInfo().log(
             "Using %s DiffAwareness strategy for %s", newDiffAwareness.name(), pathEntry);
