@@ -217,12 +217,14 @@ public class DiffAwarenessManagerTest {
 
     ModifiedFileSet diff1 = modifiedFileSet("/path/ignored-path-2/foo");
     DiffAwareness diffAwareness1 = new DiffAwarenessStub(ImmutableList.of(diff1));
-    when(factory.maybeCreate(pathEntry, ImmutableSet.of(fs.getPath("/path/ignored-path-1"))))
+    when(factory.maybeCreate(
+            pathEntry, ImmutableSet.of(fs.getPath("/path/ignored-path-1")), OptionsProvider.EMPTY))
         .thenReturn(diffAwareness1);
 
     ModifiedFileSet diff2 = modifiedFileSet("/path/ignored-path-1/foo");
     DiffAwareness diffAwareness2 = new DiffAwarenessStub(ImmutableList.of(diff2));
-    when(factory.maybeCreate(pathEntry, ImmutableSet.of(fs.getPath("/path/ignored-path-2"))))
+    when(factory.maybeCreate(
+            pathEntry, ImmutableSet.of(fs.getPath("/path/ignored-path-2")), OptionsProvider.EMPTY))
         .thenReturn(diffAwareness2);
 
     DiffAwarenessManager manager = new DiffAwarenessManager(ImmutableList.of(factory));
@@ -265,7 +267,8 @@ public class DiffAwarenessManagerTest {
     DiffAwareness diffAwareness = mock(DiffAwareness.class);
     when(diffAwareness.getCurrentView(any())).thenReturn(createView(workspaceInfo));
     DiffAwareness.Factory factory = mock(DiffAwareness.Factory.class);
-    when(factory.maybeCreate(pathEntry, ImmutableSet.of())).thenReturn(diffAwareness);
+    when(factory.maybeCreate(pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY))
+        .thenReturn(diffAwareness);
     DiffAwarenessManager manager = new DiffAwarenessManager(ImmutableList.of(factory));
 
     ProcessableModifiedFileSet diff =
@@ -286,7 +289,8 @@ public class DiffAwarenessManagerTest {
     when(diffAwareness.getDiff(view1, view2))
         .thenReturn(ModifiedFileSet.builder().modify(PathFragment.create("file")).build());
     DiffAwareness.Factory factory = mock(DiffAwareness.Factory.class);
-    when(factory.maybeCreate(pathEntry, ImmutableSet.of())).thenReturn(diffAwareness);
+    when(factory.maybeCreate(pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY))
+        .thenReturn(diffAwareness);
     DiffAwarenessManager manager = new DiffAwarenessManager(ImmutableList.of(factory));
     var unused =
         manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
@@ -308,7 +312,8 @@ public class DiffAwarenessManagerTest {
     when(diffAwareness.getCurrentView(any())).thenReturn(view1, view2);
     when(diffAwareness.getDiff(view1, view2)).thenReturn(ModifiedFileSet.NOTHING_MODIFIED);
     DiffAwareness.Factory factory = mock(DiffAwareness.Factory.class);
-    when(factory.maybeCreate(pathEntry, ImmutableSet.of())).thenReturn(diffAwareness);
+    when(factory.maybeCreate(pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY))
+        .thenReturn(diffAwareness);
     DiffAwarenessManager manager = new DiffAwarenessManager(ImmutableList.of(factory));
     var unused =
         manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
@@ -330,7 +335,8 @@ public class DiffAwarenessManagerTest {
     when(diffAwareness.getDiff(view1, view2))
         .thenReturn(ModifiedFileSet.builder().modify(PathFragment.create("file")).build());
     DiffAwareness.Factory factory = mock(DiffAwareness.Factory.class);
-    when(factory.maybeCreate(pathEntry, ImmutableSet.of())).thenReturn(diffAwareness);
+    when(factory.maybeCreate(pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY))
+        .thenReturn(diffAwareness);
     DiffAwarenessManager manager = new DiffAwarenessManager(ImmutableList.of(factory));
     var unused =
         manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
@@ -352,7 +358,8 @@ public class DiffAwarenessManagerTest {
     when(diffAwareness.getCurrentView(any())).thenReturn(view1, view2);
     when(diffAwareness.getDiff(view1, view2)).thenThrow(BrokenDiffAwarenessException.class);
     DiffAwareness.Factory factory = mock(DiffAwareness.Factory.class);
-    when(factory.maybeCreate(pathEntry, ImmutableSet.of())).thenReturn(diffAwareness);
+    when(factory.maybeCreate(pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY))
+        .thenReturn(diffAwareness);
     DiffAwarenessManager manager = new DiffAwarenessManager(ImmutableList.of(factory));
     var unused =
         manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
@@ -372,7 +379,8 @@ public class DiffAwarenessManagerTest {
     when(diffAwareness.getCurrentView(any())).thenReturn(view1, view2);
     when(diffAwareness.getDiff(view1, view2)).thenThrow(IncompatibleViewException.class);
     DiffAwareness.Factory factory = mock(DiffAwareness.Factory.class);
-    when(factory.maybeCreate(pathEntry, ImmutableSet.of())).thenReturn(diffAwareness);
+    when(factory.maybeCreate(pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY))
+        .thenReturn(diffAwareness);
     DiffAwarenessManager manager = new DiffAwarenessManager(ImmutableList.of(factory));
     var unused =
         manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
@@ -408,7 +416,8 @@ public class DiffAwarenessManagerTest {
 
     @Override
     @Nullable
-    public DiffAwareness maybeCreate(Root pathEntry, ImmutableSet<Path> ignoredPaths) {
+    public DiffAwareness maybeCreate(
+        Root pathEntry, ImmutableSet<Path> ignoredPaths, OptionsProvider optionsProvider) {
       return diffAwarenesses.get(pathEntry);
     }
   }

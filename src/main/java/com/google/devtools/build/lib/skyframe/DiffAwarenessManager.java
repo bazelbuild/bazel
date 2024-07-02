@@ -107,7 +107,8 @@ public final class DiffAwarenessManager {
       ImmutableSet<Path> ignoredPaths,
       OptionsProvider options)
       throws InterruptedException {
-    DiffAwarenessState diffAwarenessState = maybeGetDiffAwarenessState(pathEntry, ignoredPaths);
+    DiffAwarenessState diffAwarenessState =
+        maybeGetDiffAwarenessState(pathEntry, ignoredPaths, options);
     if (diffAwarenessState == null) {
       return BrokenProcessableModifiedFileSet.INSTANCE;
     }
@@ -160,7 +161,7 @@ public final class DiffAwarenessManager {
    */
   @Nullable
   private DiffAwarenessState maybeGetDiffAwarenessState(
-      Root pathEntry, ImmutableSet<Path> ignoredPaths) {
+      Root pathEntry, ImmutableSet<Path> ignoredPaths, OptionsProvider options) {
     StateKey stateKey = StateKey.create(pathEntry, ignoredPaths);
     DiffAwarenessState diffAwarenessState = currentDiffAwarenessStates.get(stateKey);
     if (diffAwarenessState != null) {
@@ -168,7 +169,7 @@ public final class DiffAwarenessManager {
     }
 
     for (DiffAwareness.Factory factory : diffAwarenessFactories) {
-      DiffAwareness newDiffAwareness = factory.maybeCreate(pathEntry, ignoredPaths);
+      DiffAwareness newDiffAwareness = factory.maybeCreate(pathEntry, ignoredPaths, options);
       if (newDiffAwareness != null) {
         logger.atInfo().log(
             "Using %s DiffAwareness strategy for %s", newDiffAwareness.name(), pathEntry);
