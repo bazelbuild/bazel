@@ -19,13 +19,13 @@ filegroup(
 )
 
 expand_pyversion_template(
-    name = "_generate_wrappers",
+    name = "generate_wrappers",
     out2 = ":py2wrapper.sh",
     out2_nonstrict = ":py2wrapper_nonstrict.sh",
     out3 = ":py3wrapper.sh",
     out3_nonstrict = ":py3wrapper_nonstrict.sh",
     template = "pywrapper_template.txt",
-    visibility = ["//visibility:private"],
+    visibility = ["//visibility:public"],
 )
 
 py_test(
