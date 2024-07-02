@@ -598,11 +598,23 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 
   @StarlarkMethod(
       name = "download",
-      doc =
-          "Downloads a file to the output path for the provided url and returns a struct"
-              + " containing <code>success</code>, a flag which is <code>true</code> if the"
-              + " download completed successfully, and if successful, a hash of the file"
-              + " with the fields <code>sha256</code> and <code>integrity</code>.",
+      doc = """
+        Downloads a file to the output path for the provided url and returns a struct containing \
+        <code>success</code>, a flag which is <code>true</code> if the download completed \
+        successfully, and if successful, a hash of the file with the fields <code>sha256</code> \
+        and <code>integrity</code>. \
+        When <code>sha256</code> or <code>integrity</code> is user specified, setting an explicit \
+        <code>canonical_id</code> is highly recommended. e.g.\
+        <pre class='language-python'>
+        load("@bazel_tools//tools/build_defs/repo:cache.bzl", "get_default_canonical_id")
+        # ...
+            repository_ctx.download(
+                url = urls,
+                integrity = integrity
+                canonical_id = get_default_canonical_id(repository_ctx, urls),
+            ),
+        </pre>
+        """,
       useStarlarkThread = true,
       parameters = {
         @Param(
@@ -778,11 +790,23 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 
   @StarlarkMethod(
       name = "download_and_extract",
-      doc =
-          "Downloads a file to the output path for the provided url, extracts it, and returns a"
-              + " struct containing <code>success</code>, a flag which is <code>true</code> if the"
-              + " download completed successfully, and if successful, a hash of the file with the"
-              + " fields <code>sha256</code> and <code>integrity</code>.",
+      doc = """
+        Downloads a file to the output path for the provided url, extracts it, and returns a \
+        struct containing <code>success</code>, a flag which is <code>true</code> if the download \
+        completed successfully, and if successful, a hash of the file with the fields \
+        <code>sha256</code> and <code>integrity</code>. \
+        When <code>sha256</code> or <code>integrity</code> is user specified, setting an explicit \
+        <code>canonical_id</code> is highly recommended. e.g.\
+        <pre class='language-python'>
+        load("@bazel_tools//tools/build_defs/repo:cache.bzl", "get_default_canonical_id")
+        # ...
+            repository_ctx.download_and_extract(
+                url = urls,
+                integrity = integrity
+                canonical_id = get_default_canonical_id(repository_ctx, urls),
+            ),
+        </pre>
+        """,
       useStarlarkThread = true,
       parameters = {
         @Param(
