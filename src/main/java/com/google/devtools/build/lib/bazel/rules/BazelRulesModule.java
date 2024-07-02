@@ -454,6 +454,14 @@ public final class BazelRulesModule extends BlazeModule {
         help = "No-op",
         deprecationWarning = ANDROID_FLAG_DEPRECATION)
     public boolean incompatibleUseToolchainResolution;
+
+    @Option(
+        name = "incompatible_disable_nocopts",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op")
+    public boolean disableNoCopts;
   }
 
   /**
