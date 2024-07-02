@@ -1,3 +1,17 @@
+## Release 8.0.0-pre.20240618.2 (2024-07-02)
+
+```
+Baseline: 0c2ed165335327a2c5b534312324baa9ae6b6ebd
+
+Cherry picks:
+
+   + 8d625289052b7d67fedbd50b1eb611deda4ea14a:
+     Automated rollback of commit
+     17f6894346d2e200030dc08d131bf79a31a7c70c.
+```
+
+Initial release.
+
 ## Release 7.2.1 (2024-06-25)
 
 ```
