@@ -192,7 +192,11 @@ public class TestCollatz {
 }
 EOF
 
-  bazel coverage --test_output=all //:test --coverage_report_generator=@bazel_tools//tools/test:coverage_report_generator --combined_report=lcov &>$TEST_log \
+  # Ensure that coverage succeeds even with lazily built runfiles trees for the
+  # merger tool.
+  bazel coverage \
+      --nobuild_runfile_links \
+      --test_output=all //:test --coverage_report_generator=@bazel_tools//tools/test:coverage_report_generator --combined_report=lcov &>$TEST_log \
    || echo "Coverage for //:test failed"
 
   local expected_result="SF:src/main/com/example/Collatz.java
