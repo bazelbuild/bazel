@@ -11,9 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.actions;
+package com.google.devtools.build.lib.vfs;
 
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.actions.CommandLineItem;
 import java.util.function.UnaryOperator;
 
 /**
@@ -22,4 +22,9 @@ import java.util.function.UnaryOperator;
  */
 public interface PathStrippable extends CommandLineItem {
   String expand(UnaryOperator<PathFragment> stripPaths);
+
+  @Override
+  default String expandToCommandLine() {
+    return expand(UnaryOperator.identity());
+  }
 }
