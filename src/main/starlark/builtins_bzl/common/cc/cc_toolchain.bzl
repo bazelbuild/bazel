@@ -98,6 +98,8 @@ def _attributes(ctx):
         objcopy_files = _files(ctx, "objcopy_files"),
         link_dynamic_library_tool = ctx.file._link_dynamic_library_tool,
         grep_includes = grep_includes,
+        aggregate_ddi = _single_file(ctx, "_aggregate_ddi"),
+        generate_modmap = _single_file(ctx, "_generate_modmap"),
         module_map = ctx.attr.module_map,
         as_files = _files(ctx, "as_files"),
         ar_files = _files(ctx, "ar_files"),
@@ -341,6 +343,16 @@ The label of the rule providing <code>cc_toolchain_config_info</code>.""",
         "_build_info_translator": attr.label(
             default = semantics.BUILD_INFO_TRANLATOR_LABEL,
             providers = [OutputGroupInfo],
+        ),
+        "_aggregate_ddi": attr.label(
+            executable = True,
+            cfg = "exec",
+            default = "@" + semantics.get_repo() + "//tools/cpp:aggregate-ddi",
+        ),
+        "_generate_modmap": attr.label(
+            executable = True,
+            cfg = "exec",
+            default = "@" + semantics.get_repo() + "//tools/cpp:generate-modmap",
         ),
     },
 )

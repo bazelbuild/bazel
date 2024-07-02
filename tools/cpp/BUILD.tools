@@ -97,6 +97,16 @@ filegroup(
 )
 
 filegroup(
+    name = "aggregate-ddi",
+    srcs = ["//tools/cpp/modules_tools:aggregate-ddi-bin"],
+)
+
+filegroup(
+    name = "generate-modmap",
+    srcs = ["//tools/cpp/modules_tools:generate-modmap-bin"],
+)
+
+filegroup(
     name = "empty",
     srcs = [],
 )
