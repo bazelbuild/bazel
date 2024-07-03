@@ -2,6 +2,13 @@
 BUILD linguist-language=Python
 site/* linguist-documentation
 
+# Github excludes files in 'build' directory from their search by default.
+# This negates the exclusion.
+#
+# For more information, see:
+#   https://docs.github.com/en/search-github/searching-on-github/finding-files-on-github#customizing-excluded-files
+**/build/** linguist-generated=false
+
 # Files that should not use CRLF line endings, even on Windows.
 tools/genrule/genrule-setup.sh -text
 
