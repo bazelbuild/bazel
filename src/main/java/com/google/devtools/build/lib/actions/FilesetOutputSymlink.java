@@ -53,11 +53,14 @@ public abstract class FilesetOutputSymlink {
   public abstract boolean isRelativeToExecRoot();
 
   /**
-   * If this symlink points to a file inside a tree artifact, returns that file's {@linkplain
-   * Artifact#getParent parent} tree artifact. Otherwise, returns {@code null}.
+   * If this symlink points to a file inside a tree artifact, returns the exec path of that file's
+   * {@linkplain Artifact#getParent parent} tree artifact. Otherwise, returns {@code null}.
+   *
+   * <p>To simplify serialization, only the exec path is stored, not the whole {@link
+   * SpecialArtifact}.
    */
   @Nullable
-  public abstract SpecialArtifact getEnclosingTreeArtifact();
+  public abstract PathFragment getEnclosingTreeArtifactExecPath();
 
   /**
    * Reconstitutes the original target path of this symlink.
@@ -92,7 +95,11 @@ public abstract class FilesetOutputSymlink {
   public static FilesetOutputSymlink createAlreadyRelativizedForTesting(
       PathFragment name, PathFragment target, boolean isRelativeToExecRoot) {
     return createAlreadyRelativized(
-        name, target, HasDigest.EMPTY, isRelativeToExecRoot, /* enclosingTreeArtifact= */ null);
+        name,
+        target,
+        HasDigest.EMPTY,
+        isRelativeToExecRoot,
+        /* enclosingTreeArtifactExecPath= */ null);
   }
 
   /**
@@ -124,8 +131,15 @@ public abstract class FilesetOutputSymlink {
       target = target.relativeTo(execRoot);
       isRelativeToExecRoot = true;
     }
+    PathFragment enclosingTreeArtifactExecPath;
+    if (enclosingTreeArtifact == null) {
+      enclosingTreeArtifactExecPath = null;
+    } else {
+      checkArgument(enclosingTreeArtifact.isTreeArtifact(), enclosingTreeArtifact);
+      enclosingTreeArtifactExecPath = enclosingTreeArtifact.getExecPath();
+    }
     return createAlreadyRelativized(
-        name, target, metadata, isRelativeToExecRoot, enclosingTreeArtifact);
+        name, target, metadata, isRelativeToExecRoot, enclosingTreeArtifactExecPath);
   }
 
   /**
@@ -137,11 +151,8 @@ public abstract class FilesetOutputSymlink {
       PathFragment target,
       HasDigest metadata,
       boolean isRelativeToExecRoot,
-      @Nullable SpecialArtifact enclosingTreeArtifact) {
-    checkArgument(
-        enclosingTreeArtifact == null || enclosingTreeArtifact.isTreeArtifact(),
-        enclosingTreeArtifact);
+      @Nullable PathFragment enclosingTreeArtifactExecPath) {
     return new AutoValue_FilesetOutputSymlink(
-        name, target, metadata, isRelativeToExecRoot, enclosingTreeArtifact);
+        name, target, metadata, isRelativeToExecRoot, enclosingTreeArtifactExecPath);
   }
 }
