@@ -4376,8 +4376,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     getConfiguredTarget("//initializer_testing:my_target");
 
     ev.assertContainsError(
-        "existing_rules() can only be used while evaluating a BUILD file, a WORKSPACE file, or a"
-            + " macro loaded from there");
+        "existing_rules() can only be used while evaluating a BUILD file (or macro) or a WORKSPACE"
+            + " file");
   }
 
   @Test

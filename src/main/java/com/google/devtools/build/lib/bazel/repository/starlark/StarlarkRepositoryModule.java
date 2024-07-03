@@ -253,11 +253,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       try {
         RuleClass ruleClass = builder.build(ruleClassName, ruleClassName);
         Package.Builder pkgBuilder =
-            Package.Builder.fromOrFailDisallowingSymbolicMacros(thread, "repository rules");
-        if (!pkgBuilder.isRepoRulePackage()) {
-          throw Starlark.errorf(
-              "repo rules may only be called from a WORKSPACE file or a macro loaded from there");
-        }
+            Package.Builder.fromOrFailAllowWorkspaceOnly(thread, "repository rules");
 
         // TODO(adonovan): is this cast safe? Check.
         String name = (String) kwargs.get("name");
