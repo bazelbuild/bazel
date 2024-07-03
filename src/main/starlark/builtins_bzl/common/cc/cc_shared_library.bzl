@@ -491,18 +491,19 @@ def _filter_inputs(
                 dynamic_only_roots.pop(owner)
 
             linker_input_to_be_linked_statically = linker_input
-            if owner in top_level_linker_input_labels_set:
+            should_export =  _check_if_target_should_be_exported_with_filter(
+                linker_input.owner,
+                ctx.label,
+                ctx.attr.exports_filter,
+            )
+            if owner in top_level_linker_input_labels_set or should_export:
                 linker_input_to_be_linked_statically = _wrap_static_library_with_alwayslink(
                     ctx,
                     feature_configuration,
                     cc_toolchain,
                     linker_input,
                 )
-            if _check_if_target_should_be_exported_with_filter(
-                linker_input.owner,
-                ctx.label,
-                ctx.attr.exports_filter,
-            ):
+            if should_export:
                 exports[owner] = True
 
             _add_linker_input_to_dict(linker_input.owner, linker_input_to_be_linked_statically)
@@ -1010,7 +1011,7 @@ by a different <code>cc_shared_library</code>.
 </p>"""),
         "experimental_disable_topo_sort_do_not_use_remove_before_7_0": attr.bool(default = False),
         "exports_filter": attr.string_list(doc = """
-This attribute contains a list of targets that are claimed to be exported by the current
+This attribute contains a list of targets that should be exported by the current
 shared library.
 
 <p>
@@ -1022,10 +1023,8 @@ but are transitive dependencies of <code>deps</code>.
 <p>
 Note that this attribute is not actually adding a dependency edge to those targets, the
 dependency edge should instead be created by <code>deps</code>.The entries in this
-attribute are just strings. Keep in mind that when placing a target in this attribute,
-this is considered a claim that the shared library exports the symbols from that target.
-The <code>cc_shared_library</code> logic  doesn't actually handle telling the linker which
-symbols should be exported.
+attribute are just strings. When placing a target in this attribute, the shared library
+will export the symbols from that target.
 </p>
 
 <p>The following syntax is allowed:</p>
