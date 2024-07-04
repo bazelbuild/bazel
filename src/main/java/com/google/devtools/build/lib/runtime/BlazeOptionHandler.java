@@ -307,8 +307,8 @@ public final class BlazeOptionHandler {
         remainingCmdLine.build(),
         /* fallbackData= */ null);
 
-    if (commandAnnotation.builds()) {
-      // splits project files from targets in the traditional sense
+    if (commandAnnotation.buildPhase().analyzes()) {
+      // split project files from targets in the traditional sense.
       ProjectFileSupport.handleProjectFiles(
           eventHandler,
           runtime.getProjectFileProvider(),
@@ -410,7 +410,7 @@ public final class BlazeOptionHandler {
   DetailedExitCode parseStarlarkOptions(CommandEnvironment env) {
     // For now, restrict starlark options to commands that already build to ensure that loading
     // will work. We may want to open this up to other commands in the future.
-    if (!commandAnnotation.builds()) {
+    if (!commandAnnotation.buildPhase().analyzes()) {
       return DetailedExitCode.success();
     }
     try {

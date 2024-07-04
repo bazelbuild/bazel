@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
+
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -85,6 +87,7 @@ import java.util.stream.Collectors;
 /** Implementation of 'blaze info'. */
 @Command(
     name = "info",
+    buildPhase = NONE,
     allowResidue = true,
     binaryStdOut = true,
     help = "resource:info.txt",

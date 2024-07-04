@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.joining;
@@ -71,7 +72,7 @@ import javax.annotation.Nullable;
 /** Handles the 'config' command on the Blaze command line. */
 @Command(
     name = "config",
-    builds = true,
+    buildPhase = NONE,
     inheritsOptionsFrom = {BuildCommand.class},
     options = {ConfigOptions.class},
     usesConfigurationOptions = true,

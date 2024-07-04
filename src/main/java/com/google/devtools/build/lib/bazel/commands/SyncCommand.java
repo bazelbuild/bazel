@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.bazel.commands;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.LOADS;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -67,6 +68,7 @@ import net.starlark.java.eval.Starlark;
 /** Syncs all repositories specified in the workspace file */
 @Command(
     name = SyncCommand.NAME,
+    buildPhase = LOADS,
     options = {
       PackageOptions.class,
       KeepGoingOption.class,

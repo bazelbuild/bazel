@@ -269,7 +269,7 @@ public class CommandEnvironment {
             : UUID.randomUUID().toString();
 
     this.repoEnv.putAll(clientEnv);
-    if (command.builds() || command.name().equals("info")) {
+    if (command.buildPhase().analyzes() || command.name().equals("info")) {
       // Compute the set of environment variables that are allowlisted on the commandline
       // for inheritance.
       for (Map.Entry<String, String> entry :
@@ -614,8 +614,8 @@ public class CommandEnvironment {
   }
 
   /**
-   * Returns the {@link OutputService} to use, or {@code null} if this is not a {@linkplain
-   * Command#builds build command}.
+   * Returns the {@link OutputService} to use, or {@code null} if this is not a command that
+   * performs analysis according to {@linkplain Command#buildPhase()}.
    */
   @Nullable
   public OutputService getOutputService() {
@@ -791,7 +791,11 @@ public class CommandEnvironment {
 
     outputService = null;
     BlazeModule outputModule = null;
-    if (command.builds() || command.name().equals("clean")) {
+    if (command.buildPhase().analyzes() || command.name().equals("clean")) {
+      // Output service should only affect commands that execute actions, but due to the legacy
+      // wiring of BuildTool.java, this covers analysis-only commands as well.
+      //
+      // TODO: fix this.
       for (BlazeModule module : runtime.getBlazeModules()) {
         OutputService moduleService = module.getOutputService();
         if (moduleService != null) {
@@ -822,7 +826,7 @@ public class CommandEnvironment {
     // Modules that are subscribed to CommandStartEvent may create pending exceptions.
     throwPendingException();
 
-    if (getCommand().builds()) {
+    if (getCommand().buildPhase().executes()) {
       // Need to determine if Skyfocus will run for this command. If so, the evaluator
       // will need to be configured to remember additional state (e.g. root keys) that it
       // otherwise doesn't need to for a non-Skyfocus build. Alternately, it might reset
@@ -839,7 +843,9 @@ public class CommandEnvironment {
     // precomputed by our BlazeWorkspace.
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.INFO, "Finding output file system")) {
-      return outputService.getFileSystemName(workspace.getOutputBaseFilesystemTypeName());
+      return outputService == null
+          ? ""
+          : outputService.getFileSystemName(workspace.getOutputBaseFilesystemTypeName());
     }
   }
 

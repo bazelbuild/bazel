@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
@@ -54,6 +56,7 @@ import java.util.logging.LogManager;
 /** Implements 'blaze clean'. */
 @Command(
     name = "clean",
+    buildPhase = NONE,
     allowResidue = true, // Does not, but need to allow so we can ignore Starlark options.
     writeCommandLog = false, // Do not create a command.log, otherwise we couldn't delete it.
     options = {CleanCommand.Options.class},
