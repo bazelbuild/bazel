@@ -10,7 +10,6 @@ filegroup(
     srcs = glob(["**"]) + [
         "//third_party/allocation_instrumenter:srcs",
         "//third_party/android_dex:srcs",
-        "//third_party/cncf_udpa:srcs",
         "//third_party/def_parser:srcs",
         "//third_party/googleapis:srcs",
         "//third_party/grpc:srcs",
@@ -27,7 +26,6 @@ filegroup(
         "//third_party/java/proguard:srcs",
         "//third_party/pprof:srcs",
         "//third_party/protobuf:srcs",
-        "//third_party/protoc_gen_validate:srcs",
         "//third_party/py/abseil:srcs",
         "//third_party/py/concurrent:srcs",
         "//third_party/py/dataclasses:srcs",
