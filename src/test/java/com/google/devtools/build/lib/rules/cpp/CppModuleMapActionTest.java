@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -60,15 +61,17 @@ public final class CppModuleMapActionTest {
     return new CppModuleMapAction(
         ActionsTestUtil.NULL_ACTION_OWNER,
         cppModuleMap,
-        /*privateHeaders=*/ ImmutableList.of(),
-        /*publicHeaders=*/ ImmutableList.of(),
+        /* privateHeaders= */ ImmutableList.of(),
+        /* publicHeaders= */ ImmutableList.of(),
         ImmutableList.copyOf(dependencies),
-        /*additionalExportedHeaders=*/ ImmutableList.of(),
-        /*separateModuleHeaders=*/ ImmutableList.of(),
-        /*compiledModule=*/ false,
-        /*moduleMapHomeIsCwd=*/ false,
-        /*generateSubmodules=*/ false,
-        /*externDependencies=*/ false);
+        /* additionalExportedHeaders= */ ImmutableList.of(),
+        /* separateModuleHeaders= */ ImmutableList.of(),
+        /* compiledModule= */ false,
+        /* moduleMapHomeIsCwd= */ false,
+        /* generateSubmodules= */ false,
+        /* externDependencies= */ false,
+        CoreOptions.OutputPathsMode.OFF,
+        (executionInfo, mnemonic) -> executionInfo);
   }
 
   private Artifact createOutputArtifact(String rootRelativePath) {

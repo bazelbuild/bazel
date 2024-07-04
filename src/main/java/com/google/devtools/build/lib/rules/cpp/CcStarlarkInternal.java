@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
+import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.Args;
@@ -440,7 +441,9 @@ public class CcStarlarkInternal implements StarlarkValue {
             compiledModule,
             moduleMapHomeIsCwd,
             generateSubmodules,
-            withoutExternDependencies));
+            withoutExternDependencies,
+            PathMappers.getOutputPathsMode(ruleContext.getConfiguration()),
+            ruleContext.getConfiguration()::modifiedExecutionInfo));
   }
 
   @SerializationConstant @VisibleForSerialization
