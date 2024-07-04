@@ -274,9 +274,7 @@ public class DumpCommand implements BlazeCommand {
         converter = SkyframeDumpEnumConverter.class,
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
         effectTags = {OptionEffectTag.BAZEL_MONITORING},
-        help =
-            "Dump Skyframe graph: 'off', 'summary', 'count', 'value', 'deps', 'rdeps', or"
-                + " 'function_graph'.")
+        help = "Dump the Skyframe graph.")
     public SkyframeDumpOption dumpSkyframe;
 
     @Option(
@@ -309,6 +307,8 @@ public class DumpCommand implements BlazeCommand {
     DEPS,
     RDEPS,
     FUNCTION_GRAPH,
+    WORKING_SET,
+    WORKING_SET_FRONTIER_DEPS,
   }
 
   /** Enum converter for SkyframeDumpOption. */
@@ -404,6 +404,9 @@ public class DumpCommand implements BlazeCommand {
         case DEPS -> evaluator.dumpDeps(out, dumpOptions.skyKeyFilter);
         case RDEPS -> evaluator.dumpRdeps(out, dumpOptions.skyKeyFilter);
         case FUNCTION_GRAPH -> evaluator.dumpFunctionGraph(out, dumpOptions.skyKeyFilter);
+        case WORKING_SET -> env.getSkyframeExecutor().getSkyfocusState().dumpWorkingSet(out);
+        case WORKING_SET_FRONTIER_DEPS ->
+            env.getSkyframeExecutor().getSkyfocusState().dumpFrontierSet(out);
         case OFF -> {}
       }
 

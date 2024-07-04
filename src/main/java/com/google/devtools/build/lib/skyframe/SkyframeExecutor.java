@@ -4102,7 +4102,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             actionCache);
 
     skyfocusState =
-        newSkyfocusState.toBuilder().verificationSet(focusResult.verificationSet()).build();
+        newSkyfocusState.toBuilder()
+            .frontierSet(focusResult.deps())
+            .verificationSet(focusResult.verificationSet())
+            .build();
 
     // Shouldn't result in an empty graph.
     checkState(!focusResult.deps().isEmpty(), "FocusResult deps should not be empty");
