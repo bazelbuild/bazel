@@ -58,7 +58,6 @@ import com.google.devtools.build.lib.runtime.commands.info.PackagePathInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.ReleaseInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.ServerLogInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.ServerPidInfoItem;
-import com.google.devtools.build.lib.runtime.commands.info.SkyfocusWorkingSetItem;
 import com.google.devtools.build.lib.runtime.commands.info.StarlarkSemanticsInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeAfterGcInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeInfoItem;
@@ -299,8 +298,7 @@ public class InfoCommand implements BlazeCommand {
             new DefaultPackagePathInfoItem(commandOptions),
             new StarlarkSemanticsInfoItem(commandOptions),
             new WorkerMetricsInfoItem(),
-            new LocalResourcesInfoItem(),
-            new SkyfocusWorkingSetItem());
+            new LocalResourcesInfoItem());
     ImmutableMap.Builder<String, InfoItem> result = new ImmutableMap.Builder<>();
     for (InfoItem item : hardwiredInfoItems) {
       result.put(item.getName(), item);

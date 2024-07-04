@@ -206,34 +206,28 @@ genrule(
 )
 EOF
 
-  # Fresh build, so there is no working set.
-  bazel info working_set &> "$TEST_log" \
-    || fail "expected working_set to be a valid key"
-  expect_log "No working set found."
-  expect_not_log "${pkg}/in.txt"
-
   # Initial build with working set.
   bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt
-  bazel info working_set &> "$TEST_log"
+  bazel dump --skyframe=working_set &> "$TEST_log"
   expect_log "${pkg}/in.txt"
 
   # Working set is expanded.
   bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt,${pkg}/in2.txt
-  bazel info working_set &> "$TEST_log"
+  bazel dump --skyframe=working_set &> "$TEST_log"
   expect_log "${pkg}/in.txt"
   expect_log "${pkg}/in2.txt"
 
   # Working set can be defined with files not in the downward transitive
-  # closure but `info working_set` will not report it.
+  # closure but `dump --skyframe=working_set` will not report it.
   bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt,${pkg}/in2.txt,${pkg}/not.used
-  bazel info working_set &> "$TEST_log"
+  bazel dump --skyframe=working_set &> "$TEST_log"
   expect_log "${pkg}/in.txt"
   expect_log "${pkg}/in2.txt"
   expect_not_log "${pkg}/not.used"
 
   # The active set is retained for subsequent builds that don't pass the flag.
   bazel build //${pkg}:g
-  bazel info working_set &> "$TEST_log"
+  bazel dump --skyframe=working_set &> "$TEST_log"
   expect_log "${pkg}/in.txt"
   expect_log "${pkg}/in2.txt"
   expect_not_log "${pkg}/not.used"
