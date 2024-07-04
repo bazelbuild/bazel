@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
+import com.google.devtools.build.lib.remote.http.DownloadTimeoutException;
 import com.google.devtools.build.lib.remote.http.HttpException;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
 import com.google.devtools.build.lib.remote.logging.RemoteExecutionLog.LogEntry;
@@ -190,6 +191,8 @@ public final class RemoteModule extends BlazeModule {
       e -> {
         boolean retry = false;
         if (e instanceof ClosedChannelException) {
+          retry = true;
+        } else if (e instanceof DownloadTimeoutException) {
           retry = true;
         } else if (e instanceof HttpException httpException) {
           int status = httpException.response().status().code();
