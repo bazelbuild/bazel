@@ -146,10 +146,10 @@ def _test_output_groups_impl(env, target):
 
     subject.output_group("linkdeps").contains_exactly([path_prefix + "_linkdeps.txt"])
     subject.action_generating(path_prefix + "_linkdeps.txt").content().split("\n").contains_exactly([
-        base_label + "_system_import",
-        base_label + "_static_import",
-        base_label + "_interface_import",
         base_label + "_dynamic_import",
+        base_label + "_interface_import",
+        base_label + "_static_import",
+        base_label + "_system_import",
         "",
     ]).in_order()
 
