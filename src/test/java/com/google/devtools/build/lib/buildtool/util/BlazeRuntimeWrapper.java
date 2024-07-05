@@ -268,6 +268,9 @@ public class BlazeRuntimeWrapper {
     optionsParser = createOptionsParser(commandAnnotation);
     optionsParser.parse(optionsToParse);
 
+    // Allow the command to edit the options.
+    command.editOptions(optionsParser);
+
     // Enforce the test invocation policy once the options have been added
     InvocationPolicyEnforcer optionsPolicyEnforcer =
         new InvocationPolicyEnforcer(
