@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.runtime.commands.CqueryCommand;
 import com.google.devtools.build.lib.skyframe.SkyfocusState.WorkingSetType;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -34,6 +35,25 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
   protected void setupOptions() throws Exception {
     super.setupOptions();
     addOptions("--experimental_enable_skyfocus");
+  }
+
+  @Test
+  public void cquery_doesNotTriggerSkyfocus() throws Exception {
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt"],
+            outs = ["out"],
+            cmd = "cat $< > $@",
+        )
+        """);
+
+    runtimeWrapper.newCommand(CqueryCommand.class);
+    buildTarget("//hello/...");
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings()).isEmpty();
   }
 
   @Test

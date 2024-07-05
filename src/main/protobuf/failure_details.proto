@@ -376,6 +376,7 @@ message Skyfocus {
     // The user needs to augment their working set to include the new file(s).
     NON_WORKING_SET_CHANGE = 1 [(metadata) = { exit_code: 2 }];
     CONFIGURATION_CHANGE = 2 [(metadata) = { exit_code: 2 }];
+    DISALLOWED_OPERATION_ON_FOCUSED_GRAPH = 3 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;

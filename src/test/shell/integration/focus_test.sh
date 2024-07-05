@@ -57,6 +57,8 @@ fi
 
 add_to_bazelrc "build --experimental_enable_skyfocus"
 add_to_bazelrc "build --genrule_strategy=local"
+add_to_bazelrc "test --test_strategy=standalone"
+add_to_bazelrc "test --strategy=TestRunner=local"
 
 function set_up() {
   # Ensure we always start with a fresh server so that the following
@@ -70,7 +72,7 @@ function set_up() {
   export DONT_SANITY_CHECK_SERIALIZATION=1
 }
 
-function test_focus_command_prints_info_about_graph() {
+function test_print_info_about_graph() {
   local -r pkg=${FUNCNAME[0]}
   mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
   mkdir -p ${pkg}
@@ -96,7 +98,7 @@ EOF
   expect_log "Node count: .\+ -> .\+"
 }
 
-function test_focus_command_dump_keys_verbose() {
+function test_dump_keys_verbose() {
   local -r pkg=${FUNCNAME[0]}
   mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
   mkdir -p ${pkg}
@@ -131,7 +133,7 @@ EOF
   expect_not_log "FILE_STATE: .\+ -> .\+ (-.\+%)"
 }
 
-function test_focus_command_dump_keys_count() {
+function test_dump_keys_count() {
   local -r pkg=${FUNCNAME[0]}
   mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
   mkdir -p ${pkg}
@@ -466,6 +468,60 @@ EOF
   echo "another change" >> ${pkg}/subdir/in.txt
   bazel build //${pkg}:g || fail "expected build to succeed"
   assert_contains "another change" ${out}
+}
+
+function test_test_command_runs_skyfocus() {
+  local -r pkg=${FUNCNAME[0]}
+  mkdir -p ${pkg}
+  cat > ${pkg}/in.sh <<EOF
+exit 0
+EOF
+  chmod +x ${pkg}/in.sh
+  cat > ${pkg}/BUILD <<EOF
+sh_test(
+  name = "g",
+  srcs = ["in.sh"],
+)
+EOF
+
+  bazel test //${pkg}:g || fail "expected to succeed"
+  bazel dump --skyframe=working_set &> "$TEST_log" || fail "expected to succeed"
+  expect_log "${pkg}/in.sh"
+  expect_log "${pkg}/BUILD"
+}
+
+function test_disallowed_commands_after_focus() {
+  local -r pkg=${FUNCNAME[0]}
+  mkdir -p ${pkg}
+  cat > ${pkg}/in.sh <<EOF
+exit 0
+EOF
+  chmod +x ${pkg}/in.sh
+  cat > ${pkg}/BUILD <<EOF
+sh_test(
+  name = "g",
+  srcs = ["in.sh"],
+)
+EOF
+
+  bazel build //${pkg}:g || fail "expected to succeed"
+
+  bazel query //${pkg}:g &> "$TEST_log" && fail "expected to fail"
+  expect_log "query is not supported after using Skyfocus"
+
+  bazel cquery //${pkg}:g &> "$TEST_log" && fail "expected to fail"
+  expect_log "cquery is not supported after using Skyfocus"
+
+  bazel aquery //${pkg}:g &> "$TEST_log" && fail "expected to fail"
+  expect_log "aquery is not supported after using Skyfocus"
+
+  bazel print_action //${pkg}:g &> "$TEST_log" && fail "expected to fail"
+  expect_log "print_action is not supported after using Skyfocus"
+
+  bazel info || fail "expected to succeed"
+  bazel dump --skyframe=summary || fail "expected to succeed"
+
+  bazel build //${pkg}:g || fail "expected to succeed"
 }
 
 run_suite "Tests for Skyfocus"
