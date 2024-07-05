@@ -22,16 +22,18 @@ load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "artifact_category", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/semantics.bzl", "semantics")
+load(":common/paths.bzl", "paths")
 
 cc_internal = _builtins.internal.cc_internal
 
 def _declare_static_library(*, name, actions, cc_toolchain):
-    new_name = cc_internal.get_artifact_name_for_category(
+    basename = paths.basename(name)
+    new_basename = cc_internal.get_artifact_name_for_category(
         cc_toolchain = cc_toolchain,
         category = artifact_category.STATIC_LIBRARY,
-        output_name = cc_helper.get_base_name(name),
+        output_name = basename,
     )
-    return actions.declare_file(cc_helper.replace_name(name, new_name))
+    return actions.declare_file(name.removesuffix(basename) + new_basename)
 
 def _collect_linker_inputs(deps):
     transitive_linker_inputs = [dep[CcInfo].linking_context.linker_inputs for dep in deps]
