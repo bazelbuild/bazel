@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """This is an experimental implementation of cc_static_library.
 
 We may change the implementation at any moment or even delete this file. Do not
@@ -80,6 +79,7 @@ def _archive_objects(*, name, actions, cc_toolchain, feature_configuration, obje
         feature_configuration = feature_configuration,
         feature_name = "archive_param_file",
     ):
+        # TODO: The flag file arg should come from the toolchain instead.
         args.use_param_file("@%s", use_always = True)
 
     env = cc_common.get_environment_variables(
