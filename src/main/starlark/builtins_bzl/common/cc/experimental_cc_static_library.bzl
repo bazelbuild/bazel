@@ -36,7 +36,7 @@ def _declare_static_library(*, name, actions, cc_toolchain):
 
 def _collect_linker_inputs(deps):
     transitive_linker_inputs = [dep[CcInfo].linking_context.linker_inputs for dep in deps]
-    return depset(transitive = transitive_linker_inputs)
+    return depset(transitive = transitive_linker_inputs, order = "topological")
 
 def _flatten_and_get_objects(linker_inputs):
     # Flattening a depset to get the action inputs.
