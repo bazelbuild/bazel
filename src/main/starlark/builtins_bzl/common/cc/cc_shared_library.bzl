@@ -236,9 +236,9 @@ def _merge_cc_shared_library_infos(ctx):
 
     return depset(direct = dynamic_deps, transitive = transitive_dynamic_deps, order = "topological")
 
-def _build_exports_map_from_only_dynamic_deps(merged_shared_library_infos):
+def _build_exports_map_from_only_dynamic_deps(merged_cc_shared_library_infos_list):
     exports_map = {}
-    for entry in merged_shared_library_infos.to_list():
+    for entry in merged_cc_shared_library_infos_list:
         exports = entry.exports
         linker_input = entry.linker_input
         for export in exports:
@@ -252,9 +252,9 @@ def _build_exports_map_from_only_dynamic_deps(merged_shared_library_infos):
 
 # The map points from the target that can only be linked once to the
 # cc_shared_library target that already links it.
-def _build_link_once_static_libs_map(merged_shared_library_infos):
+def _build_link_once_static_libs_map(merged_cc_shared_library_infos_list):
     link_once_static_libs_map = {}
-    for entry in merged_shared_library_infos.to_list():
+    for entry in merged_cc_shared_library_infos_list:
         link_once_static_libs = entry.link_once_static_libs
         linker_input = entry.linker_input
         for static_lib in link_once_static_libs:
@@ -645,8 +645,11 @@ def _cc_shared_library_impl(ctx):
         unsupported_features = ctx.disabled_features,
     )
 
-    merged_cc_shared_library_info = _merge_cc_shared_library_infos(ctx)
-    exports_map = _build_exports_map_from_only_dynamic_deps(merged_cc_shared_library_info)
+    merged_cc_shared_library_infos = _merge_cc_shared_library_infos(ctx)
+
+    # Small performance tweak to avoid flattening merged_cc_shared_library_infos twice:
+    merged_cc_shared_library_infos_list = merged_cc_shared_library_infos.to_list()
+    exports_map = _build_exports_map_from_only_dynamic_deps(merged_cc_shared_library_infos_list)
     for export in deps:
         # Do not check for overlap between targets matched by the current
         # rule's exports_filter and what is in exports_map. A library in roots
@@ -662,7 +665,7 @@ def _cc_shared_library_impl(ctx):
             fail("Trying to export a library already exported by a different shared library: " +
                  str(export.label))
 
-    link_once_static_libs_map = _build_link_once_static_libs_map(merged_cc_shared_library_info)
+    link_once_static_libs_map = _build_link_once_static_libs_map(merged_cc_shared_library_infos_list)
 
     (exports, linker_inputs, curr_link_once_static_libs_set, precompiled_only_dynamic_libraries) = _filter_inputs(
         ctx,
@@ -789,7 +792,7 @@ def _cc_shared_library_impl(ctx):
             **additional_output_groups
         ),
         CcSharedLibraryInfo(
-            dynamic_deps = merged_cc_shared_library_info,
+            dynamic_deps = merged_cc_shared_library_infos,
             exports = exports.keys(),
             link_once_static_libs = curr_link_once_static_libs_set,
             linker_input = cc_common.create_linker_input(
