@@ -48,6 +48,10 @@ import javax.annotation.Nullable;
  *
  * <p>Most of the complexity in the implementation results from wanting incremental correctness in
  * the presence of symlinks, esp. ancestor directory symlinks.
+ *
+ * <p>For an overview of the problem space and our approach, see the https://youtu.be/EoYdWmMcqDs
+ * talk from BazelCon 2019 (slides:
+ * https://docs.google.com/presentation/d/e/2PACX-1vTX6278AbRIElPP7Enn-u5vwOl9f-35JxEBTYWDDZEa6gD65fF1MFV4ld_pYL-_ZWGygEpLpJ9oe3bp/pub).
  */
 public class FileFunction implements SkyFunction {
   private final AtomicReference<PathPackageLocator> pkgLocator;
