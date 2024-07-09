@@ -51,7 +51,7 @@ import javax.annotation.Nullable;
  *
  * <p>For an overview of the problem space and our approach, see the https://youtu.be/EoYdWmMcqDs
  * talk from BazelCon 2019 (slides:
- * https://docs.google.com/presentation/d/e/2PACX-1vTX6278AbRIElPP7Enn-u5vwOl9f-35JxEBTYWDDZEa6gD65fF1MFV4ld_pYL-_ZWGygEpLpJ9oe3bp/pub).
+ * https://docs.google.com/presentation/d/e/2PACX-1vQWq1DUhl92dDs_okNxM7Qy9zX72tp7hMsGosGxmjhBLZ5e02IJf9dySK_6lEU2j6u_NOEaUCQGxEFh/pub).
  */
 public class FileFunction implements SkyFunction {
   private final AtomicReference<PathPackageLocator> pkgLocator;
