@@ -49,14 +49,6 @@ public class PyBootstrap implements Bootstrap {
             // Workaround for https://github.com/bazelbuild/bazel/issues/17713
             new ProviderStub(),
             allowedRepositories));
-
-    builder.put(
-        "PyWrapCcInfo",
-        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
-            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-            // Workaround for https://github.com/bazelbuild/bazel/issues/17713
-            new ProviderStub(),
-            allowedRepositories));
     builder.put(
         "PyCcLinkParamsProvider",
         ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
