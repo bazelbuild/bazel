@@ -90,7 +90,7 @@ def _separate_static_and_dynamic_link_libraries(
     (
         transitive_dynamic_dep_labels,
         all_dynamic_dep_linker_inputs,
-    ) = _build_map_direct_dynamic_dep_to_transitive_dynamic_deps(ctx)
+    ) = _build_map_direct_dynamic_dep_to_transitive_dynamic_deps(ctx.attr.dynamic_deps)
 
     node = None
     all_children = reversed(direct_children)
@@ -586,10 +586,10 @@ def _get_deps(ctx):
 
     return deps
 
-def _build_map_direct_dynamic_dep_to_transitive_dynamic_deps(ctx):
+def _build_map_direct_dynamic_dep_to_transitive_dynamic_deps(direct_dynamic_deps):
     all_dynamic_dep_linker_inputs = {}
     direct_dynamic_dep_to_transitive_dynamic_deps = {}
-    for dep in ctx.attr.dynamic_deps:
+    for dep in direct_dynamic_deps:
         owner = dep[CcSharedLibraryInfo].linker_input.owner
         all_dynamic_dep_linker_inputs[owner] = dep[CcSharedLibraryInfo].linker_input
         transitive_dynamic_dep_labels = []
