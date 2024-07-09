@@ -205,18 +205,15 @@ tasks:
       - "-//src/test/shell/bazel:jdeps_test"
       # https://github.com/bazelbuild/bazel/issues/21495
       - "-//src/test/shell/bazel:srcs_test"
-      # Macs can't find python, so these fail: https://github.com/bazelbuild/bazel/issues/18776
-      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
-      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
-      - "-//src/test/shell/bazel/android:aapt_integration_test"
-      - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
+      # Disable android tests since we are moving them out of Bazel repo.
+      - "-//src/test/shell/bazel/android/..."
+      - "-//src/tools/android/java/com/google/devtools/build/android/..."
+      - "-//src/test/java/com/google/devtools/build/android/dexer:AllTests"
       # Disable the top 50 most time-consuming tests on macOS Intel platform in presubmit.
       # Those tests are still covered in postsubmit and by macOS arm64 platform in presubmit.
       # To run any of the following test in presubmit, just comment out the corresponding line.
       # TODO(pcloudy): Disable the android tests after enabling them on Apple Silicon platform.
       - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
-      # - "-//src/test/shell/bazel/android:android_integration_test"
-      # - "-//src/test/shell/bazel/android:android_integration_test_with_head_android_tools"
       - "-//src/test/shell/bazel:bazel_proto_library_test"
       - "-//src/test/py/bazel:runfiles_test"
       - "-//src/test/shell/integration:loading_phase_tests"
@@ -224,7 +221,6 @@ tasks:
       - "-//src/test/shell/integration:target_compatible_with_test"
       - "-//src/test/shell/integration:bazel_json_worker_test"
       - "-//src/test/shell/bazel:bazel_coverage_java_jdk21_toolchain_head_test"
-      # - "-//src/test/shell/bazel/android:aar_integration_test"
       - "-//src/test/shell/bazel:bazel_coverage_java_test"
       - "-//src/test/shell/bazel:bazel_java_test_jdk21_toolchain_head"
       - "-//src/test/shell/bazel:starlark_git_repository_test"
@@ -241,11 +237,7 @@ tasks:
       - "-//src/test/shell/integration:sandboxing_test"
       - "-//src/test/shell/bazel:bazel_java_test"
       - "-//src/test/py/bazel:bzlmod_query_test"
-      # - "-//src/test/shell/bazel/android:desugarer_integration_test"
-      # - "-//src/test/shell/bazel/android:desugarer_integration_test_with_head_android_tools"
       - "-//src/test/py/bazel:bazel_external_repository_test"
-      # - "-//src/test/shell/bazel/android:resource_processing_integration_test"
-      # - "-//src/test/shell/bazel/android:aar_integration_test_with_head_android_tools"
       - "-//src/tools/singlejar:zip64_test"
       - "-//src/test/py/bazel:launcher_test"
       - "-//src/test/shell/integration:bazel_worker_test"
@@ -255,7 +247,6 @@ tasks:
       - "-//src/test/shell/bazel:path_mapping_test"
       - "-//src/test/shell/integration:toolchain_test"
       - "-//src/test/shell/integration:execution_phase_tests"
-      # - "-//src/test/shell/bazel/android:resource_processing_integration_test_with_head_android_tools"
       - "-//src/test/shell/integration:aquery_test"
       - "-//src/test/py/bazel:mod_command_test"
       # ServerTests frequently runs into deadlocks on Intel Macs
@@ -300,7 +291,7 @@ tasks:
       - "//tools/bash/..."
       # https://github.com/bazelbuild/bazel/issues/17410
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
-      # https://github.com/bazelbuild/bazel/issues/16521 & https://github.com/bazelbuild/bazel/issues/18776
+      # Disable android tests since we are moving them out of Bazel repo.
       - "-//src/test/shell/bazel/android/..."
       - "-//src/tools/android/java/com/google/devtools/build/android/..."
       - "-//src/test/java/com/google/devtools/build/android/dexer:AllTests"
