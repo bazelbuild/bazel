@@ -392,6 +392,7 @@ py_test(
     name = "mod_command_test",
     size = "large",
     srcs = ["bzlmod/mod_command_test.py"],
+    shard_count = 8,
     tags = [
         "requires-network",
     ],
