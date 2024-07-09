@@ -232,7 +232,7 @@ def _filter_libraries_that_are_linked_dynamically(ctx, feature_configuration, cc
         topologically_sorted_labels,
         unused_dynamic_linker_inputs,
     ) = separate_static_and_dynamic_link_libraries(
-        ctx,
+        ctx.attr.dynamic_deps,
         graph_structure_aspect_nodes,
         can_be_linked_dynamically,
     )

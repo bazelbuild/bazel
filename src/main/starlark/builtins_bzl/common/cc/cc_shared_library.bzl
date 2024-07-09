@@ -84,13 +84,13 @@ def _sort_linker_inputs(topologically_sorted_labels, label_to_linker_inputs, lin
 # dynamically. The transitive_dynamic_dep_labels parameter is only needed for
 # binaries because they link all dynamic_deps (cc_binary|cc_test).
 def _separate_static_and_dynamic_link_libraries(
-        ctx,
+        dynamic_deps,
         direct_children,
         can_be_linked_dynamically):
     (
         transitive_dynamic_dep_labels,
         all_dynamic_dep_linker_inputs,
-    ) = _build_map_direct_dynamic_dep_to_transitive_dynamic_deps(ctx.attr.dynamic_deps)
+    ) = _build_map_direct_dynamic_dep_to_transitive_dynamic_deps(dynamic_deps)
 
     node = None
     all_children = reversed(direct_children)
@@ -403,7 +403,7 @@ def _filter_inputs(
         topologically_sorted_labels,
         unused_dynamic_linker_inputs,
     ) = _separate_static_and_dynamic_link_libraries(
-        ctx,
+        ctx.attr.dynamic_deps,
         graph_structure_aspect_nodes,
         can_be_linked_dynamically,
     )
