@@ -125,7 +125,8 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
         return Objects.equal(path, otherValue.path)
             && Objects.equal(sourceDir, otherValue.sourceDir)
             && Arrays.equals(digest, otherValue.digest)
-            && Objects.equal(fileValues, otherValue.fileValues);
+            && Objects.equal(fileValues, otherValue.fileValues)
+            && Objects.equal(excludeFromVendoring, otherValue.excludeFromVendoring);
       }
       return false;
     }
