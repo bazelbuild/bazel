@@ -267,6 +267,7 @@ tasks:
       - "-//src/test/shell/bazel:bazel_proto_library_test"
       # Takes too long on Intel VMs
       - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
+      - "-//src/test/shell/bazel:bazel_bootstrap_distfile_tar_test"
     include_json_profile:
       - build
       - test
