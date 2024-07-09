@@ -299,14 +299,37 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     }
   }
 
-  /** Schedules a call. Called in a worker thread. */
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Unlike a typical {@link java.util.concurrent.Executor}, {@link AbstractQueueVisitor} might
+   * silently ignore the {@code runnable} instead of throwing the {@link
+   * RejectedExecutionException}.
+   *
+   * <p>If user expects some fallback to be executed when the {@code runnable} is skipped, use
+   * {@link #executeWithFallback} instead.
+   */
   @Override
   public final void execute(Runnable runnable) {
-    executeWithExecutorService(runnable, executorService);
+    executeWithExecutorService(runnable, RejectedExecutionObserver.NO_OP, executorService);
   }
 
-  protected void executeWithExecutorService(Runnable runnable, ExecutorService executorService) {
-    WrappedRunnable wrappedRunnable = new WrappedRunnable(runnable);
+  /**
+   * Schedules to execute the {@code runnable} in a worker thread.
+   *
+   * <p>If the {@code runnable} is silently skipped, the {@link
+   * RejectedExecutionObserver#onRejectedExecution()} will be executed instead.
+   */
+  public final void executeWithFallback(
+      Runnable runnable, RejectedExecutionObserver rejectionObserver) {
+    executeWithExecutorService(runnable, rejectionObserver, executorService);
+  }
+
+  protected final void executeWithExecutorService(
+      Runnable runnable,
+      RejectedExecutionObserver rejectionObserver,
+      ExecutorService executorService) {
+    WrappedRunnable wrappedRunnable = new WrappedRunnable(runnable, rejectionObserver);
     try {
       // It's impossible for this increment to result in remainingTasks.get <= 0 because
       // remainingTasks is never negative. Therefore it isn't necessary to check its value for
@@ -318,11 +341,11 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
       executeWrappedRunnable(wrappedRunnable, executorService);
     } catch (Throwable e) {
       if (!wrappedRunnable.ran) {
-        // Note that keeping track of ranTask is necessary to disambiguate the case where
-        // execute() itself failed, vs. a caller-runs policy on pool exhaustion, where the
-        // runnable threw. To be extra cautious, we decrement the task count in a finally
-        // block, even though the CountDownLatch is unlikely to throw.
-        recordError(e);
+        try {
+          rejectionObserver.onRejectedExecution();
+        } finally {
+          recordError(e);
+        }
       }
     }
   }
@@ -386,13 +409,25 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
   }
 
   /**
+   * Observes whether {@link AbstractQueueVisitor} silently rejects executing the {@code runnable}.
+   * If so, {@link AbstractQueueVisitor} falls back on executing {@link #onRejectedExecution()} when
+   * using {@link #executeWithFallback(Runnable, RejectedExecutionObserver)}.
+   */
+  public interface RejectedExecutionObserver {
+    RejectedExecutionObserver NO_OP = () -> {};
+
+    void onRejectedExecution();
+  }
+
+  /**
    * A wrapped {@link Runnable} that:
    *
    * <ul>
    *   <li>Sets {@link #run} to {@code true} when {@code WrappedRunnable} is run,
    *   <li>Records the thread evaluating {@code r} in {@link #jobs} while {@code r} is evaluated,
    *   <li>Prevents {@link #originalRunnable} from being invoked if {@link #blockNewActions} returns
-   *       {@code true},
+   *       {@code true}. Instead, executes the {@link
+   *       RejectedExecutionObserver#onRejectedExecution()} if set,
    *   <li>Synchronously invokes {@code runnable.run()},
    *   <li>Catches any {@link Throwable} thrown by {@code runnable.run()}, and if it is the most
    *       severe {@link Throwable} seen by this {@link AbstractQueueVisitor}, assigns it to {@link
@@ -402,10 +437,13 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
    */
   protected final class WrappedRunnable implements Runnable, Comparable<WrappedRunnable> {
     private final Runnable originalRunnable;
+    private final RejectedExecutionObserver rejectionObserver;
     private volatile boolean ran;
 
-    private WrappedRunnable(Runnable originalRunnable) {
-      this.originalRunnable = originalRunnable;
+    private WrappedRunnable(
+        Runnable originalRunnable, RejectedExecutionObserver rejectionObserver) {
+      this.originalRunnable = Preconditions.checkNotNull(originalRunnable);
+      this.rejectionObserver = Preconditions.checkNotNull(rejectionObserver);
     }
 
     @Override
@@ -421,11 +459,15 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
           // Make any newly enqueued tasks quickly die. We check after adding to the jobs map so
           // that if another thread is racing to kill this thread and didn't make it before this
           // conditional, it will be able to find and kill this thread anyway.
+          // If execution on this thread is blocked before executing the `originalRunnable`, we
+          // should still execute `rejectionObserver.onRejectedExecution()` before killing the
+          // thread.
+          rejectionObserver.onRejectedExecution();
           return;
         }
         originalRunnable.run();
       } catch (Throwable e) {
-        maybeSaveUnhandledThrowable(e, /*markToStopJobs=*/ true);
+        maybeSaveUnhandledThrowable(e, /* markToStopJobs= */ true);
       } finally {
         try {
           if (thread != null && addedJob) {
