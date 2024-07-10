@@ -21,6 +21,9 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 log="$(bazel --batch info command_log)"
 
+# Less network flakiness without bzlmod
+disable_bzlmod
+
 function tear_down() {
   # Clean up after ourselves.
   bazel --nobatch shutdown
@@ -45,6 +48,9 @@ function strip_lines_from_bazel_cc() {
     -e '/^WARNING: Waiting for server process to terminate (waited 5 seconds, waiting at most 60)$/d' \
     -e '/^WARNING: The startup option --host_javabase is deprecated; prefer --server_javabase.$/d' \
     -e '/^WARNING: The home directory is not defined, no home_rc will be looked for.$/d' \
+    -e '/^WARNING: ignoring JAVA_TOOL_OPTIONS in environment.$/d' \
+    -e '/^WARNING: The following rc files are no longer being read, please transfer their contents or import their path into one of the standard rc files:$/d' \
+    -e '/^\/etc\/bazel.bazelrc$/d' \
     -e '/Options -Xverify:none and -noverify were deprecated in JDK 13 and will likely be removed in a future release/d' \
     -e '/^E[0-9]* /d' \
     $TEST_log)

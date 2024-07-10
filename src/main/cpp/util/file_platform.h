@@ -132,6 +132,11 @@ struct WriteResult {
   };
 };
 
+// Initializes stdout and stderr for writing UTF-8 (best effort).
+//
+// This should be called once during startup.
+void InitializeStdOutErrForUtf8();
+
 // Writes `size` bytes from `data` into stdout/stderr.
 // Writes to stdout if `to_stdout` is true, writes to stderr otherwise.
 // Returns one of `WriteResult::Errors`.
