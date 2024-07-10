@@ -528,28 +528,32 @@ public final class ModCommand implements BlazeCommand {
                 env.getReporter().getOutErr().getOutputStream(),
                 modOptions.charset == UTF8 ? UTF_8 : US_ASCII));
 
-    switch (subcommand) {
-      case GRAPH:
-        modExecutor.graph(fromKeys);
-        break;
-      case DEPS:
-        modExecutor.graph(argsAsModules);
-        break;
-      case PATH:
-        modExecutor.path(fromKeys, argsAsModules);
-        break;
-      case ALL_PATHS:
-      case EXPLAIN:
-        modExecutor.allPaths(fromKeys, argsAsModules);
-        break;
-      case SHOW_REPO:
-        modExecutor.showRepo(targetRepoRuleValues);
-        break;
-      case SHOW_EXTENSION:
-        modExecutor.showExtension(argsAsExtensions, usageKeys);
-        break;
-      default:
-        throw new IllegalStateException("Unexpected subcommand: " + subcommand);
+    try {
+      switch (subcommand) {
+        case GRAPH:
+          modExecutor.graph(fromKeys);
+          break;
+        case DEPS:
+          modExecutor.graph(argsAsModules);
+          break;
+        case PATH:
+          modExecutor.path(fromKeys, argsAsModules);
+          break;
+        case ALL_PATHS:
+        case EXPLAIN:
+          modExecutor.allPaths(fromKeys, argsAsModules);
+          break;
+        case SHOW_REPO:
+          modExecutor.showRepo(targetRepoRuleValues);
+          break;
+        case SHOW_EXTENSION:
+          modExecutor.showExtension(argsAsExtensions, usageKeys);
+          break;
+        default:
+          throw new IllegalStateException("Unexpected subcommand: " + subcommand);
+      }
+    } catch (InvalidArgumentException e) {
+      return reportAndCreateFailureResult(env, e.getMessage(), Code.INVALID_ARGUMENTS);
     }
 
     return BlazeCommandResult.success();

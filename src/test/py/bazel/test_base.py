@@ -137,7 +137,10 @@ class TestBase(absltest.TestCase):
         if TestBase.IsDarwin():
           # For reducing SSD usage on our physical Mac machines.
           f.write('common --experimental_repository_cache_hardlinks\n')
-      f.write('common --enable_bzlmod\n')
+      if TestBase.IsDarwin():
+        # Prefer ipv6 network on macOS
+        f.write('startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true\n')
+        f.write('build --jvmopt=-Djava.net.preferIPv6Addresses\n')
     # An empty MODULE.bazel and a corresponding MODULE.bazel.lock will prevent
     # tests from accessing BCR
     self.ScratchFile('MODULE.bazel')

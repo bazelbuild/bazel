@@ -1030,6 +1030,45 @@ class BazelModuleTest(test_base.TestBase):
         'rule //:foo @other_module//:bar @@canonical_name//:baz', stderr
     )
 
+  def testPendingDownloadDetected(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extensions.bzl", "ext")',
+            'use_repo(ext, "ext")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+        'extensions.bzl',
+        [
+            'repo_rule = repository_rule(lambda _: None)',
+            'def ext_impl(module_ctx):',
+            '  repo_rule(name = "ext")',
+            (
+                '  module_ctx.download(url = "https://bcr.bazel.build", output'
+                ' = "download", block = False)'
+            ),
+            'ext = module_extension(implementation = ext_impl)',
+        ],
+    )
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nobuild', '@ext//:all'],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        'ERROR: Pending asynchronous work after module extension ext in'
+        ' @@//:extensions.bzl finished execution',
+        stderr,
+    )
+
+  def testRegression22754(self):
+    """Regression test for issue #22754."""
+    self.ScratchFile('BUILD.bazel', ['print(glob(["testdata/**"]))'])
+    self.ScratchFile('testdata/WORKSPACE')
+    self.RunBazel(['build', ':all'])
+
 
 if __name__ == '__main__':
   absltest.main()

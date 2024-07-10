@@ -251,7 +251,7 @@ class ActionTempTest(test_base.TestBase):
       self.assertEqual(lines[0:3], [input_file_line, 'TMP:y', 'TEMP:y'])
       tmp = lines[3].split('=', 1)[1]
       temp = lines[4].split('=', 1)[1]
-      self.assertRegexpMatches(tmp, expected_tmpdir_regex)
+      self.assertRegex(tmp, expected_tmpdir_regex)
       self.assertEqual(tmp, temp)
     else:
       # 3 lines = input_file_line, foo, TMPDIR
@@ -259,7 +259,7 @@ class ActionTempTest(test_base.TestBase):
         self.fail('lines=%s' % lines)
       self.assertEqual(lines[0:2], [input_file_line, 'foo'])
       tmpdir = lines[2].split('=', 1)[1]
-      self.assertRegexpMatches(tmpdir, expected_tmpdir_regex)
+      self.assertRegex(tmpdir, expected_tmpdir_regex)
 
 
 if __name__ == '__main__':
