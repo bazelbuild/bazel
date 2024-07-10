@@ -158,7 +158,7 @@ class PywrapperTest(test_base.TestBase):
 
   def assert_wrapper_failure(self, returncode, out, err, message):
     self.assertEqual(returncode, 1, msg="Expected to exit with error code 1")
-    self.assertRegexpMatches(
+    self.assertRegex(
         err, message, msg="stderr did not contain expected string")
 
   def test_finds_python(self):
