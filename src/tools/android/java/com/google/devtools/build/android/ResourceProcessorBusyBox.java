@@ -124,6 +124,12 @@ public class ResourceProcessorBusyBox {
         Aapt2OptimizeAction.main(args);
       }
     },
+    CONVERT_RESOURCE_ZIP_TO_APK() {
+      @Override
+      void call(String[] args) throws Exception {
+        ConvertResourceZipToApkAction.main(args);
+      }
+    },
     MERGE_ASSETS() {
       @Override
       void call(String[] args) throws Exception {
