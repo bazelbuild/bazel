@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import com.google.devtools.common.options.HasNegativeFlag;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.Closeable;
 import java.io.IOException;
@@ -152,7 +153,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   }
 
   /** Enum for --subcommands flag */
-  public enum ShowSubcommands {
+  public enum ShowSubcommands implements HasNegativeFlag {
     TRUE(true, false), PRETTY_PRINT(true, true), FALSE(false, false);
 
     private final boolean shouldShowSubcommands;
