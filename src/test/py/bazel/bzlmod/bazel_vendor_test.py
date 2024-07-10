@@ -15,6 +15,8 @@
 # pylint: disable=g-long-ternary
 
 import os
+import shutil
+import stat
 import tempfile
 from absl.testing import absltest
 from src.test.py.bazel import test_base
@@ -240,7 +242,7 @@ class BazelVendorTest(test_base.TestBase):
     self.assertIn(
         'ERROR: Invalid repo name: The repo value has to be either apparent'
         " '@repo' or canonical '@@repo' repo name",
-        stderr,
+        stderr
     )
     # Repo does not exist
     self.ScratchFile(
@@ -620,6 +622,20 @@ class BazelVendorTest(test_base.TestBase):
         ['vendor', '@aaa//:lib_aaa', '@bbb//:lib_bbb', '--vendor_dir=vendor']
     )
     # Assert aaa & bbb and are vendored
+    self.assertIn('aaa~', os.listdir(self._test_cwd + '/vendor'))
+    self.assertIn('bbb~', os.listdir(self._test_cwd + '/vendor'))
+    self.assertNotIn('ccc~', os.listdir(self._test_cwd + '/vendor'))
+
+    # Delete vendor source and re-vendor should work without server restart
+    def on_rm_error(func, path, exc_info):
+      del exc_info  # Unused
+      os.chmod(path, stat.S_IWRITE)
+      func(path)
+
+    shutil.rmtree(self._test_cwd + '/vendor', onerror=on_rm_error)
+    self.RunBazel(
+        ['vendor', '@aaa//:lib_aaa', '@bbb//:lib_bbb', '--vendor_dir=vendor']
+    )
     self.assertIn('aaa~', os.listdir(self._test_cwd + '/vendor'))
     self.assertIn('bbb~', os.listdir(self._test_cwd + '/vendor'))
     self.assertNotIn('ccc~', os.listdir(self._test_cwd + '/vendor'))
