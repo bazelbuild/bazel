@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.commands;
 
 import static com.google.common.primitives.Booleans.countTrue;
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.ANALYZES;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
@@ -57,7 +58,7 @@ import javax.annotation.Nullable;
 /** Fetches external repositories. Which is so fetch. */
 @Command(
     name = FetchCommand.NAME,
-    builds = true,
+    buildPhase = ANALYZES,
     inheritsOptionsFrom = {TestCommand.class},
     options = {
       FetchOptions.class,

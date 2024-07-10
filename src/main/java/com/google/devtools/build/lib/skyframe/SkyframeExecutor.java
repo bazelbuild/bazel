@@ -4011,7 +4011,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                 + StringUtilities.capitalize(productName)
                 + " will reclaim memory not needed to build the working set. Run '"
                 + productName
-                + " info working_set' to show the working set."));
+                + " dump --skyframe=working_set' to show the working set, after this command."));
 
     if (skyfocusOptions.handlingStrategy.equals(SkyfocusHandlingStrategy.STRICT)) {
       reporter.handle(Event.warn("Changes outside of the working set will cause a build error."));
@@ -4102,7 +4102,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             actionCache);
 
     skyfocusState =
-        newSkyfocusState.toBuilder().verificationSet(focusResult.verificationSet()).build();
+        newSkyfocusState.toBuilder()
+            .frontierSet(focusResult.deps())
+            .verificationSet(focusResult.verificationSet())
+            .build();
 
     // Shouldn't result in an empty graph.
     checkState(!focusResult.deps().isEmpty(), "FocusResult deps should not be empty");

@@ -210,9 +210,9 @@ def _get_providers(ctx):
     return [dep[CcInfo] for dep in all_deps if CcInfo in dep]
 
 def _filter_libraries_that_are_linked_dynamically(ctx, feature_configuration, cc_linking_context):
-    merged_cc_shared_library_infos = merge_cc_shared_library_infos(ctx)
-    link_once_static_libs_map = build_link_once_static_libs_map(merged_cc_shared_library_infos)
-    transitive_exports = build_exports_map_from_only_dynamic_deps(merged_cc_shared_library_infos)
+    merged_cc_shared_library_infos_list = merge_cc_shared_library_infos(ctx).to_list()
+    link_once_static_libs_map = build_link_once_static_libs_map(merged_cc_shared_library_infos_list)
+    transitive_exports = build_exports_map_from_only_dynamic_deps(merged_cc_shared_library_infos_list)
     linker_inputs = cc_linking_context.linker_inputs.to_list()
 
     all_deps = ctx.attr._deps_analyzed_by_graph_structure_aspect
@@ -232,7 +232,7 @@ def _filter_libraries_that_are_linked_dynamically(ctx, feature_configuration, cc
         topologically_sorted_labels,
         unused_dynamic_linker_inputs,
     ) = separate_static_and_dynamic_link_libraries(
-        ctx,
+        ctx.attr.dynamic_deps,
         graph_structure_aspect_nodes,
         can_be_linked_dynamically,
     )

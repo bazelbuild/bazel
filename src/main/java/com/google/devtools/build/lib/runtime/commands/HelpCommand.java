@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
+
 import com.google.common.base.Ascii;
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Joiner;
@@ -72,6 +74,7 @@ import java.util.stream.Collectors;
 /** The 'blaze help' command, which prints all available commands as well as specific help pages. */
 @Command(
     name = "help",
+    buildPhase = NONE,
     options = {HelpCommand.Options.class},
     allowResidue = true,
     mustRunInWorkspace = false,

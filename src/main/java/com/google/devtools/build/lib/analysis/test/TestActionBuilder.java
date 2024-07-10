@@ -220,7 +220,8 @@ public final class TestActionBuilder {
 
     if (!isUsingTestWrapperInsteadOfTestSetupScript) {
       NestedSet<Artifact> testRuntime =
-          PrerequisiteArtifacts.nestedSet(ruleContext, "$test_runtime");
+          PrerequisiteArtifacts.nestedSet(
+              ruleContext.getRulePrerequisitesCollection(), "$test_runtime");
       inputsBuilder.addTransitive(testRuntime);
     }
     TestTargetProperties testProperties =
@@ -261,7 +262,8 @@ public final class TestActionBuilder {
       NestedSet<Artifact> metadataFiles = instrumentedFiles.getInstrumentationMetadataFiles();
       inputsBuilder.addTransitive(metadataFiles);
       inputsBuilder.addTransitive(
-          PrerequisiteArtifacts.nestedSet(ruleContext, ":coverage_support"));
+          PrerequisiteArtifacts.nestedSet(
+              ruleContext.getRulePrerequisitesCollection(), ":coverage_support"));
       inputsBuilder.addTransitive(
           ruleContext
               .getPrerequisite(":coverage_support", RunfilesProvider.class)

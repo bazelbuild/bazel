@@ -197,7 +197,9 @@ final class CompilationAttributes implements StarlarkValue {
       }
 
       if (ruleContext.attributes().has("textual_hdrs", BuildType.LABEL_LIST)) {
-        builder.addTextualHdrs(PrerequisiteArtifacts.nestedSet(ruleContext, "textual_hdrs"));
+        builder.addTextualHdrs(
+            PrerequisiteArtifacts.nestedSet(
+                ruleContext.getRulePrerequisitesCollection(), "textual_hdrs"));
       }
     }
 

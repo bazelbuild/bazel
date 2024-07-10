@@ -90,7 +90,9 @@ java_test(
     srcs = ["MemoizerTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:round-tripping",
+        "//src/main/java/com/google/devtools/build/lib/util:hash_codes",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",

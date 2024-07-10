@@ -107,7 +107,10 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
         }
       }
     }
-    super.executeWithExecutorService(runnable, getExecutorServiceByThreadPoolType(threadPoolType));
+    super.executeWithExecutorService(
+        runnable,
+        RejectedExecutionObserver.NO_OP,
+        getExecutorServiceByThreadPoolType(threadPoolType));
   }
 
   @VisibleForTesting

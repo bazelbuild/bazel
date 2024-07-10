@@ -51,14 +51,13 @@ public abstract class SerializationContext implements LeafSerializationContext {
     if (writeIfNullOrConstant(object, codedOut)) {
       return;
     }
-    if (writeBackReferenceIfMemoized(object, codedOut)) {
-      return;
-    }
     CodecDescriptor descriptor = codecRegistry.getCodecDescriptorForObject(object);
-    codedOut.writeSInt32NoTag(descriptor.getTag());
-
     @SuppressWarnings("unchecked")
     ObjectCodec<Object> castCodec = (ObjectCodec<Object>) descriptor.getCodec();
+    if (writeBackReferenceIfMemoized(object, codedOut, castCodec instanceof LeafObjectCodec)) {
+      return;
+    }
+    codedOut.writeSInt32NoTag(descriptor.getTag());
     serializeWithCodec(castCodec, object, codedOut);
   }
 
@@ -171,11 +170,13 @@ public abstract class SerializationContext implements LeafSerializationContext {
    *
    * <p>Never succeeds if memoization is disabled.
    *
+   * @param isLeafType true if the codec used for {@code obj} would be an instance of {@link
+   *     LeafObjectCodec}
    * @return true if {@code obj} was serialized to {@code codedOut} as a backreference
    */
   @ForOverride
-  abstract boolean writeBackReferenceIfMemoized(Object obj, CodedOutputStream codedOut)
-      throws IOException;
+  abstract boolean writeBackReferenceIfMemoized(
+      Object obj, CodedOutputStream codedOut, boolean isLeafType) throws IOException;
 
   public abstract boolean isMemoizing();
 

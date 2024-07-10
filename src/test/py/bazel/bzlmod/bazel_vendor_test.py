@@ -143,6 +143,25 @@ class BazelVendorTest(test_base.TestBase):
         'ERROR: You cannot run the vendor command with --nofetch', stderr
     )
 
+  def testVendorAfterFetch(self):
+    self.main_registry.createCcModule('aaa', '1.0')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.0")',
+            'local_path_override(module_name="bazel_tools", path="tools_mock")',
+            'local_path_override(module_name="local_config_platform", ',
+            'path="platforms_mock")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+
+    self.RunBazel(['fetch', '--repo=@@aaa~'])
+    self.RunBazel(['vendor', '--vendor_dir=vendor', '--repo=@@aaa~'])
+
+    repos_vendored = os.listdir(self._test_cwd + '/vendor')
+    self.assertIn('aaa~', repos_vendored)
+
   def testVendoringMultipleTimes(self):
     self.main_registry.createCcModule('aaa', '1.0')
     self.ScratchFile(

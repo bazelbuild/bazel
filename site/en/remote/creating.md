@@ -70,11 +70,12 @@ The optional `sandbox_dir` field is used only by workers that support
 ### Work responses {:#work-responses}
 
 A `WorkResponse` contains a request id, a zero or nonzero exit code, and an
-output string that describes any errors encountered in processing or executing
-the request. The `output` field contains a short description; complete logs may
-be written to the worker's `stderr`. Because workers may only write
-`WorkResponses` to `stdout`, it's common for the worker to redirect the `stdout`
-of any tools it uses to `stderr`.
+output message describing any errors encountered in processing or executing
+the request. A worker should capture the `stdout` and `stderr` of any tool it
+calls and report them through the `WorkResponse`. Writing it to the `stdout` of
+the worker process is unsafe, as it will interfere with the worker protocol.
+Writing it to the `stderr` of the worker process is safe, but the result is
+collected in a per-worker log file instead of ascribed to individual actions.
 
 ```json
 {

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.io.PrintStream;
 import javax.annotation.Nullable;
 
 /**
@@ -36,6 +37,8 @@ import javax.annotation.Nullable;
  *     line flag, or automatically derived. Although the working set is represented as {@link
  *     FileStateKey}, the presence of a directory path's {@code FileStateKey} is sufficient to
  *     represent the corresponding directory listing state node.
+ * @param frontierSet {@link SkyKey}s for nodes that are in the DIRECT deps of the UTC of the
+ *     working set. The values of these nodes are sufficient to build the working set.
  * @param verificationSet The set of files/dirs that are not in the working set, but is in the
  *     transitive closure of focusedTargetLabels.
  * @param options The latest instance of {@link SkyfocusOptions}.
@@ -47,9 +50,18 @@ public record SkyfocusState(
     ImmutableSet<Label> focusedTargetLabels,
     WorkingSetType workingSetType,
     ImmutableSet<FileStateKey> workingSet,
+    ImmutableSet<SkyKey> frontierSet,
     ImmutableSet<SkyKey> verificationSet,
     @Nullable SkyfocusOptions options,
     @Nullable BuildConfigurationValue buildConfiguration) {
+
+  public void dumpWorkingSet(PrintStream out) {
+    workingSet.forEach(key -> out.println(key.getCanonicalName()));
+  }
+
+  public void dumpFrontierSet(PrintStream out) {
+    frontierSet.forEach(key -> out.println(key.getCanonicalName()));
+  }
 
   /**
    * Builder for the {@code SkyfocusState} record.
@@ -67,6 +79,8 @@ public record SkyfocusState(
     Builder workingSetType(WorkingSetType workingSetType);
 
     Builder workingSet(ImmutableSet<FileStateKey> workingSet);
+
+    Builder frontierSet(ImmutableSet<SkyKey> frontierSet);
 
     Builder verificationSet(ImmutableSet<SkyKey> verificationSet);
 
@@ -95,10 +109,11 @@ public record SkyfocusState(
       new SkyfocusState(
           false,
           false,
-          ImmutableSet.of(),
+          /* focusedTargetLabels= */ ImmutableSet.of(),
           WorkingSetType.DERIVED,
-          ImmutableSet.of(),
-          ImmutableSet.of(),
+          /* workingSet= */ ImmutableSet.of(),
+          /* frontierSet= */ ImmutableSet.of(),
+          /* verificationSet= */ ImmutableSet.of(),
           null,
           null);
 

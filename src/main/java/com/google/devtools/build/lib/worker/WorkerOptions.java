@@ -226,7 +226,9 @@ public class WorkerOptions extends OptionsBase {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
-      help = "If enabled, workers are run in a hardened sandbox, if the implementation allows it.")
+      help =
+          "If enabled, workers are run in a hardened sandbox, if the implementation allows it. If"
+              + " hardening is enabled then tmp directories are distinct for different workers.")
   public boolean sandboxHardening;
 
   @Option(

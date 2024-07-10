@@ -113,17 +113,17 @@ public class RunfilesTreeUpdater {
   }
 
   private void updateRunfilesTree(
-      RunfilesTree tree,
-      ImmutableMap<String, String> env,
-      OutErr outErr)
+      RunfilesTree tree, ImmutableMap<String, String> env, OutErr outErr)
       throws IOException, ExecException, InterruptedException {
-    Path runfilesDirPath = execRoot.getRelative(tree.getExecPath());
-    Path inputManifest = RunfilesSupport.inputManifestPath(runfilesDirPath);
+    Path runfilesDir = execRoot.getRelative(tree.getExecPath());
+    Path inputManifest =
+        execRoot.getRelative(RunfilesSupport.inputManifestExecPath(tree.getExecPath()));
     if (!inputManifest.exists()) {
       return;
     }
 
-    Path outputManifest = RunfilesSupport.outputManifestPath(runfilesDirPath);
+    Path outputManifest =
+        execRoot.getRelative(RunfilesSupport.outputManifestExecPath(tree.getExecPath()));
     try {
       // Avoid rebuilding the runfiles directory if the manifest in it matches the input manifest,
       // implying the symlinks exist and are already up to date. If the output manifest is a
@@ -139,37 +139,33 @@ public class RunfilesTreeUpdater {
           && Arrays.equals(
               DigestUtils.getDigestWithManualFallback(outputManifest, xattrProvider),
               DigestUtils.getDigestWithManualFallback(inputManifest, xattrProvider))
-          && (OS.getCurrent() != OS.WINDOWS || isRunfilesDirectoryPopulated(runfilesDirPath))) {
+          && (OS.getCurrent() != OS.WINDOWS
+              || isRunfilesDirectoryPopulated(runfilesDir, outputManifest))) {
         return;
       }
     } catch (IOException e) {
       // Ignore it - we will just try to create runfiles directory.
     }
 
-    if (!runfilesDirPath.exists()) {
-      runfilesDirPath.createDirectoryAndParents();
+    if (!runfilesDir.exists()) {
+      runfilesDir.createDirectoryAndParents();
     }
 
     SymlinkTreeHelper helper =
         new SymlinkTreeHelper(
-            inputManifest, runfilesDirPath, /* filesetTree= */ false, tree.getWorkspaceName());
+            inputManifest, runfilesDir, /* filesetTree= */ false, tree.getWorkspaceName());
 
     switch (tree.getSymlinksMode()) {
-      case SKIP:
-        helper.clearRunfilesDirectory();
-        break;
-      case EXTERNAL:
-        helper.createSymlinksUsingCommand(execRoot, binTools, env, outErr);
-        break;
-      case INTERNAL:
-        helper.createSymlinksDirectly(runfilesDirPath, tree.getMapping());
+      case SKIP -> helper.clearRunfilesDirectory();
+      case EXTERNAL -> helper.createSymlinksUsingCommand(execRoot, binTools, env, outErr);
+      case INTERNAL -> {
+        helper.createSymlinksDirectly(runfilesDir, tree.getMapping());
         outputManifest.createSymbolicLink(inputManifest);
-        break;
+      }
     }
   }
 
-  private boolean isRunfilesDirectoryPopulated(Path runfilesDirPath) {
-    Path outputManifest = RunfilesSupport.outputManifestPath(runfilesDirPath);
+  private static boolean isRunfilesDirectoryPopulated(Path runfilesDir, Path outputManifest) {
     String relativeRunfilePath;
     try (BufferedReader reader =
         new BufferedReader(new InputStreamReader(outputManifest.getInputStream(), ISO_8859_1))) {
@@ -180,6 +176,6 @@ public class RunfilesTreeUpdater {
       return false;
     }
     // The runfile could be a dangling symlink.
-    return runfilesDirPath.getRelative(relativeRunfilePath).exists(Symlinks.NOFOLLOW);
+    return runfilesDir.getRelative(relativeRunfilePath).exists(Symlinks.NOFOLLOW);
   }
 }

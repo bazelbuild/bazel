@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
 import static com.google.devtools.common.options.Converters.BLAZE_ALIASING_FLAG;
 
 import com.google.common.base.Joiner;
@@ -55,6 +56,7 @@ import java.util.logging.Level;
 /** The 'blaze canonicalize-flags' command. */
 @Command(
     name = "canonicalize-flags",
+    buildPhase = NONE,
     options = {CanonicalizeCommand.Options.class, PackageOptions.class},
     // inherits from build to get proper package loading options and rc flag aliases.
     inheritsOptionsFrom = {BuildCommand.class},

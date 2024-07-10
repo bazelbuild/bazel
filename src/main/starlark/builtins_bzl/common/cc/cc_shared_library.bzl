@@ -84,13 +84,13 @@ def _sort_linker_inputs(topologically_sorted_labels, label_to_linker_inputs, lin
 # dynamically. The transitive_dynamic_dep_labels parameter is only needed for
 # binaries because they link all dynamic_deps (cc_binary|cc_test).
 def _separate_static_and_dynamic_link_libraries(
-        ctx,
+        dynamic_deps,
         direct_children,
         can_be_linked_dynamically):
     (
         transitive_dynamic_dep_labels,
         all_dynamic_dep_linker_inputs,
-    ) = _build_map_direct_dynamic_dep_to_transitive_dynamic_deps(ctx)
+    ) = _build_map_direct_dynamic_dep_to_transitive_dynamic_deps(dynamic_deps)
 
     node = None
     all_children = reversed(direct_children)
@@ -236,9 +236,9 @@ def _merge_cc_shared_library_infos(ctx):
 
     return depset(direct = dynamic_deps, transitive = transitive_dynamic_deps, order = "topological")
 
-def _build_exports_map_from_only_dynamic_deps(merged_shared_library_infos):
+def _build_exports_map_from_only_dynamic_deps(merged_cc_shared_library_infos_list):
     exports_map = {}
-    for entry in merged_shared_library_infos.to_list():
+    for entry in merged_cc_shared_library_infos_list:
         exports = entry.exports
         linker_input = entry.linker_input
         for export in exports:
@@ -252,9 +252,9 @@ def _build_exports_map_from_only_dynamic_deps(merged_shared_library_infos):
 
 # The map points from the target that can only be linked once to the
 # cc_shared_library target that already links it.
-def _build_link_once_static_libs_map(merged_shared_library_infos):
+def _build_link_once_static_libs_map(merged_cc_shared_library_infos_list):
     link_once_static_libs_map = {}
-    for entry in merged_shared_library_infos.to_list():
+    for entry in merged_cc_shared_library_infos_list:
         link_once_static_libs = entry.link_once_static_libs
         linker_input = entry.linker_input
         for static_lib in link_once_static_libs:
@@ -403,7 +403,7 @@ def _filter_inputs(
         topologically_sorted_labels,
         unused_dynamic_linker_inputs,
     ) = _separate_static_and_dynamic_link_libraries(
-        ctx,
+        ctx.attr.dynamic_deps,
         graph_structure_aspect_nodes,
         can_be_linked_dynamically,
     )
@@ -586,10 +586,10 @@ def _get_deps(ctx):
 
     return deps
 
-def _build_map_direct_dynamic_dep_to_transitive_dynamic_deps(ctx):
+def _build_map_direct_dynamic_dep_to_transitive_dynamic_deps(direct_dynamic_deps):
     all_dynamic_dep_linker_inputs = {}
     direct_dynamic_dep_to_transitive_dynamic_deps = {}
-    for dep in ctx.attr.dynamic_deps:
+    for dep in direct_dynamic_deps:
         owner = dep[CcSharedLibraryInfo].linker_input.owner
         all_dynamic_dep_linker_inputs[owner] = dep[CcSharedLibraryInfo].linker_input
         transitive_dynamic_dep_labels = []
@@ -645,8 +645,11 @@ def _cc_shared_library_impl(ctx):
         unsupported_features = ctx.disabled_features,
     )
 
-    merged_cc_shared_library_info = _merge_cc_shared_library_infos(ctx)
-    exports_map = _build_exports_map_from_only_dynamic_deps(merged_cc_shared_library_info)
+    merged_cc_shared_library_infos = _merge_cc_shared_library_infos(ctx)
+
+    # Small performance tweak to avoid flattening merged_cc_shared_library_infos twice:
+    merged_cc_shared_library_infos_list = merged_cc_shared_library_infos.to_list()
+    exports_map = _build_exports_map_from_only_dynamic_deps(merged_cc_shared_library_infos_list)
     for export in deps:
         # Do not check for overlap between targets matched by the current
         # rule's exports_filter and what is in exports_map. A library in roots
@@ -662,7 +665,7 @@ def _cc_shared_library_impl(ctx):
             fail("Trying to export a library already exported by a different shared library: " +
                  str(export.label))
 
-    link_once_static_libs_map = _build_link_once_static_libs_map(merged_cc_shared_library_info)
+    link_once_static_libs_map = _build_link_once_static_libs_map(merged_cc_shared_library_infos_list)
 
     (exports, linker_inputs, curr_link_once_static_libs_set, precompiled_only_dynamic_libraries) = _filter_inputs(
         ctx,
@@ -789,7 +792,7 @@ def _cc_shared_library_impl(ctx):
             **additional_output_groups
         ),
         CcSharedLibraryInfo(
-            dynamic_deps = merged_cc_shared_library_info,
+            dynamic_deps = merged_cc_shared_library_infos,
             exports = exports.keys(),
             link_once_static_libs = curr_link_once_static_libs_set,
             linker_input = cc_common.create_linker_input(

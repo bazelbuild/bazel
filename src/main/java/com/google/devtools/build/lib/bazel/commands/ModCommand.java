@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableListMultimap.toImmutableListMul
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.bazel.bzlmod.modcommand.ModOptions.Charset.UTF8;
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.LOADS;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.joining;
@@ -98,6 +99,7 @@ import javax.annotation.Nullable;
 /** Queries the Bzlmod external dependency graph. */
 @Command(
     name = ModCommand.NAME,
+    buildPhase = LOADS,
     // TODO(andreisolo): figure out which extra options are really needed
     options = {
       ModOptions.class,

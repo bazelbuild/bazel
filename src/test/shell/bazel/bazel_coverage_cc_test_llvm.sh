@@ -138,7 +138,10 @@ function test_cc_test_llvm_coverage_produces_lcov_report() {
   setup_llvm_coverage_tools_for_lcov || return 0
   setup_a_cc_lib_and_t_cc_test
 
-  bazel coverage --test_output=all //:t &>$TEST_log || fail "Coverage for //:t failed"
+  # Ensure that coverage succeeds even with lazily built runfiles trees for the
+  # merger tool.
+  bazel coverage --nobuild_runfile_links \
+      --test_output=all //:t &>$TEST_log || fail "Coverage for //:t failed"
 
   local expected_result="SF:a.cc
 FN:3,_Z1ab
@@ -163,7 +166,10 @@ function test_cc_test_llvm_coverage_produces_lcov_report_with_split_postprocessi
   setup_llvm_coverage_tools_for_lcov || return 0
   setup_a_cc_lib_and_t_cc_test
 
+  # Ensure that coverage succeeds even with lazily built runfiles trees for the
+  # merger tool.
   bazel coverage \
+    --nobuild_runfile_links \
     --experimental_split_coverage_postprocessing --experimental_fetch_all_coverage_outputs \
       --test_env=VERBOSE_COVERAGE=1 --test_output=all //:t &>$TEST_log || fail "Coverage for //:t failed"
 

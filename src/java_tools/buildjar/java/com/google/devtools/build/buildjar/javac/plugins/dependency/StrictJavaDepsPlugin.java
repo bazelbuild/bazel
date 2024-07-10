@@ -262,7 +262,6 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     private final Map<ClassSymbol, Optional<Path>> classpathOnlyDepPaths = new HashMap<>();
 
     private final Name jspecifyAnnotationsPackage;
-    private final Name jspecifyNullnessPackage;
 
     public CheckingTreeScanner(
         DependencyModule dependencyModule,
@@ -277,8 +276,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       this.directDependenciesMap = dependencyModule.getExplicitDependenciesMap();
       this.platformJars = platformJars;
       this.fileManager = fileManager;
-      jspecifyAnnotationsPackage = names.fromString("org.jspecify.annotations");
-      jspecifyNullnessPackage = names.fromString("org.jspecify.nullness");
+      this.jspecifyAnnotationsPackage = names.fromString("org.jspecify.annotations");
     }
 
     Set<ClassSymbol> getSeenClasses() {
@@ -505,8 +503,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       // Filter out classes from the system modules and bootclasspath
       if (path == null || platformJars.contains(path)) {
         // ...except the JSpecify annotations, which we treat specially.
-        if (classSymbol.packge().fullname.equals(jspecifyAnnotationsPackage)
-            || classSymbol.packge().fullname.equals(jspecifyNullnessPackage)) {
+        if (classSymbol.packge().fullname.equals(jspecifyAnnotationsPackage)) {
           Path classpathJar = findLookingOnlyInClasspath(classSymbol);
           return classpathJar != null
               ? NonPlatformJar.forClasspathJar(classpathJar)

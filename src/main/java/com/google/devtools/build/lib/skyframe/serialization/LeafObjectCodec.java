@@ -23,6 +23,9 @@ import java.io.IOException;
  * <p>{@link LeafObjectCodec}s may only delegate to other {@link LeafObjectCodec}s and are
  * restricted from using any asynchronous features. By construction, they can only be used to
  * serialize acyclic values and are always synchronous.
+ *
+ * <p>Values using this codec will be memoized using {@link Object#hashCode} and {@link
+ * Object#equals}.
  */
 public abstract class LeafObjectCodec<T> implements ObjectCodec<T> {
   @Override

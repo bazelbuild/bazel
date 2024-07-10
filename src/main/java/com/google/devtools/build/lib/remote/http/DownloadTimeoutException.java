@@ -16,7 +16,8 @@ package com.google.devtools.build.lib.remote.http;
 
 import java.io.IOException;
 
-class DownloadTimeoutException extends IOException {
+/** Exception thrown when a HTTP download times out. */
+public class DownloadTimeoutException extends IOException {
 
   public DownloadTimeoutException(String url, long bytesReceived, long contentLength) {
     super(buildMessage(url, bytesReceived, contentLength));

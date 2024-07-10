@@ -213,7 +213,7 @@ public class ExecutionGraphModule extends BlazeModule {
   public void beforeCommand(CommandEnvironment env) {
     this.env = env;
 
-    if (env.getCommand().builds()) {
+    if (env.getCommand().buildPhase().executes()) {
       ExecutionGraphOptions options =
           checkNotNull(
               env.getOptions().getOptions(ExecutionGraphOptions.class),
