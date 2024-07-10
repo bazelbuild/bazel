@@ -87,7 +87,11 @@ public class DefaultToolsSetup implements ToolsSetup {
       }
     }
 
-    lines.add("common --enable_bzlmod");
+    if (OS.getCurrent() == OS.DARWIN) {
+      // Prefer ipv6 network on macOS
+      lines.add("startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true");
+      lines.add("build --jvmopt=-Djava.net.preferIPv6Addresses");
+    }
 
     context.write(".bazelrc", lines);
   }
