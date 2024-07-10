@@ -100,9 +100,13 @@ class OptionProcessorTest : public ::testing::Test {
 };
 
 TEST_F(OptionProcessorTest, CanParseOptions) {
-  const std::vector<std::string> args = {"bazel",     "--host_jvm_args=MyParam",
-                                         "--nobatch", "command",
-                                         "--flag",    "//my:target",
+  const std::vector<std::string> args = {"bazel",
+                                         "--ignore_all_rc_files",
+                                         "--host_jvm_args=MyParam",
+                                         "--nobatch",
+                                         "command",
+                                         "--flag",
+                                         "//my:target",
                                          "--flag2=42"};
   std::string error;
   ASSERT_EQ(blaze_exit_code::SUCCESS,
@@ -135,9 +139,13 @@ TEST_F(OptionProcessorTest, CanParseOptions) {
 }
 
 TEST_F(OptionProcessorTest, CanParseHelpCommandSurroundedByOtherArgs) {
-  const std::vector<std::string> args = {"bazel",     "--host_jvm_args=MyParam",
-                                         "--nobatch", "help",
-                                         "--flag",    "//my:target",
+  const std::vector<std::string> args = {"bazel",
+                                         "--ignore_all_rc_files",
+                                         "--host_jvm_args=MyParam",
+                                         "--nobatch",
+                                         "help",
+                                         "--flag",
+                                         "//my:target",
                                          "--flag2=42"};
   std::string error;
   ASSERT_EQ(blaze_exit_code::SUCCESS,
@@ -196,9 +204,12 @@ TEST_F(OptionProcessorTest, CanParseEmptyArgs) {
 }
 
 TEST_F(OptionProcessorTest, CanParseDifferentStartupArgs) {
-  const std::vector<std::string> args =
-      {"bazel",
-       "--nobatch", "--host_jvm_args=MyParam", "--host_jvm_args", "42"};
+  const std::vector<std::string> args = {"bazel",
+                                         "--nobatch",
+                                         "--ignore_all_rc_files",
+                                         "--host_jvm_args=MyParam",
+                                         "--host_jvm_args",
+                                         "42"};
   std::string error;
   ASSERT_EQ(blaze_exit_code::SUCCESS,
             option_processor_->ParseOptions(args, workspace_, cwd_, &error))

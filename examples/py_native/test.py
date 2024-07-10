@@ -8,10 +8,10 @@ from fib import Fib
 class TestGetNumber(unittest.TestCase):
 
   def test_ok(self):
-    self.assertEquals(GetNumber(), 42)
+    self.assertEqual(GetNumber(), 42)
 
   def test_fib(self):
-    self.assertEquals(Fib(5), 8)
+    self.assertEqual(Fib(5), 8)
 
 if __name__ == '__main__':
   unittest.main()

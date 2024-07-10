@@ -15,6 +15,11 @@ java_binary(
     name = "BazelPackageLoaderTester",
     testonly = True,
     srcs = ["BazelPackageLoaderTester.java"],
+    jvm_flags = select({
+        # For MacService machines which only have IPv6 addresses.
+        "//src/conditions:darwin": ["-Djava.net.preferIPv6Addresses=true"],
+        "//conditions:default": [],
+    }),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
