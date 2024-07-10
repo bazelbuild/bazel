@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -61,9 +62,10 @@ public final class CompileCommandLine {
   }
 
   /** Returns the environment variables that should be set for C++ compile actions. */
-  ImmutableMap<String, String> getEnvironment() throws CommandLineExpansionException {
+  ImmutableMap<String, String> getEnvironment(PathMapper pathMapper)
+      throws CommandLineExpansionException {
     try {
-      return featureConfiguration.getEnvironmentVariables(actionName, variables);
+      return featureConfiguration.getEnvironmentVariables(actionName, variables, pathMapper);
     } catch (ExpansionException e) {
       throw new CommandLineExpansionException(e.getMessage());
     }
@@ -84,7 +86,9 @@ public final class CompileCommandLine {
    *     unmodified original variables are used.
    */
   List<String> getArguments(
-      @Nullable PathFragment parameterFilePath, @Nullable CcToolchainVariables overwrittenVariables)
+      @Nullable PathFragment parameterFilePath,
+      @Nullable CcToolchainVariables overwrittenVariables,
+      PathMapper pathMapper)
       throws CommandLineExpansionException {
     List<String> commandLine = new ArrayList<>();
 
@@ -95,7 +99,7 @@ public final class CompileCommandLine {
     if (parameterFilePath != null) {
       commandLine.add("@" + parameterFilePath.getSafePathString());
     } else {
-      commandLine.addAll(getCompilerOptions(overwrittenVariables));
+      commandLine.addAll(getCompilerOptions(overwrittenVariables, pathMapper));
     }
     return commandLine;
   }
@@ -112,13 +116,14 @@ public final class CompileCommandLine {
       @Override
       public Iterable<String> arguments() throws CommandLineExpansionException {
         CcToolchainVariables overwrittenVariables = cppCompileAction.getOverwrittenVariables();
-        List<String> compilerOptions = getCompilerOptions(overwrittenVariables);
+        List<String> compilerOptions = getCompilerOptions(overwrittenVariables, PathMapper.NOOP);
         return ImmutableList.<String>builder().add(getToolPath()).addAll(compilerOptions).build();
       }
     };
   }
 
-  public List<String> getCompilerOptions(@Nullable CcToolchainVariables overwrittenVariables)
+  public List<String> getCompilerOptions(
+      @Nullable CcToolchainVariables overwrittenVariables, PathMapper pathMapper)
       throws CommandLineExpansionException {
     try {
       List<String> options = new ArrayList<>();
@@ -130,7 +135,8 @@ public final class CompileCommandLine {
         updatedVariables = variablesBuilder.build();
       }
       addFilteredOptions(
-          options, featureConfiguration.getPerFeatureExpansions(actionName, updatedVariables));
+          options,
+          featureConfiguration.getPerFeatureExpansions(actionName, updatedVariables, pathMapper));
 
       return options;
     } catch (ExpansionException e) {
@@ -171,15 +177,15 @@ public final class CompileCommandLine {
   /**
    * Returns all user provided copts flags.
    *
-   * TODO(b/64108724): Get rid of this method when we don't need to parse copts to collect include
-   * directories anymore (meaning there is a way of specifying include directories using an
+   * <p>TODO(b/64108724): Get rid of this method when we don't need to parse copts to collect
+   * include directories anymore (meaning there is a way of specifying include directories using an
    * explicit attribute, not using platform-dependent garbage bag that copts is).
    */
-  public ImmutableList<String> getCopts() {
+  public ImmutableList<String> getCopts(PathMapper pathMapper) {
     if (variables.isAvailable(CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName())) {
       try {
         return CcToolchainVariables.toStringList(
-            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName());
+            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), pathMapper);
       } catch (ExpansionException e) {
         throw new IllegalStateException(
             "Should not happen - 'user_compile_flags' should be a string list, but wasn't.", e);

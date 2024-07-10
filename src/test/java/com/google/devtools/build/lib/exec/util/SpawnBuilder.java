@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.DelegateSpawn;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -66,27 +65,6 @@ public final class SpawnBuilder {
   private PathMapper pathMapper = PathMapper.NOOP;
   private boolean builtForToolConfiguration;
 
-  /**
-   * A {@link DelegateSpawn} that supports output path mapping as described in {@link
-   * com.google.devtools.build.lib.actions.PathMapper}.
-   *
-   * <p>By overriding {@link #getPathMapper()} - and only in test code - instead of adding an extra
-   * field in {@link SimpleSpawn}, we avoid further pressuring memory on large build graphs.
-   */
-  private static class PathStrippableSpawn extends DelegateSpawn {
-    private final PathMapper pathMapper;
-
-    public PathStrippableSpawn(Spawn spawn, PathMapper pathMapper) {
-      super(spawn);
-      this.pathMapper = pathMapper;
-    }
-
-    @Override
-    public PathMapper getPathMapper() {
-      return pathMapper;
-    }
-  }
-
   public SpawnBuilder(String... args) {
     this.args = ImmutableList.copyOf(args);
   }
@@ -102,19 +80,18 @@ public final class SpawnBuilder {
             platform,
             execProperties,
             builtForToolConfiguration);
-    return new PathStrippableSpawn(
-        new SimpleSpawn(
-            owner,
-            ImmutableList.copyOf(args),
-            ImmutableMap.copyOf(environment),
-            ImmutableMap.copyOf(executionInfo),
-            runfilesSupplier,
-            ImmutableMap.copyOf(filesetMappings),
-            inputs.build(),
-            tools.build(),
-            ImmutableSet.copyOf(outputs),
-            mandatoryOutputs,
-            resourceSet),
+    return new SimpleSpawn(
+        owner,
+        ImmutableList.copyOf(args),
+        ImmutableMap.copyOf(environment),
+        ImmutableMap.copyOf(executionInfo),
+        runfilesSupplier,
+        ImmutableMap.copyOf(filesetMappings),
+        inputs.build(),
+        tools.build(),
+        ImmutableSet.copyOf(outputs),
+        mandatoryOutputs,
+        resourceSet,
         pathMapper);
   }
 
