@@ -192,6 +192,11 @@ public final class AspectDefinition {
     return propagateToToolchainsTypes.contains(toolchainType);
   }
 
+  /** Returns whether the aspect propagates to toolchains. */
+  public boolean propagatesToToolchains() {
+    return !propagateToToolchainsTypes.isEmpty();
+  }
+
   /** Returns the set of configuration fragments required by this Aspect. */
   public ConfigurationFragmentPolicy getConfigurationFragmentPolicy() {
     return configurationFragmentPolicy;

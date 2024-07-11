@@ -833,6 +833,116 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   }
 
   @Test
+  public void testToolchainPropagatingAspectDepsAppearInCqueryDeps() throws Exception {
+    writeFile(
+        "donut_toolchains/test_toolchain.bzl",
+        """
+        def _impl(ctx):
+            return [platform_common.ToolchainInfo()]
+
+        test_toolchain = rule(
+            implementation = _impl,
+        )
+        """);
+    writeFile(
+        "donut_toolchains/BUILD",
+        """
+        load("//donut_toolchains:test_toolchain.bzl", "test_toolchain")
+
+        toolchain_type(name = "toolchain_type_1")
+
+        test_toolchain(
+            name = "foo",
+        )
+
+        toolchain(
+            name = "foo_toolchain",
+            toolchain = ":foo",
+            toolchain_type = ":toolchain_type_1",
+        )
+        """);
+    writeFile(
+        "donut/test.bzl",
+        """
+        TestAspectInfo = provider("TestAspectInfo", fields = ["info"])
+
+        def _test_aspect_impl(target, ctx):
+            return [
+                TestAspectInfo(
+                    info = depset([target.label]),
+                ),
+            ]
+
+        _test_aspect = aspect(
+            implementation = _test_aspect_impl,
+            toolchains_aspects = ["//donut_toolchains:toolchain_type_1"],
+            attrs = {
+                "_test_attr": attr.label(
+                    allow_files = True,
+                    default = Label("//donut:test_filegroup"),
+                ),
+            },
+            provides = [TestAspectInfo],
+        )
+
+        def _test_impl(ctx):
+            pass
+
+        test_rule = rule(
+            _test_impl,
+            attrs = {
+                "deps": attr.label_list(
+                    aspects = [_test_aspect],
+                ),
+            },
+        )
+
+        rule_with_toolchain = rule(
+            _test_impl,
+            toolchains = ["//donut_toolchains:toolchain_type_1"],
+        )
+        """);
+    writeFile(
+        "donut/BUILD",
+        """
+        load(":test.bzl", "test_rule", "rule_with_toolchain")
+
+        filegroup(
+            name = "test_filegroup",
+            srcs = ["test.bzl"],
+        )
+
+        rule_with_toolchain(
+            name = "test_rule_dep",
+        )
+
+        test_rule(
+            name = "test_rule",
+            deps = [":test_rule_dep"],
+        )
+        """);
+    helper.setQuerySettings(Setting.INCLUDE_ASPECTS, Setting.EXPLICIT_ASPECTS);
+    ((PostAnalysisQueryHelper<CqueryNode>) helper)
+        .useConfiguration("--extra_toolchains=//donut_toolchains:foo_toolchain");
+
+    var result =
+        eval("filter(//donut, deps(//donut:test_rule))").stream()
+            .map(cf -> cf.getDescription(LabelPrinter.legacy()))
+            .collect(ImmutableList.toImmutableList());
+
+    assertThat(result)
+        .containsExactly(
+            "//donut:test_rule",
+            "//donut:test_rule_dep",
+            "//donut:test.bzl%_test_aspect of //donut:test_rule_dep",
+            "//donut:test.bzl",
+            "//donut:test_filegroup",
+            "//donut_toolchains:foo",
+            "//donut_toolchains:toolchain_type_1",
+            "//donut:test.bzl%_test_aspect of //donut_toolchains:foo");
+  }
+
+  @Test
   public void testAspectOnAspectDepsAppearInCqueryDeps() throws Exception {
     writeFile(
         "donut/test.bzl",

@@ -222,7 +222,9 @@ import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlat
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsCycleReporter;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsFunction;
 import com.google.devtools.build.lib.skyframe.toolchains.SingleToolchainResolutionFunction;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainResolutionFunction;
+import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.HeapOffsetHelper;
@@ -699,6 +701,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         SkyFunctions.ASPECT,
         new AspectFunction(
             new BuildViewProvider(),
+            ruleClassProvider,
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
             this::getExistingPackage,
             new BaseTargetPrerequisitesSupplierImpl()));
@@ -3980,6 +3983,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     public BuildConfigurationValue getPrerequisiteConfiguration(BuildConfigurationKey key)
         throws InterruptedException {
       return (BuildConfigurationValue) memoizingEvaluator.getExistingValue(key);
+    }
+
+    @Override
+    @Nullable
+    public UnloadedToolchainContext getUnloadedToolchainContext(ToolchainContextKey key)
+        throws InterruptedException {
+      return (UnloadedToolchainContext) memoizingEvaluator.getExistingValue(key);
     }
   }
 

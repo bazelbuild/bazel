@@ -174,7 +174,8 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
                 starlarkExecTransition.orElse(null),
                 env,
                 env.getListener(),
-                /* baseTargetPrerequisitesSupplier= */ null);
+                /* baseTargetPrerequisitesSupplier= */ null,
+                /* baseTargetUnloadedToolchainContexts= */ null);
         return env.valuesMissing() ? null : new Value(depMap);
       } catch (RuntimeException e) {
         throw e;
