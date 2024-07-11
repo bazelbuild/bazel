@@ -181,9 +181,12 @@ public final class CppCompileActionBuilder {
     if (CppFileTypes.CPP_MODULE_MAP.matches(sourcePath)) {
       return CppActionNames.CPP_MODULE_COMPILE;
     } else if (CppFileTypes.CPP_HEADER.matches(sourcePath)) {
-      // TODO(bazel-team): Handle C headers that probably don't work in C++ mode.
       if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS)) {
-        return CppActionNames.CPP_HEADER_PARSING;
+        if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS_AS_C)) {
+          return CppActionNames.C_HEADER_PARSING;
+        } else {
+          return CppActionNames.CPP_HEADER_PARSING;
+        }
       }
       // CcCommon.collectCAndCppSources() ensures we do not add headers to
       // the compilation artifacts unless 'parse_headers' is set.
