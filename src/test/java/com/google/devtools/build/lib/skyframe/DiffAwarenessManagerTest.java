@@ -235,6 +235,7 @@ public class DiffAwarenessManagerTest {
             pathEntry,
             ImmutableSet.of(fs.getPath("/path/ignored-path-1")),
             OptionsProvider.EMPTY);
+    processedDiff1.markProcessed();
     assertThat(processedDiff1.getModifiedFileSet()).isEqualTo(ModifiedFileSet.EVERYTHING_MODIFIED);
     processedDiff1 =
         manager.getDiff(
@@ -242,6 +243,7 @@ public class DiffAwarenessManagerTest {
             pathEntry,
             ImmutableSet.of(fs.getPath("/path/ignored-path-1")),
             OptionsProvider.EMPTY);
+    processedDiff1.markProcessed();
     assertThat(processedDiff1.getModifiedFileSet()).isEqualTo(diff1);
 
     ProcessableModifiedFileSet processedDiff2 =
@@ -250,6 +252,7 @@ public class DiffAwarenessManagerTest {
             pathEntry,
             ImmutableSet.of(fs.getPath("/path/ignored-path-2")),
             OptionsProvider.EMPTY);
+    processedDiff2.markProcessed();
     assertThat(processedDiff2.getModifiedFileSet()).isEqualTo(ModifiedFileSet.EVERYTHING_MODIFIED);
     processedDiff2 =
         manager.getDiff(
@@ -257,6 +260,7 @@ public class DiffAwarenessManagerTest {
             pathEntry,
             ImmutableSet.of(fs.getPath("/path/ignored-path-2")),
             OptionsProvider.EMPTY);
+    processedDiff2.markProcessed();
     assertThat(processedDiff2.getModifiedFileSet()).isEqualTo(diff2);
   }
 
@@ -361,8 +365,9 @@ public class DiffAwarenessManagerTest {
     when(factory.maybeCreate(pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY))
         .thenReturn(diffAwareness);
     DiffAwarenessManager manager = new DiffAwarenessManager(ImmutableList.of(factory));
-    var unused =
+    var diff1 =
         manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+    diff1.markProcessed();
 
     ProcessableModifiedFileSet diff =
         manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
@@ -382,8 +387,9 @@ public class DiffAwarenessManagerTest {
     when(factory.maybeCreate(pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY))
         .thenReturn(diffAwareness);
     DiffAwarenessManager manager = new DiffAwarenessManager(ImmutableList.of(factory));
-    var unused =
+    var diff1 =
         manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+    diff1.markProcessed();
 
     assertThrows(
         IllegalStateException.class,
@@ -462,7 +468,12 @@ public class DiffAwarenessManagerTest {
     }
 
     @Override
-    public ModifiedFileSet getDiff(View oldView, View newView) throws BrokenDiffAwarenessException {
+    public ModifiedFileSet getDiff(@Nullable View oldView, View newView)
+        throws BrokenDiffAwarenessException {
+      if (oldView == null) {
+        return ModifiedFileSet.EVERYTHING_MODIFIED;
+      }
+
       assertThat(oldView).isInstanceOf(ViewStub.class);
       assertThat(newView).isInstanceOf(ViewStub.class);
       ViewStub oldViewStub = (ViewStub) oldView;
