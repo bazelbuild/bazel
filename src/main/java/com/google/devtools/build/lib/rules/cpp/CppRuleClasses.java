@@ -101,6 +101,9 @@ public class CppRuleClasses {
   /** A string constant for the parse_headers feature. */
   public static final String PARSE_HEADERS = "parse_headers";
 
+  /** A string constant for the parse_headers_as_c feature. */
+  public static final String PARSE_HEADERS_AS_C = "parse_headers_as_c";
+  
   /**
    * A string constant for the module_maps feature; this is a precondition to the layering_check and
    * header_modules features.
