@@ -1976,4 +1976,25 @@ EOF
     "@@$WORKSPACE_NAME//a:a" || fail "build failed"
 }
 
+function test_parse_headers_as_c() {
+  mkdir pkg
+  cat > pkg/BUILD <<'EOF'
+package(features = ["parse_headers", "parse_headers_as_c", "treat_warnings_as_errors"])
+cc_library(name = "lib", hdrs = ["lib.h"])
+EOF
+  cat > pkg/lib.h <<'EOF'
+#ifdef __cplusplus
+#error "This should be parsed as C"
+#endif
+#ifndef MY_C_DEFINE
+#error "Missing define"
+#endif
+EOF
+
+  bazel build -s --process_headers_in_dependencies \
+    --conlyopt=-DMY_C_DEFINE=1 \
+    //pkg:lib &> "$TEST_log" || fail "Build should have passed"
+  expect_log "Compiling pkg/lib.h"
+}
+
 run_suite "cc_integration_test"
