@@ -195,14 +195,6 @@ public final class EventCollectionApparatus {
     return MoreAsserts.assertContainsEvent(eventCollector, expectedMessage, EventKind.WARNING);
   }
 
-  /**
-   * Utility method: Assert that the {@link #collector()} has received an event of the given type
-   * and with the {@code expectedMessage}.
-   */
-  public Event assertContainsEvent(EventKind kind, String expectedMessage) {
-    return MoreAsserts.assertContainsEvent(eventCollector, expectedMessage, kind);
-  }
-
   public List<Event> assertContainsEventWithFrequency(String expectedMessage,
       int expectedFrequency) {
     return MoreAsserts.assertContainsEventWithFrequency(eventCollector, expectedMessage,

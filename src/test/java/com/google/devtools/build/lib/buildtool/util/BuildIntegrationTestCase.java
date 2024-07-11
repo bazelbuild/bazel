@@ -1164,6 +1164,11 @@ public abstract class BuildIntegrationTestCase {
   }
 
   @CanIgnoreReturnValue
+  public final Event assertContainsEvent(EventKind kind, String expectedEvent) {
+    return MoreAsserts.assertContainsEvent(events.collector(), expectedEvent, kind);
+  }
+
+  @CanIgnoreReturnValue
   public static Event assertContainsEvent(EventCollector eventCollector, String expectedEvent) {
     return MoreAsserts.assertContainsEvent(eventCollector, expectedEvent);
   }

@@ -154,7 +154,7 @@ public class CppTemplateTest extends BuildIntegrationTestCase {
         """);
     write("cc/BUILD", "cc_library(name = 'cc', srcs = ['//tree:lib'])");
     buildTarget("//cc:cc");
-    events.assertContainsEvent(EventKind.WARNING, "This is a warning");
+    assertContainsEvent(EventKind.WARNING, "This is a warning");
     getSkyframeExecutor()
         .getEvaluator()
         .getDoneValues()
