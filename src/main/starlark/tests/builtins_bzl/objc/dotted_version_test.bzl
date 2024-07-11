@@ -42,6 +42,12 @@ def _compare_equal_length_versions_impl(ctx):
     v5 = "1.2.3"
     v6 = "1.2.4"
     _assert_v1_less_v2(env, v5, v6)
+    v7 = "1.2.5"
+    v8 = "1.3.4"
+    _assert_v1_less_v2(env, v7, v8)
+    v9 = "1.8"
+    v10 = "1.12"  # make sure component's first_number is compared as int, not as string
+    _assert_v1_less_v2(env, v9, v10)
     return unittest.end(env)
 
 compare_equal_length_versions_test = unittest.make(_compare_equal_length_versions_impl)
@@ -68,6 +74,12 @@ def _compare_versions_with_alphanum_components_impl(ctx):
     v5 = "1.5beta2"
     v6 = "1.5beta3"
     _assert_v1_less_v2(env, v5, v6)
+    v7 = "1.5gamma5"
+    v8 = "1.5gamma29"  # make sure component's second_number is compared as int, not as string
+    _assert_v1_less_v2(env, v7, v8)
+    v9 = "1.5alpha9"
+    v10 = "1.5beta7"
+    _assert_v1_less_v2(env, v9, v10)
     return unittest.end(env)
 
 compare_versions_with_alphanum_components_test = unittest.make(_compare_versions_with_alphanum_components_impl)
