@@ -49,6 +49,10 @@ public final class BuiltinRestriction {
               BuiltinRestriction.allowlistEntry("rules_android", ""),
               BuiltinRestriction.allowlistEntry("build_bazel_rules_android", ""),
 
+              // Java rules
+              BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_java"),
+              BuiltinRestriction.allowlistEntry("rules_java", ""),
+
               // Rust rules
               BuiltinRestriction.allowlistEntry(
                   "", "third_party/bazel_rules/rules_rust/rust/private"),
@@ -147,12 +151,20 @@ public final class BuiltinRestriction {
   public static void failIfLabelOutsideAllowlist(
       Label label, RepositoryMapping repoMapping, Collection<AllowlistEntry> allowlist)
       throws EvalException {
-    if (label.getRepository().getName().equals("_builtins")) {
-      return;
-    }
-    if (allowlist.stream().noneMatch(e -> e.allows(label, repoMapping))) {
+    if (isNotAllowed(label, repoMapping, allowlist)) {
       throw Starlark.errorf("file '%s' cannot use private API", label.getCanonicalForm());
     }
   }
-   
+
+  /**
+   * Returns true if the given {@link Label} is not within both 1) the builtins repository, or 2) a
+   * package or subpackage of an entry in the given allowlist.
+   */
+  public static boolean isNotAllowed(
+      Label label, RepositoryMapping repoMapping, Collection<AllowlistEntry> allowlist) {
+    if (label.getRepository().getName().equals("_builtins")) {
+      return false;
+    }
+    return allowlist.stream().noneMatch(e -> e.allows(label, repoMapping));
+  }
 }
