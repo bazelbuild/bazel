@@ -34,6 +34,8 @@ public class CppActionNames {
   public static final String OBJC_COMPILE = "objc-compile";
   /** A string constant for the objc++ compile action. */
   public static final String OBJCPP_COMPILE = "objc++-compile";
+  /** A string constant for the c header parsing. */
+  public static final String C_HEADER_PARSING = "c-header-parsing";
   /** A string constant for the c++ header parsing. */
   public static final String CPP_HEADER_PARSING = "c++-header-parsing";
   /**
