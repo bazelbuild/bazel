@@ -14,24 +14,23 @@
 
 package com.google.devtools.build.android;
 
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.ParameterException;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.aapt2.Aapt2Exception;
 import com.google.devtools.build.android.resources.JavaIdentifierValidator.InvalidJavaIdentifier;
 import com.google.devtools.build.lib.worker.ProtoWorkerMessageProcessor;
 import com.google.devtools.build.lib.worker.WorkRequestHandler;
-import com.google.devtools.common.options.EnumConverter;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.io.PrintWriter;
+import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
+import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
@@ -155,29 +154,27 @@ public class ResourceProcessorBusyBox {
   private static final Logger logger = Logger.getLogger(ResourceProcessorBusyBox.class.getName());
   private static final Properties properties = loadSiteCustomizations();
 
-  /** Converter for the Tool enum. */
-  public static final class ToolConverter extends EnumConverter<Tool> {
-
-    public ToolConverter() {
-      super(Tool.class, "resource tool");
-    }
-  }
-
   /** Flag specifications for this action. */
-  public static final class Options extends OptionsBase {
-    @Option(
-        name = "tool",
-        defaultValue = "null",
-        converter = ToolConverter.class,
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
+  public static final class Options {
+    @Parameter(
+        names = "--tool",
+        description =
             "The processing tool to execute. "
                 + "Valid tools: GENERATE_BINARY_R, PARSE, "
                 + "GENERATE_AAR, MERGE_MANIFEST, COMPILE_LIBRARY_RESOURCES, "
                 + "LINK_STATIC_LIBRARY, AAPT2_PACKAGE, SHRINK_AAPT2, MERGE_COMPILED.")
     public Tool tool;
+
+    // See https://jcommander.org/#_main_parameter
+    @Parameter() private List<String> residue;
+
+    public Options() {
+      this.residue = new ArrayList<>();
+    }
+
+    public List<String> getResidue() {
+      return residue;
+    }
   }
 
   public static void main(String[] args) throws Exception {
@@ -230,23 +227,33 @@ public class ResourceProcessorBusyBox {
   }
 
   private static int processRequest(List<String> args) throws Exception {
-    OptionsParser optionsParser =
-        OptionsParser.builder()
-            .optionsClasses(Options.class)
-            .allowResidue(true)
-            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
-            .build();
-    Options options;
+    Options options = new Options();
     try {
-      optionsParser.parse(args);
-      options = optionsParser.getOptions(Options.class);
-      options.tool.call(optionsParser.getResidue().toArray(new String[0]));
+      JCommander jc = new JCommander(options);
+      // Handle arg files (start with "@")
+      // NOTE: JCommander handles this automatically, but enabling Main Parameter (aka "residue")
+      // collection seems to disable this behavior. In case that behavior changes in the future,
+      // we'll want to _always_ disable this, since JCommander's handling of escaped quotes in arg
+      // files does not interact well with how the sub-tools handle them.
+      jc.setExpandAtSign(false);
+      if (args.size() == 1 && args.get(0).startsWith("@")) {
+        // Use CompatShellQuotedParamsFilePreProcessor to handle the arg file.
+        FileSystem fs = FileSystems.getDefault();
+        Path argFile = fs.getPath(args.get(0).substring(1));
+        CompatShellQuotedParamsFilePreProcessor paramsFilePreProcessor =
+            new CompatShellQuotedParamsFilePreProcessor(fs);
+        args = paramsFilePreProcessor.preProcess(ImmutableList.of("@" + argFile));
+      }
+      jc.parse(args.toArray(new String[0]));
+      ArrayList<String> residue = new ArrayList<>(options.getResidue());
+
+      options.tool.call(residue.toArray(new String[0]));
     } catch (UserException e) {
       // UserException is for exceptions that shouldn't have stack traces recorded, including
       // AndroidDataMerger.MergeConflictException.
       logger.log(Level.SEVERE, e.getMessage());
       return 1;
-    } catch (OptionsParsingException | IOException | Aapt2Exception | InvalidJavaIdentifier e) {
+    } catch (ParameterException | IOException | Aapt2Exception | InvalidJavaIdentifier e) {
       logSuppressed(e);
       throw e;
     } catch (Exception e) {
