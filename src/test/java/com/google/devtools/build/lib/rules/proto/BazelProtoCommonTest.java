@@ -134,7 +134,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
             [outfile],
             **kwargs)
           return [DefaultInfo(files = depset([outfile]))]
-        generate_rule = rule(_impl,
+        compile_rule = rule(_impl,
           attrs = {
              'proto_dep': attr.label(),
              'plugin_output': attr.string(),
@@ -158,7 +158,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
             'MyRule',
             ctx.attr.proto_dep.label)
           return [BoolProvider(value = result)]
-        should_generate_rule = rule(_impl,
+        should_compile_rule = rule(_impl,
           attrs = {
              'proto_dep': attr.label(),
              'toolchain': attr.label(default = '//foo:toolchain'),
@@ -202,15 +202,17 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         """);
   }
 
-  /** Verifies basic usage of <code>proto_common.generate_code</code>. */
+  // LINT.IfChange
+
+  /** Verifies basic usage of <code>proto_common.compile</code>. */
   @Test
-  public void generateCode_basic() throws Exception {
+  public void protoCommonCompile_basic() throws Exception {
     scratch.file(
         "bar/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//foo:generate.bzl', 'generate_rule')",
+        "load('//foo:generate.bzl', 'compile_rule')",
         "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "generate_rule(name = 'simple', proto_dep = ':proto')");
+        "compile_rule(name = 'simple', proto_dep = ':proto')");
 
     ConfiguredTarget target = getConfiguredTarget("//bar:simple");
 
@@ -225,15 +227,15 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
     assertThat(spawnAction.getProgressMessage()).isEqualTo("Progress Message //bar:simple");
   }
 
-  /** Verifies usage of proto_common.generate_code with no plugin specified by toolchain. */
+  /** Verifies usage of proto_common.compile with no plugin specified by toolchain. */
   @Test
-  public void generateCode_noPlugin() throws Exception {
+  public void protoCommonCompile_noPlugin() throws Exception {
     scratch.file(
         "bar/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//foo:generate.bzl', 'generate_rule')",
+        "load('//foo:generate.bzl', 'compile_rule')",
         "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "generate_rule(name = 'simple', proto_dep = ':proto',",
+        "compile_rule(name = 'simple', proto_dep = ':proto',",
         "  toolchain = '//foo:toolchain_noplugin')");
 
     ConfiguredTarget target = getConfiguredTarget("//bar:simple");
@@ -247,17 +249,17 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
   }
 
   /**
-   * Verifies usage of <code>proto_common.generate_code</code> with <code>plugin_output</code>
-   * parameter set to file.
+   * Verifies usage of <code>proto_common.compile</code> with <code>plugin_output</code> parameter
+   * set to file.
    */
   @Test
-  public void generateCode_withPluginOutput() throws Exception {
+  public void protoCommonCompile_withPluginOutput() throws Exception {
     scratch.file(
         "bar/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//foo:generate.bzl', 'generate_rule')",
+        "load('//foo:generate.bzl', 'compile_rule')",
         "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "generate_rule(name = 'simple', proto_dep = ':proto', plugin_output = 'single')");
+        "compile_rule(name = 'simple', proto_dep = ':proto', plugin_output = 'single')");
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
         "--experimental_platform_in_output_dir",
@@ -279,17 +281,17 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
   }
 
   /**
-   * Verifies usage of <code>proto_common.generate_code</code> with <code>plugin_output</code>
-   * parameter set to directory.
+   * Verifies usage of <code>proto_common.compile</code> with <code>plugin_output</code> parameter
+   * set to directory.
    */
   @Test
-  public void generateCode_withDirectoryPluginOutput() throws Exception {
+  public void protoCommonCompile_withDirectoryPluginOutput() throws Exception {
     scratch.file(
         "bar/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//foo:generate.bzl', 'generate_rule')",
+        "load('//foo:generate.bzl', 'compile_rule')",
         "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "generate_rule(name = 'simple', proto_dep = ':proto', plugin_output = 'multiple')");
+        "compile_rule(name = 'simple', proto_dep = ':proto', plugin_output = 'multiple')");
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
         "--experimental_platform_in_output_dir",
@@ -312,17 +314,17 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
   }
 
   /**
-   * Verifies usage of <code>proto_common.generate_code</code> with <code>additional_args</code>
+   * Verifies usage of <code>proto_common.compile</code> with <code>additional_args</code>
    * parameter.
    */
   @Test
-  public void generateCode_additionalArgs() throws Exception {
+  public void protoCommonCompile_additionalArgs() throws Exception {
     scratch.file(
         "bar/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//foo:generate.bzl', 'generate_rule')",
+        "load('//foo:generate.bzl', 'compile_rule')",
         "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "generate_rule(name = 'simple', proto_dep = ':proto', additional_args = ['--a', '--b'])");
+        "compile_rule(name = 'simple', proto_dep = ':proto', additional_args = ['--a', '--b'])");
 
     ConfiguredTarget target = getConfiguredTarget("//bar:simple");
 
@@ -340,19 +342,19 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
   }
 
   /**
-   * Verifies usage of <code>proto_common.generate_code</code> with <code>additional_tools</code>
+   * Verifies usage of <code>proto_common.compile</code> with <code>additional_tools</code>
    * parameter.
    */
   @Test
-  public void generateCode_additionalTools() throws Exception {
+  public void protoCommonCompile_additionalTools() throws Exception {
     scratch.file(
         "bar/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//foo:generate.bzl', 'generate_rule')",
+        "load('//foo:generate.bzl', 'compile_rule')",
         "proto_library(name = 'proto', srcs = ['A.proto'])",
         "cc_binary(name = 'tool1', srcs = ['tool1.cc'])",
         "cc_binary(name = 'tool2', srcs = ['tool2.cc'])",
-        "generate_rule(name = 'simple', proto_dep = ':proto',",
+        "compile_rule(name = 'simple', proto_dep = ':proto',",
         "  additional_tools = [':tool1', ':tool2'])");
 
     ConfiguredTarget target = getConfiguredTarget("//bar:simple");
@@ -363,19 +365,19 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
   }
 
   /**
-   * Verifies usage of <code>proto_common.generate_code</code> with <code>additional_tools</code>
+   * Verifies usage of <code>proto_common.compile</code> with <code>additional_tools</code>
    * parameter and no plugin on the toolchain.
    */
   @Test
-  public void generateCode_additionalToolsNoPlugin() throws Exception {
+  public void protoCommonCompile_additionalToolsNoPlugin() throws Exception {
     scratch.file(
         "bar/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//foo:generate.bzl', 'generate_rule')",
+        "load('//foo:generate.bzl', 'compile_rule')",
         "proto_library(name = 'proto', srcs = ['A.proto'])",
         "cc_binary(name = 'tool1', srcs = ['tool1.cc'])",
         "cc_binary(name = 'tool2', srcs = ['tool2.cc'])",
-        "generate_rule(name = 'simple',",
+        "compile_rule(name = 'simple',",
         "  proto_dep = ':proto',",
         "  additional_tools = [':tool1', ':tool2'],",
         "  toolchain = '//foo:toolchain_noplugin',",
@@ -389,17 +391,17 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
   }
 
   /**
-   * Verifies usage of <code>proto_common.generate_code</code> with <code>additional_inputs</code>
+   * Verifies usage of <code>proto_common.compile</code> with <code>additional_inputs</code>
    * parameter.
    */
   @Test
-  public void generateCode_additionalInputs() throws Exception {
+  public void protoCommonCompile_additionalInputs() throws Exception {
     scratch.file(
         "bar/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//foo:generate.bzl', 'generate_rule')",
+        "load('//foo:generate.bzl', 'compile_rule')",
         "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "generate_rule(name = 'simple', proto_dep = ':proto',",
+        "compile_rule(name = 'simple', proto_dep = ':proto',",
         "  additional_inputs = [':input1.txt', ':input2.txt'])");
 
     ConfiguredTarget target = getConfiguredTarget("//bar:simple");
@@ -410,17 +412,16 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
   }
 
   /**
-   * Verifies usage of <code>proto_common.generate_code</code> with <code>resource_set</code>
-   * parameter.
+   * Verifies usage of <code>proto_common.compile</code> with <code>resource_set</code> parameter.
    */
   @Test
-  public void generateCode_resourceSet() throws Exception {
+  public void protoCommonCompile_resourceSet() throws Exception {
     scratch.file(
         "bar/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//foo:generate.bzl', 'generate_rule')",
+        "load('//foo:generate.bzl', 'compile_rule')",
         "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "generate_rule(name = 'simple', proto_dep = ':proto', use_resource_set = True)");
+        "compile_rule(name = 'simple', proto_dep = ':proto', use_resource_set = True)");
 
     ConfiguredTarget target = getConfiguredTarget("//bar:simple");
 
@@ -433,14 +434,14 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
 
   /** Verifies <code>--protocopts</code> are passed to command line. */
   @Test
-  public void generateCode_protocOpts() throws Exception {
+  public void protoCommonCompile_protocOpts() throws Exception {
     useConfiguration("--protocopt=--foo", "--protocopt=--bar");
     scratch.file(
         "bar/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//foo:generate.bzl', 'generate_rule')",
+        "load('//foo:generate.bzl', 'compile_rule')",
         "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "generate_rule(name = 'simple', proto_dep = ':proto')");
+        "compile_rule(name = 'simple', proto_dep = ':proto')");
 
     ConfiguredTarget target = getConfiguredTarget("//bar:simple");
 
@@ -458,18 +459,18 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
   }
 
   /**
-   * Verifies <code>proto_common.generate_code</code> correctly handles direct generated <code>
+   * Verifies <code>proto_common.compile</code> correctly handles direct generated <code>
    * .proto</code> files.
    */
   @Test
-  public void generateCode_directGeneratedProtos() throws Exception {
+  public void protoCommonCompile_directGeneratedProtos() throws Exception {
     scratch.file(
         "bar/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//foo:generate.bzl', 'generate_rule')",
+        "load('//foo:generate.bzl', 'compile_rule')",
         "genrule(name = 'generate', srcs = ['A.txt'], cmd = '', outs = ['G.proto'])",
         "proto_library(name = 'proto', srcs = ['A.proto', 'G.proto'])",
-        "generate_rule(name = 'simple', proto_dep = ':proto')");
+        "compile_rule(name = 'simple', proto_dep = ':proto')");
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
         "--experimental_platform_in_output_dir",
@@ -493,19 +494,19 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
   }
 
   /**
-   * Verifies <code>proto_common.generate_code</code> correctly handles in-direct generated <code>
+   * Verifies <code>proto_common.compile</code> correctly handles in-direct generated <code>
    * .proto</code> files.
    */
   @Test
-  public void generateCode_inDirectGeneratedProtos() throws Exception {
+  public void protoCommonCompile_inDirectGeneratedProtos() throws Exception {
     scratch.file(
         "bar/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//foo:generate.bzl', 'generate_rule')",
+        "load('//foo:generate.bzl', 'compile_rule')",
         "genrule(name = 'generate', srcs = ['A.txt'], cmd = '', outs = ['G.proto'])",
         "proto_library(name = 'generated', srcs = ['G.proto'])",
         "proto_library(name = 'proto', srcs = ['A.proto'], deps = [':generated'])",
-        "generate_rule(name = 'simple', proto_dep = ':proto')");
+        "compile_rule(name = 'simple', proto_dep = ':proto')");
 
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
@@ -528,8 +529,10 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         .inOrder();
   }
 
+  // LINT.ThenChange(@protobuf/github/bazel/tests/proto_common_compile_tests.bzl)
+
   /**
-   * Verifies <code>proto_common.generate_code</code> correctly handles external <code>proto_library
+   * Verifies <code>proto_common.compile</code> correctly handles external <code>proto_library
    * </code>-es.
    */
   @Test
@@ -540,7 +543,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
     "{sibling: true, generated: false,expectedFlags:" + " ['-I../foo']}",
     "{sibling: true, generated: true, expectedFlags:" + " ['-Ibl?azel?-out/foo/k8-fastbuild/bin']}",
   })
-  public void generateCode_externalProtoLibrary(
+  public void protoCommonCompile_externalProtoLibrary(
       boolean sibling, boolean generated, List<String> expectedFlags) throws Exception {
     if (sibling) {
       setBuildLanguageOptions("--experimental_sibling_repository_layout");
@@ -558,9 +561,9 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
     scratch.file(
         "bar/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//foo:generate.bzl', 'generate_rule')",
+        "load('//foo:generate.bzl', 'compile_rule')",
         "proto_library(name = 'proto', srcs = ['A.proto'], deps = ['@foo//e:e'])",
-        "generate_rule(name = 'simple', proto_dep = ':proto')");
+        "compile_rule(name = 'simple', proto_dep = ':proto')");
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
         "--experimental_platform_in_output_dir",
@@ -584,13 +587,13 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
 
   /** Verifies <code>experimental_progress_message</code> parameters. */
   @Test
-  public void generateCode_overrideProgressMessage() throws Exception {
+  public void protoCommonCompile_overrideProgressMessage() throws Exception {
     scratch.file(
         "bar/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//foo:generate.bzl', 'generate_rule')",
+        "load('//foo:generate.bzl', 'compile_rule')",
         "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "generate_rule(name = 'simple', proto_dep = ':proto', progress_message = 'My %{label}')");
+        "compile_rule(name = 'simple', proto_dep = ':proto', progress_message = 'My %{label}')");
 
     ConfiguredTarget target = getConfiguredTarget("//bar:simple");
 
@@ -607,13 +610,13 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
 
   /** Verifies <code>proto_common.should_generate_code</code> call. */
   @Test
-  public void shouldGenerateCode_basic() throws Exception {
+  public void shouldprotoCommonCompile_basic() throws Exception {
     scratch.file(
         "bar/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//foo:should_generate.bzl', 'should_generate_rule')",
+        "load('//foo:should_generate.bzl', 'should_compile_rule')",
         "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "should_generate_rule(name = 'simple', proto_dep = ':proto')");
+        "should_compile_rule(name = 'simple', proto_dep = ':proto')");
 
     ConfiguredTarget target = getConfiguredTarget("//bar:simple");
 
@@ -623,12 +626,12 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
 
   /** Verifies <code>proto_common.should_generate_code</code> call. */
   @Test
-  public void shouldGenerateCode_dontGenerate() throws Exception {
+  public void shouldprotoCommonCompile_dontGenerate() throws Exception {
     scratch.file(
         "bar/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//foo:should_generate.bzl', 'should_generate_rule')",
-        "should_generate_rule(name = 'simple', proto_dep = '//third_party/x:denied')");
+        "load('//foo:should_generate.bzl', 'should_compile_rule')",
+        "should_compile_rule(name = 'simple', proto_dep = '//third_party/x:denied')");
 
     ConfiguredTarget target = getConfiguredTarget("//bar:simple");
 
@@ -638,12 +641,12 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
 
   /** Verifies <code>proto_common.should_generate_code</code> call. */
   @Test
-  public void shouldGenerateCode_mixed() throws Exception {
+  public void shouldprotoCommonCompile_mixed() throws Exception {
     scratch.file(
         "bar/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//foo:should_generate.bzl', 'should_generate_rule')",
-        "should_generate_rule(name = 'simple', proto_dep = '//third_party/x:mixed')");
+        "load('//foo:should_generate.bzl', 'should_compile_rule')",
+        "should_compile_rule(name = 'simple', proto_dep = '//third_party/x:mixed')");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//bar:simple");
