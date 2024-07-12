@@ -16,15 +16,12 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import java.util.Comparator;
 import java.util.List;
-import net.starlark.java.eval.StarlarkSemantics;
 
 /** A module name, version pair that identifies a module in the external dependency graph. */
 @AutoValue
@@ -82,13 +79,8 @@ public abstract class ModuleKey {
    *
    * <p>This method must not be called if the module has a {@link NonRegistryOverride}.
    */
-  public RepositoryName getCanonicalRepoNameWithVersion(StarlarkSemantics semantics) {
-    return getCanonicalRepoName(/* includeVersion= */ true, semantics);
-  }
-
-  @VisibleForTesting
-  public RepositoryName getCanonicalRepoNameWithVersionForTesting() {
-    return getCanonicalRepoNameWithVersion(StarlarkSemantics.DEFAULT);
+  public RepositoryName getCanonicalRepoNameWithVersion() {
+    return getCanonicalRepoName(/* includeVersion= */ true);
   }
 
   /**
@@ -96,41 +88,32 @@ public abstract class ModuleKey {
    * only guaranteed to be unique when there is a single version of the module in the entire dep
    * graph.
    */
-  public RepositoryName getCanonicalRepoNameWithoutVersion(StarlarkSemantics semantics) {
-    return getCanonicalRepoName(/* includeVersion= */ false, semantics);
+  public RepositoryName getCanonicalRepoNameWithoutVersion() {
+    return getCanonicalRepoName(/* includeVersion= */ false);
   }
 
-  @VisibleForTesting
-  public RepositoryName getCanonicalRepoNameWithoutVersionForTesting() {
-    return getCanonicalRepoNameWithoutVersion(StarlarkSemantics.DEFAULT);
-  }
-
-  private RepositoryName getCanonicalRepoName(boolean includeVersion, StarlarkSemantics semantics) {
+  private RepositoryName getCanonicalRepoName(boolean includeVersion) {
     if (WELL_KNOWN_MODULES.containsKey(getName())) {
       return WELL_KNOWN_MODULES.get(getName());
     }
     if (ROOT.equals(this)) {
       return RepositoryName.MAIN;
     }
-    boolean usePlus = semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_USE_PLUS_IN_REPO_NAMES);
     String suffix;
     if (includeVersion) {
       // getVersion().isEmpty() is true only for modules with non-registry overrides, which enforce
       // that there is a single version of the module in the dep graph.
       Preconditions.checkState(!getVersion().isEmpty());
-      // When using `~` as the separator, prepend "v" to prevent canonical repo names, which form
-      // segments of file paths, from looking like a Windows short path. Such paths segments would
-      // incur additional file IO during analysis (see WindowsShortPath).
-      suffix = usePlus ? getVersion().toString() : "v" + getVersion().toString();
+      suffix = getVersion().toString();
     } else {
-      // This results in canonical repository names such as `rules_foo~` for the module `rules_foo`.
+      // This results in canonical repository names such as `rules_foo+` for the module `rules_foo`.
       // This particular format is chosen since:
-      // * The tilde ensures that canonical and apparent repository names can be distinguished even
+      // * The plus ensures that canonical and apparent repository names can be distinguished even
       //   in contexts where users don't rely on `@` vs. `@@` to distinguish between them. For
       //   example, this means that the repo mapping as applied by runfiles libraries is idempotent.
-      // * Appending a tilde even in the case of a unique version means that module repository
-      //   names always contain the same number of tilde-separated components, which improves
-      //   compatibility with existing logic based on the `rules_foo~1.2.3` format.
+      // * Appending a plus even in the case of a unique version means that module repository
+      //   names always contain the same number of plus-separated components, which improves
+      //   compatibility with existing logic based on the `rules_foo+1.2.3` format.
       // * By making it so that the module name and the canonical repository name of a module are
       //   never identical, even when using an override, we introduce "grease" that intentionally
       //   tickles bugs in code that doesn't properly distinguish between the two, e.g., by not
@@ -139,8 +122,7 @@ public abstract class ModuleKey {
       //   rarely used.
       suffix = "";
     }
-    return RepositoryName.createUnvalidated(
-        String.format("%s%c%s", getName(), usePlus ? '+' : '~', suffix));
+    return RepositoryName.createUnvalidated(String.format("%s+%s", getName(), suffix));
   }
 
   public static ModuleKey fromString(String s) throws Version.ParseException {

@@ -482,8 +482,7 @@ public class ModuleFileFunction implements SkyFunction {
                     // A module with a non-registry override always has a unique version across the
                     // entire dep graph.
                     name ->
-                        ModuleKey.create(name, Version.EMPTY)
-                            .getCanonicalRepoNameWithoutVersion(starlarkSemantics),
+                        ModuleKey.create(name, Version.EMPTY).getCanonicalRepoNameWithoutVersion(),
                     name -> name));
     ImmutableSet<PathFragment> moduleFilePaths =
         Stream.concat(
@@ -564,7 +563,7 @@ public class ModuleFileFunction implements SkyFunction {
     if (override instanceof NonRegistryOverride) {
       // A module with a non-registry override always has a unique version across the entire dep
       // graph.
-      RepositoryName canonicalRepoName = key.getCanonicalRepoNameWithoutVersion(starlarkSemantics);
+      RepositoryName canonicalRepoName = key.getCanonicalRepoNameWithoutVersion();
       RepositoryDirectoryValue repoDir =
           (RepositoryDirectoryValue) env.getValue(RepositoryDirectoryValue.key(canonicalRepoName));
       if (repoDir == null) {

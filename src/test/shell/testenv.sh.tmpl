@@ -1022,7 +1022,7 @@ function override_java_tools() {
   JAVA_TOOLS_ZIP="$1"; shift
   JAVA_TOOLS_PREBUILT_ZIP="$1"; shift
 
-  JAVA_TOOLS_REPO_PREFIX="${RULES_JAVA_REPO_NAME}~toolchains~"
+  JAVA_TOOLS_REPO_PREFIX="${RULES_JAVA_REPO_NAME}+toolchains+"
 
   if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
     JAVA_TOOLS_ZIP_FILE="$(rlocation "${JAVA_TOOLS_ZIP}")"

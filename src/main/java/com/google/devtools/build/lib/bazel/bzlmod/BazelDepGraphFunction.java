@@ -33,9 +33,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.LabelConverter;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -44,7 +42,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map.Entry;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * This function runs Bazel module resolution, extracts the dependency graph from it and creates a
@@ -61,14 +58,13 @@ public class BazelDepGraphFunction implements SkyFunction {
       throws BazelDepGraphFunctionException, InterruptedException {
     BazelModuleResolutionValue selectionResult =
         (BazelModuleResolutionValue) env.getValue(BazelModuleResolutionValue.KEY);
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (env.valuesMissing()) {
       return null;
     }
     var depGraph = selectionResult.getResolvedDepGraph();
 
     ImmutableBiMap<RepositoryName, ModuleKey> canonicalRepoNameLookup =
-        computeCanonicalRepoNameLookup(depGraph, starlarkSemantics);
+        computeCanonicalRepoNameLookup(depGraph);
     ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById;
     try {
       extensionUsagesById = getExtensionUsagesById(depGraph, canonicalRepoNameLookup.inverse());
@@ -77,17 +73,14 @@ public class BazelDepGraphFunction implements SkyFunction {
     }
 
     ImmutableBiMap<String, ModuleExtensionId> extensionUniqueNames =
-        calculateUniqueNameForUsedExtensionId(extensionUsagesById, starlarkSemantics);
+        calculateUniqueNameForUsedExtensionId(extensionUsagesById);
 
     return BazelDepGraphValue.create(
         depGraph,
         canonicalRepoNameLookup,
         depGraph.values().stream().map(AbridgedModule::from).collect(toImmutableList()),
         extensionUsagesById,
-        extensionUniqueNames.inverse(),
-        starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_USE_PLUS_IN_REPO_NAMES)
-            ? '+'
-            : '~');
+        extensionUniqueNames.inverse());
   }
 
   private static ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
@@ -133,7 +126,7 @@ public class BazelDepGraphFunction implements SkyFunction {
   }
 
   private static ImmutableBiMap<RepositoryName, ModuleKey> computeCanonicalRepoNameLookup(
-      ImmutableMap<ModuleKey, Module> depGraph, StarlarkSemantics semantics) {
+      ImmutableMap<ModuleKey, Module> depGraph) {
     // Find modules with multiple versions in the dep graph. Currently, the only source of such
     // modules is multiple_version_override.
     ImmutableSet<String> multipleVersionsModules =
@@ -158,62 +151,49 @@ public class BazelDepGraphFunction implements SkyFunction {
             toImmutableBiMap(
                 key ->
                     multipleVersionsModules.contains(key.getName())
-                        ? key.getCanonicalRepoNameWithVersion(semantics)
-                        : key.getCanonicalRepoNameWithoutVersion(semantics),
+                        ? key.getCanonicalRepoNameWithVersion()
+                        : key.getCanonicalRepoNameWithoutVersion(),
                 key -> key));
   }
 
   private ImmutableBiMap<String, ModuleExtensionId> calculateUniqueNameForUsedExtensionId(
-      ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById,
-      StarlarkSemantics starlarkSemantics) {
+      ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById) {
     // Calculate a unique name for each used extension id with the following property that is
     // required for BzlmodRepoRuleFunction to unambiguously identify the extension that generates a
     // given repo:
-    // After appending a single `~` to each such name, none of the resulting strings is a prefix of
+    // After appending a single `+` to each such name, none of the resulting strings is a prefix of
     // any other such string.
     BiMap<String, ModuleExtensionId> extensionUniqueNames = HashBiMap.create();
     for (ModuleExtensionId id : extensionUsagesById.rowKeySet()) {
       int attempt = 1;
-      while (extensionUniqueNames.putIfAbsent(
-              makeUniqueNameCandidate(id, attempt, starlarkSemantics), id)
-          != null) {
+      while (extensionUniqueNames.putIfAbsent(makeUniqueNameCandidate(id, attempt), id) != null) {
         attempt++;
       }
     }
     return ImmutableBiMap.copyOf(extensionUniqueNames);
   }
 
-  private static String makeUniqueNameCandidate(
-      ModuleExtensionId id, int attempt, StarlarkSemantics starlarkSemantics) {
-    boolean usePlus =
-        starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_USE_PLUS_IN_REPO_NAMES);
-    // Ensure that the resulting extension name (and thus the repository names derived from it) do
-    // not start with a tilde.
-    RepositoryName repository = id.getBzlFileLabel().getRepository();
-    String nonEmptyRepoPart = repository.isMain() && !usePlus ? "_main" : repository.getName();
-    // When using a namespace, prefix the extension name with "_" to distinguish the prefix from
-    // those generated by non-namespaced extension usages. Extension names are identified by their
-    // Starlark identifier, which in the case of an exported symbol cannot start with "_".
+  private static String makeUniqueNameCandidate(ModuleExtensionId id, int attempt) {
     Preconditions.checkArgument(attempt >= 1);
     String extensionNameDisambiguator = attempt == 1 ? "" : String.valueOf(attempt);
-    // Avoid emitting unique names that resemble Windows short paths as those can cause additional
-    // file IO during analysis (see WindowsShortPath). In both cases, the final tilde is followed
-    // by a Starlark identifier (either the exported name of the usage or the extension name),
-    // neither of which can start with a digit.
     return id.getIsolationKey()
         .map(
-            namespace ->
+            isolationKey ->
                 String.format(
-                    usePlus ? "%s+_%s%s+%s+%s+%s" : "%s~_%s%s~%s~%s~%s",
-                    nonEmptyRepoPart,
+                    // When using an isolation key, prefix the extension name with "_" to
+                    // distinguish the prefix from those generated by non-isolated extension usages.
+                    // Extension names are identified by their Starlark identifier, which in the
+                    // case of an exported symbol cannot start with "_".
+                    "%s+_%s%s+%s+%s+%s",
+                    id.getBzlFileLabel().getRepository().getName(),
                     id.getExtensionName(),
                     extensionNameDisambiguator,
-                    namespace.getModule().getName(),
-                    namespace.getModule().getVersion(),
-                    namespace.getUsageExportedName()))
+                    isolationKey.getModule().getName(),
+                    isolationKey.getModule().getVersion(),
+                    isolationKey.getUsageExportedName()))
         .orElse(
-            nonEmptyRepoPart
-                + (usePlus ? "+" : "~")
+            id.getBzlFileLabel().getRepository().getName()
+                + "+"
                 + id.getExtensionName()
                 + extensionNameDisambiguator);
   }

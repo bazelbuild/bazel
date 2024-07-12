@@ -1,5 +1,5 @@
 {
-  "lockFileVersion": 11,
+  "lockFileVersion": 12,
   "registryFileHashes": {
     "https://bcr.bazel.build/bazel_registry.json": "8a28e4aff06ee60aed2a8c281907fb8bcbf3b753c91fb5a5c57da3215d5b3497",
     "https://bcr.bazel.build/modules/abseil-cpp/20210324.2/MODULE.bazel": "7cd0312e064fde87c8d1cd79ba06c876bd23630c83466e9500321be55c96ace2",
@@ -76,12 +76,12 @@
         "recordedRepoMappingEntries": []
       }
     },
-    "@@rules_jvm_external~//:extensions.bzl%maven": {
+    "@@rules_jvm_external+//:extensions.bzl%maven": {
       "general": {
         "bzlTransitiveDigest": "ktqZUWl2nBo/3HEhakOj9tfmT3+/Z90z7ldq8XwxYnE=",
         "usagesDigest": "UPebZtX4g40+QepdK3oMHged0o0tq6ojKbW84wE6XRA=",
         "recordedFileInputs": {
-          "@@rules_jvm_external~//rules_jvm_external_deps_install.json": "10442a5ae27d9ff4c2003e5ab71643bf0d8b48dcf968b4173fa274c3232a8c06"
+          "@@rules_jvm_external+//rules_jvm_external_deps_install.json": "10442a5ae27d9ff4c2003e5ab71643bf0d8b48dcf968b4173fa274c3232a8c06"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -339,7 +339,7 @@
             }
           },
           "rules_jvm_external_deps": {
-            "bzlFile": "@@rules_jvm_external~//:coursier.bzl",
+            "bzlFile": "@@rules_jvm_external+//:coursier.bzl",
             "ruleClassName": "pinned_coursier_fetch",
             "attributes": {
               "repositories": [
@@ -355,7 +355,7 @@
               "fetch_sources": true,
               "fetch_javadoc": false,
               "generate_compat_repositories": false,
-              "maven_install_json": "@@rules_jvm_external~//:rules_jvm_external_deps_install.json",
+              "maven_install_json": "@@rules_jvm_external+//:rules_jvm_external_deps_install.json",
               "override_targets": {},
               "strict_visibility": false,
               "strict_visibility_value": [
@@ -433,7 +433,7 @@
             }
           },
           "maven": {
-            "bzlFile": "@@rules_jvm_external~//:coursier.bzl",
+            "bzlFile": "@@rules_jvm_external+//:coursier.bzl",
             "ruleClassName": "coursier_fetch",
             "attributes": {
               "repositories": [
@@ -701,7 +701,7 @@
             }
           },
           "unpinned_rules_jvm_external_deps": {
-            "bzlFile": "@@rules_jvm_external~//:coursier.bzl",
+            "bzlFile": "@@rules_jvm_external+//:coursier.bzl",
             "ruleClassName": "coursier_fetch",
             "attributes": {
               "repositories": [
@@ -726,7 +726,7 @@
               "strict_visibility_value": [
                 "@@//visibility:private"
               ],
-              "maven_install_json": "@@rules_jvm_external~//:rules_jvm_external_deps_install.json",
+              "maven_install_json": "@@rules_jvm_external+//:rules_jvm_external_deps_install.json",
               "resolve_timeout": 600,
               "jetify": false,
               "jetify_include_list": [
@@ -1088,19 +1088,19 @@
         },
         "recordedRepoMappingEntries": [
           [
-            "rules_jvm_external~",
+            "rules_jvm_external+",
             "bazel_tools",
             "bazel_tools"
           ],
           [
-            "rules_jvm_external~",
+            "rules_jvm_external+",
             "rules_jvm_external",
-            "rules_jvm_external~"
+            "rules_jvm_external+"
           ]
         ]
       }
     },
-    "@@rules_jvm_external~//:non-module-deps.bzl%non_module_deps": {
+    "@@rules_jvm_external+//:non-module-deps.bzl%non_module_deps": {
       "general": {
         "bzlTransitiveDigest": "4VF2Z/DNZaLHTP3izo0uTvnjS8it3dSViL5+ack4ogE=",
         "usagesDigest": "bTG4ItERqhG1LeSs62hQ01DiMarFsflWgpZaghM5qik=",
@@ -1121,14 +1121,14 @@
         },
         "recordedRepoMappingEntries": [
           [
-            "rules_jvm_external~",
+            "rules_jvm_external+",
             "bazel_tools",
             "bazel_tools"
           ]
         ]
       }
     },
-    "@@rules_python~//python/extensions:python.bzl%python": {
+    "@@rules_python+//python/extensions:python.bzl%python": {
       "general": {
         "bzlTransitiveDigest": "e3ZmjG1ZEg3xSbspFPC5afi43pqfpAU89V2ghTtcNug=",
         "usagesDigest": "7vjNHuEgQORYN9+9/77Q4zw1kawobM2oCQb9p0uhL68=",
@@ -1137,7 +1137,7 @@
         "envVariables": {},
         "generatedRepoSpecs": {
           "pythons_hub": {
-            "bzlFile": "@@rules_python~//python/extensions/private:interpreter_hub.bzl",
+            "bzlFile": "@@rules_python+//python/extensions/private:interpreter_hub.bzl",
             "ruleClassName": "hub_repo",
             "attributes": {
               "toolchains": []
@@ -1146,19 +1146,19 @@
         },
         "recordedRepoMappingEntries": [
           [
-            "rules_python~",
+            "rules_python+",
             "bazel_tools",
             "bazel_tools"
           ],
           [
-            "rules_python~",
+            "rules_python+",
             "rules_python",
-            "rules_python~"
+            "rules_python+"
           ]
         ]
       }
     },
-    "@@rules_python~//python/extensions/private:internal_deps.bzl%internal_deps": {
+    "@@rules_python+//python/extensions/private:internal_deps.bzl%internal_deps": {
       "general": {
         "bzlTransitiveDigest": "f4sn8DF0csno6nVTa/bU1ixR43r+jYeZRRCD3xniTxQ=",
         "usagesDigest": "b+nMDqtqPCBxiMBewNNde3aNjzKqZyvJuN5/49xB62s=",
@@ -1175,7 +1175,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~//python/private:coverage.patch"
+                "@@rules_python+//python/private:coverage.patch"
               ],
               "sha256": "95203854f974e07af96358c0b261f1048d8e1083f2de9b1c565e1be4a3a48cfc",
               "type": "zip",
@@ -1193,7 +1193,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~//python/private:coverage.patch"
+                "@@rules_python+//python/private:coverage.patch"
               ],
               "sha256": "6c4459b3de97b75e3bd6b7d4b7f0db13f17f504f3d13e2a7c623786289dd670e",
               "type": "zip",
@@ -1221,7 +1221,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~//python/private:coverage.patch"
+                "@@rules_python+//python/private:coverage.patch"
               ],
               "sha256": "af4fffaffc4067232253715065e30c5a7ec6faac36f8fc8d6f64263b15f74db0",
               "type": "zip",
@@ -1239,7 +1239,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~//python/private:coverage.patch"
+                "@@rules_python+//python/private:coverage.patch"
               ],
               "sha256": "4a5375e28c5191ac38cca59b38edd33ef4cc914732c916f2929029b4bfb50795",
               "type": "zip",
@@ -1257,7 +1257,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~//python/private:coverage.patch"
+                "@@rules_python+//python/private:coverage.patch"
               ],
               "sha256": "b4a5be1748d538a710f87542f22c2cad22f80545a847ad91ce45e77417293eb4",
               "type": "zip",
@@ -1275,7 +1275,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~//python/private:coverage.patch"
+                "@@rules_python+//python/private:coverage.patch"
               ],
               "sha256": "b9023e237f4c02ff739581ef35969c3739445fb059b060ca51771e69101efffe",
               "type": "zip",
@@ -1293,7 +1293,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~//python/private:coverage.patch"
+                "@@rules_python+//python/private:coverage.patch"
               ],
               "sha256": "784f53ebc9f3fd0e2a3f6a78b2be1bd1f5575d7863e10c6e12504f240fd06660",
               "type": "zip",
@@ -1321,7 +1321,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~//python/private:coverage.patch"
+                "@@rules_python+//python/private:coverage.patch"
               ],
               "sha256": "d900bb429fdfd7f511f868cedd03a6bbb142f3f9118c09b99ef8dc9bf9643c3c",
               "type": "zip",
@@ -1339,7 +1339,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~//python/private:coverage.patch"
+                "@@rules_python+//python/private:coverage.patch"
               ],
               "sha256": "a8fb6cf131ac4070c9c5a3e21de0f7dc5a0fbe8bc77c9456ced896c12fcdad91",
               "type": "zip",
@@ -1367,7 +1367,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~//python/private:coverage.patch"
+                "@@rules_python+//python/private:coverage.patch"
               ],
               "sha256": "633713d70ad6bfc49b34ead4060531658dc6dfc9b3eb7d8a716d5873377ab745",
               "type": "zip",
@@ -1395,7 +1395,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~//python/private:coverage.patch"
+                "@@rules_python+//python/private:coverage.patch"
               ],
               "sha256": "c4ed2820d919351f4167e52425e096af41bfabacb1857186c1ea32ff9983ed75",
               "type": "zip",
@@ -1423,7 +1423,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~//python/private:coverage.patch"
+                "@@rules_python+//python/private:coverage.patch"
               ],
               "sha256": "8f830ed581b45b82451a40faabb89c84e1a998124ee4212d440e9c6cf70083e5",
               "type": "zip",
@@ -1461,7 +1461,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~//python/private:coverage.patch"
+                "@@rules_python+//python/private:coverage.patch"
               ],
               "sha256": "6b07130585d54fe8dff3d97b93b0e20290de974dc8177c320aeaf23459219c0b",
               "type": "zip",
@@ -1479,7 +1479,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~//python/private:coverage.patch"
+                "@@rules_python+//python/private:coverage.patch"
               ],
               "sha256": "2198ea6fc548de52adc826f62cb18554caedfb1d26548c1b7c88d8f7faa8f6ba",
               "type": "zip",
@@ -1547,7 +1547,7 @@
                 "-p1"
               ],
               "patches": [
-                "@@rules_python~//python/private:coverage.patch"
+                "@@rules_python+//python/private:coverage.patch"
               ],
               "sha256": "ef8674b0ee8cc11e2d574e3e2998aea5df5ab242e012286824ea3c6970580e53",
               "type": "zip",
@@ -1579,19 +1579,19 @@
         },
         "recordedRepoMappingEntries": [
           [
-            "rules_python~",
+            "rules_python+",
             "bazel_skylib",
-            "bazel_skylib~"
+            "bazel_skylib+"
           ],
           [
-            "rules_python~",
+            "rules_python+",
             "bazel_tools",
             "bazel_tools"
           ],
           [
-            "rules_python~",
+            "rules_python+",
             "rules_python",
-            "rules_python~"
+            "rules_python+"
           ]
         ]
       }

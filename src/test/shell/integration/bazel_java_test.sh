@@ -75,16 +75,16 @@ EOF
   # We expect the given host_javabase does not appear in the command line of
   # java_library actions.
   bazel aquery --output=text --tool_java_runtime_version='host_javabase' //java:javalib >& $TEST_log
-  expect_log "exec external/rules_java~.*~toolchains~${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
+  expect_log "exec external/rules_java+.*+toolchains+${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
   expect_not_log "exec external/host_javabase/bin/java"
 
   # If we don't specify anything, we expect the remote JDK to be used.
   bazel aquery --output=text //java:javalib >& $TEST_log
   expect_not_log "exec external/embedded_jdk/bin/java"
-  expect_log "exec external/rules_java~.*~toolchains~${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
+  expect_log "exec external/rules_java+.*+toolchains+${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
 
   bazel aquery --output=text --java_runtime_version='host_javabase' //java:javalib >& $TEST_log
-  expect_log "exec external/rules_java~.*~toolchains~${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
+  expect_log "exec external/rules_java+.*+toolchains+${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
   expect_not_log "exec external/host_javabase/bin/java"
 }
 
@@ -106,13 +106,13 @@ EOF
   touch foobar/bin/java
 
   bazel aquery --output=text --java_language_version=8  //java:javalib >& $TEST_log
-  expect_log "exec external/rules_java~.*~toolchains~${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
+  expect_log "exec external/rules_java+.*+toolchains+${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
 
   bazel aquery --output=text --java_language_version=11  //java:javalib >& $TEST_log
-  expect_log "exec external/rules_java~.*~toolchains~${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
+  expect_log "exec external/rules_java+.*+toolchains+${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
 
   bazel aquery --output=text  --java_language_version=17 //java:javalib >& $TEST_log
-  expect_log "exec external/rules_java~.*~toolchains~${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
+  expect_log "exec external/rules_java+.*+toolchains+${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
 }
 
 # Javabuilder shall be executed using JDK defined in java_toolchain's java_runtime attribute, not tool_java_runtime.
@@ -159,21 +159,21 @@ EOF
   # We expect the given host_javabase does not appear in the command line of
   # java_library actions.
   bazel aquery --output=text --tool_java_runtime_version='host_javabase' 'deps(//java:sample,1)' >& $TEST_log
-  expect_log "exec external/rules_java~.*~toolchains~${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
+  expect_log "exec external/rules_java+.*+toolchains+${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
   expect_not_log "exec external/host_javabase/bin/java"
 
   # If we don't specify anything, we expect the remote JDK to be used.
   # Note that this will change in the future but is the current state.
   bazel aquery --output=text 'deps(//java:sample,1)' >& $TEST_log
   expect_not_log "exec external/embedded_jdk/bin/java"
-  expect_log "exec external/rules_java~.*~toolchains~${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
+  expect_log "exec external/rules_java+.*+toolchains+${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
 
   bazel aquery --output=text --tool_java_runtime_version='host_javabase' 'deps(//java:sample,1)' >& $TEST_log
-  expect_log "exec external/rules_java~.*~toolchains~${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
+  expect_log "exec external/rules_java+.*+toolchains+${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
   expect_not_log "exec external/host_javabase/bin/java"
 
   bazel aquery --output=text --tool_java_language_version=17 --tool_java_runtime_version='host_javabase' 'deps(//java:sample,1)' >& $TEST_log
-  expect_log "exec external/rules_java~.*~toolchains~${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
+  expect_log "exec external/rules_java+.*+toolchains+${DEFAULT_JAVA_RUNTIME_VERSION}_.*/bin/java"
   expect_not_log "exec external/host_javabase/bin/java"
 }
 
@@ -225,7 +225,7 @@ EOF
   # Check that we use local_jdk when it's not specified.
   bazel build //java:javabin
   cat bazel-bin/java/javabin >& $TEST_log
-  expect_log "JAVABIN=.*/rules_java~.*~toolchains~local_jdk/bin/java"
+  expect_log "JAVABIN=.*/rules_java+.*+toolchains+local_jdk/bin/java"
 }
 
 function write_javabase_files() {

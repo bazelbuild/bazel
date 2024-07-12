@@ -81,10 +81,7 @@ public class FakeRegistry implements Registry {
             .setAttributes(
                 AttributeValues.create(
                     ImmutableMap.of(
-                        "path",
-                        rootPath
-                            + "/"
-                            + key.getCanonicalRepoNameWithVersionForTesting().getName())))
+                        "path", rootPath + "/" + key.getCanonicalRepoNameWithVersion().getName())))
             .build();
     eventHandler.post(
         RegistryFileDownloadEvent.create(

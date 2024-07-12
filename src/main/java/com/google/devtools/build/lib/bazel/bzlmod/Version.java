@@ -193,8 +193,7 @@ public abstract class Version implements Comparable<Version> {
 
   @Override
   public final boolean equals(Object o) {
-    return this == o
-        || (o instanceof Version && ((Version) o).getNormalized().equals(getNormalized()));
+    return this == o || (o instanceof Version v && v.getNormalized().equals(getNormalized()));
   }
 
   @Override

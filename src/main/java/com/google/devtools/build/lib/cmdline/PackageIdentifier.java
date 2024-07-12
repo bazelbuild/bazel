@@ -224,7 +224,7 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
    *       <dt><code>@protobuf//some/pkg</code>
    *       <dd>if this package lives in a repository with "protobuf" as <code>name</code> of a
    *           repository in WORKSPACE or as apparent name of a Bzlmod dependency of the main module
-   *       <dt><code>@@protobuf~3.19.2//some/pkg</code>
+   *       <dt><code>@@protobuf+//some/pkg</code>
    *       <dd>only with Bzlmod if the current package belongs to a repository that is not visible
    *           from the main module
    */

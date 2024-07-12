@@ -217,17 +217,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean enableWorkspace;
 
   @Option(
-      name = "incompatible_use_plus_in_repo_names",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-      help =
-          "If true, uses the plus sign (+) as the separator in canonical repo names, instead of the"
-              + " tilde (~). This is to address severe performance issues on Windows; see"
-              + " https://github.com/bazelbuild/bazel/issues/22865 for more information.")
-  public boolean incompatibleUsePlusInRepoNames;
-
-  @Option(
       name = "experimental_isolated_extension_usages",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -759,7 +748,6 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(EXPERIMENTAL_ENABLE_SCL_DIALECT, experimentalEnableSclDialect)
             .setBool(ENABLE_BZLMOD, enableBzlmod)
             .setBool(ENABLE_WORKSPACE, enableWorkspace)
-            .setBool(INCOMPATIBLE_USE_PLUS_IN_REPO_NAMES, incompatibleUsePlusInRepoNames)
             .setBool(EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, experimentalIsolatedExtensionUsages)
             .setBool(
                 INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW, incompatibleExistingRulesImmutableView)
@@ -868,8 +856,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_ENABLE_SCL_DIALECT = "-experimental_enable_scl_dialect";
   public static final String ENABLE_BZLMOD = "+enable_bzlmod";
   public static final String ENABLE_WORKSPACE = "+enable_workspace";
-  public static final String INCOMPATIBLE_USE_PLUS_IN_REPO_NAMES =
-      "-incompatible_use_plus_in_repo_names";
   public static final String EXPERIMENTAL_ISOLATED_EXTENSION_USAGES =
       "-experimental_isolated_extension_usages";
   public static final String INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW =

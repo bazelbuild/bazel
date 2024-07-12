@@ -45,11 +45,11 @@ bazel vendor --vendor_dir=vendor_src --repo=@rules_cc
 or
 
 ```none
-bazel vendor --vendor_dir=vendor_src --repo=@@rules_cc~
+bazel vendor --vendor_dir=vendor_src --repo=@@rules_cc+
 ```
 
 will both get rules_cc to be vendored under
-`<workspace root>/vendor_src/rules_cc~`.
+`<workspace root>/vendor_src/rules_cc+`.
 
 ## Vendor external dependencies for given targets {:#vendor-target-dependencies}
 
@@ -121,8 +121,8 @@ There are two directives available, both accepting a list of
 For example
 
 ```python
-ignore("@@rules_cc~")
-pin("@@bazel_skylib~")
+ignore("@@rules_cc+")
+pin("@@bazel_skylib+")
 ```
 
 With this configuration
@@ -186,13 +186,13 @@ strategy to rewrite symlinks in the vendored source:
 For example, if the original symlink is
 
 ```none
-<vendor_dir>/repo_foo~/link  =>  $(bazel info output_base)/external/repo_bar~/file
+<vendor_dir>/repo_foo+/link  =>  $(bazel info output_base)/external/repo_bar+/file
 ```
 
 It will be rewritten to
 
 ```none
-<vendor_dir>/repo_foo~/link  =>  ../../bazel-external/repo_bar~/file
+<vendor_dir>/repo_foo+/link  =>  ../../bazel-external/repo_bar+/file
 ```
 
 where

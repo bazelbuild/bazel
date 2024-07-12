@@ -26,7 +26,6 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:auto_value",
         "//third_party:gson",

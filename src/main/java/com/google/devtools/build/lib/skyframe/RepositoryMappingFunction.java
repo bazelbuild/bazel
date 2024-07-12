@@ -233,11 +233,7 @@ public class RepositoryMappingFunction implements SkyFunction {
   private static Optional<ModuleExtensionId> maybeGetModuleExtensionForRepo(
       RepositoryName repositoryName, BazelDepGraphValue bazelDepGraphValue) {
     return bazelDepGraphValue.getExtensionUniqueNames().entrySet().stream()
-        .filter(
-            e ->
-                repositoryName
-                    .getName()
-                    .startsWith(e.getValue() + bazelDepGraphValue.getRepoNameSeparator()))
+        .filter(e -> repositoryName.getName().startsWith(e.getValue() + "+"))
         .map(Entry::getKey)
         .findFirst();
   }

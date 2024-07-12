@@ -53,7 +53,7 @@ class PackagesUsedTest(unittest.TestCase):
     raw_json = read_data_file("bazel_packages.json")
     content = json.loads(raw_json)
     self.assertIn(
-        "@@remoteapis~override//:build_bazel_remote_execution_v2_remote_execution_proto",
+        "@@remoteapis+//:build_bazel_remote_execution_v2_remote_execution_proto",
         content["packages"],
     )
 

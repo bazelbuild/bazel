@@ -138,20 +138,20 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
 
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
     bazel.build("@relative//:debug_me");
-    Path outFile = context().resolveBinPath(bazel, "external/_main~_repo_rules~relative/out");
+    Path outFile = context().resolveBinPath(bazel, "external/+_repo_rules+relative/out");
     assertThat(outFile.toFile().exists()).isTrue();
     List<String> lines = PathUtils.readFile(outFile);
     assertThat(lines.size()).isEqualTo(1);
     assertThat(
             Paths.get(lines.get(0))
-                .endsWith(Paths.get("external/_main~_repo_rules~relative/relative")))
+                .endsWith(Paths.get("external/+_repo_rules+relative/relative")))
         .isTrue();
 
     bazel.build("@relative2//:debug_me");
     bazel.build("@absolute//:debug_me");
 
     bazel.build("@absolute2//:debug_me");
-    Path outFile2 = context().resolveBinPath(bazel, "external/_main~_repo_rules~absolute2/out");
+    Path outFile2 = context().resolveBinPath(bazel, "external/+_repo_rules+absolute2/out");
     assertThat(outFile2.toFile().exists()).isTrue();
     List<String> lines2 = PathUtils.readFile(outFile2);
     assertThat(lines2.size()).isEqualTo(1);
@@ -178,7 +178,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
     bazel.build("@x//:" + RepoWithRuleWritingTextGenerator.TARGET);
 
-    Path xPath = context().resolveBinPath(bazel, "external/_main~_repo_rules~x/out");
+    Path xPath = context().resolveBinPath(bazel, "external/+_repo_rules+x/out");
     WorkspaceTestUtils.assertLinesExactly(xPath, "hi");
 
     context()
@@ -215,7 +215,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
             .withFlags("--experimental_ui_debug_all_events", "--curses=yes");
 
     final String progressMessage =
-        "PROGRESS <no location>: Loading package: @@_main~_repo_rules~ext//";
+        "PROGRESS <no location>: Loading package: @@+_repo_rules+ext//";
 
     ProcessResult result = bazel.query("@ext//:all");
     assertThat(result.outString()).contains(progressMessage);

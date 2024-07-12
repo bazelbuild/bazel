@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.RuleFunction;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -114,13 +113,9 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     }
 
     // Step 3: look for the repo from module extension evaluation results.
-    char separator =
-        starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_USE_PLUS_IN_REPO_NAMES)
-            ? '+'
-            : '~';
     Optional<ModuleExtensionId> extensionId =
         bazelDepGraphValue.getExtensionUniqueNames().entrySet().stream()
-            .filter(e -> repositoryName.getName().startsWith(e.getValue() + separator))
+            .filter(e -> repositoryName.getName().startsWith(e.getValue() + "+"))
             .map(Entry::getKey)
             .findFirst();
 
