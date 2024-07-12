@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
@@ -54,7 +56,10 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
   public final ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     try {
-      DeterministicWriter deterministicWriter = newDeterministicWriter(actionExecutionContext);
+      DeterministicWriter deterministicWriter;
+      try (SilentCloseable c = Profiler.instance().profile("setupDeterministicWriter")) {
+        deterministicWriter = newDeterministicWriter(actionExecutionContext);
+      }
       FileWriteActionContext context =
           actionExecutionContext.getContext(FileWriteActionContext.class);
       ImmutableList<SpawnResult> result =
