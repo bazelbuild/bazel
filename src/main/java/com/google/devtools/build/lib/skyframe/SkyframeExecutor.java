@@ -1313,6 +1313,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     PrecomputedValue.STARLARK_SEMANTICS.set(injectable(), starlarkSemantics);
   }
 
+  private void setUninjectedBuildBzlEnv(ImmutableMap<String, Object> uninjectedBuildBzlEnv) {
+    PrecomputedValue.UNINJECTED_BUILD_BZL_ENV.set(injectable(), uninjectedBuildBzlEnv);
+  }
+
   public void setBaselineConfiguration(BuildOptions buildOptions) {
     PrecomputedValue.BASELINE_CONFIGURATION.set(injectable(), buildOptions);
   }
@@ -1455,6 +1459,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     StarlarkSemantics starlarkSemantics = getEffectiveStarlarkSemantics(buildLanguageOptions);
     setStarlarkSemantics(starlarkSemantics);
+    setUninjectedBuildBzlEnv(ruleClassProvider.getBazelStarlarkEnvironment()
+        .createUninjectedBuildBzlEnv(starlarkSemantics));
     setSiblingDirectoryLayout(
         starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
     setPackageLocator(pkgLocator);
