@@ -34,8 +34,10 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -92,6 +94,11 @@ final class LostImportantOutputHandlerModule extends BlazeModule {
               ArtifactExpander expander,
               InputMetadataProvider metadataProvider) {
             return getLostOutputs(runfiles.values(), expander, metadataProvider);
+          }
+
+          @Override
+          public void processTestOutputs(List<Path> testOutputs) {
+            throw new UnsupportedOperationException();
           }
         });
   }

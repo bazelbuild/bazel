@@ -75,7 +75,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -140,8 +139,6 @@ public final class CompletionFunction<
         Environment env)
         throws InterruptedException;
   }
-
-  private static final Duration IMPORTANT_OUTPUT_HANDLER_LOGGING_THRESHOLD = Duration.ofMillis(100);
 
   private final PathResolverFactory pathResolverFactory;
   private final Completor<ValueT, ResultT, KeyT> completor;
@@ -542,7 +539,7 @@ public final class CompletionFunction<
       try (var ignored =
           GoogleAutoProfilerUtils.logged(
               "Informing important output handler of top-level outputs for " + label,
-              IMPORTANT_OUTPUT_HANDLER_LOGGING_THRESHOLD)) {
+              ImportantOutputHandler.LOG_THRESHOLD)) {
         lostOutputs =
             importantOutputHandler.processOutputsAndGetLostArtifacts(
                 key.topLevelArtifactContext().expandFilesets()
