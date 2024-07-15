@@ -62,6 +62,9 @@ public final class BuiltinRestriction {
               // CUDA rules
               BuiltinRestriction.allowlistEntry("", "third_party/gpus/cuda"),
 
+              // Packaging rules
+              BuiltinRestriction.allowlistEntry("", "tools/build_defs/packaging"),
+
               // Go rules
               BuiltinRestriction.allowlistEntry("", "tools/build_defs/go"));
 
