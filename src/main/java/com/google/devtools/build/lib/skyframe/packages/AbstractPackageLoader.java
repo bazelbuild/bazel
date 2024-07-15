@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
+import com.google.devtools.build.lib.packages.AutoloadSymbols;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -311,6 +313,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         makePreinjectedDiff(
             starlarkSemantics,
             builder.pkgLocator,
+            ruleClassProvider,
             ImmutableList.copyOf(builder.extraPrecomputedValues));
     pkgFactory =
         new PackageFactory(
@@ -325,6 +328,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   private static ImmutableDiff makePreinjectedDiff(
       StarlarkSemantics starlarkSemantics,
       PathPackageLocator pkgLocator,
+      RuleClassProvider ruleClassProvider,
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues) {
     final Map<SkyKey, Delta> valuesToInject = new HashMap<>();
     Injectable injectable =
@@ -347,6 +351,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     PrecomputedValue.CONFIG_SETTING_VISIBILITY_POLICY.set(
         injectable, ConfigSettingVisibilityPolicy.LEGACY_OFF);
     PrecomputedValue.STARLARK_SEMANTICS.set(injectable, starlarkSemantics);
+    PrecomputedValue.AUTOLOAD_SYMBOLS.set(
+        injectable, new AutoloadSymbols(ruleClassProvider, starlarkSemantics));
     return new ImmutableDiff(ImmutableList.of(), valuesToInject);
   }
 

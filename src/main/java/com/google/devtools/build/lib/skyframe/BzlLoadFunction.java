@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
+import com.google.devtools.build.lib.packages.AutoloadSymbols;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
@@ -610,12 +611,18 @@ public class BzlLoadFunction implements SkyFunction {
       return StarlarkBuiltinsValue.createEmpty(starlarkSemantics);
     }
     try {
+      AutoloadSymbols autoloadSymbols = PrecomputedValue.AUTOLOAD_SYMBOLS.get(env);
+      if (autoloadSymbols == null) {
+        return null;
+      }
+      boolean withAutoloads = requiresAutoloads(key, autoloadSymbols);
       if (inliningState == null) {
         return (StarlarkBuiltinsValue)
-            env.getValueOrThrow(StarlarkBuiltinsValue.key(), BuiltinsFailedException.class);
+            env.getValueOrThrow(
+                StarlarkBuiltinsValue.key(withAutoloads), BuiltinsFailedException.class);
       } else {
         return StarlarkBuiltinsFunction.computeInline(
-            StarlarkBuiltinsValue.key(),
+            StarlarkBuiltinsValue.key(withAutoloads),
             inliningState,
             ruleClassProvider.getBazelStarlarkEnvironment(),
             /* bzlLoadFunction= */ this);
@@ -633,6 +640,18 @@ public class BzlLoadFunction implements SkyFunction {
         // to avoid a cyclic dependency
         || (key instanceof BzlLoadValue.KeyForBzlmod
             && !(key instanceof BzlLoadValue.KeyForBzlmodBootstrap));
+  }
+
+  private static boolean requiresAutoloads(BzlLoadValue.Key key, AutoloadSymbols autoloadSymbols) {
+    // We do autoloads for all BUILD files and bzl files outside of rules_repositories.
+    // We don't do them for prelude, WORKSPACE or Bzlmod files.
+    // Prelude is a single file, so users should be able to add loads to it easily.
+    // In WORKSPACE and bzlmod preloads are not possible, because rules_repositories are not
+    // available yet.
+    return autoloadSymbols.isEnabled()
+        && key instanceof BzlLoadValue.KeyForBuild
+        && !key.isBuildPrelude()
+        && !autoloadSymbols.checkAutoloadsDisallowed(key.getLabel());
   }
 
   /**
@@ -1223,7 +1242,7 @@ public class BzlLoadFunction implements SkyFunction {
    *     request, or if this was a duplicate unsuccessful visitation
    */
   @Nullable
-  private List<BzlLoadValue> computeBzlLoadsWithInlining(
+  public List<BzlLoadValue> computeBzlLoadsWithInlining(
       Environment env,
       List<BzlLoadValue.Key> keys,
       List<Pair<String, Location>> programLoads,
