@@ -21,6 +21,7 @@ binary_rules = struct(
 library_rules = struct(
     objc_library = native.objc_library,
     objc_import = native.objc_import,
+    j2objc_library = native.j2objc_library,
 )
 
 test_rules = struct(
