@@ -454,7 +454,6 @@ public class BlazeRuntimeWrapper {
 
   private void commandComplete(@Nullable Crash crash) throws Exception {
     Reporter reporter = env.getReporter();
-    getSkyframeExecutor().notifyCommandComplete(reporter);
     if (crash != null) {
       runtime.getBugReporter().handleCrash(crash, CrashContext.keepAlive().reportingTo(reporter));
     }
