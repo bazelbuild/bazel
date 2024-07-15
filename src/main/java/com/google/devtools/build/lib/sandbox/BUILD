@@ -135,6 +135,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/exec:tree_deleter",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:flogger",
         "//third_party:guava",
