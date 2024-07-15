@@ -273,7 +273,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, semantics);
     PrecomputedValue.AUTOLOADS_CONFIGURATION.set(
         differencer,
-        new AutoloadsConfiguration(ruleClassProvider, semantics);
+        new AutoloadsConfiguration(ruleClassProvider, semantics));
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.FORCE_FETCH.set(
         differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);
