@@ -26,6 +26,7 @@ import java.util.Objects;
  */
 public class OptionPriority implements Comparable<OptionPriority> {
   private final PriorityCategory priorityCategory;
+
   /**
    * Each option that is passed explicitly has 0 ancestors, so it only has its command line index
    * (or rc index, etc., depending on the category), but expanded options have the command line
@@ -149,6 +150,9 @@ public class OptionPriority implements Comparable<OptionPriority> {
      * manually.
      */
     COMPUTED_DEFAULT,
+
+    /** For options coming from a global blazerc file. */
+    GLOBAL_RC_FILE,
 
     /** For options coming from a configuration file or rc file. */
     RC_FILE,

@@ -51,10 +51,9 @@ import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
- * A BuildRequest represents a single invocation of the build tool by a user.
- * A request specifies a list of targets to be built for a single
- * configuration, a pair of output/error streams, and additional options such
- * as --keep_going, --jobs, etc.
+ * A BuildRequest represents a single invocation of the build tool by a user. A request specifies a
+ * list of targets to be built for a single configuration, a pair of output/error streams, and
+ * additional options such as --keep_going, --jobs, etc.
  */
 public class BuildRequest implements OptionsProvider {
   public static final String VALIDATION_ASPECT_NAME = "ValidateTarget";
@@ -189,10 +188,7 @@ public class BuildRequest implements OptionsProvider {
   /** A human-readable description of all the non-default option settings. */
   private final String optionsDescription;
 
-  /**
-   * The name of the Blaze command that the user invoked.
-   * Used for --announce.
-   */
+  /** The name of the Blaze command that the user invoked. Used for --announce. */
   private final String commandName;
 
   private final OutErr outErr;
@@ -205,6 +201,7 @@ public class BuildRequest implements OptionsProvider {
   private final boolean runTests;
   private final boolean checkForActionConflicts;
   private final boolean reportIncompatibleTargets;
+  private final ImmutableList<String> userOptions;
 
   private BuildRequest(
       String commandName,
@@ -224,6 +221,8 @@ public class BuildRequest implements OptionsProvider {
     this.targets = targets;
     this.id = id;
     this.startTimeMillis = startTimeMillis;
+    this.userOptions =
+        options.getUserOptions() == null ? ImmutableList.of() : options.getUserOptions();
     this.optionsCache =
         Caffeine.newBuilder()
             .build(
@@ -278,15 +277,20 @@ public class BuildRequest implements OptionsProvider {
   }
 
   /**
-   * Returns a unique identifier that universally identifies this build.
+   * Returns the list of options that were parsed from either a user blazerc file or the command
+   * line.
    */
+  @Override
+  public ImmutableList<String> getUserOptions() {
+    return userOptions;
+  }
+
+  /** Returns a unique identifier that universally identifies this build. */
   public UUID getId() {
     return id;
   }
 
-  /**
-   * Returns the name of the Blaze command that the user invoked.
-   */
+  /** Returns the name of the Blaze command that the user invoked. */
   public String getCommandName() {
     return commandName;
   }
@@ -295,24 +299,19 @@ public class BuildRequest implements OptionsProvider {
     return runningInEmacs;
   }
 
-  /**
-   * Returns true if tests should be run by the build tool.
-   */
+  /** Returns true if tests should be run by the build tool. */
   public boolean shouldRunTests() {
     return runTests;
   }
 
-  /**
-   * Returns the (immutable) list of targets to build in commandline
-   * form.
-   */
+  /** Returns the (immutable) list of targets to build in commandline form. */
   public List<String> getTargets() {
     return targets;
   }
 
   /**
-   * Returns the output/error streams to which errors and progress messages
-   * should be sent during the fulfillment of this request.
+   * Returns the output/error streams to which errors and progress messages should be sent during
+   * the fulfillment of this request.
    */
   public OutErr getOutErr() {
     return outErr;
@@ -324,10 +323,7 @@ public class BuildRequest implements OptionsProvider {
     return (T) optionsCache.get(clazz).orNull();
   }
 
-
-  /**
-   * Returns the set of command-line options specified for this request.
-   */
+  /** Returns the set of command-line options specified for this request. */
   public BuildRequestOptions getBuildOptions() {
     return getOptions(BuildRequestOptions.class);
   }
@@ -337,17 +333,12 @@ public class BuildRequest implements OptionsProvider {
     return getOptions(PackageOptions.class);
   }
 
-  /**
-   * Returns the set of options related to the loading phase.
-   */
+  /** Returns the set of options related to the loading phase. */
   public LoadingOptions getLoadingOptions() {
     return getOptions(LoadingOptions.class);
   }
 
-  /**
-   * Returns the set of command-line options related to the view specified for
-   * this request.
-   */
+  /** Returns the set of command-line options related to the view specified for this request. */
   public AnalysisOptions getViewOptions() {
     return getOptions(AnalysisOptions.class);
   }
@@ -361,24 +352,20 @@ public class BuildRequest implements OptionsProvider {
   int getLoadingPhaseThreadCount() {
     return getOptions(LoadingPhaseThreadsOption.class).threads;
   }
-  /**
-   * Returns the set of execution options specified for this request.
-   */
+
+  /** Returns the set of execution options specified for this request. */
   public ExecutionOptions getExecutionOptions() {
     return getOptions(ExecutionOptions.class);
   }
 
-  /**
-   * Returns the human-readable description of the non-default options
-   * for this build request.
-   */
+  /** Returns the human-readable description of the non-default options for this build request. */
   public String getOptionsDescription() {
     return optionsDescription;
   }
 
   /**
-   * Return the time (according to System.currentTimeMillis()) at which the
-   * service of this request was started.
+   * Return the time (according to System.currentTimeMillis()) at which the service of this request
+   * was started.
    */
   public long getStartTime() {
     return startTimeMillis;
@@ -403,8 +390,10 @@ public class BuildRequest implements OptionsProvider {
     int jobs = getBuildOptions().jobs;
     if (localTestJobs > jobs) {
       warnings.add(
-          String.format("High value for --local_test_jobs: %d. This exceeds the value for --jobs: "
-              + "%d. Only up to %d local tests will run concurrently.", localTestJobs, jobs, jobs));
+          String.format(
+              "High value for --local_test_jobs: %d. This exceeds the value for --jobs: "
+                  + "%d. Only up to %d local tests will run concurrently.",
+              localTestJobs, jobs, jobs));
     }
 
     // Validate other BuildRequest options.
@@ -423,7 +412,7 @@ public class BuildRequest implements OptionsProvider {
         getOptions(BuildEventProtocolOptions.class).expandFilesets,
         getOptions(BuildEventProtocolOptions.class).fullyResolveFilesetSymlinks,
         OutputGroupInfo.determineOutputGroups(
-            buildOptions.outputGroups, validationMode(), /*shouldRunTests=*/ shouldRunTests()));
+            buildOptions.outputGroups, validationMode(), /* shouldRunTests= */ shouldRunTests()));
   }
 
   public ImmutableList<String> getAspects() {

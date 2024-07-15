@@ -31,6 +31,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.MoreCollectors;
 import com.google.common.escape.Escaper;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParserImpl.OptionsParserImplResult;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
@@ -868,6 +869,33 @@ public class OptionsParser implements OptionsParsingResult {
   @Override
   public List<String> canonicalize() {
     return impl.asCanonicalizedList();
+  }
+
+  @Override
+  public ImmutableList<String> getUserOptions() {
+    Predicate<ParsedOptionDescription> isUserOption =
+        (option) ->
+            (option.getOrigin().getPriority().getPriorityCategory().equals(PriorityCategory.RC_FILE)
+                || option
+                    .getOrigin()
+                    .getPriority()
+                    .getPriorityCategory()
+                    .equals(PriorityCategory.COMMAND_LINE));
+    ImmutableList.Builder<String> userOptions = ImmutableList.builder();
+    return userOptions
+        .addAll(
+            asListOfExplicitOptions().stream()
+                .filter(isUserOption)
+                .filter(option -> !option.getCanonicalForm().contains("default_override"))
+                .map(option -> option.getCanonicalForm())
+                .collect(toImmutableList()))
+        .addAll(
+            impl.getSkippedOptions().stream()
+                .filter(isUserOption)
+                .map(option -> option.getCanonicalForm())
+                .filter(o -> getStarlarkOptions().containsKey(o))
+                .collect(toImmutableList()))
+        .build();
   }
 
   /** Returns all options fields of the given options class, in alphabetic order. */

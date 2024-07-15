@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.strings.Unsaf
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
@@ -94,6 +95,7 @@ public final class BuildOptions implements Cloneable {
     }
     return builder
         .addStarlarkOptions(labelizeStarlarkOptions(provider.getStarlarkOptions()))
+        .addUserOptions(provider.getUserOptions())
         .build();
   }
 
@@ -212,6 +214,14 @@ public final class BuildOptions implements Cloneable {
   }
 
   /**
+   * Returns the list of options that were parsed from either a user blazerc file or the command
+   * line.
+   */
+  public ImmutableList<String> getUserOptions() {
+    return userOptions;
+  }
+
+  /**
    * Creates a copy of the BuildOptions object that contains copies of the FragmentOptions and
    * Starlark options.
    */
@@ -226,7 +236,8 @@ public final class BuildOptions implements Cloneable {
                     e -> e.getValue().clone()));
     // Note that this assumes that starlark option values are immutable.
     ImmutableMap<Label, Object> starlarkOptions = ImmutableMap.copyOf(starlarkOptionsMap);
-    return new BuildOptions(nativeOptions, starlarkOptions);
+    ImmutableList<String> userOptions = this.userOptions;
+    return new BuildOptions(nativeOptions, starlarkOptions, userOptions);
   }
 
   @Override
@@ -247,8 +258,12 @@ public final class BuildOptions implements Cloneable {
 
   /** Maps options class definitions to FragmentOptions objects. */
   private final ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptionsMap;
+
   /** Maps Starlark options names to Starlark options values. */
   private final ImmutableMap<Label, Object> starlarkOptionsMap;
+
+  /** The list of options that were parsed from either a user blazerc file or the command line. */
+  private final ImmutableList<String> userOptions;
 
   // Lazily initialized both for performance and correctness - BuildOptions instances may be mutated
   // after construction but before consumption. Access via checksum() to ensure initialization. This
@@ -258,9 +273,11 @@ public final class BuildOptions implements Cloneable {
 
   private BuildOptions(
       ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptionsMap,
-      ImmutableMap<Label, Object> starlarkOptionsMap) {
+      ImmutableMap<Label, Object> starlarkOptionsMap,
+      ImmutableList<String> userOptions) {
     this.fragmentOptionsMap = fragmentOptionsMap;
     this.starlarkOptionsMap = starlarkOptionsMap;
+    this.userOptions = userOptions;
   }
 
   /**
@@ -301,6 +318,11 @@ public final class BuildOptions implements Cloneable {
       builder.addStarlarkOption(starlarkOption.getKey(), starlarkOption.getValue());
     }
 
+    // And update options set in user blazerc or command line
+    builder.userOptions.addAll(
+        parsingResult.getUserOptions() == null
+            ? ImmutableList.of()
+            : parsingResult.getUserOptions());
     return builder.build();
   }
 
@@ -391,6 +413,7 @@ public final class BuildOptions implements Cloneable {
         this.addFragmentOptions(fragment);
       }
       this.addStarlarkOptions(options.getStarlarkOptions());
+      this.addUserOptions(options.getUserOptions());
       return this;
     }
 
@@ -447,15 +470,23 @@ public final class BuildOptions implements Cloneable {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder addUserOptions(ImmutableList<String> options) {
+      userOptions.addAll(options);
+      return this;
+    }
+
     public BuildOptions build() {
       return new BuildOptions(
           ImmutableSortedMap.copyOf(fragmentOptions, LEXICAL_FRAGMENT_OPTIONS_COMPARATOR),
-          ImmutableSortedMap.copyOf(starlarkOptions));
+          ImmutableSortedMap.copyOf(starlarkOptions),
+          userOptions.build());
     }
 
     private final Map<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptions =
         new HashMap<>();
     private final Map<Label, Object> starlarkOptions = new HashMap<>();
+    private final ImmutableList.Builder<String> userOptions = new ImmutableList.Builder<>();
 
     private Builder() {}
   }
