@@ -16,18 +16,23 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.AutoloadsConfiguration;
+import com.google.devtools.build.lib.packages.AutoloadsConfiguration.AutoloadException;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment.InjectionException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.InlineCacheManager;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.skyframe.RecordingSkyFunctionEnvironment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -105,10 +110,14 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws StarlarkBuiltinsFunctionException, InterruptedException {
-    // skyKey is a singleton, unused.
+    // skyKey is either with or without autoloads.
     try {
       return computeInternal(
-          env, bazelStarlarkEnvironment, /* inliningState= */ null, /* bzlLoadFunction= */ null);
+          env,
+          bazelStarlarkEnvironment,
+          /* inliningState= */ null,
+          /* bzlLoadFunction= */ null,
+          ((StarlarkBuiltinsValue.Key) skyKey.argument()).isWithAutoloads());
     } catch (BuiltinsFailedException e) {
       throw new StarlarkBuiltinsFunctionException(e);
     }
@@ -146,7 +155,8 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
             inliningState.getEnvironment(),
             bazelStarlarkEnvironment,
             inliningState,
-            bzlLoadFunction);
+            bzlLoadFunction,
+            key.isWithAutoloads());
     if (computedBuiltins == null) {
       return null;
     }
@@ -162,7 +172,8 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
       Environment env,
       BazelStarlarkEnvironment bazelStarlarkEnvironment,
       @Nullable BzlLoadFunction.InliningState inliningState,
-      @Nullable BzlLoadFunction bzlLoadFunction)
+      @Nullable BzlLoadFunction bzlLoadFunction,
+      boolean isWithAutoloads)
       throws BuiltinsFailedException, InterruptedException {
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
@@ -172,27 +183,57 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
     if (starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH).isEmpty()) {
       return StarlarkBuiltinsValue.createEmpty(starlarkSemantics);
     }
+    AutoloadsConfiguration autoloadsConfiguration = PrecomputedValue.AUTOLOADS_CONFIGURATION.get(
+        env);
+    if (autoloadsConfiguration == null) {
+      return null;
+    }
 
     // Load exports.bzl. If we were requested using inlining, make sure to inline the call back into
     // BzlLoadFunction.
+    // If requested also loads "autoloads": rules and providers from external repositories.
     BzlLoadValue exportsValue;
+    BzlLoadValue[] autoloadValues;
     try {
+      ImmutableList<BzlLoadValue.Key> bzlAutoloadKeys =
+          isWithAutoloads ? autoloadsConfiguration.getAutoloads()
+              : ImmutableList.of();
+      autoloadValues = new BzlLoadValue[bzlAutoloadKeys.size()];
       if (inliningState == null) {
         exportsValue =
             (BzlLoadValue)
                 env.getValueOrThrow(EXPORTS_ENTRYPOINT_KEY, BzlLoadFailedException.class);
+        SkyframeLookupResult values = env.getValuesAndExceptions(bzlAutoloadKeys);
+        for (int i = 0; i < bzlAutoloadKeys.size(); i++) {
+          autoloadValues[i] = (BzlLoadValue) values.getOrThrow(bzlAutoloadKeys.get(i),
+              BzlLoadFailedException.class);
+        }
       } else {
         exportsValue = bzlLoadFunction.computeInline(EXPORTS_ENTRYPOINT_KEY, inliningState);
+        for (int i = 0; i < bzlAutoloadKeys.size(); i++) {
+          autoloadValues[i] = bzlLoadFunction.computeInline(bzlAutoloadKeys.get(i),
+              inliningState);
+        }
       }
     } catch (BzlLoadFailedException ex) {
       throw BuiltinsFailedException.errorEvaluatingBuiltinsBzls(ex);
     }
-    if (exportsValue == null) {
+    if (env.valuesMissing()) {
       return null;
     }
 
-    // Apply declarations of exports.bzl to the native predeclared symbols.
+    // Compute digest of exports.bzl and possibly externally loaded symbols (Bazel)
     byte[] transitiveDigest = exportsValue.getTransitiveDigest();
+    if (autoloadValues.length > 0) {
+      Fingerprint fp = new Fingerprint();
+      fp.addBytes(transitiveDigest);
+      for (BzlLoadValue value : autoloadValues) {
+        fp.addBytes(value.getTransitiveDigest());
+      }
+      transitiveDigest = fp.digestAndReset();
+    }
+
+    // Apply declarations of exports.bzl to the native predeclared symbols.
     Module module = exportsValue.getModule();
     try {
       ImmutableMap<String, Object> exportedToplevels = getDict(module, "exported_toplevels");
@@ -212,6 +253,16 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
           bazelStarlarkEnvironment.createBuildEnvUsingInjection(
               exportedRules,
               starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE));
+
+      // Apply declarations of externally loaded symbols to the native predeclared symbols.
+      ImmutableMap<String, Object> newSymbols = autoloadsConfiguration.processLoads(autoloadValues);
+      predeclaredForBuild = autoloadsConfiguration.modifyBuildEnv(
+          isWithAutoloads,
+          predeclaredForBuild, newSymbols);
+      predeclaredForBuildBzl = autoloadsConfiguration.modifyBuildBzlEnv(
+          isWithAutoloads,
+          predeclaredForBuildBzl, newSymbols);
+
       return StarlarkBuiltinsValue.create(
           predeclaredForBuildBzl,
           predeclaredForWorkspaceBzl,
@@ -221,6 +272,11 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
           starlarkSemantics);
     } catch (EvalException | InjectionException ex) {
       throw BuiltinsFailedException.errorApplyingExports(ex);
+    } catch (AutoloadException ex) {
+      throw new BuiltinsFailedException(
+          String.format("Failed to apply symbols loaded externally: %s", ex.getMessage()),
+          ex,
+          Transience.PERSISTENT);
     }
   }
 

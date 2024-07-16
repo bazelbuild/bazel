@@ -157,7 +157,11 @@ public class BzlCompileFunction implements SkyFunction {
       // For WORKSPACE-loaded bzl files, the env isn't quite right not because of injection but
       // because the "native" object is different. But A) that will be fixed with #11954, and B) we
       // don't care for the same reason as above.
-      predeclared = bazelStarlarkEnvironment.getUninjectedBuildBzlEnv();
+
+      // Takes into account --incompatible_autoload_externally, similarly to the comment above, this
+      // only defines the correct set of symbols, but does not load them yet.
+      predeclared = PrecomputedValue.AUTOLOADS_CONFIGURATION.get(env)
+          .getUninjectedBuildBzlEnv(key.getLabel());
     }
 
     // We have all deps. Parse, resolve, and return.
