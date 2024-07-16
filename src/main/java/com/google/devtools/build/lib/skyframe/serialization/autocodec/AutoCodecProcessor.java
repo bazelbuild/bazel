@@ -17,6 +17,7 @@ import static com.google.common.base.Ascii.toLowerCase;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodecProcessor.InstantiatorKind.CONSTRUCTOR;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodecProcessor.InstantiatorKind.FACTORY_METHOD;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodecProcessor.InstantiatorKind.INTERNER;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.findRelationWithGenerics;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.getErasure;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.getErasureAsMirror;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.sanitizeTypeParameter;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationExcepti
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Interner;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Marshaller;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.Relation;
 import com.google.devtools.build.lib.unsafe.UnsafeProvider;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
@@ -41,7 +43,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.Processor;
@@ -53,7 +54,6 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
-import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
@@ -266,56 +266,12 @@ public class AutoCodecProcessor extends AbstractProcessor {
     return elt.getAnnotation(Interner.class) != null;
   }
 
-  private enum Relation {
-    INSTANCE_OF,
-    EQUAL_TO,
-    SUPERTYPE_OF,
-    UNRELATED_TO
-  }
-
-  @Nullable
-  private Relation findRelationWithGenerics(TypeMirror type1, TypeMirror type2) {
-    if (type1.getKind() == TypeKind.TYPEVAR
-        || type1.getKind() == TypeKind.WILDCARD
-        || type2.getKind() == TypeKind.TYPEVAR
-        || type2.getKind() == TypeKind.WILDCARD) {
-      return Relation.EQUAL_TO;
-    }
-    if (env.getTypeUtils().isAssignable(type1, type2)) {
-      if (env.getTypeUtils().isAssignable(type2, type1)) {
-        return Relation.EQUAL_TO;
-      }
-      return Relation.INSTANCE_OF;
-    }
-    if (env.getTypeUtils().isAssignable(type2, type1)) {
-      return Relation.SUPERTYPE_OF;
-    }
-    // From here on out, we can't detect subtype/supertype, we're only checking for equality.
-    TypeMirror erasedType1 = env.getTypeUtils().erasure(type1);
-    TypeMirror erasedType2 = env.getTypeUtils().erasure(type2);
-    if (!env.getTypeUtils().isSameType(erasedType1, erasedType2)) {
-      // Technically, there could be a relationship, but it's too hard to figure out for now.
-      return Relation.UNRELATED_TO;
-    }
-    List<? extends TypeMirror> genericTypes1 = ((DeclaredType) type1).getTypeArguments();
-    List<? extends TypeMirror> genericTypes2 = ((DeclaredType) type2).getTypeArguments();
-    if (genericTypes1.size() != genericTypes2.size()) {
-      return null;
-    }
-    for (int i = 0; i < genericTypes1.size(); i++) {
-      Relation result = findRelationWithGenerics(genericTypes1.get(i), genericTypes2.get(i));
-      if (result != Relation.EQUAL_TO) {
-        return Relation.UNRELATED_TO;
-      }
-    }
-    return Relation.EQUAL_TO;
-  }
-
   private void verifyFactoryMethod(TypeElement encodedType, ExecutableElement elt)
       throws SerializationProcessingException {
     boolean success = elt.getModifiers().contains(Modifier.STATIC);
     if (success) {
-      Relation equalityTest = findRelationWithGenerics(elt.getReturnType(), encodedType.asType());
+      Relation equalityTest =
+          findRelationWithGenerics(elt.getReturnType(), encodedType.asType(), env);
       success = equalityTest == Relation.EQUAL_TO || equalityTest == Relation.INSTANCE_OF;
     }
     if (!success) {
@@ -378,7 +334,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
       Optional<FieldValueAndClass> hasField =
           getFieldByNameRecursive(encodedType, parameter.getSimpleName().toString());
       if (hasField.isPresent()) {
-        if (findRelationWithGenerics(hasField.get().value.asType(), parameter.asType())
+        if (findRelationWithGenerics(hasField.get().value.asType(), parameter.asType(), env)
             == Relation.UNRELATED_TO) {
           throw new SerializationProcessingException(
               parameter,
@@ -428,7 +384,7 @@ public class AutoCodecProcessor extends AbstractProcessor {
       if (!element.getModifiers().contains(Modifier.STATIC)
           && !element.getModifiers().contains(Modifier.PRIVATE)
           && possibleGetterNames.contains(element.getSimpleName().toString())
-          && findRelationWithGenerics(parameter.asType(), element.getReturnType())
+          && findRelationWithGenerics(parameter.asType(), element.getReturnType(), env)
               != Relation.UNRELATED_TO) {
         return element.getSimpleName().toString();
       }
