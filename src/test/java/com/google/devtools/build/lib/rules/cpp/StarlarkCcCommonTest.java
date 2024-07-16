@@ -6299,6 +6299,30 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testEmitInterfaceLibrary() throws Exception {
+    getAnalysisMock()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
+                    CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES,
+                    CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY));
+    setupTestTransitiveLinkInternal(
+        scratch,
+        /* internalApi= */ true,
+        "output_type = 'dynamic_library'",
+        "emit_interface_shared_library = True");
+    ConfiguredTarget target = getConfiguredTarget("//foo:bin");
+    assertThat(target).isNotNull();
+    LibraryToLink library = (LibraryToLink) getMyInfoFromTarget(target).getValue("library");
+    assertThat(library).isNotNull();
+    assertThat(library.getDynamicLibrary()).isNotNull();
+    assertThat(library.getInterfaceLibrary()).isNotNull();
+  }
+
+  @Test
   public void testTransitiveLinkForExecutable() throws Exception {
     setupTestTransitiveLink(scratch, "output_type = 'executable'");
     ConfiguredTarget target = getConfiguredTarget("//foo:bin");
@@ -6812,12 +6836,22 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
   private static void setupTestTransitiveLink(Scratch scratch, String... additionalLines)
       throws Exception {
-    createCcBinRule(scratch, /* internalApi= */ false, additionalLines);
+    setupTestTransitiveLinkInternal(scratch, /* internalApi= */ false, additionalLines);
+  }
+
+  private static void setupTestTransitiveLinkInternal(
+      Scratch scratch, boolean internalApi, String... additionalLines) throws Exception {
+    createCcBinRule(scratch, internalApi, additionalLines);
+    String bzlPath;
+    if (internalApi) {
+      bzlPath = "bazel_internal/test_rules/cc";
+    } else {
+      bzlPath = "tools/build_defs";
+    }
     scratch.file(
         "foo/BUILD",
+        "load(\"//" + bzlPath + ":extension.bzl\", \"cc_bin\")",
         """
-        load("//tools/build_defs:extension.bzl", "cc_bin")
-
         cc_library(
             name = "dep1",
             srcs = ["dep1.cc"],
@@ -7602,7 +7636,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             String.format(callFormatString, "additional_linkstamp_defines=[]"),
             String.format(callFormatString, "whole_archive=False"),
             String.format(callFormatString, "native_deps=False"),
-            String.format(callFormatString, "only_for_dynamic_libs=False"));
+            String.format(callFormatString, "only_for_dynamic_libs=False"),
+            String.format(callFormatString, "emit_interface_shared_library=True"));
     for (String call : calls) {
       scratch.overwriteFile(
           "b/rule.bzl",
