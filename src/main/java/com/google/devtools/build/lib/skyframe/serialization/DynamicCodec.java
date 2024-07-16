@@ -367,7 +367,7 @@ public final class DynamicCodec extends AsyncObjectCodec<Object> {
     public void deserialize(
         AsyncDeserializationContext context, CodedInputStream codedIn, Object obj)
         throws IOException, SerializationException {
-      arrayProcessor.deserialize(context, codedIn, type, obj, offset);
+      unsafe().putObject(obj, offset, arrayProcessor.deserialize(context, codedIn, type));
     }
   }
 

@@ -64,6 +64,7 @@ public abstract class DeserializationContext implements AsyncDeserializationCont
   }
 
   @Override
+  @SuppressWarnings("SunApi") // TODO: b/331765692 - delete this
   public void deserialize(CodedInputStream codedIn, Object parent, long offset)
       throws IOException, SerializationException {
     unsafe().putObject(parent, offset, deserialize(codedIn));
@@ -74,6 +75,16 @@ public abstract class DeserializationContext implements AsyncDeserializationCont
       throws IOException, SerializationException {
     deserialize(codedIn, parent, offset);
     done.run();
+  }
+
+  @Override
+  public void deserializeArrayElement(CodedInputStream codedIn, Object[] arr, int index)
+      throws IOException, SerializationException {
+    Object value = deserialize(codedIn);
+    if (value == null) {
+      return;
+    }
+    arr[index] = value;
   }
 
   @Override

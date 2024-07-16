@@ -172,7 +172,7 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
   }
 
   @Override
-  @SuppressWarnings("SunApi") // TODO: b/331765692 - clean this up
+  @SuppressWarnings("SunApi") // TODO: b/331765692 - delete this
   public void deserialize(CodedInputStream codedIn, Object parent, long offset)
       throws IOException, SerializationException {
     Object result = processTagAndDeserialize(codedIn);
@@ -223,7 +223,7 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
   }
 
   @Override
-  @SuppressWarnings("SunApi") // TODO: b/331765692 - clean this up
+  @SuppressWarnings("SunApi") // TODO: b/331765692 - delete this
   public void deserialize(CodedInputStream codedIn, Object parent, long offset, Runnable done)
       throws IOException, SerializationException {
     Object result = processTagAndDeserialize(codedIn);
@@ -247,6 +247,23 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
               return null;
             },
             directExecutor()));
+  }
+
+  @Override
+  public void deserializeArrayElement(CodedInputStream codedIn, Object[] arr, int index)
+      throws IOException, SerializationException {
+    Object result = processTagAndDeserialize(codedIn);
+    if (result == null) {
+      return;
+    }
+
+    if (result instanceof ListenableFuture<?> futureResult) {
+      addReadStatusFuture(
+          Futures.transform(futureResult, value -> arr[index] = value, directExecutor()));
+      return;
+    }
+
+    arr[index] = result;
   }
 
   @Override
