@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableList;
@@ -188,6 +189,23 @@ final class TypeOperations {
       }
     }
     return Relation.EQUAL_TO;
+  }
+
+  /**
+   * Collects {@code type} and its supertypes.
+   *
+   * <p>The first element is the type itself with each additional element representing the next
+   * superclass. {@code Object} is ignored.
+   */
+  static ImmutableList<TypeElement> getClassLineage(TypeElement type, ProcessingEnvironment env) {
+    checkArgument(type.asType() instanceof DeclaredType, "%s must be a class", type);
+    var types = ImmutableList.<TypeElement>builder();
+    for (TypeElement next = type;
+        next != null && !matchesType(next.asType(), Object.class, env);
+        next = getSuperclass(next)) {
+      types.add(next);
+    }
+    return types.build();
   }
 
   static TypeMirror resolveBaseArrayComponentType(TypeMirror type) {
