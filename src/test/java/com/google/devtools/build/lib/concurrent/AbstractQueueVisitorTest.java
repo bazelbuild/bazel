@@ -23,7 +23,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor.ExceptionHandlingMode;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor.ExecutorOwnership;
-import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor.RejectedExecutionObserver;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier.ErrorClassification;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -31,13 +30,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -651,60 +647,5 @@ public class AbstractQueueVisitorTest {
             return classification;
           }
         });
-  }
-
-  @Test
-  public void testScheduledRunnableBlockedAndFutureRunnableRejected() {
-    ExecutorService executor = Executors.newSingleThreadExecutor();
-    AbstractQueueVisitor visitor =
-        AbstractQueueVisitor.createWithExecutorService(
-            executor,
-            ExceptionHandlingMode.FAIL_FAST,
-            new ErrorClassifier() {
-              @Override
-              protected ErrorClassification classifyException(Exception e) {
-                return ErrorClassification.CRITICAL;
-              }
-            });
-
-    CountDownLatch notifyThrowLatch = new CountDownLatch(1);
-    IllegalStateException intentionalThrow = new IllegalStateException("Intentional throw");
-    Runnable throwWhenNotified =
-        () -> {
-          Uninterruptibles.awaitUninterruptibly(notifyThrowLatch);
-          throw intentionalThrow;
-        };
-
-    AtomicInteger rejectionObserverExecutedCount = new AtomicInteger(0);
-    AtomicBoolean originalRunnableExecuted = new AtomicBoolean(false);
-    RejectedExecutionObserver rejectionObserver = rejectionObserverExecutedCount::incrementAndGet;
-
-    // Schedule the first runnable which will throw when being notified.
-    visitor.executeWithFallback(throwWhenNotified, rejectionObserver);
-
-    // Schedule more runnables which are not expected to be executed. After throwWhenNotified does
-    // throw, the runnables scheduled below will be blocked and rejectionObserver should be executed
-    // instead.
-    int originalRunnableScheduled = 3;
-    for (int i = 0; i < originalRunnableScheduled; ++i) {
-      visitor.executeWithFallback(() -> originalRunnableExecuted.set(true), rejectionObserver);
-    }
-
-    notifyThrowLatch.countDown();
-    Exception caughtException =
-        assertThrows(Exception.class, () -> visitor.awaitQuiescence(/* interruptWorkers= */ true));
-    assertThat(caughtException).isSameInstanceAs(intentionalThrow);
-    assertThat(originalRunnableExecuted.get()).isFalse();
-    assertThat(rejectionObserverExecutedCount.get()).isEqualTo(originalRunnableScheduled);
-
-    // If we try to schedule more runnables on the executor, they will be rejected by the executor
-    // and redirected to run rejectionObserver.
-    int moreRunnableCount = 4;
-    for (int i = 0; i < moreRunnableCount; ++i) {
-      visitor.executeWithFallback(() -> originalRunnableExecuted.set(true), rejectionObserver);
-    }
-    assertThat(originalRunnableExecuted.get()).isFalse();
-    assertThat(rejectionObserverExecutedCount.get())
-        .isEqualTo(originalRunnableScheduled + moreRunnableCount);
   }
 }
