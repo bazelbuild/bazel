@@ -336,7 +336,7 @@ public class IncludeScanningModule extends BlazeModule {
       if (useAsyncExecution) {
         includePool =
             Executors.newThreadPerTaskExecutor(
-                Thread.ofVirtual().name("Include scanner ", 0).factory());
+                Thread.ofVirtual().name("include-scanner-", 0).factory());
       } else if (threads > 0) {
         logger.atInfo().log("Include scanning configured to use a pool with %d threads", threads);
         if (options.experimentalReuseIncludeScanningThreads) {

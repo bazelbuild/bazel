@@ -184,7 +184,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     this.executorService =
         Executors.newThreadPerTaskExecutor(
             Thread.ofVirtual()
-                .name("downloads[" + identifyingStringForLogging + "]-", 0)
+                .name("downloads-[" + identifyingStringForLogging + "]-", 0)
                 .factory());
   }
 
