@@ -85,5 +85,4 @@ test_shared_library_user_link_flags
 test_shared_library_symbols
 test_binary
 test_cc_test
-# TODO(b/353560944): Re-enable once underlying failure is identified.
 test_number_of_linked_libs
