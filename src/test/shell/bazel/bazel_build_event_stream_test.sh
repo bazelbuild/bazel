@@ -256,6 +256,7 @@ EOF
   ls >& "$TEST_log"
   cat bep.json >> "$TEST_log"
 
+  expect_log "//a:arg"
   expect_log "execRequest"
   expect_log "argv"
   expect_log "REDACTED"

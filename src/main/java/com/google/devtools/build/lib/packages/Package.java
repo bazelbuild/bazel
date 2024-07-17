@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -1136,65 +1137,126 @@ public class Package {
      * Retrieves this object from a Starlark thread. If not present, throws {@code EvalException}
      * with an error message indicating that {@code what} can't be used in this Starlark
      * environment.
+     *
+     * <p>If {@code allowBuild} is false, this method also throws if we're currently executing a
+     * BUILD file (or legacy macro called from a BUILD file).
+     *
+     * <p>If {@code allowSymbolicMacros} is false, this method also throws if we're currently
+     * executing a symbolic macro implementation. (Legacy macros that are not called from within a
+     * symbolic macro are fine.)
+     *
+     * <p>If {@code allowWorkspace} is false, this method also throws if we're currently executing a
+     * WORKSPACE file (or a legacy macro called from a WORKSPACE file).
+     *
+     * <p>It is not allowed for all three bool params to be false.
      */
     @CanIgnoreReturnValue
-    public static Builder fromOrFail(StarlarkThread thread, String what) throws EvalException {
-      @Nullable StarlarkThreadContext ctx = thread.getThreadLocal(StarlarkThreadContext.class);
-      if (!(ctx instanceof Builder)) {
-        throw Starlark.errorf(
-            "%s can only be used while evaluating a BUILD, a WORKSPACE file, or a macro loaded from"
-                + " there",
-            what);
-      }
-      return (Builder) ctx;
-    }
-
-    /**
-     * Same as {@link #fromOrFail}, but also throws {@link EvalException} if we're currently
-     * executing a symbolic macro implementation.
-     *
-     * <p>Use this method when implementing APIs that should not be accessible from symbolic macros,
-     * such as {@code glob()} or {@code existing_rule()}.
-     *
-     * <p>This method succeeds when called from a legacy macro (that is not itself called from any
-     * symbolic macro).
-     */
-    @CanIgnoreReturnValue
-    public static Builder fromOrFailDisallowingSymbolicMacros(StarlarkThread thread, String what)
+    public static Builder fromOrFail(
+        StarlarkThread thread,
+        String what,
+        boolean allowBuild,
+        boolean allowSymbolicMacros,
+        boolean allowWorkspace)
         throws EvalException {
+      Preconditions.checkArgument(allowBuild || allowSymbolicMacros || allowWorkspace);
+
       @Nullable StarlarkThreadContext ctx = thread.getThreadLocal(StarlarkThreadContext.class);
+      boolean bad = false;
       if (ctx instanceof Builder builder) {
-        if (builder.macroStack.isEmpty()) {
+        bad |= !allowBuild && !builder.isRepoRulePackage();
+        bad |= !allowSymbolicMacros && !builder.macroStack.isEmpty();
+        bad |= !allowWorkspace && builder.isRepoRulePackage();
+        if (!bad) {
           return builder;
         }
       }
 
-      boolean macrosEnabled =
+      boolean symbolicMacrosEnabled =
           thread
               .getSemantics()
               .getBool(BuildLanguageOptions.EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS);
+      ArrayList<String> allowedUses = new ArrayList<>();
+      if (allowBuild) {
+        // Only disambiguate as "legacy" if the alternative, symbolic macros, are enabled.
+        allowedUses.add(
+            String.format("a BUILD file (or %smacro)", symbolicMacrosEnabled ? "legacy " : ""));
+      }
+      // Even if symbolic macros are allowed, don't mention them in the error message unless they
+      // are enabled.
+      if (allowSymbolicMacros && symbolicMacrosEnabled) {
+        allowedUses.add("a symbolic macro");
+      }
+      if (allowWorkspace) {
+        allowedUses.add("a WORKSPACE file");
+      }
       throw Starlark.errorf(
-          "%s can only be used while evaluating a BUILD file, a WORKSPACE file, or a %s loaded from"
-              + " there",
-          what, macrosEnabled ? "legacy macro" : "macro");
+          "%s can only be used while evaluating %s",
+          what, StringUtil.joinEnglishList(allowedUses, "or"));
+    }
+
+    /** Convenience method for {@link #fromOrFail} that permits any context with a Builder. */
+    @CanIgnoreReturnValue
+    public static Builder fromOrFail(StarlarkThread thread, String what) throws EvalException {
+      return fromOrFail(
+          thread,
+          what,
+          /* allowBuild= */ true,
+          /* allowSymbolicMacros= */ true,
+          /* allowWorkspace= */ true);
     }
 
     /**
-     * Same as {@link #fromOrFail}, but also throws {@link EvalException} if we're currently
-     * evaluating a WORKSPACE file.
-     *
-     * <p>Use this method when implementing APIs that should not be accessible from symbolic macros,
-     * such as {@code glob()} or {@code package_name()}.
+     * Convenience method for {@link #fromOrFail} that permits only BUILD contexts (without symbolic
+     * macros).
      */
     @CanIgnoreReturnValue
-    public static Builder fromOrFailDisallowingWorkspace(StarlarkThread thread, String what)
+    public static Builder fromOrFailAllowBuildOnly(StarlarkThread thread, String what)
         throws EvalException {
-      @Nullable StarlarkThreadContext ctx = thread.getThreadLocal(StarlarkThreadContext.class);
-      if (ctx instanceof Builder builder && !builder.isRepoRulePackage()) {
-        return builder;
-      }
-      throw Starlark.errorf(
-          "%s can only be used while evaluating a BUILD file, or a macro loaded from there", what);
+      return fromOrFail(
+          thread,
+          what,
+          /* allowBuild= */ true,
+          /* allowSymbolicMacros= */ false,
+          /* allowWorkspace= */ false);
+    }
+
+    /** Convenience method for {@link #fromOrFail} that permits only WORKSPACE contexts. */
+    @CanIgnoreReturnValue
+    public static Builder fromOrFailAllowWorkspaceOnly(StarlarkThread thread, String what)
+        throws EvalException {
+      return fromOrFail(
+          thread,
+          what,
+          /* allowBuild= */ false,
+          /* allowSymbolicMacros= */ false,
+          /* allowWorkspace= */ true);
+    }
+
+    /**
+     * Convenience method for {@link #fromOrFail} that permits BUILD or WORKSPACE contexts (without
+     * symbolic macros).
+     */
+    @CanIgnoreReturnValue
+    public static Builder fromOrFailDisallowSymbolicMacros(StarlarkThread thread, String what)
+        throws EvalException {
+      return fromOrFail(
+          thread,
+          what,
+          /* allowBuild= */ true,
+          /* allowSymbolicMacros= */ false,
+          /* allowWorkspace= */ true);
+    }
+
+    /** Convenience method for {@link #fromOrFail} that permits BUILD or symbolic macro contexts. */
+    @CanIgnoreReturnValue
+    public static Builder fromOrFailDisallowWorkspace(StarlarkThread thread, String what)
+        throws EvalException {
+      return fromOrFail(
+          thread,
+          what,
+          /* allowBuild= */ true,
+          /* allowSymbolicMacros= */ true,
+          /* allowWorkspace= */ false);
     }
 
     PackageIdentifier getPackageIdentifier() {

@@ -77,9 +77,11 @@ message WorkRequest {
 message WorkResponse {
   int32 exit_code = 1;
 
-  // This is printed to the user after the WorkResponse has been received and is
-  // supposed to contain compiler warnings / errors etc. - thus we'll use a
-  // string type here, which gives us UTF-8 encoding.
+  // Output message for this work unit.
+  // This is akin to the combined stdout/stderr if the work unit were executed
+  // as a standalone process. Output pertaining to a work unit should be
+  // reported here instead of through the stdout/stderr of the worker process.
+  // Assumed to be UTF-8 encoded.
   string output = 2;
 
   // This field must be set to the same request_id as the WorkRequest it is a

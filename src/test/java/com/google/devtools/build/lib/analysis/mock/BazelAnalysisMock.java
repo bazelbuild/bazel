@@ -932,6 +932,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
   }
 
   @Override
+  public void setupPrelude(MockToolsConfig mockToolsConfig) {}
+
+  @Override
   public ConfiguredRuleClassProvider createRuleClassProvider() {
     return TestRuleClassProvider.getRuleClassProviderWithClearedSuffix();
   }

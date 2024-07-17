@@ -137,9 +137,11 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       name = "repository_rule",
       category = DocCategory.BUILTIN,
       doc =
-          "A callable value that may be invoked during evaluation of the WORKSPACE file or within"
-              + " the implementation function of a module extension to instantiate and return a"
-              + " repository rule.")
+          """
+          A callable value that may be invoked during evaluation of the WORKSPACE file or within \
+          the implementation function of a module extension to instantiate and return a \
+          repository rule.
+          """)
   public static final class RepositoryRuleFunction
       implements StarlarkCallable, StarlarkExportable, RuleFunction {
     private final RuleClass.Builder builder;
@@ -253,11 +255,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       try {
         RuleClass ruleClass = builder.build(ruleClassName, ruleClassName);
         Package.Builder pkgBuilder =
-            Package.Builder.fromOrFailDisallowingSymbolicMacros(thread, "repository rules");
-        if (!pkgBuilder.isRepoRulePackage()) {
-          throw Starlark.errorf(
-              "repo rules may only be called from a WORKSPACE file or a macro loaded from there");
-        }
+            Package.Builder.fromOrFailAllowWorkspaceOnly(thread, "repository rules");
 
         // TODO(adonovan): is this cast safe? Check.
         String name = (String) kwargs.get("name");

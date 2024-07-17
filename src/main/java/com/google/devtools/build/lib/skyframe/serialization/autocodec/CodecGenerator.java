@@ -47,7 +47,7 @@ abstract class CodecGenerator {
     MethodSpec.Builder deserialize = initializeDeserializeMethod(encodedType);
 
     for (FieldGenerator generator : fieldGenerators) {
-      generator.generateOffsetMember(classBuilder, constructor);
+      generator.generateHandleMember(classBuilder, constructor);
       generator.generateAdditionalMemberVariables(classBuilder);
       generator.generateConstructorCode(constructor);
       generator.generateSerializeCode(serialize);

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.EXECUTES;
+
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -43,7 +45,7 @@ import java.util.List;
  */
 @Command(
     name = "build",
-    builds = true,
+    buildPhase = EXECUTES,
     options = {
       BuildRequestOptions.class,
       ExecutionOptions.class,

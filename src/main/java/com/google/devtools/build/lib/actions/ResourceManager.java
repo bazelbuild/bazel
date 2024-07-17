@@ -488,7 +488,6 @@ public class ResourceManager implements ResourceEstimator {
     }
   }
 
-  // TODO (b/241066751) find better way to change resource ownership
   public void releaseResourceOwnership() {
     threadLocked.set(false);
   }

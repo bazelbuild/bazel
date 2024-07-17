@@ -131,7 +131,6 @@ java_library(
         "//third_party:auto_service",
         "//third_party:auto_value",
         "//third_party:guava",
-        "//third_party:jsr305",
         "//third_party/java/javapoet",
         "//third_party/protobuf:protobuf_java",
     ],

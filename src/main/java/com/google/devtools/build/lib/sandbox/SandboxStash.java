@@ -23,6 +23,8 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.TreeDeleter;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.StashContents;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -369,7 +371,7 @@ public class SandboxStash {
       } else {
         if (!Objects.equals(workspaceName, instance.workspaceName)) {
           Path stashBase = getStashBase(instance.sandboxBase);
-          try {
+          try (SilentCloseable c = Profiler.instance().profile("treeDeleter.deleteTree")) {
             for (Path directoryEntry : stashBase.getDirectoryEntries()) {
               treeDeleter.deleteTree(directoryEntry);
             }

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.EXECUTES;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Joiner;
@@ -109,7 +110,7 @@ import javax.annotation.Nullable;
 /** Builds and run a target with the given command line arguments. */
 @Command(
     name = "run",
-    builds = true,
+    buildPhase = EXECUTES,
     options = {RunCommand.RunOptions.class},
     inheritsOptionsFrom = {BuildCommand.class},
     shortDescription = "Runs the specified target.",

@@ -27,6 +27,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
@@ -88,7 +89,9 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
     @Override
     @Nullable
     public DiffAwareness maybeCreate(
-        Root pathEntry, ImmutableSet<com.google.devtools.build.lib.vfs.Path> ignoredPaths) {
+        Root pathEntry,
+        ImmutableSet<com.google.devtools.build.lib.vfs.Path> ignoredPaths,
+        OptionsProvider optionsProvider) {
       com.google.devtools.build.lib.vfs.Path resolvedPathEntry;
       try {
         resolvedPathEntry = pathEntry.asPath().resolveSymbolicLinks();
@@ -179,8 +182,12 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
   }
 
   @Override
-  public ModifiedFileSet getDiff(View oldView, View newView)
+  public ModifiedFileSet getDiff(@Nullable View oldView, View newView)
       throws IncompatibleViewException, BrokenDiffAwarenessException {
+    if (oldView == null) {
+      return ModifiedFileSet.EVERYTHING_MODIFIED;
+    }
+
     SequentialView oldSequentialView;
     SequentialView newSequentialView;
     try {

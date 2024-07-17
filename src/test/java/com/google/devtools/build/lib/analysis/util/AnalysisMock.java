@@ -230,6 +230,8 @@ public abstract class AnalysisMock extends LoadingMock {
   public abstract ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
       BlazeDirectories directories);
 
+  public abstract void setupPrelude(MockToolsConfig mockToolsConfig) throws IOException;
+
   /**
    * Stub class for tests to extend in order to update a small amount of {@link AnalysisMock}
    * functionality.
@@ -314,6 +316,11 @@ public abstract class AnalysisMock extends LoadingMock {
     public ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
         BlazeDirectories directories) {
       return delegate.getBuiltinModules(directories);
+    }
+
+    @Override
+    public void setupPrelude(MockToolsConfig mockToolsConfig) throws IOException {
+      delegate.setupPrelude(mockToolsConfig);
     }
 
     @Override

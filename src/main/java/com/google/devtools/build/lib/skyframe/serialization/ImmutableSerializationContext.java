@@ -70,7 +70,7 @@ final class ImmutableSerializationContext extends SerializationContext {
   }
 
   @Override
-  boolean writeBackReferenceIfMemoized(Object obj, CodedOutputStream codedOut) {
+  boolean writeBackReferenceIfMemoized(Object obj, CodedOutputStream codedOut, boolean isLeafType) {
     return false;
   }
 

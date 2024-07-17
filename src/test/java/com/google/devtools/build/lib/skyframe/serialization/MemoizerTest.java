@@ -15,9 +15,12 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
+import static com.google.devtools.build.lib.util.HashCodes.hashObjects;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import com.google.errorprone.annotations.Keep;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -144,7 +147,7 @@ public class MemoizerTest {
     assertThat(((Wrapper) subject.get(0)).value).isNotSameInstanceAs(subject.get(1));
 
     ImmutableList<Object> deserialized =
-        RoundTripping.roundTripMemoized(subject, new WrapperLeafCodec());
+        RoundTripping.roundTripMemoized(subject, wrapperLeafCodec());
     assertThat(subject).isEqualTo(deserialized);
     // The "foo" instance memoized via serializeLeaf can be backreferenced by a codec that isn't
     // explicitly invoked via serializeLeaf.
@@ -161,11 +164,26 @@ public class MemoizerTest {
     assertThat(subject.get(0)).isNotSameInstanceAs(((Wrapper) subject.get(1)).value);
 
     ImmutableList<Object> deserialized =
-        RoundTripping.roundTripMemoized(subject, new WrapperLeafCodec());
+        RoundTripping.roundTripMemoized(subject, wrapperLeafCodec());
     assertThat(subject).isEqualTo(deserialized);
     // The "foo" instance memoized via serialize can be backreferenced by a codec that uses
     // serializeLeaf.
     assertThat(deserialized.get(0)).isSameInstanceAs(((Wrapper) deserialized.get(1)).value);
+  }
+
+  @Test
+  public void serializeAsBothLeafAndContainingSharedValue() throws Exception {
+    // Serializes the same Wrapper instance in two ways. Once using WrapperWithSharedStringCodec and
+    // once using WrapperLeafCodec. This would cause them to use the same memoization which would
+    // lead to an error without special handling.
+    TwoWrappers wrappers = new TwoWrappers();
+    wrappers.one = new Wrapper("value");
+    wrappers.two = wrappers.one;
+
+    new SerializationTester(wrappers)
+        .makeMemoizingAndAllowFutureBlocking(/* allowFutureBlocking= */ true)
+        .addCodec(new WrapperWithSharedStringCodec())
+        .runTests();
   }
 
   /** An example class that allows {@link LeafObjectCodec} to be exercised. */
@@ -190,7 +208,13 @@ public class MemoizerTest {
     }
   }
 
+  private static WrapperLeafCodec wrapperLeafCodec() {
+    return WrapperLeafCodec.INSTANCE;
+  }
+
   private static final class WrapperLeafCodec extends LeafObjectCodec<Wrapper> {
+    private static final WrapperLeafCodec INSTANCE = new WrapperLeafCodec();
+
     @Override
     public Class<Wrapper> getEncodedClass() {
       return Wrapper.class;
@@ -211,6 +235,128 @@ public class MemoizerTest {
     public Wrapper deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       return new Wrapper(context.deserializeLeaf(codedIn, stringCodec()));
+    }
+  }
+
+  private static class WrapperWithSharedStringCodec extends DeferredObjectCodec<Wrapper> {
+    @Override
+    public Class<Wrapper> getEncodedClass() {
+      return Wrapper.class;
+    }
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, Wrapper obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.putSharedValue(
+          obj.value, /* distinguisher= */ null, DeferredStringCodec.INSTANCE, codedOut);
+    }
+
+    @Override
+    public DeferredValue<Wrapper> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      WrapperBuilder builder = new WrapperBuilder();
+      context.getSharedValue(
+          codedIn,
+          /* distinguisher= */ null,
+          DeferredStringCodec.INSTANCE,
+          builder,
+          WrapperBuilder::setValue);
+      return builder;
+    }
+
+    private static class WrapperBuilder implements DeferredValue<Wrapper> {
+      private String value;
+
+      private static void setValue(WrapperBuilder builder, Object value) {
+        builder.value = (String) value;
+      }
+
+      @Override
+      public Wrapper call() {
+        return new Wrapper(value);
+      }
+    }
+  }
+
+  private static class DeferredStringCodec extends DeferredObjectCodec<String> {
+    private static final DeferredStringCodec INSTANCE = new DeferredStringCodec();
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public Class<String> getEncodedClass() {
+      return String.class;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, String obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      codedOut.writeStringNoTag(obj);
+    }
+
+    @Override
+    public DeferredValue<String> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      String value = codedIn.readString();
+      return () -> value;
+    }
+  }
+
+  private static class TwoWrappers {
+    private Wrapper one;
+    private Wrapper two;
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj instanceof TwoWrappers that) {
+        return one.equals(that.one) && two.equals(that.two);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return hashObjects(one, two);
+    }
+
+    private static void setOne(TwoWrappers parent, Object value) {
+      parent.one = (Wrapper) value;
+    }
+  }
+
+  @Keep
+  private static class TwoWrappersCodec extends AsyncObjectCodec<TwoWrappers> {
+    @Override
+    public Class<TwoWrappers> getEncodedClass() {
+      return TwoWrappers.class;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, TwoWrappers obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serialize(obj.one, codedOut);
+      context.serializeLeaf(obj.two, wrapperLeafCodec(), codedOut);
+    }
+
+    @Override
+    public TwoWrappers deserializeAsync(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      TwoWrappers wrappers = new TwoWrappers();
+      context.registerInitialValue(wrappers);
+      context.deserialize(codedIn, wrappers, TwoWrappers::setOne);
+      wrappers.two = context.deserializeLeaf(codedIn, wrapperLeafCodec());
+      return wrappers;
     }
   }
 

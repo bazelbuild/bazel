@@ -1843,15 +1843,15 @@ public class PackageFunctionTest extends BuildViewTestCase {
       ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
       // addStandardRules() may call setPrelude(), so do it first.
       TestRuleClassProvider.addStandardRules(builder);
-      builder.setPrelude("//tools/build_rules:test_prelude");
+      builder.setPrelude("//tools/test_build_rules:test_prelude");
       return builder.build();
     }
 
     @Test
     public void testPreludeDefinedSymbolIsUsable() throws Exception {
-      scratch.file("tools/build_rules/BUILD");
+      scratch.file("tools/test_build_rules/BUILD");
       scratch.file(
-          "tools/build_rules/test_prelude", //
+          "tools/test_build_rules/test_prelude", //
           "foo = 'FOO'");
       scratch.file(
           "pkg/BUILD", //
@@ -1865,9 +1865,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     @Test
     public void testPreludeAutomaticallyReexportsLoadedSymbols() throws Exception {
-      scratch.file("tools/build_rules/BUILD");
+      scratch.file("tools/test_build_rules/BUILD");
       scratch.file(
-          "tools/build_rules/test_prelude", //
+          "tools/test_build_rules/test_prelude", //
           "load('//util:common.bzl', 'foo')");
       scratch.file("util/BUILD");
       scratch.file(
@@ -1887,9 +1887,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
     // mutation on BUILD files.
     @Test
     public void testPreludeCanExportUnderscoreSymbols() throws Exception {
-      scratch.file("tools/build_rules/BUILD");
+      scratch.file("tools/test_build_rules/BUILD");
       scratch.file(
-          "tools/build_rules/test_prelude", //
+          "tools/test_build_rules/test_prelude", //
           "_foo = 'FOO'");
       scratch.file(
           "pkg/BUILD", //
@@ -1903,9 +1903,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     @Test
     public void testPreludeCanShadowUniversal() throws Exception {
-      scratch.file("tools/build_rules/BUILD");
+      scratch.file("tools/test_build_rules/BUILD");
       scratch.file(
-          "tools/build_rules/test_prelude", //
+          "tools/test_build_rules/test_prelude", //
           "len = 'FOO'");
       scratch.file(
           "pkg/BUILD", //
@@ -1919,9 +1919,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     @Test
     public void testPreludeCanShadowPredeclareds() throws Exception {
-      scratch.file("tools/build_rules/BUILD");
+      scratch.file("tools/test_build_rules/BUILD");
       scratch.file(
-          "tools/build_rules/test_prelude", //
+          "tools/test_build_rules/test_prelude", //
           "cc_library = 'FOO'");
       scratch.file(
           "pkg/BUILD", //
@@ -1943,9 +1943,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
           exported_rules = {"cc_library": "BAR"}
           exported_to_java = {}
           """);
-      scratch.file("tools/build_rules/BUILD");
+      scratch.file("tools/test_build_rules/BUILD");
       scratch.file(
-          "tools/build_rules/test_prelude", //
+          "tools/test_build_rules/test_prelude", //
           "cc_library = 'FOO'");
       scratch.file(
           "pkg/BUILD", //
@@ -1965,9 +1965,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     @Test
     public void testPreludeSymbolCannotBeMutated() throws Exception {
-      scratch.file("tools/build_rules/BUILD");
+      scratch.file("tools/test_build_rules/BUILD");
       scratch.file(
-          "tools/build_rules/test_prelude", //
+          "tools/test_build_rules/test_prelude", //
           "foo = ['FOO']");
       scratch.file(
           "pkg/BUILD", //
@@ -1982,10 +1982,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     @Test
     public void testPreludeCanAccessBzlDialectFeatures() throws Exception {
-      scratch.file("tools/build_rules/BUILD");
+      scratch.file("tools/test_build_rules/BUILD");
       // Test both bzl symbols and syntax (e.g. function defs).
       scratch.file(
-          "tools/build_rules/test_prelude", //
+          "tools/test_build_rules/test_prelude", //
           "def foo():",
           "    return native.glob");
       scratch.file(
@@ -2011,7 +2011,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     @Test
     public void testPreludeNeedNotBePresent_evenWhenPackageIs() throws Exception {
-      scratch.file("tools/build_rules/BUILD");
+      scratch.file("tools/test_build_rules/BUILD");
       scratch.file(
           "pkg/BUILD", //
           "print('FOO')");
@@ -2023,7 +2023,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     @Test
     public void testPreludeFileNotRecognizedWithoutPackage() throws Exception {
       scratch.file(
-          "tools/build_rules/test_prelude", //
+          "tools/test_build_rules/test_prelude", //
           "foo = 'FOO'");
       scratch.file(
           "pkg/BUILD", //
@@ -2038,9 +2038,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     @Test
     public void testPreludeFailsWhenErrorInPreludeFile() throws Exception {
-      scratch.file("tools/build_rules/BUILD");
+      scratch.file("tools/test_build_rules/BUILD");
       scratch.file(
-          "tools/build_rules/test_prelude", //
+          "tools/test_build_rules/test_prelude", //
           "1//0", // <-- dynamic error
           "foo = 'FOO'");
       scratch.file(
@@ -2059,17 +2059,18 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
       getConfiguredTarget("//pkg:BUILD");
       assertContainsEvent(
-          "File \"/workspace/tools/build_rules/test_prelude\", line 1, column 2, in <toplevel>");
+          "File \"/workspace/tools/test_build_rules/test_prelude\", line 1, column 2, in"
+              + " <toplevel>");
       assertContainsEvent("Error: integer division by zero");
     }
 
     @Test
     public void testPreludeWorksEvenWhenPreludePackageInError() throws Exception {
       scratch.file(
-          "tools/build_rules/BUILD", //
+          "tools/test_build_rules/BUILD", //
           "1//0"); // <-- dynamic error
       scratch.file(
-          "tools/build_rules/test_prelude", //
+          "tools/test_build_rules/test_prelude", //
           "foo = 'FOO'");
       scratch.file(
           "pkg/BUILD", //

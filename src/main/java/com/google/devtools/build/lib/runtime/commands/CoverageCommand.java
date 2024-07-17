@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.EXECUTES;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.runtime.Command;
@@ -104,7 +106,7 @@ import com.google.devtools.common.options.OptionsParsingException;
  */
 @Command(
     name = "coverage",
-    builds = true,
+    buildPhase = EXECUTES,
     inheritsOptionsFrom = {TestCommand.class},
     shortDescription = "Generates code coverage report for specified test targets.",
     completion = "label-test",

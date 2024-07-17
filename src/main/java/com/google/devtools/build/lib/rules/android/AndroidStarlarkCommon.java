@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidIdeInfoProv
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSdkProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSplitTransitionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidStarlarkCommonApi;
-import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -45,11 +44,6 @@ public class AndroidStarlarkCommon
   @Override
   public AndroidSplitTransitionApi getAndroidSplitTransition() {
     return AndroidSplitTransition.FACTORY;
-  }
-
-  @Override
-  public ConfigurationTransitionApi getAndroidPlatformsTransition() {
-    return new AndroidPlatformsTransition.AndroidPlatformsTransitionFactory();
   }
 
   /**

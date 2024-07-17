@@ -14,10 +14,9 @@
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.getClassLineage;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.getErasure;
-import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.getSuperclass;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.isSerializableField;
-import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.matchesType;
 import static javax.lang.model.util.ElementFilter.fieldsIn;
 
 import com.google.common.collect.ImmutableList;
@@ -32,7 +31,6 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.io.IOException;
-import java.util.ArrayList;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
@@ -49,13 +47,7 @@ final class InterningObjectCodecGenerator extends CodecGenerator {
   @Override
   ImmutableList<FieldGenerator> getFieldGenerators(TypeElement type)
       throws SerializationProcessingException {
-    // Collects the type and its supertypes.
-    ArrayList<TypeElement> types = new ArrayList<>();
-    for (TypeElement next = type;
-        next != null && !matchesType(next.asType(), Object.class, env);
-        next = getSuperclass(next)) {
-      types.add(next);
-    }
+    ImmutableList<TypeElement> types = getClassLineage(type, env);
 
     ImmutableList.Builder<FieldGenerator> result = ImmutableList.builder();
     // Iterates in reverse order so variables are ordered highest superclass first, as they would

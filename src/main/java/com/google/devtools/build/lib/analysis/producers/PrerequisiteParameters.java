@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.BaseTargetPrerequisitesSupplier;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -56,6 +57,14 @@ public final class PrerequisiteParameters {
    */
   @Nullable private final BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier;
 
+  /**
+   * The {@link UnloadedToolchainContext}s for the base target of the aspect under evaluation.
+   *
+   * <p>This is only non-null during aspect evaluation if the aspects path can propagate to
+   * toolchains.
+   */
+  @Nullable private final ToolchainCollection<UnloadedToolchainContext> baseTargetToolchainContexts;
+
   public PrerequisiteParameters(
       ConfiguredTargetKey configuredTargetKey,
       Target target,
@@ -66,7 +75,8 @@ public final class PrerequisiteParameters {
       @Nullable ConfiguredAttributeMapper attributeMap,
       TransitiveDependencyState transitiveState,
       ExtendedEventHandler eventHandler,
-      @Nullable BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier) {
+      @Nullable BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier,
+      @Nullable ToolchainCollection<UnloadedToolchainContext> baseTargetToolchainContexts) {
     this.configuredTargetKey = configuredTargetKey;
     this.target = target;
     this.aspects = ImmutableList.copyOf(aspects);
@@ -77,6 +87,12 @@ public final class PrerequisiteParameters {
     this.transitiveState = transitiveState;
     this.eventHandler = eventHandler;
     this.baseTargetPrerequisitesSupplier = baseTargetPrerequisitesSupplier;
+    this.baseTargetToolchainContexts = baseTargetToolchainContexts;
+  }
+
+  @Nullable
+  public ToolchainCollection<UnloadedToolchainContext> baseTargetToolchainContexts() {
+    return baseTargetToolchainContexts;
   }
 
   @Nullable
@@ -134,8 +150,10 @@ public final class PrerequisiteParameters {
   }
 
   @Nullable
-  public Label getExecutionPlatformLabel(String execGroup) {
-    var platform = toolchainContexts.getToolchainContext(execGroup).executionPlatform();
+  public Label getExecutionPlatformLabel(String execGroup, boolean isBaseTargetToolchain) {
+    var context = isBaseTargetToolchain ? baseTargetToolchainContexts : toolchainContexts;
+
+    var platform = context.getToolchainContext(execGroup).executionPlatform();
     if (platform == null) {
       return null;
     }

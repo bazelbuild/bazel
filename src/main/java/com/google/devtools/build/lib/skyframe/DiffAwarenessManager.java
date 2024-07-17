@@ -107,7 +107,8 @@ public final class DiffAwarenessManager {
       ImmutableSet<Path> ignoredPaths,
       OptionsProvider options)
       throws InterruptedException {
-    DiffAwarenessState diffAwarenessState = maybeGetDiffAwarenessState(pathEntry, ignoredPaths);
+    DiffAwarenessState diffAwarenessState =
+        maybeGetDiffAwarenessState(pathEntry, ignoredPaths, options);
     if (diffAwarenessState == null) {
       return BrokenProcessableModifiedFileSet.INSTANCE;
     }
@@ -121,12 +122,6 @@ public final class DiffAwarenessManager {
     }
 
     View baselineView = diffAwarenessState.baselineView;
-    if (baselineView == null) {
-      logger.atInfo().log("Initial baseline view for %s is %s", pathEntry, newView);
-      diffAwarenessState.baselineView = newView;
-      return new InitialModifiedFileSet(newView.getWorkspaceInfo());
-    }
-
     ModifiedFileSet diff;
     logger.atInfo().log(
         "About to compute diff between %s and %s for %s", baselineView, newView, pathEntry);
@@ -160,7 +155,7 @@ public final class DiffAwarenessManager {
    */
   @Nullable
   private DiffAwarenessState maybeGetDiffAwarenessState(
-      Root pathEntry, ImmutableSet<Path> ignoredPaths) {
+      Root pathEntry, ImmutableSet<Path> ignoredPaths, OptionsProvider options) {
     StateKey stateKey = StateKey.create(pathEntry, ignoredPaths);
     DiffAwarenessState diffAwarenessState = currentDiffAwarenessStates.get(stateKey);
     if (diffAwarenessState != null) {
@@ -168,7 +163,7 @@ public final class DiffAwarenessManager {
     }
 
     for (DiffAwareness.Factory factory : diffAwarenessFactories) {
-      DiffAwareness newDiffAwareness = factory.maybeCreate(pathEntry, ignoredPaths);
+      DiffAwareness newDiffAwareness = factory.maybeCreate(pathEntry, ignoredPaths, options);
       if (newDiffAwareness != null) {
         logger.atInfo().log(
             "Using %s DiffAwareness strategy for %s", newDiffAwareness.name(), pathEntry);
@@ -242,30 +237,5 @@ public final class DiffAwarenessManager {
 
     @Override
     public void markProcessed() {}
-  }
-
-  /** Modified file set for a clean build. */
-  private static class InitialModifiedFileSet implements ProcessableModifiedFileSet {
-
-    @Nullable private final WorkspaceInfoFromDiff workspaceInfo;
-
-    InitialModifiedFileSet(@Nullable WorkspaceInfoFromDiff workspaceInfo) {
-      this.workspaceInfo = workspaceInfo;
-    }
-
-    @Override
-    public ModifiedFileSet getModifiedFileSet() {
-      return ModifiedFileSet.EVERYTHING_MODIFIED;
-    }
-
-    @Nullable
-    @Override
-    public WorkspaceInfoFromDiff getWorkspaceInfo() {
-      return workspaceInfo;
-    }
-
-    @Override
-    public void markProcessed() {
-    }
   }
 }

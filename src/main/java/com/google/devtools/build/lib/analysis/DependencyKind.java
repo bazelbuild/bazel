@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.ExecGroup;
@@ -76,25 +77,44 @@ public interface DependencyKind {
     }
   }
 
-  /** A dependency for a toolchain context, identified by the execution group name. */
-  @AutoValue
-  abstract class ToolchainDependencyKind implements DependencyKind {
+  /**
+   * Represents a dependency on toolchain context whether it's the entity (target or aspect) owned
+   * toolchain or the base target toolchain in case of aspects.
+   */
+  interface ToolchainDependencyKind extends DependencyKind {
     @Override
-    public Attribute getAttribute() {
+    public default Attribute getAttribute() {
       return null;
     }
 
     @Nullable
     @Override
-    public AspectClass getOwningAspect() {
+    public default AspectClass getOwningAspect() {
       throw new IllegalStateException();
     }
 
     /** The name of the execution group represented by this dependency kind. */
-    public abstract String getExecGroupName();
+    public String getExecGroupName();
 
     /** Returns true if this toolchain dependency is for the default exec group. */
-    public abstract boolean isDefaultExecGroup();
+    public boolean isDefaultExecGroup();
+  }
+
+  /**
+   * A dependency of an entity (target or aspect) on a toolchain context, identified by the
+   * execution group name.
+   */
+  @AutoValue
+  abstract class ToolchainDependencyKindImpl implements ToolchainDependencyKind {}
+
+  /**
+   * A dependency for the aspect on its target's toolchain context, used for aspects propagating to
+   * toolchains, identified by the execution group name and the toolchain type.
+   */
+  @AutoValue
+  abstract class BaseTargetToolchainDependencyKind implements ToolchainDependencyKind {
+    /** The toolchain type of the toolchain dependency. */
+    public abstract Label getToolchainType();
   }
 
   /** Returns a {@link DependencyKind} for the given execution group. */
@@ -102,13 +122,24 @@ public interface DependencyKind {
     if (ExecGroup.DEFAULT_EXEC_GROUP_NAME.equals(execGroupName)) {
       return defaultExecGroupToolchain();
     }
-    return new AutoValue_DependencyKind_ToolchainDependencyKind(execGroupName, false);
+    return new AutoValue_DependencyKind_ToolchainDependencyKindImpl(execGroupName, false);
   }
 
   /** Returns a {@link DependencyKind} for the default execution group. */
   static DependencyKind defaultExecGroupToolchain() {
-    return new AutoValue_DependencyKind_ToolchainDependencyKind(
+    return new AutoValue_DependencyKind_ToolchainDependencyKindImpl(
         ExecGroup.DEFAULT_EXEC_GROUP_NAME, true);
+  }
+
+  /** Returns a {@link DependencyKind} for the given execution group. */
+  static DependencyKind forBaseTargetExecGroup(String execGroupName, Label toolchainType) {
+    return new AutoValue_DependencyKind_BaseTargetToolchainDependencyKind(
+        execGroupName, execGroupName.equals(ExecGroup.DEFAULT_EXEC_GROUP_NAME), toolchainType);
+  }
+
+  /** Predicate to check if a dependency represents an aspect's base target toolchain. */
+  static boolean isBaseTargetToolchain(DependencyKind dependencyKind) {
+    return dependencyKind instanceof BaseTargetToolchainDependencyKind;
   }
 
   /** Predicate to check if a dependency represents a toolchain. */

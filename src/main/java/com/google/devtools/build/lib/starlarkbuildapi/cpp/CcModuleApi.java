@@ -615,7 +615,19 @@ public interface CcModuleApi<
             allowedTypes = {
               @ParamType(type = BuildConfigurationApi.class),
               @ParamType(type = NoneType.class)
-            })
+            }),
+        @Param(
+            name = "emit_interface_shared_library",
+            doc =
+                "When 'output_type' is 'dynamic_library' and this parameter is set to True, an"
+                    + " interface shared library will be generated during linking. On Windows the"
+                    + " interface shared library will always be generated regardless of this"
+                    + " parameter since it is a requirement for linking",
+            positional = false,
+            named = true,
+            documented = false,
+            allowedTypes = {@ParamType(type = Boolean.class)},
+            defaultValue = "unbound"),
       })
   LinkingOutputsT link(
       StarlarkActionFactoryT starlarkActionFactoryApi,
@@ -644,6 +656,7 @@ public interface CcModuleApi<
       Object mainOutput,
       Object useShareableArtifactFactory,
       Object buildConfig,
+      Object emitInterfaceSharedLibrary,
       StarlarkThread thread)
       throws InterruptedException, EvalException;
 

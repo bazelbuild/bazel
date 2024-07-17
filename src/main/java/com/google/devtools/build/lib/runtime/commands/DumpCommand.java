@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
+
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -79,7 +81,9 @@ import javax.annotation.Nullable;
 
 /** Implementation of the dump command. */
 @Command(
+    name = "dump",
     mustRunInWorkspace = false,
+    buildPhase = NONE,
     options = {DumpCommand.DumpOptions.class},
     help =
         "Usage: %{product} dump <options>\n"
@@ -87,7 +91,6 @@ import javax.annotation.Nullable;
             + " as an aid to debugging, not as a stable interface, so users should not try to parse"
             + " the output; instead, use 'query' or 'info' for this purpose.\n"
             + "%{options}",
-    name = "dump",
     shortDescription = "Dumps the internal state of the %{product} server process.",
     binaryStdOut = true)
 public class DumpCommand implements BlazeCommand {
@@ -271,9 +274,7 @@ public class DumpCommand implements BlazeCommand {
         converter = SkyframeDumpEnumConverter.class,
         documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
         effectTags = {OptionEffectTag.BAZEL_MONITORING},
-        help =
-            "Dump Skyframe graph: 'off', 'summary', 'count', 'value', 'deps', 'rdeps', or"
-                + " 'function_graph'.")
+        help = "Dump the Skyframe graph.")
     public SkyframeDumpOption dumpSkyframe;
 
     @Option(
@@ -306,6 +307,8 @@ public class DumpCommand implements BlazeCommand {
     DEPS,
     RDEPS,
     FUNCTION_GRAPH,
+    WORKING_SET,
+    WORKING_SET_FRONTIER_DEPS,
   }
 
   /** Enum converter for SkyframeDumpOption. */
@@ -401,6 +404,9 @@ public class DumpCommand implements BlazeCommand {
         case DEPS -> evaluator.dumpDeps(out, dumpOptions.skyKeyFilter);
         case RDEPS -> evaluator.dumpRdeps(out, dumpOptions.skyKeyFilter);
         case FUNCTION_GRAPH -> evaluator.dumpFunctionGraph(out, dumpOptions.skyKeyFilter);
+        case WORKING_SET -> env.getSkyframeExecutor().getSkyfocusState().dumpWorkingSet(out);
+        case WORKING_SET_FRONTIER_DEPS ->
+            env.getSkyframeExecutor().getSkyfocusState().dumpFrontierSet(out);
         case OFF -> {}
       }
 

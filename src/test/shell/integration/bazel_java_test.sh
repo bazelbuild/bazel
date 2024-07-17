@@ -328,16 +328,16 @@ EOF
 
   # Test the genrule with no java dependencies.
   bazel cquery --max_config_changes_to_show=0 --implicit_deps 'deps(//:without_java)' >& $TEST_log
-  expect_not_log "foo"
-  expect_not_log "bar"
+  expect_not_log ":foo"
+  expect_not_log ":bar"
   expect_not_log "embedded_jdk"
   expect_not_log "remotejdk_"
   expect_not_log "remotejdk11_"
 
   # Test the genrule that specifically depends on :bar_runtime.
   bazel cquery --max_config_changes_to_show=0 --implicit_deps 'deps(//:with_java)' >& $TEST_log
-  expect_not_log "foo"
-  expect_log "bar"
+  expect_not_log ":foo"
+  expect_log ":bar"
   expect_not_log "embedded_jdk"
   expect_not_log "remotejdk_"
   expect_not_log "remotejdk11_"
@@ -346,8 +346,8 @@ EOF
   # roolchains attribute.
   bazel cquery --max_config_changes_to_show=0 --implicit_deps 'deps(//:with_java)' \
      --tool_java_runtime_version=foo_javabase >& $TEST_log
-  expect_not_log "foo"
-  expect_log "bar"
+  expect_not_log ":foo"
+  expect_log ":bar"
   expect_not_log "embedded_jdk"
   expect_not_log "remotejdk_"
   expect_not_log "remotejdk11_"

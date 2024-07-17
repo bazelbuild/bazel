@@ -268,20 +268,18 @@ public class CompactPersistentActionCache implements ActionCache {
     if (message != null) {
       e = new IOException(message, e);
     }
-    logger.atWarning().withCause(e).log("Failed to load action cache");
+    logger.atWarning().withCause(e).log(
+        "Failed to load action cache, corrupted files to %s/*.bad", cacheRoot);
     reporterForInitializationErrors.handle(
         Event.error(
             "Error during action cache initialization: "
                 + e.getMessage()
-                + ". Corrupted files were renamed to '"
-                + cacheRoot
-                + "/*.bad'. "
-                + "Bazel will now reset action cache data, potentially causing rebuilds"));
+                + ". Data will be reset, potentially causing target rebuilds"));
     if (alreadyFoundCorruption) {
       throw e;
     }
     return create(
-        cacheRoot, clock, reporterForInitializationErrors, /*alreadyFoundCorruption=*/ true);
+        cacheRoot, clock, reporterForInitializationErrors, /* alreadyFoundCorruption= */ true);
   }
 
   /**
@@ -310,6 +308,7 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   private static final String FAILURE_PREFIX = "Failed action cache referential integrity check: ";
+
   /** Throws IOException if indexer contains no data or integrity check has failed. */
   private static void validateIntegrity(int indexerSize, byte[] validationRecord)
       throws IOException {
@@ -546,7 +545,9 @@ public class CompactPersistentActionCache implements ActionCache {
         digest, size, locationIndex, expireAtEpochMilli, materializationExecPath);
   }
 
-  /** @return action data encoded as a byte[] array. */
+  /**
+   * @return action data encoded as a byte[] array.
+   */
   private static byte[] encode(StringIndexer indexer, ActionCache.Entry entry) throws IOException {
     Preconditions.checkState(!entry.isCorrupted());
 

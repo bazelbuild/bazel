@@ -84,16 +84,16 @@ def _sort_linker_inputs(topologically_sorted_labels, label_to_linker_inputs, lin
 # dynamically. The transitive_dynamic_dep_labels parameter is only needed for
 # binaries because they link all dynamic_deps (cc_binary|cc_test).
 def _separate_static_and_dynamic_link_libraries(
-        ctx,
-        direct_children,
+        dynamic_deps,
+        deps_graph_nodes,
         can_be_linked_dynamically):
     (
         transitive_dynamic_dep_labels,
         all_dynamic_dep_linker_inputs,
-    ) = _build_map_direct_dynamic_dep_to_transitive_dynamic_deps(ctx)
+    ) = _build_map_direct_dynamic_dep_to_transitive_dynamic_deps(dynamic_deps)
 
     node = None
-    all_children = reversed(direct_children)
+    deps_graph_nodes_to_process = reversed(deps_graph_nodes)
     targets_to_be_linked_statically_map = {}
     targets_to_be_linked_dynamically_set = {}
     seen_labels = {}
@@ -123,10 +123,10 @@ def _separate_static_and_dynamic_link_libraries(
 
     # Horrible I know. Perhaps Starlark team gives me a way to prune a tree.
     for i in range(2147483647):
-        if not len(all_children):
+        if not len(deps_graph_nodes_to_process):
             break
 
-        node = all_children[-1]
+        node = deps_graph_nodes_to_process[-1]
 
         must_add_children = False
 
@@ -189,7 +189,7 @@ def _separate_static_and_dynamic_link_libraries(
             # in which dependencies were listed in the deps attribute in the
             # BUILD file we must reverse the list so that the first one listed
             # in the BUILD file is processed first.
-            all_children.extend(reversed(node.children))
+            deps_graph_nodes_to_process.extend(reversed(node.children))
         else:
             if node.owners[0] not in first_owner_to_depset:
                 # We have 3 cases in this branch:
@@ -206,12 +206,12 @@ def _separate_static_and_dynamic_link_libraries(
                     transitive.append(transitive_dynamic_dep_labels[str(node.owners[0])])
 
                 first_owner_to_depset[node.owners[0]] = depset(direct = node.owners, transitive = transitive, order = "topological")
-            all_children.pop()
+            deps_graph_nodes_to_process.pop()
 
     topologically_sorted_labels = []
-    if direct_children:
+    if deps_graph_nodes:
         transitive = []
-        for child in direct_children:
+        for child in deps_graph_nodes:
             transitive.append(first_owner_to_depset[child.owners[0]])
         topologically_sorted_labels = depset(transitive = transitive, order = "topological").to_list()
 
@@ -236,9 +236,9 @@ def _merge_cc_shared_library_infos(ctx):
 
     return depset(direct = dynamic_deps, transitive = transitive_dynamic_deps, order = "topological")
 
-def _build_exports_map_from_only_dynamic_deps(merged_shared_library_infos):
+def _build_exports_map_from_only_dynamic_deps(merged_cc_shared_library_infos_list):
     exports_map = {}
-    for entry in merged_shared_library_infos.to_list():
+    for entry in merged_cc_shared_library_infos_list:
         exports = entry.exports
         linker_input = entry.linker_input
         for export in exports:
@@ -252,9 +252,9 @@ def _build_exports_map_from_only_dynamic_deps(merged_shared_library_infos):
 
 # The map points from the target that can only be linked once to the
 # cc_shared_library target that already links it.
-def _build_link_once_static_libs_map(merged_shared_library_infos):
+def _build_link_once_static_libs_map(merged_cc_shared_library_infos_list):
     link_once_static_libs_map = {}
-    for entry in merged_shared_library_infos.to_list():
+    for entry in merged_cc_shared_library_infos_list:
         link_once_static_libs = entry.link_once_static_libs
         linker_input = entry.linker_input
         for static_lib in link_once_static_libs:
@@ -329,11 +329,11 @@ def _contains_code_to_link(linker_input):
     return False
 
 def _find_top_level_linker_input_labels(
-        nodes,
+        deps_graph_nodes,
         linker_inputs_to_be_linked_statically_map,
         targets_to_be_linked_dynamically_set):
     top_level_linker_input_labels_set = {}
-    nodes_to_check = list(nodes)
+    nodes_to_check = list(deps_graph_nodes)
 
     seen_nodes_set = {}
     for i in range(2147483647):
@@ -374,13 +374,13 @@ def _filter_inputs(
         link_once_static_libs_map):
     curr_link_once_static_libs_set = {}
 
-    graph_structure_aspect_nodes = []
+    deps_root_tree_nodes = []
     dependency_linker_inputs_sets = []
     direct_deps_set = {}
     for dep in deps:
         direct_deps_set[str(dep.label)] = True
         dependency_linker_inputs_sets.append(dep[CcInfo].linking_context.linker_inputs)
-        graph_structure_aspect_nodes.append(dep[GraphNodeInfo])
+        deps_root_tree_nodes.append(dep[GraphNodeInfo])
 
     if ctx.attr.experimental_disable_topo_sort_do_not_use_remove_before_7_0:
         dependency_linker_inputs = depset(transitive = dependency_linker_inputs_sets).to_list()
@@ -403,8 +403,8 @@ def _filter_inputs(
         topologically_sorted_labels,
         unused_dynamic_linker_inputs,
     ) = _separate_static_and_dynamic_link_libraries(
-        ctx,
-        graph_structure_aspect_nodes,
+        ctx.attr.dynamic_deps,
+        deps_root_tree_nodes,
         can_be_linked_dynamically,
     )
 
@@ -415,7 +415,7 @@ def _filter_inputs(
             linker_inputs_to_be_linked_statically_map.setdefault(owner, []).append(linker_input)
 
     top_level_linker_input_labels_set = _find_top_level_linker_input_labels(
-        graph_structure_aspect_nodes,
+        deps_root_tree_nodes,
         linker_inputs_to_be_linked_statically_map,
         targets_to_be_linked_dynamically_set,
     )
@@ -586,10 +586,10 @@ def _get_deps(ctx):
 
     return deps
 
-def _build_map_direct_dynamic_dep_to_transitive_dynamic_deps(ctx):
+def _build_map_direct_dynamic_dep_to_transitive_dynamic_deps(direct_dynamic_deps):
     all_dynamic_dep_linker_inputs = {}
     direct_dynamic_dep_to_transitive_dynamic_deps = {}
-    for dep in ctx.attr.dynamic_deps:
+    for dep in direct_dynamic_deps:
         owner = dep[CcSharedLibraryInfo].linker_input.owner
         all_dynamic_dep_linker_inputs[owner] = dep[CcSharedLibraryInfo].linker_input
         transitive_dynamic_dep_labels = []
@@ -645,8 +645,11 @@ def _cc_shared_library_impl(ctx):
         unsupported_features = ctx.disabled_features,
     )
 
-    merged_cc_shared_library_info = _merge_cc_shared_library_infos(ctx)
-    exports_map = _build_exports_map_from_only_dynamic_deps(merged_cc_shared_library_info)
+    merged_cc_shared_library_infos = _merge_cc_shared_library_infos(ctx)
+
+    # Small performance tweak to avoid flattening merged_cc_shared_library_infos twice:
+    merged_cc_shared_library_infos_list = merged_cc_shared_library_infos.to_list()
+    exports_map = _build_exports_map_from_only_dynamic_deps(merged_cc_shared_library_infos_list)
     for export in deps:
         # Do not check for overlap between targets matched by the current
         # rule's exports_filter and what is in exports_map. A library in roots
@@ -662,7 +665,7 @@ def _cc_shared_library_impl(ctx):
             fail("Trying to export a library already exported by a different shared library: " +
                  str(export.label))
 
-    link_once_static_libs_map = _build_link_once_static_libs_map(merged_cc_shared_library_info)
+    link_once_static_libs_map = _build_link_once_static_libs_map(merged_cc_shared_library_infos_list)
 
     (exports, linker_inputs, curr_link_once_static_libs_set, precompiled_only_dynamic_libraries) = _filter_inputs(
         ctx,
@@ -789,7 +792,7 @@ def _cc_shared_library_impl(ctx):
             **additional_output_groups
         ),
         CcSharedLibraryInfo(
-            dynamic_deps = merged_cc_shared_library_info,
+            dynamic_deps = merged_cc_shared_library_infos,
             exports = exports.keys(),
             link_once_static_libs = curr_link_once_static_libs_set,
             linker_input = cc_common.create_linker_input(

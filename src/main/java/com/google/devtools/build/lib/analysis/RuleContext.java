@@ -1091,7 +1091,8 @@ public class RuleContext extends TargetContext
     return toolchainContexts == null ? null : toolchainContexts.getToolchainContext(execGroup);
   }
 
-  private boolean isAutomaticExecGroup(String execGroupName) {
+  /** Returns true if the given exec group is an automatic exec group. */
+  public boolean isAutomaticExecGroup(String execGroupName) {
     return !Identifier.isValid(execGroupName) && !execGroupName.equals(DEFAULT_EXEC_GROUP_NAME);
   }
 

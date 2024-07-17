@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.EXECUTES;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -62,7 +64,7 @@ import java.util.List;
 /** Handles the 'test' command on the Blaze command line. */
 @Command(
     name = "test",
-    builds = true,
+    buildPhase = EXECUTES,
     inheritsOptionsFrom = {BuildCommand.class},
     options = {TestSummaryOptions.class},
     shortDescription = "Builds and runs the specified test targets.",

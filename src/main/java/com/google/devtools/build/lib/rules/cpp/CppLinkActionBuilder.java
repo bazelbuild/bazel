@@ -586,6 +586,10 @@ public class CppLinkActionBuilder {
         // On Windows, We can always split the command line when building DLL.
       case NODEPS_DYNAMIC_LIBRARY:
       case DYNAMIC_LIBRARY:
+        // TODO(bazel-team): interfaceOutput != null should not block the creation of parameter
+        // files. After change #652438084, this might become a problem for dynamic libraries with
+        // a very large number of linker inputs since the command line may exceed the maximum
+        // length.
         return (interfaceOutput == null
             || featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS));
       case EXECUTABLE:

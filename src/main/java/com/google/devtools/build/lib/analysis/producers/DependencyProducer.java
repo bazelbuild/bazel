@@ -143,7 +143,8 @@ final class DependencyProducer
       return computePrerequisites(
           AttributeConfiguration.ofUnary(configurationKey),
           parameters.getExecutionPlatformLabel(
-              ((ToolchainDependencyKind) kind).getExecGroupName()));
+              ((ToolchainDependencyKind) kind).getExecGroupName(),
+              DependencyKind.isBaseTargetToolchain(kind)));
     }
 
     if (kind == OUTPUT_FILE_RULE_DEPENDENCY) {
@@ -293,6 +294,10 @@ final class DependencyProducer
   private boolean useBaseTargetPrerequisitesSupplier() {
     if (parameters.aspects().isEmpty()) {
       return false;
+    }
+
+    if (DependencyKind.isBaseTargetToolchain(kind)) {
+      return true;
     }
 
     if (DependencyKind.isAttribute(kind)) {

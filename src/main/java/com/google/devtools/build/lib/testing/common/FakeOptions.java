@@ -14,13 +14,13 @@
 package com.google.devtools.build.lib.testing.common;
 
 import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.ParsedOptionDescription;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Map;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
@@ -110,8 +110,13 @@ public final class FakeOptions implements OptionsProvider {
   }
 
   @Override
-  public Map<String, Object> getExplicitStarlarkOptions(
+  public ImmutableMap<String, Object> getExplicitStarlarkOptions(
       Predicate<? super ParsedOptionDescription> filter) {
     return ImmutableMap.of();
+  }
+
+  @Override
+  public ImmutableList<String> getUserOptions() {
+    return ImmutableList.of();
   }
 }

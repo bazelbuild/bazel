@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
+
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.JsonProfile;
@@ -41,14 +43,14 @@ import java.io.PrintStream;
 
 /** Command line wrapper for analyzing Blaze build profiles. */
 @Command(
-  name = "analyze-profile",
-  options = {ProfileCommand.ProfileOptions.class},
-  shortDescription = "Analyzes build profile data.",
-  help = "resource:analyze-profile.txt",
-  allowResidue = true,
-  completion = "path",
-  mustRunInWorkspace = false
-)
+    name = "analyze-profile",
+    buildPhase = NONE,
+    options = {ProfileCommand.ProfileOptions.class},
+    shortDescription = "Analyzes build profile data.",
+    help = "resource:analyze-profile.txt",
+    allowResidue = true,
+    completion = "path",
+    mustRunInWorkspace = false)
 public final class ProfileCommand implements BlazeCommand {
 
   public static class DumpConverter extends Converters.StringSetConverter {

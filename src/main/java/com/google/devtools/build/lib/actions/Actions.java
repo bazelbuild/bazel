@@ -40,12 +40,14 @@ import java.util.Optional;
 public final class Actions {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  private static final Escaper PATH_ESCAPER = Escapers.builder()
-      .addEscape('_', "_U")
-      .addEscape('/', "_S")
-      .addEscape('\\', "_B")
-      .addEscape(':', "_C")
-      .build();
+  private static final Escaper PATH_ESCAPER =
+      Escapers.builder()
+          .addEscape('_', "_U")
+          .addEscape('/', "_S")
+          .addEscape('\\', "_B")
+          .addEscape(':', "_C")
+          .addEscape('@', "_A")
+          .build();
 
   private Actions() {}
 
@@ -371,7 +373,11 @@ public final class Actions {
    * that no other label maps to this string.
    */
   public static String escapeLabel(Label label) {
-    return PATH_ESCAPER.escape(label.getPackageName() + ":" + label.getName());
+    String path = label.getPackageName() + ":" + label.getName();
+    if (!label.getRepository().isMain()) {
+      path = label.getRepository().getName() + "@" + path;
+    }
+    return PATH_ESCAPER.escape(path);
   }
 
   /**

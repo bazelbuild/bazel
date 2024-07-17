@@ -93,9 +93,26 @@ abstract class InterningObjectCodecFieldGenerators {
     }
   }
 
-  private static final class NestedArrayFieldGenerator extends FieldGenerator {
+  /** Implementation that uses field offsets as handles. */
+  private abstract static class OffsetFieldGenerator extends FieldGenerator {
+    private OffsetFieldGenerator(VariableElement variable, int hierarchyLevel) {
+      super(variable, hierarchyLevel);
+    }
+
+    @Override
+    final void generateHandleMember(TypeSpec.Builder classBuilder, MethodSpec.Builder constructor) {
+      classBuilder.addField(long.class, getHandleName(), Modifier.PRIVATE, Modifier.FINAL);
+      constructor.addStatement(
+          "this.$L = $T.unsafe().objectFieldOffset($T.class.getDeclaredField(\"$L\"))",
+          getHandleName(),
+          UnsafeProvider.class,
+          getParentName(),
+          getParameterName());
+    }
+  }
+
+  private static final class NestedArrayFieldGenerator extends OffsetFieldGenerator {
     private final String processorName;
-    private final boolean isPrimitiveArray;
 
     private NestedArrayFieldGenerator(
         VariableElement variable, int hierarchyLevel, TypeKind baseComponentKind) {
@@ -110,14 +127,12 @@ abstract class InterningObjectCodecFieldGenerators {
         case LONG:
         case SHORT:
           this.processorName = baseComponentKind.name() + "_ARRAY_PROCESSOR";
-          this.isPrimitiveArray = true;
           break;
         case DECLARED:
         case TYPEVAR:
           // See comments of `ArrayProcessor.OBJECT_ARRAY_PROCESSOR` to understand how it works for
           // any type of object array.
           this.processorName = "OBJECT_ARRAY_PROCESSOR";
-          this.isPrimitiveArray = false;
           break;
         default:
           throw new IllegalStateException(
@@ -160,30 +175,22 @@ abstract class InterningObjectCodecFieldGenerators {
           processorName,
           getTypeName(),
           UnsafeProvider.class,
-          getOffsetName());
+          getHandleName());
     }
 
     @Override
     void generateDeserializeCode(MethodSpec.Builder deserialize) {
-      if (isPrimitiveArray) {
-        deserialize.addStatement(
-            "$T.$L.deserialize(codedIn, $L, instance, $L)",
-            ArrayProcessor.class,
-            processorName,
-            getTypeName(),
-            getOffsetName());
-      } else {
-        deserialize.addStatement(
-            "$T.$L.deserialize(context, codedIn, $L, instance, $L)",
-            ArrayProcessor.class,
-            processorName,
-            getTypeName(),
-            getOffsetName());
-      }
+      deserialize.addStatement(
+          "$T.unsafe().putObject(instance, $L, $T.$L.deserialize(context, codedIn, $L))",
+          UnsafeProvider.class,
+          getHandleName(),
+          ArrayProcessor.class,
+          processorName,
+          getTypeName());
     }
   }
 
-  private static class PrimitiveArrayFieldGenerator extends FieldGenerator {
+  private static class PrimitiveArrayFieldGenerator extends OffsetFieldGenerator {
     private final TypeKind componentType;
 
     private PrimitiveArrayFieldGenerator(
@@ -205,7 +212,7 @@ abstract class InterningObjectCodecFieldGenerators {
               Object.class,
               objName,
               UnsafeProvider.class,
-              getOffsetName())
+              getHandleName())
           .beginControlFlow("if ($L == null)", objName)
           .addStatement("codedOut.writeInt32NoTag(0)")
           .nextControlFlow("else")
@@ -227,7 +234,7 @@ abstract class InterningObjectCodecFieldGenerators {
           .addStatement(
               "$T.unsafe().putObject(instance, $L, $T.$L.deserializeArrayData(codedIn, $L))",
               UnsafeProvider.class,
-              getOffsetName(),
+              getHandleName(),
               ArrayProcessor.class,
               getProcessorName(),
               lengthName)
@@ -235,7 +242,7 @@ abstract class InterningObjectCodecFieldGenerators {
     }
   }
 
-  private static class ObjectArrayFieldGenerator extends FieldGenerator {
+  private static class ObjectArrayFieldGenerator extends OffsetFieldGenerator {
     private final TypeName componentTypeName;
 
     private ObjectArrayFieldGenerator(
@@ -253,7 +260,7 @@ abstract class InterningObjectCodecFieldGenerators {
               Object.class,
               arrName,
               UnsafeProvider.class,
-              getOffsetName())
+              getHandleName())
           .beginControlFlow("if ($L == null)", arrName)
           .addStatement("codedOut.writeInt32NoTag(0)")
           .nextControlFlow("else")
@@ -275,7 +282,7 @@ abstract class InterningObjectCodecFieldGenerators {
           .addStatement(
               "$T.unsafe().putObject(instance, $L, $L)",
               UnsafeProvider.class,
-              getOffsetName(),
+              getHandleName(),
               arrName)
           .addStatement(
               "$T.deserializeObjectArray(context, codedIn, $L, $L)",
@@ -286,7 +293,7 @@ abstract class InterningObjectCodecFieldGenerators {
     }
   }
 
-  private static class BooleanFieldGenerator extends FieldGenerator {
+  private static class BooleanFieldGenerator extends OffsetFieldGenerator {
     private BooleanFieldGenerator(VariableElement variable, int hierarchyLevel) {
       super(variable, hierarchyLevel);
     }
@@ -296,7 +303,7 @@ abstract class InterningObjectCodecFieldGenerators {
       serialize.addStatement(
           "codedOut.writeBoolNoTag($T.unsafe().getBoolean(obj, $L))",
           UnsafeProvider.class,
-          getOffsetName());
+          getHandleName());
     }
 
     @Override
@@ -304,11 +311,11 @@ abstract class InterningObjectCodecFieldGenerators {
       deserialize.addStatement(
           "$T.unsafe().putBoolean(instance, $L, codedIn.readBool())",
           UnsafeProvider.class,
-          getOffsetName());
+          getHandleName());
     }
   }
 
-  private static class ByteFieldGenerator extends FieldGenerator {
+  private static class ByteFieldGenerator extends OffsetFieldGenerator {
     private ByteFieldGenerator(VariableElement variable, int hierarchyLevel) {
       super(variable, hierarchyLevel);
     }
@@ -318,7 +325,7 @@ abstract class InterningObjectCodecFieldGenerators {
       serialize.addStatement(
           "codedOut.writeRawByte($T.unsafe().getByte(obj, $L))",
           UnsafeProvider.class,
-          getOffsetName());
+          getHandleName());
     }
 
     @Override
@@ -326,11 +333,11 @@ abstract class InterningObjectCodecFieldGenerators {
       deserialize.addStatement(
           "$T.unsafe().putByte(instance, $L, codedIn.readRawByte())",
           UnsafeProvider.class,
-          getOffsetName());
+          getHandleName());
     }
   }
 
-  private static class CharFieldGenerator extends FieldGenerator {
+  private static class CharFieldGenerator extends OffsetFieldGenerator {
     private CharFieldGenerator(VariableElement variable, int hierarchyLevel) {
       super(variable, hierarchyLevel);
     }
@@ -341,7 +348,7 @@ abstract class InterningObjectCodecFieldGenerators {
           "$T.writeChar(codedOut, $T.unsafe().getChar(obj, $L))",
           CodecHelpers.class,
           UnsafeProvider.class,
-          getOffsetName());
+          getHandleName());
     }
 
     @Override
@@ -349,12 +356,12 @@ abstract class InterningObjectCodecFieldGenerators {
       deserialize.addStatement(
           "$T.unsafe().putChar(instance, $L, $T.readChar(codedIn))",
           UnsafeProvider.class,
-          getOffsetName(),
+          getHandleName(),
           CodecHelpers.class);
     }
   }
 
-  private static class DoubleFieldGenerator extends FieldGenerator {
+  private static class DoubleFieldGenerator extends OffsetFieldGenerator {
     private DoubleFieldGenerator(VariableElement variable, int hierarchyLevel) {
       super(variable, hierarchyLevel);
     }
@@ -364,7 +371,7 @@ abstract class InterningObjectCodecFieldGenerators {
       serialize.addStatement(
           "codedOut.writeDoubleNoTag($T.unsafe().getDouble(obj, $L))",
           UnsafeProvider.class,
-          getOffsetName());
+          getHandleName());
     }
 
     @Override
@@ -372,11 +379,11 @@ abstract class InterningObjectCodecFieldGenerators {
       deserialize.addStatement(
           "$T.unsafe().putDouble(instance, $L, codedIn.readDouble())",
           UnsafeProvider.class,
-          getOffsetName());
+          getHandleName());
     }
   }
 
-  private static class FloatFieldGenerator extends FieldGenerator {
+  private static class FloatFieldGenerator extends OffsetFieldGenerator {
     private FloatFieldGenerator(VariableElement variable, int hierarchyLevel) {
       super(variable, hierarchyLevel);
     }
@@ -386,7 +393,7 @@ abstract class InterningObjectCodecFieldGenerators {
       serialize.addStatement(
           "codedOut.writeFloatNoTag($T.unsafe().getFloat(obj, $L))",
           UnsafeProvider.class,
-          getOffsetName());
+          getHandleName());
     }
 
     @Override
@@ -394,11 +401,11 @@ abstract class InterningObjectCodecFieldGenerators {
       deserialize.addStatement(
           "$T.unsafe().putFloat(instance, $L, codedIn.readFloat())",
           UnsafeProvider.class,
-          getOffsetName());
+          getHandleName());
     }
   }
 
-  private static class IntFieldGenerator extends FieldGenerator {
+  private static class IntFieldGenerator extends OffsetFieldGenerator {
     private IntFieldGenerator(VariableElement variable, int hierarchyLevel) {
       super(variable, hierarchyLevel);
     }
@@ -408,7 +415,7 @@ abstract class InterningObjectCodecFieldGenerators {
       serialize.addStatement(
           "codedOut.writeInt32NoTag($T.unsafe().getInt(obj, $L))",
           UnsafeProvider.class,
-          getOffsetName());
+          getHandleName());
     }
 
     @Override
@@ -416,11 +423,11 @@ abstract class InterningObjectCodecFieldGenerators {
       deserialize.addStatement(
           "$T.unsafe().putInt(instance, $L, codedIn.readInt32())",
           UnsafeProvider.class,
-          getOffsetName());
+          getHandleName());
     }
   }
 
-  private static class LongFieldGenerator extends FieldGenerator {
+  private static class LongFieldGenerator extends OffsetFieldGenerator {
     private LongFieldGenerator(VariableElement variable, int hierarchyLevel) {
       super(variable, hierarchyLevel);
     }
@@ -430,7 +437,7 @@ abstract class InterningObjectCodecFieldGenerators {
       serialize.addStatement(
           "codedOut.writeInt64NoTag($T.unsafe().getLong(obj, $L))",
           UnsafeProvider.class,
-          getOffsetName());
+          getHandleName());
     }
 
     @Override
@@ -438,11 +445,11 @@ abstract class InterningObjectCodecFieldGenerators {
       deserialize.addStatement(
           "$T.unsafe().putLong(instance, $L, codedIn.readInt64())",
           UnsafeProvider.class,
-          getOffsetName());
+          getHandleName());
     }
   }
 
-  private static class ShortFieldGenerator extends FieldGenerator {
+  private static class ShortFieldGenerator extends OffsetFieldGenerator {
     private ShortFieldGenerator(VariableElement variable, int hierarchyLevel) {
       super(variable, hierarchyLevel);
     }
@@ -453,7 +460,7 @@ abstract class InterningObjectCodecFieldGenerators {
           "$T.writeShort(codedOut, $T.unsafe().getShort(obj, $L))",
           CodecHelpers.class,
           UnsafeProvider.class,
-          getOffsetName());
+          getHandleName());
     }
 
     @Override
@@ -461,12 +468,12 @@ abstract class InterningObjectCodecFieldGenerators {
       deserialize.addStatement(
           "$T.unsafe().putShort(instance, $L, $T.readShort(codedIn))",
           UnsafeProvider.class,
-          getOffsetName(),
+          getHandleName(),
           CodecHelpers.class);
     }
   }
 
-  private static class ObjectFieldGenerator extends FieldGenerator {
+  private static class ObjectFieldGenerator extends OffsetFieldGenerator {
     private ObjectFieldGenerator(VariableElement variable, int hierarchyLevel) {
       super(variable, hierarchyLevel);
     }
@@ -476,12 +483,12 @@ abstract class InterningObjectCodecFieldGenerators {
       serialize.addStatement(
           "context.serialize($T.unsafe().getObject(obj, $L), codedOut)",
           UnsafeProvider.class,
-          getOffsetName());
+          getHandleName());
     }
 
     @Override
     void generateDeserializeCode(MethodSpec.Builder deserialize) {
-      deserialize.addStatement("context.deserialize(codedIn, instance, $L)", getOffsetName());
+      deserialize.addStatement("context.deserialize(codedIn, instance, $L)", getHandleName());
     }
   }
 }

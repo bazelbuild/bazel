@@ -82,7 +82,9 @@ public final class FeatureFlagSetterRule implements RuleDefinition, RuleConfigur
 
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
-            .setFilesToBuild(PrerequisiteArtifacts.nestedSet(ruleContext, "deps"))
+            .setFilesToBuild(
+                PrerequisiteArtifacts.nestedSet(
+                    ruleContext.getRulePrerequisitesCollection(), "deps"))
             .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY);
     if (exportedFlagProvider != null) {
       builder.addNativeDeclaredProvider(exportedFlagProvider);

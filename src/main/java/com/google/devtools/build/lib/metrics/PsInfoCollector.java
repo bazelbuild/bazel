@@ -82,7 +82,6 @@ public class PsInfoCollector {
 
   /** Updates current snapshot of all processes state, using ps command. */
   private void updatePsSnapshot(Clock clock) {
-    // TODO(b/279003887): add exception if we couldn't collect the metrics.
     ImmutableMap<Long, PsInfo> pidToPsInfo = collectDataFromPs();
 
     ImmutableSetMultimap<Long, PsInfo> pidToChildrenPsInfo =

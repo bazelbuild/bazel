@@ -447,6 +447,7 @@ public final class SandboxHelpers {
     // createDirectoryAndParentsInSandboxRoot.
     knownDirectories.add(dir);
     knownDirectories.add(dir.getParentDirectory());
+    knownDirectories.add(getTmpDirPath(dir));
 
     for (PathFragment path : dirsToCreate) {
       if (Thread.interrupted()) {
@@ -642,6 +643,19 @@ public final class SandboxHelpers {
   private static Optional<PathFragment> getExpectedSymlinkDestinationForSymlinks(
       PathFragment fragment, SandboxInputs inputs) {
     return Optional.ofNullable(inputs.getSymlinks().get(fragment));
+  }
+
+  /**
+   * Returns the path to the tmp directory of the given workDir of worker.
+   *
+   * <p>The structure of the worker directories should look like this: <outputBase>/
+   * |__bazel-workers/ |__worker-<id>-<mnemonic>/ |__worker-<id>-<mnemonic>-tmp/
+   */
+  public static Path getTmpDirPath(Path workDir) {
+    return workDir
+        .getParentDirectory()
+        .getParentDirectory()
+        .getChild(workDir.getParentDirectory().getBaseName() + "-tmp");
   }
 
   /**

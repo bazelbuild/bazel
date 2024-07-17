@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Skyfocus;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.SkyfocusOptions;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
@@ -269,7 +270,7 @@ public class CommandEnvironment {
             : UUID.randomUUID().toString();
 
     this.repoEnv.putAll(clientEnv);
-    if (command.builds() || command.name().equals("info")) {
+    if (command.buildPhase().analyzes() || command.name().equals("info")) {
       // Compute the set of environment variables that are allowlisted on the commandline
       // for inheritance.
       for (Map.Entry<String, String> entry :
@@ -614,8 +615,8 @@ public class CommandEnvironment {
   }
 
   /**
-   * Returns the {@link OutputService} to use, or {@code null} if this is not a {@linkplain
-   * Command#builds build command}.
+   * Returns the {@link OutputService} to use, or {@code null} if this is not a command that
+   * performs analysis according to {@linkplain Command#buildPhase()}.
    */
   @Nullable
   public OutputService getOutputService() {
@@ -791,7 +792,11 @@ public class CommandEnvironment {
 
     outputService = null;
     BlazeModule outputModule = null;
-    if (command.builds() || command.name().equals("clean")) {
+    if (command.buildPhase().analyzes() || command.name().equals("clean")) {
+      // Output service should only affect commands that execute actions, but due to the legacy
+      // wiring of BuildTool.java, this covers analysis-only commands as well.
+      //
+      // TODO: fix this.
       for (BlazeModule module : runtime.getBlazeModules()) {
         OutputService moduleService = module.getOutputService();
         if (moduleService != null) {
@@ -822,13 +827,28 @@ public class CommandEnvironment {
     // Modules that are subscribed to CommandStartEvent may create pending exceptions.
     throwPendingException();
 
-    if (getCommand().builds()) {
-      // Need to determine if Skyfocus will run for this command. If so, the evaluator
-      // will need to be configured to remember additional state (e.g. root keys) that it
-      // otherwise doesn't need to for a non-Skyfocus build. Alternately, it might reset
-      // the evaluator, which is why this runs before injecting precomputed values below.
+    // Determine if Skyfocus will run for this command: Skyfocus runs only for commands that
+    // execute actions. Throw an error if this is a command that is not guaranteed to work
+    // correctly on a focused Skyframe graph.
+    if (getCommand().buildPhase().executes()) {
       skyframeExecutor.prepareForSkyfocus(
           options.getOptions(SkyfocusOptions.class), reporter, runtime.getProductName());
+    } else if (getCommand().buildPhase().loads()
+        && !getSkyframeExecutor().getSkyfocusState().workingSet().isEmpty()) {
+      // A non-empty working set implies a focused Skyframe state.
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(
+                      command.name()
+                          + " is not supported after using Skyfocus because it can"
+                          + " return partial/incorrect results. Run clean or shutdown and try"
+                          + " again.")
+                  .setSkyfocus(
+                      Skyfocus.newBuilder()
+                          .setCode(Skyfocus.Code.DISALLOWED_OPERATION_ON_FOCUSED_GRAPH)
+                          .build())
+                  .build()));
     }
   }
 
@@ -839,7 +859,9 @@ public class CommandEnvironment {
     // precomputed by our BlazeWorkspace.
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.INFO, "Finding output file system")) {
-      return outputService.getFileSystemName(workspace.getOutputBaseFilesystemTypeName());
+      return outputService == null
+          ? ""
+          : outputService.getFileSystemName(workspace.getOutputBaseFilesystemTypeName());
     }
   }
 

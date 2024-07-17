@@ -396,7 +396,8 @@ public final class DependencyResolver {
               starlarkExecTransition.orElse(null),
               env,
               listener,
-              /* baseTargetPrerequisitesSupplier= */ null);
+              /* baseTargetPrerequisitesSupplier= */ null,
+              /* baseTargetUnloadedToolchainContexts= */ null);
       if (!transitiveRootCauses.isEmpty()) {
         NestedSet<Cause> causes = transitiveRootCauses.build();
         // TODO(bazel-team): consider reporting the error in this class vs. exporting it for
@@ -602,6 +603,9 @@ public final class DependencyResolver {
    * @param baseTargetPrerequisitesSupplier not null only in case of aspect evaluation. It provides
    *     a way to get the {@link ConfiguredTargetValue}s and {@link BuildConfigurationValue}s of the
    *     underlying target dependencies without creating a dependency edge from the aspect to them.
+   * @param baseTargetUnloadedToolchainContexts not null only in case of aspect evaluation. It's the
+   *     {@link UnloadedToolchainContext}s of the underlying target to support aspects toolchains
+   *     propagation.
    */
   // TODO(b/213351014): Make the control flow of this helper function more readable. This will
   //   involve making a corresponding change to State to match the control flow.
@@ -614,7 +618,8 @@ public final class DependencyResolver {
       @Nullable StarlarkAttributeTransitionProvider starlarkTransitionProvider,
       LookupEnvironment env,
       ExtendedEventHandler listener,
-      @Nullable BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier)
+      @Nullable BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier,
+      @Nullable ToolchainCollection<UnloadedToolchainContext> baseTargetUnloadedToolchainContexts)
       throws DependencyEvaluationException,
           ConfiguredValueCreationException,
           AspectCreationException,
@@ -638,7 +643,8 @@ public final class DependencyResolver {
                   ctgValue,
                   aspects,
                   dependencyContext.configConditions().asProviders(),
-                  toolchainContexts);
+                  toolchainContexts,
+                  baseTargetUnloadedToolchainContexts);
         } catch (DependencyResolutionHelpers.Failure e) {
           throw handleDependencyRootCauseError(ctgValue, e.getLocation(), e.getMessage(), listener);
         }
@@ -655,7 +661,8 @@ public final class DependencyResolver {
                         dependencyLabels.attributeMap(),
                         state.transitiveState,
                         state.storedEvents,
-                        baseTargetPrerequisitesSupplier),
+                        baseTargetPrerequisitesSupplier,
+                        baseTargetUnloadedToolchainContexts),
                     dependencyLabels.labels(),
                     (DependencyMapProducer.ResultSink) state));
       }

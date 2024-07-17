@@ -194,6 +194,7 @@ public class BuildTool {
       initializeOutputFilter(request);
 
       if (env.withMergedAnalysisAndExecutionSourceOfTruth()) {
+        // Skymeld is useful only for commands that perform execution.
         buildTargetsWithMergedAnalysisExecution(request, result, validator, buildOptions);
         return;
       }

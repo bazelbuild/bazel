@@ -222,6 +222,16 @@ public final class BlazeOptionHandler {
                   "%s:\n  %s'%s' options: %s",
                   source, inherited, commandToParse, Joiner.on(' ').join(rcArgs.getArgs())));
         }
+        PriorityCategory priorityCategory;
+        // There's not a separate PriorityCategory for "client" options, so treat them as global
+        // rcfile options. Client options are passed via the wrapper script.
+        if ((workspace.getWorkspace() != null
+                && rcArgs.getRcFile().contains(workspace.getWorkspace().toString()))
+            || rcArgs.getRcFile().equals("client")) {
+          priorityCategory = PriorityCategory.GLOBAL_RC_FILE;
+        } else {
+          priorityCategory = PriorityCategory.RC_FILE;
+        }
         if (commandToParse.equals(COMMON_PSEUDO_COMMAND)) {
           // Pass in options data for all commands supported by the runtime so that options that
           // apply to some but not the current command can be ignored.
@@ -235,7 +245,7 @@ public final class BlazeOptionHandler {
           // pseudo command can be parsed unambiguously.
           ImmutableList<String> ignoredArgs =
               optionsParser.parseWithSourceFunction(
-                  PriorityCategory.RC_FILE,
+                  priorityCategory,
                   o -> rcArgs.getRcFile(),
                   rcArgs.getArgs(),
                   OptionsParser.getFallbackOptionsData(allOptionsClasses));
@@ -250,7 +260,7 @@ public final class BlazeOptionHandler {
             rcfileNotes.set(index, note);
           }
         } else {
-          optionsParser.parse(PriorityCategory.RC_FILE, rcArgs.getRcFile(), rcArgs.getArgs());
+          optionsParser.parse(priorityCategory, rcArgs.getRcFile(), rcArgs.getArgs());
         }
       }
     }
@@ -307,8 +317,8 @@ public final class BlazeOptionHandler {
         remainingCmdLine.build(),
         /* fallbackData= */ null);
 
-    if (commandAnnotation.builds()) {
-      // splits project files from targets in the traditional sense
+    if (commandAnnotation.buildPhase().analyzes()) {
+      // split project files from targets in the traditional sense.
       ProjectFileSupport.handleProjectFiles(
           eventHandler,
           runtime.getProjectFileProvider(),
@@ -410,7 +420,7 @@ public final class BlazeOptionHandler {
   DetailedExitCode parseStarlarkOptions(CommandEnvironment env) {
     // For now, restrict starlark options to commands that already build to ensure that loading
     // will work. We may want to open this up to other commands in the future.
-    if (!commandAnnotation.builds()) {
+    if (!commandAnnotation.buildPhase().analyzes()) {
       return DetailedExitCode.success();
     }
     try {

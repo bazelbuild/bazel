@@ -222,7 +222,9 @@ import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlat
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsCycleReporter;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsFunction;
 import com.google.devtools.build.lib.skyframe.toolchains.SingleToolchainResolutionFunction;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainResolutionFunction;
+import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.HeapOffsetHelper;
@@ -586,7 +588,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             skyKeyStateReceiver::makeThreadStateReceiver);
     this.artifactFactory =
         new ArtifactFactory(
-            /*execRootParent=*/ directories.getExecRootBase(), directories.getRelativeOutputPath());
+            /* execRootParent= */ directories.getExecRootBase(),
+            directories.getRelativeOutputPath());
     this.skyframeBuildView =
         new SkyframeBuildView(artifactFactory, this, ruleClassProvider, actionKeyContext);
     this.externalFilesHelper =
@@ -699,6 +702,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         SkyFunctions.ASPECT,
         new AspectFunction(
             new BuildViewProvider(),
+            ruleClassProvider,
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
             this::getExistingPackage,
             new BaseTargetPrerequisitesSupplierImpl()));
@@ -734,7 +738,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         SkyFunctions.REPO_FILE,
         shouldUseRepoDotBazel
             ? new RepoFileFunction(
-            ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace())
+                ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace())
             : (k, env) -> {
               throw new IllegalStateException("supposed to be unused");
             });
@@ -884,10 +888,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   /** Inform this SkyframeExecutor that a new command is starting. */
   public void noteCommandStart() {}
 
-  /** Notify listeners about changed files, and release any associated memory afterwards. */
+  /**
+   * Notify listeners about changed files, and release any associated memory afterwards.
+   *
+   * <p>It's called at the end of the execution of a Blaze command and if the command builds, before
+   * the execution phase starts. In the latter case, the invocation at the end of the command will
+   * be a no-op so that the event about changed files is posted only once.
+   *
+   * <p>The reason why the event about changed files is posted early if the command builds is that
+   * it's used in the execution phase.
+   */
   public void drainChangedFiles() {
-    incrementalBuildMonitor.alertListeners(getEventBus());
-    incrementalBuildMonitor = null;
+    if (incrementalBuildMonitor != null) {
+      incrementalBuildMonitor.alertListeners(getEventBus());
+      incrementalBuildMonitor = null;
+    }
   }
 
   /**
@@ -947,7 +962,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     progressReceiver = newSkyframeProgressReceiver();
     memoizingEvaluator = createEvaluator(skyFunctions(), progressReceiver, emittedEventState);
     skyframeExecutorConsumerOnInit.accept(this);
-
   }
 
   @ForOverride
@@ -1009,6 +1023,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   public void notifyCommandComplete(ExtendedEventHandler eventHandler) throws InterruptedException {
     try {
+      drainChangedFiles();
       memoizingEvaluator.noteEvaluationsAtSameVersionMayBeFinished(eventHandler);
     } finally {
       globFunction.complete();
@@ -1337,8 +1352,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       EvaluationResult<WorkspaceStatusValue> result =
           evaluate(
               ImmutableList.of(WorkspaceStatusValue.BUILD_INFO_KEY),
-              /*keepGoing=*/ true,
-              /*numThreads=*/ 1,
+              /* keepGoing= */ true,
+              /* numThreads= */ 1,
               eventHandler);
       WorkspaceStatusValue value = checkNotNull(result.get(WorkspaceStatusValue.BUILD_INFO_KEY));
       return ImmutableList.of(value.getStableArtifact(), value.getVolatileArtifact());
@@ -1658,7 +1673,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Iterable<SkyKey> aspectKeys = AspectCompletionValue.keys(aspects, topLevelArtifactContext);
       Iterable<SkyKey> testKeys =
           TestCompletionValue.keys(
-              parallelTests, topLevelArtifactContext, /*exclusiveTesting=*/ false);
+              parallelTests, topLevelArtifactContext, /* exclusiveTesting= */ false);
       EvaluationContext evaluationContext =
           newEvaluationContextBuilder()
               .setKeepGoing(options.getOptions(KeepGoingOption.class).keepGoing)
@@ -1721,11 +1736,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     try {
       Iterable<SkyKey> testKeys =
           TestCompletionValue.keys(
-              ImmutableSet.of(exclusiveTest), topLevelArtifactContext, /*exclusiveTesting=*/ true);
+              ImmutableSet.of(exclusiveTest),
+              topLevelArtifactContext,
+              /* exclusiveTesting= */ true);
       return evaluate(
           testKeys,
-          /*keepGoing=*/ options.getOptions(KeepGoingOption.class).keepGoing,
-          /*numThreads=*/ options.getOptions(BuildRequestOptions.class).jobs,
+          /* keepGoing= */ options.getOptions(KeepGoingOption.class).keepGoing,
+          /* numThreads= */ options.getOptions(BuildRequestOptions.class).jobs,
           reporter);
     } finally {
       // Also releases thread locks.
@@ -2242,8 +2259,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     EvaluationResult<ActionLookupConflictFindingValue> result =
         evaluate(
             TopLevelActionLookupConflictFindingFunction.keys(keys, topLevelArtifactContext),
-            /*keepGoing=*/ true,
-            /*numThreads=*/ ResourceUsage.getAvailableProcessors(),
+            /* keepGoing= */ true,
+            /* numThreads= */ ResourceUsage.getAvailableProcessors(),
             eventHandler);
 
     // Remove top-level action-conflict detection values for memory efficiency. Non-top-level ones
@@ -2359,8 +2376,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     EvaluationResult<ActionLookupConflictFindingValue> result =
         evaluate(
             Iterables.transform(artifacts, ActionLookupConflictFindingValue::key),
-            /*keepGoing=*/ true,
-            /*numThreads=*/ ResourceUsage.getAvailableProcessors(),
+            /* keepGoing= */ true,
+            /* numThreads= */ ResourceUsage.getAvailableProcessors(),
             eventHandler);
 
     // Remove remaining action-conflict detection values immediately for memory efficiency.
@@ -2381,7 +2398,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public final EvaluationResult<SkyValue> prepareAndGet(
       Set<SkyKey> roots, EvaluationContext evaluationContext) throws InterruptedException {
     EvaluationContext evaluationContextToUse =
-        evaluationContext.builder().setKeepGoing(/*keepGoing=*/ true).build();
+        evaluationContext.builder().setKeepGoing(/* keepGoing= */ true).build();
     return memoizingEvaluator.evaluate(roots, evaluationContextToUse);
   }
 
@@ -2525,7 +2542,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         // overall is in nokeep_going mode: the worst that happens is we parse some unnecessary
         // .bzl files.
         result =
-            evaluate(keys, /*keepGoing=*/ true, /*numThreads=*/ DEFAULT_THREAD_COUNT, eventHandler);
+            evaluate(
+                keys, /* keepGoing= */ true, /* numThreads= */ DEFAULT_THREAD_COUNT, eventHandler);
       }
       ErrorInfo error = result.getError(pkgName);
       if (error != null) {
@@ -3187,6 +3205,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           public ImmutableMap<String, Object> getExplicitStarlarkOptions(
               java.util.function.Predicate<? super ParsedOptionDescription> filter) {
             return ImmutableMap.of();
+          }
+
+          @Override
+          public ImmutableList<String> getUserOptions() {
+            return ImmutableList.of();
           }
         });
   }
@@ -3981,6 +4004,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         throws InterruptedException {
       return (BuildConfigurationValue) memoizingEvaluator.getExistingValue(key);
     }
+
+    @Override
+    @Nullable
+    public UnloadedToolchainContext getUnloadedToolchainContext(ToolchainContextKey key)
+        throws InterruptedException {
+      return (UnloadedToolchainContext) memoizingEvaluator.getExistingValue(key);
+    }
   }
 
   /**
@@ -4011,7 +4041,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                 + StringUtilities.capitalize(productName)
                 + " will reclaim memory not needed to build the working set. Run '"
                 + productName
-                + " info working_set' to show the working set."));
+                + " dump --skyframe=working_set' to show the working set, after this command."));
 
     if (skyfocusOptions.handlingStrategy.equals(SkyfocusHandlingStrategy.STRICT)) {
       reporter.handle(Event.warn("Changes outside of the working set will cause a build error."));
@@ -4102,7 +4132,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             actionCache);
 
     skyfocusState =
-        newSkyfocusState.toBuilder().verificationSet(focusResult.verificationSet()).build();
+        newSkyfocusState.toBuilder()
+            .frontierSet(focusResult.deps())
+            .verificationSet(focusResult.verificationSet())
+            .build();
 
     // Shouldn't result in an empty graph.
     checkState(!focusResult.deps().isEmpty(), "FocusResult deps should not be empty");

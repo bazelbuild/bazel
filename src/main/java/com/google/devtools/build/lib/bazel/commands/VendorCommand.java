@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.bazel.commands;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.ANALYZES;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -93,7 +94,7 @@ import javax.annotation.Nullable;
  */
 @Command(
     name = VendorCommand.NAME,
-    builds = true,
+    buildPhase = ANALYZES,
     inheritsOptionsFrom = {TestCommand.class},
     options = {
       VendorOptions.class,

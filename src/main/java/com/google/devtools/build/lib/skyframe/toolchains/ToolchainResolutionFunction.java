@@ -636,7 +636,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
       return String.format(
           "No matching toolchains found for types %s."
               + "\nTo debug, rerun with --toolchain_resolution_debug='%s'"
-              + "\nIf platforms or toolchains are a new concept for you, we'd encourage reading "
+              + "\nFor more information on platforms or toolchains see "
               + "https://bazel.build/concepts/platforms-intro.",
           String.join(", ", labelStrings), String.join("|", labelStrings));
     }
