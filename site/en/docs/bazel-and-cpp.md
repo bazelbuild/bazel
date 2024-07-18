@@ -97,7 +97,8 @@ can improve the hygiene of a C++ project. They can be enabled using the
   [`--process_headers_in_dependencies`](/reference/command-line-reference#flag--process_headers_in_dependencies)
   flag. This can help catch issues in header-only libraries and ensure that
   headers are self-contained and independent of the order in which they are
-  included.
+  included. When the `parse_headers_as_c` feature is also enabled, headers are
+  parsed as C rather than C++.
 * The `layering_check` feature enforces that targets only include headers
   provided by their direct dependencies. The default toolchain supports this
   feature on Linux with `clang` as the compiler.

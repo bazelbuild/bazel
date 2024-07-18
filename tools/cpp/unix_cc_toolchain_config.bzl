@@ -48,6 +48,7 @@ def layering_check_features(compiler, extra_flags_per_feature, is_macos):
                     actions = [
                         ACTION_NAMES.c_compile,
                         ACTION_NAMES.cpp_compile,
+                        ACTION_NAMES.c_header_parsing,
                         ACTION_NAMES.cpp_header_parsing,
                         ACTION_NAMES.cpp_module_compile,
                     ],
@@ -78,6 +79,7 @@ def layering_check_features(compiler, extra_flags_per_feature, is_macos):
                     actions = [
                         ACTION_NAMES.c_compile,
                         ACTION_NAMES.cpp_compile,
+                        ACTION_NAMES.c_header_parsing,
                         ACTION_NAMES.cpp_header_parsing,
                         ACTION_NAMES.cpp_module_compile,
                     ],
@@ -159,6 +161,7 @@ def parse_headers_support(parse_headers_tool_path):
     ]
     features = [
         feature(name = "parse_headers"),
+        feature(name = "parse_headers_as_c"),
     ]
     return action_configs, features
 
@@ -409,6 +412,7 @@ def _impl(ctx):
                     ACTION_NAMES.linkstamp_compile,
                     ACTION_NAMES.c_compile,
                     ACTION_NAMES.cpp_compile,
+                    ACTION_NAMES.c_header_parsing,
                     ACTION_NAMES.cpp_header_parsing,
                     ACTION_NAMES.cpp_module_compile,
                     ACTION_NAMES.cpp_module_codegen,
@@ -436,6 +440,7 @@ def _impl(ctx):
                     ACTION_NAMES.linkstamp_compile,
                     ACTION_NAMES.c_compile,
                     ACTION_NAMES.cpp_compile,
+                    ACTION_NAMES.c_header_parsing,
                     ACTION_NAMES.cpp_header_parsing,
                     ACTION_NAMES.cpp_module_compile,
                     ACTION_NAMES.cpp_module_codegen,
@@ -464,6 +469,7 @@ def _impl(ctx):
                     ACTION_NAMES.linkstamp_compile,
                     ACTION_NAMES.c_compile,
                     ACTION_NAMES.cpp_compile,
+                    ACTION_NAMES.c_header_parsing,
                     ACTION_NAMES.cpp_header_parsing,
                     ACTION_NAMES.cpp_module_compile,
                     ACTION_NAMES.cpp_module_codegen,
@@ -630,6 +636,7 @@ def _impl(ctx):
                     ACTION_NAMES.linkstamp_compile,
                     ACTION_NAMES.c_compile,
                     ACTION_NAMES.cpp_compile,
+                    ACTION_NAMES.c_header_parsing,
                     ACTION_NAMES.cpp_header_parsing,
                     ACTION_NAMES.cpp_module_compile,
                     ACTION_NAMES.clif_match,
@@ -809,6 +816,7 @@ def _impl(ctx):
                     ACTION_NAMES.linkstamp_compile,
                     ACTION_NAMES.c_compile,
                     ACTION_NAMES.cpp_compile,
+                    ACTION_NAMES.c_header_parsing,
                     ACTION_NAMES.cpp_header_parsing,
                     ACTION_NAMES.cpp_module_compile,
                     ACTION_NAMES.clif_match,
@@ -880,6 +888,7 @@ def _impl(ctx):
                     ACTION_NAMES.linkstamp_compile,
                     ACTION_NAMES.c_compile,
                     ACTION_NAMES.cpp_compile,
+                    ACTION_NAMES.c_header_parsing,
                     ACTION_NAMES.cpp_header_parsing,
                     ACTION_NAMES.cpp_module_compile,
                     ACTION_NAMES.clif_match,
@@ -913,6 +922,7 @@ def _impl(ctx):
                     ACTION_NAMES.linkstamp_compile,
                     ACTION_NAMES.c_compile,
                     ACTION_NAMES.cpp_compile,
+                    ACTION_NAMES.c_header_parsing,
                     ACTION_NAMES.cpp_header_parsing,
                     ACTION_NAMES.cpp_module_compile,
                     ACTION_NAMES.clif_match,
@@ -1247,6 +1257,7 @@ def _impl(ctx):
                     ACTION_NAMES.cpp_module_compile,
                     ACTION_NAMES.objc_compile,
                     ACTION_NAMES.objcpp_compile,
+                    ACTION_NAMES.c_header_parsing,
                     ACTION_NAMES.cpp_header_parsing,
                     ACTION_NAMES.clif_match,
                 ],
@@ -1272,6 +1283,7 @@ def _impl(ctx):
                     ACTION_NAMES.cpp_module_compile,
                     ACTION_NAMES.objc_compile,
                     ACTION_NAMES.objcpp_compile,
+                    ACTION_NAMES.c_header_parsing,
                     ACTION_NAMES.cpp_header_parsing,
                     ACTION_NAMES.clif_match,
                 ],
@@ -1356,6 +1368,7 @@ def _impl(ctx):
                     ACTION_NAMES.preprocess_assemble,
                     ACTION_NAMES.c_compile,
                     ACTION_NAMES.cpp_compile,
+                    ACTION_NAMES.c_header_parsing,
                     ACTION_NAMES.cpp_header_parsing,
                     ACTION_NAMES.cpp_module_compile,
                 ],

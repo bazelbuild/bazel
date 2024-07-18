@@ -182,7 +182,8 @@ public final class CppCompileActionBuilder {
       return CppActionNames.CPP_MODULE_COMPILE;
     } else if (CppFileTypes.CPP_HEADER.matches(sourcePath)) {
       if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS)) {
-        if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS_AS_C)) {
+        if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS_AS_C)
+            && featureConfiguration.actionIsConfigured(CppActionNames.C_HEADER_PARSING)) {
           return CppActionNames.C_HEADER_PARSING;
         } else {
           return CppActionNames.CPP_HEADER_PARSING;
