@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
@@ -114,7 +116,9 @@ public final class PathMappers {
    * @param fingerprint the fingerprint to add to
    */
   public static void addToFingerprint(
-      AbstractAction action,
+      String mnemonic,
+      Map<String, String> executionInfo,
+      NestedSet<Artifact> additionalArtifactsForPathMapping,
       ActionKeyContext actionKeyContext,
       OutputPathsMode outputPathsMode,
       Fingerprint fingerprint)
@@ -123,14 +127,12 @@ public final class PathMappers {
     // how path mapping applies to the action only depends on the output paths mode and the action
     // inputs, which are already part of the action key.
     OutputPathsMode effectiveOutputPathsMode =
-        getEffectiveOutputPathsMode(
-            outputPathsMode, action.getMnemonic(), action.getExecutionInfo());
+        getEffectiveOutputPathsMode(outputPathsMode, mnemonic, executionInfo);
     if (effectiveOutputPathsMode == OutputPathsMode.STRIP) {
       fingerprint.addString(StrippingPathMapper.GUID);
       // These artifacts are not part of the actual command line or inputs, but influence the
       // behavior of path mapping.
-      actionKeyContext.addNestedSetToFingerprint(
-          fingerprint, action.getAdditionalArtifactsForPathMapping());
+      actionKeyContext.addNestedSetToFingerprint(fingerprint, additionalArtifactsForPathMapping);
     }
   }
 

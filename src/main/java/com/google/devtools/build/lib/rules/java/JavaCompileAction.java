@@ -237,7 +237,13 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     actionKeyContext.addNestedSetToFingerprint(fp, transitiveInputs);
     getEnvironment().addTo(fp);
     fp.addStringMap(executionInfo);
-    PathMappers.addToFingerprint(this, actionKeyContext, outputPathsMode, fp);
+    PathMappers.addToFingerprint(
+        getMnemonic(),
+        getExecutionInfo(),
+        getAdditionalArtifactsForPathMapping(),
+        actionKeyContext,
+        outputPathsMode,
+        fp);
   }
 
   /**
