@@ -463,7 +463,7 @@ bazel_fragments["ShellConfiguration$Options"] = fragment(
 
 bazel_fragments["GenQueryConfiguration$GenQueryOptions"] = fragment(
     propagate = [
-        "//command_line_option:experimental_skip_ttvs_for_genquery",
+        "//command_line_option:experimental_skip_ttvs_for_genquerytypoed",
     ],
 )
 
