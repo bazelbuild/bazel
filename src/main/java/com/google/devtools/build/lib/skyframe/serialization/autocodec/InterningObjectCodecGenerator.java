@@ -31,6 +31,7 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.io.IOException;
+import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
@@ -65,10 +66,12 @@ final class InterningObjectCodecGenerator extends CodecGenerator {
 
   @Override
   void performAdditionalCodecInitialization(
-      TypeSpec.Builder classBuilder, TypeElement encodedType, ExecutableElement internMethod) {
-    TypeName returnType = getErasure(encodedType, env);
+      TypeSpec.Builder classBuilder,
+      TypeName encodedTypeName,
+      ExecutableElement internMethod,
+      List<? extends FieldGenerator> unusedFieldGenerators) {
     classBuilder.superclass(
-        ParameterizedTypeName.get(ClassName.get(InterningObjectCodec.class), returnType));
+        ParameterizedTypeName.get(ClassName.get(InterningObjectCodec.class), encodedTypeName));
 
     // Defines the `InterningObjectCodec.intern` implementation.
     VariableElement param = getOnlyElement(internMethod.getParameters());
@@ -77,40 +80,35 @@ final class InterningObjectCodecGenerator extends CodecGenerator {
             .addModifiers(Modifier.PUBLIC)
             .addAnnotation(Override.class)
             .addParameter(getErasure(param.asType(), env), "value")
-            .returns(returnType)
-            .addStatement(
-                "return $T.$L(value)", getErasure(encodedType, env), internMethod.getSimpleName())
+            .returns(encodedTypeName)
+            .addStatement("return $T.$L(value)", encodedTypeName, internMethod.getSimpleName())
             .build());
   }
 
   @Override
-  MethodSpec.Builder initializeConstructor(TypeElement encodedType, int fieldCount) {
-    MethodSpec.Builder constructor = MethodSpec.constructorBuilder();
-
-    TypeName typeName = getErasure(encodedType, env);
+  void generateConstructorPreamble(
+      TypeElement encodedType,
+      ImmutableList<FieldGenerator> fieldGenerators,
+      MethodSpec.Builder constructor) {
+    TypeName encodedTypeName = getErasure(encodedType, env);
     constructor.addStatement(
         "int runtimeFieldCount = $T.getSerializableFieldCount($T.class)",
         RuntimeHelpers.class,
-        typeName);
+        encodedTypeName);
     constructor
-        .beginControlFlow("if (runtimeFieldCount != $L)", fieldCount)
+        .beginControlFlow("if (runtimeFieldCount != $L)", fieldGenerators.size())
         .addStatement(
             "throw new IllegalStateException(\"$T's AutoCodec expected $L fields, but there were"
                 + " \" + runtimeFieldCount + \" serializable fields at runtime. See"
                 + " b/319301818 for explanation and workaround.\")",
-            typeName,
-            fieldCount)
+            encodedTypeName,
+            fieldGenerators.size())
         .endControlFlow();
-    if (fieldCount > 0) {
-      constructor.beginControlFlow("try");
-    }
-    return constructor;
   }
 
   /** Initializes the {@link InterningObjectCodec#deserializeInterned} method. */
   @Override
-  MethodSpec.Builder initializeDeserializeMethod(TypeElement encodedType) {
-    TypeName typeName = getErasure(encodedType, env);
+  MethodSpec.Builder initializeDeserializeMethod(TypeName typeName) {
     return MethodSpec.methodBuilder("deserializeInterned")
         .addModifiers(Modifier.PUBLIC)
         .returns(typeName)
@@ -133,11 +131,10 @@ final class InterningObjectCodecGenerator extends CodecGenerator {
 
   @Override
   void addImplementationToEndOfMethods(
-      ExecutableElement unusedInterner,
       MethodSpec.Builder constructor,
       MethodSpec.Builder deserialize,
-      boolean hasFields) {
-    if (hasFields) {
+      ImmutableList<FieldGenerator> fieldGenerators) {
+    if (!fieldGenerators.isEmpty()) {
       constructor
           .nextControlFlow("catch ($T e)", NoSuchFieldException.class)
           .addStatement("throw new $T(e)", AssertionError.class)

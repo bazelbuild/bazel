@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeSpec;
+import javax.annotation.Nullable;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
@@ -55,6 +56,11 @@ abstract class FieldGenerator {
     this.namePrefix = variable.getSimpleName() + GENERATED_TAG + hierarchyLevel;
   }
 
+  /** Name of the field being serialized. */
+  final Name getParameterName() {
+    return variable.getSimpleName();
+  }
+
   /** Any created member variables should start with this prefix. */
   final String getNamePrefix() {
     return namePrefix;
@@ -77,13 +83,10 @@ abstract class FieldGenerator {
     return namePrefix + HANDLE_SUFFIX;
   }
 
-  /**
-   * Name of the field being serialized.
-   *
-   * <p>Implementations may refer to this for reflection.
-   */
-  final Name getParameterName() {
-    return variable.getSimpleName();
+  /** Getter name, if a getter is used to retrieve the field. */
+  @Nullable
+  String getGetterName() {
+    return null;
   }
 
   /**
