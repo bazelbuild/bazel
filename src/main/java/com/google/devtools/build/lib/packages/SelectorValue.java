@@ -97,10 +97,9 @@ public final class SelectorValue implements StarlarkValue, HasBinary {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+    if (!(o instanceof SelectorValue that)) {
       return false;
     }
-    SelectorValue that = (SelectorValue) o;
     return Objects.equal(dictionary, that.dictionary)
         && Objects.equal(type, that.type)
         && Objects.equal(noMatchError, that.noMatchError);
