@@ -108,10 +108,10 @@ final class RemoteSpawnCache implements SpawnCache {
       // in unnecessary work. To avoid this, we keep track of in-flight executions as long as their
       // results haven't been uploaded to the cache yet and deduplicate all of them against the
       // first one.
-      LocalExecution firstExecution = null;
+      LocalExecution previousExecution = null;
       thisExecution = LocalExecution.createIfDeduplicatable(action);
       if (shouldUploadLocalResults && thisExecution != null) {
-        firstExecution = inFlightExecutions.putIfAbsent(action.getActionKey(), thisExecution);
+        previousExecution = inFlightExecutions.putIfAbsent(action.getActionKey(), thisExecution);
       }
       // Metadata will be available in context.current() until we detach.
       // This is done via a thread-local variable.
@@ -162,11 +162,11 @@ final class RemoteSpawnCache implements SpawnCache {
           remoteExecutionService.report(Event.warn(errorMessage));
         }
       }
-      if (firstExecution != null) {
+      if (previousExecution != null) {
         Stopwatch fetchTime = Stopwatch.createStarted();
         SpawnResult previousResult;
         try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "reuse outputs")) {
-          previousResult = remoteExecutionService.waitForAndReuseOutputs(action, firstExecution);
+          previousResult = remoteExecutionService.waitForAndReuseOutputs(action, previousExecution);
         }
         if (previousResult != null) {
           spawnMetrics
@@ -215,7 +215,7 @@ final class RemoteSpawnCache implements SpawnCache {
 
         @Override
         public void store(SpawnResult result) throws ExecException, InterruptedException {
-          if (!remoteExecutionService.shouldStore(result, thisExecutionFinal)) {
+          if (!remoteExecutionService.commitResultAndDecideWhetherToUpload(result, thisExecutionFinal)) {
             return;
           }
 

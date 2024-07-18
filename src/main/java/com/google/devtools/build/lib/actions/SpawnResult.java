@@ -488,6 +488,10 @@ public interface SpawnResult {
     }
   }
 
+  /**
+   * A helper class for wrapping an existing {@link SpawnResult} and modifying a subset of its
+   * methods.
+   */
   class DelegateSpawnResult implements SpawnResult {
     private final SpawnResult delegate;
 
