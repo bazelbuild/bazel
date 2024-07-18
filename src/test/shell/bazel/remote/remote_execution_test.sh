@@ -3428,6 +3428,15 @@ sh_test(
 )
 EOF
 
+  # A test target includes 2 actions: 1 build action (a) and 1 test action (b)
+  # This test currently demonstrates that:
+  #  - (b) would always be executed on Bazel's target platform, set by "--platforms=" flag.
+  #  - Regardless of 'no-remote-exec' set on (b)'s platform, (b) would still be executed remotely.
+  #    The remote test action will be sent with `"no-remote-exec": "1"` in it's platform.
+  #
+  # TODO: Make this test's result consistent with 'test_platform_no_remote_exec'.
+  # Test action (b) should be executed locally instead of remotely in this setup.
+
   bazel test \
     --extra_execution_platforms=//a:remote,//a:host \
     --platforms=//a:remote \
