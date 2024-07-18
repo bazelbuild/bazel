@@ -37,6 +37,13 @@ public class GenQueryConfiguration extends Fragment {
             "If true, genquery loads its scope's transitive closure directly instead of by using "
                 + "'TransitiveTargetValue' Skyframe work.")
     public boolean skipTtvs;
+
+    @Override
+    public FragmentOptions getExec() {
+      GenQueryOptions exec = (GenQueryOptions) getDefault();
+      exec.skipTtvs = skipTtvs;
+      return exec;
+    }
   }
 
   private final boolean skipTtvs;
