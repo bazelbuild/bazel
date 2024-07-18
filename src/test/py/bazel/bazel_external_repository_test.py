@@ -253,7 +253,6 @@ class BazelExternalRepositoryTest(test_base.TestBase):
     ]
     rule_definition.extend(self.GetDefaultRepoRules())
     self.ScratchFile('WORKSPACE', rule_definition)
-    self.CreateWorkspaceWithDefaultRepos('repo/WORKSPACE')
     self._CreatePyWritingStarlarkRule('hello!')
     self.ScratchFile('BUILD', [
         'load("@r//:foo.bzl", "gen_py")',

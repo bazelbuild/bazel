@@ -176,26 +176,6 @@ class TestBase(absltest.TestCase):
     else:
       self.assertTrue(os.path.islink(path), "Path '%s' is not a symlink" % path)
 
-  def CreateWorkspaceWithDefaultRepos(self, path, lines=None):
-    """Creates a `WORKSPACE` file with default repos and register C++ toolchains."""
-    rule_definition = [
-        'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")'
-    ]
-    rule_definition.extend(self.GetDefaultRepoRules())
-    if lines:
-      rule_definition.extend(lines)
-    rule_definition.extend([
-        'register_toolchains(',
-        '  "@local_config_cc//:all",',
-        ')',
-    ])
-    self.ScratchFile(path, rule_definition)
-    self.ScratchFile(
-        path.replace('WORKSPACE.bazel', 'MODULE.bazel').replace(
-            'WORKSPACE', 'MODULE.bazel'
-        )
-    )
-
   def GetDefaultRepoRules(self):
     with open(
         self.Rlocation('io_bazel/src/test/py/bazel/default_repos_stanza.txt'),

@@ -22,7 +22,6 @@ class PyTest(test_base.TestBase):
   """Integration tests for the Python rules of Bazel."""
 
   def createSimpleFiles(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
 
     self.ScratchFile(
         'a/BUILD',
@@ -70,7 +69,6 @@ class PyTest(test_base.TestBase):
 class TestInitPyFiles(test_base.TestBase):
 
   def createSimpleFiles(self, create_init=True):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
 
     self.ScratchFile('src/a/BUILD', [
         'py_binary(name="a", srcs=["a.py"], deps=[":b"], legacy_create_init=%s)'
@@ -118,7 +116,6 @@ class TestInitPyFiles(test_base.TestBase):
 
   # Regression test for https://github.com/bazelbuild/bazel/pull/10119
   def testBuildingZipFileWithTargetNameWithDot(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
         'py_binary(',
         '  name = "bin.v1",  # .v1 should not be treated as extension and removed accidentally',
@@ -161,7 +158,6 @@ class PyRemoteTest(test_base.TestBase):
     test_base.TestBase.tearDown(self)
 
   def testPyTestRunsRemotely(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'py_test(',
         '  name = "foo_test",',
@@ -180,7 +176,6 @@ class PyRemoteTest(test_base.TestBase):
 
   # Regression test for https://github.com/bazelbuild/bazel/issues/9239
   def testPyTestWithStdlibCollisionRunsRemotely(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'py_library(',
         '  name = "io",',
