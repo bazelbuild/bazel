@@ -211,9 +211,9 @@ class PyRemoteTest(test_base.TestBase):
 class PyRunfilesLibraryTest(test_base.TestBase):
 
   def testPyRunfilesLibraryCurrentRepository(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE', [
-        'local_repository(', '  name = "other_repo",',
-        '  path = "other_repo_path",', ')'
+    self.ScratchFile('MODULE.bazel', [
+        'local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")',
+        'local_repository(name = "other_repo", path = "other_repo_path")',
     ])
 
     self.ScratchFile('pkg/BUILD.bazel', [
@@ -260,7 +260,7 @@ class PyRunfilesLibraryTest(test_base.TestBase):
         'print("in pkg/test.py: \'%s\'" % runfiles.Create().CurrentRepository())',
     ])
 
-    self.ScratchFile('other_repo_path/WORKSPACE')
+    self.ScratchFile('other_repo_path/REPO.bazel')
     self.ScratchFile('other_repo_path/pkg/BUILD.bazel', [
         'py_binary(',
         '  name = "binary",',
@@ -304,14 +304,14 @@ class PyRunfilesLibraryTest(test_base.TestBase):
     self.assertIn('in pkg/library.py: \'\'', stdout)
 
     _, stdout, _ = self.RunBazel(['run', '@other_repo//pkg:binary'])
-    self.assertIn('in external/other_repo/pkg/binary.py: \'other_repo\'',
+    self.assertIn('in external/other_repo/pkg/binary.py: \'_main~_repo_rules~other_repo\'',
                   stdout)
     self.assertIn('in pkg/library.py: \'\'', stdout)
 
     _, stdout, _ = self.RunBazel(
         ['test', '@other_repo//pkg:test', '--test_output=streamed']
     )
-    self.assertIn('in external/other_repo/pkg/test.py: \'other_repo\'', stdout)
+    self.assertIn('in external/other_repo/pkg/test.py: \'_main~_repo_rules~other_repo\'', stdout)
     self.assertIn('in pkg/library.py: \'\'', stdout)
 
 
