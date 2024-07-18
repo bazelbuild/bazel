@@ -221,7 +221,7 @@ public abstract class FileValue implements SkyValue {
     if (fileStateValueFromAncestors.getType() == FileStateType.SYMLINK) {
       PathFragment symlinkTarget = fileStateValueFromAncestors.getSymlinkTarget();
       if (pathToUnboundedAncestorSymlinkExpansionChain != null) {
-        return new SymlinkFileValueWithSymlinkCycle(
+        return new SymlinkFileValueWithUnboundedAncestorExpansion(
             realRootedPath,
             realFileStateValue,
             logicalChainDuringResolution,
@@ -237,7 +237,7 @@ public abstract class FileValue implements SkyValue {
       }
     } else {
       if (pathToUnboundedAncestorSymlinkExpansionChain != null) {
-        return new DifferentRealPathFileValueWithSymlinkCycle(
+        return new DifferentRealPathFileValueWithUnboundedAncestorExpansion(
             realRootedPath,
             realFileStateValue,
             logicalChainDuringResolution,
@@ -319,17 +319,16 @@ public abstract class FileValue implements SkyValue {
   }
 
   /**
-   * A {@link FileValue} whose resolution required traversing a symlink chain caused by a symlink
-   * pointing to its own ancestor but which eventually points to a real file.
+   * A {@link FileValue} for a non-symlink but that had an ancestor symlink such that the resolution
+   * required traversing a symlink chain caused by a symlink pointing to its own ancestor but which
+   * eventually points to a real file.
    */
-  private static class DifferentRealPathFileValueWithSymlinkCycle
+  private static class DifferentRealPathFileValueWithUnboundedAncestorExpansion
       extends DifferentRealPathFileValueWithStoredChain {
-    // We can't store an exception here because this needs to be serialized, AutoCodec chokes on
-    // object cycles and FilesystemInfiniteSymlinkCycleException somehow sets its cause to itself
     protected final ImmutableList<RootedPath> pathToUnboundedAncestorSymlinkExpansionChain;
     protected final ImmutableList<RootedPath> unboundedAncestorSymlinkExpansionChain;
 
-    DifferentRealPathFileValueWithSymlinkCycle(
+    DifferentRealPathFileValueWithUnboundedAncestorExpansion(
         RootedPath realRootedPath,
         FileStateValue realFileStateValue,
         ImmutableList<RootedPath> logicalChainDuringResolution,
@@ -367,12 +366,12 @@ public abstract class FileValue implements SkyValue {
         return false;
       }
 
-      if (obj.getClass() != DifferentRealPathFileValueWithSymlinkCycle.class) {
+      if (obj.getClass() != DifferentRealPathFileValueWithUnboundedAncestorExpansion.class) {
         return false;
       }
 
-      DifferentRealPathFileValueWithSymlinkCycle other =
-          (DifferentRealPathFileValueWithSymlinkCycle) obj;
+      DifferentRealPathFileValueWithUnboundedAncestorExpansion other =
+          (DifferentRealPathFileValueWithUnboundedAncestorExpansion) obj;
       return realRootedPath.equals(other.realRootedPath)
           && realFileStateValue.equals(other.realFileStateValue)
           && logicalChainDuringResolution.equals(other.logicalChainDuringResolution)
@@ -538,17 +537,15 @@ public abstract class FileValue implements SkyValue {
   }
 
   /**
-   * A {@link FileValue} whose resolution required traversing a symlink chain caused by a symlink
-   * pointing to its own ancestor and which eventually points to a symlink.
+   * A {@link FileValue} for a symlink whose resolution required traversing a symlink chain caused
+   * by a symlink pointing to its own ancestor and which eventually points to a symlink.
    */
-  private static final class SymlinkFileValueWithSymlinkCycle
+  private static final class SymlinkFileValueWithUnboundedAncestorExpansion
       extends SymlinkFileValueWithStoredChain {
-    // We can't store an exception here because this needs to be serialized, AutoCodec chokes on
-    // object cycles and FilesystemInfiniteSymlinkCycleException somehow sets its cause to itself
     private final ImmutableList<RootedPath> pathToUnboundedAncestorSymlinkExpansionChain;
     private final ImmutableList<RootedPath> unboundedAncestorSymlinkExpansionChain;
 
-    SymlinkFileValueWithSymlinkCycle(
+    SymlinkFileValueWithUnboundedAncestorExpansion(
         RootedPath realRootedPath,
         FileStateValue realFileStateValue,
         ImmutableList<RootedPath> logicalChainDuringResolution,
@@ -588,11 +585,12 @@ public abstract class FileValue implements SkyValue {
         return false;
       }
 
-      if (obj.getClass() != SymlinkFileValueWithSymlinkCycle.class) {
+      if (obj.getClass() != SymlinkFileValueWithUnboundedAncestorExpansion.class) {
         return false;
       }
 
-      SymlinkFileValueWithSymlinkCycle other = (SymlinkFileValueWithSymlinkCycle) obj;
+      SymlinkFileValueWithUnboundedAncestorExpansion other =
+          (SymlinkFileValueWithUnboundedAncestorExpansion) obj;
       return realRootedPath.equals(other.realRootedPath)
           && realFileStateValue.equals(other.realFileStateValue)
           && logicalChainDuringResolution.equals(other.logicalChainDuringResolution)
