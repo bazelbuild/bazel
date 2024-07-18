@@ -3376,4 +3376,91 @@ EOF
   expect_not_log "1 local"
 }
 
+function test_platform_no_remote_exec_test_action() {
+  mkdir -p a
+  cat > a/test.sh <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+  chmod 755 a/test.sh
+  cat > a/BUILD <<'EOF'
+constraint_setting(name = "foo")
+
+constraint_value(
+    name = "has_foo",
+    constraint_setting = ":foo",
+    visibility = ["//visibility:public"],
+)
+
+platform(
+    name = "host",
+    constraint_values = [":has_foo"],
+    exec_properties = {
+        "no-remote-exec": "1",
+    },
+    parents = ["@bazel_tools//tools:host_platform"],
+    visibility = ["//visibility:public"],
+)
+
+platform(
+    name = "remote",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+    exec_properties = {
+        "OSFamily": "Linux",
+        "dockerNetwork": "off",
+    },
+)
+
+sh_test(
+    name = "test",
+    srcs = ["test.sh"],
+    exec_compatible_with = [":has_foo"],
+)
+
+sh_test(
+    name = "test2",
+    srcs = ["test.sh"],
+    exec_compatible_with = [":has_foo"],
+    target_compatible_with = [":has_foo"],
+)
+EOF
+
+  bazel test \
+    --extra_execution_platforms=//a:remote,//a:host \
+    --platforms=//a:remote \
+    --spawn_strategy=remote,local \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:test >& $TEST_log || fail "Failed to test //a:test"
+  expect_log "1 local, 1 remote"
+
+  bazel test \
+    --extra_execution_platforms=//a:remote,//a:host \
+    --platforms=//a:host \
+    --spawn_strategy=remote,local \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:test2 >& $TEST_log || fail "Failed to test //a:test2"
+  expect_log "1 local, 1 remote"
+
+  bazel clean
+
+  bazel test \
+    --extra_execution_platforms=//a:remote,//a:host \
+    --platforms=//a:remote \
+    --spawn_strategy=remote,local \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:test >& $TEST_log || fail "Failed to test //a:test"
+  expect_log "2 remote cache hit"
+
+  bazel test \
+    --extra_execution_platforms=//a:remote,//a:host \
+    --platforms=//a:host \
+    --spawn_strategy=remote,local \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:test2 >& $TEST_log || fail "Failed to test //a:test2"
+  expect_log "2 remote cache hit"
+}
+
 run_suite "Remote execution and remote cache tests"
