@@ -488,8 +488,13 @@ public class CppLinkActionBuilder {
                     backendUserCompileFlags);
             ltoOutputs.add(ltoArtifacts);
           } else {
-            // We should have created shared LTO backends when the library was created.
-            Preconditions.checkNotNull(lib.getSharedNonLtoBackends());
+            // We should have created shared non-LTO backends when the library was created.
+            if (lib.getSharedNonLtoBackends() == null) {
+              throw Starlark.errorf(
+                  "Statically linked test target requires non-LTO backends for its library inputs,"
+                      + " but library input %s does not specify shared_non_lto_backends",
+                  lib);
+            }
             LtoBackendArtifacts ltoArtifacts =
                 lib.getSharedNonLtoBackends().getOrDefault(objectFile, null);
             Preconditions.checkNotNull(ltoArtifacts);
