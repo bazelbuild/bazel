@@ -302,19 +302,28 @@ public final class CompletionFunction<
     if (!rootCauses.isEmpty()) {
       Reset reset = null;
       if (!builtArtifacts.isEmpty()) {
-        reset =
-            informImportantOutputHandler(
-                key,
-                value,
-                env,
-                ImmutableList.copyOf(
-                    allArtifactsAreImportant
-                        ? builtArtifacts
-                        : Iterables.filter(builtArtifacts, importantArtifacts::contains)),
-                rootCauses,
-                ctx,
-                artifactsToBuild,
-                builtArtifacts);
+        // In error bubbling, we may be interrupted by Skyframe. Ensure that the interrupt doesn't
+        // prevent us from staging built artifacts and posting the failed event.
+        boolean interruptedDuringErrorBubbling = env.inErrorBubbling() && Thread.interrupted();
+        try {
+          reset =
+              informImportantOutputHandler(
+                  key,
+                  value,
+                  env,
+                  ImmutableList.copyOf(
+                      allArtifactsAreImportant
+                          ? builtArtifacts
+                          : Iterables.filter(builtArtifacts, importantArtifacts::contains)),
+                  rootCauses,
+                  ctx,
+                  artifactsToBuild,
+                  builtArtifacts);
+        } finally {
+          if (interruptedDuringErrorBubbling) {
+            Thread.currentThread().interrupt();
+          }
+        }
       }
       postFailedEvent(key, value, rootCauses, ctx, artifactsToBuild, builtArtifacts, env);
       if (reset != null) {
