@@ -323,12 +323,14 @@ public abstract class FileValue implements SkyValue {
    * required traversing a symlink chain caused by a symlink pointing to its own ancestor but which
    * eventually points to a real file.
    */
-  private static class DifferentRealPathFileValueWithUnboundedAncestorExpansion
+  @VisibleForTesting
+  public static class DifferentRealPathFileValueWithUnboundedAncestorExpansion
       extends DifferentRealPathFileValueWithStoredChain {
     protected final ImmutableList<RootedPath> pathToUnboundedAncestorSymlinkExpansionChain;
     protected final ImmutableList<RootedPath> unboundedAncestorSymlinkExpansionChain;
 
-    DifferentRealPathFileValueWithUnboundedAncestorExpansion(
+    @VisibleForTesting
+    public DifferentRealPathFileValueWithUnboundedAncestorExpansion(
         RootedPath realRootedPath,
         FileStateValue realFileStateValue,
         ImmutableList<RootedPath> logicalChainDuringResolution,
@@ -540,12 +542,14 @@ public abstract class FileValue implements SkyValue {
    * A {@link FileValue} for a symlink whose resolution required traversing a symlink chain caused
    * by a symlink pointing to its own ancestor and which eventually points to a symlink.
    */
-  private static final class SymlinkFileValueWithUnboundedAncestorExpansion
+  @VisibleForTesting
+  public static final class SymlinkFileValueWithUnboundedAncestorExpansion
       extends SymlinkFileValueWithStoredChain {
     private final ImmutableList<RootedPath> pathToUnboundedAncestorSymlinkExpansionChain;
     private final ImmutableList<RootedPath> unboundedAncestorSymlinkExpansionChain;
 
-    SymlinkFileValueWithUnboundedAncestorExpansion(
+    @VisibleForTesting
+    public SymlinkFileValueWithUnboundedAncestorExpansion(
         RootedPath realRootedPath,
         FileStateValue realFileStateValue,
         ImmutableList<RootedPath> logicalChainDuringResolution,
