@@ -1,3 +1,11 @@
+## Release 8.0.0-pre.20240710.4 (2024-07-19)
+
+```
+Baseline: 34b926bceba798820b369a47d1a7b7ff1634d277
+```
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, dependabot[bot], Fabian Meumertzheim, Jordan Mele, Laurent Le Brun, Marc Redemske, Son Luong Ngoc.
+
 ## Release 8.0.0-pre.20240701.1 (2024-07-12)
 
 ```
