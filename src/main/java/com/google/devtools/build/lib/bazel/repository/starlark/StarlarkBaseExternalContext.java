@@ -637,7 +637,10 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
                 This must match the SHA-256 hash of the file downloaded. It is a security \
                 risk to omit the SHA-256 as remote files can change. At best omitting this \
                 field will make your build non-hermetic. It is optional to make development \
-                easier but should be set before shipping.
+                easier but should be set before shipping. \
+                If provided, the repository cache will first be checked for a file with the \
+                given hash; a download will only be attempted if the file was not found in \
+                the cache. After a successful download, the file will be added to the cache.
                 """),
         @Param(
             name = "executable",
@@ -660,7 +663,8 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
             doc =
                 """
                 If set, restrict cache hits to those cases where the file was added to the cache \
-                with the same canonical id.
+                with the same canonical id. By default caching uses the checksum \
+                (<code>sha256</code> or <code>integrity</code>).
                 """),
         @Param(
             name = "auth",
@@ -683,7 +687,10 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
                 This must match the checksum of the file downloaded. It is a security \
                 risk to omit the checksum as remote files can change. At best omitting this \
                 field will make your build non-hermetic. It is optional to make development \
-                easier but should be set before shipping.
+                easier but should be set before shipping. \
+                If provided, the repository cache will first be checked for a file with the \
+                given checksum; a download will only be attempted if the file was not found in \
+                the cache. After a successful download, the file will be added to the cache.
                 """),
         @Param(
             name = "block",
@@ -879,7 +886,8 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
             doc =
                 """
                 If set, restrict cache hits to those cases where the file was added to the cache \
-                with the same canonical id.
+                with the same canonical id. By default caching uses the checksum"
+                (<code>sha256</code> or <code>integrity</code>).
                 """),
         @Param(
             name = "auth",
@@ -902,7 +910,10 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
                 This must match the checksum of the file downloaded. It is a security \
                 risk to omit the checksum as remote files can change. At best omitting this \
                 field will make your build non-hermetic. It is optional to make development \
-                easier but should be set before shipping.
+                easier but should be set before shipping. \
+                If provided, the repository cache will first be checked for a file with the \
+                given checksum; a download will only be attempted if the file was not found in \
+                the cache. After a successful download, the file will be added to the cache. \
                 """),
         @Param(
             name = "rename_files",
