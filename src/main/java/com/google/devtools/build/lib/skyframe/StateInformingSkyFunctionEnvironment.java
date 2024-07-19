@@ -131,8 +131,8 @@ final class StateInformingSkyFunctionEnvironment implements SkyFunction.Environm
   }
 
   @Override
-  public boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors() {
-    return delegate.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors();
+  public boolean inErrorBubbling() {
+    return delegate.inErrorBubbling();
   }
 
   @Nullable

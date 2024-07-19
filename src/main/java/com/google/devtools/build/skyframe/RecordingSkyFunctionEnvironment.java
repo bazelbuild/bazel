@@ -151,8 +151,8 @@ public final class RecordingSkyFunctionEnvironment implements Environment {
   }
 
   @Override
-  public boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors() {
-    return delegate.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors();
+  public boolean inErrorBubbling() {
+    return delegate.inErrorBubbling();
   }
 
   @Nullable
