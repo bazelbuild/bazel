@@ -1070,10 +1070,15 @@ public class RuleContext extends TargetContext
   }
 
   public boolean useAutoExecGroups() {
-    if (attributes().has("$use_auto_exec_groups")) {
-      return (boolean) attributes().get("$use_auto_exec_groups", Type.BOOLEAN);
+    return usesAutoExecGroups(attributes(), getConfiguration());
+  }
+
+  protected static boolean usesAutoExecGroups(
+      AttributeMap attributes, BuildConfigurationValue configuration) {
+    if (attributes.has("$use_auto_exec_groups")) {
+      return attributes.get("$use_auto_exec_groups", Type.BOOLEAN);
     } else {
-      return getConfiguration().useAutoExecGroups();
+      return configuration.useAutoExecGroups();
     }
   }
 
@@ -1459,6 +1464,8 @@ public class RuleContext extends TargetContext
     private Mutability mutability;
     private NestedSet<PackageGroupContents> visibility;
     private ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
+    private ToolchainCollection<AspectBaseTargetResolvedToolchainContext>
+        baseTargetToolchainContexts;
     private ExecGroupCollection.Builder execGroupCollectionBuilder;
     private ImmutableMap<String, String> rawExecProperties;
 
@@ -1521,7 +1528,8 @@ public class RuleContext extends TargetContext
       if (aspects.isEmpty()) {
         return RuleContext.create(this, ruleAttributes, targetMap, execGroupCollection);
       } else {
-        return AspectContext.create(this, ruleAttributes, targetMap, execGroupCollection);
+        return AspectContext.create(
+            this, ruleAttributes, targetMap, execGroupCollection, baseTargetToolchainContexts);
       }
     }
 
@@ -1636,6 +1644,20 @@ public class RuleContext extends TargetContext
           this.toolchainContexts == null,
           "toolchainContexts has already been set for this Builder");
       this.toolchainContexts = toolchainContexts;
+      return this;
+    }
+
+    /**
+     * Sets the collection of {@link AspectBaseTargetResolvedToolchainContext}s available to this
+     * aspect from its base target.
+     */
+    @CanIgnoreReturnValue
+    public Builder setBaseTargetToolchainContexts(
+        ToolchainCollection<AspectBaseTargetResolvedToolchainContext> baseTargetToolchainContexts) {
+      Preconditions.checkState(
+          this.baseTargetToolchainContexts == null,
+          "baseTargetToolchainContexts has already been set for this Builder");
+      this.baseTargetToolchainContexts = baseTargetToolchainContexts;
       return this;
     }
 

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.platform;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.devtools.build.lib.analysis.ResolvedToolchainData;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
@@ -38,7 +39,8 @@ import net.starlark.java.syntax.Location;
  * additional fields to Starlark code. Also, these are not disjoint.
  */
 @Immutable
-public final class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
+public final class ToolchainInfo extends NativeInfo
+    implements ToolchainInfoApi, ResolvedToolchainData {
 
   /** Name used in Starlark for accessing this provider. */
   public static final String STARLARK_NAME = "ToolchainInfo";

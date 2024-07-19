@@ -20,11 +20,13 @@ import static com.google.devtools.build.lib.skyframe.DependencyResolver.getPrior
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.AliasProvider;
+import com.google.devtools.build.lib.analysis.AspectBaseTargetResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment.MissingDepException;
@@ -48,6 +50,7 @@ import com.google.devtools.build.lib.analysis.config.DependencyEvaluationExcepti
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
+import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.analysis.producers.DependencyContext;
 import com.google.devtools.build.lib.analysis.producers.DependencyContextProducer;
 import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsInputs;
@@ -417,11 +420,16 @@ final class AspectFunction implements SkyFunction {
         }
         toolchainContexts = contextsBuilder.build();
       }
-
-      //  TODO(b/288421584): In the following step, load the base target resolved toolchains targets
-      // and pass them to the AspectContext.
-      ToolchainCollection<ResolvedToolchainContext> baseTargetToolchainContexts = null;
-
+      ToolchainCollection<AspectBaseTargetResolvedToolchainContext> baseTargetToolchainContexts;
+      try {
+        baseTargetToolchainContexts =
+            getBaseTargetToolchainContexts(
+                baseTargetUnloadedToolchainContexts, aspect, target, depValueMap);
+      } catch (DuplicateException e) {
+        env.getListener().handle(Event.error(target.getLocation(), e.getMessage()));
+        throw new AspectFunctionException(
+            new AspectCreationException(e.getMessage(), target.getLabel(), configuration));
+      }
       return createAspect(
           env,
           key,
@@ -465,6 +473,54 @@ final class AspectFunction implements SkyFunction {
           new AspectCreationException(
               e.getMessage(), new LabelCause(key.getLabel(), e.getDetailedExitCode())));
     }
+  }
+
+  /**
+   * Returns the {@link ToolchainCollection} of {@link AspectBaseTargetResolvedToolchainContext}s
+   * for the base target.
+   */
+  @Nullable
+  private static ToolchainCollection<AspectBaseTargetResolvedToolchainContext>
+      getBaseTargetToolchainContexts(
+          ToolchainCollection<UnloadedToolchainContext> baseTargetUnloadedToolchainContexts,
+          Aspect aspect,
+          Target target,
+          OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap)
+          throws DuplicateException {
+    if (baseTargetUnloadedToolchainContexts == null) {
+      return null;
+    }
+    String description =
+        "aspect " + aspect.getDescriptor().getDescription() + " applied to " + target;
+
+    ToolchainCollection.Builder<AspectBaseTargetResolvedToolchainContext> targetContextsBuilder =
+        ToolchainCollection.builder();
+
+    for (Map.Entry<String, UnloadedToolchainContext> unloadedContext :
+        baseTargetUnloadedToolchainContexts.getContextMap().entrySet()) {
+      // For each requested toolchain type, collect the targets of its resolved toolchains. If
+      // multiple types are resolved to the same toolchain, the `ConfiguredTargetAndData`
+      // of the toolchain can be different for each of them depending on the aspects
+      // propagating to each toolchain type.
+      ImmutableMultimap.Builder<ToolchainTypeInfo, ConfiguredTargetAndData> toolchainsDeps =
+          ImmutableMultimap.builder();
+
+      for (var toolchainTypeInfo : unloadedContext.getValue().toolchainTypeToResolved().keySet()) {
+        toolchainsDeps.putAll(
+            toolchainTypeInfo,
+            ImmutableSet.copyOf(
+                depValueMap.get(
+                    DependencyKind.forBaseTargetExecGroup(
+                        unloadedContext.getKey(), toolchainTypeInfo.typeLabel()))));
+      }
+
+      targetContextsBuilder.addContext(
+          unloadedContext.getKey(),
+          AspectBaseTargetResolvedToolchainContext.load(
+              unloadedContext.getValue(), description, toolchainsDeps.build()));
+    }
+
+    return targetContextsBuilder.build();
   }
 
   /**
@@ -868,7 +924,8 @@ final class AspectFunction implements SkyFunction {
       BuildConfigurationValue configuration,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
-      @Nullable ToolchainCollection<ResolvedToolchainContext> baseTargetToolchainContexts,
+      @Nullable
+          ToolchainCollection<AspectBaseTargetResolvedToolchainContext> baseTargetToolchainContexts,
       @Nullable ExecGroupCollection.Builder execGroupCollectionBuilder,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> directDeps,
       TransitiveDependencyState transitiveState,

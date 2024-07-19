@@ -19,6 +19,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
+import com.google.devtools.build.lib.analysis.ResolvedToolchainsDataInterface;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ExecGroupCollectionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainContextApi;
@@ -39,18 +40,37 @@ import net.starlark.java.syntax.Identifier;
 public abstract class StarlarkExecGroupCollection implements ExecGroupCollectionApi {
 
   /**
+   * Empty collection of exec groups to be used when exec groups are not valid in the current
+   * context.
+   */
+  public static final ExecGroupCollectionApi EXEC_GRPOUP_COLLECTION_NOT_VALID =
+      new ExecGroupCollectionApi() {
+        @Override
+        public boolean containsKey(StarlarkSemantics semantics, Object key) {
+          return false;
+        }
+
+        @Override
+        public Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
+          throw Starlark.errorf("exec_groups are not valid in this context");
+        }
+      };
+
+  /**
    * Returns a new {@link StarlarkExecGroupCollection} backed by the given {@code
    * toolchainCollection}.
    */
   public static StarlarkExecGroupCollection create(
-      ToolchainCollection<ResolvedToolchainContext> toolchainCollection) {
+      ToolchainCollection<? extends ResolvedToolchainsDataInterface<?>> toolchainCollection) {
     return new AutoValue_StarlarkExecGroupCollection(toolchainCollection);
   }
 
-  protected abstract ToolchainCollection<ResolvedToolchainContext> toolchainCollection();
+  protected abstract ToolchainCollection<? extends ResolvedToolchainsDataInterface<?>>
+      toolchainCollection();
 
   @VisibleForTesting
-  public ImmutableMap<String, ResolvedToolchainContext> getToolchainCollectionForTesting() {
+  public ImmutableMap<String, ? extends ResolvedToolchainsDataInterface<?>>
+      getToolchainCollectionForTesting() {
     return toolchainCollection().getContextMap();
   }
 
@@ -82,8 +102,7 @@ public abstract class StarlarkExecGroupCollection implements ExecGroupCollection
           String.join(", ", getScrubbedExecGroups()));
     }
 
-    ResolvedToolchainContext toolchainContext =
-        toolchainCollection().getToolchainContext(execGroup);
+    var toolchainContext = toolchainCollection().getToolchainContext(execGroup);
     if (toolchainContext == null) {
       return new AutoValue_StarlarkExecGroupCollection_StarlarkExecGroupContext(
           StarlarkToolchainContext.TOOLCHAINS_NOT_VALID);
@@ -92,7 +111,7 @@ public abstract class StarlarkExecGroupCollection implements ExecGroupCollection
     ToolchainContextApi starlarkToolchainContext =
         StarlarkToolchainContext.create(
             /* targetDescription= */ toolchainContext.targetDescription(),
-            /* resolveToolchainInfoFunc= */ toolchainContext::forToolchainType,
+            /* resolveToolchainDataFunc= */ toolchainContext::forToolchainType,
             /* resolvedToolchainTypeLabels= */ toolchainContext
                 .requestedToolchainTypeLabels()
                 .keySet());

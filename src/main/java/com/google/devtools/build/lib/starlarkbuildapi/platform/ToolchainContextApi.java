@@ -27,5 +27,12 @@ import net.starlark.java.eval.StarlarkValue;
         "Holds toolchains available for a particular exec group. Toolchain targets are accessed by"
             + " indexing with the toolchain type, as in"
             + " <code>ctx.toolchains[\"//pkg:my_toolchain_type\"]</code>. If the toolchain was"
-            + " optional and no toolchain was resolved, this will return <code>None</code>.")
+            + " optional and no toolchain was resolved, this will return <code>None</code>."
+            + " Accessing toolchains of an aspect or rule via"
+            + " <code>ctx.toolchains</code> returns the indexed toolchain as a"
+            + " <code>ToolchainInfo</code> provider. While when using aspects,"
+            + " <code>ToolchainContext</code> is also used to hold the toolchains of the base"
+            + " target. It can be accessed by"
+            + " <code>ctx.rule.toolchains[\"//pkg:my_toolchain_type\"]</code> and it returns the"
+            + " list of providers resulted from applying the aspects on these toolchain targets. ")
 public interface ToolchainContextApi extends StarlarkValue, StarlarkIndexable.Threaded {}

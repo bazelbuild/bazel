@@ -602,7 +602,8 @@ public final class ConfiguredTargetFactory {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ConfigConditions configConditions,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
-      @Nullable ToolchainCollection<ResolvedToolchainContext> baseTargetToolchainContexts,
+      @Nullable
+          ToolchainCollection<AspectBaseTargetResolvedToolchainContext> baseTargetToolchainContexts,
       @Nullable ExecGroupCollection.Builder execGroupCollectionBuilder,
       BuildConfigurationValue aspectConfiguration,
       @Nullable NestedSet<Package> transitivePackages,
@@ -623,6 +624,7 @@ public final class ConfiguredTargetFactory {
             .setPrerequisites(removeToolchainDeps(prerequisiteMap))
             .setConfigConditions(configConditions)
             .setToolchainContexts(toolchainContexts)
+            .setBaseTargetToolchainContexts(baseTargetToolchainContexts)
             .setExecGroupCollectionBuilder(execGroupCollectionBuilder)
             .setExecProperties(ImmutableMap.of())
             .setRequiredConfigFragments(

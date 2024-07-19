@@ -653,7 +653,7 @@ site of the rule. Such attributes can be assigned a default value (as in
             named = true,
             defaultValue = "[]",
             doc =
-                "[Currtenly no-op] List of toolchain types. The aspect propagates to target"
+                "Experimental: List of toolchain types. The aspect propagates to target"
                     + " toolchains which match these toolchain types."),
         @Param(
             name = "attrs",
