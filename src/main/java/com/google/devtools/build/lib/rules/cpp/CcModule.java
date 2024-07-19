@@ -902,7 +902,7 @@ public abstract class CcModule
 
   /**
    * Create an LTO backend that does not perform any cross-module optimization because Starlark does
-   * not hava support for LTO indexing actions yet.
+   * not have support for LTO indexing actions yet.
    *
    * <p>TODO(b/128341904): Do cross module optimization once there is Starlark support.
    */
