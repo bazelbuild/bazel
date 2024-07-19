@@ -46,39 +46,44 @@ abstract class InterningObjectCodecFieldGenerators {
       VariableElement variable, int hierarchyLevel, ProcessingEnvironment env)
       throws SerializationProcessingException {
     TypeMirror type = variable.asType();
+    TypeName typeName = getErasure(type, env);
     switch (type.getKind()) {
       case ARRAY:
         ArrayType arrayType = (ArrayType) type;
         TypeMirror componentType = arrayType.getComponentType();
         TypeKind componentKind = componentType.getKind();
         if (componentKind.isPrimitive()) {
-          return new PrimitiveArrayFieldGenerator(variable, componentKind, hierarchyLevel);
+          return new PrimitiveArrayFieldGenerator(
+              variable, typeName, componentKind, hierarchyLevel);
         }
         if (componentKind.equals(TypeKind.ARRAY)) {
           return new NestedArrayFieldGenerator(
-              variable, hierarchyLevel, resolveBaseArrayComponentType(componentType).getKind());
+              variable,
+              typeName,
+              hierarchyLevel,
+              resolveBaseArrayComponentType(componentType).getKind());
         }
         return new ObjectArrayFieldGenerator(
-            variable, hierarchyLevel, getErasure(componentType, env));
+            variable, typeName, hierarchyLevel, getErasure(componentType, env));
       case BOOLEAN:
-        return new BooleanFieldGenerator(variable, hierarchyLevel);
+        return new BooleanFieldGenerator(variable, typeName, hierarchyLevel);
       case BYTE:
-        return new ByteFieldGenerator(variable, hierarchyLevel);
+        return new ByteFieldGenerator(variable, typeName, hierarchyLevel);
       case CHAR:
-        return new CharFieldGenerator(variable, hierarchyLevel);
+        return new CharFieldGenerator(variable, typeName, hierarchyLevel);
       case DOUBLE:
-        return new DoubleFieldGenerator(variable, hierarchyLevel);
+        return new DoubleFieldGenerator(variable, typeName, hierarchyLevel);
       case FLOAT:
-        return new FloatFieldGenerator(variable, hierarchyLevel);
+        return new FloatFieldGenerator(variable, typeName, hierarchyLevel);
       case INT:
-        return new IntFieldGenerator(variable, hierarchyLevel);
+        return new IntFieldGenerator(variable, typeName, hierarchyLevel);
       case LONG:
-        return new LongFieldGenerator(variable, hierarchyLevel);
+        return new LongFieldGenerator(variable, typeName, hierarchyLevel);
       case SHORT:
-        return new ShortFieldGenerator(variable, hierarchyLevel);
+        return new ShortFieldGenerator(variable, typeName, hierarchyLevel);
       case TYPEVAR:
       case DECLARED:
-        return new ObjectFieldGenerator(variable, hierarchyLevel);
+        return new ObjectFieldGenerator(variable, typeName, hierarchyLevel);
       default:
         // There are other TypeKinds, for example, NONE, NULL, VOID and WILDCARD, (and more,
         // depending on the JDK version), but none are known to occur in code that defines the type
@@ -95,8 +100,13 @@ abstract class InterningObjectCodecFieldGenerators {
 
   /** Implementation that uses field offsets as handles. */
   private abstract static class OffsetFieldGenerator extends FieldGenerator {
-    private OffsetFieldGenerator(VariableElement variable, int hierarchyLevel) {
-      super(variable, hierarchyLevel);
+    private OffsetFieldGenerator(VariableElement variable, TypeName typeName, int hierarchyLevel) {
+      super(
+          variable.getSimpleName(),
+          variable.asType(),
+          typeName,
+          ClassName.get(((TypeElement) variable.getEnclosingElement())),
+          hierarchyLevel);
     }
 
     @Override
@@ -115,8 +125,11 @@ abstract class InterningObjectCodecFieldGenerators {
     private final String processorName;
 
     private NestedArrayFieldGenerator(
-        VariableElement variable, int hierarchyLevel, TypeKind baseComponentKind) {
-      super(variable, hierarchyLevel);
+        VariableElement variable,
+        TypeName typeName,
+        int hierarchyLevel,
+        TypeKind baseComponentKind) {
+      super(variable, typeName, hierarchyLevel);
       switch (baseComponentKind) {
         case BOOLEAN:
         case BYTE:
@@ -143,7 +156,7 @@ abstract class InterningObjectCodecFieldGenerators {
       }
     }
 
-    private String getTypeName() {
+    private String getTypeMemberName() {
       return getNamePrefix() + "_type";
     }
 
@@ -153,7 +166,7 @@ abstract class InterningObjectCodecFieldGenerators {
           // Specifies Class<?> type.
           ParameterizedTypeName.get(
               ClassName.get(Class.class), WildcardTypeName.subtypeOf(Object.class)),
-          getTypeName(),
+          getTypeMemberName(),
           Modifier.PRIVATE,
           Modifier.FINAL);
     }
@@ -162,7 +175,7 @@ abstract class InterningObjectCodecFieldGenerators {
     void generateConstructorCode(MethodSpec.Builder constructor) {
       constructor.addStatement(
           "this.$L = $T.class.getDeclaredField(\"$L\").getType()",
-          getTypeName(),
+          getTypeMemberName(),
           getParentName(),
           getParameterName());
     }
@@ -173,7 +186,7 @@ abstract class InterningObjectCodecFieldGenerators {
           "$T.$L.serialize(context, codedOut, $L, $T.unsafe().getObject(obj, $L))",
           ArrayProcessor.class,
           processorName,
-          getTypeName(),
+          getTypeMemberName(),
           UnsafeProvider.class,
           getHandleName());
     }
@@ -186,7 +199,7 @@ abstract class InterningObjectCodecFieldGenerators {
           getHandleName(),
           ArrayProcessor.class,
           processorName,
-          getTypeName());
+          getTypeMemberName());
     }
   }
 
@@ -194,8 +207,8 @@ abstract class InterningObjectCodecFieldGenerators {
     private final TypeKind componentType;
 
     private PrimitiveArrayFieldGenerator(
-        VariableElement variable, TypeKind componentType, int hierarchyLevel) {
-      super(variable, hierarchyLevel);
+        VariableElement variable, TypeName typeName, TypeKind componentType, int hierarchyLevel) {
+      super(variable, typeName, hierarchyLevel);
       this.componentType = componentType;
     }
 
@@ -246,8 +259,11 @@ abstract class InterningObjectCodecFieldGenerators {
     private final TypeName componentTypeName;
 
     private ObjectArrayFieldGenerator(
-        VariableElement variable, int hierarchyLevel, TypeName componentTypeName) {
-      super(variable, hierarchyLevel);
+        VariableElement variable,
+        TypeName typeName,
+        int hierarchyLevel,
+        TypeName componentTypeName) {
+      super(variable, typeName, hierarchyLevel);
       this.componentTypeName = componentTypeName;
     }
 
@@ -294,8 +310,8 @@ abstract class InterningObjectCodecFieldGenerators {
   }
 
   private static class BooleanFieldGenerator extends OffsetFieldGenerator {
-    private BooleanFieldGenerator(VariableElement variable, int hierarchyLevel) {
-      super(variable, hierarchyLevel);
+    private BooleanFieldGenerator(VariableElement variable, TypeName typeName, int hierarchyLevel) {
+      super(variable, typeName, hierarchyLevel);
     }
 
     @Override
@@ -316,8 +332,8 @@ abstract class InterningObjectCodecFieldGenerators {
   }
 
   private static class ByteFieldGenerator extends OffsetFieldGenerator {
-    private ByteFieldGenerator(VariableElement variable, int hierarchyLevel) {
-      super(variable, hierarchyLevel);
+    private ByteFieldGenerator(VariableElement variable, TypeName typeName, int hierarchyLevel) {
+      super(variable, typeName, hierarchyLevel);
     }
 
     @Override
@@ -338,8 +354,8 @@ abstract class InterningObjectCodecFieldGenerators {
   }
 
   private static class CharFieldGenerator extends OffsetFieldGenerator {
-    private CharFieldGenerator(VariableElement variable, int hierarchyLevel) {
-      super(variable, hierarchyLevel);
+    private CharFieldGenerator(VariableElement variable, TypeName typeName, int hierarchyLevel) {
+      super(variable, typeName, hierarchyLevel);
     }
 
     @Override
@@ -362,8 +378,8 @@ abstract class InterningObjectCodecFieldGenerators {
   }
 
   private static class DoubleFieldGenerator extends OffsetFieldGenerator {
-    private DoubleFieldGenerator(VariableElement variable, int hierarchyLevel) {
-      super(variable, hierarchyLevel);
+    private DoubleFieldGenerator(VariableElement variable, TypeName typeName, int hierarchyLevel) {
+      super(variable, typeName, hierarchyLevel);
     }
 
     @Override
@@ -384,8 +400,8 @@ abstract class InterningObjectCodecFieldGenerators {
   }
 
   private static class FloatFieldGenerator extends OffsetFieldGenerator {
-    private FloatFieldGenerator(VariableElement variable, int hierarchyLevel) {
-      super(variable, hierarchyLevel);
+    private FloatFieldGenerator(VariableElement variable, TypeName typeName, int hierarchyLevel) {
+      super(variable, typeName, hierarchyLevel);
     }
 
     @Override
@@ -406,8 +422,8 @@ abstract class InterningObjectCodecFieldGenerators {
   }
 
   private static class IntFieldGenerator extends OffsetFieldGenerator {
-    private IntFieldGenerator(VariableElement variable, int hierarchyLevel) {
-      super(variable, hierarchyLevel);
+    private IntFieldGenerator(VariableElement variable, TypeName typeName, int hierarchyLevel) {
+      super(variable, typeName, hierarchyLevel);
     }
 
     @Override
@@ -428,8 +444,8 @@ abstract class InterningObjectCodecFieldGenerators {
   }
 
   private static class LongFieldGenerator extends OffsetFieldGenerator {
-    private LongFieldGenerator(VariableElement variable, int hierarchyLevel) {
-      super(variable, hierarchyLevel);
+    private LongFieldGenerator(VariableElement variable, TypeName typeName, int hierarchyLevel) {
+      super(variable, typeName, hierarchyLevel);
     }
 
     @Override
@@ -450,8 +466,8 @@ abstract class InterningObjectCodecFieldGenerators {
   }
 
   private static class ShortFieldGenerator extends OffsetFieldGenerator {
-    private ShortFieldGenerator(VariableElement variable, int hierarchyLevel) {
-      super(variable, hierarchyLevel);
+    private ShortFieldGenerator(VariableElement variable, TypeName typeName, int hierarchyLevel) {
+      super(variable, typeName, hierarchyLevel);
     }
 
     @Override
@@ -474,8 +490,8 @@ abstract class InterningObjectCodecFieldGenerators {
   }
 
   private static class ObjectFieldGenerator extends OffsetFieldGenerator {
-    private ObjectFieldGenerator(VariableElement variable, int hierarchyLevel) {
-      super(variable, hierarchyLevel);
+    private ObjectFieldGenerator(VariableElement variable, TypeName typeName, int hierarchyLevel) {
+      super(variable, typeName, hierarchyLevel);
     }
 
     @Override

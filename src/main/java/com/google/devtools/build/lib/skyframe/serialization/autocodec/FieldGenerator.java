@@ -13,14 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Name;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeMirror;
 
 /**
  * Generates code for a specific field.
@@ -37,28 +39,60 @@ abstract class FieldGenerator {
 
   private static final String HANDLE_SUFFIX = "_handle";
 
-  private final VariableElement variable;
+  private final Name parameterName;
+  private final TypeMirror type;
+  private final TypeName typeName;
   private final ClassName parentName;
+  private final int hierarchyLevel;
   private final String namePrefix;
 
   /**
    * Constructor.
    *
-   * @param variable the field being serialized. Note that {@link VariableElement} contains a
-   *     reference to the enclosing class.
+   * @param parameterName name of the field being serialized
+   * @param type type of the field being serialized
+   * @param typeName Javapoet "type" of the parameter derived from {@code type}. A {@code
+   *     ProcessingEnvironment} is needed to retrieve this so it is retained for simplicity.
+   * @param parentName class name of field's parent or object being serialized. In the usual case,
+   *     the field refers to a member variable of a particular class, its parent. If no such member
+   *     variable can be found, a getter, matching on name and type may be used instead. In that
+   *     case, {@code parentName} refers to the type of the enclosing object being serialized.
    * @param hierarchyLevel a variable could occur in either the class being serialized or in one of
    *     its ancestor classes. This is 0 for the class itself, 1 for its superclass, and so on. It
-   *     is used to avoid naming collisions, particularly in the case of shadowed variables.
+   *     is used to avoid naming collisions, particularly in the case of shadowed variables. This is
+   *     0 if field retrieval uses a getter.
    */
-  FieldGenerator(VariableElement variable, int hierarchyLevel) {
-    this.variable = variable;
-    this.parentName = ClassName.get((TypeElement) variable.getEnclosingElement());
-    this.namePrefix = variable.getSimpleName() + GENERATED_TAG + hierarchyLevel;
+  FieldGenerator(
+      Name parameterName,
+      TypeMirror type,
+      TypeName typeName,
+      ClassName parentName,
+      int hierarchyLevel) {
+    this.parameterName = checkNotNull(parameterName);
+    this.type = checkNotNull(type);
+    this.typeName = checkNotNull(typeName);
+    this.parentName = checkNotNull(parentName);
+    this.hierarchyLevel = hierarchyLevel;
+    this.namePrefix = parameterName + GENERATED_TAG + hierarchyLevel;
   }
 
   /** Name of the field being serialized. */
   final Name getParameterName() {
-    return variable.getSimpleName();
+    return parameterName;
+  }
+
+  /** Type of the field being serialized. */
+  final TypeMirror getType() {
+    return type;
+  }
+
+  /** {@link TypeName} of the field being serialized, derived from {@link #getType}. */
+  final TypeName getTypeName() {
+    return typeName;
+  }
+
+  final int getHierarchyLevel() {
+    return hierarchyLevel;
   }
 
   /** Any created member variables should start with this prefix. */
