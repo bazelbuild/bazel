@@ -1423,18 +1423,23 @@ public class RemoteExecutionService {
           .subscribeOn(scheduler)
           .subscribe(
               new SingleObserver<ActionResult>() {
+                long startTime = 0;
+
                 @Override
                 public void onSubscribe(@NonNull Disposable d) {
                   backgroundTaskPhaser.register();
+                  startTime = Profiler.nanoTimeMaybe();
                 }
 
                 @Override
                 public void onSuccess(@NonNull ActionResult actionResult) {
+                  Profiler.instance().completeTask(startTime, ProfilerTask.UPLOAD_TIME, "upload outputs");
                   backgroundTaskPhaser.arriveAndDeregister();
                 }
 
                 @Override
                 public void onError(@NonNull Throwable e) {
+                  Profiler.instance().completeTask(startTime, ProfilerTask.UPLOAD_TIME, "upload outputs");
                   backgroundTaskPhaser.arriveAndDeregister();
                   reportUploadError(e);
                 }
