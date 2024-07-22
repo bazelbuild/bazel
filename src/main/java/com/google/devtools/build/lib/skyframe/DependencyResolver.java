@@ -555,6 +555,18 @@ public final class DependencyResolver {
           e.asConfiguredValueCreationException(targetAndConfiguration);
       listener.handle(Event.error(target.getLocation(), cvce.getMessage()));
       throw new ReportedException(cvce);
+    } else if (untyped instanceof StarlarkExecTransitionLoadingException e) {
+      if (!e.getMessage().isEmpty()) {
+        // Report the error to the user.
+        listener.handle(Event.error(null, e.getMessage()));
+      }
+      throw new ReportedException(
+          new ConfiguredValueCreationException(
+              targetAndConfiguration.getTarget(),
+              configurationId(targetAndConfiguration.getConfiguration()),
+              e.getMessage(),
+              /* rootCauses= */ null,
+              /* detailedExitCode= */ null));
     } else {
       throw new IllegalStateException("unexpected exception with no appropriate handler", untyped);
     }
