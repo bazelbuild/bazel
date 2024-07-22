@@ -99,11 +99,38 @@ public class SkymeldModule extends BlazeModule {
       effectiveValue = false;
     }
 
+    if (effectiveValue
+        && env.getOptions().getOptions(CoreOptions.class) != null
+        && !env.getOptions().getOptions(CoreOptions.class).strictConflictChecks
+        && edgelessGraph(env)) {
+      logger.atInfo().log(
+          "--experimental_merged_skyframe_analysis_execution requires"
+              + " --incompatible_strict_conflict_checks when using (--batch --discard_analysis_cache)"
+              + " or --notrack_incremental_state. Its value will be ignored.");
+      effectiveValue = false;
+    }
+
     return effectiveValue;
   }
 
   static boolean getPlainValueFromFlag(BuildRequestOptions buildRequestOptions) {
     return buildRequestOptions != null
         && buildRequestOptions.mergedSkyframeAnalysisExecutionDoNotUseDirectly;
+  }
+
+  private static boolean edgelessGraph(CommandEnvironment env) {
+    if (env.getOptions().getOptions(CommonCommandOptions.class) != null
+        && !env.getOptions().getOptions(CommonCommandOptions.class).trackIncrementalState) {
+      return true;
+    }
+
+    if (env.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class) != null
+        && env.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).batch
+        && env.getOptions().getOptions(AnalysisOptions.class) != null
+        && env.getOptions().getOptions(AnalysisOptions.class).discardAnalysisCache)
+      return true;
+    }
+
+    return false
   }
 }

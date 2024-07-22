@@ -361,7 +361,12 @@ public final class IncrementalArtifactConflictFinder {
     threadSafeMutableActionGraph.registerAction(action);
 
     for (Artifact output : action.getOutputs()) {
-      checkOutputPrefix(threadSafeMutableActionGraph, pathFragmentTrieRoot, output, null);
+      checkOutputPrefix(
+        threadSafeMutableActionGraph,
+        /* strictConflictCheck= */ false, // Required for Skymeld + notrack_incremental_state.
+        pathFragmentTrieRoot,
+        output,
+        /* badActionMap= */ null);
     }
   }
 
