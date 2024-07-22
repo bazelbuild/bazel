@@ -21,7 +21,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -29,7 +28,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
-import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
@@ -241,6 +239,7 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
             .filter(o -> !o.getValue().hasOptionMetadataTag(OptionMetadataTag.INCOMPATIBLE_CHANGE))
             .map(o -> "--" + o.getValue().getDefinition().getOptionName())
             .collect(toImmutableList());
+    assertThat(missingMetadataTagOptions).isEmpty();
 
     // Flip all incompatible (boolean) options to their non-default value.
     BuildOptions flipped = defaultOptions.clone(); // To be flipped by below logic.
@@ -250,6 +249,10 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
       option.getDefinition().setValue(fragment, !value);
     }
 
+    // Fix the details of the exec transition so that the check passes.
+    flipped.get(CoreOptions.class).starlarkExecConfig =
+        targetConfig.getOptions().get(CoreOptions.class).starlarkExecConfig;
+
     PatchTransition execTransition = getExecTransition(EXECUTION_PLATFORM);
     BuildOptions execOptions =
         execTransition.patch(
@@ -257,8 +260,8 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
             new StoredEventHandler());
 
     // Find which incompatible options are different in the exec config (shouldn't be any).
-    ImmutableMultimap.Builder<Class<? extends FragmentOptions>, OptionDefinition>
-        unpreservedOptions = new ImmutableMultimap.Builder<>();
+    ImmutableList.Builder<ChangedIncompatibleFlag> unpreservedOptions =
+        new ImmutableList.Builder<>();
     for (OptionInfo incompatibleOption : incompatibleOptions.values()) {
       Class<? extends FragmentOptions> optionClass = incompatibleOption.getOptionClass();
       boolean execValue =
@@ -266,14 +269,21 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
       boolean flippedValue =
           incompatibleOption.getDefinition().getBooleanValue(flipped.get(optionClass));
       if (execValue != flippedValue) {
-        unpreservedOptions.put(
-            incompatibleOption.getOptionClass(), incompatibleOption.getDefinition());
+        unpreservedOptions.add(
+            new ChangedIncompatibleFlag(
+                incompatibleOption.getOptionClass().getName(),
+                incompatibleOption.getDefinition().getOptionName(),
+                flippedValue,
+                execValue));
       }
     }
 
-    assertThat(missingMetadataTagOptions).isEmpty();
     assertThat(unpreservedOptions.build()).isEmpty();
   }
+
+  /** Store details of incompatible flags that have changed values unexpectedly. */
+  private record ChangedIncompatibleFlag(
+      String fragment, String flag, Object expectedValue, Object foundValue) {}
 
   @Test
   public void platformInOutputPathWorksInExecMode() throws Exception {
