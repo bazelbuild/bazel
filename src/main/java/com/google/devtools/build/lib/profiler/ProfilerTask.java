@@ -104,6 +104,25 @@ public enum ProfilerTask {
   DYNAMIC_LOCK("Acquiring dynamic execution output lock", Threshold.FIFTY_MILLIS),
   REPOSITORY_FETCH("Fetching repository"),
   REPOSITORY_VENDOR("Vendoring repository"),
+
+  // Start -- SkyFunctions.
+  // Profile counts of SkyFunctions/SkyKeys in the graph over time.
+  GLOB_SKYFUNCTION("SkyFunction (GLOB)"),
+  GLOB_SKYFUNCTION_DONE("SkyFunction (GLOB)"),
+  GLOBS_SKYFUNCTION("SkyFunction (GLOBS)"),
+  GLOBS_SKYFUNCTION_DONE("SkyFunction (GLOB)"),
+  BZL_LOAD_SKYFUNCTION("SkyFunction (BZL_LOAD)"),
+  BZL_LOAD_SKYFUNCTION_DONE("SkyFunction (BZL_LOAD)"),
+  PACKAGE_SKYFUNCTION("SkyFunction (PACKAGE)"),
+  PACKAGE_SKYFUNCTION_DONE("SkyFunction (PACKAGE)"),
+  ACTION_EXECUTION_SKYFUNCTION("SkyFunction (ACTION_EXECUTION)"),
+  ACTION_EXECUTION_SKYFUNCTION_DONE("SkyFunction (ACTION_EXECUTION)"),
+  CONFIGURED_TARGET_SKYFUNCTION("SkyFunction (CONFIGURED_TARGET)"),
+  CONFIGURED_TARGET_SKYFUNCTION_DONE("SkyFunction (CONFIGURED_TARGET)"),
+  ASPECT_SKYFUNCTION("SkyFunction (ASPECT)"),
+  ASPECT_SKYFUNCTION_DONE("SkyFunction (ASPECT)"),
+  // End -- SkyFunctions.
+
   UNKNOWN("Unknown event");
 
   private static class Threshold {
