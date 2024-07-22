@@ -118,19 +118,31 @@ public final class BuildEventServiceProtoUtil {
   /** Creates a PublishBuildToolEventStreamRequest from a packed bazel event. */
   public PublishBuildToolEventStreamRequest bazelEvent(
       long sequenceNumber, Timestamp timestamp, Any packedEvent) {
+    return bazelEvent(sequenceNumber, timestamp, /* streamAttempt */ 1, packedEvent);
+  }
+
+  public PublishBuildToolEventStreamRequest bazelEvent(
+      long sequenceNumber, Timestamp timestamp, int streamAttempt, Any packedEvent) {
     return publishBuildToolEventStreamRequest(
         projectId,
         sequenceNumber,
         timestamp,
+        streamAttempt,
         com.google.devtools.build.v1.BuildEvent.newBuilder().setBazelEvent(packedEvent));
   }
 
   public PublishBuildToolEventStreamRequest streamFinished(
       long sequenceNumber, Timestamp timestamp) {
+    return streamFinished(sequenceNumber, timestamp, /* streamAttempt */ 1);
+  }
+
+  public PublishBuildToolEventStreamRequest streamFinished(
+      long sequenceNumber, Timestamp timestamp, int streamAttempt) {
     return publishBuildToolEventStreamRequest(
         projectId,
         sequenceNumber,
         timestamp,
+        streamAttempt,
         BuildEvent.newBuilder()
             .setComponentStreamFinished(
                 BuildComponentStreamFinished.newBuilder().setType(FINISHED)));
@@ -141,9 +153,11 @@ public final class BuildEventServiceProtoUtil {
       @Nullable String projectId,
       long sequenceNumber,
       Timestamp timestamp,
+      int streamAttempt,
       BuildEvent.Builder besEvent) {
     PublishBuildToolEventStreamRequest.Builder builder =
         PublishBuildToolEventStreamRequest.newBuilder()
+            .setRetryAttemptNumber(streamAttempt)
             .setOrderedBuildEvent(
                 OrderedBuildEvent.newBuilder()
                     .setSequenceNumber(sequenceNumber)

@@ -184,4 +184,9 @@ message PublishBuildToolEventStreamRequest {
   // request. BES only performs this check for events with sequence_number 1
   // i.e. the first event in the stream.
   bool check_preceding_lifecycle_events_present = 7;
+
+  // Number of streaming RPCs initiated (including this one) to upload the
+  // entire tool stream. Starts at 1 to differentiate with the default unset
+  // value.
+  int32 retry_attempt_number = 8;
 }

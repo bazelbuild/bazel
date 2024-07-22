@@ -400,6 +400,11 @@ public final class BuildEventServiceUploader implements Runnable {
     Deque<SendBuildEventCommand> ackQueue = new ArrayDeque<>();
     boolean lastEventSent = false;
     int acksReceived = 0;
+    // Tracks the actual open stream attempt.
+    // Correspond to PublishBuildToolEventStreamRequest.retry_attempt_number.
+    int streamAttempt = 1;
+    // Tracks the stream status to determine sleep duration between retries.
+    // Reset to zero when sever successfully ACK an event.
     int retryAttempt = 0;
 
     try {
@@ -448,6 +453,7 @@ public final class BuildEventServiceUploader implements Runnable {
                   besProtoUtil.bazelEvent(
                       buildEvent.getSequenceNumber(),
                       buildEvent.getCreationTime(),
+                      streamAttempt,
                       Any.pack(serializedRegularBuildEvent));
 
               streamContext.sendOverStream(request);
@@ -462,7 +468,7 @@ public final class BuildEventServiceUploader implements Runnable {
               lastEventSent = true;
               PublishBuildToolEventStreamRequest request =
                   besProtoUtil.streamFinished(
-                      lastEvent.getSequenceNumber(), lastEvent.getCreationTime());
+                      lastEvent.getSequenceNumber(), lastEvent.getCreationTime(), streamAttempt);
               streamContext.sendOverStream(request);
               streamContext.halfCloseStream();
               halfCloseFuture.set(null);
@@ -564,6 +570,8 @@ public final class BuildEventServiceUploader implements Runnable {
                   "Retrying stream: status='%s', sleepMillis=%d", streamStatus, sleepMillis);
               sleeper.sleepMillis(sleepMillis);
 
+              // About to open a new stream, increase attempt count.
+              streamAttempt++;
               // If we made progress, meaning the server ACKed events that we sent, then reset
               // the retry counter to 0.
               if (acksReceived > 0) {
