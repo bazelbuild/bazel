@@ -20,6 +20,61 @@ void die(const std::string &msg) {
   std::cerr << msg << std::endl;
   std::exit(1);
 }
+void parse_provides(const JsonValue &provides_data, ModuleDep &dep) {
+  if (provides_data.is_null()) {
+    return;
+  }
+  if (!provides_data.is_array()) {
+    die("require ddi content 'rules[0][\"provides\"]' is JSON array");
+  }
+  // Only 1 provide in rule
+  // In C++20 Modules, one TU provide only one module.
+  // Fortran can provide more than one module per TU.
+  // This check is fine for C++20 Modules.
+  auto provides = provides_data.as_array();
+  if (provides.size() > 1) {
+    die("require ddi content 'rules[0][\"provides\"]' has only 1 provide");
+  }
+  if (provides.size() == 1) {
+    auto provide_data = provides[0];
+    if (!provide_data.is_object()) {
+      die("require ddi content 'rules[0][\"provides\"][0]' is JSON object");
+    }
+    auto provide_obj = provide_data.as_object();
+    if (provide_obj.find("logical-name") == provide_obj.end()) {
+      die("require 'logical-name' in 'rules[0][\"provides\"][0]'");
+    }
+    auto name_data = provide_obj.at("logical-name");
+    if (!name_data.is_string()) {
+      die("require ddi content 'rules[0][\"provides\"][0][\"logical-name\"]' "
+          "is JSON string");
+    }
+    dep.gen_bmi = true;
+    dep.name = name_data.as_string();
+  }
+}
+void parse_requires(const JsonValue &requires_data, ModuleDep &dep) {
+  if (requires_data.is_null()) {
+    return;
+  }
+  if (!requires_data.is_array()) {
+    die("require ddi content 'rules[0][\"requires\"]' is JSON array");
+  }
+  for (const auto &item_data : requires_data.as_array()) {
+    if (!item_data.is_object()) {
+      die("require JSON object, but got " + item_data.dump());
+    }
+    auto item_obj = item_data.as_object();
+    if (item_obj.find("logical-name") == item_obj.end()) {
+      die("requrie 'logical-name' in 'rules[0][\"requires\"]' item");
+    }
+    auto name_data = item_obj.at("logical-name");
+    if (!name_data.is_string()) {
+      die("require JSON string, but got " + name_data.dump());
+    }
+    dep.require_list.push_back(name_data.as_string());
+  }
+}
 ModuleDep parse_ddi(std::istream &ddi_stream) {
   ModuleDep dep{};
   std::string ddi_string((std::istreambuf_iterator<char>(ddi_stream)),
@@ -55,52 +110,9 @@ ModuleDep parse_ddi(std::istream &ddi_stream) {
   }
   auto rule = rule_data.as_object();
   auto provides_data = rule["provides"];
-  if (!provides_data.is_array()) {
-    die("require ddi content 'rules[0][\"provides\"]' is JSON array");
-  }
-  // Only 1 provide in rule
-  // In C++20 Modules, one TU provide only one module.
-  // Fortran can provide more than one module per TU.
-  // This check is fine for C++20 Modules.
-  auto provides = provides_data.as_array();
-  if (provides.size() > 1) {
-    die("require ddi content 'rules[0][\"provides\"]' has only 1 provide");
-  }
-  if (provides.size() == 1) {
-    auto provide_data = provides[0];
-    if (!provide_data.is_object()) {
-      die("require ddi content 'rules[0][\"provides\"][0]' is JSON object");
-    }
-    auto provide_obj = provide_data.as_object();
-    if (provide_obj.find("logical-name") == provide_obj.end()) {
-      die("require 'logical-name' in 'rules[0][\"provides\"][0]'");
-    }
-    auto name_data = provide_obj.at("logical-name");
-    if (!name_data.is_string()) {
-      die("require ddi content 'rules[0][\"provides\"][0][\"logical-name\"]' "
-          "is JSON string");
-    }
-    dep.gen_bmi = true;
-    dep.name = name_data.as_string();
-  }
   auto requires_data = rule["requires"];
-  if (!requires_data.is_array()) {
-    die("require ddi content 'rules[0][\"requires\"]' is JSON array");
-  }
-  for (const auto &item_data : requires_data.as_array()) {
-    if (!item_data.is_object()) {
-      die("require JSON object, but got " + item_data.dump());
-    }
-    auto item_obj = item_data.as_object();
-    if (item_obj.find("logical-name") == item_obj.end()) {
-      die("requrie 'logical-name' in 'rules[0][\"requires\"]' item");
-    }
-    auto name_data = item_obj.at("logical-name");
-    if (!name_data.is_string()) {
-      die("require JSON string, but got " + name_data.dump());
-    }
-    dep.require_list.push_back(name_data.as_string());
-  }
+  parse_provides(provides_data, dep);
+  parse_requires(requires_data, dep);
   return dep;
 }
 Cpp20ModulesInfo parse_info(std::istream &info_stream) {
