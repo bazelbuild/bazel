@@ -199,7 +199,7 @@ public final class Actions {
         && (!allowSharedAction
             || !Actions.canBeSharedLogForPotentialFalsePositives(
                 actionKeyContext, actions.get(actionIndex), actions.get(otherIndex)))) {
-      throw new ActionConflictException(
+      throw ActionConflictException.create(
           actionKeyContext, output, actions.get(actionIndex), actions.get(otherIndex));
     }
   }
