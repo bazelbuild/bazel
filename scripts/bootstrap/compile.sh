@@ -281,6 +281,10 @@ EOF
   link_file "${PWD}/tools/cpp/runfiles/BUILD.tools" \
       "${BAZEL_TOOLS_REPO}/tools/cpp/runfiles/BUILD"
 
+  # Create @bazel_tools//tools/cpp/modules_tools
+  mkdir -p ${BAZEL_TOOLS_REPO}/tools/cpp/modules_tools
+  link_file "${PWD}/tools/cpp/modules_tools/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/cpp/modules_tools/BUILD"
+  
   # Create @bazel_tools//tools/sh
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/sh
   link_file "${PWD}/tools/sh/sh_configure.bzl" "${BAZEL_TOOLS_REPO}/tools/sh/sh_configure.bzl"
