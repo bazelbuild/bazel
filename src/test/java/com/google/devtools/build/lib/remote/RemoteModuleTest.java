@@ -33,12 +33,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.authandtls.credentialhelper.GetCredentialsResponse;
+import com.google.devtools.build.lib.bazel.BazelRepositoryModule;
+import com.google.devtools.build.lib.bazel.rules.BazelRulesModule;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -150,6 +153,9 @@ public final class RemoteModuleTest {
     ServerDirectories serverDirectories =
         new ServerDirectories(
             scratch.dir("install"), scratch.dir("output"), scratch.dir("user_root"));
+    BazelRepositoryModule repoModule = new BazelRepositoryModule();
+    repoModule.initializeRuleClasses(new ConfiguredRuleClassProvider.Builder());
+
     BlazeRuntime runtime =
         new BlazeRuntime.Builder()
             .setProductName(productName)
@@ -158,6 +164,9 @@ public final class RemoteModuleTest {
             .setStartupOptionsProvider(
                 OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
             .addBlazeModule(new CredentialModule())
+            .addBlazeModule(new BazelRulesModule())
+            .addBlazeModule(new BazelRepositoryModule())
+            // .addBlazeModule(repoModule)
             .addBlazeModule(remoteModule)
             .addBlazeModule(new BlockWaitingModule())
             .build();
@@ -248,7 +257,7 @@ public final class RemoteModuleTest {
       beforeCommand();
 
       // Wait for the channel to be connected.
-      var downloader = (GrpcRemoteDownloader) remoteModule.getRemoteDownloaderSupplier().get();
+      var downloader = (GrpcRemoteDownloader) remoteModule.getRemoteDownloader();
       var unused = downloader.getChannel().withChannelBlocking(ch -> new Object());
 
       // Remote downloader uses Remote Asset API, and Bazel doesn't have any capability requirement

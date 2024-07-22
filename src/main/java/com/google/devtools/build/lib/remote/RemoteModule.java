@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.authandtls.credentialhelper.GetCredentialsResponse;
+import com.google.devtools.build.lib.bazel.BazelRepositoryModule;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
@@ -169,6 +170,8 @@ public final class RemoteModule extends BlazeModule {
 
   private CredentialModule credentialModule;
 
+  private BazelRepositoryModule repositoryModule;
+
   @Override
   public void serverInit(OptionsParsingResult startupOptions, ServerBuilder builder) {
     builder.addBuildEventArtifactUploaderFactory(
@@ -264,6 +267,7 @@ public final class RemoteModule extends BlazeModule {
     blockWaitingModule =
         Preconditions.checkNotNull(runtime.getBlazeModule(BlockWaitingModule.class));
     credentialModule = Preconditions.checkNotNull(runtime.getBlazeModule(CredentialModule.class));
+    repositoryModule = Preconditions.checkNotNull(runtime.getBlazeModule(BazelRepositoryModule.class));
   }
 
   @Override
@@ -725,7 +729,7 @@ public final class RemoteModule extends BlazeModule {
 
       Downloader fallbackDownloader = null;
       if (remoteOptions.remoteDownloaderLocalFallback) {
-        fallbackDownloader = new HttpDownloader();
+        fallbackDownloader = repositoryModule.getHttpDownloader();
       }
       remoteDownloaderSupplier.set(
           new GrpcRemoteDownloader(

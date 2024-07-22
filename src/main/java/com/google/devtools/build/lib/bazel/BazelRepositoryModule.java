@@ -651,4 +651,8 @@ public class BazelRepositoryModule extends BlazeModule {
   public Iterable<Class<? extends OptionsBase>> getCommonCommandOptions() {
     return ImmutableList.of(RepositoryOptions.class);
   }
+
+  public HttpDownloader getHttpDownloader() {
+    return httpDownloader;
+  }
 }
