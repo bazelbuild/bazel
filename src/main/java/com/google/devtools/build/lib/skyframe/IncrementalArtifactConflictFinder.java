@@ -303,60 +303,6 @@ public final class IncrementalArtifactConflictFinder {
         ImmutableMap.copyOf(temporaryBadActionMap), threadSafeMutableActionGraph.getSize());
   }
 
-  ActionConflictsAndStats findArtifactConflictsNoIncrementality(
-      ImmutableCollection<SkyValue> actionLookupValues, boolean strictConflictChecks) throws InterruptedException {
-    ConcurrentMap<ActionAnalysisMetadata, ActionConflictException> temporaryBadActionMap =
-        new ConcurrentHashMap<>();
-
-    try (SilentCloseable c =
-        Profiler.instance()
-            .profile(ProfilerTask.CONFLICT_CHECK, "constructActionGraphAndArtifactList")) {
-      constructActionGraphAndArtifactList(
-          pathFragmentTrieRoot,
-          actionLookupValues,
-          strictConflictChecks,
-          temporaryBadActionMap);
-    }
-
-    return ActionConflictsAndStats.create(
-        ImmutableMap.copyOf(temporaryBadActionMap), threadSafeMutableActionGraph.getSize());
-  }
-
-  private void constructActionGraphAndArtifactList(
-      ConcurrentMap<String, Object> pathFragmentTrieRoot,
-      ImmutableCollection<SkyValue> actionLookupValues,
-      boolean strictConflictChecks,
-      ConcurrentMap<ActionAnalysisMetadata, ActionConflictException> badActionMap)
-      throws InterruptedException {
-    List<ListenableFuture<Void>> futures = new ArrayList<>(actionLookupValues.size());
-    synchronized (freeForAllPool) {
-      // Some other thread shut down the executor, exit now.
-      if (freeForAllPool.isShutdown()) {
-        return;
-      }
-      for (SkyValue alv : actionLookupValues) {
-        if (!(alv instanceof ActionLookupValue)) {
-          continue;
-        }
-        futures.add(
-            freeForAllPool.submit(
-                () ->
-                    actionRegistration(
-                        (ActionLookupValue) alv,
-                        threadSafeMutableActionGraph,
-                        pathFragmentTrieRoot,
-                        strictConflictChecks,
-                        badActionMap)));
-      }
-    }
-    // Now wait on the futures.
-    try {
-      Futures.whenAllSucceed(futures).call(() -> null, directExecutor()).get();
-    } catch (ExecutionException e) {
-      throw new IllegalStateException("Unexpected exception", e);
-    }
-  }
-
   void shutdown() {
     try {
       synchronized (exclusivePortionLock) {
