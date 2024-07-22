@@ -118,10 +118,10 @@ import java.util.stream.Collectors;
  * Runfiles#preload(Map)} and immutably encapsulate all data required to look up runfiles with the
  * repository mapping of any Bazel repository specified at a later time.
  *
- * <p>Creating {@link Runfiles} instances can be costly, so applications should try to create as few
- * instances as possible. {@link Runfiles#preload()}, but not {@link Runfiles#preload(Map)}, returns
- * a single global, softly cached instance of {@link Preloaded} that is constructed based on the
- * JVM's environment variables.
+ * <p>Creating {@link Preloaded} instances can be costly, so applications should try to create as
+ * few instances as possible. {@link Runfiles#preload()}, but not {@link Runfiles#preload(Map)},
+ * returns a single global, softly cached instance of {@link Preloaded} that is constructed based on
+ * the JVM's environment variables.
  *
  * <p>Instance of {@link Runfiles} are only meant to be used by code located in a single Bazel
  * repository and should not be passed around. They are created by calling {@link
