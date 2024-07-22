@@ -313,7 +313,7 @@ public final class SandboxHelpers {
         if (SYMLINK.equals(dirent.getType())
             && absPath.readSymbolicLink().equals(destination.get())) {
           inputsToCreate.remove(pathRelativeToWorkDir);
-        } else if (absPath.isDirectory()) {
+        } else if (DIRECTORY.equals(dirent.getType())) {
           if (treeDeleter == null) {
             // TODO(bazel-team): Use async tree deleter for workers too
             absPath.deleteTree();
