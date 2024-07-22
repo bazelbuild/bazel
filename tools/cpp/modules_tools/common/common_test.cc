@@ -100,3 +100,55 @@ TEST(DdiTest, BasicFunctionality) {
   EXPECT_EQ(ddi.gen_bmi, true);
   EXPECT_EQ(ddi.require_list, std::vector<std::string>{"bar"});
 }
+
+TEST(DdiTest, BasicEmpty) {
+  std::string ddi_content = R"(
+  {
+    "revision": 0,
+    "rules": [
+      {
+        "primary-output": "main.ddi"
+      }
+    ],
+    "version": 1
+  })";
+  std::istringstream ddi_stream(ddi_content);
+  auto ddi = parse_ddi(ddi_stream);
+  EXPECT_EQ(ddi.name, "");
+  EXPECT_EQ(ddi.gen_bmi, false);
+  EXPECT_TRUE(ddi.require_list.empty());
+}
+
+TEST(DdiTest, EmptyRequires) {
+  Cpp20ModulesInfo full_info;
+  std::string ddi_content = R"({
+        "rules": [{
+            "provides": [{
+                "logical-name": "foo"
+            }]
+        }]
+    })";
+
+  std::istringstream ddi_stream(ddi_content);
+  auto ddi = parse_ddi(ddi_stream);
+  EXPECT_EQ(ddi.name, "foo");
+  EXPECT_EQ(ddi.gen_bmi, true);
+  EXPECT_TRUE(ddi.require_list.empty());
+}
+
+TEST(DdiTest, EmptyProvides) {
+  Cpp20ModulesInfo full_info;
+  std::string ddi_content = R"({
+        "rules": [{
+            "requires": [{
+                "logical-name": "bar"
+            }]
+        }]
+    })";
+
+  std::istringstream ddi_stream(ddi_content);
+  auto ddi = parse_ddi(ddi_stream);
+  EXPECT_EQ(ddi.name, "");
+  EXPECT_EQ(ddi.gen_bmi, false);
+  EXPECT_EQ(ddi.require_list, std::vector<std::string>{"bar"});
+}
