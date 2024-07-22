@@ -471,7 +471,7 @@ bazel_fragments["GenQueryConfiguration$GenQueryOptions"] = fragment(
 
 # Bazel's exec transition.
 _transition_data = exec_transition(bazel_fragments)
-bazel_exec_transition = _builtins.toplevel.transition(
+bazel_exec_transition = _builtins.toplevel.exec_transition(
     implementation = _transition_data.implementation,
     inputs = _transition_data.inputs,
     outputs = _transition_data.outputs,

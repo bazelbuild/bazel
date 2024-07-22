@@ -122,11 +122,8 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     return packageContext;
   }
 
-  /** Is this transition the same one specified by --experimental_exec_config? */
-  public boolean matchesExecConfigFlag(String starlarkExecConfig) {
-    return starlarkExecConfig.contains(parentLabel.getPackageName())
-        && starlarkExecConfig.contains(parentLabel.getName());
-  }
+  /** Is this transition an exec transition? */
+  public abstract boolean isExecTransition();
 
   /**
    * Returns a build settings in canonicalized form taking into account repository remappings.
@@ -279,6 +276,18 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         impl, inputs, outputs, semantics, parentLabel, location, repoMapping);
   }
 
+  public static StarlarkDefinedConfigTransition newExecTransition(
+      StarlarkCallable impl,
+      List<String> inputs,
+      List<String> outputs,
+      StarlarkSemantics semantics,
+      Label parentLabel,
+      Location location,
+      RepositoryMapping repoMapping)
+      throws EvalException {
+    return new ExecTransition(impl, inputs, outputs, semantics, parentLabel, location, repoMapping);
+  }
+
   public static StarlarkDefinedConfigTransition newAnalysisTestTransition(
       Map<String, Object> changedSettings,
       RepositoryMapping repoMapping,
@@ -309,6 +318,11 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     @Override
     public boolean isForAnalysisTesting() {
       return true;
+    }
+
+    @Override
+    public boolean isExecTransition() {
+      return false;
     }
 
     @Override
@@ -367,6 +381,11 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
 
     @Override
     public boolean isForAnalysisTesting() {
+      return false;
+    }
+
+    @Override
+    public boolean isExecTransition() {
       return false;
     }
 
@@ -737,6 +756,26 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     @Override
     public int hashCode() {
       return Objects.hash(this.getInputs(), this.getOutputs(), this.impl);
+    }
+  }
+
+  /** A transition implementation used only for Starlark-defined exec transitions. */
+  private static class ExecTransition extends RegularTransition {
+    private ExecTransition(
+        StarlarkCallable impl,
+        List<String> inputs,
+        List<String> outputs,
+        StarlarkSemantics semantics,
+        Label parentLabel,
+        Location location,
+        RepositoryMapping repoMapping)
+        throws EvalException {
+      super(impl, inputs, outputs, semantics, parentLabel, location, repoMapping);
+    }
+
+    @Override
+    public boolean isExecTransition() {
+      return true;
     }
   }
 
