@@ -139,11 +139,9 @@ final class ToplevelStarlarkAspectFunction implements SkyFunction {
     return aspectKey;
   }
 
-  /** Exceptions thrown from ToplevelStarlarkAspectFunction. */
-  public static final class TopLevelStarlarkAspectFunctionException extends SkyFunctionException {
-    public TopLevelStarlarkAspectFunctionException(AspectCreationException cause) {
+  private static class TopLevelStarlarkAspectFunctionException extends SkyFunctionException {
+    protected TopLevelStarlarkAspectFunctionException(ActionConflictException cause) {
       super(cause, Transience.PERSISTENT);
     }
   }
-
 }

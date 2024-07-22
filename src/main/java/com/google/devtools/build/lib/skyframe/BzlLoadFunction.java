@@ -1547,8 +1547,7 @@ public class BzlLoadFunction implements SkyFunction {
   }
 
   /** Indicates a failure to load a .bzl file. */
-  public static final class BzlLoadFailedException extends Exception
-      implements SaneAnalysisException {
+  public static final class BzlLoadFailedException extends AbstractSaneAnalysisException {
     private final Transience transience;
     private final DetailedExitCode detailedExitCode;
 

@@ -121,7 +121,6 @@ public class BuildDriverFunction implements SkyFunction {
       Supplier<RuleContextConstraintSemantics> ruleContextConstraintSemantics,
       Supplier<RegexFilter> extraActionFilterSupplier,
       Supplier<TestTypeResolver> testTypeResolver) {
-    this.transitiveActionLookupValuesHelper = transitiveActionLookupValuesHelper;
     this.incrementalArtifactConflictFinder = incrementalArtifactConflictFinder;
     this.ruleContextConstraintSemantics = ruleContextConstraintSemantics;
     this.extraActionFilterSupplier = extraActionFilterSupplier;

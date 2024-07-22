@@ -169,6 +169,7 @@ java_library(
         ":repository_mapping_function",
         ":repository_mapping_value",
         ":rule_configured_target_value",
+        ":sane_analysis_exception",
         ":sky_functions",
         ":sky_value_dirtiness_checker",
         ":skyframe_aware_action",
@@ -1147,7 +1148,6 @@ java_library(
     name = "conflict_checking_mode",
     srcs = ["ConflictCheckingMode.java"],
 )
-
 
 java_library(
     name = "containing_package_lookup_function",

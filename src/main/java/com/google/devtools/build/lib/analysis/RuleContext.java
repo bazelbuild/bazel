@@ -197,8 +197,7 @@ public final class RuleContext extends TargetContext
 
   private final Supplier<IncrementalArtifactConflictFinder> conflictFinder;
 
-  /** The constructor is intentionally package private to be only used by {@link AspectContext}. */
-  RuleContext(
+  private RuleContext(
       Builder builder,
       AttributeMap attributes,
       ListMultimap<String, ConfiguredTargetAndData> targetMap,
@@ -227,33 +226,7 @@ public final class RuleContext extends TargetContext
     this.transitivePackagesForRunfileRepoMappingManifest =
         builder.transitivePackagesForRunfileRepoMappingManifest;
     this.starlarkThread = createStarlarkThread(builder.mutability); // uses above state
-    this.prerequisitesCollection = prerequisitesCollection;
     this.conflictFinder = builder.conflictFinder;
-  }
-
-  static RuleContext create(
-      Builder builder,
-      AttributeMap ruleAttributes,
-      ImmutableListMultimap<DependencyKind, ConfiguredTargetAndData> targetsMap,
-      ExecGroupCollection execGroupCollection) {
-
-    ImmutableSortedKeyListMultimap.Builder<String, ConfiguredTargetAndData> attrNameToTargets =
-        ImmutableSortedKeyListMultimap.builder();
-    for (Map.Entry<DependencyKind, Collection<ConfiguredTargetAndData>> entry :
-        targetsMap.asMap().entrySet()) {
-      attrNameToTargets.putAll(entry.getKey().getAttribute().getName(), entry.getValue());
-    }
-
-    return new RuleContext(
-        builder,
-        ruleAttributes,
-        new PrerequisitesCollection(
-            attrNameToTargets.build(),
-            ruleAttributes,
-            builder.getErrorConsumer(),
-            builder.getRule(),
-            builder.getRuleClassNameForLogging()),
-        execGroupCollection);
   }
 
   private FeatureSet computeFeatures() {
@@ -1828,12 +1801,6 @@ public final class RuleContext extends TargetContext
     public Builder setTransitivePackagesForRunfileRepoMappingManifest(
         @Nullable NestedSet<Package> packages) {
       this.transitivePackagesForRunfileRepoMappingManifest = packages;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setConflictFinder(Supplier<IncrementalArtifactConflictFinder> conflictFinder) {
-      this.conflictFinder = conflictFinder;
       return this;
     }
 
