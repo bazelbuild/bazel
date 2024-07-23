@@ -36,9 +36,10 @@ public class RegistryFactoryTest {
 
   @Test
   public void badSchemes() {
+    HttpDownloader httpDownloader = new HttpDownloader();
     RegistryFactory registryFactory =
         new RegistryFactoryImpl(
-            new DownloadManager(new RepositoryCache(), new HttpDownloader()),
+            new DownloadManager(new RepositoryCache(), httpDownloader, httpDownloader),
             Suppliers.ofInstance(ImmutableMap.of()));
     Throwable exception =
         assertThrows(
@@ -66,9 +67,10 @@ public class RegistryFactoryTest {
 
   @Test
   public void badPath() {
+    HttpDownloader httpDownloader = new HttpDownloader();
     RegistryFactory registryFactory =
         new RegistryFactoryImpl(
-            new DownloadManager(new RepositoryCache(), new HttpDownloader()),
+            new DownloadManager(new RepositoryCache(), httpDownloader, httpDownloader),
             Suppliers.ofInstance(ImmutableMap.of()));
     Throwable exception =
         assertThrows(

@@ -137,7 +137,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
       // Set up SkyFunctions and PrecomputedValues needed to make local repositories work correctly.
       RepositoryCache repositoryCache = new RepositoryCache();
       HttpDownloader httpDownloader = new HttpDownloader();
-      DownloadManager downloadManager = new DownloadManager(repositoryCache, httpDownloader);
+      DownloadManager downloadManager = new DownloadManager(repositoryCache, httpDownloader, httpDownloader);
       RegistryFactory registryFactory =
           new RegistryFactoryImpl(downloadManager, Suppliers.ofInstance(ImmutableMap.of()));
 

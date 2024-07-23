@@ -153,7 +153,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private final DelegatingDownloader delegatingDownloader =
       new DelegatingDownloader(httpDownloader);
   private final DownloadManager downloadManager =
-      new DownloadManager(repositoryCache, delegatingDownloader);
+      new DownloadManager(repositoryCache, delegatingDownloader, httpDownloader);
   private final MutableSupplier<Map<String, String>> clientEnvironmentSupplier =
       new MutableSupplier<>();
   private ImmutableMap<RepositoryName, PathFragment> overrides = ImmutableMap.of();

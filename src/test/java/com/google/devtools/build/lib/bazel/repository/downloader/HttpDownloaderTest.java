@@ -75,7 +75,7 @@ public class HttpDownloaderTest {
   private final RepositoryCache repositoryCache = mock(RepositoryCache.class);
   private final HttpDownloader httpDownloader = new HttpDownloader();
   private final DownloadManager downloadManager =
-      new DownloadManager(repositoryCache, httpDownloader);
+      new DownloadManager(repositoryCache, httpDownloader, httpDownloader);
 
   private final ExecutorService executor = Executors.newFixedThreadPool(2);
   private final ExtendedEventHandler eventHandler = mock(ExtendedEventHandler.class);
@@ -646,7 +646,7 @@ public class HttpDownloaderTest {
   @Test
   public void download_contentLengthMismatch_propagateErrorIfNotRetry() throws Exception {
     Downloader downloader = mock(Downloader.class);
-    DownloadManager downloadManager = new DownloadManager(repositoryCache, downloader);
+    DownloadManager downloadManager = new DownloadManager(repositoryCache, downloader, null);
     // do not retry
     downloadManager.setRetries(0);
     AtomicInteger times = new AtomicInteger(0);
@@ -683,7 +683,7 @@ public class HttpDownloaderTest {
   public void download_contentLengthMismatch_retries() throws Exception {
     Downloader downloader = mock(Downloader.class);
     int retires = 5;
-    DownloadManager downloadManager = new DownloadManager(repositoryCache, downloader);
+    DownloadManager downloadManager = new DownloadManager(repositoryCache, downloader, null);
     downloadManager.setRetries(retires);
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
@@ -726,7 +726,7 @@ public class HttpDownloaderTest {
   public void download_contentLengthMismatchWithOtherErrors_retries() throws Exception {
     Downloader downloader = mock(Downloader.class);
     int retires = 5;
-    DownloadManager downloadManager = new DownloadManager(repositoryCache, downloader);
+    DownloadManager downloadManager = new DownloadManager(repositoryCache, downloader, null);
     downloadManager.setRetries(retires);
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);

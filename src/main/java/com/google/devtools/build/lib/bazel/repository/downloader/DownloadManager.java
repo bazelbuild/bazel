@@ -61,6 +61,7 @@ public class DownloadManager {
   private List<Path> distdir = ImmutableList.of();
   private UrlRewriter rewriter;
   private final Downloader downloader;
+  private final HttpDownloader httpDownloader;
   private boolean disableDownload = false;
   private int retries = 0;
   @Nullable private Credentials netrcCreds;
@@ -71,9 +72,11 @@ public class DownloadManager {
     Credentials create(Map<URI, Map<String, List<String>>> authHeaders);
   }
 
-  public DownloadManager(RepositoryCache repositoryCache, Downloader downloader) {
+  public DownloadManager(
+      RepositoryCache repositoryCache, Downloader downloader, HttpDownloader httpDownloader) {
     this.repositoryCache = repositoryCache;
     this.downloader = downloader;
+    this.httpDownloader = httpDownloader;
   }
 
   public void setDistdir(List<Path> distdir) {
@@ -425,7 +428,6 @@ public class DownloadManager {
       throw new IOException(getRewriterBlockedAllUrlsMessage(ImmutableList.of(originalUrl)));
     }
 
-    HttpDownloader httpDownloader = new HttpDownloader();
     byte[] content;
     for (int attempt = 0; ; ++attempt) {
       try {
