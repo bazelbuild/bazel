@@ -22,7 +22,6 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -56,8 +55,7 @@ public final class CompletionContextTest {
           /* expireAtEpochMilli= */ -1);
 
   private final ActionInputMap inputMap = new ActionInputMap(BugReporter.defaultInstance(), 0);
-  private final Map<Artifact, ImmutableSortedSet<TreeFileArtifact>> treeExpansions =
-      new HashMap<>();
+  private final Map<Artifact, TreeArtifactValue> treeExpansions = new HashMap<>();
   private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetExpansions =
       new HashMap<>();
   private Path execRoot;
@@ -92,7 +90,7 @@ public final class CompletionContextTest {
             .putChild(treeFile2, DUMMY_METADATA)
             .build();
     inputMap.putTreeArtifact(tree, treeValue, /* depOwner= */ null);
-    treeExpansions.put(tree, treeValue.getChildren());
+    treeExpansions.put(tree, treeValue);
     CompletionContext ctx = createCompletionContext(/* expandFilesets= */ true);
 
     assertThat(visit(ctx, tree)).containsExactly(treeFile1, treeFile2).inOrder();
