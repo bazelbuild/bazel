@@ -22,6 +22,7 @@ import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
@@ -50,14 +51,15 @@ final class CounterSeriesTraceData implements TraceData {
       Map<ProfilerTask, double[]> counterSeriesMap,
       Duration profileStart,
       Duration bucketDuration) {
-    Integer len = null;
-    for (ProfilerTask profilerTask : counterSeriesMap.keySet()) {
+    int len = -1;
+    for (Entry<ProfilerTask, double[]> entry : counterSeriesMap.entrySet()) {
+      ProfilerTask profilerTask = entry.getKey();
       Preconditions.checkState(
           COUNTER_TASK_TO_SERIES_NAME.containsKey(profilerTask),
           "COUNTER_TASK_TO_SERIES_NAME does not contain %s",
           profilerTask);
-      if (len == null) {
-        len = counterSeriesMap.get(profilerTask).length;
+      if (len == -1) {
+        len = entry.getValue().length;
 
         this.displayName = profilerTask.description;
 
@@ -66,7 +68,8 @@ final class CounterSeriesTraceData implements TraceData {
         // https://github.com/catapult-project/catapult/blob/master/tracing/tracing/base/color_scheme.html
         this.colorName = COUNTER_TASK_TO_COLOR.get(profilerTask);
       } else {
-        Preconditions.checkState(len.equals(counterSeriesMap.get(profilerTask).length));
+        // Check that second and subsequent series have the same length as the first.
+        Preconditions.checkState(len == entry.getValue().length);
       }
     }
     this.len = len;
