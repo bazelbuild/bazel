@@ -13,16 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.config;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
 import com.google.common.base.Preconditions;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
@@ -86,9 +81,6 @@ public class FlagSetFunction implements SkyFunction {
     ImmutableList<String> sclConfigAsStarlarkList =
         getSclConfig(
             key.getProjectFile(), projectValue, key.getSclConfig(), key.enforceCanonical());
-    if (key.enforceCanonical()) {
-      validateNoExtraFlagsSet(key.getTargetOptions());
-    }
     ParsedFlagsValue parsedFlags = parseFlags(sclConfigAsStarlarkList, env);
     if (parsedFlags == null) {
       return null;
@@ -133,38 +125,9 @@ public class FlagSetFunction implements SkyFunction {
                   "--scl_config=%s is not a valid configuration for this project.%s",
                   sclConfigName, supportedConfigsDesc(projectFile, supportedConfigs))),
           Transience.PERSISTENT);
-    }
+      }
 
     return ImmutableList.copyOf(sclConfigValue);
-  }
-
-  private void validateNoExtraFlagsSet(BuildOptions targetOptions) throws FlagSetFunctionException {
-    ImmutableList.Builder<String> allOptionsAsStringsBuilder = new ImmutableList.Builder<>();
-    targetOptions.getStarlarkOptions().keySet().stream()
-        .map(Object::toString)
-        .forEach(allOptionsAsStringsBuilder::add);
-    for (FragmentOptions fragmentOptions : targetOptions.getNativeOptions()) {
-      fragmentOptions.asMap().keySet().forEach(allOptionsAsStringsBuilder::add);
-    }
-    ImmutableList<String> allOptionsAsStrings = allOptionsAsStringsBuilder.build();
-    ImmutableSet<String> overlap =
-        targetOptions.getUserOptions().stream()
-            .filter(
-                option ->
-                    allOptionsAsStrings.contains(
-                        Iterables.get(Splitter.on("=").split(option), 0).replaceFirst("--", "")))
-            .filter(option -> !option.startsWith("--scl_config"))
-            .collect(toImmutableSet());
-    if (!overlap.isEmpty()) {
-      throw new FlagSetFunctionException(
-          new UnsupportedConfigException(
-              String.format(
-                  "When --enforce_project_configs is set, --scl_config must be the only"
-                      + " configuration-affecting flag in the build. Found %s in the command line"
-                      + " or user blazerc",
-                  overlap)),
-          Transience.PERSISTENT);
-    }
   }
 
   /** Returns a user-friendly description of project-supported configurations. */
