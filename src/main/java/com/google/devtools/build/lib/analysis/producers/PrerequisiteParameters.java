@@ -43,6 +43,7 @@ public final class PrerequisiteParameters {
   private final ImmutableList<Aspect> aspects;
   @Nullable private final StarlarkAttributeTransitionProvider starlarkTransitionProvider;
   private final StarlarkTransitionCache transitionCache;
+  private final BuildConfigurationKeyCache buildConfigurationKeyCache;
   @Nullable private final ToolchainCollection<ToolchainContext> toolchainContexts;
 
   @Nullable private final ConfiguredAttributeMapper attributeMap;
@@ -71,6 +72,7 @@ public final class PrerequisiteParameters {
       Iterable<Aspect> aspects,
       @Nullable StarlarkAttributeTransitionProvider starlarkTransitionProvider,
       StarlarkTransitionCache transitionCache,
+      BuildConfigurationKeyCache buildConfigurationKeyCache,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       @Nullable ConfiguredAttributeMapper attributeMap,
       TransitiveDependencyState transitiveState,
@@ -83,6 +85,7 @@ public final class PrerequisiteParameters {
     this.starlarkTransitionProvider = starlarkTransitionProvider;
     this.transitionCache = transitionCache;
     this.toolchainContexts = toolchainContexts;
+    this.buildConfigurationKeyCache = buildConfigurationKeyCache;
     this.attributeMap = attributeMap;
     this.transitiveState = transitiveState;
     this.eventHandler = eventHandler;
@@ -166,5 +169,9 @@ public final class PrerequisiteParameters {
 
   public ExtendedEventHandler eventHandler() {
     return eventHandler;
+  }
+
+  public BuildConfigurationKeyCache buildConfigurationKeyCache() {
+    return buildConfigurationKeyCache;
   }
 }

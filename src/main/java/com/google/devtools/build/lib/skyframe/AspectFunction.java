@@ -384,6 +384,7 @@ final class AspectFunction implements SkyFunction {
               ConfiguredTargetKey.fromConfiguredTarget(associatedTarget),
               topologicalAspectPath,
               buildViewProvider.getSkyframeBuildView().getStarlarkTransitionCache(),
+              buildViewProvider.getSkyframeBuildView().getBuildConfigurationKeyCache(),
               starlarkExecTransition.orElse(null),
               env,
               env.getListener(),
