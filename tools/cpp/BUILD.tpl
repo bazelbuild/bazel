@@ -60,6 +60,10 @@ filegroup(
 )
 
 filegroup(
+    name = "deps_scanner_wrapper",
+    srcs = ["deps_scanner_wrapper.sh"],
+)
+filegroup(
     name = "compiler_deps",
     srcs = glob(["extra_tools/**"], allow_empty = True) + [%{cc_compiler_deps}],
 )

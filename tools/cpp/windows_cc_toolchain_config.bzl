@@ -40,6 +40,9 @@ all_compile_actions = [
     ACTION_NAMES.cpp_header_parsing,
     ACTION_NAMES.cpp_module_compile,
     ACTION_NAMES.cpp_module_codegen,
+    ACTION_NAMES.cpp_module_deps_scanning,
+    ACTION_NAMES.cpp20_module_compile,
+    ACTION_NAMES.cpp20_module_codegen,
     ACTION_NAMES.clif_match,
     ACTION_NAMES.lto_backend,
 ]
@@ -50,6 +53,9 @@ all_cpp_compile_actions = [
     ACTION_NAMES.cpp_header_parsing,
     ACTION_NAMES.cpp_module_compile,
     ACTION_NAMES.cpp_module_codegen,
+    ACTION_NAMES.cpp_module_deps_scanning,
+    ACTION_NAMES.cpp20_module_compile,
+    ACTION_NAMES.cpp20_module_codegen,
     ACTION_NAMES.clif_match,
 ]
 
@@ -60,6 +66,8 @@ preprocessor_compile_actions = [
     ACTION_NAMES.preprocess_assemble,
     ACTION_NAMES.cpp_header_parsing,
     ACTION_NAMES.cpp_module_compile,
+    ACTION_NAMES.cpp_module_deps_scanning,
+    ACTION_NAMES.cpp20_module_compile,
     ACTION_NAMES.clif_match,
 ]
 
@@ -70,6 +78,7 @@ codegen_compile_actions = [
     ACTION_NAMES.assemble,
     ACTION_NAMES.preprocess_assemble,
     ACTION_NAMES.cpp_module_codegen,
+    ACTION_NAMES.cpp20_module_codegen,
     ACTION_NAMES.lto_backend,
 ]
 
@@ -257,6 +266,71 @@ def _impl(ctx):
             tools = [tool(path = ctx.attr.msvc_link_path)],
         )
 
+        deps_scanner = "cpp-module-deps-scanner_not_found"
+        if "cpp-module-deps-scanner" in ctx.attr.tool_paths:
+            deps_scanner = ctx.attr.tool_paths["cpp-module-deps-scanner"]
+        cpp_module_scan_deps = action_config(
+            action_name = ACTION_NAMES.cpp_module_deps_scanning,
+            tools = [
+                tool(
+                    path = deps_scanner,
+                ),
+            ],
+            implies = [
+                "compiler_input_flags",
+                "compiler_output_flags",
+                "nologo",
+                "msvc_env",
+                "user_compile_flags",
+                "sysroot",
+            ],
+        )
+
+        cpp20_module_compile = action_config(
+            action_name = ACTION_NAMES.cpp20_module_compile,
+            tools = [
+                tool(
+                    path = ctx.attr.msvc_cl_path,
+                ),
+            ],
+            flag_sets = [
+                flag_set(
+                    flag_groups = [
+                        flag_group(
+                            flags = [
+                                "/TP",
+                                "/interface",
+                            ],
+                        ),
+                    ],
+                ),
+            ],
+            implies = [
+                "compiler_input_flags",
+                "compiler_output_flags",
+                "nologo",
+                "msvc_env",
+                "user_compile_flags",
+                "sysroot",
+            ],
+        )
+
+        cpp20_module_codegen = action_config(
+            action_name = ACTION_NAMES.cpp20_module_codegen,
+            tools = [
+                tool(
+                    path = ctx.attr.msvc_cl_path,
+                ),
+            ],
+            implies = [
+                "compiler_input_flags",
+                "compiler_output_flags",
+                "nologo",
+                "msvc_env",
+                "user_compile_flags",
+                "sysroot",
+            ],
+        )
         action_configs = [
             assemble_action,
             preprocess_assemble_action,
@@ -267,6 +341,9 @@ def _impl(ctx):
             cpp_link_dynamic_library_action,
             cpp_link_nodeps_dynamic_library_action,
             cpp_link_static_library_action,
+            cpp_module_scan_deps,
+            cpp20_module_compile,
+            cpp20_module_codegen,
         ]
     else:
         action_configs = []
@@ -329,6 +406,9 @@ def _impl(ctx):
                         ACTION_NAMES.cpp_header_parsing,
                         ACTION_NAMES.cpp_module_compile,
                         ACTION_NAMES.cpp_module_codegen,
+                        ACTION_NAMES.cpp_module_deps_scanning,
+                        ACTION_NAMES.cpp20_module_compile,
+                        ACTION_NAMES.cpp20_module_codegen,
                         ACTION_NAMES.cpp_link_executable,
                         ACTION_NAMES.cpp_link_dynamic_library,
                         ACTION_NAMES.cpp_link_nodeps_dynamic_library,
@@ -357,6 +437,9 @@ def _impl(ctx):
                         ACTION_NAMES.cpp_header_parsing,
                         ACTION_NAMES.cpp_module_compile,
                         ACTION_NAMES.cpp_module_codegen,
+                        ACTION_NAMES.cpp_module_deps_scanning,
+                        ACTION_NAMES.cpp20_module_compile,
+                        ACTION_NAMES.cpp20_module_codegen,
                     ],
                     flag_groups = [
                         flag_group(
@@ -492,6 +575,9 @@ def _impl(ctx):
                         ACTION_NAMES.cpp_header_parsing,
                         ACTION_NAMES.cpp_module_compile,
                         ACTION_NAMES.cpp_module_codegen,
+                        ACTION_NAMES.cpp_module_deps_scanning,
+                        ACTION_NAMES.cpp20_module_compile,
+                        ACTION_NAMES.cpp20_module_codegen,
                     ],
                     flag_groups = [
                         flag_group(
@@ -651,6 +737,9 @@ def _impl(ctx):
                         ACTION_NAMES.cpp_header_parsing,
                         ACTION_NAMES.cpp_module_compile,
                         ACTION_NAMES.cpp_module_codegen,
+                        ACTION_NAMES.cpp_module_deps_scanning,
+                        ACTION_NAMES.cpp20_module_compile,
+                        ACTION_NAMES.cpp20_module_codegen,
                         ACTION_NAMES.lto_backend,
                         ACTION_NAMES.clif_match,
                     ],
@@ -687,6 +776,9 @@ def _impl(ctx):
                         ACTION_NAMES.cpp_module_compile,
                         ACTION_NAMES.cpp_module_codegen,
                         ACTION_NAMES.cpp_header_parsing,
+                        ACTION_NAMES.cpp_module_deps_scanning,
+                        ACTION_NAMES.cpp20_module_compile,
+                        ACTION_NAMES.cpp20_module_codegen,
                         ACTION_NAMES.assemble,
                         ACTION_NAMES.preprocess_assemble,
                     ],
@@ -708,6 +800,8 @@ def _impl(ctx):
                         ACTION_NAMES.cpp_compile,
                         ACTION_NAMES.cpp_header_parsing,
                         ACTION_NAMES.cpp_module_compile,
+                        ACTION_NAMES.cpp_module_deps_scanning,
+                        ACTION_NAMES.cpp20_module_compile,
                     ],
                     flag_groups = [
                         flag_group(
@@ -816,6 +910,8 @@ def _impl(ctx):
                         ACTION_NAMES.cpp_compile,
                         ACTION_NAMES.cpp_module_compile,
                         ACTION_NAMES.cpp_header_parsing,
+                        ACTION_NAMES.cpp_module_deps_scanning,
+                        ACTION_NAMES.cpp20_module_compile,
                     ],
                     flag_groups = [flag_group(flags = ["/showIncludes"])],
                 ),
@@ -900,6 +996,8 @@ def _impl(ctx):
                         ACTION_NAMES.cpp_compile,
                         ACTION_NAMES.cpp_header_parsing,
                         ACTION_NAMES.cpp_module_compile,
+                        ACTION_NAMES.cpp_module_deps_scanning,
+                        ACTION_NAMES.cpp20_module_compile,
                         ACTION_NAMES.clif_match,
                         ACTION_NAMES.objc_compile,
                         ACTION_NAMES.objcpp_compile,
@@ -984,6 +1082,9 @@ def _impl(ctx):
                         ACTION_NAMES.cpp_header_parsing,
                         ACTION_NAMES.cpp_module_compile,
                         ACTION_NAMES.cpp_module_codegen,
+                        ACTION_NAMES.cpp_module_deps_scanning,
+                        ACTION_NAMES.cpp20_module_compile,
+                        ACTION_NAMES.cpp20_module_codegen,
                     ],
                     flag_groups = [
                         flag_group(
@@ -1030,6 +1131,9 @@ def _impl(ctx):
                         ACTION_NAMES.cpp_module_compile,
                         ACTION_NAMES.cpp_module_codegen,
                         ACTION_NAMES.cpp_header_parsing,
+                        ACTION_NAMES.cpp_module_deps_scanning,
+                        ACTION_NAMES.cpp20_module_compile,
+                        ACTION_NAMES.cpp20_module_codegen,
                         ACTION_NAMES.assemble,
                         ACTION_NAMES.preprocess_assemble,
                         ACTION_NAMES.cpp_link_executable,
@@ -1083,6 +1187,9 @@ def _impl(ctx):
                         ACTION_NAMES.cpp_header_parsing,
                         ACTION_NAMES.cpp_module_compile,
                         ACTION_NAMES.cpp_module_codegen,
+                        ACTION_NAMES.cpp_module_deps_scanning,
+                        ACTION_NAMES.cpp20_module_compile,
+                        ACTION_NAMES.cpp20_module_codegen,
                     ],
                     flag_groups = [
                         flag_group(
@@ -1120,6 +1227,9 @@ def _impl(ctx):
                         ACTION_NAMES.cpp_module_compile,
                         ACTION_NAMES.cpp_module_codegen,
                         ACTION_NAMES.cpp_header_parsing,
+                        ACTION_NAMES.cpp_module_deps_scanning,
+                        ACTION_NAMES.cpp20_module_compile,
+                        ACTION_NAMES.cpp20_module_codegen,
                         ACTION_NAMES.assemble,
                         ACTION_NAMES.preprocess_assemble,
                         ACTION_NAMES.cpp_link_executable,
@@ -1221,6 +1331,9 @@ def _impl(ctx):
                         ACTION_NAMES.cpp_module_compile,
                         ACTION_NAMES.cpp_module_codegen,
                         ACTION_NAMES.cpp_header_parsing,
+                        ACTION_NAMES.cpp_module_deps_scanning,
+                        ACTION_NAMES.cpp20_module_compile,
+                        ACTION_NAMES.cpp20_module_codegen,
                         ACTION_NAMES.assemble,
                         ACTION_NAMES.preprocess_assemble,
                         ACTION_NAMES.cpp_link_executable,
@@ -1246,6 +1359,9 @@ def _impl(ctx):
                         ACTION_NAMES.cpp_header_parsing,
                         ACTION_NAMES.cpp_module_compile,
                         ACTION_NAMES.cpp_module_codegen,
+                        ACTION_NAMES.cpp_module_deps_scanning,
+                        ACTION_NAMES.cpp20_module_compile,
+                        ACTION_NAMES.cpp20_module_codegen,
                         ACTION_NAMES.lto_backend,
                         ACTION_NAMES.clif_match,
                     ],
@@ -1341,6 +1457,9 @@ def _impl(ctx):
                             ACTION_NAMES.cpp_header_parsing,
                             ACTION_NAMES.cpp_module_compile,
                             ACTION_NAMES.cpp_module_codegen,
+                            ACTION_NAMES.cpp_module_deps_scanning,
+                            ACTION_NAMES.cpp20_module_compile,
+                            ACTION_NAMES.cpp20_module_codegen,
                             ACTION_NAMES.lto_backend,
                             ACTION_NAMES.clif_match,
                             ACTION_NAMES.cpp_link_executable,
@@ -1404,6 +1523,9 @@ def _impl(ctx):
                             ACTION_NAMES.cpp_header_parsing,
                             ACTION_NAMES.cpp_module_compile,
                             ACTION_NAMES.cpp_module_codegen,
+                            ACTION_NAMES.cpp_module_deps_scanning,
+                            ACTION_NAMES.cpp20_module_compile,
+                            ACTION_NAMES.cpp20_module_codegen,
                             ACTION_NAMES.lto_backend,
                             ACTION_NAMES.clif_match,
                         ],
@@ -1445,9 +1567,55 @@ def _impl(ctx):
     if "dumpbin" in ctx.attr.tool_paths:
         make_variables.append(make_variable(name = "DUMPBIN", value = ctx.attr.tool_paths["dumpbin"]))
 
+    # Tell bazel we support C++ modules now
+    cpp_modules_feature = feature(
+        name = "cpp_modules",
+        # set default value to False
+        # to enable the feature
+        # use --features=cpp_modules
+        # or add cpp_modules to features attr
+        enabled = False,
+    )
+
+    cpp_module_modmap_file_feature = feature(
+        name = "cpp_module_modmap_file",
+        flag_sets = [
+            flag_set(
+                actions = [
+                    ACTION_NAMES.cpp_compile,
+                    ACTION_NAMES.cpp20_module_compile,
+                    ACTION_NAMES.cpp20_module_codegen,
+                ],
+                flag_groups = [
+                    flag_group(
+                        flags = ["@%{cpp_module_modmap_file}"],
+                        expand_if_available = "cpp_module_modmap_file",
+                    ),
+                ],
+            ),
+        ],
+        enabled = True,
+    )
+    cpp20_module_compile_flags_feature = feature(
+        name = "cpp20_module_compile_flags",
+        flag_sets = [
+            flag_set(
+                actions = [
+                    ACTION_NAMES.cpp20_module_compile,
+                ],
+                flag_groups = [
+                    flag_group(
+                        flags = ["/ifcOutput%{cpp_module_output_file}"],
+                        expand_if_available = "cpp_module_output_file",
+                    ),
+                ],
+            ),
+        ],
+        enabled = True,
+    )
     return cc_common.create_cc_toolchain_config_info(
         ctx = ctx,
-        features = features,
+        features = features + [cpp_modules_feature, cpp_module_modmap_file_feature, cpp20_module_compile_flags_feature],
         action_configs = action_configs,
         artifact_name_patterns = artifact_name_patterns,
         cxx_builtin_include_directories = ctx.attr.cxx_builtin_include_directories,
