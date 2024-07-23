@@ -53,6 +53,7 @@ def _compute_public_headers(
         include_prefix,
         strip_include_prefix,
         label,
+        bin_include_dir,
         non_module_map_headers,
         is_sibling_repository_layout):
     if include_prefix:
@@ -106,6 +107,7 @@ def _compute_public_headers(
 
     module_map_headers = []
     virtual_to_original_headers_list = []
+    virtual_include_dir = paths.join(paths.join(cc_helper.package_source_root(label.workspace_name, label.package, is_sibling_repository_layout), _VIRTUAL_INCLUDES_DIR), label.name)
     for original_header in public_headers_artifacts:
         repo_relative_path = _repo_relative_path(original_header)
         if not repo_relative_path.startswith(strip_prefix):
@@ -115,7 +117,6 @@ def _compute_public_headers(
             include_path = paths.get_relative(include_prefix, include_path)
 
         if not original_header.path == include_path:
-            virtual_include_dir = paths.join(paths.join(cc_helper.package_source_root(label.workspace_name, label.package, is_sibling_repository_layout), _VIRTUAL_INCLUDES_DIR), label.name)
             virtual_header = actions.declare_shareable_artifact(paths.join(virtual_include_dir, include_path))
             actions.symlink(
                 output = virtual_header,
@@ -134,7 +135,7 @@ def _compute_public_headers(
     return struct(
         headers = virtual_headers,
         module_map_headers = module_map_headers,
-        virtual_include_path = cc_internal.bin_or_genfiles_relative_to_unique_directory(actions = actions, unique_directory = _VIRTUAL_INCLUDES_DIR),
+        virtual_include_path = paths.join(bin_include_dir, virtual_include_dir),
         virtual_to_original_headers = depset(virtual_to_original_headers_list),
     )
 
@@ -249,6 +250,7 @@ def _init_cc_compilation_context(
         include_prefix,
         strip_include_prefix,
         label,
+        bin_include_dir,
         non_module_map_headers,
         sibling_repo_layout,
     )
@@ -285,6 +287,7 @@ def _init_cc_compilation_context(
         include_prefix,
         strip_include_prefix,
         label,
+        bin_include_dir,
         non_module_map_headers,
         sibling_repo_layout,
     )
