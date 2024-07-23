@@ -308,13 +308,14 @@ genrule(
     name = "fastutil_stripped_jar",
     srcs = [
         "@maven//:it_unimi_dsi_fastutil_file",
+        "@rules_java//toolchains:platformclasspath",
     ],
     outs = ["fastutil-stripped.jar"],
     cmd = """
     $(location :proguard) \
-        -injars $< \
+        -injars $(execpath @maven//:it_unimi_dsi_fastutil_file) \
         -outjars $@ \
-        -libraryjars '<java.home>/jmods/java.base.jmod(!**.jar;!module-info.class)' \
+        -libraryjars $(execpath @rules_java//toolchains:platformclasspath) \
         @$(location //tools:fastutil.proguard) \
       | tail -n +2 # Skip the "ProGuard, version X" line
     # Null out the file times stored in the jar to make the output reproducible.
