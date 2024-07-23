@@ -296,7 +296,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
               if (BulkTransferException.allCausedByCacheNotFoundException(e)) {
                 var code =
                     (executionOptions.useNewExitCodeForLostInputs
-                            || executionOptions.remoteRetryOnCacheEviction > 0)
+                            || executionOptions.remoteRetryOnCacheError > 0)
                         ? Code.REMOTE_CACHE_EVICTED
                         : Code.REMOTE_CACHE_FAILED;
                 throw new EnvironmentalExecException(
@@ -306,7 +306,18 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
                         .setSpawn(FailureDetails.Spawn.newBuilder().setCode(code))
                         .build());
               } else {
-                throw e;
+                if (executionOptions.remoteRetryOnCacheError > 0) {
+                  throw new EnvironmentalExecException(
+                      e,
+                      FailureDetail.newBuilder()
+                          .setMessage("Failed to fetch blobs because from the remote cache.")
+                          .setSpawn(
+                              FailureDetails.Spawn.newBuilder().setCode(Code.REMOTE_CACHE_EVICTED))
+                          .build());
+
+                } else {
+                  throw e;
+                }
               }
             },
             directExecutor());
