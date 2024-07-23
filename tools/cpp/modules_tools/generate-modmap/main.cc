@@ -59,10 +59,10 @@ int main(int argc, char *argv[]) {
   }
   std::optional<ModmapItem> generated;
   if (dep.gen_bmi) {
-      ModmapItem item;
-      item.name = dep.name;
-      item.path = info.modules[dep.name];
-      generated = item;
+    ModmapItem item;
+    item.name = dep.name;
+    item.path = info.modules[dep.name];
+    generated = item;
   }
   write_modmap(modmap_file_stream, modmap_file_dot_input_stream, modmap,
                compiler, generated);
