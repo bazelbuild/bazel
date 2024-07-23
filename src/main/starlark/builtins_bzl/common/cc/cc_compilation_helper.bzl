@@ -53,7 +53,7 @@ def _compute_public_headers(
         include_prefix,
         strip_include_prefix,
         label,
-        bin_include_dir,
+        binfiles_dir,
         non_module_map_headers,
         is_sibling_repository_layout):
     if include_prefix:
@@ -131,11 +131,10 @@ def _compute_public_headers(
         module_map_headers.append(original_header)
 
     virtual_headers = module_map_headers + non_module_map_headers
-
     return struct(
         headers = virtual_headers,
         module_map_headers = module_map_headers,
-        virtual_include_path = paths.join(bin_include_dir, virtual_include_dir),
+        virtual_include_path = paths.join(binfiles_dir, virtual_include_dir),
         virtual_to_original_headers = depset(virtual_to_original_headers_list),
     )
 
@@ -250,7 +249,7 @@ def _init_cc_compilation_context(
         include_prefix,
         strip_include_prefix,
         label,
-        bin_include_dir,
+        binfiles_dir,
         non_module_map_headers,
         sibling_repo_layout,
     )
@@ -287,7 +286,7 @@ def _init_cc_compilation_context(
         include_prefix,
         strip_include_prefix,
         label,
-        bin_include_dir,
+        binfiles_dir,
         non_module_map_headers,
         sibling_repo_layout,
     )
