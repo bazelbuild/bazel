@@ -222,16 +222,6 @@ public final class BlazeOptionHandler {
                   "%s:\n  %s'%s' options: %s",
                   source, inherited, commandToParse, Joiner.on(' ').join(rcArgs.getArgs())));
         }
-        PriorityCategory priorityCategory;
-        // There's not a separate PriorityCategory for "client" options, so treat them as global
-        // rcfile options. Client options are passed via the wrapper script.
-        if ((workspace.getWorkspace() != null
-                && rcArgs.getRcFile().contains(workspace.getWorkspace().toString()))
-            || rcArgs.getRcFile().equals("client")) {
-          priorityCategory = PriorityCategory.GLOBAL_RC_FILE;
-        } else {
-          priorityCategory = PriorityCategory.RC_FILE;
-        }
         if (commandToParse.equals(COMMON_PSEUDO_COMMAND)) {
           // Pass in options data for all commands supported by the runtime so that options that
           // apply to some but not the current command can be ignored.
@@ -245,7 +235,7 @@ public final class BlazeOptionHandler {
           // pseudo command can be parsed unambiguously.
           ImmutableList<String> ignoredArgs =
               optionsParser.parseWithSourceFunction(
-                  priorityCategory,
+                  PriorityCategory.RC_FILE,
                   o -> rcArgs.getRcFile(),
                   rcArgs.getArgs(),
                   OptionsParser.getFallbackOptionsData(allOptionsClasses));
@@ -260,7 +250,7 @@ public final class BlazeOptionHandler {
             rcfileNotes.set(index, note);
           }
         } else {
-          optionsParser.parse(priorityCategory, rcArgs.getRcFile(), rcArgs.getArgs());
+          optionsParser.parse(PriorityCategory.RC_FILE, rcArgs.getRcFile(), rcArgs.getArgs());
         }
       }
     }

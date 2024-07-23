@@ -588,8 +588,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             skyKeyStateReceiver::makeThreadStateReceiver);
     this.artifactFactory =
         new ArtifactFactory(
-            /* execRootParent= */ directories.getExecRootBase(),
-            directories.getRelativeOutputPath());
+            /*execRootParent=*/ directories.getExecRootBase(), directories.getRelativeOutputPath());
     this.skyframeBuildView =
         new SkyframeBuildView(artifactFactory, this, ruleClassProvider, actionKeyContext);
     this.externalFilesHelper =
@@ -738,7 +737,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         SkyFunctions.REPO_FILE,
         shouldUseRepoDotBazel
             ? new RepoFileFunction(
-                ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace())
+            ruleClassProvider.getBazelStarlarkEnvironment(), directories.getWorkspace())
             : (k, env) -> {
               throw new IllegalStateException("supposed to be unused");
             });
@@ -962,6 +961,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     progressReceiver = newSkyframeProgressReceiver();
     memoizingEvaluator = createEvaluator(skyFunctions(), progressReceiver, emittedEventState);
     skyframeExecutorConsumerOnInit.accept(this);
+
   }
 
   @ForOverride
@@ -1352,8 +1352,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       EvaluationResult<WorkspaceStatusValue> result =
           evaluate(
               ImmutableList.of(WorkspaceStatusValue.BUILD_INFO_KEY),
-              /* keepGoing= */ true,
-              /* numThreads= */ 1,
+              /*keepGoing=*/ true,
+              /*numThreads=*/ 1,
               eventHandler);
       WorkspaceStatusValue value = checkNotNull(result.get(WorkspaceStatusValue.BUILD_INFO_KEY));
       return ImmutableList.of(value.getStableArtifact(), value.getVolatileArtifact());
@@ -1673,7 +1673,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Iterable<SkyKey> aspectKeys = AspectCompletionValue.keys(aspects, topLevelArtifactContext);
       Iterable<SkyKey> testKeys =
           TestCompletionValue.keys(
-              parallelTests, topLevelArtifactContext, /* exclusiveTesting= */ false);
+              parallelTests, topLevelArtifactContext, /*exclusiveTesting=*/ false);
       EvaluationContext evaluationContext =
           newEvaluationContextBuilder()
               .setKeepGoing(options.getOptions(KeepGoingOption.class).keepGoing)
@@ -1736,13 +1736,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     try {
       Iterable<SkyKey> testKeys =
           TestCompletionValue.keys(
-              ImmutableSet.of(exclusiveTest),
-              topLevelArtifactContext,
-              /* exclusiveTesting= */ true);
+              ImmutableSet.of(exclusiveTest), topLevelArtifactContext, /*exclusiveTesting=*/ true);
       return evaluate(
           testKeys,
-          /* keepGoing= */ options.getOptions(KeepGoingOption.class).keepGoing,
-          /* numThreads= */ options.getOptions(BuildRequestOptions.class).jobs,
+          /*keepGoing=*/ options.getOptions(KeepGoingOption.class).keepGoing,
+          /*numThreads=*/ options.getOptions(BuildRequestOptions.class).jobs,
           reporter);
     } finally {
       // Also releases thread locks.
@@ -2259,8 +2257,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     EvaluationResult<ActionLookupConflictFindingValue> result =
         evaluate(
             TopLevelActionLookupConflictFindingFunction.keys(keys, topLevelArtifactContext),
-            /* keepGoing= */ true,
-            /* numThreads= */ ResourceUsage.getAvailableProcessors(),
+            /*keepGoing=*/ true,
+            /*numThreads=*/ ResourceUsage.getAvailableProcessors(),
             eventHandler);
 
     // Remove top-level action-conflict detection values for memory efficiency. Non-top-level ones
@@ -2376,8 +2374,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     EvaluationResult<ActionLookupConflictFindingValue> result =
         evaluate(
             Iterables.transform(artifacts, ActionLookupConflictFindingValue::key),
-            /* keepGoing= */ true,
-            /* numThreads= */ ResourceUsage.getAvailableProcessors(),
+            /*keepGoing=*/ true,
+            /*numThreads=*/ ResourceUsage.getAvailableProcessors(),
             eventHandler);
 
     // Remove remaining action-conflict detection values immediately for memory efficiency.
@@ -2398,7 +2396,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public final EvaluationResult<SkyValue> prepareAndGet(
       Set<SkyKey> roots, EvaluationContext evaluationContext) throws InterruptedException {
     EvaluationContext evaluationContextToUse =
-        evaluationContext.builder().setKeepGoing(/* keepGoing= */ true).build();
+        evaluationContext.builder().setKeepGoing(/*keepGoing=*/ true).build();
     return memoizingEvaluator.evaluate(roots, evaluationContextToUse);
   }
 
@@ -2542,8 +2540,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         // overall is in nokeep_going mode: the worst that happens is we parse some unnecessary
         // .bzl files.
         result =
-            evaluate(
-                keys, /* keepGoing= */ true, /* numThreads= */ DEFAULT_THREAD_COUNT, eventHandler);
+            evaluate(keys, /*keepGoing=*/ true, /*numThreads=*/ DEFAULT_THREAD_COUNT, eventHandler);
       }
       ErrorInfo error = result.getError(pkgName);
       if (error != null) {
@@ -3205,11 +3202,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           public ImmutableMap<String, Object> getExplicitStarlarkOptions(
               java.util.function.Predicate<? super ParsedOptionDescription> filter) {
             return ImmutableMap.of();
-          }
-
-          @Override
-          public ImmutableList<String> getUserOptions() {
-            return ImmutableList.of();
           }
         });
   }
