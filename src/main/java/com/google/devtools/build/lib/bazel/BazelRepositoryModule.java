@@ -72,6 +72,7 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.Reposito
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.WorkerForRepoFetching;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.DelegatingDownloader;
+import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriter;
@@ -567,7 +568,6 @@ public class BazelRepositoryModule extends BlazeModule {
       }
       starlarkRepositoryFunction.setRepositoryRemoteExecutor(remoteExecutor);
       singleExtensionEvalFunction.setRepositoryRemoteExecutor(remoteExecutor);
-      delegatingDownloader.setDelegate(env.getRuntime().getDownloaderSupplier().get());
 
       clock = env.getClock();
       try {
@@ -584,6 +584,10 @@ public class BazelRepositoryModule extends BlazeModule {
         throw new IllegalStateException(e);
       }
     }
+  }
+
+  public void setDownloader(Downloader downloader) {
+    delegatingDownloader.setDelegate(downloader);
   }
 
   private static ImmutableSet<String> normalizeRegistries(List<String> registries) {
