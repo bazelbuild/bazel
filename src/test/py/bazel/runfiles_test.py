@@ -308,8 +308,12 @@ class RunfilesTest(test_base.TestBase):
     self.ScratchFile("A/REPO.bazel")
     self.ScratchFile("A/p/BUILD", ["exports_files(['foo.txt'])"])
     self.ScratchFile("A/p/foo.txt", ["Hello, World!"])
-    self.ScratchFile("MODULE.bazel")
-    self.ScratchFile("WORKSPACE", ["local_repository(name = 'A', path='A')"])
+    self.ScratchFile("MODULE.bazel",
+    """
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(name = "A", path = "A")
+""".split("\n")
+    )
     self.ScratchFile("pkg/BUILD", [
         "py_binary(",
         "  name = 'bin',",
@@ -333,7 +337,7 @@ class RunfilesTest(test_base.TestBase):
         "for arg in sys.argv[1:]:",
         "  print(open(r.Rlocation(arg)).read().strip())",
     ])
-    _, stdout, _ = self.RunBazel(["run", "//pkg:bin"], allow_failure=True)
+    _, stdout, _ = self.RunBazel(["run", "//pkg:bin"])
     if len(stdout) != 2:
       self.fail("stdout: %s" % stdout)
     self.assertEqual(stdout[0], "Hello, Bazel!")
