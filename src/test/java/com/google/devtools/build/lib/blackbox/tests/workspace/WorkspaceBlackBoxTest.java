@@ -47,7 +47,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
 
     context()
         .write(
-            WORKSPACE,
+            MODULE_DOT_BAZEL,
             "workspace(name='subdir')",
             "load(':repo_rule.bzl', 'check_bash')",
             "check_bash(name = 'check_bash_target')");
@@ -126,7 +126,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     Path tempDirectory = Files.createTempDirectory("temp-execute");
     context()
         .write(
-            WORKSPACE,
+            MODULE_DOT_BAZEL,
             "workspace(name = 'main')",
             "load(':repo_rule.bzl', 'check_wd')",
             "check_wd(name = 'relative', working_directory = 'relative')",
@@ -168,7 +168,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
 
     context()
         .write(
-            WORKSPACE,
+            MODULE_DOT_BAZEL,
             String.format(
                 "local_repository(name = 'x', path = '%s',)",
                 PathUtils.pathForStarlarkFile(repoA)));
@@ -180,7 +180,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
 
     context()
         .write(
-            WORKSPACE,
+            MODULE_DOT_BAZEL,
             String.format(
                 "local_repository(name = 'x', path = '%s',)",
                 PathUtils.pathForStarlarkFile(repoB)));
@@ -196,7 +196,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
 
     context()
         .write(
-            WORKSPACE,
+            MODULE_DOT_BAZEL,
             String.format(
                 "local_repository(name = 'ext', path = '%s',)",
                 PathUtils.pathForStarlarkFile(repo)));
@@ -215,7 +215,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     result = bazel.query("@ext//:all");
     assertThat(result.outString()).doesNotContain(progressMessage);
 
-    Path workspaceFile = context().getWorkDir().resolve(WORKSPACE);
+    Path workspaceFile = context().getWorkDir().resolve(MODULE_DOT_BAZEL);
     PathUtils.append(workspaceFile, "# comment");
 
     result = bazel.query("@ext//:all");
@@ -240,10 +240,10 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     Path repo = context().getTmpDir().resolve(testName.getMethodName());
     new RepoWithRuleWritingTextGenerator(repo).withOutputText("hi").setupRepository();
 
-    Path workspaceFile = context().getWorkDir().resolve(WORKSPACE);
+    Path workspaceFile = context().getWorkDir().resolve(MODULE_DOT_BAZEL);
     assertThat(workspaceFile.toFile().delete()).isTrue();
 
-    Path tempWorkspace = Files.createTempFile(context().getTmpDir(), WORKSPACE, "");
+    Path tempWorkspace = Files.createTempFile(context().getTmpDir(), MODULE_DOT_BAZEL, "");
     PathUtils.writeFile(
         tempWorkspace,
         "workspace(name = 'abc')",
@@ -262,7 +262,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
 
   @Test
   public void testBadRepoName() throws Exception {
-    context().write(WORKSPACE, "local_repository(name = '@a', path = 'abc')");
+    context().write(MODULE_DOT_BAZEL, "local_repository(name = '@a', path = 'abc')");
     context().write("BUILD");
     ProcessResult result = context().bazel().shouldFail().build("//...");
     assertThat(result.errString()).contains("invalid repository name '@a'");

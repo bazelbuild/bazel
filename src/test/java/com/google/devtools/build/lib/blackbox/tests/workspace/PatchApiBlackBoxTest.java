@@ -79,7 +79,7 @@ public class PatchApiBlackBoxTest extends AbstractBlackBoxTest {
             """);
     context()
         .write(
-            WORKSPACE,
+            MODULE_DOT_BAZEL,
             "load(\":patched_repo.bzl\", \"patched_repo\")",
             "",
             "patched_repo(",
