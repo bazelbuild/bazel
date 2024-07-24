@@ -20,6 +20,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
@@ -222,6 +223,11 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   @Override
   public CacheCapabilities getCacheCapabilities() throws IOException {
     return remoteCache.getCacheCapabilities();
+  }
+
+  @Override
+  public ServerCapabilities getServerCapabilities() throws IOException {
+    return remoteCache.getServerCapabilities();
   }
 
   @Override

@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -98,6 +99,10 @@ public class RemoteCache extends AbstractReferenceCounted {
 
   public CacheCapabilities getCacheCapabilities() throws IOException {
     return cacheProtocol.getCacheCapabilities();
+  }
+
+  public ServerCapabilities getServerCapabilities() throws IOException {
+    return cacheProtocol.getServerCapabilities();
   }
 
   public CachedActionResult downloadActionResult(

@@ -18,6 +18,7 @@ import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -34,6 +35,8 @@ import javax.annotation.Nullable;
  */
 public interface RemoteCacheClient extends MissingDigestsFinder {
   CacheCapabilities getCacheCapabilities() throws IOException;
+
+  ServerCapabilities getServerCapabilities() throws IOException;
 
   ListenableFuture<String> getAuthority();
 
