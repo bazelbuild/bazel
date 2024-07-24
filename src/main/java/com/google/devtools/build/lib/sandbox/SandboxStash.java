@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxContents;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
-import com.google.devtools.build.lib.sandbox.SandboxHelpers.StashContents;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -92,7 +92,7 @@ public class SandboxStash {
           POOL_SIZE,
           new ThreadFactoryBuilder().setNameFormat("stash-file-listing-thread-%d").build());
 
-  public final Map<Path, StashContents> pathToContents = new ConcurrentHashMap<>();
+  public final Map<Path, SandboxContents> pathToContents = new ConcurrentHashMap<>();
   private final Map<Path, Label> sandboxToTarget = new ConcurrentHashMap<>();
   private final Map<Path, Long> pathToLastModified = new ConcurrentHashMap<>();
   private boolean inMemoryStashes;
@@ -105,7 +105,7 @@ public class SandboxStash {
 
   @Nullable
   @SuppressWarnings("NullableOptional")
-  static Optional<StashContents> takeStashedSandbox(
+  static Optional<SandboxContents> takeStashedSandbox(
       Path sandboxPath,
       String mnemonic,
       Map<String, String> environment,
@@ -119,7 +119,7 @@ public class SandboxStash {
 
   @Nullable
   @SuppressWarnings("NullableOptional")
-  private Optional<StashContents> takeStashedSandboxInternal(
+  private Optional<SandboxContents> takeStashedSandboxInternal(
       Path sandboxPath,
       String mnemonic,
       Map<String, String> environment,
@@ -233,7 +233,7 @@ public class SandboxStash {
         () -> {
           Path stashPath = sandboxes.getChild(stashName);
           try {
-            StashContents stashContents = pathToContents.remove(path);
+            SandboxContents stashContents = pathToContents.remove(path);
             Long lastModified = pathToLastModified.remove(path);
             Preconditions.checkNotNull(lastModified);
             listContentsRecursively(temporaryStash, lastModified, stashContents);
@@ -395,20 +395,15 @@ public class SandboxStash {
     return instance.inMemoryStashes;
   }
 
-  public static void setPathContents(Path path, StashContents stashContents) {
+  public static void setPathContents(Path path, SandboxContents contents) {
     Preconditions.checkNotNull(instance);
-    instance.pathToContents.put(path, stashContents);
+    instance.pathToContents.put(path, contents);
   }
 
   public static void setLastModified(Path path, Long lastModified) {
     if (instance != null) {
       instance.pathToLastModified.put(path, lastModified);
     }
-  }
-
-  public static String getWorkspaceName() {
-    Preconditions.checkNotNull(instance);
-    return instance.workspaceName;
   }
 
   public static boolean gotInstance() {
@@ -492,7 +487,7 @@ public class SandboxStash {
    * them and update stashContents.
    */
   private static void listContentsRecursively(
-      Path root, Long timestamp, StashContents stashContents)
+      Path root, Long timestamp, SandboxContents stashContents)
       throws IOException, InterruptedException {
     if (root.statIfFound().getLastChangeTime() > timestamp) {
       Set<String> dirsToKeep = new HashSet<>();
@@ -560,10 +555,10 @@ public class SandboxStash {
   }
 
   private void updateStashContentsAfterRunfilesMove(
-      String stashedRunfiles, String currentRunfiles, StashContents stashContents) {
+      String stashedRunfiles, String currentRunfiles, SandboxContents stashContents) {
     ImmutableList<String> stashedRunfilesSegments =
         ImmutableList.copyOf(PathFragment.create(stashedRunfiles).segments());
-    StashContents runfilesStashContents = stashContents;
+    SandboxContents runfilesStashContents = stashContents;
     for (int i = 0; i < stashedRunfilesSegments.size() - 1; i++) {
       runfilesStashContents =
           Preconditions.checkNotNull(
@@ -574,10 +569,10 @@ public class SandboxStash {
 
     ImmutableList<String> currentRunfilesSegments =
         ImmutableList.copyOf(PathFragment.create(currentRunfiles).segments());
-    StashContents currentStashContents = stashContents;
+    SandboxContents currentStashContents = stashContents;
     for (int i = 0; i < currentRunfilesSegments.size() - 1; i++) {
       String segment = currentRunfilesSegments.get(i);
-      currentStashContents.dirEntries().putIfAbsent(segment, new StashContents());
+      currentStashContents.dirEntries().putIfAbsent(segment, new SandboxContents());
       currentStashContents = currentStashContents.dirEntries().get(segment);
     }
     currentStashContents.dirEntries().put(currentRunfilesSegments.getLast(), runfilesStashContents);

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.vfs.Dirent.Type.DIRECTORY;
 import static com.google.devtools.build.lib.vfs.Dirent.Type.SYMLINK;
@@ -59,6 +60,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -152,7 +154,7 @@ public final class SandboxHelpers {
         dirsToCreate,
         workDir,
         treeDeleter,
-        /* stashContents= */ null);
+        /* sandboxContents= */ null);
   }
 
   public static void cleanExisting(
@@ -162,7 +164,7 @@ public final class SandboxHelpers {
       Set<PathFragment> dirsToCreate,
       Path workDir,
       @Nullable TreeDeleter treeDeleter,
-      @Nullable StashContents stashContents)
+      @Nullable SandboxContents sandboxContents)
       throws IOException, InterruptedException {
     Path inaccessibleHelperDir = workDir.getRelative(INACCESSIBLE_HELPER_DIR);
     // Setting the permissions is necessary when we are using an asynchronous tree deleter in order
@@ -187,11 +189,11 @@ public final class SandboxHelpers {
         parent = parent.getParentDirectory();
       }
     }
-    if (stashContents == null) {
+    if (sandboxContents == null) {
       cleanRecursively(
           root, inputs, inputsToCreate, dirsToCreate, workDir, prefixDirs, treeDeleter);
     } else {
-      cleanRecursivelyWithInMemoryStashes(
+      cleanRecursivelyWithInMemoryContents(
           root,
           inputs,
           inputsToCreate,
@@ -199,7 +201,7 @@ public final class SandboxHelpers {
           workDir,
           prefixDirs,
           treeDeleter,
-          stashContents);
+          sandboxContents);
     }
   }
 
@@ -207,7 +209,7 @@ public final class SandboxHelpers {
    * Deletes unnecessary files/directories and updates the sets if something on disk is already
    * correct and doesn't need any changes.
    */
-  private static void cleanRecursivelyWithInMemoryStashes(
+  private static void cleanRecursivelyWithInMemoryContents(
       Path root,
       SandboxInputs inputs,
       Set<PathFragment> inputsToCreate,
@@ -215,7 +217,7 @@ public final class SandboxHelpers {
       Path workDir,
       Set<PathFragment> prefixDirs,
       @Nullable TreeDeleter treeDeleter,
-      StashContents stashContents)
+      SandboxContents stashContents)
       throws IOException, InterruptedException {
     Path execroot = workDir.getParentDirectory();
     Preconditions.checkNotNull(stashContents);
@@ -255,7 +257,7 @@ public final class SandboxHelpers {
       PathFragment pathRelativeToWorkDir = getPathRelativeToWorkDir(absPath, workDir, execroot);
       if (dirsToCreate.contains(pathRelativeToWorkDir)
           || prefixDirs.contains(pathRelativeToWorkDir)) {
-        cleanRecursivelyWithInMemoryStashes(
+        cleanRecursivelyWithInMemoryContents(
             absPath,
             inputs,
             inputsToCreate,
@@ -676,16 +678,92 @@ public final class SandboxHelpers {
   }
 
   /**
-   * Used to store sandbox stashes in-memory.
+   * In-memory representation of the set of paths known to be present in a sandbox directory.
    *
-   * <p>The String keys in the maps are individual path segments.
+   * <p>Used to minimize the amount of I/O required to prepare a sandbox for reuse.
+   *
+   * <p>The map keys are individual path segments.
    */
-  public record StashContents(
+  public record SandboxContents(
       Map<String, Path> filesToPath,
       Map<String, PathFragment> symlinksToPathFragment,
-      Map<String, StashContents> dirEntries) {
-    public StashContents() {
+      Map<String, SandboxContents> dirEntries) {
+    public SandboxContents() {
       this(CompactHashMap.create(), CompactHashMap.create(), CompactHashMap.create());
+    }
+  }
+
+  /**
+   * Computes a {@link SandboxContents} for the filesystem hierarchy rooted at {@code workDir}'s
+   * parent directory.
+   */
+  public static SandboxContents createContentMap(
+      Path workDir, SandboxInputs inputs, SandboxOutputs outputs) {
+    Map<PathFragment, SandboxContents> contentsMap = CompactHashMap.create();
+    for (Map.Entry<PathFragment, Path> entry : inputs.getFiles().entrySet()) {
+      if (entry.getValue() == null) {
+        continue;
+      }
+      PathFragment parent = entry.getKey().getParentDirectory();
+      boolean parentWasPresent = !addParent(contentsMap, parent);
+      contentsMap.get(parent).filesToPath().put(entry.getKey().getBaseName(), entry.getValue());
+      addAllParents(contentsMap, parentWasPresent, parent);
+    }
+    for (Map.Entry<PathFragment, PathFragment> entry : inputs.getSymlinks().entrySet()) {
+      if (entry.getValue() == null) {
+        continue;
+      }
+      PathFragment parent = entry.getKey().getParentDirectory();
+      boolean parentWasPresent = !addParent(contentsMap, parent);
+      contentsMap
+          .get(parent)
+          .symlinksToPathFragment()
+          .put(entry.getKey().getBaseName(), entry.getValue());
+      addAllParents(contentsMap, parentWasPresent, parent);
+    }
+
+    for (var outputDir :
+        Stream.concat(
+                outputs.files().values().stream().map(PathFragment::getParentDirectory),
+                outputs.dirs().values().stream())
+            .distinct()
+            .collect(toImmutableList())) {
+      PathFragment parent = outputDir;
+      boolean parentWasPresent = !addParent(contentsMap, parent);
+      addAllParents(contentsMap, parentWasPresent, parent);
+    }
+    // TODO: Handle the sibling repository layout correctly. Currently, the code below assumes that
+    // all paths descend from the main repository.
+    SandboxContents root = new SandboxContents();
+    root.dirEntries().put(workDir.getBaseName(), contentsMap.get(PathFragment.EMPTY_FRAGMENT));
+    return root;
+  }
+
+  private static boolean addParent(
+      Map<PathFragment, SandboxContents> contentsMap, PathFragment parent) {
+    boolean parentWasPresent = true;
+    if (!contentsMap.containsKey(parent)) {
+      contentsMap.put(parent, new SandboxContents());
+      parentWasPresent = false;
+    }
+    return !parentWasPresent;
+  }
+
+  private static void addAllParents(
+      Map<PathFragment, SandboxContents> contentsMap,
+      boolean parentWasPresent,
+      PathFragment parent) {
+    PathFragment grandparent;
+    while (!parentWasPresent && (grandparent = parent.getParentDirectory()) != null) {
+      SandboxContents grandparentContents = contentsMap.get(grandparent);
+      if (grandparentContents != null) {
+        parentWasPresent = true;
+      } else {
+        grandparentContents = new SandboxContents();
+        contentsMap.put(grandparent, grandparentContents);
+      }
+      grandparentContents.dirEntries().putIfAbsent(parent.getBaseName(), contentsMap.get(parent));
+      parent = grandparent;
     }
   }
 }
