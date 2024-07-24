@@ -1398,6 +1398,7 @@ public final class SkyframeBuildView {
   /** Clear the invalidated action lookup nodes detected during loading and analysis phases. */
   public void clearInvalidatedActionLookupKeys() {
     dirtiedActionLookupKeys = Sets.newConcurrentHashSet();
+    starlarkTransitionCache.clear();
     buildConfigurationKeyCache.clear();
   }
 
