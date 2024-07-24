@@ -321,6 +321,7 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
       return BaseEncoding.base16().lowerCase().encode(digest);
     }
 
+    @Override
     @Nullable
     public SkyKey getSkyKey(BlazeDirectories directories) {
       return FileValue.key(path.getRootedPath(directories));
