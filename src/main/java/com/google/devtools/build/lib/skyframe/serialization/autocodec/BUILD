@@ -114,6 +114,8 @@ java_library(
     srcs = [
         "AutoCodecProcessor.java",
         "CodecGenerator.java",
+        "DeferredObjectCodecConstants.java",
+        "DeferredObjectCodecFieldGenerators.java",
         "FieldGenerator.java",
         "Initializers.java",
         "InterningObjectCodecFieldGenerators.java",
@@ -128,6 +130,7 @@ java_library(
         ":type-operations",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
+        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//third_party:auto_service",
         "//third_party:auto_value",
         "//third_party:guava",
