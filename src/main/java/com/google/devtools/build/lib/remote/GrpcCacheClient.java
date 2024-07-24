@@ -29,6 +29,7 @@ import build.bazel.remote.execution.v2.FindMissingBlobsRequest;
 import build.bazel.remote.execution.v2.FindMissingBlobsResponse;
 import build.bazel.remote.execution.v2.GetActionResultRequest;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.UpdateActionResultRequest;
 import com.google.bytestream.ByteStreamGrpc;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamStub;
@@ -261,6 +262,11 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   @Override
   public CacheCapabilities getCacheCapabilities() throws IOException {
     return channel.getServerCapabilities().getCacheCapabilities();
+  }
+
+  @Override
+  public ServerCapabilities getServerCapabilities() throws IOException {
+    return channel.getServerCapabilities();
   }
 
   @Override

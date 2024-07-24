@@ -17,6 +17,7 @@ import build.bazel.remote.execution.v2.ActionCacheUpdateCapabilities;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
@@ -115,6 +116,11 @@ public class InMemoryCacheClient implements RemoteCacheClient {
             ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
         .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.ALLOWED)
         .build();
+  }
+
+  @Override
+  public ServerCapabilities getServerCapabilities() {
+    return ServerCapabilities.getDefaultInstance();
   }
 
   @Override

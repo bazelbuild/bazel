@@ -414,6 +414,16 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public boolean cacheCompression;
 
   @Option(
+      name = "incompatible_remote_use_output_paths",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If enabled, check if the remote server(s) support remote execution API v2.1 or newer."
+              + "If yes, use the newer Command.output_paths field. Default is false.")
+  public boolean useOutputPaths;
+
+  @Option(
       name = "experimental_remote_cache_compression_threshold",
       // Based on discussions in #18997, `~100` is the break even point where the compression
       // actually helps the builds.

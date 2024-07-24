@@ -758,7 +758,9 @@ public class RemoteSpawnCacheTest {
   @Test
   public void pathMappedActionIsDeduplicated() throws Exception {
     // arrange
-    RemoteSpawnCache cache = createRemoteSpawnCache();
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.useOutputPaths = true;
+    RemoteSpawnCache cache = remoteSpawnCacheWithOptions(remoteOptions);
 
     SimpleSpawn firstSpawn = simplePathMappedSpawn("k8-fastbuild");
     FakeActionInputFileCache firstFakeFileCache = new FakeActionInputFileCache(execRoot);
@@ -967,7 +969,9 @@ public class RemoteSpawnCacheTest {
   @Test
   public void deduplicatedActionWithNonZeroExitCodeIsACacheMiss() throws Exception {
     // arrange
-    RemoteSpawnCache cache = createRemoteSpawnCache();
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.useOutputPaths = true;
+    RemoteSpawnCache cache = remoteSpawnCacheWithOptions(remoteOptions);
 
     SimpleSpawn firstSpawn = simplePathMappedSpawn("k8-fastbuild");
     FakeActionInputFileCache firstFakeFileCache = new FakeActionInputFileCache(execRoot);
@@ -1016,7 +1020,9 @@ public class RemoteSpawnCacheTest {
   @Test
   public void deduplicatedActionWithMissingOutputIsACacheMiss() throws Exception {
     // arrange
-    RemoteSpawnCache cache = createRemoteSpawnCache();
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.useOutputPaths = true;
+    RemoteSpawnCache cache = remoteSpawnCacheWithOptions(remoteOptions);
 
     SimpleSpawn firstSpawn = simplePathMappedSpawn("k8-fastbuild");
     FakeActionInputFileCache firstFakeFileCache = new FakeActionInputFileCache(execRoot);

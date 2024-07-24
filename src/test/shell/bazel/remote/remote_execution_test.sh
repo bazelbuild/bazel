@@ -47,7 +47,7 @@ source "$(rlocation "io_bazel/src/test/shell/bazel/remote/remote_utils.sh")" \
   || { echo "remote_utils.sh not found!" >&2; exit 1; }
 
 function set_up() {
-  start_worker
+  start_worker --legacy_api
 }
 
 function tear_down() {
@@ -91,7 +91,7 @@ function setup_credential_helper_test() {
 EOF
 
   stop_worker
-  start_worker --expected_authorization_token=TOKEN
+  start_worker --legacy_api --expected_authorization_token=TOKEN
 }
 
 function test_credential_helper_remote_cache() {
@@ -176,6 +176,48 @@ function test_credential_helper_clear_cache() {
 
   # Build after clean should have called helper again.
   expect_credential_helper_calls 10
+}
+
+function test_remote_grpc_cache_with_legacy_api() {
+  # TODO(sluongng): Add this when we flip the default to use Remote API version 2.1.
+  # Test if Bazel works with Remote Cache using Remote Api version 2.0.
+  # stop_worker
+  # start_worker --legacy_api
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "touch \$@",
+)
+EOF
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      //a:foo \
+      || fail "Failed to build //a:foo with legacy api Remote Cache"
+}
+
+function test_remote_executor_with_legacy_api() {
+  # TODO(sluongng): Add this when we flip the default to use Remote API version 2.1.
+  # Test if Bazel works with Remote Executor using Remote Api version 2.0.
+  # stop_worker
+  # start_worker --legacy_api
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "touch \$@",
+)
+EOF
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //a:foo \
+      || fail "Failed to build //a:foo with legacy api Remote Executor"
 }
 
 function test_remote_grpc_cache_with_protocol() {
@@ -1494,7 +1536,7 @@ EOF
   # for FindMissingBLobs, the remote exec can still find it from the remote cache.
 
   stop_worker
-  start_worker
+  start_worker --legacy_api
   # need to reset flags after restarting worker [on new port]
   local grpc_flags="--remote_cache=grpc://localhost:${worker_port}"
   local remote_exec_flags="--remote_executor=grpc://localhost:${worker_port}"
@@ -1518,7 +1560,7 @@ EOF
   # We should get one cache hit from disk and and one remote exec.
 
   stop_worker
-  start_worker
+  start_worker --legacy_api
   # reset port
   local grpc_flags="--remote_cache=grpc://localhost:${worker_port}"
   local remote_exec_flags="--remote_executor=grpc://localhost:${worker_port}"
