@@ -43,13 +43,15 @@ public abstract class BazelDepGraphValue implements SkyValue {
       ImmutableMap<RepositoryName, ModuleKey> canonicalRepoNameLookup,
       ImmutableList<AbridgedModule> abridgedModules,
       ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesTable,
-      ImmutableMap<ModuleExtensionId, String> extensionUniqueNames) {
+      ImmutableMap<ModuleExtensionId, String> extensionUniqueNames,
+      char repoNameSeparator) {
     return new AutoValue_BazelDepGraphValue(
         depGraph,
         ImmutableBiMap.copyOf(canonicalRepoNameLookup),
         abridgedModules,
         extensionUsagesTable,
-        extensionUniqueNames);
+        extensionUniqueNames,
+        repoNameSeparator);
   }
 
   public static BazelDepGraphValue createEmptyDepGraph() {
@@ -80,7 +82,8 @@ public abstract class BazelDepGraphValue implements SkyValue {
         canonicalRepoNameLookup,
         ImmutableList.of(),
         ImmutableTable.of(),
-        ImmutableMap.of());
+        ImmutableMap.of(),
+        '~');
   }
 
   /**
@@ -112,6 +115,9 @@ public abstract class BazelDepGraphValue implements SkyValue {
    */
   public abstract ImmutableMap<ModuleExtensionId, String> getExtensionUniqueNames();
 
+  /** The character to use to separate the different segments of a canonical repo name. */
+  public abstract char getRepoNameSeparator();
+
   /**
    * Returns the full {@link RepositoryMapping} for the given module, including repos from Bazel
    * module deps and module extensions.
@@ -122,7 +128,7 @@ public abstract class BazelDepGraphValue implements SkyValue {
         getExtensionUsagesTable().column(key).entrySet()) {
       ModuleExtensionId extensionId = extIdAndUsage.getKey();
       ModuleExtensionUsage usage = extIdAndUsage.getValue();
-      String repoNamePrefix = getExtensionUniqueNames().get(extensionId) + "~";
+      String repoNamePrefix = getExtensionUniqueNames().get(extensionId) + getRepoNameSeparator();
       for (ModuleExtensionUsage.Proxy proxy : usage.getProxies()) {
         for (Map.Entry<String, String> entry : proxy.getImports().entrySet()) {
           String canonicalRepoName = repoNamePrefix + entry.getValue();

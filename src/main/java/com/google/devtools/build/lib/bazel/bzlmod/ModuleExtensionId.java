@@ -60,6 +60,7 @@ public abstract class ModuleExtensionId {
 
     @Override
     public final String toString() {
+      // NOTE: Can't be bothered to switch this based on the flag.
       return getModule() + "~" + getUsageExportedName();
     }
 
