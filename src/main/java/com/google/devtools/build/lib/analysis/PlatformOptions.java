@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -174,10 +176,38 @@ public class PlatformOptions extends FragmentOptions {
               + " 'test'.")
   public List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints;
 
+  /**
+   * Deduplicate the given list, keeping the last copy of any duplicates.
+   *
+   * <p>Example: [a, b, a, c, b] -> [a, c, b]
+   */
+  protected static ImmutableList<String> dedupeKeepingLast(ImmutableList<String> values) {
+    // Check common cases.
+    if (values.size() <= 1) {
+      return values;
+    }
+
+    // Reverse the list and then deduplicate.
+    ImmutableList<String> reversedResult =
+        values.reverse().stream().distinct().collect(toImmutableList());
+
+    // If there were no duplicates, return the exact same instance we got.
+    if (reversedResult.size() == values.size()) {
+      return values;
+    }
+
+    // Reverse the result to get back to the original order.
+    return reversedResult.reverse();
+  }
+
   @Override
   public PlatformOptions getNormalized() {
     PlatformOptions result = (PlatformOptions) clone();
-    result.extraToolchains = dedupeOnly(result.extraToolchains);
+    result.extraToolchains =
+        dedupeKeepingLast(
+            result.extraToolchains == null
+                ? ImmutableList.of()
+                : ImmutableList.copyOf(result.extraToolchains));
     // Only the first entry of platforms is used (it should have been Label and not List<Label>)
     // So drop all but the first entry.
     if (result.platforms.size() > 1) {
