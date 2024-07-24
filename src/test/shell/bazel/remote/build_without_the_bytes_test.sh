@@ -563,8 +563,13 @@ EOF
     --output_groups=compilation_outputs \
     //a:main || fail "Failed to build //a:main"
 
-  if ! [[ -f bazel-bin/a/_pic_objs/main/dir/foo.pic.o ]]; then
-    fail "Expected toplevel output bazel-out/a/_pic_objs/main/dir/foo.pic.o to be downloaded"
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    expected_object_file=bazel-bin/a/_objs/main/dir/foo.o
+  else
+    expected_object_file=bazel-bin/a/_pic_objs/main/dir/foo.pic.o
+  fi
+  if ! [[ -f "$expected_object_file" ]]; then
+    fail "Expected toplevel output $expected_object_file to be downloaded"
   fi
 }
 
