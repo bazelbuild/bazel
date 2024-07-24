@@ -208,7 +208,7 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "enable_workspace",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
       help =
