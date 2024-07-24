@@ -41,7 +41,7 @@ public final class PlatformOptionsTest extends OptionsTestCase<PlatformOptions> 
 
   @Test
   public void testExtraToolchains_ordering() throws Exception {
-    // The ordering matters for tool chains, since we pick the first available toolchain.
+    // The ordering matters for tool chains, but the last one in the list has highest priority.
     PlatformOptions one = createWithPrefix(EXTRA_TOOLCHAINS_PREFIX, "one", "two");
     PlatformOptions two = createWithPrefix(EXTRA_TOOLCHAINS_PREFIX, "two", "one");
     assertDifferent(one, two);
@@ -52,6 +52,14 @@ public final class PlatformOptionsTest extends OptionsTestCase<PlatformOptions> 
     // Specifying the same tool chain multiple times is a no-op.
     PlatformOptions one = createWithPrefix(EXTRA_TOOLCHAINS_PREFIX, "one", "one");
     PlatformOptions two = createWithPrefix(EXTRA_TOOLCHAINS_PREFIX, "one");
+    assertSame(one, two);
+  }
+
+  @Test
+  public void testExtraToolchains_duplicates_keepLast() throws Exception {
+    // The last toolchain in the list has highest priority, so keep the last of any duplicates.
+    PlatformOptions one = createWithPrefix(EXTRA_TOOLCHAINS_PREFIX, "one", "two", "one");
+    PlatformOptions two = createWithPrefix(EXTRA_TOOLCHAINS_PREFIX, "two", "one");
     assertSame(one, two);
   }
 

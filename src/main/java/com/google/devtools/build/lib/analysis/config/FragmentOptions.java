@@ -93,30 +93,6 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable {
     return result.equals(values) ? values : result;
   }
 
-  /**
-   * Helper method for subclasses to remove duplicate values. When removing duplicates all but the
-   * first instance will be removed. This way the relative ordering of two values will match the
-   * relative ordering of their first instances.
-   *
-   * <p>Example: [a, b, a, c, b] -> [a, b, c]
-   */
-  protected static List<String> dedupeOnly(List<String> values) {
-    HashSet<String> alreadySeen = new HashSet<>();
-    List<String> result = new ArrayList<>();
-    for (String value : values) {
-      // Add to result only the first time we see the value
-      if (alreadySeen.add(value)) {
-        result.add(value);
-      }
-    }
-    // If there were no duplicates, return the exact same instance we got.
-    if (result.size() == values.size()) {
-      return values;
-    } else {
-      return result;
-    }
-  }
-
   /** Tracks limitations on referring to an option in a {@code config_setting}. */
   // TODO(bazel-team): There will likely also be a need to customize whether or not an option is
   // visible to users for setting on the command line (or perhaps even in a test of a Starlark
