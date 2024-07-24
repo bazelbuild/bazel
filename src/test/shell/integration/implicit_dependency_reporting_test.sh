@@ -62,7 +62,6 @@ test_custom_message() {
   mkdir custommessage
   cd custommessage
 
-  create_workspace_with_default_repos WORKSPACE
   cat > rule.bzl <<'EOF'
 def _rule_impl(ctx):
   out = ctx.actions.declare_file(ctx.label.name + ".txt")

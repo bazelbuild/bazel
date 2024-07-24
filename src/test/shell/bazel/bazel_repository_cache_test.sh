@@ -39,7 +39,6 @@ function setup_repository() {
   # Test with the extension
   serve_file $repo2_zip
   rm WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -67,7 +66,6 @@ function setup_starlark_repository() {
   # Start HTTP server with Python
   startup_server "${server_dir}"
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('//:test.bzl', 'repo')
 repo(name = 'foo')
 EOF
@@ -133,7 +131,6 @@ EOF
   mkdir -p zoo
 
   if [[ $write_workspace = 0 ]]; then
-    cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -257,7 +254,6 @@ function test_write_cache_without_hash() {
 
   # Have a WORKSPACE file without the specified sha256
   rm WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -293,7 +289,6 @@ EOF
 
   # However, if we add the hash, the value is taken from cache
   rm WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -489,7 +484,6 @@ function test_http_archive_no_default_canonical_id() {
 
   # Break url in WORKSPACE
   rm WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -525,7 +519,6 @@ function test_http_archive_urls_as_default_canonical_id() {
 
   # Break url in WORKSPACE
   rm WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(

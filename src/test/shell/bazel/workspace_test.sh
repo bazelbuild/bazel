@@ -71,7 +71,6 @@ function test_path_with_spaces() {
   ws="a b"
   mkdir "$ws"
   cd "$ws"
-  create_workspace_with_default_repos WORKSPACE
 
   bazel info &> $TEST_log && fail "Info succeeeded"
   bazel help &> $TEST_log || fail "Help failed"
@@ -93,7 +92,6 @@ function test_middleman_conflict() {
   create_workspace_with_default_repos $test_repo1/WORKSPACE
   create_workspace_with_default_repos $test_repo2/WORKSPACE
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'repo1', path='$test_repo1')
 local_repository(name = 'repo2', path='$test_repo2')
@@ -127,7 +125,6 @@ EOF
 }
 
 function test_no_select() {
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
 new_local_repository(
     name = "foo",
@@ -142,7 +139,6 @@ EOF
 }
 
 function test_macro_select() {
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('//:foo.bzl', 'foo_repo')
 foo_repo()
 EOF
@@ -179,7 +175,6 @@ EOF
 }
 
 function test_starlark_flags_affect_workspace() {
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("//:macro.bzl", "macro")
 print("In workspace: ")
 macro()
@@ -265,7 +260,6 @@ genrule(
 )
 EOF
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "o",
@@ -324,7 +318,6 @@ genrule(
 )
 EOF
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "o",
@@ -368,7 +361,6 @@ genrule(
 )
 EOF
 
-  create_workspace_with_default_repos WORKSPACE
   cat > repo_one/WORKSPACE <<EOF
 workspace(name = "new_repo")
 EOF
@@ -735,7 +727,6 @@ cc_library(
 )
 EOF
 
-  create_workspace_with_default_repos WORKSPACE
   touch repo_one/BUILD
   touch repo_two/BUILD
 
@@ -891,7 +882,6 @@ function test_external_rule() {
   create_workspace_with_default_repos extref/WORKSPACE
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(

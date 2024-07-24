@@ -97,7 +97,6 @@ function http_archive_helper() {
     rm -rf $repo2
     mkdir -p $repo2/fox
     cd $repo2
-    create_workspace_with_default_repos WORKSPACE
     cat > fox/BUILD <<EOF
 filegroup(
     name = "fox",
@@ -125,7 +124,6 @@ EOF
 
   cd ${WORKSPACE_DIR}
   if [[ $write_workspace = 0 ]]; then
-    cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 http_archive(
     name = 'endangered',
     url = 'http://127.0.0.1:$nc_port/$repo2_name',
@@ -183,7 +181,6 @@ function test_http_archive_zip() {
 
   # Test with the extension
   serve_file $repo2_zip
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = 'endangered',
@@ -209,7 +206,6 @@ function test_http_archive_tar_xz() {
 }
 
 function test_http_archive_tar_zstd() {
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = 'test_zstd_repo',
@@ -225,7 +221,6 @@ EOF
 }
 
 function test_http_archive_upper_case_sha() {
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = 'test_zstd_repo',
@@ -241,7 +236,6 @@ EOF
 }
 
 function test_http_archive_no_server() {
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(name = 'endangered', url = 'http://bad.example/repo.zip',
     sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826')
@@ -271,14 +265,12 @@ function test_http_archive_mismatched_sha256() {
   rm -rf $repo2
   mkdir -p $repo2
   cd $repo2
-  create_workspace_with_default_repos WORKSPACE
   repo2_zip=$TEST_TMPDIR/fox.zip
   zip -r $repo2_zip WORKSPACE
   serve_file $repo2_zip
   wrong_sha256=0000000000000000000000000000000000000000
 
   cd ${WORKSPACE_DIR}
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = 'endangered',
@@ -343,7 +335,6 @@ function test_cached_across_server_restart() {
 function test_jar_download() {
   serve_jar
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_jar")
 http_jar(name = 'endangered', url = 'http://127.0.0.1:$nc_port/lib.jar',
          sha256='$sha256', downloaded_file_name="foo.jar")
@@ -381,7 +372,6 @@ function test_http_to_https_redirect() {
   serve_redirect https://127.0.0.1:123456789/bad-port-shouldnt-work
 
   cd ${WORKSPACE_DIR}
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 http_file(
     name = 'toto',
@@ -400,7 +390,6 @@ function test_http_404() {
   serve_not_found "Help, I'm lost!"
 
   cd ${WORKSPACE_DIR}
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 http_file(
     name = 'toto',
@@ -414,7 +403,6 @@ EOF
 }
 
 function test_deferred_download_unwaited() {
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'
 load("hang.bzl", "hang")
 
 hang(name="hang")
@@ -453,7 +441,6 @@ function test_deferred_download_two_parallel_downloads() {
 
   startup_server "${server_dir}"
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'
 load("defer.bzl", "defer")
 
 defer(name="defer")
@@ -512,7 +499,6 @@ EOF
 }
 
 function test_deferred_download_error() {
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'
 load("defer.bzl", "defer")
 
 defer(name="defer")
@@ -555,7 +541,6 @@ function test_deferred_download_smoke() {
 
   startup_server "${server_dir}"
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'
 load("defer.bzl", "defer")
 
 defer(name="defer")
@@ -606,7 +591,6 @@ EOF
   serve_file $test_file
   cd ${WORKSPACE_DIR}
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 http_file(name = 'toto', urls = ['http://127.0.0.1:$nc_port/toto'],
     sha256 = '$sha256', executable = True)
@@ -637,7 +621,6 @@ function test_http_timeout() {
   serve_timeout
 
   cd ${WORKSPACE_DIR}
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 http_file(
     name = 'toto',
@@ -664,7 +647,6 @@ function test_http_redirect() {
   cd ${WORKSPACE_DIR}
   serve_redirect "http://127.0.0.1:$nc_port/toto"
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 http_file(name = 'toto', urls = ['http://127.0.0.1:$redirect_port/toto'],
     sha256 = '$sha256')
@@ -698,7 +680,6 @@ function test_empty_file() {
   local sha256=$(sha256sum x.tar.gz | cut -f 1 -d ' ')
   serve_file x.tar.gz
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "x",
@@ -789,7 +770,6 @@ EOF
     workspace_file_attr="workspace_file_content = 'workspace(name=\"endangered-fox\")'"
   fi
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = 'endangered',
@@ -824,7 +804,6 @@ EOF
 function test_fetch() {
   serve_jar
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:jvm.bzl", "jvm_maven_import_external")
 jvm_maven_import_external(
     name = 'endangered',
@@ -868,7 +847,6 @@ function test_prefix_stripping_tar_gz() {
   local sha256=$(sha256sum x.tar.gz | cut -f 1 -d ' ')
   serve_file x.tar.gz
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "x",
@@ -899,7 +877,6 @@ function test_prefix_stripping_zip() {
   local sha256=$(sha256sum x.zip | cut -f 1 -d ' ')
   serve_file x.zip
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "x",
@@ -939,7 +916,6 @@ EOF
   local sha256=$(sha256sum x.zip | cut -f 1 -d ' ')
   serve_file x.zip
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "x",
@@ -960,7 +936,6 @@ function test_adding_prefix_zip() {
   local sha256=$(sha256sum z.zip | cut -f 1 -d ' ')
   serve_file z.zip
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "ws",
@@ -991,7 +966,6 @@ function test_adding_and_stripping_prefix_zip() {
   local sha256=$(sha256sum z.zip | cut -f 1 -d ' ')
   serve_file z.zip
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "ws",
@@ -1022,7 +996,6 @@ function test_moving_build_file() {
   local sha256=$(sha256sum x.tar.gz | cut -f 1 -d ' ')
   serve_file x.tar.gz
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "x",
@@ -1059,7 +1032,6 @@ function test_changing_build_file() {
   local sha256=$(sha256sum x.tar.gz | cut -f 1 -d ' ')
   serve_file x.tar.gz
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "x",
@@ -1112,7 +1084,6 @@ EOF
 }
 
 function test_use_bind_as_repository() {
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'foobar', path = 'foo')
 bind(name = 'foo', actual = '@foobar//:test')
@@ -1134,7 +1105,6 @@ EOF
 }
 
 function test_bind_repo_mapping() {
-  cat >> $(create_workspace_with_default_repos WORKSPACE myws) <<'EOF'
 load('//:foo.bzl', 'foo')
 foo()
 bind(name='bar', actual='@myws//:something')
@@ -1153,7 +1123,6 @@ function test_flip_flopping() {
   REPO_PATH=$TEST_TMPDIR/repo
   mkdir -p "$REPO_PATH"
   cd "$REPO_PATH"
-  create_workspace_with_default_repos WORKSPACE
   touch BUILD foo
   zip -r repo.zip *
   sha256=$(sha256sum repo.zip | head -c 64)
@@ -1197,12 +1166,10 @@ function test_sha256_weird() {
   REPO_PATH=$TEST_TMPDIR/repo
   mkdir -p "$REPO_PATH"
   cd "$REPO_PATH"
-  create_workspace_with_default_repos WORKSPACE
   zip -r repo.zip *
   startup_server $PWD
   cd -
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "repo",
@@ -1219,12 +1186,10 @@ function test_sha256_incorrect() {
   REPO_PATH=$TEST_TMPDIR/repo
   mkdir -p "$REPO_PATH"
   cd "$REPO_PATH"
-  create_workspace_with_default_repos WORKSPACE
   zip -r repo.zip *
   startup_server $PWD
   cd -
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "repo",
@@ -1242,14 +1207,12 @@ function test_integrity_correct() {
   REPO_PATH=$TEST_TMPDIR/repo
   mkdir -p "$REPO_PATH"
   cd "$REPO_PATH"
-  create_workspace_with_default_repos WORKSPACE
   touch BUILD
   zip -r repo.zip *
   integrity="sha256-$(cat repo.zip | openssl dgst -sha256 -binary | openssl base64 -A)"
   startup_server $PWD
   cd -
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "repo",
@@ -1265,13 +1228,11 @@ function test_integrity_weird() {
   REPO_PATH=$TEST_TMPDIR/repo
   mkdir -p "$REPO_PATH"
   cd "$REPO_PATH"
-  create_workspace_with_default_repos WORKSPACE
   touch BUILD
   zip -r repo.zip *
   startup_server $PWD
   cd -
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "repo",
@@ -1288,14 +1249,12 @@ function test_integrity_incorrect() {
   REPO_PATH=$TEST_TMPDIR/repo
   mkdir -p "$REPO_PATH"
   cd "$REPO_PATH"
-  create_workspace_with_default_repos WORKSPACE
   touch BUILD
   zip -r repo.zip *
   integrity="sha256-$(cat repo.zip | openssl dgst -sha256 -binary | openssl base64 -A)"
   startup_server $PWD
   cd -
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "repo",
@@ -1320,7 +1279,6 @@ function test_same_name() {
   rm -rf main
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
@@ -1353,7 +1311,6 @@ function test_missing_build() {
   rm -rf main
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
@@ -1412,7 +1369,6 @@ EOF
   rm -rf main
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
@@ -1425,7 +1381,6 @@ EOF
 }
 
 function test_failing_fetch_with_keep_going() {
-  create_workspace_with_default_repos WORKSPACE
   cat > BUILD <<'EOF'
 package(default_visibility = ["//visibility:public"])
 
@@ -1467,7 +1422,6 @@ EOF
   rm -rf main
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
@@ -1518,7 +1472,6 @@ EOF
   rm -rf main
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
@@ -1546,7 +1499,6 @@ EOF
   bazel clean --expunge
   # Even with a different source URL, the cache should be consulted.
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
@@ -1589,7 +1541,6 @@ EOF
   rm -rf main
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
@@ -1613,7 +1564,6 @@ EOF
   bazel clean --expunge
   # Even with a different source URL, the cache should be consulted.
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
@@ -1647,7 +1597,6 @@ EOF
   rm -rf main
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
@@ -1686,7 +1635,6 @@ EOF
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
@@ -1747,7 +1695,6 @@ EOF
   rm -rf main
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
@@ -1814,7 +1761,6 @@ EOF
   rm -rf main
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
@@ -1842,7 +1788,6 @@ EOF
   bazel clean --expunge
   # Even with a different source URL, the cache should be consulted.
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
@@ -1877,7 +1822,6 @@ EOF
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("//:rule.bzl", "probe")
 
@@ -2068,7 +2012,6 @@ EOF
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
@@ -2122,7 +2065,6 @@ ext_file = repository_rule(
   attrs = { "urls" : attr.string_list(), "sha256" : attr.string() },
 )
 EOF
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("//:ext_file.bzl", "ext_file")
 ext_file(
   name="ext",
@@ -2165,7 +2107,6 @@ EOF
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
@@ -2209,7 +2150,6 @@ EOF
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
@@ -2246,7 +2186,6 @@ function test_good_symlinks() {
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
@@ -2291,7 +2230,6 @@ EOF
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
@@ -2335,7 +2273,6 @@ function test_bad_symlinks() {
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
@@ -2380,7 +2317,6 @@ with_progress = repository_rule(
 )
 EOF
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'
 load("//:rule.bzl", "with_progress")
 with_progress(name="foo")
 EOF
@@ -2408,7 +2344,6 @@ function test_progress_reporting() {
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name = "ext",
@@ -2444,7 +2379,6 @@ function test_prefix_suggestions() {
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
@@ -2477,7 +2411,6 @@ function test_suggest_nostripprefix() {
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
@@ -2508,7 +2441,6 @@ function test_loaded_file_reported() {
 
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'
 load("@nonexistent//path/to/package:file/to/import.bzl", "foo")
 foo()
 EOF
@@ -2532,7 +2464,6 @@ function test_report_files_searched() {
 
   mkdir -p path/to/workspace
   cd path/to/workspace
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
@@ -2564,7 +2495,6 @@ function test_report_package_external() {
 
   mkdir -p path/to/workspace
   cd path/to/workspace
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
@@ -2598,7 +2528,6 @@ function test_location_reported() {
   mkdir -p path/to/main
   cd path/to/main
   touch BUILD
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'
 load("//:repos.bzl", "repos")
 repos()
 EOF
@@ -2738,7 +2667,6 @@ data_repo = repository_rule(
 )
 EOF
   touch BUILD
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'
 load("//:withimplicit.bzl", "data_repo")
 
 data_repo(
@@ -2841,7 +2769,6 @@ function test_external_java_target_depends_on_external_resources() {
   mkdir -p $test_repo1/a
   mkdir -p $test_repo2
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'repo1', path='$test_repo1')
 local_repository(name = 'repo2', path='$test_repo2')
@@ -2978,7 +2905,6 @@ function test_external_deps_skymeld() {
   rm -rf main
   mkdir main
   cd main
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",

@@ -28,7 +28,6 @@ set -e
 #### TESTS #############################################################
 
 function test_prelude() {
-  create_workspace_with_default_repos WORKSPACE
 
   mkdir -p tools/build_rules
   touch tools/build_rules/BUILD

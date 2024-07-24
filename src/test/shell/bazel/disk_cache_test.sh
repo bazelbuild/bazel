@@ -32,7 +32,6 @@ function test_local_action_cache() {
   rm -rf $cache
   mkdir $cache
 
-  create_workspace_with_default_repos WORKSPACE
   # No sandboxing, side effect is needed to detect action execution
   cat > BUILD <<EOF
 genrule(

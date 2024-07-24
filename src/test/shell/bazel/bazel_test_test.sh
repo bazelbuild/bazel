@@ -714,7 +714,6 @@ EOF
 
 function test_detailed_test_summary_for_failed_test() {
   copy_examples
-  create_workspace_with_default_repos WORKSPACE
   setup_javatest_support
 
   local java_native_tests=//examples/java-native/src/test/java/com/example/myproject
@@ -727,7 +726,6 @@ function test_detailed_test_summary_for_failed_test() {
 
 function test_detailed_test_summary_for_passed_test() {
   copy_examples
-  create_workspace_with_default_repos WORKSPACE
   setup_javatest_support
 
   local java_native_tests=//examples/java-native/src/test/java/com/example/myproject

@@ -87,7 +87,6 @@ genrule(
 EOF
 
   cd ${WORKSPACE_DIR}
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('//:test.bzl', 'macro')
 
 macro('$repo2')
@@ -155,7 +154,6 @@ EOF
 function test_load_from_symlink_to_outside_of_workspace() {
   OTHER=$TEST_TMPDIR/other
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE)<<EOF
 load("//a/b:c.bzl", "c")
 EOF
 
@@ -202,7 +200,6 @@ exports_files(["test.bzl"])
 EOF
 
   cd ${WORKSPACE_DIR}
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name='proxy', path='$repo3')
 load('@proxy//:test.bzl', 'macro')
@@ -236,7 +233,6 @@ macro()
 EOF
 
   cd ${WORKSPACE_DIR}
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name='foo', path='$repo2')
 load("@foo//:ext.bzl", "macro")
@@ -271,7 +267,6 @@ EOF
   cat >WORKSPACE
 
   cd ${WORKSPACE_DIR}
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@foo//:ext.bzl", "macro")
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 macro()
@@ -324,7 +319,6 @@ genrule(name='bar', cmd='echo foo | tee $@', outs=['bar.txt'])
 EOF
 
   cd ${WORKSPACE_DIR}
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('//:test.bzl', 'repo')
 repo(name='foo', path='$repo2')
 EOF
@@ -356,7 +350,6 @@ function setup_starlark_repository() {
   echo "filegroup(name='bar', srcs=['bar.txt'])" > BUILD
 
   cd "${WORKSPACE_DIR}"
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('//:test.bzl', 'repo')
 repo(name = 'foo')
 EOF
@@ -1233,7 +1226,6 @@ function test_starlark_repository_download_args() {
   cat > bar.txt
   echo "filegroup(name='bar', srcs=['bar.txt'])" > BUILD
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('//:test.bzl', 'repo')
 repo(name = 'foo',
      urls = [
@@ -1362,7 +1354,6 @@ genrule(
 EOF
 
   cd ${WORKSPACE_DIR}
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('//:test.bzl', 'macro')
 
 macro('$repo2')
@@ -1489,7 +1480,6 @@ EOF
 
 
 function test_timeout_tunable() {
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'
 load("//:repo.bzl", "with_timeout")
 
 with_timeout(name="maytimeout")
@@ -1596,7 +1586,6 @@ def root_cause():
   )
 
 EOF
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'
 load("//:root.bzl", "root_cause")
 load("//:repo.bzl", "trivial_repo")
 
@@ -1670,7 +1659,6 @@ EOF
 }
 
 function test_circular_load_error_message() {
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'
 load("//:a.bzl", "total")
 EOF
   touch BUILD
@@ -1698,7 +1686,6 @@ EOF
 }
 
 function test_ciruclar_load_error_with_path_message() {
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<'EOF'
 load("//:x.bzl", "x")
 EOF
   touch BUILD
@@ -1786,7 +1773,6 @@ maybe_with_auth = repository_rule(
 )
 EOF
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("//:auth.bzl", "maybe_with_auth")
 maybe_with_auth(
   name = "ext",
@@ -1884,7 +1870,6 @@ EOF
     netrc_dir="$(cygpath -m ${netrc_dir})"
   fi
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("//:def.bzl", "netrcrepo")
 
 netrcrepo(name = "netrc", path="${netrc_dir}/.netrc")
@@ -1983,7 +1968,6 @@ EOF
     netrc_dir="$(cygpath -m ${netrc_dir})"
   fi
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("//:def.bzl", "authrepo")
 
 authrepo(

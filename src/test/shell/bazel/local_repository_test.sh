@@ -36,7 +36,6 @@ EOF
   ln -s /doesnotexist $r/fg/symlink
   touch $r/fg/file
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name="r", path="$r")
 bind(name="e", actual="@r//:fg")
@@ -83,7 +82,6 @@ EOF
 
   cd ${WORKSPACE_DIR}
   mkdir -p {zoo,red}
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'pandas', path = '${repo2}')
 EOF
@@ -143,7 +141,6 @@ public class Mongoose {
 EOF
 
   cd ${WORKSPACE_DIR}
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'endangered', path = '$repo2')
 EOF
@@ -225,7 +222,6 @@ EOF
 
   if [ "$1" == "build_file" ] ; then
     touch BUILD
-    cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
 new_local_repository(
     name = 'endangered',
@@ -242,7 +238,6 @@ java_library(
 )
 EOF
   else
-    cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
 new_local_repository(
     name = 'endangered',
@@ -337,7 +332,6 @@ cc_binary(
     deps = ["@greet_ws//:greet_lib"],
 )
 EOF
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "greet_ws",
@@ -373,7 +367,6 @@ cc_library(
 )
 EOF
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "clib_repo",
@@ -409,7 +402,6 @@ function test_external_query() {
   local external_dir=$TEST_TMPDIR/x
   mkdir -p $external_dir
   create_workspace_with_default_repos $external_dir/WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "my_repo",
@@ -464,7 +456,6 @@ load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 workspace(name = "foo")
 EOF
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
 new_local_repository(
     name = "bar",
@@ -552,7 +543,6 @@ function test_overlaid_build_file() {
   local mutant=$TEST_TMPDIR/mutant
   mkdir $mutant
   create_workspace_with_default_repos $mutant/WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
 new_local_repository(
     name = "mutant",
@@ -595,7 +585,6 @@ function test_external_deps_in_remote_repo() {
   rm -fr $r
   mkdir -p $r
   create_workspace_with_default_repos $r/WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
 local_repository(
     name = "r",
@@ -656,7 +645,6 @@ genrule(
 )
 EOF
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "r",
@@ -684,7 +672,6 @@ EOF
   mkdir -p $r/b
   touch $r/b/{BUILD,b}
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "r",
@@ -711,7 +698,6 @@ EOF
 int main() { return 0; };
 EOF
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "r",
@@ -736,7 +722,6 @@ genrule(
     visibility=["//visibility:public"])
 EOF
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name="r", path="$r")
 EOF
@@ -758,7 +743,6 @@ EOF
   cat > $other_ws/BUILD <<EOF
 exports_files(["a/b"])
 EOF
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "other",
@@ -819,7 +803,6 @@ genrule(
 )
 EOF
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "r",
@@ -879,7 +862,6 @@ EOF
 
   touch $r/rfgf
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name="r", path="$r")
 EOF
@@ -920,7 +902,6 @@ def User():
   return "User"
 EOF
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name="r", path="$r")
 EOF
@@ -943,7 +924,6 @@ EOF
 exports_files(["g", "h"])
 EOF
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name="r", path="$r")
 EOF
@@ -992,7 +972,6 @@ genrule(
   cmd = 'echo ' + repository_name() + ' ' + package_name() + ' > $@')
 EOF
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name='r', path='$r')
 EOF
@@ -1018,7 +997,6 @@ EOF
 int main() { return 0; };
 EOF
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "r/a",
@@ -1054,7 +1032,6 @@ EOF
 int getNum();
 EOF
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "r",
@@ -1090,7 +1067,6 @@ EOF
 int b() { return 42; }
 EOF
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
 new_local_repository(
     name="r",
@@ -1128,7 +1104,6 @@ genrule(
 )
 EOF
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name="r",
@@ -1150,7 +1125,6 @@ EOF
 
 function test_local_repository_path_does_not_exist() {
   rm -rf $TEST_TMPDIR/r
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "r",
@@ -1174,7 +1148,6 @@ genrule(
 )
 EOF
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "r",
@@ -1205,7 +1178,6 @@ genrule(
 )
 EOF
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
 new_local_repository(
     name = "r",
@@ -1226,7 +1198,6 @@ EOF
 function test_new_local_repository_path_not_existing() {
   local r=$TEST_TMPDIR/r
   rm -rf $r
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
 new_local_repository(
     name = "r",
@@ -1248,7 +1219,6 @@ function test_new_local_repository_path_not_directory() {
   local r=$TEST_TMPDIR/r
   rm -rf $r
   touch $r
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
 new_local_repository(
     name = "r",
@@ -1274,7 +1244,6 @@ function test_new_local_repository_path_symlink_to_dir() {
   mkdir -p $s
   ln -s $s $r
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
 new_local_repository(
     name = "r",
@@ -1299,7 +1268,6 @@ function test_new_local_repository_path_symlink_to_file() {
   touch $s
   ln -s $s $r
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
 new_local_repository(
     name = "r",
@@ -1381,7 +1349,6 @@ java_library(
 )
 EOF
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "x_repo",
@@ -1434,7 +1401,6 @@ EOF
 
   cd ${WORKSPACE_DIR}
   mkdir -p green
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'blue', path = "${repo2}")
 EOF
@@ -1466,7 +1432,6 @@ EOF
 
   cd ${WORKSPACE_DIR}
   mkdir -p green
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'blue', path = "${repo2}")
 EOF

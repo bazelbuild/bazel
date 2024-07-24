@@ -295,6 +295,9 @@ build --incompatible_use_toolchain_resolution_for_java_rules
 # Enable Bzlmod in all shell integration tests
 common --enable_bzlmod
 
+# Disable WORKSPACE in all shell integration tests
+common --noenable_workspace
+
 # Verify compatibility before the flip (https://github.com/bazelbuild/bazel/issues/12821)
 common --nolegacy_external_runfiles
 
@@ -316,60 +319,6 @@ EOF
     cat >> "$TEST_TMPDIR/bazelrc" <<EOF
 build --sandbox_add_mount_pair=${bazel_root}
 EOF
-  fi
-
-  if [[ -n ${TEST_REPOSITORY_HOME:-} ]]; then
-    echo "testenv.sh: Using shared repositories from $TEST_REPOSITORY_HOME."
-
-    repos=(
-        "android_tools_for_testing"
-        "android_gmaven_r8"
-        "bazel_skylib"
-        "bazel_toolchains"
-        "com_google_protobuf"
-        "openjdk_linux_aarch64_vanilla"
-        "openjdk_linux_vanilla"
-        "openjdk_macos_x86_64_vanilla"
-        "openjdk_macos_aarch64_vanilla"
-        "openjdk_win_vanilla"
-        "remote_coverage_tools"
-        "remote_java_tools"
-        "remote_java_tools_darwin_x86_64"
-        "remote_java_tools_darwin_arm64"
-        "remote_java_tools_linux"
-        "remote_java_tools_windows"
-        "remotejdk11_linux"
-        "remotejdk11_linux_aarch64"
-        "remotejdk11_linux_ppc64le"
-        "remotejdk11_linux_s390x"
-        "remotejdk11_macos"
-        "remotejdk11_macos_aarch64"
-        "remotejdk11_win"
-        "remotejdk11_win_arm64"
-        "remotejdk17_linux"
-        "remotejdk17_linux_s390x"
-        "remotejdk17_macos"
-        "remotejdk17_macos_aarch64"
-        "remotejdk17_win"
-        "remotejdk17_win_arm64"
-        "remotejdk21_linux"
-        "remotejdk21_macos"
-        "remotejdk21_macos_aarch64"
-        "remotejdk21_win"
-        "remotejdk21_win_arm64"
-        "rules_cc"
-        "rules_java"
-        "rules_java_builtin_for_testing"
-        "rules_license"
-        "rules_proto"
-        "rules_python"
-        "rules_pkg"
-        "rules_testing"
-    )
-    for repo in "${repos[@]}"; do
-      reponame="${repo%"_for_testing"}"
-      echo "common --override_repository=$reponame=$TEST_REPOSITORY_HOME/$repo" >> $TEST_TMPDIR/bazelrc
-    done
   fi
 
   if [[ -n ${REPOSITORY_CACHE:-} ]]; then
@@ -580,119 +529,6 @@ function setup_objc_test_support() {
   IOS_SDK_VERSION=$(xcrun --sdk iphoneos --show-sdk-version)
 }
 
-function setup_skylib_support() {
-  mkdir -p rules/private
-  touch rules/private/BUILD
-  cat >> WORKSPACE << EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-{bazel_skylib}
-
-load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
-bazel_skylib_workspace()
-EOF
-}
-
-function add_rules_cc_to_workspace() {
-  cat >> "$1"<<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-{rules_cc}
-EOF
-}
-
-function add_rules_java_to_workspace() {
-  cat >> "$1"<<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-{rules_java}
-EOF
-}
-
-function add_rules_license_to_workspace() {
-  cat >> "$1"<<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-{rules_license}
-EOF
-}
-
-function add_rules_pkg_to_workspace() {
-  cat >> "$1"<<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-{rules_pkg}
-EOF
-}
-
-function add_rules_proto_to_workspace() {
-  cat >> "$1"<<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-{rules_proto}
-EOF
-}
-
-function add_rules_python_to_workspace() {
-  cat >> "$1"<<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-{rules_python}
-EOF
-}
-
-function add_rules_testing_to_workspace() {
-  mkdir lib
-  touch lib/BUILD
-  cat >> "$1"<<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-{rules_testing}
-EOF
-}
-
-function create_workspace_with_default_repos() {
-  write_workspace_file "${1:-WORKSPACE}" "${2:-main}"
-  workspace_file=${1:-WORKSPACE}
-  write_workspace_file "${workspace_file}" "${2:-main}"
-  write_default_lockfile "$(dirname ${workspace_file})/MODULE.bazel.lock"
-  echo "$1"
-}
-
-# Write the default WORKSPACE file, wiping out any custom WORKSPACE setup.
-function write_workspace_file() {
-  cat > "$1" << EOF
-workspace(name = "$2")
-EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-  add_rules_java_to_workspace "WORKSPACE"
-  add_rules_license_to_workspace "WORKSPACE"
-  add_rules_pkg_to_workspace "WORKSPACE"
-  add_rules_proto_to_workspace "WORKSPACE"
-  add_rules_python_to_workspace "WORKSPACE"
-
-  maybe_setup_python_windows_workspace
-}
-
-# If the current platform is Windows, registers our custom Windows Python
-# toolchain. Otherwise does nothing.
-#
-# Since this modifies the WORKSPACE file, it must be called between test cases.
-function maybe_setup_python_windows_workspace() {
-  if [[ ! $PLATFORM =~ msys ]]; then
-    return
-  fi
-
-  # --extra_toolchains has left-to-right precedence semantics, but the bazelrc
-  # is processed before the command line. This means that any matching
-  # toolchains added to the bazelrc will always take precedence over toolchains
-  # set up by test cases. Instead, we add the toolchain to WORKSPACE so that it
-  # has lower priority than whatever is passed on the command line.
-  cat >> WORKSPACE << EOF
-register_toolchains("//tools/python/windows:py_toolchain")
-EOF
-}
-
 # Set up a lockfile to avoid accessing BCR for tests with a clean workspace.
 function write_default_lockfile() {
   module_lockfile=${1:-MODULE.bazel.lock}
@@ -711,8 +547,6 @@ function create_new_workspace() {
   mkdir tools
 
   copy_tools_directory
-
-  write_workspace_file "WORKSPACE" "$WORKSPACE_NAME"
 
   write_default_lockfile "MODULE.bazel.lock"
 
@@ -750,7 +584,6 @@ function cleanup_workspace() {
         try_with_timeout rm -fr "$i"
       fi
     done
-    write_workspace_file "WORKSPACE" "$WORKSPACE_NAME"
     write_default_lockfile "MODULE.bazel.lock"
   fi
   for i in "${workspaces[@]}"; do
@@ -861,6 +694,7 @@ create_and_cd_client
 
 function disable_bzlmod() {
   add_to_bazelrc "common --noenable_bzlmod"
+  add_to_bazelrc "common --enable_workspace"
 }
 
 # Creates a fake Python default runtime that just outputs a marker string

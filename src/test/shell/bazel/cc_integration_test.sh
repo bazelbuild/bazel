@@ -21,13 +21,6 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-function set_up() {
-  # test_inclusion_validation_with_overlapping_external_repo modifies the
-  # WORKSPACE file so make an effort to reconstruct it to its original state
-  # before every test case.
-  write_workspace_file "WORKSPACE" "$WORKSPACE_NAME"
-}
-
 function test_extra_action_for_compile() {
   mkdir -p ea
   cat > ea/BUILD <<EOF
@@ -68,7 +61,6 @@ cc_library(
   visibility = ["//visibility:public"],
 )
 EOF
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 local_repository(
   name = "foo",
   path = "$TEST_TMPDIR/r",
@@ -1149,7 +1141,6 @@ void sayhello() {
 }
 EOF
 
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 local_repository(name = 'repo', path='$REPO_PATH')
 EOF
 

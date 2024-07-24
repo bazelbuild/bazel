@@ -26,7 +26,6 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 # workspace() is specified in the WORKSPACE file.
 function test_runfiles_without_bzlmod() {
   name="blorp_malorp"
-  create_workspace_with_default_repos WORKSPACE "$name"
 
   mkdir foo
   cat > foo/BUILD <<EOF
@@ -51,7 +50,6 @@ EOF
 }
 
 function test_runfiles_bzlmod() {
-  create_workspace_with_default_repos WORKSPACE "blorp_malorp"
   cat > MODULE.bazel <<EOF
 module(name="blep")
 EOF
@@ -79,7 +77,6 @@ EOF
 }
 
 function test_legacy_runfiles_change() {
-  create_workspace_with_default_repos WORKSPACE foo
   cat >> WORKSPACE <<EOF
 new_local_repository(
     name = "bar",
@@ -116,7 +113,6 @@ EOF
 }
 
 function test_enable_runfiles_change() {
-  create_workspace_with_default_repos WORKSPACE foo
 
   mkdir data && echo "hello" > data/hello && echo "world" > data/world
 
@@ -147,7 +143,6 @@ EOF
 # Test that the local strategy creates a runfiles tree during test if no --nobuild_runfile_links
 # is specified.
 function test_nobuild_runfile_links() {
-  create_workspace_with_default_repos WORKSPACE foo
 
   mkdir data && echo "hello" > data/hello && echo "world" > data/world
 
@@ -188,7 +183,6 @@ EOF
 # attempt to create the runfiles directory both for the target to run and the
 # --run_under target.
 function test_nobuild_runfile_links_with_run_under() {
-  create_workspace_with_default_repos WORKSPACE foo
 
   mkdir data && echo "hello" > data/hello && echo "world" > data/world
 

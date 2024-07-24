@@ -134,7 +134,6 @@ function do_git_repository_test() {
   [ $# -eq 3 ] && shallow_since="shallow_since=\"$3\","
   # Create a workspace that clones the repository at the first commit.
   cd $WORKSPACE_DIR
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(
     name = "pluto",
@@ -232,7 +231,6 @@ function do_new_git_repository_test() {
   cd $WORKSPACE_DIR
 
   if [ "$2" == "build_file" ] ; then
-    cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
 new_git_repository(
     name = "pluto",
@@ -254,7 +252,6 @@ filegroup(
 )
 EOF
   else
-    cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
 new_git_repository(
     name = "pluto",
@@ -326,7 +323,6 @@ function test_new_git_repository_submodules() {
 
   # Create a workspace that clones the outer_planets repository.
   cd $WORKSPACE_DIR
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
 new_git_repository(
     name = "outer_planets",
@@ -384,7 +380,6 @@ function test_new_git_repository_submodules_with_recursive_init_modules() {
 
   # Create a workspace that clones the outer_planets repository.
   cd $WORKSPACE_DIR
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
 new_git_repository(
     name = "outer_planets",
@@ -441,7 +436,6 @@ function test_git_repository_not_refetched_on_server_restart() {
   local repo_dir=$TEST_TMPDIR/repos/refetch
 
   cd $WORKSPACE_DIR
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='22095302abaf776886879efa5129aa4d44c53017', verbose=True)
 EOF
@@ -458,7 +452,6 @@ EOF
 
   # Change the commit id, which should cause the checkout to be re-cloned.
   rm WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521', verbose=True)
 EOF
@@ -469,7 +462,6 @@ EOF
 
   # Change the WORKSPACE but not the commit id, which should not cause the checkout to be re-cloned.
   rm WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 # This comment line is to change the line numbers, which should not cause Bazel
 # to refetch the repository
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
@@ -484,7 +476,6 @@ EOF
 function test_git_repository_not_refetched_on_server_restart_strip_prefix() {
   local repo_dir=$TEST_TMPDIR/repos/refetch
   # Change the strip_prefix which should cause a new checkout
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='17ea13b242e4cbcc27a6ef745939ebb7dcccea10', verbose=True)
 EOF
@@ -493,7 +484,6 @@ EOF
   assert_contains "GIT 2" bazel-genfiles/external/g/gdir/go
 
   rm WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='17ea13b242e4cbcc27a6ef745939ebb7dcccea10', verbose=True, strip_prefix="gdir")
 EOF
@@ -507,7 +497,6 @@ function test_git_repository_refetched_when_commit_changes() {
   local repo_dir=$TEST_TMPDIR/repos/refetch
 
   cd $WORKSPACE_DIR
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='22095302abaf776886879efa5129aa4d44c53017', verbose=True)
 EOF
@@ -518,7 +507,6 @@ EOF
 
   # Change the commit id, which should cause the checkout to be re-cloned.
   rm WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521', verbose=True)
 EOF
@@ -532,7 +520,6 @@ function test_git_repository_and_nofetch() {
   local repo_dir=$TEST_TMPDIR/repos/refetch
 
   cd $WORKSPACE_DIR
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='22095302abaf776886879efa5129aa4d44c53017')
 EOF
@@ -543,7 +530,6 @@ EOF
   assert_contains "GIT 1" bazel-genfiles/external/g/go
 
   rm WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='db134ae9b644d8237954a8e6f1ef80fcfd85d521')
 EOF
@@ -555,7 +541,6 @@ EOF
   assert_contains "GIT 2" bazel-genfiles/external/g/go
 
   rm WORKSPACE
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='17ea13b242e4cbcc27a6ef745939ebb7dcccea10', strip_prefix="gdir")
 EOF
@@ -607,7 +592,6 @@ function test_git_repository_both_commit_tag_error() {
   local commit_hash="52f9a3f87a2dd17ae0e5847bbae9734f09354afd"
 
   cd $WORKSPACE_DIR
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(
     name = "pluto",
@@ -636,7 +620,6 @@ function test_git_repository_no_commit_tag_error() {
   local pluto_repo_dir=$(get_pluto_repo)
 
   cd $WORKSPACE_DIR
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(
     name = "pluto",
@@ -656,7 +639,6 @@ function test_invalid_strip_prefix_error() {
   local pluto_repo_dir=$(get_pluto_repo)
 
   cd $WORKSPACE_DIR
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(
     name = "pluto",
@@ -679,7 +661,6 @@ function test_git_repository_shallow_since_with_tag_error() {
   local pluto_repo_dir=$(get_pluto_repo)
 
   cd $WORKSPACE_DIR
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(
     name = "pluto",
@@ -709,7 +690,6 @@ function test_git_repository_with_strip_prefix_for_load_statement() {
   local strip_prefix_repo_dir=$TEST_TMPDIR/repos/strip-prefix
 
   cd $WORKSPACE_DIR
-  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 git_repository(
     name = "foo",
