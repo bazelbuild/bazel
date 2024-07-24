@@ -71,8 +71,8 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
             loadRule(""), callRule("call_write_text", "out.txt", HELLO_FROM_EXTERNAL_REPOSITORY));
     context()
         .write(
-            "WORKSPACE",
-            "load(\"@bazel_tools//tools/build_defs/repo:git.bzl\", \"new_git_repository\")",
+            "MODULE.bazel",
+            "new_git_repository = use_repo_rule(\"@bazel_tools//tools/build_defs/repo:git.bzl\", \"new_git_repository\")",
             "new_git_repository(",
             "  name='ext',",
             String.format("  remote='%s',", PathUtils.pathToFileURI(repo.resolve(".git"))),
@@ -83,7 +83,7 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     // This creates Bazel without MSYS, see implementation for details.
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
     bazel.build("@ext//:call_write_text");
-    Path outPath = context().resolveBinPath(bazel, "external/ext/out.txt");
+    Path outPath = context().resolveBinPath(bazel, "external/_main~_repo_rules~ext/out.txt");
     WorkspaceTestUtils.assertLinesExactly(outPath, HELLO_FROM_EXTERNAL_REPOSITORY);
   }
 
@@ -102,8 +102,8 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
             loadRule(""), callRule("call_write_text", "out.txt", HELLO_FROM_EXTERNAL_REPOSITORY));
     context()
         .write(
-            "WORKSPACE",
-            "load(\"@bazel_tools//tools/build_defs/repo:git.bzl\", \"new_git_repository\")",
+            "MODULE.bazel",
+            "new_git_repository = use_repo_rule(\"@bazel_tools//tools/build_defs/repo:git.bzl\", \"new_git_repository\")",
             "new_git_repository(",
             "  name='ext',",
             String.format("  remote='%s',", PathUtils.pathToFileURI(repo.resolve(".git"))),
@@ -114,7 +114,7 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     // This creates Bazel without MSYS, see implementation for details.
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
     bazel.build("@ext//:call_write_text");
-    Path outPath = context().resolveBinPath(bazel, "external/ext/out.txt");
+    Path outPath = context().resolveBinPath(bazel, "external/_main~_repo_rules~ext/out.txt");
     WorkspaceTestUtils.assertLinesExactly(outPath, HELLO_FROM_EXTERNAL_REPOSITORY);
   }
 
@@ -133,8 +133,8 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
             loadRule(""), callRule("call_write_text", "out.txt", HELLO_FROM_EXTERNAL_REPOSITORY));
     context()
         .write(
-            "WORKSPACE",
-            "load(\"@bazel_tools//tools/build_defs/repo:git.bzl\", \"new_git_repository\")",
+            "MODULE.bazel",
+            "new_git_repository = use_repo_rule(\"@bazel_tools//tools/build_defs/repo:git.bzl\", \"new_git_repository\")",
             "new_git_repository(",
             "  name='ext',",
             String.format("  remote='%s',", PathUtils.pathToFileURI(repo.resolve(".git"))),
@@ -145,7 +145,7 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     // This creates Bazel without MSYS, see implementation for details.
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
     bazel.build("@ext//:call_write_text");
-    Path outPath = context().resolveBinPath(bazel, "external/ext/out.txt");
+    Path outPath = context().resolveBinPath(bazel, "external/_main~_repo_rules~ext/out.txt");
     WorkspaceTestUtils.assertLinesExactly(outPath, HELLO_FROM_EXTERNAL_REPOSITORY);
   }
 
@@ -178,8 +178,8 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
 
     context()
         .write(
-            "WORKSPACE",
-            "load(\"@bazel_tools//tools/build_defs/repo:git.bzl\", \"git_repository\")",
+            "MODULE.bazel",
+            "git_repository = use_repo_rule(\"@bazel_tools//tools/build_defs/repo:git.bzl\", \"git_repository\")",
             "git_repository(",
             "  name='ext',",
             String.format("  remote='%s',", PathUtils.pathToFileURI(repo.resolve(".git"))),
@@ -189,7 +189,7 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     // This creates Bazel without MSYS, see implementation for details.
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
     bazel.build("@ext//:write_text");
-    Path outPath = context().resolveBinPath(bazel, "external/ext/out");
+    Path outPath = context().resolveBinPath(bazel, "external/_main~_repo_rules~ext/out");
     WorkspaceTestUtils.assertLinesExactly(outPath, HELLO_FROM_BRANCH);
   }
 
@@ -228,8 +228,8 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
 
     context()
         .write(
-            "WORKSPACE",
-            "load(\"@bazel_tools//tools/build_defs/repo:git.bzl\", \"git_repository\")",
+            "MODULE.bazel",
+            "git_repository = use_repo_rule(\"@bazel_tools//tools/build_defs/repo:git.bzl\", \"git_repository\")",
             "git_repository(",
             "  name='ext',",
             String.format("  remote='%s',", PathUtils.pathToFileURI(repo.resolve(".git"))),
@@ -239,7 +239,7 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     // This creates Bazel without MSYS, see implementation for details.
     BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
     bazel.build("@ext//:write_text");
-    Path outPath = context().resolveBinPath(bazel, "external/ext/out");
+    Path outPath = context().resolveBinPath(bazel, "external/_main~_repo_rules~ext/out");
     WorkspaceTestUtils.assertLinesExactly(outPath, HELLO_FROM_BRANCH);
   }
 
@@ -248,8 +248,8 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
   public void testGitRepositoryErrorMessage() throws Exception {
     context()
         .write(
-            "WORKSPACE",
-            "load(\"@bazel_tools//tools/build_defs/repo:git.bzl\", \"git_repository\")",
+            "MODULE.bazel",
+            "git_repository = use_repo_rule(\"@bazel_tools//tools/build_defs/repo:git.bzl\", \"git_repository\")",
             "git_repository(",
             "  name='ext',",
             "  remote='file:///some_path',",

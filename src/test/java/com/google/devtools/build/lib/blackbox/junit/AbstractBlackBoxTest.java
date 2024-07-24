@@ -81,6 +81,7 @@ public abstract class AbstractBlackBoxTest {
 
   public void disableBzlmod() throws Exception {
     PathUtils.append(context.getWorkDir().resolve(".bazelrc"), "common --noenable_bzlmod");
+    PathUtils.append(context.getWorkDir().resolve(".bazelrc"), "common --enable_workspace");
   }
 
   @After

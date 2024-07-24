@@ -75,8 +75,4 @@ public abstract class BlackBoxTestEnvironment {
     MoreExecutors.shutdownAndAwaitTermination(executorService, 1, TimeUnit.SECONDS);
     executorService = null;
   }
-
-  public static String getWorkspaceWithDefaultRepos() throws IOException {
-    return ResourceFileLoader.loadResource(BlackBoxTestEnvironment.class, "blackbox.WORKSPACE");
-  }
 }

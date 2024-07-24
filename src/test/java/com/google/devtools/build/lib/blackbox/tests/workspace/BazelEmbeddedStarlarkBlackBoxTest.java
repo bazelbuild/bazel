@@ -42,7 +42,6 @@ public class BazelEmbeddedStarlarkBlackBoxTest extends AbstractBlackBoxTest {
 
   @Test
   public void testPkgTar() throws Exception {
-    context().write("main/WORKSPACE", BlackBoxTestEnvironment.getWorkspaceWithDefaultRepos());
     context().write("main/foo.txt", "Hello World");
     context().write("main/bar.txt", "Hello World, again");
     context()
@@ -89,11 +88,12 @@ public class BazelEmbeddedStarlarkBlackBoxTest extends AbstractBlackBoxTest {
 
     context()
         .write(
-            "WORKSPACE",
-            BlackBoxTestEnvironment.getWorkspaceWithDefaultRepos(),
+            "MODULE.bazel",
+            "local_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:local.bzl', 'local_repository')",
             String.format(
                 "local_repository(name=\"ext_local\", path=\"%s\",)",
                 PathUtils.pathForStarlarkFile(repo)),
+            "http_archive = use_repo_rule('@bazel_tools//tools/build_defs/repo:http.bzl', 'http_archive')",
             String.format(
                 "http_archive(name=\"ext\", urls=[\"%s\"],)", PathUtils.pathToFileURI(zipFile)));
 
@@ -109,13 +109,13 @@ public class BazelEmbeddedStarlarkBlackBoxTest extends AbstractBlackBoxTest {
     String tarTarget = generator.getPkgTarTarget();
     bazel.build("@ext_local//:" + tarTarget);
     Path packedFile =
-        context().resolveBinPath(bazel, String.format("external/ext_local/%s.tar", tarTarget));
+        context().resolveBinPath(bazel, String.format("external/_main~_repo_rules~ext_local/%s.tar", tarTarget));
     Files.copy(packedFile, zipFile);
 
     // now build the target from http_archive
     bazel.build("@ext//:" + RepoWithRuleWritingTextGenerator.TARGET);
 
-    Path xPath = context().resolveBinPath(bazel, "external/ext/out");
+    Path xPath = context().resolveBinPath(bazel, "external/_main~_repo_rules~ext/out");
     WorkspaceTestUtils.assertLinesExactly(xPath, HELLO_FROM_EXTERNAL_REPOSITORY);
 
     // and use the rule from http_archive in the main repository

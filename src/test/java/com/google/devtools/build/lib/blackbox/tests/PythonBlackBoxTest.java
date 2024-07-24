@@ -52,7 +52,6 @@ public class PythonBlackBoxTest extends AbstractBlackBoxTest {
   }
 
   private void writeHelloWorldFiles() throws IOException {
-    context().write("WORKSPACE", BlackBoxTestEnvironment.getWorkspaceWithDefaultRepos());
     context().write("python/hello/BUILD", "py_binary(name = 'hello', srcs = ['hello.py'])");
     context().write("python/hello/hello.py", String.format("print ('%s')", HELLO));
   }
