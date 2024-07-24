@@ -33,7 +33,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
@@ -153,8 +152,6 @@ public final class RemoteModuleTest {
     ServerDirectories serverDirectories =
         new ServerDirectories(
             scratch.dir("install"), scratch.dir("output"), scratch.dir("user_root"));
-    BazelRepositoryModule repoModule = new BazelRepositoryModule();
-    repoModule.initializeRuleClasses(new ConfiguredRuleClassProvider.Builder());
 
     BlazeRuntime runtime =
         new BlazeRuntime.Builder()
@@ -166,7 +163,6 @@ public final class RemoteModuleTest {
             .addBlazeModule(new CredentialModule())
             .addBlazeModule(new BazelRulesModule())
             .addBlazeModule(new BazelRepositoryModule())
-            // .addBlazeModule(repoModule)
             .addBlazeModule(remoteModule)
             .addBlazeModule(new BlockWaitingModule())
             .build();

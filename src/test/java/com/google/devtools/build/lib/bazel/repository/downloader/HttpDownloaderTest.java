@@ -646,7 +646,8 @@ public class HttpDownloaderTest {
   @Test
   public void download_contentLengthMismatch_propagateErrorIfNotRetry() throws Exception {
     Downloader downloader = mock(Downloader.class);
-    DownloadManager downloadManager = new DownloadManager(repositoryCache, downloader, null);
+    HttpDownloader httpDownloader = mock(HttpDownloader.class);
+    DownloadManager downloadManager = new DownloadManager(repositoryCache, downloader, httpDownloader);
     // do not retry
     downloadManager.setRetries(0);
     AtomicInteger times = new AtomicInteger(0);
@@ -682,9 +683,10 @@ public class HttpDownloaderTest {
   @Test
   public void download_contentLengthMismatch_retries() throws Exception {
     Downloader downloader = mock(Downloader.class);
-    int retires = 5;
-    DownloadManager downloadManager = new DownloadManager(repositoryCache, downloader, null);
-    downloadManager.setRetries(retires);
+    HttpDownloader httpDownloader = mock(HttpDownloader.class);
+    int retries = 5;
+    DownloadManager downloadManager = new DownloadManager(repositoryCache, downloader, httpDownloader);
+    downloadManager.setRetries(retries);
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
     doAnswer(
@@ -725,9 +727,10 @@ public class HttpDownloaderTest {
   @Test
   public void download_contentLengthMismatchWithOtherErrors_retries() throws Exception {
     Downloader downloader = mock(Downloader.class);
-    int retires = 5;
-    DownloadManager downloadManager = new DownloadManager(repositoryCache, downloader, null);
-    downloadManager.setRetries(retires);
+    HttpDownloader httpDownloader = mock(HttpDownloader.class);
+    int retries = 5;
+    DownloadManager downloadManager = new DownloadManager(repositoryCache, downloader, httpDownloader);
+    downloadManager.setRetries(retries);
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
     doAnswer(
