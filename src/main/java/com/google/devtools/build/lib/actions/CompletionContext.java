@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Collection;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -126,36 +125,6 @@ public final class CompletionContext implements ArtifactExpander {
   @Nullable
   public FileArtifactValue getFileArtifactValue(Artifact artifact) {
     return importantInputMap.getInputMetadata(artifact);
-  }
-
-  /** Returns owner mappings for artifact expansions contained in {@code inputsOfInterest}. */
-  public ActionInputDepOwners getDepOwners(Collection<ActionInput> inputsOfInterest) {
-    ActionInputDepOwnerMap depOwners = new ActionInputDepOwnerMap(inputsOfInterest);
-    treeArtifacts.forEach(
-        (tree, treeValue) -> {
-          for (Artifact child : treeValue.getChildren()) {
-            depOwners.addOwner(child, tree);
-          }
-        });
-    if (expandFilesets) {
-      for (Artifact fileset : filesets.keySet()) {
-        visitFileset(
-            fileset,
-            new ArtifactReceiver() {
-              @Override
-              public void accept(Artifact artifact) {
-                throw new AssertionError(artifact);
-              }
-
-              @Override
-              public void acceptFilesetMapping(
-                  Artifact fileset, PathFragment relName, Path targetFile) {
-                depOwners.addOwner(ActionInputHelper.fromPath(targetFile.asFragment()), fileset);
-              }
-            });
-      }
-    }
-    return depOwners;
   }
 
   /** Visits the expansion of the given artifacts. */

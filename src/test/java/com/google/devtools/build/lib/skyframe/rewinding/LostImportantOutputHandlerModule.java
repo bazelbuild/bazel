@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -43,6 +44,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 
 /**
  * Installs an {@link ImportantOutputHandler} that allows customizing lost outputs for rewinding
@@ -96,7 +98,7 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
     }
 
     @Override
-    public ImmutableMap<String, ActionInput> processOutputsAndGetLostArtifacts(
+    public LostArtifacts processOutputsAndGetLostArtifacts(
         Iterable<Artifact> outputs,
         ArtifactExpander expander,
         InputMetadataProvider metadataProvider) {
@@ -104,7 +106,7 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
     }
 
     @Override
-    public ImmutableMap<String, ActionInput> processRunfilesAndGetLostArtifacts(
+    public LostArtifacts processRunfilesAndGetLostArtifacts(
         PathFragment runfilesDir,
         Map<PathFragment, Artifact> runfiles,
         ArtifactExpander expander,
@@ -117,12 +119,15 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
       throw new UnsupportedOperationException();
     }
 
-    private ImmutableMap<String, ActionInput> getLostOutputs(
+    private LostArtifacts getLostOutputs(
         Iterable<Artifact> outputs,
         ArtifactExpander expander,
         InputMetadataProvider metadataProvider) {
       ImmutableMap.Builder<String, ActionInput> lost = ImmutableMap.builder();
-      for (ActionInput output : expand(outputs, expander)) {
+      ImmutableSetMultimap.Builder<ActionInput, Artifact> owners = ImmutableSetMultimap.builder();
+      for (OutputAndOwner outputAndOwner : expand(outputs, expander)) {
+        ActionInput output = outputAndOwner.output;
+        Artifact owner = outputAndOwner.owner;
         PathFragment execPath = output.getExecPath();
         if (execPath.isAbsolute()) {
           execPath = execPath.relativeTo(execRoot);
@@ -137,24 +142,29 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
           throw new IllegalStateException(e);
         }
         lost.put(digestFn.apply(metadata.getDigest()), output);
+        if (owner != null) {
+          owners.put(output, owner);
+        }
       }
-      return lost.buildKeepingLast();
+      return new LostArtifacts(lost.buildKeepingLast(), owners.build()::get);
     }
 
-    private ImmutableList<ActionInput> expand(
+    private ImmutableList<OutputAndOwner> expand(
         Iterable<Artifact> outputs, ArtifactExpander expander) {
       return stream(outputs)
           .flatMap(artifact -> expand(artifact, expander))
           .collect(toImmutableList());
     }
 
-    private Stream<? extends ActionInput> expand(Artifact output, ArtifactExpander expander) {
+    private Stream<OutputAndOwner> expand(Artifact output, ArtifactExpander expander) {
       if (output.isTreeArtifact()) {
         var children = expander.expandTreeArtifact(output).stream();
         var archivedTreeArtifact = expander.getArchivedTreeArtifact(output);
-        return archivedTreeArtifact == null
-            ? children
-            : Stream.concat(children, Stream.of(archivedTreeArtifact));
+        var expansion =
+            archivedTreeArtifact == null
+                ? children
+                : Stream.concat(children, Stream.of(archivedTreeArtifact));
+        return expansion.map(child -> new OutputAndOwner(child, output));
       }
       if (output.isFileset()) {
         ImmutableList<FilesetOutputSymlink> links;
@@ -165,9 +175,14 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
         }
         return links.stream()
             .filter(FilesetOutputSymlink::isRelativeToExecRoot)
-            .map(link -> ActionInputHelper.fromPath(link.reconstituteTargetPath(execRoot)));
+            .map(
+                link ->
+                    new OutputAndOwner(
+                        ActionInputHelper.fromPath(link.reconstituteTargetPath(execRoot)), output));
       }
-      return Stream.of(output);
+      return Stream.of(new OutputAndOwner(output, null));
     }
+
+    private record OutputAndOwner(ActionInput output, @Nullable Artifact owner) {}
   }
 }

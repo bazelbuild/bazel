@@ -21,7 +21,6 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -74,7 +73,6 @@ public final class CompletionContextTest {
     CompletionContext ctx = createCompletionContext(/* expandFilesets= */ true);
 
     assertThat(visit(ctx, file)).containsExactly(file);
-    assertThat(owners(ctx, file)).isEmpty();
     assertThrows(IllegalArgumentException.class, () -> ctx.expandTreeArtifact(file));
     assertThrows(IllegalArgumentException.class, () -> ctx.expandFileset(file));
   }
@@ -95,8 +93,6 @@ public final class CompletionContextTest {
 
     assertThat(visit(ctx, tree)).containsExactly(treeFile1, treeFile2).inOrder();
     assertThat(ctx.expandTreeArtifact(tree)).isEqualTo(treeValue.getChildren());
-    assertThat(owners(ctx, treeFile1)).containsExactly(tree);
-    assertThat(owners(ctx, treeFile2)).containsExactly(tree);
   }
 
   @Test
@@ -143,11 +139,7 @@ public final class CompletionContextTest {
         .verify(receiver)
         .acceptFilesetMapping(fileset, PathFragment.create("a2"), execRoot.getRelative("b2"));
 
-    ActionInput input1 = ActionInputHelper.fromPath(execRoot.getRelative("b1").asFragment());
-    ActionInput input2 = ActionInputHelper.fromPath(execRoot.getRelative("b2").asFragment());
     assertThat(ctx.expandFileset(fileset)).isEqualTo(links);
-    assertThat(owners(ctx, input1)).containsExactly(fileset);
-    assertThat(owners(ctx, input2)).containsExactly(fileset);
   }
 
   private static List<Artifact> visit(CompletionContext ctx, Artifact artifact) {
@@ -167,10 +159,6 @@ public final class CompletionContextTest {
           }
         });
     return visited;
-  }
-
-  private static ImmutableSet<Artifact> owners(CompletionContext ctx, ActionInput input) {
-    return ctx.getDepOwners(ImmutableList.of(input)).getDepOwners(input);
   }
 
   private SpecialArtifact createTreeArtifact(String rootRelativePath) {

@@ -147,7 +147,6 @@ java_library(
         "cache/VirtualActionInput.java",
     ],
     deps = [
-        ":action_input_helper",
         ":action_lookup_data",
         ":action_lookup_key",
         ":arg_chunk",
