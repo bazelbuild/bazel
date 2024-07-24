@@ -297,7 +297,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         args=[
             'build',
             '@other_repo//pkg:file',
-            # TODO: support apparent repo name for --deleted_packages
+            # TODO(bzlmod): support apparent repo name for --deleted_packages
             '--deleted_packages=@@_main~_repo_rules~other_repo//pkg/ignore',
         ],
         cwd=work_dir,
