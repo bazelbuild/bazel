@@ -344,15 +344,7 @@ The label of the rule providing <code>cc_toolchain_config_info</code>.""",
             default = semantics.BUILD_INFO_TRANLATOR_LABEL,
             providers = [OutputGroupInfo],
         ),
-        "_aggregate_ddi": attr.label(
-            executable = True,
-            cfg = "exec",
-            default = "@" + semantics.get_repo() + "//tools/cpp:aggregate-ddi",
-        ),
-        "_generate_modmap": attr.label(
-            executable = True,
-            cfg = "exec",
-            default = "@" + semantics.get_repo() + "//tools/cpp:generate-modmap",
-        ),
+        "_aggregate_ddi": semantics.get_aggregate_ddi(),
+        "_generate_modmap": semantics.get_generate_modmap(),
     },
 )
