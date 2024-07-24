@@ -49,6 +49,10 @@ tasks:
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
       - "-//src/test/shell/bazel/android:aapt_integration_test"
       - "-//src/test/shell/bazel/android:aapt_integration_test_with_head_android_tools"
+      # Disable integration tests
+      - "-//src/test/shell/..."
+      - "-//src/test/py/..."
+      - "-//src/test/java/com/google/devtools/build/lib/blackbox/..."
     include_json_profile:
       - build
       - test
@@ -99,6 +103,10 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
+      # Disable integration tests
+      - "-//src/test/shell/..."
+      - "-//src/test/py/..."
+      - "-//src/test/java/com/google/devtools/build/lib/blackbox/..."
     include_json_profile:
       - build
       - test
@@ -159,6 +167,10 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
+      # Disable integration tests
+      - "-//src/test/shell/..."
+      - "-//src/test/py/..."
+      - "-//src/test/java/com/google/devtools/build/lib/blackbox/..."
     include_json_profile:
       - build
       - test
@@ -258,6 +270,10 @@ tasks:
       # Takes too long on Intel VMs
       - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
       - "-//src/test/shell/bazel:bazel_bootstrap_distfile_tar_test"
+      # Disable integration tests
+      - "-//src/test/shell/..."
+      - "-//src/test/py/..."
+      - "-//src/test/java/com/google/devtools/build/lib/blackbox/..."
     include_json_profile:
       - build
       - test
@@ -297,6 +313,10 @@ tasks:
       - "-//src/test/shell/bazel/android/..."
       - "-//src/tools/android/java/com/google/devtools/build/android/..."
       - "-//src/test/java/com/google/devtools/build/android/dexer:AllTests"
+      # Disable integration tests
+      - "-//src/test/shell/..."
+      - "-//src/test/py/..."
+      - "-//src/test/java/com/google/devtools/build/lib/blackbox/..."
     include_json_profile:
       - build
       - test
@@ -353,6 +373,10 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/remote:RemoteTests"
       - "-//src/test/shell/bazel/remote/..."
       - "-//tools/python:pywrapper_test"
+      # Disable integration tests
+      - "-//src/test/shell/..."
+      - "-//src/test/py/..."
+      - "-//src/test/java/com/google/devtools/build/lib/blackbox/..."
     include_json_profile:
       - build
       - test
@@ -431,6 +455,10 @@ tasks:
       # Flaky on rbe_ubuntu2004
       # https://github.com/bazelbuild/continuous-integration/issues/1631
       - "-//src/test/shell/bazel:bazel_sandboxing_networking_test"
+      # Disable integration tests
+      - "-//src/test/shell/..."
+      - "-//src/test/py/..."
+      - "-//src/test/java/com/google/devtools/build/lib/blackbox/..."
     include_json_profile:
       - build
       - test
