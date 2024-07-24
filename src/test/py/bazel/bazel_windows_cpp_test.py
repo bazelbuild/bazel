@@ -20,7 +20,15 @@ from src.test.py.bazel import test_base
 
 class BazelWindowsCppTest(test_base.TestBase):
 
+  def createModuleDotBazel(self):
+    self.ScratchFile('MODULE.bazel', [
+        'bazel_dep(name = "platforms", version = "0.0.9")',
+        'cc_configure = use_extension("//tools/cpp:cc_configure.bzl", "cc_configure_extension")',
+        'use_repo(cc_configure, "local_config_cc")',
+    ])
+
   def createProjectFiles(self):
+    self.createModuleDotBazel()
     self.ScratchFile('BUILD', [
         'package(',
         '  default_visibility = ["//visibility:public"],',
@@ -312,7 +320,7 @@ class BazelWindowsCppTest(test_base.TestBase):
         len(glob.glob(os.path.join(bazel_bin, 'main', 'A_*.dll'))), 2)
 
   def testDLLIsCopiedFromExternalRepo(self):
-    self.ScratchFile('ext_repo/WORKSPACE')
+    self.ScratchFile('ext_repo/REPO.bazel')
     self.ScratchFile('ext_repo/BUILD', [
         'cc_library(',
         '  name = "A",',
@@ -327,7 +335,8 @@ class BazelWindowsCppTest(test_base.TestBase):
         '  printf("Hello A\\n");',
         '}',
     ])
-    self.ScratchFile('WORKSPACE', [
+    self.ScratchFile('MODULE.bazel', [
+        'local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")'
         'local_repository(',
         '  name = "ext_repo",',
         '  path = "ext_repo",',
@@ -740,6 +749,7 @@ class BazelWindowsCppTest(test_base.TestBase):
 
   def testBuildWithClangClByToolchainResolution(self):
     self.DisableBzlmod()
+    self.ScratchFile('WORKSPACE', [
         'register_execution_platforms(',
         '  ":windows_clang"',
         ')',
@@ -855,6 +865,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
 
   def testBuild32BitCppBinaryWithMsvcCL(self):
+    self.createModuleDotBazel()
     self.ScratchFile('BUILD', [
         'platform(',
         '  name = "windows_32",',
@@ -880,6 +891,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.assertIn('x86\\cl.exe', '\n'.join(stderr))
 
   def testBuildArmCppBinaryWithMsvcCL(self):
+    self.createModuleDotBazel()
     self.ScratchFile('BUILD', [
         'platform(',
         '  name = "windows_arm",',
@@ -905,6 +917,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.assertIn('arm\\cl.exe', '\n'.join(stderr))
 
   def testBuildArm64CppBinaryWithMsvcCLAndCpuX64Arm64Windows(self):
+    self.createModuleDotBazel()
     self.ScratchFile('BUILD', [
         'platform(',
         '  name = "windows_arm64",',
@@ -930,6 +943,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.assertIn('arm64\\cl.exe', '\n'.join(stderr))
 
   def testBuildCppBinaryWithMingwGCC(self):
+    self.createModuleDotBazel()
     self.ScratchFile('BUILD', [
         'platform(',
         '    name = "x64_windows-mingw-gcc",',
@@ -993,6 +1007,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.assertIn('-Wl,--gc-sections', ''.join(stderr))
 
   def testBuildCppBinaryWithMsysGCC(self):
+    self.createModuleDotBazel()
     self.ScratchFile('BUILD', [
         'platform(',
         '    name = "x64_windows-msys-gcc",',
@@ -1063,6 +1078,7 @@ class BazelWindowsCppTest(test_base.TestBase):
         os.path.join(bazel_output, paramfile % 'opt'), '-Wl,--gc-sections')
 
   def testBuildArm64CppBinaryWithMsvcCLAndCpuArm64Windows(self):
+    self.createModuleDotBazel()
     self.ScratchFile('BUILD', [
         'platform(',
         '  name = "windows_arm64",',
@@ -1108,6 +1124,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
 
   def testCompilerSettingMsvc(self):
+    self.createModuleDotBazel()
     self.ScratchFile(
         'BUILD',
         [
@@ -1140,6 +1157,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
 
   def testCompilerSettingClangCl(self):
+    self.createModuleDotBazel()
     self.ScratchFile(
         'BUILD',
         [

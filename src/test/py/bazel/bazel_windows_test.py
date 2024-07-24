@@ -20,6 +20,11 @@ from src.test.py.bazel import test_base
 class BazelWindowsTest(test_base.TestBase):
 
   def createProjectFiles(self):
+    self.ScratchFile('MODULE.bazel', [
+        'bazel_dep(name = "platforms", version = "0.0.9")',
+        'cc_configure = use_extension("//tools/cpp:cc_configure.bzl", "cc_configure_extension")',
+        'use_repo(cc_configure, "local_config_cc")',
+    ])
     self.ScratchFile('foo/BUILD', [
         'platform(',
         '    name = "x64_windows-msys-gcc",',
@@ -133,7 +138,7 @@ class BazelWindowsTest(test_base.TestBase):
   def testWindowsEnvironmentVariablesSetting(self):
     self.ScratchFile('BUILD')
     rule_definition = [
-        'my_repo = use_repo_rule(":repo.bzl", "my_repo")',
+        'my_repo = use_repo_rule("//:repo.bzl", "my_repo")',
         'my_repo(name = "env_test")',
     ]
     self.ScratchFile('MODULE.bazel', rule_definition)

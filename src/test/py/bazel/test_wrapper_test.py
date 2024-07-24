@@ -680,6 +680,7 @@ class TestWrapperTest(test_base.TestBase):
     ]
     self.ScratchFile('MODULE.bazel', rule_definition)
     self.ScratchFile('BUILD', ['py_test(name = "x", srcs = ["x.py"])'])
+    self.ScratchFile('a/REPO.bazel')
     self.ScratchFile('a/BUILD', ['py_test(name = "x", srcs = ["x.py"])'])
     self.ScratchFile('x.py')
     self.ScratchFile('a/x.py')
