@@ -177,13 +177,6 @@ class TestBase(absltest.TestCase):
     else:
       self.assertTrue(os.path.islink(path), "Path '%s' is not a symlink" % path)
 
-  def GetDefaultRepoRules(self):
-    with open(
-        self.Rlocation('io_bazel/src/test/py/bazel/default_repos_stanza.txt'),
-        'r') as repo_rules:
-      return repo_rules.read().split('\n')
-    return []
-
   @staticmethod
   def GetEnv(name, default=None):
     """Returns environment variable `name`.

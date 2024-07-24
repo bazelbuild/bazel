@@ -133,12 +133,10 @@ class BazelWindowsTest(test_base.TestBase):
   def testWindowsEnvironmentVariablesSetting(self):
     self.ScratchFile('BUILD')
     rule_definition = [
-        'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
-        'load(":repo.bzl", "my_repo")',
+        'my_repo = use_repo_rule(":repo.bzl", "my_repo")',
         'my_repo(name = "env_test")',
     ]
-    rule_definition.extend(self.GetDefaultRepoRules())
-    self.ScratchFile('WORKSPACE', rule_definition)
+    self.ScratchFile('MODULE.bazel', rule_definition)
     self.ScratchFile('repo.bzl', [
         'def my_repo_impl(repository_ctx):',
         '  repository_ctx.file("env.bat", "set FOO\\n")',
