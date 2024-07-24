@@ -1100,7 +1100,7 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
   }
 
   @Test
-  public void testtestFlushPreservesStdoutStderrOrder(
+  public void testFlushPreservesStdoutStderrOrder(
       @TestParameter({"5", "30", "10000"}) int maxBufferedLength,
       @TestParameter({"5", "30", "10000"}) int maxChunkSize)
       throws IOException {
