@@ -126,6 +126,7 @@ public class WorkspaceBlackBoxTest extends AbstractBlackBoxTest {
     context()
         .write(
             MODULE_DOT_BAZEL,
+            "module(name = 'main')",
             "check_wd = use_repo_rule('//:repo_rule.bzl', 'check_wd')",
             "check_wd(name = 'relative', working_directory = 'relative')",
             "check_wd(name = 'relative2', working_directory = '../relative2')",
