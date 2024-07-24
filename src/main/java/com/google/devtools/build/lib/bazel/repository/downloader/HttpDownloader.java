@@ -46,20 +46,24 @@ import java.util.concurrent.Semaphore;
  *
  * <p>This class uses {@link HttpConnectorMultiplexer} to connect to HTTP mirrors and then reads the
  * file to disk.
+ *
+ * <p>This class is (outside of tests) a singleton instance, living in `BazelRepositoryModule`.
  */
 public class HttpDownloader implements Downloader {
-  static final int MAX_PARALLEL_DOWNLOADS = 8;
-
-  private static final Semaphore SEMAPHORE = new Semaphore(MAX_PARALLEL_DOWNLOADS, true);
+  public static final int DEFAULT_MAX_PARALLEL_DOWNLOADS = 8;
   private static final Clock CLOCK = new JavaClock();
   private static final Sleeper SLEEPER = new JavaSleeper();
   private static final Locale LOCALE = Locale.getDefault();
 
+  private final Semaphore semaphore;
   private float timeoutScaling = 1.0f;
   private int maxAttempts = 0;
+  private int maxParallelDownloads = DEFAULT_MAX_PARALLEL_DOWNLOADS;
   private Duration maxRetryTimeout = Duration.ZERO;
 
-  public HttpDownloader() {}
+  public HttpDownloader() {
+    semaphore = new Semaphore(maxParallelDownloads, true);
+  }
 
   public void setTimeoutScaling(float timeoutScaling) {
     this.timeoutScaling = timeoutScaling;
@@ -71,6 +75,17 @@ public class HttpDownloader implements Downloader {
 
   public void setMaxRetryTimeout(Duration maxRetryTimeout) {
     this.maxRetryTimeout = maxRetryTimeout;
+  }
+
+  public void setMaxParallelDownloads(int maxParallelDownloads) {
+    if (maxParallelDownloads >= this.maxParallelDownloads) {
+      // increase the number of possible parallel downloads
+      semaphore.release(maxParallelDownloads - this.maxParallelDownloads);
+    } else {
+      // reduce the number of possible parallel downloads
+      semaphore.acquireUninterruptibly(this.maxParallelDownloads - maxParallelDownloads);
+    }
+    this.maxParallelDownloads = maxParallelDownloads;
   }
 
   @Override
@@ -94,7 +109,7 @@ public class HttpDownloader implements Downloader {
     List<IOException> ioExceptions = ImmutableList.of();
 
     for (URL url : urls) {
-      SEMAPHORE.acquire();
+      semaphore.acquire();
 
       try (HttpStream payload = multiplexer.connect(url, checksum, headers, credentials, type);
           OutputStream out = destination.getOutputStream()) {
@@ -119,7 +134,7 @@ public class HttpDownloader implements Downloader {
             Event.warn("Download from " + url + " failed: " + e.getClass() + " " + e.getMessage()));
         continue;
       } finally {
-        SEMAPHORE.release();
+        semaphore.release();
         eventHandler.post(new FetchEvent(url.toString(), success));
       }
     }
@@ -154,7 +169,7 @@ public class HttpDownloader implements Downloader {
     HttpConnectorMultiplexer multiplexer = setUpConnectorMultiplexer(eventHandler, clientEnv);
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
-    SEMAPHORE.acquire();
+    semaphore.acquire();
     try (HttpStream payload =
         multiplexer.connect(url, checksum, ImmutableMap.of(), credentials, Optional.empty())) {
       ByteStreams.copy(payload, out);
@@ -166,7 +181,7 @@ public class HttpDownloader implements Downloader {
     } catch (InterruptedIOException e) {
       throw new InterruptedException(e.getMessage());
     } finally {
-      SEMAPHORE.release();
+      semaphore.release();
       // TODO(wyv): Do we need to report any event here?
     }
     return out.toByteArray();

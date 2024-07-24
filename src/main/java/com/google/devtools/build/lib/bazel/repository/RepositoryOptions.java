@@ -160,6 +160,14 @@ public class RepositoryOptions extends OptionsBase {
   public Duration httpConnectorRetryMaxTimeout;
 
   @Option(
+      name = "experimental_http_max_parallel_downloads",
+      defaultValue = "8",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "The maximum number parallel http downloads.")
+  public int httpMaxParallelDownloads;
+
+  @Option(
       name = "override_repository",
       defaultValue = "null",
       allowMultiple = true,

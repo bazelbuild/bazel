@@ -72,8 +72,8 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.Reposito
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.WorkerForRepoFetching;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.DelegatingDownloader;
-import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriter;
 import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriterParseException;
@@ -462,6 +462,16 @@ public class BazelRepositoryModule extends BlazeModule {
       }
       httpDownloader.setMaxAttempts(repoOptions.httpConnectorAttempts);
       httpDownloader.setMaxRetryTimeout(repoOptions.httpConnectorRetryMaxTimeout);
+      if (repoOptions.httpMaxParallelDownloads > 0) {
+        httpDownloader.setMaxParallelDownloads(repoOptions.httpMaxParallelDownloads);
+      } else {
+        env.getReporter()
+            .handle(
+                Event.warn(
+                    "Ignoring request to set the maximum number of parallel downloads to a"
+                        + " non-positive value"));
+        httpDownloader.setMaxParallelDownloads(HttpDownloader.DEFAULT_MAX_PARALLEL_DOWNLOADS);
+      }
 
       if (repoOptions.repositoryOverrides != null) {
         // To get the usual latest-wins semantics, we need a mutable map, as the builder
