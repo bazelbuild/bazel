@@ -266,6 +266,7 @@ public class BuildEventStreamer {
           if (outErrProvider != null) {
             allOut = orEmpty(outErrProvider.getOut());
             allErr = orEmpty(outErrProvider.getErr());
+            progressState.set(ProgressState.ACCEPT_STDERR_AND_STDOUT);
           }
           linkEvents = new ArrayList<>();
           List<BuildEvent> finalLinkEvents = linkEvents;
@@ -661,8 +662,8 @@ public class BuildEventStreamer {
       if (outErrProvider != null) {
         allOut = orEmpty(outErrProvider.getOut());
         allErr = orEmpty(outErrProvider.getErr());
+        progressState.set(ProgressState.ACCEPT_STDERR_AND_STDOUT);
       }
-      progressState.set(ProgressState.ACCEPT_STDERR_AND_STDOUT);
       if (Iterables.isEmpty(allOut) && Iterables.isEmpty(allErr)) {
         // Nothing to flush; avoid generating an unneeded progress event.
         return;
@@ -765,6 +766,7 @@ public class BuildEventStreamer {
     if (outErrProvider != null) {
       allOut = orEmpty(outErrProvider.getOut());
       allErr = orEmpty(outErrProvider.getErr());
+      progressState.set(ProgressState.ACCEPT_STDERR_AND_STDOUT);
     }
     consumeAsPairsofStrings(
         allOut,
