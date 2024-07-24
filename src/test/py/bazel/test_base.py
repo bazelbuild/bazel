@@ -105,6 +105,7 @@ class TestBase(absltest.TestCase):
   def DisableBzlmod(self):
     with open(self._test_bazelrc, 'at') as f:
       f.write('common --noenable_bzlmod\n')
+      f.write('common --enable_workspace\n')
 
   def tearDown(self):
     self.RunBazel(['shutdown'])
