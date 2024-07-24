@@ -1123,6 +1123,8 @@ def _defines_attribute(ctx, additional_make_variable_substitutions, attr_name):
     if len(defines) == 0:
         return []
     targets = []
+    for additional_compiler_input in getattr(ctx.attr, "additional_compiler_inputs", []):
+        targets.append(additional_compiler_input)
     for dep in ctx.attr.deps:
         targets.append(dep)
     result = []
