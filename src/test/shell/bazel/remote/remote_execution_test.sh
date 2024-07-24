@@ -3113,7 +3113,7 @@ cc_binary(
 genrule(
   name = "rule",
   outs = ["out"],
-  cmd = "$(location :tool) > $@",
+  cmd = "otool -l $(location :tool) && ls -R $(location :tool).runfiles && DYLD_PRINT_LIBRARIES=1 $(location :tool) > $@",
   tools = [":tool"],
 )
 EOF
