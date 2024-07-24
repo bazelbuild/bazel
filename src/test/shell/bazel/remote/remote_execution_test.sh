@@ -273,13 +273,6 @@ EOF
 }
 
 function test_cc_binary() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
   mkdir -p a
   cat > a/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
@@ -301,19 +294,12 @@ EOF
       --remote_executor=grpc://localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
-  expect_log "6 processes: 4 internal, 2 remote"
+  expect_log "[0-9] processes: [0-9] internal, 2 remote\\."
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
       || fail "Remote execution generated different result"
 }
 
 function test_cc_test() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
   mkdir -p a
   cat > a/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
@@ -336,13 +322,6 @@ EOF
 }
 
 function test_cc_test_split_xml() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
   mkdir -p a
   cat > a/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
@@ -2396,13 +2375,6 @@ EOF
 # Older versions of gcov are not supported with bazel coverage and so will be skipped.
 # See the above `test_java_rbe_coverage_produces_report` for more information.
 function test_cc_rbe_coverage_produces_report() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
   # Check to see if intermediate files are supported, otherwise skip.
   gcov --help | grep "\-i," || return 0
 
@@ -2520,13 +2492,6 @@ EOF
 # returned non-empty.
 # See the above `test_java_rbe_coverage_produces_report` for more information.
 function test_cc_rbe_coverage_produces_report_with_llvm() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
   local -r clang=$(which clang)
   if [[ ! -x "${clang}" ]]; then
     echo "clang not installed. Skipping"
@@ -3062,13 +3027,6 @@ EOF
 }
 
 function test_external_cc_test() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
   setup_external_cc_test
 
   bazel test \
@@ -3078,13 +3036,6 @@ function test_external_cc_test() {
 }
 
 function test_external_cc_test_sibling_repository_layout() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
   setup_external_cc_test
 
   bazel test \
@@ -3193,11 +3144,37 @@ function setup_cc_binary_tool_with_dynamic_deps() {
   local repo=$1
 
   cat >> MODULE.bazel <<'EOF'
+bazel_dep(name = "apple_support")
+# TODO: Remove this after https://github.com/bazelbuild/apple_support/pull/343.
+single_version_override(
+    module_name = "apple_support",
+    version = "1.16.0",
+    patches = ["//:apple_support.patch"],
+    patch_strip = 1,
+)
+
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "other_repo",
   path = "other_repo",
 )
+EOF
+  touch BUILD
+  cat > apple_support.patch <<'EOF'
+--- a/crosstool/cc_toolchain_config.bzl
++++ b/crosstool/cc_toolchain_config.bzl
+@@ -2439,7 +2439,10 @@ please file an issue at https://github.com/bazelbuild/apple_support/issues/new
+                 flag_groups = [
+                     flag_group(
+                         flags = [
+-                            "-Wl,-install_name,@rpath/%{runtime_solib_name}",
++                            "-Xlinker",
++                            "-install_name",
++                            "-Xlinker",
++                            "@rpath/%{runtime_solib_name}",
+                         ],
+                         expand_if_available = "runtime_solib_name",
+                     ),
 EOF
 
   mkdir -p $repo
@@ -3255,62 +3232,38 @@ EOF
 }
 
 function test_cc_binary_tool_with_dynamic_deps() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
   setup_cc_binary_tool_with_dynamic_deps .
 
   bazel build \
+      --incompatible_macos_set_install_name \
       --remote_executor=grpc://localhost:${worker_port} \
       //pkg:rule >& $TEST_log || fail "Build should succeed"
 }
 
 function test_cc_binary_tool_with_dynamic_deps_sibling_repository_layout() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
   setup_cc_binary_tool_with_dynamic_deps .
 
   bazel build \
+      --incompatible_macos_set_install_name \
       --experimental_sibling_repository_layout \
       --remote_executor=grpc://localhost:${worker_port} \
       //pkg:rule >& $TEST_log || fail "Build should succeed"
 }
 
 function test_external_cc_binary_tool_with_dynamic_deps() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
   setup_cc_binary_tool_with_dynamic_deps other_repo
 
   bazel build \
+      --incompatible_macos_set_install_name \
       --remote_executor=grpc://localhost:${worker_port} \
       @other_repo//pkg:rule >& $TEST_log || fail "Build should succeed"
 }
 
 function test_external_cc_binary_tool_with_dynamic_deps_sibling_repository_layout() {
-  if [[ "$PLATFORM" == "darwin" ]]; then
-    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
-    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
-    # action executors in order to select the appropriate Xcode toolchain.
-    return 0
-  fi
-
   setup_cc_binary_tool_with_dynamic_deps other_repo
 
   bazel build \
+      --incompatible_macos_set_install_name \
       --experimental_sibling_repository_layout \
       --remote_executor=grpc://localhost:${worker_port} \
       @other_repo//pkg:rule >& $TEST_log || fail "Build should succeed"
