@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
@@ -85,6 +86,7 @@ public abstract class ModuleKey {
     return getCanonicalRepoName(/* includeVersion= */ true, semantics);
   }
 
+  @VisibleForTesting
   public RepositoryName getCanonicalRepoNameWithVersionForTesting() {
     return getCanonicalRepoNameWithVersion(StarlarkSemantics.DEFAULT);
   }
@@ -98,6 +100,7 @@ public abstract class ModuleKey {
     return getCanonicalRepoName(/* includeVersion= */ false, semantics);
   }
 
+  @VisibleForTesting
   public RepositoryName getCanonicalRepoNameWithoutVersionForTesting() {
     return getCanonicalRepoNameWithoutVersion(StarlarkSemantics.DEFAULT);
   }
