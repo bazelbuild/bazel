@@ -25,6 +25,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.Lists;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionValueDescription.ExpansionBundle;
 import com.google.devtools.common.options.OptionsParser.OptionDescription;
@@ -460,19 +461,22 @@ class OptionsParserImpl {
   OptionsParserImplResult parse(
       PriorityCategory priorityCat,
       Function<OptionDefinition, String> sourceFunction,
-      List<String> args,
-      OptionsData fallbackData)
+      List<ArgAndFallbackData> args)
       throws OptionsParsingException {
     OptionsParserImplResult optionsParserImplResult =
-        parse(
-            nextPriorityPerPriorityCategory.get(priorityCat),
-            sourceFunction,
-            null,
-            null,
-            args,
-            fallbackData);
+        parse(nextPriorityPerPriorityCategory.get(priorityCat), sourceFunction, null, null, args);
     nextPriorityPerPriorityCategory.put(priorityCat, optionsParserImplResult.nextPriority);
     return optionsParserImplResult;
+  }
+
+  static final class ArgAndFallbackData {
+    public final String arg;
+    @Nullable public final OptionsData fallbackData;
+
+    public ArgAndFallbackData(String arg, @Nullable OptionsData fallbackData) {
+      this.arg = arg;
+      this.fallbackData = fallbackData;
+    }
   }
 
   /**
@@ -488,16 +492,16 @@ class OptionsParserImpl {
       Function<OptionDefinition, String> sourceFunction,
       ParsedOptionDescription implicitDependent,
       ParsedOptionDescription expandedFrom,
-      List<String> args,
-      OptionsData fallbackData)
+      List<ArgAndFallbackData> args)
       throws OptionsParsingException {
     List<String> unparsedArgs = new ArrayList<>();
     List<String> unparsedPostDoubleDashArgs = new ArrayList<>();
     List<String> ignoredArgs = new ArrayList<>();
 
-    Iterator<String> argsIterator = argsPreProcessor.preProcess(args).iterator();
+    Iterator<ArgAndFallbackData> argsIterator = argsPreProcessor.preProcess(args).iterator();
     while (argsIterator.hasNext()) {
-      String arg = argsIterator.next();
+      ArgAndFallbackData argAndFallbackData = argsIterator.next();
+      String arg = argAndFallbackData.arg;
 
       if (!arg.startsWith("-")) {
         unparsedArgs.add(arg);
@@ -519,7 +523,7 @@ class OptionsParserImpl {
       arg = swapShorthandAlias(arg);
 
       if (arg.equals("--")) { // "--" means all remaining args aren't options
-        Iterators.addAll(unparsedPostDoubleDashArgs, argsIterator);
+        Iterators.addAll(unparsedPostDoubleDashArgs, Iterators.transform(argsIterator, a -> a.arg));
         break;
       }
 
@@ -545,17 +549,17 @@ class OptionsParserImpl {
         ParsedOptionDescriptionOrIgnoredArgs result =
             identifyOptionAndPossibleArgument(
                 arg,
-                argsIterator,
+                Iterators.transform(argsIterator, a -> a.arg),
                 priority,
                 sourceFunction,
                 implicitDependent,
                 expandedFrom,
-                fallbackData);
+                argAndFallbackData.fallbackData);
         result.ignoredArgs.ifPresent(ignoredArgs::add);
         parsedOption = result.parsedOptionDescription;
       }
       if (parsedOption.isPresent()) {
-        handleNewParsedOption(parsedOption.get(), fallbackData);
+        handleNewParsedOption(parsedOption.get(), argAndFallbackData.fallbackData);
       }
       priority = OptionPriority.nextOptionPriority(priority);
     }
@@ -605,16 +609,14 @@ class OptionsParserImpl {
   OptionsParserImplResult parseArgsAsExpansionOfOption(
       ParsedOptionDescription optionToExpand,
       Function<OptionDefinition, String> sourceFunction,
-      List<String> args,
-      OptionsData fallbackData)
+      List<ArgAndFallbackData> args)
       throws OptionsParsingException {
     return parse(
         OptionPriority.getChildPriority(optionToExpand.getPriority()),
         sourceFunction,
         null,
         optionToExpand,
-        args,
-        fallbackData);
+        args);
   }
 
   /**
@@ -655,7 +657,8 @@ class OptionsParserImpl {
   }
 
   /** Takes care of tracking the parsed option's value in relation to other options. */
-  private void handleNewParsedOption(ParsedOptionDescription parsedOption, OptionsData fallbackData)
+  private void handleNewParsedOption(
+      ParsedOptionDescription parsedOption, @Nullable OptionsData fallbackData)
       throws OptionsParsingException {
     OptionDefinition optionDefinition = parsedOption.getOptionDefinition();
     ExpansionBundle expansionBundle = setOptionValue(parsedOption);
@@ -668,8 +671,8 @@ class OptionsParserImpl {
               o -> expansionBundle.sourceOfExpansionArgs,
               optionDefinition.hasImplicitRequirements() ? parsedOption : null,
               optionDefinition.isExpansionOption() ? parsedOption : null,
-              expansionBundle.expansionArgs,
-              fallbackData);
+              Lists.transform(
+                  expansionBundle.expansionArgs, arg -> new ArgAndFallbackData(arg, fallbackData)));
       if (!optionsParserImplResult.getResidue().isEmpty()) {
 
         // Throw an assertion here, because this indicates an error in the definition of this

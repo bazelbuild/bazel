@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionAndRawValue;
@@ -87,7 +88,7 @@ public final class BlazeOptionHandler {
 
   // All options set on this pseudo command are inherited by all commands, with unrecognized options
   // being ignored as long as they are recognized by at least one (other) command.
-  private static final String COMMON_PSEUDO_COMMAND = "common";
+  static final String COMMON_PSEUDO_COMMAND = "common";
 
   private static final ImmutableSet<String> BUILD_COMMAND_ANCESTORS =
       ImmutableSet.of("build", COMMON_PSEUDO_COMMAND, ALWAYS_PSEUDO_COMMAND);
