@@ -176,6 +176,42 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void workingSet_ignoresTopLevelPackageDirectoriesWhenUsingProjectFile() throws Exception {
+    addOptions("--experimental_enable_scl_dialect");
+
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt", "//somewhere/else:files"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    // Files under //somewhere/else will be included because of this PROJECT.scl file.
+    write(
+        "hello/PROJECT.scl",
+        """
+        owned_code_paths = ["somewhere/else"]
+        """);
+
+    write("somewhere/else/file.txt", "some content");
+    write(
+        "somewhere/else/BUILD",
+        """
+        filegroup(name = "files", srcs = ["file.txt"])
+        """);
+
+    buildTarget("//hello:target");
+    assertContainsEvent("automatically deriving working set");
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("somewhere/else", "somewhere/else/BUILD", "somewhere/else/file.txt");
+  }
+
+  @Test
   public void workingSet_skyfocusDoesNotRunIfDerivedWorkingSetIsUnchanged() throws Exception {
     write("hello/x.txt", "x");
     write(
