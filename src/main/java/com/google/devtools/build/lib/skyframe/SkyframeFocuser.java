@@ -18,6 +18,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -46,6 +47,11 @@ import javax.annotation.Nullable;
  * parallelizable operations over the Skyframe graph.
  */
 public final class SkyframeFocuser extends AbstractQueueVisitor {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  private static final int RDEP_WARNING_THRESHOLD = 10_000;
+  private static final int DEP_WARNING_THRESHOLD = 10_000;
 
   private static boolean isVerificationSetKeyType(SkyKey k) {
     return k instanceof RootedPath || k instanceof DirectoryListingStateValue.Key;
@@ -191,7 +197,9 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
         throw new IllegalStateException("nodeEntry not done: " + key.getCanonicalName());
       }
 
+      int rdepCount = 0;
       for (SkyKey rdep : nodeEntry.getReverseDepsForDoneEntry()) {
+        rdepCount++;
         if (!keptRdeps.add(rdep)) {
           // Memoization. Already processed.
           continue;
@@ -203,8 +211,15 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
             new SkyfocusNodeVisitor(
                 rdep, keptRdeps, keptDeps, verificationSet, verificationSetSeen));
       }
+      if (rdepCount > RDEP_WARNING_THRESHOLD) {
+        logger.atWarning().log(
+            "%s has %d rdeps, which is more than the threshold at %d.",
+            key.getCanonicalName(), rdepCount, RDEP_WARNING_THRESHOLD);
+      }
 
+      int depCount = 0;
       for (SkyKey dep : nodeEntry.getDirectDeps()) {
+        depCount++;
         if (!keptDeps.add(dep)) {
           // Memoization. Already processed.
           continue;
@@ -223,6 +238,11 @@ public final class SkyframeFocuser extends AbstractQueueVisitor {
             }
           }
         }
+      }
+      if (depCount > DEP_WARNING_THRESHOLD) {
+        logger.atWarning().log(
+            "%s has %d deps, which is more than the threshold at %d.",
+            key.getCanonicalName(), depCount, DEP_WARNING_THRESHOLD);
       }
     }
 
