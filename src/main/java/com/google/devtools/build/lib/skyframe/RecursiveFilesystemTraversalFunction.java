@@ -386,21 +386,24 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       }
     } else {
       // Stat the file.
+      RootedPath rootedPath = traversal.root().asRootedPath();
       FileValue fileValue =
-          (FileValue)
-              env.getValueOrThrow(
-                  FileValue.key(traversal.root().asRootedPath()), IOException.class);
+          (FileValue) env.getValueOrThrow(FileValue.key(rootedPath), IOException.class);
 
       if (env.valuesMissing()) {
         return null;
       }
-      return toFileInfo(fileValue, env, traversal.root().asPath(), syscallCache);
+      return toFileInfo(rootedPath, fileValue, env, traversal.root().asPath(), syscallCache);
     }
   }
 
   @Nullable
   private static FileInfo toFileInfo(
-      FileValue fileValue, Environment env, Path path, SyscallCache syscallCache)
+      RootedPath rootedPath,
+      FileValue fileValue,
+      Environment env,
+      Path path,
+      SyscallCache syscallCache)
       throws IOException, InterruptedException {
     if (fileValue.unboundedAncestorSymlinkExpansionChain() != null) {
       SkyKey uniquenessKey =
@@ -437,7 +440,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     return new FileInfo(
         type,
         withDigest(fileValue.realFileStateValue(), path, syscallCache),
-        fileValue.realRootedPath(),
+        fileValue.realRootedPath(rootedPath),
         unresolvedLinkTarget);
   }
 
@@ -715,7 +718,12 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       }
       if (key instanceof FileValue.Key fileKey) {
         FileInfo fileInfo =
-            toFileInfo((FileValue) value, env, fileKey.argument().asPath(), syscallCache);
+            toFileInfo(
+                fileKey.argument(),
+                (FileValue) value,
+                env,
+                fileKey.argument().asPath(),
+                syscallCache);
         if (fileInfo != null) {
           childValues.add(resultForFileRoot(fileKey.argument(), fileInfo));
         }

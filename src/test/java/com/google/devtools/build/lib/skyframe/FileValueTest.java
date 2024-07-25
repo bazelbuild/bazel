@@ -29,11 +29,9 @@ import org.junit.runners.JUnit4;
 public class FileValueTest {
   @Test
   public void testCodec() throws Exception {
+    // This test case assumes we have adequate coverage for FileStateValue serialization.
     SerializationTester serializationTester =
         new SerializationTester(
-            // Assume we have adequate coverage for FileStateValue serialization.
-            new FileValue.RegularFileValue(
-                FsUtils.TEST_ROOTED_PATH, FileStateValue.NONEXISTENT_FILE_STATE_NODE),
             new FileValue.DifferentRealPathFileValueWithUnboundedAncestorExpansion(
                 FsUtils.TEST_ROOTED_PATH,
                 FileStateValue.DIRECTORY_FILE_STATE_NODE,

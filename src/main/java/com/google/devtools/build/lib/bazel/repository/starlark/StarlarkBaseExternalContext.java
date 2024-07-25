@@ -1486,16 +1486,17 @@ the same path on case-insensitive filesystems.
     if (repoCacheFriendlyPath == null) {
       return;
     }
+    var recordedInput = new RepoRecordedInput.File(repoCacheFriendlyPath);
+    var skyKey = recordedInput.getSkyKey(directories);
     try {
-      var recordedInput = new RepoRecordedInput.File(repoCacheFriendlyPath);
-      FileValue fileValue =
-          (FileValue) env.getValueOrThrow(recordedInput.getSkyKey(directories), IOException.class);
+      FileValue fileValue = (FileValue) env.getValueOrThrow(skyKey, IOException.class);
       if (fileValue == null) {
         throw new NeedsSkyframeRestartException();
       }
 
       recordedFileInputs.put(
-          recordedInput, RepoRecordedInput.File.fileValueToMarkerValue(fileValue));
+          recordedInput,
+          RepoRecordedInput.File.fileValueToMarkerValue((RootedPath) skyKey.argument(), fileValue));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }

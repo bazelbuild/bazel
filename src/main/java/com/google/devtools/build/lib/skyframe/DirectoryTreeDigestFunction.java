@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -53,7 +54,8 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
             .collect(toImmutableSet());
 
     // Turn each entry into a FileValue.
-    ImmutableList<FileValue> fileValues = getFileValues(env, sortedDirents, rootedPath);
+    ImmutableList<Pair<RootedPath, FileValue>> fileValues =
+        getFileValues(env, sortedDirents, rootedPath);
     if (fileValues == null) {
       return null;
     }
@@ -70,13 +72,15 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
     fp.addStrings(sortedDirents);
     fp.addStrings(subDirTreeDigests);
     try {
-      for (FileValue fileValue : fileValues) {
+      for (Pair<RootedPath, FileValue> rootedPathAndFileValue : fileValues) {
+        RootedPath direntRootedPath = rootedPathAndFileValue.getFirst();
+        FileValue fileValue = rootedPathAndFileValue.getSecond();
         fp.addInt(fileValue.realFileStateValue().getType().ordinal());
         if (fileValue.isFile()) {
           byte[] digest = fileValue.realFileStateValue().getDigest();
           if (digest == null) {
             // Fast digest not available, or it would have been in the FileValue.
-            digest = fileValue.realRootedPath().asPath().getDigest();
+            digest = fileValue.realRootedPath(direntRootedPath).asPath().getDigest();
           }
           fp.addBytes(digest);
         }
@@ -89,7 +93,7 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
   }
 
   @Nullable
-  private static ImmutableList<FileValue> getFileValues(
+  private static ImmutableList<Pair<RootedPath, FileValue>> getFileValues(
       Environment env, ImmutableSet<String> sortedDirents, RootedPath rootedPath)
       throws InterruptedException {
     ImmutableSet<FileValue.Key> fileValueKeys =
@@ -105,10 +109,9 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    ImmutableList<FileValue> fileValues =
+    ImmutableList<Pair<RootedPath, FileValue>> fileValues =
         fileValueKeys.stream()
-            .map(result::get)
-            .map(FileValue.class::cast)
+            .map(k -> Pair.of((RootedPath) k.argument(), (FileValue) result.get(k)))
             .collect(toImmutableList());
     if (env.valuesMissing()) {
       return null;
@@ -118,11 +121,12 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
 
   @Nullable
   private static ImmutableList<String> getSubDirTreeDigests(
-      Environment env, ImmutableList<FileValue> fileValues) throws InterruptedException {
+      Environment env, ImmutableList<Pair<RootedPath, FileValue>> fileValues)
+      throws InterruptedException {
     ImmutableSet<SkyKey> dirTreeDigestValueKeys =
         fileValues.stream()
-            .filter(FileValue::isDirectory)
-            .map(fv -> DirectoryTreeDigestValue.key(fv.realRootedPath()))
+            .filter(p -> p.getSecond().isDirectory())
+            .map(p -> DirectoryTreeDigestValue.key(p.getSecond().realRootedPath(p.getFirst())))
             .collect(toImmutableSet());
     SkyframeLookupResult result = env.getValuesAndExceptions(dirTreeDigestValueKeys);
     if (env.valuesMissing()) {
