@@ -45,6 +45,7 @@ import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URL;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -73,7 +74,8 @@ public class HttpDownloaderTest {
   @Rule public final Timeout timeout = new Timeout(30, SECONDS);
 
   private final RepositoryCache repositoryCache = mock(RepositoryCache.class);
-  private final HttpDownloader httpDownloader = new HttpDownloader();
+  // Scale timeouts down to make test fast.
+  private final HttpDownloader httpDownloader = new HttpDownloader(0, Duration.ZERO, 8, .1f);
   private final DownloadManager downloadManager =
       new DownloadManager(repositoryCache, httpDownloader, httpDownloader);
 
@@ -83,9 +85,6 @@ public class HttpDownloaderTest {
 
   public HttpDownloaderTest() {
     fs = new JavaIoFileSystem(DigestHashFunction.SHA256);
-
-    // Scale timeouts down to make tests fast.
-    httpDownloader.setTimeoutScaling(0.1f);
   }
 
   @After
@@ -647,7 +646,8 @@ public class HttpDownloaderTest {
   public void download_contentLengthMismatch_propagateErrorIfNotRetry() throws Exception {
     Downloader downloader = mock(Downloader.class);
     HttpDownloader httpDownloader = mock(HttpDownloader.class);
-    DownloadManager downloadManager = new DownloadManager(repositoryCache, downloader, httpDownloader);
+    DownloadManager downloadManager =
+        new DownloadManager(repositoryCache, downloader, httpDownloader);
     // do not retry
     downloadManager.setRetries(0);
     AtomicInteger times = new AtomicInteger(0);
@@ -685,7 +685,8 @@ public class HttpDownloaderTest {
     Downloader downloader = mock(Downloader.class);
     HttpDownloader httpDownloader = mock(HttpDownloader.class);
     int retries = 5;
-    DownloadManager downloadManager = new DownloadManager(repositoryCache, downloader, httpDownloader);
+    DownloadManager downloadManager =
+        new DownloadManager(repositoryCache, downloader, httpDownloader);
     downloadManager.setRetries(retries);
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
@@ -729,7 +730,8 @@ public class HttpDownloaderTest {
     Downloader downloader = mock(Downloader.class);
     HttpDownloader httpDownloader = mock(HttpDownloader.class);
     int retries = 5;
-    DownloadManager downloadManager = new DownloadManager(repositoryCache, downloader, httpDownloader);
+    DownloadManager downloadManager =
+        new DownloadManager(repositoryCache, downloader, httpDownloader);
     downloadManager.setRetries(retries);
     AtomicInteger times = new AtomicInteger(0);
     byte[] data = "content".getBytes(UTF_8);
