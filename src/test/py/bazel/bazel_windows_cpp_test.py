@@ -337,7 +337,7 @@ class BazelWindowsCppTest(test_base.TestBase):
         '}',
     ])
     self.ScratchFile('MODULE.bazel', [
-        'local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")'
+        'local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")',
         'local_repository(',
         '  name = "ext_repo",',
         '  path = "ext_repo",',
@@ -368,7 +368,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     # Test if A.dll is copied to the directory of main.exe
     main_bin = os.path.join(bazel_bin, 'main.exe')
     self.assertTrue(os.path.exists(main_bin))
-    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'A_9324b6d0.dll')))
+    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'A_4b00e9cb.dll')))
 
     # Run the binary to see if it runs successfully
     _, stdout, _ = self.RunProgram([main_bin])
@@ -1191,6 +1191,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
 
   def testCompilerSettingMingwGcc(self):
+    self.createModuleDotBazel()
     self.ScratchFile(
         'BUILD',
         [
