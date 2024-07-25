@@ -67,17 +67,19 @@ public class WorkspaceNameFunction implements SkyFunction {
       }
       Package externalPackage = externalPackageValue.getPackage();
       if (externalPackage.containsErrors()) {
-        throw new WorkspaceNameFunctionException();
+        throw new WorkspaceNameFunctionException("Failed to load the WORKSPACE file");
       }
       return WorkspaceNameValue.withName(externalPackage.getWorkspaceName());
     }
-    throw new WorkspaceNameFunctionException();
+    throw new WorkspaceNameFunctionException(
+        "Both --enable_bzlmod and --enable_workspace are disabled, but one of them must be enabled"
+            + " to fetch external dependencies.");
   }
 
   private static class WorkspaceNameFunctionException extends SkyFunctionException {
-    WorkspaceNameFunctionException() {
+    WorkspaceNameFunctionException(String message) {
       super(
-          new BuildFileContainsErrorsException(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER),
+          new BuildFileContainsErrorsException(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, message),
           Transience.PERSISTENT);
     }
   }
