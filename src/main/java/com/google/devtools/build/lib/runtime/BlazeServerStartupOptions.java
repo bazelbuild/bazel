@@ -506,7 +506,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
    * code. This also helps ensure that the server is killed if the value of this option changes.
    */
   @Option(
-      name = "cgroup_parent",
+      name = "experimental_cgroup_parent",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {

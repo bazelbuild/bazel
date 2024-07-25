@@ -172,7 +172,7 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterUnaryStartupFlag("output_user_root");
   RegisterUnaryStartupFlag("server_jvm_out");
   RegisterUnaryStartupFlag("failure_detail_out");
-  RegisterUnaryStartupFlag("cgroup_parent");
+  RegisterUnaryStartupFlag("experimental_cgroup_parent");
 }
 
 StartupOptions::~StartupOptions() {}
@@ -390,7 +390,7 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
           "multiple times.";
       return blaze_exit_code::BAD_ARGV;
     }
-  } else if ((value = GetUnaryOption(arg, next_arg, "--cgroup_parent")) !=
+  } else if ((value = GetUnaryOption(arg, next_arg, "--experimental_cgroup_parent")) !=
              nullptr) {
 #ifdef __linux__
     cgroup_parent = value;

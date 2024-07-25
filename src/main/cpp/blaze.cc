@@ -504,7 +504,7 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
 
 #ifdef __linux__
   if (!startup_options.cgroup_parent.empty()) {
-      result.push_back("--cgroup_parent=" + startup_options.cgroup_parent);
+      result.push_back("--experimental_cgroup_parent=" + startup_options.cgroup_parent);
   }
 #endif
 
