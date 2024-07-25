@@ -698,11 +698,7 @@ public class OptionsParser implements OptionsParsingResult {
     Preconditions.checkArgument(priority != OptionPriority.PriorityCategory.DEFAULT);
     OptionsParserImplResult optionsParserImplResult =
         impl.parse(
-            priority,
-            sourceFunction,
-            Lists.transform(
-                args,
-                arg -> new OptionsParserImpl.ArgAndFallbackData(arg, (OptionsData) fallbackData)));
+            priority, sourceFunction, ArgAndFallbackData.wrapWithFallbackData(args, fallbackData));
     addResidueFromResult(optionsParserImplResult);
     aliases.putAll(optionsParserImplResult.aliases);
     return optionsParserImplResult.ignoredArgs;
@@ -734,14 +730,7 @@ public class OptionsParser implements OptionsParsingResult {
         "Priority cannot be default, which was specified for arglist %s",
         args);
     OptionsParserImplResult optionsParserImplResult =
-        impl.parseArgsAsExpansionOfOption(
-            optionToExpand,
-            o -> source,
-            Lists.transform(
-                args,
-                argAndFallbackData ->
-                    new OptionsParserImpl.ArgAndFallbackData(
-                        argAndFallbackData.arg, (OptionsData) argAndFallbackData.fallbackData)));
+        impl.parseArgsAsExpansionOfOption(optionToExpand, o -> source, args);
     addResidueFromResult(optionsParserImplResult);
     return optionsParserImplResult.ignoredArgs;
   }
@@ -941,11 +930,16 @@ public class OptionsParser implements OptionsParsingResult {
    */
   public static final class ArgAndFallbackData {
     public final String arg;
-    @Nullable public final OpaqueOptionsData fallbackData;
+    @Nullable final OptionsData fallbackData;
 
     public ArgAndFallbackData(String arg, @Nullable OpaqueOptionsData fallbackData) {
       this.arg = Preconditions.checkNotNull(arg);
-      this.fallbackData = fallbackData;
+      this.fallbackData = (OptionsData) fallbackData;
+    }
+
+    public static List<ArgAndFallbackData> wrapWithFallbackData(
+        List<String> args, @Nullable OpaqueOptionsData fallbackData) {
+      return Lists.transform(args, arg -> new ArgAndFallbackData(arg, fallbackData));
     }
   }
 }

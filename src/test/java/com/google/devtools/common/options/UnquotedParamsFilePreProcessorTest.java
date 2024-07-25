@@ -61,10 +61,7 @@ public class UnquotedParamsFilePreProcessorTest {
   private static List<String> preProcess(ParamsFilePreProcessor preProcessor, List<String> args)
       throws OptionsParsingException {
     return Lists.transform(
-        preProcessor.preProcess(
-            Lists.transform(
-                args,
-                arg -> new OptionsParserImpl.ArgAndFallbackData(arg, /* fallbackData= */ null))),
+        preProcessor.preProcess(OptionsParser.ArgAndFallbackData.wrapWithFallbackData(args, null)),
         argAndFallbackData -> argAndFallbackData.arg);
   }
 }

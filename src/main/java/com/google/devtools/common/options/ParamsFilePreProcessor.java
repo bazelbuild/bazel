@@ -14,7 +14,7 @@
 package com.google.devtools.common.options;
 
 import com.google.common.collect.Lists;
-import com.google.devtools.common.options.OptionsParserImpl.ArgAndFallbackData;
+import com.google.devtools.common.options.OptionsParser.ArgAndFallbackData;
 import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.Path;
@@ -63,8 +63,7 @@ public abstract class ParamsFilePreProcessor implements ArgsPreProcessor {
       }
       Path path = fs.getPath(args.get(0).arg.substring(1));
       try {
-        return Lists.transform(
-            parse(path), arg -> new ArgAndFallbackData(arg, args.get(0).fallbackData));
+        return ArgAndFallbackData.wrapWithFallbackData(parse(path), args.get(0).fallbackData);
       } catch (RuntimeException | IOException e) {
         throw new OptionsParsingException(
             String.format(ERROR_MESSAGE_FORMAT, path, e.getMessage()), args.get(0).arg, e);

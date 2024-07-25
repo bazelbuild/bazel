@@ -20,7 +20,6 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser.ConstructionException;
@@ -356,9 +355,9 @@ public final class OptionsParserTest {
                 parser.parseArgsAsExpansionOfOption(
                     optionToExpand,
                     "source",
-                    Lists.transform(
-                        ImmutableList.of("--underlying=direct_value", "residue", "in", "expansion"),
-                        arg -> new OptionsParser.ArgAndFallbackData(arg, null))));
+                    OptionsParser.ArgAndFallbackData.wrapWithFallbackData(
+                        ImmutableList.of("residue", "not", "allowed", "in", "expansion"),
+                        /* fallbackData= */ null)));
     assertThat(parser.getResidue()).isNotEmpty();
     assertThat(e).hasMessageThat().isEqualTo("Unrecognized arguments: residue in expansion");
   }

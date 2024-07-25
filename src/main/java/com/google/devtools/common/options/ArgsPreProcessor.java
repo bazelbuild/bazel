@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
+import com.google.devtools.common.options.OptionsParser.ArgAndFallbackData;
 import java.util.List;
 
 /** Defines a preprocessing service for the "args" string list that is executed before parsing. */
 @FunctionalInterface
 interface ArgsPreProcessor {
-  List<OptionsParserImpl.ArgAndFallbackData> preProcess(
-      List<OptionsParserImpl.ArgAndFallbackData> args) throws OptionsParsingException;
+  List<ArgAndFallbackData> preProcess(List<ArgAndFallbackData> args) throws OptionsParsingException;
 }

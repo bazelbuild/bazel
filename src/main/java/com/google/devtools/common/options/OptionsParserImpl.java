@@ -25,9 +25,9 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
-import com.google.common.collect.Lists;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionValueDescription.ExpansionBundle;
+import com.google.devtools.common.options.OptionsParser.ArgAndFallbackData;
 import com.google.devtools.common.options.OptionsParser.OptionDescription;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.Keep;
@@ -469,16 +469,6 @@ class OptionsParserImpl {
     return optionsParserImplResult;
   }
 
-  static final class ArgAndFallbackData {
-    public final String arg;
-    @Nullable public final OptionsData fallbackData;
-
-    public ArgAndFallbackData(String arg, @Nullable OptionsData fallbackData) {
-      this.arg = Preconditions.checkNotNull(arg);
-      this.fallbackData = fallbackData;
-    }
-  }
-
   /**
    * Parses the args, and returns what it doesn't parse. May be called multiple times, and may be
    * called recursively. Calls may contain intersecting sets of options; in that case, the arg seen
@@ -674,8 +664,7 @@ class OptionsParserImpl {
               o -> expansionBundle.sourceOfExpansionArgs,
               optionDefinition.hasImplicitRequirements() ? parsedOption : null,
               optionDefinition.isExpansionOption() ? parsedOption : null,
-              Lists.transform(
-                  expansionBundle.expansionArgs, arg -> new ArgAndFallbackData(arg, fallbackData)));
+              ArgAndFallbackData.wrapWithFallbackData(expansionBundle.expansionArgs, fallbackData));
       if (!optionsParserImplResult.getResidue().isEmpty()) {
 
         // Throw an assertion here, because this indicates an error in the definition of this
