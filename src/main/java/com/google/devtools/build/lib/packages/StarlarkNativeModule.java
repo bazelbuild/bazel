@@ -809,17 +809,30 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
         selector.forEach(
             (rawKey, rawValue) -> {
               Object key = starlarkifyValue(mu, rawKey, pkg);
-              Object mapVal = starlarkifyValue(mu, rawValue, pkg);
+              // BuildType.Selector constructor transforms `None` values of selector branches into
+              // Java nulls if the selector original type's default value is null. We need to
+              // reverse this transformation.
+              Object mapVal =
+                  rawValue == null && selector.getOriginalType().getDefaultValue() == null
+                      ? Starlark.NONE
+                      : starlarkifyValue(mu, rawValue, pkg);
               if (key != null && mapVal != null) {
                 m.put(key, mapVal);
               }
             });
-        selectors.add(new SelectorValue(((Map<?, ?>) m.build(mu)), selector.getNoMatchError()));
+        Dict<?, ?> selectorDict = m.build(mu);
+        if (!selectorDict.isEmpty()) {
+          selectors.add(new SelectorValue(selectorDict, selector.getNoMatchError()));
+        }
       }
-      try {
-        return SelectorList.of(selectors);
-      } catch (EvalException e) {
+      if (selectors.isEmpty()) {
         return null;
+      } else {
+        try {
+          return SelectorList.of(selectors);
+        } catch (EvalException e) {
+          return null;
+        }
       }
     }
 
