@@ -22,7 +22,7 @@ class BazelWindowsTest(test_base.TestBase):
   def createProjectFiles(self):
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "platforms", version = "0.0.9")',
-        'cc_configure = use_extension("//tools/cpp:cc_configure.bzl", "cc_configure_extension")',
+        'cc_configure = use_extension("@bazel_tools//tools/cpp:cc_configure.bzl", "cc_configure_extension")',
         'use_repo(cc_configure, "local_config_cc")',
     ])
     self.ScratchFile('foo/BUILD', [
