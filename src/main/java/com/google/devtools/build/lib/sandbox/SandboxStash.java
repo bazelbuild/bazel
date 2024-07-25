@@ -498,32 +498,30 @@ public class SandboxStash {
         }
         Path absPath = root.getChild(dirent.getName());
         if (dirent.getType().equals(SYMLINK)) {
-          if ((stashContents.filesToPath().containsKey(dirent.getName())
-                  || stashContents.symlinksToPathFragment().containsKey(dirent.getName()))
+          if (stashContents.symlinkMap().containsKey(dirent.getName())
               && absPath.stat().getLastChangeTime() <= timestamp) {
             filesAndSymlinksToKeep.add(dirent.getName());
           } else {
             absPath.delete();
           }
         } else if (dirent.getType().equals(DIRECTORY)) {
-          if (stashContents.dirEntries().containsKey(dirent.getName())) {
+          if (stashContents.dirMap().containsKey(dirent.getName())) {
             dirsToKeep.add(dirent.getName());
             listContentsRecursively(
-                absPath, timestamp, stashContents.dirEntries().get(dirent.getName()));
+                absPath, timestamp, stashContents.dirMap().get(dirent.getName()));
           } else {
             absPath.deleteTree();
-            stashContents.dirEntries().remove(dirent.getName());
+            stashContents.dirMap().remove(dirent.getName());
           }
         } else {
           absPath.delete();
         }
       }
 
-      stashContents.dirEntries().keySet().retainAll(dirsToKeep);
-      stashContents.filesToPath().keySet().retainAll(filesAndSymlinksToKeep);
-      stashContents.symlinksToPathFragment().keySet().retainAll(filesAndSymlinksToKeep);
+      stashContents.dirMap().keySet().retainAll(dirsToKeep);
+      stashContents.symlinkMap().keySet().retainAll(filesAndSymlinksToKeep);
     } else {
-      for (var entry : stashContents.dirEntries().entrySet()) {
+      for (var entry : stashContents.dirMap().entrySet()) {
         Path absPath = root.getChild(entry.getKey());
         listContentsRecursively(absPath, timestamp, entry.getValue());
       }
@@ -562,20 +560,20 @@ public class SandboxStash {
     for (int i = 0; i < stashedRunfilesSegments.size() - 1; i++) {
       runfilesStashContents =
           Preconditions.checkNotNull(
-              runfilesStashContents.dirEntries().get(stashedRunfilesSegments.get(i)));
+              runfilesStashContents.dirMap().get(stashedRunfilesSegments.get(i)));
     }
     runfilesStashContents =
-        runfilesStashContents.dirEntries().remove(stashedRunfilesSegments.getLast());
+        runfilesStashContents.dirMap().remove(stashedRunfilesSegments.getLast());
 
     ImmutableList<String> currentRunfilesSegments =
         ImmutableList.copyOf(PathFragment.create(currentRunfiles).segments());
     SandboxContents currentStashContents = stashContents;
     for (int i = 0; i < currentRunfilesSegments.size() - 1; i++) {
       String segment = currentRunfilesSegments.get(i);
-      currentStashContents.dirEntries().putIfAbsent(segment, new SandboxContents());
-      currentStashContents = currentStashContents.dirEntries().get(segment);
+      currentStashContents.dirMap().putIfAbsent(segment, new SandboxContents());
+      currentStashContents = currentStashContents.dirMap().get(segment);
     }
-    currentStashContents.dirEntries().put(currentRunfilesSegments.getLast(), runfilesStashContents);
+    currentStashContents.dirMap().put(currentRunfilesSegments.getLast(), runfilesStashContents);
   }
 }
 
