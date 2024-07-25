@@ -25,6 +25,7 @@ class BazelWindowsCppTest(test_base.TestBase):
         'bazel_dep(name = "platforms", version = "0.0.9")',
         'cc_configure = use_extension("@bazel_tools//tools/cpp:cc_configure.bzl", "cc_configure_extension")',
         'use_repo(cc_configure, "local_config_cc")',
+        'register_toolchains("@local_config_cc//:all")', # Register all cc toolchains for Windows
     ])
 
   def createProjectFiles(self):
