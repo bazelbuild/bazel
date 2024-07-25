@@ -944,7 +944,7 @@ public class OptionsParser implements OptionsParsingResult {
     @Nullable public final OpaqueOptionsData fallbackData;
 
     public ArgAndFallbackData(String arg, @Nullable OpaqueOptionsData fallbackData) {
-      this.arg = arg;
+      this.arg = Preconditions.checkNotNull(arg);
       this.fallbackData = fallbackData;
     }
   }

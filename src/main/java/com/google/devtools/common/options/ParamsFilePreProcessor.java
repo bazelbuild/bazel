@@ -53,21 +53,21 @@ public abstract class ParamsFilePreProcessor implements ArgsPreProcessor {
   @Override
   public List<ArgAndFallbackData> preProcess(List<ArgAndFallbackData> args)
       throws OptionsParsingException {
-    if (!args.isEmpty() && args.getFirst().arg.startsWith("@")) {
+    if (!args.isEmpty() && args.get(0).arg.startsWith("@")) {
       if (args.size() > 1) {
         throw new OptionsParsingException(
             String.format(
                 TOO_MANY_ARGS_ERROR_MESSAGE_FORMAT,
                 Lists.transform(args, argAndFallbackData -> argAndFallbackData.arg)),
-            args.getFirst().arg);
+            args.get(0).arg);
       }
-      Path path = fs.getPath(args.getFirst().arg.substring(1));
+      Path path = fs.getPath(args.get(0).arg.substring(1));
       try {
         return Lists.transform(
-            parse(path), arg -> new ArgAndFallbackData(arg, args.getFirst().fallbackData));
+            parse(path), arg -> new ArgAndFallbackData(arg, args.get(0).fallbackData));
       } catch (RuntimeException | IOException e) {
         throw new OptionsParsingException(
-            String.format(ERROR_MESSAGE_FORMAT, path, e.getMessage()), args.getFirst().arg, e);
+            String.format(ERROR_MESSAGE_FORMAT, path, e.getMessage()), args.get(0).arg, e);
       }
     }
     return args;

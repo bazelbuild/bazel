@@ -474,7 +474,7 @@ class OptionsParserImpl {
     @Nullable public final OptionsData fallbackData;
 
     public ArgAndFallbackData(String arg, @Nullable OptionsData fallbackData) {
-      this.arg = arg;
+      this.arg = Preconditions.checkNotNull(arg);
       this.fallbackData = fallbackData;
     }
   }
@@ -498,10 +498,13 @@ class OptionsParserImpl {
     List<String> unparsedPostDoubleDashArgs = new ArrayList<>();
     List<String> ignoredArgs = new ArrayList<>();
 
-    Iterator<ArgAndFallbackData> argsIterator = argsPreProcessor.preProcess(args).iterator();
-    while (argsIterator.hasNext()) {
-      ArgAndFallbackData argAndFallbackData = argsIterator.next();
+    Iterator<ArgAndFallbackData> argsAndFallbackDataIterator =
+        argsPreProcessor.preProcess(args).iterator();
+    Iterator<String> argsIterator = Iterators.transform(argsAndFallbackDataIterator, a -> a.arg);
+    while (argsAndFallbackDataIterator.hasNext()) {
+      ArgAndFallbackData argAndFallbackData = argsAndFallbackDataIterator.next();
       String arg = argAndFallbackData.arg;
+      @Nullable OptionsData fallbackData = argAndFallbackData.fallbackData;
 
       if (!arg.startsWith("-")) {
         unparsedArgs.add(arg);
@@ -523,7 +526,7 @@ class OptionsParserImpl {
       arg = swapShorthandAlias(arg);
 
       if (arg.equals("--")) { // "--" means all remaining args aren't options
-        Iterators.addAll(unparsedPostDoubleDashArgs, Iterators.transform(argsIterator, a -> a.arg));
+        Iterators.addAll(unparsedPostDoubleDashArgs, argsIterator);
         break;
       }
 
@@ -549,17 +552,17 @@ class OptionsParserImpl {
         ParsedOptionDescriptionOrIgnoredArgs result =
             identifyOptionAndPossibleArgument(
                 arg,
-                Iterators.transform(argsIterator, a -> a.arg),
+                argsIterator,
                 priority,
                 sourceFunction,
                 implicitDependent,
                 expandedFrom,
-                argAndFallbackData.fallbackData);
+                fallbackData);
         result.ignoredArgs.ifPresent(ignoredArgs::add);
         parsedOption = result.parsedOptionDescription;
       }
       if (parsedOption.isPresent()) {
-        handleNewParsedOption(parsedOption.get(), argAndFallbackData.fallbackData);
+        handleNewParsedOption(parsedOption.get(), fallbackData);
       }
       priority = OptionPriority.nextOptionPriority(priority);
     }

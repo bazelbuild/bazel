@@ -148,7 +148,7 @@ final class ConfigExpander {
               optionsParser,
               Iterables.getOnlyElement(
                   enablePlatformSpecificConfigDescription.getCanonicalInstances()),
-              String.format("enabled by --enable_platform_specific_config"),
+              "enabled by --enable_platform_specific_config",
               expansion,
               fallbackData);
       if (!ignoredArgs.isEmpty()) {
