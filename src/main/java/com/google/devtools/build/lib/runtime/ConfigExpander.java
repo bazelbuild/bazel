@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.OpaqueOptionsData;
 import com.google.devtools.common.options.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParser.ArgAndFallbackData;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.ParsedOptionDescription;
 import java.util.ArrayList;
@@ -177,7 +178,7 @@ final class ConfigExpander {
     }
   }
 
-  private static List<OptionsParser.ArgAndFallbackData> getExpansion(
+  private static List<ArgAndFallbackData> getExpansion(
       EventHandler eventHandler,
       ListMultimap<String, RcChunkOfArgs> commandToRcArgs,
       List<String> commandsToParse,
@@ -188,7 +189,7 @@ final class ConfigExpander {
     LinkedHashSet<String> configAncestorSet = new LinkedHashSet<>();
     configAncestorSet.add(configToExpand);
     List<String> longestChain = new ArrayList<>();
-    List<OptionsParser.ArgAndFallbackData> finalExpansion =
+    List<ArgAndFallbackData> finalExpansion =
         getExpansion(
             commandToRcArgs,
             commandsToParse,
@@ -223,7 +224,7 @@ final class ConfigExpander {
    *     should not be in the parents list of the second bar.
    * @param longestChain will be populated with the longest inheritance chain of configs.
    */
-  private static List<OptionsParser.ArgAndFallbackData> getExpansion(
+  private static List<ArgAndFallbackData> getExpansion(
       ListMultimap<String, RcChunkOfArgs> commandToRcArgs,
       List<String> commandsToParse,
       LinkedHashSet<String> configAncestorSet,
@@ -232,7 +233,7 @@ final class ConfigExpander {
       Consumer<String> rcFileNotesConsumer,
       @Nullable OpaqueOptionsData fallbackData)
       throws OptionsParsingException {
-    List<OptionsParser.ArgAndFallbackData> expansion = new ArrayList<>();
+    List<ArgAndFallbackData> expansion = new ArrayList<>();
     boolean foundDefinition = false;
     // The expansion order of rc files is first by command priority, and then in the order the
     // rc files were read, respecting import statement placement.
@@ -249,7 +250,7 @@ final class ConfigExpander {
         // it in place. We avoid cycles by tracking the parents of this config.
         for (String arg : rcArgs.getArgs()) {
           expansion.add(
-              new OptionsParser.ArgAndFallbackData(
+              new ArgAndFallbackData(
                   arg,
                   commandToParse.equals(BlazeOptionHandler.COMMON_PSEUDO_COMMAND)
                       ? fallbackData

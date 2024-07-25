@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
+import com.google.devtools.common.options.OptionsParser.ArgAndFallbackData;
 import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -355,7 +356,7 @@ public final class OptionsParserTest {
                 parser.parseArgsAsExpansionOfOption(
                     optionToExpand,
                     "source",
-                    OptionsParser.ArgAndFallbackData.wrapWithFallbackData(
+                    ArgAndFallbackData.wrapWithFallbackData(
                         ImmutableList.of("--underlying=direct_value", "residue", "in", "expansion"),
                         /* fallbackData= */ null)));
     assertThat(parser.getResidue()).isNotEmpty();

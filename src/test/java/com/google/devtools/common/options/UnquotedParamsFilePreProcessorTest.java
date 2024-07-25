@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.jimfs.Jimfs;
+import com.google.devtools.common.options.OptionsParser.ArgAndFallbackData;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
@@ -61,7 +62,7 @@ public class UnquotedParamsFilePreProcessorTest {
   private static List<String> preProcess(ParamsFilePreProcessor preProcessor, List<String> args)
       throws OptionsParsingException {
     return Lists.transform(
-        preProcessor.preProcess(OptionsParser.ArgAndFallbackData.wrapWithFallbackData(args, null)),
+        preProcessor.preProcess(ArgAndFallbackData.wrapWithFallbackData(args, null)),
         argAndFallbackData -> argAndFallbackData.arg);
   }
 }

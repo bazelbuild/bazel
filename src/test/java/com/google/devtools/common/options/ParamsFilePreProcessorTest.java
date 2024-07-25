@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.jimfs.Jimfs;
+import com.google.devtools.common.options.OptionsParser.ArgAndFallbackData;
 import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.Path;
@@ -121,7 +122,7 @@ public class ParamsFilePreProcessorTest {
   private static List<String> preProcess(ParamsFilePreProcessor preProcessor, List<String> args)
       throws OptionsParsingException {
     return Lists.transform(
-        preProcessor.preProcess(OptionsParser.ArgAndFallbackData.wrapWithFallbackData(args, null)),
+        preProcessor.preProcess(ArgAndFallbackData.wrapWithFallbackData(args, null)),
         argAndFallbackData -> argAndFallbackData.arg);
   }
 }
