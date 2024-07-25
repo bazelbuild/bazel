@@ -1122,7 +1122,7 @@ def _defines_attribute(ctx, additional_make_variable_substitutions, attr_name, a
     defines = getattr(ctx.attr, attr_name, [])
     if len(defines) == 0:
         return []
-    targets = additional_targets
+    targets = list(additional_targets)
     for dep in ctx.attr.deps:
         targets.append(dep)
     result = []
