@@ -157,7 +157,7 @@ public final class BlazeOptionHandler {
           "The '"
               + commandAnnotation.name()
               + "' command is only supported from within a workspace"
-              + " (below a directory having a WORKSPACE file).\n"
+              + " (below a directory having a MODULE.BAZEL or WORKSPACE file).\n"
               + "See documentation at"
               + " https://bazel.build/concepts/build-ref#workspace";
       eventHandler.handle(Event.error(message));

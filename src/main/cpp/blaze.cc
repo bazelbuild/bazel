@@ -1518,8 +1518,8 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
     startup_options->batch = true;
     BAZEL_LOG(WARNING) << "Invoking " << startup_options->product_name
                        << " in batch mode since it is not invoked from within"
-                       << " a workspace (below a directory having a WORKSPACE"
-                       << " file).";
+                       << " a workspace (below a directory having a"
+                       << " MODULE.bazel or WORKSPACE file).";
   }
 
   vector<string> archive_contents;
