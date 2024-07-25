@@ -356,7 +356,7 @@ public final class OptionsParserTest {
                     optionToExpand,
                     "source",
                     OptionsParser.ArgAndFallbackData.wrapWithFallbackData(
-                        ImmutableList.of("residue", "not", "allowed", "in", "expansion"),
+                        ImmutableList.of("--underlying=direct_value", "residue", "in", "expansion"),
                         /* fallbackData= */ null)));
     assertThat(parser.getResidue()).isNotEmpty();
     assertThat(e).hasMessageThat().isEqualTo("Unrecognized arguments: residue in expansion");
