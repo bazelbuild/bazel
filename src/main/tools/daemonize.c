@@ -149,6 +149,10 @@ static void ExecAsDaemon(const char* log_path, bool log_append, int pid_done_fd,
 }
 
 #ifdef __linux__
+// Moves the bazel server into the specified cgroup for all the discovered cgroups
+// This is useful when using the cgroup features in bazel and thus the server must
+// be started in a user-writable cgroup. Users can specify a pre-setup cgroup where
+// the server will be moved to. See also src/main/java/com/google/devtools/build/lib/runtime/BlazeServerStartupOptions.java
 static void MoveToCgroup(pid_t pid, const char* cgroup_path) {
   FILE* mounts_fp = fopen("/proc/self/mounts", "r");
   if (mounts_fp != NULL) {

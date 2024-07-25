@@ -521,7 +521,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
               + "controllers are mounted respectively on /sys/fs/cgroup/cpu and "
               + "/sys/fs/cgroup/memory, the server will be started in the cgroups "
               + "/sys/fs/cgroup/cpu/build/bazel and /sys/fs/cgroup/memory/build/bazel."
-              + "It is not an error if the specified cgroup is not writable for one ore more "
+              + "It is not an error if the specified cgroup is not writable for one or more "
               + "of the controllers. This options does not have any effect on "
               + "platforms that do not support cgroups.")
   public String cgroupParent;
