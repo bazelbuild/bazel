@@ -50,7 +50,6 @@ import java.util.concurrent.Semaphore;
  * <p>This class is (outside of tests) a singleton instance, living in `BazelRepositoryModule`.
  */
 public class HttpDownloader implements Downloader {
-  public static final int DEFAULT_MAX_PARALLEL_DOWNLOADS = 8;
   private static final Clock CLOCK = new JavaClock();
   private static final Sleeper SLEEPER = new JavaSleeper();
   private static final Locale LOCALE = Locale.getDefault();
@@ -58,7 +57,7 @@ public class HttpDownloader implements Downloader {
   private final Semaphore semaphore;
   private float timeoutScaling = 1.0f;
   private int maxAttempts = 0;
-  private int maxParallelDownloads = DEFAULT_MAX_PARALLEL_DOWNLOADS;
+  private int maxParallelDownloads = 8;
   private Duration maxRetryTimeout = Duration.ZERO;
 
   public HttpDownloader() {
@@ -80,6 +79,8 @@ public class HttpDownloader implements Downloader {
   public void setMaxParallelDownloads(int maxParallelDownloads) {
     if (maxParallelDownloads >= this.maxParallelDownloads) {
       // increase the number of possible parallel downloads
+      // This is a valid use of release(), as per the docs, "There is no requirement that a thread
+      // that releases a permit must have acquired that permit by calling acquire."
       semaphore.release(maxParallelDownloads - this.maxParallelDownloads);
     } else {
       // reduce the number of possible parallel downloads

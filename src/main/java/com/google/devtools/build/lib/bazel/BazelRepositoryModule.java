@@ -465,12 +465,10 @@ public class BazelRepositoryModule extends BlazeModule {
       if (repoOptions.httpMaxParallelDownloads > 0) {
         httpDownloader.setMaxParallelDownloads(repoOptions.httpMaxParallelDownloads);
       } else {
-        env.getReporter()
-            .handle(
-                Event.warn(
-                    "Ignoring request to set the maximum number of parallel downloads to a"
-                        + " non-positive value"));
-        httpDownloader.setMaxParallelDownloads(HttpDownloader.DEFAULT_MAX_PARALLEL_DOWNLOADS);
+        throw new AbruptExitException(
+            detailedExitCode(
+                "The maximum number of parallel downloads needs to be a positive number",
+                Code.BAD_DOWNLOADER_CONFIG));
       }
 
       if (repoOptions.repositoryOverrides != null) {
