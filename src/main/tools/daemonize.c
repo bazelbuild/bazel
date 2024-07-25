@@ -158,67 +158,19 @@ static void MoveToCgroup(pid_t pid, const char* cgroup_path) {
   if (mounts_fp != NULL) {
     char* line = NULL;
     size_t len = 0;
-    bool cpu_found = false;
-    bool memory_found = false;
-    while (getline(&line, &len, mounts_fp) != -1 && (!cpu_found || !memory_found)) {
+    while (getline(&line, &len, mounts_fp) != -1) {
       strtok(line, " ");
       char* fs_file = strtok(NULL, " ");
       char* fs_vfstype = strtok(NULL, " ");
-      if (strcmp(fs_vfstype, "cgroup") == 0) {
-        char* fs_mntops = strtok(NULL, " ");
-        bool is_cpu, is_mem = false;
-        char* opt = strtok(fs_mntops, ", ");
-        while (opt != NULL && (!cpu_found || !memory_found)) {
-          if (strcmp(opt, "cpu") == 0) {
-             is_cpu = cpu_found = true;
-          } else if (strcmp(opt, "memory") == 0) {
-             is_mem = memory_found = true;
-          }
-          opt = strtok(NULL, ", ");
+      if (strcmp(fs_vfstype, "cgroup") == 0 || strcmp(fs_vfstype, "cgroup2") == 0) {
+        char* procs_path = malloc(strlen(fs_file) + strlen(cgroup_path) + 14);
+        sprintf(procs_path, "%s%s/cgroup.procs", fs_file, cgroup_path);
+        FILE* procs = fopen(procs_path, "w");
+        if (procs != NULL) {
+          fprintf(procs, "%d", pid);
+          fclose(procs);
         }
-        if (is_cpu || is_mem) {
-          char* procs_path = malloc(strlen(fs_file) + strlen(cgroup_path) + 14);
-          int len = sprintf(procs_path, "%s%s/cgroup.procs", fs_file, cgroup_path);
-          FILE* procs = fopen(procs_path, "w");
-          if (procs != NULL) {
-            fprintf(procs, "%d", pid);
-            fclose(procs);
-          }
-          free(procs_path);
-        }
-      } else if (strcmp(fs_vfstype, "cgroup2") == 0) {
-        char* controllers_path = malloc(strlen(fs_file) + strlen(cgroup_path) + 20);
-        sprintf(controllers_path, "%s%s/cgroup.controllers", fs_file, cgroup_path);
-        FILE* controllers_f = fopen(controllers_path, "r");
-        if (controllers_f != NULL) {
-          char* controllers = NULL;
-          size_t len = 0;
-          if (getline(&controllers, &len, controllers_f) != -1) {
-            bool is_cpu, is_mem = false;
-            char* controller = strtok(controllers, " ");
-            while (controller != NULL && (!cpu_found || !memory_found)) {
-              if (strcmp(controller, "cpu") == 0) {
-                 is_cpu = cpu_found = true;
-              } else if (strcmp(controller, "memory") == 0) {
-                 is_mem = memory_found = true;
-              }
-              controller = strtok(controllers, " ");
-            }
-            if (is_cpu || is_mem) {
-              char* procs_path = malloc(strlen(fs_file) + strlen(cgroup_path) + 14);
-              sprintf(procs_path, "%s%s/cgroup.procs", fs_file, cgroup_path);
-              FILE* procs = fopen(procs_path, "w");
-              if (procs != NULL) {
-                fprintf(procs, "%d", pid);
-                fclose(procs);
-              }
-              free(procs_path);
-            }
-          }
-          free(controllers);
-          fclose(controllers_f);
-        }
-        free(controllers_path);
+        free(procs_path);
       }
     }
     free(line);
