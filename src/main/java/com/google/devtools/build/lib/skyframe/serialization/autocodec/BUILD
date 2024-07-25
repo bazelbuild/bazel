@@ -121,7 +121,6 @@ java_library(
         "Initializers.java",
         "InterningObjectCodecFieldGenerators.java",
         "InterningObjectCodecGenerator.java",
-        "Marshallers.java",
         "SerializationCodeGenerator.java",
     ],
     deps = [
