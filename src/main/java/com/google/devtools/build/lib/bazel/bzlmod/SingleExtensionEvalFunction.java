@@ -98,18 +98,19 @@ import net.starlark.java.syntax.Location;
 public class SingleExtensionEvalFunction implements SkyFunction {
   private final BlazeDirectories directories;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
-  private final DownloadManager downloadManager;
 
   private double timeoutScaling = 1.0;
   @Nullable private ProcessWrapper processWrapper = null;
   @Nullable private RepositoryRemoteExecutor repositoryRemoteExecutor = null;
+  @Nullable private DownloadManager downloadManager = null;
 
   public SingleExtensionEvalFunction(
-      BlazeDirectories directories,
-      Supplier<Map<String, String>> clientEnvironmentSupplier,
-      DownloadManager downloadManager) {
+      BlazeDirectories directories, Supplier<Map<String, String>> clientEnvironmentSupplier) {
     this.directories = directories;
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
+  }
+
+  public void setDownloadManager(DownloadManager downloadManager) {
     this.downloadManager = downloadManager;
   }
 

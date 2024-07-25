@@ -26,16 +26,19 @@ import java.net.URISyntaxException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 
 /** Prod implementation of {@link RegistryFactory}. */
 public class RegistryFactoryImpl implements RegistryFactory {
-  private final DownloadManager downloadManager;
+  @Nullable private DownloadManager downloadManager;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
 
-  public RegistryFactoryImpl(
-      DownloadManager downloadManager, Supplier<Map<String, String>> clientEnvironmentSupplier) {
-    this.downloadManager = downloadManager;
+  public RegistryFactoryImpl(Supplier<Map<String, String>> clientEnvironmentSupplier) {
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
+  }
+
+  public void setDownloadManager(DownloadManager downloadManager) {
+    this.downloadManager = downloadManager;
   }
 
   @Override

@@ -30,8 +30,6 @@ import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
-import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
-import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.BazelRulesModule;
 import com.google.devtools.build.lib.packages.BuildFileName;
@@ -136,10 +134,8 @@ public class BazelPackageLoader extends AbstractPackageLoader {
     public BazelPackageLoader buildImpl() {
       // Set up SkyFunctions and PrecomputedValues needed to make local repositories work correctly.
       RepositoryCache repositoryCache = new RepositoryCache();
-      HttpDownloader httpDownloader = new HttpDownloader();
-      DownloadManager downloadManager = new DownloadManager(repositoryCache, httpDownloader, httpDownloader);
       RegistryFactory registryFactory =
-          new RegistryFactoryImpl(downloadManager, Suppliers.ofInstance(ImmutableMap.of()));
+          new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of()));
 
       // Allow tests to override the following functions to use fake registry or custom built-in
       // modules
@@ -181,7 +177,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                   SkyFunctions.REPOSITORY_DIRECTORY,
                   new RepositoryDelegatorFunction(
                       BazelRepositoryModule.repositoryRules(),
-                      new StarlarkRepositoryFunction(downloadManager),
+                      new StarlarkRepositoryFunction(),
                       isFetch,
                       ImmutableMap::of,
                       directories,

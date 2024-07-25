@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
-import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -102,7 +101,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Mockito;
 
 /** Tests for module extension resolution. */
 @RunWith(JUnit4.class)
@@ -159,10 +157,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             .getPackageFactoryBuilderForTesting(directories)
             .build(ruleClassProvider, fileSystem);
     HashFunction hashFunction = fileSystem.getDigestFunction().getHashFunction();
-
-    DownloadManager downloadManager = Mockito.mock(DownloadManager.class);
-    StarlarkRepositoryFunction starlarkRepositoryFunction =
-        new StarlarkRepositoryFunction(downloadManager);
+    StarlarkRepositoryFunction starlarkRepositoryFunction = new StarlarkRepositoryFunction();
 
     ImmutableMap<String, RepositoryFunction> repositoryHandlers =
         ImmutableMap.of(LocalRepositoryRule.NAME, new LocalRepositoryFunction());
@@ -249,7 +244,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                 .put(SkyFunctions.SINGLE_EXTENSION, new SingleExtensionFunction())
                 .put(
                     SkyFunctions.SINGLE_EXTENSION_EVAL,
-                    new SingleExtensionEvalFunction(directories, ImmutableMap::of, downloadManager))
+                    new SingleExtensionEvalFunction(directories, ImmutableMap::of))
                 .put(
                     SkyFunctions.REGISTRY,
                     new RegistryFunction(registryFactory, directories.getWorkspace()))

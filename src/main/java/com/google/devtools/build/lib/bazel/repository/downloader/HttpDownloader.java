@@ -55,38 +55,20 @@ public class HttpDownloader implements Downloader {
   private static final Locale LOCALE = Locale.getDefault();
 
   private final Semaphore semaphore;
-  private float timeoutScaling = 1.0f;
-  private int maxAttempts = 0;
-  private int maxParallelDownloads = 8;
-  private Duration maxRetryTimeout = Duration.ZERO;
+  private final float timeoutScaling;
+  private final int maxAttempts;
+  private final Duration maxRetryTimeout;
 
-  public HttpDownloader() {
+  public HttpDownloader(
+      int maxAttempts, Duration maxRetryTimeout, int maxParallelDownloads, float timeoutScaling) {
+    this.maxAttempts = maxAttempts;
+    this.maxRetryTimeout = maxRetryTimeout;
     semaphore = new Semaphore(maxParallelDownloads, true);
-  }
-
-  public void setTimeoutScaling(float timeoutScaling) {
     this.timeoutScaling = timeoutScaling;
   }
 
-  public void setMaxAttempts(int maxAttempts) {
-    this.maxAttempts = maxAttempts;
-  }
-
-  public void setMaxRetryTimeout(Duration maxRetryTimeout) {
-    this.maxRetryTimeout = maxRetryTimeout;
-  }
-
-  public void setMaxParallelDownloads(int maxParallelDownloads) {
-    if (maxParallelDownloads >= this.maxParallelDownloads) {
-      // increase the number of possible parallel downloads
-      // This is a valid use of release(), as per the docs, "There is no requirement that a thread
-      // that releases a permit must have acquired that permit by calling acquire."
-      semaphore.release(maxParallelDownloads - this.maxParallelDownloads);
-    } else {
-      // reduce the number of possible parallel downloads
-      semaphore.acquireUninterruptibly(this.maxParallelDownloads - maxParallelDownloads);
-    }
-    this.maxParallelDownloads = maxParallelDownloads;
+  public HttpDownloader() {
+    this(0, Duration.ZERO, 8, 1.0f);
   }
 
   @Override
