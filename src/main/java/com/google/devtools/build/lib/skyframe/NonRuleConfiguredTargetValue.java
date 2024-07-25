@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+
 import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -21,21 +22,25 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.errorprone.annotations.Keep;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-import java.io.IOException;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import javax.annotation.Nullable;
 
 /** A non-rule configured target in the context of a Skyframe graph. */
 @Immutable
 @ThreadSafe
+// Reached via OutputFileConfiguredTarget.
+@AutoCodec(explicitlyAllowClass = RuleConfiguredTarget.class)
 public final class NonRuleConfiguredTargetValue
     extends BaseRuleConfiguredTargetValue<ConfiguredTarget> implements ConfiguredTargetValue {
+
+  @AutoCodec.Instantiator
+  @VisibleForSerialization
+  NonRuleConfiguredTargetValue(
+      ConfiguredTarget configuredTarget) {
+    // Transitive packages are not serialized.
+    this(configuredTarget, null);
+  }
 
   NonRuleConfiguredTargetValue(
       ConfiguredTarget configuredTarget, @Nullable NestedSet<Package> transitivePackages) {
@@ -47,45 +52,5 @@ public final class NonRuleConfiguredTargetValue
     return MoreObjects.toStringHelper(this)
         .add("configuredTarget", getConfiguredTarget())
         .toString();
-  }
-
-  @Keep // used reflectively
-  private static final class Codec extends DeferredObjectCodec<NonRuleConfiguredTargetValue> {
-    @Override
-    public Class<NonRuleConfiguredTargetValue> getEncodedClass() {
-      return NonRuleConfiguredTargetValue.class;
-    }
-
-    @Override
-    public void serialize(
-        SerializationContext context, NonRuleConfiguredTargetValue obj, CodedOutputStream codedOut)
-        throws SerializationException, IOException {
-      // Reached via OutputFileConfiguredTarget.
-      context.addExplicitlyAllowedClass(RuleConfiguredTarget.class);
-      context.serialize(obj.getConfiguredTarget(), codedOut);
-    }
-
-    @Override
-    public DeferredValue<NonRuleConfiguredTargetValue> deserializeDeferred(
-        AsyncDeserializationContext context, CodedInputStream codedIn)
-        throws SerializationException, IOException {
-      var builder = new DeserializationBuilder();
-      context.deserialize(codedIn, builder, DeserializationBuilder::setConfiguredTarget);
-      return builder;
-    }
-  }
-
-  private static final class DeserializationBuilder
-      implements DeferredObjectCodec.DeferredValue<NonRuleConfiguredTargetValue> {
-    private ConfiguredTarget configuredTarget;
-
-    @Override
-    public NonRuleConfiguredTargetValue call() {
-      return new NonRuleConfiguredTargetValue(configuredTarget, /* transitivePackages= */ null);
-    }
-
-    private static void setConfiguredTarget(DeserializationBuilder builder, Object value) {
-      builder.configuredTarget = (ConfiguredTarget) value;
-    }
   }
 }
