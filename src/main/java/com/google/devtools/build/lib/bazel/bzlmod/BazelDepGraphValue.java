@@ -15,7 +15,6 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableBiMap;
@@ -67,15 +66,8 @@ public abstract class BazelDepGraphValue implements SkyValue {
             .build();
 
     ImmutableMap<ModuleKey, Module> emptyDepGraph = ImmutableMap.of(ModuleKey.ROOT, root);
-
     ImmutableMap<RepositoryName, ModuleKey> canonicalRepoNameLookup =
-        emptyDepGraph.keySet().stream()
-            .collect(
-                toImmutableMap(
-                    // All modules in the empty dep graph (just the root module) have an empty
-                    // version, so the choice of including it in the canonical repo name does not
-                    // matter.
-                    ModuleKey::getCanonicalRepoNameWithoutVersion, key -> key));
+        ImmutableMap.of(RepositoryName.MAIN, ModuleKey.ROOT);
 
     return BazelDepGraphValue.create(
         emptyDepGraph,
@@ -83,7 +75,7 @@ public abstract class BazelDepGraphValue implements SkyValue {
         ImmutableList.of(),
         ImmutableTable.of(),
         ImmutableMap.of(),
-        '~');
+        '+');
   }
 
   /**

@@ -85,7 +85,7 @@ public abstract class ModuleKey {
     return getCanonicalRepoName(/* includeVersion= */ true, semantics);
   }
 
-  public RepositoryName getCanonicalRepoNameWithVersion() {
+  public RepositoryName getCanonicalRepoNameWithVersionForTesting() {
     return getCanonicalRepoNameWithVersion(StarlarkSemantics.DEFAULT);
   }
 
@@ -98,7 +98,7 @@ public abstract class ModuleKey {
     return getCanonicalRepoName(/* includeVersion= */ false, semantics);
   }
 
-  public RepositoryName getCanonicalRepoNameWithoutVersion() {
+  public RepositoryName getCanonicalRepoNameWithoutVersionForTesting() {
     return getCanonicalRepoNameWithoutVersion(StarlarkSemantics.DEFAULT);
   }
 
@@ -137,7 +137,7 @@ public abstract class ModuleKey {
       suffix = "";
     }
     return RepositoryName.createUnvalidated(
-        String.format("%s%s%s", getName(), usePlus ? "+" : "~", suffix));
+        String.format("%s%c%s", getName(), usePlus ? '+' : '~', suffix));
   }
 
   public static ModuleKey fromString(String s) throws Version.ParseException {

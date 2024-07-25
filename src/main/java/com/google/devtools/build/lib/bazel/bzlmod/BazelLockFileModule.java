@@ -123,7 +123,8 @@ public class BazelLockFileModule extends BlazeModule {
             // we'll need to 1) keep it around for a while; 2) be careful not to parse the rest of
             // the lockfile to avoid triggering parsing errors ('~' will be an invalid character in
             // repo names eventually). So we just increment the lockfile version if '+' is being
-            // used.
+            // used. This does mean that, while this hack exists, normal increments of the lockfile
+            // version need to be done by 2 at a time (i.e. keep LOCK_FILE_VERSION an odd number).
             .setLockFileVersion(
                 depGraphValue.getRepoNameSeparator() == '+'
                     ? BazelLockFileValue.LOCK_FILE_VERSION + 1

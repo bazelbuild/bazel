@@ -89,7 +89,7 @@ public class ExtensionArgTest {
             .buildOrThrow();
     ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames =
         depGraph.keySet().stream()
-            .collect(toImmutableMap(k -> k, ModuleKey::getCanonicalRepoNameWithVersion));
+            .collect(toImmutableMap(k -> k, ModuleKey::getCanonicalRepoNameWithVersionForTesting));
     ImmutableBiMap<String, ModuleKey> baseModuleDeps = ImmutableBiMap.of("fred", key);
     ImmutableBiMap<String, ModuleKey> baseModuleUnusedDeps = ImmutableBiMap.of();
 
@@ -118,7 +118,7 @@ public class ExtensionArgTest {
             .buildOrThrow();
     ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames =
         depGraph.keySet().stream()
-            .collect(toImmutableMap(k -> k, ModuleKey::getCanonicalRepoNameWithVersion));
+            .collect(toImmutableMap(k -> k, ModuleKey::getCanonicalRepoNameWithVersionForTesting));
     ImmutableBiMap<String, ModuleKey> baseModuleDeps = ImmutableBiMap.of("fred", key);
     ImmutableBiMap<String, ModuleKey> baseModuleUnusedDeps = ImmutableBiMap.of();
 
@@ -162,7 +162,7 @@ public class ExtensionArgTest {
             .buildOrThrow();
     ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames =
         depGraph.keySet().stream()
-            .collect(toImmutableMap(k -> k, ModuleKey::getCanonicalRepoNameWithVersion));
+            .collect(toImmutableMap(k -> k, ModuleKey::getCanonicalRepoNameWithVersionForTesting));
     ImmutableBiMap<String, ModuleKey> baseModuleDeps =
         ImmutableBiMap.of("foo1", foo1, "foo2", foo2);
     ImmutableBiMap<String, ModuleKey> baseModuleUnusedDeps = ImmutableBiMap.of();
