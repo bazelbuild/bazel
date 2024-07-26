@@ -153,7 +153,7 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     if (moduleKey == null) {
       return Optional.empty();
     }
-    return Optional.of(bazelDepGraphValue.getDepGraph().get(moduleKey).getRepoSpec());
+    return Optional.ofNullable(bazelDepGraphValue.getDepGraph().get(moduleKey).getRepoSpec());
   }
 
   @Nullable

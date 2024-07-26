@@ -519,6 +519,19 @@ class ModCommandTest(test_base.TestBase):
         stderr,
     )
 
+  # fix for https://github.com/bazelbuild/bazel/issues/22587
+  def testShowRepoThrowsNonexistentRepo(self):
+    _, _, stderr = self.RunBazel(
+        ['mod', 'show_repo', '<root>'],
+        allow_failure=True,
+        rstrip=True,
+    )
+    self.assertIn(
+        "ERROR: In repo argument <root>: no such repo. Type 'bazel help mod' "
+	'for syntax and help.',
+        stderr,
+    )
+
   def testDumpRepoMapping(self):
     _, stdout, _ = self.RunBazel(
         [
