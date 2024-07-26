@@ -855,7 +855,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_enable_first_class_macros";
   public static final String EXPERIMENTAL_ENABLE_SCL_DIALECT = "-experimental_enable_scl_dialect";
   public static final String ENABLE_BZLMOD = "+enable_bzlmod";
-  public static final String ENABLE_WORKSPACE = "+enable_workspace";
+  public static final String ENABLE_WORKSPACE = "-enable_workspace";
   public static final String EXPERIMENTAL_ISOLATED_EXTENSION_USAGES =
       "-experimental_isolated_extension_usages";
   public static final String INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW =
