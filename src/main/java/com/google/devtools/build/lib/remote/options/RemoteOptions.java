@@ -422,12 +422,12 @@ public final class RemoteOptions extends CommonRemoteOptions {
 
   @Option(
       name = "remote_use_output_paths",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "If enabled, check if the remote server(s) support remote execution API v2.1 or newer."
-              + "If yes, use the newer Command.output_paths field. Default is false.")
+              + "If yes, use the newer Command.output_paths field. Default is true.")
   public boolean useOutputPaths;
 
   @Option(
