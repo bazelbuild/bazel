@@ -14,7 +14,6 @@
 
 #include "src/tools/launcher/python_launcher.h"
 
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -57,9 +56,9 @@ ExitCode PythonBinaryLauncher::Launch() {
 
   vector<wstring> args = this->GetCommandlineArguments();
   wstring python_file;
-  auto python_file_short_path = this->GetLaunchInfoByKeyIfSet(PYTHON_FILE_SHORT_PATH);
-  if (python_file_short_path) {
-    python_file = Rlocation(python_file_short_path.value(), false);
+  wstring python_file_short_path = this->GetLaunchInfoByKeyOrEmpty(PYTHON_FILE_SHORT_PATH);
+  if (!python_file_short_path.empty()) {
+    python_file = Rlocation(python_file_short_path, false);
   } else {
     wstring use_zip_file = this->GetLaunchInfoByKey(USE_ZIP_FILE);
     if (use_zip_file == L"1") {

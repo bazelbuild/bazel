@@ -15,7 +15,6 @@
 #ifndef BAZEL_SRC_TOOLS_LAUNCHER_LAUNCHER_H_
 #define BAZEL_SRC_TOOLS_LAUNCHER_LAUNCHER_H_
 
-#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -50,7 +49,7 @@ class BinaryLauncherBase {
 
   // Get launch information based on a launch info key.
   std::wstring GetLaunchInfoByKey(const std::string& key);
-  std::optional<std::wstring> GetLaunchInfoByKeyIfSet(const std::string& key);
+  std::wstring GetLaunchInfoByKeyOrEmpty(const std::string& key);
 
   // Get the original command line arguments passed to this binary.
   const std::vector<std::wstring>& GetCommandlineArguments() const;

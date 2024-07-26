@@ -22,7 +22,6 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
-#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -198,13 +197,12 @@ wstring BinaryLauncherBase::GetLaunchInfoByKey(const string& key) {
   return item->second;
 }
 
-std::optional<wstring> BinaryLauncherBase::GetLaunchInfoByKeyIfSet(const string& key) {
+wstring BinaryLauncherBase::GetLaunchInfoByKeyOrEmpty(const std::string &key) {
     auto item = launch_info.find(key);
     if (item == launch_info.end()) {
-        return {};
-        die(L"Cannot find key \"%hs\" from launch data.\n", key.c_str());
+        return L"";
     }
-    return {item->second};
+    return item->second;
 }
 
 const vector<wstring>& BinaryLauncherBase::GetCommandlineArguments() const {
