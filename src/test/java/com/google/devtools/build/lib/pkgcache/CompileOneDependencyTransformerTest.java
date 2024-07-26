@@ -547,6 +547,46 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
   }
 
   @Test
+  public void testHeaderOnlyLibrary() throws Exception {
+    // By default, we assume parse_headers is enabled (via --features + toolchain).
+    scratch.file(
+        "a/BUILD",
+        "cc_library(name = 'h', hdrs = ['h.h'])",
+        "cc_library(name = 'l', srcs = ['l.cc'], deps = [':h'])");
+    assertThat(parseListCompileOneDep("a/h.h")).containsExactlyElementsIn(labels("//a:h"));
+
+    // parse_headers explicitly disabled on the header-only target, use its reverse dep.
+    scratch.file(
+        "b/BUILD",
+        "cc_library(name = 'h', hdrs = ['h.h'], features = ['-parse_headers'])",
+        "cc_library(name = 'l', srcs = ['l.cc'], deps = [':h'])");
+    assertThat(parseListCompileOneDep("b/h.h")).containsExactlyElementsIn(labels("//b:l"));
+
+    // ... but if it has sources, the target itself is ok.
+    scratch.file(
+        "c/BUILD",
+        "cc_library(name = 'h', hdrs = ['h.h'], srcs = ['h.cc'], features = ['-parse_headers'])",
+        "cc_library(name = 'l', srcs = ['l.cc'], deps = [':h'])");
+    assertThat(parseListCompileOneDep("c/h.h")).containsExactlyElementsIn(labels("//c:h"));
+
+    // parse_headers disabled in the package
+    scratch.file(
+        "d/BUILD",
+        "package(features = ['-parse_headers'])",
+        "cc_library(name = 'h', hdrs = ['h.h'])",
+        "cc_library(name = 'l', srcs = ['l.cc'], deps = [':h'])");
+    assertThat(parseListCompileOneDep("d/h.h")).containsExactlyElementsIn(labels("//d:l"));
+
+    // parse_headers disabled in the package and enabled on the target, so enabled
+    scratch.file(
+        "e/BUILD",
+        "package(features = ['-parse_headers'])",
+        "cc_library(name = 'h', hdrs = ['h.h'], features = ['parse_headers'])",
+        "cc_library(name = 'l', srcs = ['l.cc'], deps = [':h'])");
+    assertThat(parseListCompileOneDep("e/h.h")).containsExactlyElementsIn(labels("//e:h"));
+  }
+
+  @Test
   public void testFallBackToHeaderOnlyLibrary() throws Exception {
     scratch.file("a/BUILD", "cc_library(name = 'h', hdrs = ['a.h'], features = ['parse_headers'])");
     assertThat(parseListCompileOneDep("a/a.h")).containsExactlyElementsIn(labels("//a:h"));
