@@ -47,7 +47,6 @@ import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.OutputSymlink;
 import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.RequestMetadata;
-import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import build.bazel.remote.execution.v2.Tree;
 import com.github.benmanes.caffeine.cache.Cache;
@@ -195,6 +194,8 @@ public class RemoteExecutionService {
   private final OutputService outputService;
 
   @Nullable private final Scrubber scrubber;
+
+  private Boolean useOutputPaths;
 
   public RemoteExecutionService(
       Executor executor,
@@ -572,6 +573,65 @@ public class RemoteExecutionService {
     remoteActionBuildingSemaphore.release();
   }
 
+  private synchronized void initUseOutputPaths() {
+    // If this has already been initialized, return
+    if (this.useOutputPaths != null) {
+      return;
+    }
+    // Default value
+    this.useOutputPaths = true;
+
+    try {
+      // If both Remote Executor and Remote Cache are configured,
+      // use the highest version that is supported by both server to compare.
+      if (remoteExecutor != null && remoteCache != null) {
+        var executorSupportStatus =
+            ClientApiVersion.current.checkServerSupportedVersions(
+                remoteExecutor.getServerCapabilities());
+        var cacheSupportStatus =
+            ClientApiVersion.current.checkServerSupportedVersions(
+                remoteCache.getServerCapabilities());
+
+        ApiVersion highestSupportedApiVersion = ApiVersion.low;
+        if (executorSupportStatus.isSupported() && cacheSupportStatus.isSupported()) {
+          var executorHighestVersion = executorSupportStatus.getHighestSupportedVersion();
+          var cacheHighestVersion = cacheSupportStatus.getHighestSupportedVersion();
+
+          var commonServerVersion =
+              executorHighestVersion.compareTo(cacheHighestVersion) <= 0
+                  ? executorHighestVersion
+                  : cacheHighestVersion;
+          this.useOutputPaths = commonServerVersion.compareTo(ApiVersion.twoPointOne) >= 0;
+          return;
+        }
+      }
+
+      if (remoteExecutor != null) {
+        var capabilities = remoteExecutor.getServerCapabilities();
+        if (capabilities != null) {
+          var supportStatus = ClientApiVersion.current.checkServerSupportedVersions(capabilities);
+          if (supportStatus.isSupported()) {
+            this.useOutputPaths =
+                supportStatus.getHighestSupportedVersion().compareTo(ApiVersion.twoPointOne) >= 0;
+            return;
+          }
+        }
+      }
+      if (remoteCache != null) {
+        var capabilities = remoteCache.getServerCapabilities();
+        if (capabilities != null) {
+          var supportStatus = ClientApiVersion.current.checkServerSupportedVersions(capabilities);
+          if (supportStatus.isSupported()) {
+            this.useOutputPaths =
+                supportStatus.getHighestSupportedVersion().compareTo(ApiVersion.twoPointOne) >= 0;
+          }
+        }
+      }
+    } catch (IOException e) {
+      // If we can't determine the server capabilities, use the default value.
+    }
+  }
+
   /** Creates a new {@link RemoteAction} instance from spawn. */
   public RemoteAction buildRemoteAction(Spawn spawn, SpawnExecutionContext context)
       throws IOException, ExecException, ForbiddenActionInputException, InterruptedException {
@@ -598,23 +658,12 @@ public class RemoteExecutionService {
         platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
       }
 
-      var readCachePolicy = getReadCachePolicy(spawn);
-      var writeCachePolicy = getWriteCachePolicy(spawn);
-      ServerCapabilities capabilities =
-          mayBeExecutedRemotely(spawn)
-              ? remoteExecutor.getServerCapabilities()
-              : writeCachePolicy.allowRemoteCache() ? remoteCache.getServerCapabilities : null;
-      var useOutputPaths = true;
-      if (capabilities != null) {
-        var supportStatus = ClientApiVersion.current.checkServerSupportedVersions(capabilities);
-        if (supportStatus.isSupported()) {
-          useOutputPaths =
-              supportStatus.getHighestSupportedVersion().compareTo(ApiVersion.twoPointOne) >= 0;
-        }
+      if (this.useOutputPaths == null) {
+        initUseOutputPaths();
       }
       Command command =
           buildCommand(
-              useOutputPaths,
+              this.useOutputPaths,
               spawn.getOutputFiles(),
               spawn.getArguments(),
               spawn.getEnvironment(),
@@ -638,7 +687,7 @@ public class RemoteExecutionService {
               buildRequestId, commandId, actionKey.getDigest().getHash(), spawn.getResourceOwner());
       RemoteActionExecutionContext remoteActionExecutionContext =
           RemoteActionExecutionContext.create(
-              spawn, context, metadata, writeCachePolicy, readCachePolicy);
+              spawn, context, metadata, getWriteCachePolicy(spawn), getReadCachePolicy(spawn));
 
       return new RemoteAction(
           spawn,

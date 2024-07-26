@@ -51,7 +51,6 @@ import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import build.bazel.remote.execution.v2.Tree;
-import build.bazel.semver.SemVer;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
@@ -158,11 +157,10 @@ public class RemoteExecutionServiceTest {
 
   // In the past, Bazel only supports RemoteApi version 2.0.
   // Use this to ensure we are backward compatible with Servers that only support 2.0.
-  private final ApiVersion oldApiVersion = new ApiVersion(SemVer.newBuilder().setMajor(2).build());
   private final ServerCapabilities legacyRemoteExecutorCapabilities =
       ServerCapabilities.newBuilder()
-          .setLowApiVersion(oldApiVersion.toSemVer())
-          .setHighApiVersion(oldApiVersion.toSemVer())
+          .setLowApiVersion(ApiVersion.twoPointZero.toSemVer())
+          .setHighApiVersion(ApiVersion.twoPointZero.toSemVer())
           .setExecutionCapabilities(ExecutionCapabilities.newBuilder().setExecEnabled(true).build())
           .build();
 
@@ -216,6 +214,7 @@ public class RemoteExecutionServiceTest {
     outErr = new FileOutErr(stdout, stderr);
 
     cache = spy(new InMemoryRemoteCache(spy(new InMemoryCacheClient()), remoteOptions, digestUtil));
+    doReturn(remoteExecutorCapabilities).when(cache).getServerCapabilities();
     executor = mock(RemoteExecutionClient.class);
     when(executor.getServerCapabilities()).thenReturn(remoteExecutorCapabilities);
 
@@ -243,6 +242,7 @@ public class RemoteExecutionServiceTest {
 
   @Test
   public void legacy_buildRemoteAction_withRegularFileAsOutput() throws Exception {
+    doReturn(legacyRemoteExecutorCapabilities).when(cache).getServerCapabilities();
     when(executor.getServerCapabilities()).thenReturn(legacyRemoteExecutorCapabilities);
     PathFragment execPath = execRoot.getRelative("path/to/tree").asFragment();
     Spawn spawn =
@@ -279,6 +279,7 @@ public class RemoteExecutionServiceTest {
 
   @Test
   public void legacy_buildRemoteAction_withTreeArtifactAsOutput() throws Exception {
+    doReturn(legacyRemoteExecutorCapabilities).when(cache).getServerCapabilities();
     when(executor.getServerCapabilities()).thenReturn(legacyRemoteExecutorCapabilities);
     Spawn spawn =
         new SpawnBuilder("dummy")
@@ -316,6 +317,7 @@ public class RemoteExecutionServiceTest {
 
   @Test
   public void legacy_buildRemoteAction_withUnresolvedSymlinkAsOutput() throws Exception {
+    doReturn(legacyRemoteExecutorCapabilities).when(cache).getServerCapabilities();
     when(executor.getServerCapabilities()).thenReturn(legacyRemoteExecutorCapabilities);
     Spawn spawn =
         new SpawnBuilder("dummy")
@@ -351,6 +353,7 @@ public class RemoteExecutionServiceTest {
 
   @Test
   public void legacy_buildRemoteAction_withActionInputFileAsOutput() throws Exception {
+    doReturn(legacyRemoteExecutorCapabilities).when(cache).getServerCapabilities();
     when(executor.getServerCapabilities()).thenReturn(legacyRemoteExecutorCapabilities);
     Spawn spawn =
         new SpawnBuilder("dummy")
