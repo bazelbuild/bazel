@@ -223,6 +223,7 @@ def _create_executable(
         _create_windows_exe_launcher(
             ctx,
             output = executable,
+            use_zip_file = build_zip_enabled,
             python_binary_path = runtime_details.executable_interpreter_path,
             python_file = zip_file if build_zip_enabled else main_py,
         )
@@ -316,6 +317,7 @@ def _create_windows_exe_launcher(
         *,
         output,
         python_binary_path,
+        use_zip_file,
         python_file):
     launch_info = ctx.actions.args()
     launch_info.use_param_file("%s", use_always = True)
@@ -327,6 +329,7 @@ def _create_windows_exe_launcher(
         format = "symlink_runfiles_enabled=%s",
     )
     launch_info.add(python_binary_path, format = "python_bin_path=%s")
+    launch_info.add("1" if use_zip_file else "0", format = "use_zip_file=%s")
     launch_info.add(python_file.short_path, format = "python_file_short_path=%s")
 
     ctx.actions.run(

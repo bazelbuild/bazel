@@ -49,6 +49,7 @@ class BinaryLauncherBase {
 
   // Get launch information based on a launch info key.
   std::wstring GetLaunchInfoByKey(const std::string& key);
+  std::optional<std::wstring> GetLaunchInfoByKeyIfSet(const std::string& key);
 
   // Get the original command line arguments passed to this binary.
   const std::vector<std::wstring>& GetCommandlineArguments() const;

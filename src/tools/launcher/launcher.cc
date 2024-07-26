@@ -197,6 +197,15 @@ wstring BinaryLauncherBase::GetLaunchInfoByKey(const string& key) {
   return item->second;
 }
 
+std::optional<wstring> BinaryLauncherBase::GetLaunchInfoByKeyIfSet(const string& key) {
+    auto item = launch_info.find(key);
+    if (item == launch_info.end()) {
+        return {};
+        die(L"Cannot find key \"%hs\" from launch data.\n", key.c_str());
+    }
+    return {item->second};
+}
+
 const vector<wstring>& BinaryLauncherBase::GetCommandlineArguments() const {
   return this->commandline_arguments;
 }
