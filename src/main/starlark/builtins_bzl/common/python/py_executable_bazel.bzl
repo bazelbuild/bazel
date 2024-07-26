@@ -209,8 +209,8 @@ def _create_executable(
     # 2. (non-Windows) A self-executable zip file of a bootstrap template based program.
     # 3. (Windows) A native Windows executable that finds and launches
     #    the actual underlying Bazel program (one of the above). Note that
-    #    it implicitly assumes one of the above is located next to it, and
-    #    that --build_python_zip defaults to true for Windows.
+    #    it implicitly assumes that --build_python_zip defaults to true for
+    #    Windows.
 
     should_create_executable_zip = False
     bootstrap_output = None
@@ -220,21 +220,24 @@ def _create_executable(
         else:
             bootstrap_output = executable
     else:
+        if build_zip_enabled:
+            python_file = zip_file
+        else:
+            # On Windows, the main executable has an "exe" extension, so
+            # here we re-use the un-extensioned name for the bootstrap output.
+            bootstrap_output = ctx.actions.declare_file(base_executable_name)
+            python_file = bootstrap_output
+
+            # The launcher looks for the non-zip executable next to
+            # itself, so add it to the default outputs.
+            extra_files_to_build.append(bootstrap_output)
         _create_windows_exe_launcher(
             ctx,
             output = executable,
             use_zip_file = build_zip_enabled,
             python_binary_path = runtime_details.executable_interpreter_path,
-            python_file = zip_file if build_zip_enabled else main_py,
+            python_file = python_file,
         )
-        if not build_zip_enabled:
-            # On Windows, the main executable has an "exe" extension, so
-            # here we re-use the un-extensioned name for the bootstrap output.
-            bootstrap_output = ctx.actions.declare_file(base_executable_name)
-
-            # The launcher looks for the non-zip executable next to
-            # itself, so add it to the default outputs.
-            extra_files_to_build.append(bootstrap_output)
 
     if should_create_executable_zip:
         if bootstrap_output != None:
