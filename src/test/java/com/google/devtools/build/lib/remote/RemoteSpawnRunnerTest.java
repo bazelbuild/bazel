@@ -295,6 +295,7 @@ public class RemoteSpawnRunnerTest {
     // Test that if a non-cachable spawn is executed locally due to the local fallback,
     // that its result is not uploaded to the remote cache.
 
+    remoteOptions.useOutputPaths = true;
     remoteOptions.remoteAcceptCached = true;
     remoteOptions.remoteLocalFallback = true;
     remoteOptions.remoteUploadLocalResults = true;

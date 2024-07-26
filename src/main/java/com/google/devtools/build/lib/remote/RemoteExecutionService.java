@@ -580,6 +580,10 @@ public class RemoteExecutionService {
     }
     // Default value
     this.useOutputPaths = true;
+    if (!remoteOptions.useOutputPaths) {
+      this.useOutputPaths = false;
+      return;
+    }
 
     try {
       // If both Remote Executor and Remote Cache are configured,

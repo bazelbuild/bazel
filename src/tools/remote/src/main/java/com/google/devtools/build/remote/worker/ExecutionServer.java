@@ -285,7 +285,7 @@ final class ExecutionServer extends ExecutionImplBase {
     workingDirectory.createDirectoryAndParents();
 
     List<Path> outputs;
-    if (workerOptions.legacyApi) {
+    if (command.getOutputPathsCount() == 0) {
       outputs =
           new ArrayList<>(command.getOutputDirectoriesCount() + command.getOutputFilesCount());
       for (String output : command.getOutputFilesList()) {

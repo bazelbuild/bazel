@@ -189,6 +189,7 @@ public class RemoteExecutionServiceTest {
     reporter.addHandler(eventHandler);
 
     remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.useOutputPaths = true;
 
     fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
 
