@@ -114,7 +114,6 @@ java_library(
         "NotifyOnActionCacheHit.java",
         "ParamFileInfo.java",
         "ParameterFile.java",
-        "PathStrippable.java",
         "RemoteArtifactChecker.java",
         "ResourceEstimator.java",
         "RunningActionEvent.java",
@@ -315,7 +314,6 @@ java_library(
         ":commandline_item",
         ":fileset_output_symlink",
         ":package_roots",
-        ":path_strippable",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect",
@@ -469,15 +467,6 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "path_strippable",
-    srcs = ["PathStrippable.java"],
-    deps = [
-        ":commandline_item",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
     ],
 )
 
