@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROU
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -79,7 +78,8 @@ public class ExecutionTransitionFactory
       Caffeine.newBuilder().weakValues().build();
 
   @Override
-  public PatchTransition create(AttributeTransitionData dataWithTargetAttributes) {
+  public PatchTransition create(AttributeTransitionData dataWithTargetAttributes)
+      throws TransitionCreationException {
     // Delete AttributeTransitionData.attributes() so the exec transition doesn't try to read the
     // attributes of the target it's attached to. This is for two reasons:
     //
@@ -93,11 +93,13 @@ public class ExecutionTransitionFactory
             .executionPlatform(dataWithTargetAttributes.executionPlatform())
             .build();
 
+    if (data.analysisData() == null) {
+      throw new TransitionCreationException(
+          "expected a Starlark exec transition definition, but was null");
+    }
     @SuppressWarnings("unchecked")
     TransitionFactory<AttributeTransitionData> starlarkExecTransitionProvider =
-        (TransitionFactory<AttributeTransitionData>)
-            Verify.verifyNotNull(
-                data.analysisData(), "expected a Starlark exec transition definition");
+        (TransitionFactory<AttributeTransitionData>) data.analysisData();
 
     return transitionInstanceCache.get(
         // A Starlark transition keeps the same instance unless we modify its .bzl file.
