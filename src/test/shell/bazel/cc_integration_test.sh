@@ -50,7 +50,7 @@ EOF
 function test_cc_library_include_prefix_external_repository() {
   r="$TEST_TMPDIR/r"
   mkdir -p "$TEST_TMPDIR/r/foo/v1"
-  create_workspace_with_default_repos "$TEST_TMPDIR/r/WORKSPACE"
+  touch "$TEST_TMPDIR/r/REPO.bazel"
   echo "#define FOO 42" > "$TEST_TMPDIR/r/foo/v1/foo.h"
   cat > "$TEST_TMPDIR/r/foo/BUILD" <<EOF
 cc_library(
@@ -61,6 +61,8 @@ cc_library(
   visibility = ["//visibility:public"],
 )
 EOF
+  cat >> MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "foo",
   path = "$TEST_TMPDIR/r",
@@ -107,7 +109,7 @@ function test_include_validation_sandbox_disabled() {
   local workspace="${FUNCNAME[0]}"
   mkdir -p "${workspace}"/lib
 
-  create_workspace_with_default_repos "${workspace}/WORKSPACE"
+  touch "${workspace}/MODULE.bazel"
   cat >> "${workspace}/BUILD" << EOF
 cc_library(
     name = "foo",
@@ -256,7 +258,7 @@ EOF
 function setup_cc_starlark_api_test() {
   local pkg="$1"
 
-  create_workspace_with_default_repos "$pkg"/WORKSPACE
+  touch "$pkg"/MODULE.bazel
 
   mkdir "$pkg"/include_dir
   touch "$pkg"/include_dir/include.h
@@ -881,6 +883,11 @@ EOF
 }
 
 function test_disable_cc_toolchain_detection() {
+  cat >> MODULE.bazel <<'EOF'
+cc_configure = use_extension("@bazel_tools//tools/cpp:cc_configure.bzl", "cc_configure_extension")
+use_repo(cc_configure, "local_config_cc")
+EOF
+
   cat > ok.cc <<EOF
 #include <stdio.h>
 int main() {
@@ -1108,7 +1115,7 @@ EOF
 function test_include_external_genrule_header() {
   REPO_PATH=$TEST_TMPDIR/repo
   mkdir -p "$REPO_PATH"
-  create_workspace_with_default_repos "$REPO_PATH/WORKSPACE"
+  touch "$REPO_PATH/REPO.bazel"
   mkdir "$REPO_PATH/foo"
   cat > "$REPO_PATH/foo/BUILD" <<'EOF'
 cc_library(
@@ -1141,6 +1148,8 @@ void sayhello() {
 }
 EOF
 
+  cat >> MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'repo', path='$REPO_PATH')
 EOF
 
@@ -1338,7 +1347,8 @@ EOF
 }
 
 function external_cc_test_setup() {
-  cat >> WORKSPACE <<'EOF'
+  cat >> MODULE.bazel <<'EOF'
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "other_repo",
   path = "other_repo",
@@ -1346,7 +1356,7 @@ local_repository(
 EOF
 
   mkdir -p other_repo
-  touch other_repo/WORKSPACE
+  touch other_repo/REPO.bazel
 
   mkdir -p other_repo/lib
   cat > other_repo/lib/BUILD <<'EOF'
@@ -1437,7 +1447,8 @@ function test_external_cc_test_local_sibling_repository_layout() {
 }
 
 function test_bazel_current_repository_define() {
-  cat >> WORKSPACE <<'EOF'
+  cat >> MODULE.bazel <<'EOF'
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "other_repo",
   path = "other_repo",
@@ -1504,7 +1515,7 @@ int main() {
 EOF
 
   mkdir -p other_repo
-  touch other_repo/WORKSPACE
+  touch other_repo/REPO.bazel
 
   mkdir -p other_repo/pkg
   cat > other_repo/pkg/BUILD.bazel <<'EOF'
@@ -1554,12 +1565,12 @@ EOF
   expect_log "in pkg/library.cpp: ''"
 
   bazel run @other_repo//pkg:binary &>"$TEST_log" || fail "Run should succeed"
-  expect_log "in external/other_repo/pkg/binary.cpp: 'other_repo'"
+  expect_log "in external/_main~_repo_rules~other_repo/pkg/binary.cpp: '_main~_repo_rules~other_repo'"
   expect_log "in pkg/library.cpp: ''"
 
   bazel test --test_output=streamed \
     @other_repo//pkg:test &>"$TEST_log" || fail "Test should succeed"
-  expect_log "in external/other_repo/pkg/test.cpp: 'other_repo'"
+  expect_log "in external/_main~_repo_rules~other_repo/pkg/test.cpp: '_main~_repo_rules~other_repo'"
   expect_log "in pkg/library.cpp: ''"
 }
 
@@ -1673,6 +1684,11 @@ EOF
 
 function test_cc_test_no_target_coverage_dep() {
   # Regression test for https://github.com/bazelbuild/bazel/issues/16961
+  cat >> MODULE.bazel <<'EOF'
+remote_coverage_tools_extension = use_extension("@bazel_tools//tools/test:extensions.bzl", "remote_coverage_tools_extension")
+use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
+EOF
+
   local package="${FUNCNAME[0]}"
   mkdir -p "${package}"
 
@@ -1692,6 +1708,12 @@ EOF
 }
 
 function test_cc_test_no_coverage_tools_dep_without_coverage() {
+
+  cat >> MODULE.bazel <<'EOF'
+remote_coverage_tools_extension = use_extension("@bazel_tools//tools/test:extensions.bzl", "remote_coverage_tools_extension")
+use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
+EOF
+
   # Regression test for https://github.com/bazelbuild/bazel/issues/16961 and
   # https://github.com/bazelbuild/bazel/issues/15088.
   local package="${FUNCNAME[0]}"
@@ -1817,6 +1839,11 @@ EOF
 }
 
 function setup_find_optional_cpp_toolchain() {
+
+  cat >> MODULE.bazel <<'EOF'
+bazel_dep(name = "platforms", version = "0.0.9")
+EOF
+
   mkdir -p pkg
 
   cat > pkg/BUILD <<'EOF'
@@ -1963,6 +1990,7 @@ EOF
 
   bazel build \
     --noenable_bzlmod \
+    --enable_workspace \
     --experimental_sibling_repository_layout \
     "@@$WORKSPACE_NAME//a:a" || fail "build failed"
 }
