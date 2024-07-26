@@ -1840,9 +1840,7 @@ EOF
 
 function setup_find_optional_cpp_toolchain() {
 
-  cat >> MODULE.bazel <<'EOF'
-bazel_dep(name = "platforms", version = "0.0.9")
-EOF
+  add_platforms "MODULE.bazel"
 
   mkdir -p pkg
 

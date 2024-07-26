@@ -529,6 +529,34 @@ function setup_objc_test_support() {
   IOS_SDK_VERSION=$(xcrun --sdk iphoneos --show-sdk-version)
 }
 
+# Add platform to the MODULE.bazel file
+function add_platforms() {
+  cat >> "$1" <<EOF
+bazel_dep(name = "platforms", version = "0.0.10")
+EOF
+}
+
+# Add bazel_skylib to the MODULE.bazel file
+function add_bazel_skylib() {
+  cat >> "$1" <<EOF
+bazel_dep(name = "bazel_skylib", version = "1.7.1")
+EOF
+}
+
+# Add rules_testing to the MODULE.bazel file
+function add_rules_testing() {
+  cat >> "$1" <<EOF
+bazel_dep(name = "rules_testing", version = "0.6.0")
+EOF
+}
+
+# Add rules_python to the MODULE.bazel file
+function add_rules_python() {
+  cat >> "$1" <<EOF
+bazel_dep(name = "rules_python", version = "0.34.0")
+EOF
+}
+
 # Set up a lockfile to avoid accessing BCR for tests with a clean workspace.
 function write_default_lockfile() {
   module_lockfile=${1:-MODULE.bazel.lock}
