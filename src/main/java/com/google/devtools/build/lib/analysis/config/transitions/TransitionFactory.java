@@ -31,6 +31,13 @@ package com.google.devtools.build.lib.analysis.config.transitions;
  */
 public interface TransitionFactory<T extends TransitionFactory.Data> {
 
+  /** Used to report exceptions during transition creation. */
+  class TransitionCreationException extends RuntimeException {
+    public TransitionCreationException(String message) {
+      super(message);
+    }
+  }
+
   /** Enum that describes what type of transition a TransitionFactory creates. */
   enum TransitionType {
     /** A transition that can be used for rules or attributes. */
@@ -55,7 +62,7 @@ public interface TransitionFactory<T extends TransitionFactory.Data> {
   interface Data {}
 
   /** Returns a new {@link ConfigurationTransition}, based on the given data. */
-  ConfigurationTransition create(T data);
+  ConfigurationTransition create(T data) throws TransitionCreationException;
 
   /**
    * Returns a {@link TransitionType} to clarify what data (if any) the factory requires to create a
