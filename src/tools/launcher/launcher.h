@@ -15,6 +15,7 @@
 #ifndef BAZEL_SRC_TOOLS_LAUNCHER_LAUNCHER_H_
 #define BAZEL_SRC_TOOLS_LAUNCHER_LAUNCHER_H_
 
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>

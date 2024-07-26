@@ -14,6 +14,7 @@
 
 #include "src/tools/launcher/python_launcher.h"
 
+#include <optional>
 #include <string>
 #include <vector>
 
