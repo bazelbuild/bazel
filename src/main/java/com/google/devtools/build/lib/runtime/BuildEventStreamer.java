@@ -139,15 +139,65 @@ public class BuildEventStreamer {
   @GuardedBy("this")
   private boolean closed;
 
-  /** See {@link #canWriteWithoutFlush(boolean)}. */
-  private enum ProgressState {
-    ACCEPT_STDERR_AND_STDOUT,
-    ACCEPT_STDOUT_ONLY,
-    REQUIRE_FLUSH,
+  /**
+   * The current state of buffered progress events.
+   *
+   * <p>The typical case in which stdout and stderr alternate is output of the form:
+   *
+   * <pre>
+   * INFO: From Executing genrule //:genrule:
+   * &lt;genrule stdout output>
+   * [123 / 1234] 16 actions running
+   * </pre>
+   *
+   * We want the relative order of the stdout and stderr output to be preserved on a best-effort
+   * basis and thus flush the two streams into a progress event before we are seeing a second type
+   * transition. We are free to declare either stdout or stderr to come first. We choose stderr here
+   * as that provides the more natural split in the example above: The INFO line and the stdout of
+   * the action it precedes both end up in the same progress event.
+   */
+  enum ProgressBufferState {
+    ACCEPT_STDERR_AND_STDOUT {
+      @Override
+      ProgressBufferState nextStateOnStderr() {
+        return ACCEPT_STDERR_AND_STDOUT;
+      }
+
+      @Override
+      ProgressBufferState nextStateOnStdout() {
+        return ACCEPT_STDOUT;
+      }
+    },
+    ACCEPT_STDOUT {
+      @Override
+      ProgressBufferState nextStateOnStderr() {
+        return REQUIRE_FLUSH;
+      }
+
+      @Override
+      ProgressBufferState nextStateOnStdout() {
+        return ACCEPT_STDOUT;
+      }
+    },
+    REQUIRE_FLUSH {
+      @Override
+      ProgressBufferState nextStateOnStderr() {
+        return REQUIRE_FLUSH;
+      }
+
+      @Override
+      ProgressBufferState nextStateOnStdout() {
+        return REQUIRE_FLUSH;
+      }
+    };
+
+    abstract ProgressBufferState nextStateOnStderr();
+
+    abstract ProgressBufferState nextStateOnStdout();
   }
 
-  private final AtomicReference<ProgressState> progressState =
-      new AtomicReference<>(ProgressState.ACCEPT_STDERR_AND_STDOUT);
+  private final AtomicReference<ProgressBufferState> progressBufferState =
+      new AtomicReference<>(ProgressBufferState.ACCEPT_STDERR_AND_STDOUT);
 
   /** Holds the futures for the closing of each transport */
   private ImmutableMap<BuildEventTransport, ListenableFuture<Void>> closeFuturesMap =
@@ -266,7 +316,7 @@ public class BuildEventStreamer {
           if (outErrProvider != null) {
             allOut = orEmpty(outErrProvider.getOut());
             allErr = orEmpty(outErrProvider.getErr());
-            progressState.set(ProgressState.ACCEPT_STDERR_AND_STDOUT);
+            progressBufferState.set(ProgressBufferState.ACCEPT_STDERR_AND_STDOUT);
           }
           linkEvents = new ArrayList<>();
           List<BuildEvent> finalLinkEvents = linkEvents;
@@ -626,29 +676,13 @@ public class BuildEventStreamer {
   }
 
   /** Whether the given output type can be written without first flushing the streamer. */
-  boolean canWriteWithoutFlush(boolean isStderr) {
-    // The typical case in which stdout and stderr alternate is output of the form:
-    //   INFO: From Executing genrule //:genrule:
-    //   <genrule stdout output>
-    //   [123 / 1234] 16 actions running
-    // We want the relative order of the stdout and stderr output to be preserved on a best-effort
-    // basis and thus flush the two streams into a progress event before we are seeing a second
-    // type transition. We are free to declare either stdout or stderr to come first. We choose
-    // stderr here as that provides the more natural split in the example above: The INFO line and
-    // the stdout of the action it precedes both end up in the same progress event.
+  boolean canBufferProgressWrite(boolean isStderr) {
     var newState =
-        progressState.updateAndGet(
-            previousState ->
-                switch (previousState) {
-                  case ACCEPT_STDERR_AND_STDOUT ->
-                      isStderr
-                          ? ProgressState.ACCEPT_STDERR_AND_STDOUT
-                          : ProgressState.ACCEPT_STDOUT_ONLY;
-                  case ACCEPT_STDOUT_ONLY ->
-                      isStderr ? ProgressState.REQUIRE_FLUSH : ProgressState.ACCEPT_STDOUT_ONLY;
-                  case REQUIRE_FLUSH -> ProgressState.REQUIRE_FLUSH;
-                });
-    return newState != ProgressState.REQUIRE_FLUSH;
+        progressBufferState.updateAndGet(
+            isStderr
+                ? ProgressBufferState::nextStateOnStderr
+                : ProgressBufferState::nextStateOnStdout);
+    return newState != ProgressBufferState.REQUIRE_FLUSH;
   }
 
   // @GuardedBy annotation is doing lexical analysis that doesn't understand the closures below
@@ -662,7 +696,7 @@ public class BuildEventStreamer {
       if (outErrProvider != null) {
         allOut = orEmpty(outErrProvider.getOut());
         allErr = orEmpty(outErrProvider.getErr());
-        progressState.set(ProgressState.ACCEPT_STDERR_AND_STDOUT);
+        progressBufferState.set(ProgressBufferState.ACCEPT_STDERR_AND_STDOUT);
       }
       if (Iterables.isEmpty(allOut) && Iterables.isEmpty(allErr)) {
         // Nothing to flush; avoid generating an unneeded progress event.
@@ -766,7 +800,7 @@ public class BuildEventStreamer {
     if (outErrProvider != null) {
       allOut = orEmpty(outErrProvider.getOut());
       allErr = orEmpty(outErrProvider.getErr());
-      progressState.set(ProgressState.ACCEPT_STDERR_AND_STDOUT);
+      progressBufferState.set(ProgressBufferState.ACCEPT_STDERR_AND_STDOUT);
     }
     consumeAsPairsofStrings(
         allOut,

@@ -99,7 +99,7 @@ public class SynchronizedOutputStream extends OutputStream {
     while (!didWrite) {
       synchronized (this) {
         if ((this.count + (long) count < maxBufferedLength || this.count == 0)
-            && streamer.canWriteWithoutFlush(isStderr)) {
+            && streamer.canBufferProgressWrite(isStderr)) {
           if (this.count + (long) count >= (long) buf.length) {
             // We need to increase the buffer; if within the permissible range range for array
             // sizes, we at least double it, otherwise we only increase as far as needed.

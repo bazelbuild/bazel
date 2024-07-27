@@ -45,7 +45,7 @@ public class SynchronizedOutputStreamTest {
             /* maxBufferedLength= */ 5, /* maxChunkSize= */ 5, /* isStderr= */ false);
 
     BuildEventStreamer mockStreamer = mock(BuildEventStreamer.class);
-    doAnswer(inv -> true).when(mockStreamer).canWriteWithoutFlush(false);
+    doAnswer(inv -> true).when(mockStreamer).canBufferProgressWrite(false);
     underTest.registerStreamer(mockStreamer);
 
     underTest.write(new byte[] {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'});
@@ -72,7 +72,7 @@ public class SynchronizedOutputStreamTest {
             })
         .when(mockStreamer)
         .flush();
-    doAnswer(inv -> true).when(mockStreamer).canWriteWithoutFlush(false);
+    doAnswer(inv -> true).when(mockStreamer).canBufferProgressWrite(false);
     underTest.registerStreamer(mockStreamer);
 
     underTest.write(new byte[] {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'});
@@ -95,7 +95,7 @@ public class SynchronizedOutputStreamTest {
             /* maxBufferedLength= */ 2, /* maxChunkSize= */ 1, /* isStderr= */ false);
 
     BuildEventStreamer mockStreamer = mock(BuildEventStreamer.class);
-    doAnswer(inv -> true).when(mockStreamer).canWriteWithoutFlush(false);
+    doAnswer(inv -> true).when(mockStreamer).canBufferProgressWrite(false);
     underTest.registerStreamer(mockStreamer);
 
     underTest.write(new byte[] {'a', 'b', 'c', 'd'});

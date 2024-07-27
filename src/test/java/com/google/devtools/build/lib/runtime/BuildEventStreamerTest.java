@@ -114,7 +114,7 @@ import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Tests {@link com.google.devtools.build.lib.runtime.BuildEventStreamer}. */
+/** Tests {@link BuildEventStreamer}. */
 @RunWith(TestParameterInjector.class)
 public final class BuildEventStreamerTest extends FoundationTestCase {
 
