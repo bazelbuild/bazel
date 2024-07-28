@@ -835,6 +835,7 @@ public final class StarlarkRuleContext
         ruleContext.getToolchainContexts();
 
     return toolchainContexts.getExecGroupNames().stream()
+        .filter(e -> ruleContext.isAutomaticExecGroup(e))
         .flatMap(
             execGroupName ->
                 toolchainContexts

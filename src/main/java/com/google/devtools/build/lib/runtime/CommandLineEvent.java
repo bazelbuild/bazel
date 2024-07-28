@@ -190,9 +190,14 @@ public abstract class CommandLineEvent implements BuildEventWithOrderConstraint 
       CommandLineSection.Builder builder =
           CommandLineSection.newBuilder().setSectionLabel("residual");
       if (commandName.equals("run")
-          && !commandOptions.getOptions(BuildEventProtocolOptions.class)
-              .includeResidueInRunBepEvent) {
-        builder.setChunkList(ChunkList.newBuilder().addChunk("REDACTED"));
+          && !commandOptions.getOptions(BuildEventProtocolOptions.class).includeResidueInRunBepEvent
+          && !commandOptions.getResidue().isEmpty()) {
+        String target = commandOptions.getResidue().get(0);
+        ChunkList.Builder residual = ChunkList.newBuilder().addChunk(target);
+        if (commandOptions.getResidue().size() > 1) {
+          residual.addChunk("REDACTED");
+        }
+        builder.setChunkList(residual);
       } else {
         builder.setChunkList(ChunkList.newBuilder().addAllChunk(commandOptions.getResidue()));
       }

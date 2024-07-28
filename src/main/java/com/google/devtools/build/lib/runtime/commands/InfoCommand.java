@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
+
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -56,7 +58,6 @@ import com.google.devtools.build.lib.runtime.commands.info.PackagePathInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.ReleaseInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.ServerLogInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.ServerPidInfoItem;
-import com.google.devtools.build.lib.runtime.commands.info.SkyfocusWorkingSetItem;
 import com.google.devtools.build.lib.runtime.commands.info.StarlarkSemanticsInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeAfterGcInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeInfoItem;
@@ -85,6 +86,7 @@ import java.util.stream.Collectors;
 /** Implementation of 'blaze info'. */
 @Command(
     name = "info",
+    buildPhase = NONE,
     allowResidue = true,
     binaryStdOut = true,
     help = "resource:info.txt",
@@ -296,8 +298,7 @@ public class InfoCommand implements BlazeCommand {
             new DefaultPackagePathInfoItem(commandOptions),
             new StarlarkSemanticsInfoItem(commandOptions),
             new WorkerMetricsInfoItem(),
-            new LocalResourcesInfoItem(),
-            new SkyfocusWorkingSetItem());
+            new LocalResourcesInfoItem());
     ImmutableMap.Builder<String, InfoItem> result = new ImmutableMap.Builder<>();
     for (InfoItem item : hardwiredInfoItems) {
       result.put(item.getName(), item);

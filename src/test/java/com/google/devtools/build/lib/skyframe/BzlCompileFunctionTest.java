@@ -77,7 +77,7 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
   @Test
   public void testIOExceptionOccursDuringReading() throws Exception {
     reporter.removeHandler(failFastHandler);
-    scratch.file("/workspace/tools/build_rules/BUILD");
+    scratch.file("/workspace/tools/test_build_rules/BUILD");
     scratch.file(
         "foo/BUILD",
         """

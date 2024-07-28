@@ -488,6 +488,149 @@ public interface SpawnResult {
     }
   }
 
+  /**
+   * A helper class for wrapping an existing {@link SpawnResult} and modifying a subset of its
+   * methods.
+   */
+  class DelegateSpawnResult implements SpawnResult {
+    private final SpawnResult delegate;
+
+    public DelegateSpawnResult(SpawnResult delegate) {
+      this.delegate = delegate;
+    }
+
+    @Override
+    public boolean setupSuccess() {
+      return delegate.setupSuccess();
+    }
+
+    @Override
+    public boolean isCatastrophe() {
+      return delegate.isCatastrophe();
+    }
+
+    @Override
+    public Status status() {
+      return delegate.status();
+    }
+
+    @Override
+    public int exitCode() {
+      return delegate.exitCode();
+    }
+
+    @Override
+    @Nullable
+    public FailureDetail failureDetail() {
+      return delegate.failureDetail();
+    }
+
+    @Override
+    @Nullable
+    public String getExecutorHostName() {
+      return delegate.getExecutorHostName();
+    }
+
+    @Override
+    public String getRunnerName() {
+      return delegate.getRunnerName();
+    }
+
+    @Override
+    public String getRunnerSubtype() {
+      return delegate.getRunnerSubtype();
+    }
+
+    @Override
+    @Nullable
+    public Instant getStartTime() {
+      return delegate.getStartTime();
+    }
+
+    @Override
+    public int getWallTimeInMs() {
+      return delegate.getWallTimeInMs();
+    }
+
+    @Override
+    public int getUserTimeInMs() {
+      return delegate.getUserTimeInMs();
+    }
+
+    @Override
+    public int getSystemTimeInMs() {
+      return delegate.getSystemTimeInMs();
+    }
+
+    @Override
+    @Nullable
+    public Long getNumBlockOutputOperations() {
+      return delegate.getNumBlockOutputOperations();
+    }
+
+    @Override
+    @Nullable
+    public Long getNumBlockInputOperations() {
+      return delegate.getNumBlockInputOperations();
+    }
+
+    @Override
+    @Nullable
+    public Long getNumInvoluntaryContextSwitches() {
+      return delegate.getNumInvoluntaryContextSwitches();
+    }
+
+    @Override
+    @Nullable
+    public Long getMemoryInKb() {
+      return delegate.getMemoryInKb();
+    }
+
+    @Override
+    public SpawnMetrics getMetrics() {
+      return delegate.getMetrics();
+    }
+
+    @Override
+    public boolean isCacheHit() {
+      return delegate.isCacheHit();
+    }
+
+    @Override
+    public String getFailureMessage() {
+      return delegate.getFailureMessage();
+    }
+
+    @Override
+    @Nullable
+    public InputStream getInMemoryOutput(ActionInput output) {
+      return delegate.getInMemoryOutput(output);
+    }
+
+    @Override
+    public String getDetailMessage(
+        String message, boolean catastrophe, boolean forciblyRunRemotely) {
+      return delegate.getDetailMessage(message, catastrophe, forciblyRunRemotely);
+    }
+
+    @Override
+    @Nullable
+    public MetadataLog getActionMetadataLog() {
+      return delegate.getActionMetadataLog();
+    }
+
+    @Override
+    public boolean wasRemote() {
+      return delegate.wasRemote();
+    }
+
+    @Override
+    @Nullable
+    public Digest getDigest() {
+      return delegate.getDigest();
+    }
+  }
+
   /** Builder class for {@link SpawnResult}. */
   final class Builder {
     private int exitCode;

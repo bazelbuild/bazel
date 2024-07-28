@@ -22,16 +22,22 @@ import static com.google.devtools.build.lib.util.ResourceUsage.PressureStallIndi
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.actions.ResourceEstimator;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.profiler.NetworkMetricsCollector.SystemNetworkUsages;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
+import com.google.devtools.build.skyframe.InMemoryGraph;
+import com.google.devtools.build.skyframe.InMemoryNodeEntry;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.sun.management.OperatingSystemMXBean;
 import java.io.IOException;
@@ -42,6 +48,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
@@ -57,6 +64,7 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
   private final boolean collectLoadAverage;
   private final boolean collectSystemNetworkUsage;
   private final boolean collectResourceManagerEstimation;
+  private final InMemoryGraph graph;
 
   private volatile boolean stopLocalUsageCollection;
   private volatile boolean profilingStarted;
@@ -76,17 +84,50 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
   private final ResourceEstimator resourceEstimator;
   private final boolean collectPressureStallIndicators;
 
+  private final boolean collectSkyframeCounts;
+
+  private record SkyFunctionProfilerTasks(ProfilerTask totalCounter, ProfilerTask doneCounter) {}
+
+  private static final ImmutableMap<SkyFunctionName, SkyFunctionProfilerTasks>
+      SKYFUNCTION_PROFILER_TASKS =
+          ImmutableMap.of(
+              SkyFunctions.PACKAGE,
+              new SkyFunctionProfilerTasks(
+                  ProfilerTask.PACKAGE_SKYFUNCTION, ProfilerTask.PACKAGE_SKYFUNCTION_DONE),
+              SkyFunctions.BZL_LOAD,
+              new SkyFunctionProfilerTasks(
+                  ProfilerTask.BZL_LOAD_SKYFUNCTION, ProfilerTask.BZL_LOAD_SKYFUNCTION_DONE),
+              SkyFunctions.GLOB,
+              new SkyFunctionProfilerTasks(
+                  ProfilerTask.GLOB_SKYFUNCTION, ProfilerTask.GLOB_SKYFUNCTION_DONE),
+              SkyFunctions.GLOBS,
+              new SkyFunctionProfilerTasks(
+                  ProfilerTask.GLOBS_SKYFUNCTION, ProfilerTask.GLOBS_SKYFUNCTION_DONE),
+              SkyFunctions.CONFIGURED_TARGET,
+              new SkyFunctionProfilerTasks(
+                  ProfilerTask.CONFIGURED_TARGET_SKYFUNCTION,
+                  ProfilerTask.CONFIGURED_TARGET_SKYFUNCTION_DONE),
+              SkyFunctions.ASPECT,
+              new SkyFunctionProfilerTasks(
+                  ProfilerTask.ASPECT_SKYFUNCTION, ProfilerTask.ASPECT_SKYFUNCTION_DONE),
+              SkyFunctions.ACTION_EXECUTION,
+              new SkyFunctionProfilerTasks(
+                  ProfilerTask.ACTION_EXECUTION_SKYFUNCTION,
+                  ProfilerTask.ACTION_EXECUTION_SKYFUNCTION_DONE));
+
   private Collector collector;
 
   public CollectLocalResourceUsage(
       BugReporter bugReporter,
       WorkerProcessMetricsCollector workerProcessMetricsCollector,
       ResourceEstimator resourceEstimator,
+      @Nullable InMemoryGraph graph,
       boolean collectWorkerDataInProfiler,
       boolean collectLoadAverage,
       boolean collectSystemNetworkUsage,
       boolean collectResourceManagerEstimation,
-      boolean collectPressureStallIndicators) {
+      boolean collectPressureStallIndicators,
+      boolean collectSkyframeCounts) {
     this.bugReporter = checkNotNull(bugReporter);
     this.collectWorkerDataInProfiler = collectWorkerDataInProfiler;
     this.workerProcessMetricsCollector = workerProcessMetricsCollector;
@@ -96,6 +137,12 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
     this.resourceEstimator = resourceEstimator;
     this.collectPressureStallIndicators = collectPressureStallIndicators;
     this.collector = new Collector();
+
+    Preconditions.checkState(
+        !collectSkyframeCounts || graph != null,
+        "--experimental_collect_skyframe_counts_in_profiler requires the Skyframe graph.");
+    this.collectSkyframeCounts = collectSkyframeCounts;
+    this.graph = graph;
   }
 
   @Override
@@ -156,6 +203,20 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
               ImmutableList.of(
                   ProfilerTask.PRESSURE_STALL_FULL_MEMORY,
                   ProfilerTask.PRESSURE_STALL_SOME_MEMORY));
+        }
+
+        if (collectSkyframeCounts) {
+          SKYFUNCTION_PROFILER_TASKS
+              .values()
+              .forEach(
+                  skyFunctionProfilerTask -> {
+                    enabledCounters.add(skyFunctionProfilerTask.totalCounter());
+                    enabledCounters.add(skyFunctionProfilerTask.doneCounter());
+                    stackedTaskGroups.add(
+                        ImmutableList.of(
+                            skyFunctionProfilerTask.totalCounter(),
+                            skyFunctionProfilerTask.doneCounter()));
+                  });
         }
 
         for (ProfilerTask counter : enabledCounters) {
@@ -266,6 +327,20 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
           estimatedMemoryUsageInMb = resourceEstimator.getUsedMemoryInMb();
         }
 
+        Multiset<SkyFunctionName> skykeyDoneCounter = HashMultiset.create();
+        Multiset<SkyFunctionName> skykeyCounter = HashMultiset.create();
+        if (collectSkyframeCounts) {
+          for (InMemoryNodeEntry entry : graph.getAllNodeEntries()) {
+            SkyFunctionName name = entry.getKey().functionName();
+            if (SKYFUNCTION_PROFILER_TASKS.containsKey(name)) {
+              skykeyCounter.add(name);
+              if (entry.isDone()) {
+                skykeyDoneCounter.add(name);
+              }
+            }
+          }
+        }
+
         synchronized (CollectLocalResourceUsage.this) {
           addRange(ProfilerTask.LOCAL_CPU_USAGE, previousElapsed, nextElapsed, cpuLevel);
           if (memoryUsage != -1) {
@@ -328,6 +403,21 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
               estimatedMemoryUsageInMb);
           addRange(
               ProfilerTask.CPU_USAGE_ESTIMATION, previousElapsed, nextElapsed, estimatedCpuUsage);
+
+          for (Entry<SkyFunctionName, SkyFunctionProfilerTasks> entry :
+              SKYFUNCTION_PROFILER_TASKS.entrySet()) {
+            SkyFunctionName functionName = entry.getKey();
+            addRange(
+                entry.getValue().totalCounter(),
+                previousElapsed,
+                nextElapsed,
+                skykeyCounter.count(functionName));
+            addRange(
+                entry.getValue().doneCounter(),
+                previousElapsed,
+                nextElapsed,
+                skykeyDoneCounter.count(functionName));
+          }
         }
         previousElapsed = nextElapsed;
         previousCpuTimeNanos = nextCpuTimeNanos;

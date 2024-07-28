@@ -50,6 +50,9 @@ public final class WorkerMetricsInfoItem extends InfoItem {
             .append(workerMetrics.getProcessId())
             .append(", ")
             .append(workerMetrics.getMnemonic())
+            .append(" (hash: ")
+            .append(Long.toHexString(workerMetrics.getWorkerKeyHash()))
+            .append(")")
             .append(", ");
         List<WorkerStats> workerStats = workerMetrics.getWorkerStatsList();
         if (!workerStats.isEmpty()) {
@@ -68,6 +71,10 @@ public final class WorkerMetricsInfoItem extends InfoItem {
           }
           stringBuilder.append(remainingSeconds).append("s ago, ");
         }
+        stringBuilder
+            .append("executed ")
+            .append(workerMetrics.getActionsExecuted())
+            .append(" actions, ");
         if (workerMetrics.getIsSandbox()) {
           stringBuilder.append("sandboxed, ");
         }

@@ -237,7 +237,6 @@ class LauncherTest(test_base.TestBase):
     self.assertEqual(stdout, arguments)
 
   def testJavaBinaryLauncher(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'java_binary(',
         '  name = "foo",',
@@ -267,7 +266,6 @@ class LauncherTest(test_base.TestBase):
     self._buildJavaTargets(bazel_bin, '.exe' if self.IsWindows() else '')
 
   def testJavaBinaryArgumentPassing(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'java_binary(',
         '  name = "bin",',
@@ -288,7 +286,6 @@ class LauncherTest(test_base.TestBase):
     self._buildAndCheckArgumentPassing('foo', 'bin')
 
   def testShBinaryLauncher(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile(
         'foo/BUILD',
         [
@@ -331,7 +328,6 @@ class LauncherTest(test_base.TestBase):
     self._buildShBinaryTargets(bazel_bin, '.exe' if self.IsWindows() else '')
 
   def testShBinaryArgumentPassing(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'sh_binary(',
         '  name = "bin",',
@@ -354,7 +350,6 @@ class LauncherTest(test_base.TestBase):
     self._buildAndCheckArgumentPassing('foo', 'bin')
 
   def testPyBinaryLauncher(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile(
         'foo/foo.bzl',
         [
@@ -411,7 +406,6 @@ class LauncherTest(test_base.TestBase):
     self._buildPyTargets(bazel_bin, '.exe' if self.IsWindows() else '')
 
   def testPyBinaryArgumentPassing(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'py_binary(',
         '  name = "bin",',
@@ -428,7 +422,6 @@ class LauncherTest(test_base.TestBase):
 
   def testPyBinaryLauncherWithDifferentArgv0(self):
     """Test for https://github.com/bazelbuild/bazel/issues/14343."""
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'py_binary(',
         '  name = "bin",',
@@ -454,7 +447,6 @@ class LauncherTest(test_base.TestBase):
     # Skip this test on non-Windows platforms
     if not self.IsWindows():
       return
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'java_binary(',
         '  name = "foo",',
@@ -577,7 +569,6 @@ class LauncherTest(test_base.TestBase):
   def testWindowsNativeLauncherInNonEnglishPath(self):
     if not self.IsWindows():
       return
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('bin/BUILD', [
         'java_binary(',
         '  name = "bin_java",',
@@ -626,7 +617,6 @@ class LauncherTest(test_base.TestBase):
   def testWindowsNativeLauncherInLongPath(self):
     if not self.IsWindows():
       return
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile(
         'bin/BUILD',
         [
@@ -723,7 +713,6 @@ class LauncherTest(test_base.TestBase):
   def testWindowsNativeLauncherInvalidArgv0(self):
     if not self.IsWindows():
       return
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile(
         'bin/BUILD',
         [

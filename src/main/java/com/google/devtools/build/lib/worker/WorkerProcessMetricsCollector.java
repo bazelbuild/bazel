@@ -284,6 +284,4 @@ public class WorkerProcessMetricsCollector {
   public void beforeCommand() {
     pidToWorkerProcessMetrics.values().forEach(m -> m.onBeforeCommand());
   }
-
-  // TODO(b/238416583) Add deregister function
 }

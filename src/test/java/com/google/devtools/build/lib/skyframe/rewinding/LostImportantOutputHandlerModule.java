@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -34,117 +35,154 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 
 /**
  * Installs an {@link ImportantOutputHandler} that allows customizing lost outputs for rewinding
  * tests.
  */
-final class LostImportantOutputHandlerModule extends BlazeModule {
+public class LostImportantOutputHandlerModule extends BlazeModule {
 
   private final Set<String> pathsToConsiderLost = Sets.newConcurrentHashSet();
   private final Function<byte[], String> digestFn;
-  private PathFragment execRoot;
 
-  LostImportantOutputHandlerModule(Function<byte[], String> digestFn) {
+  protected LostImportantOutputHandlerModule(Function<byte[], String> digestFn) {
     this.digestFn = checkNotNull(digestFn);
   }
 
-  void addLostOutput(String execPath) {
+  final void addLostOutput(String execPath) {
     pathsToConsiderLost.add(execPath);
   }
 
-  void verifyAllLostOutputsConsumed() {
+  final void verifyAllLostOutputsConsumed() {
     assertThat(pathsToConsiderLost).isEmpty();
   }
 
   @Override
-  public void beforeCommand(CommandEnvironment env) {
-    env.getEventBus().register(this);
-  }
-
-  @Override
-  public void registerActionContexts(
+  public final void registerActionContexts(
       ModuleActionContextRegistry.Builder registryBuilder,
       CommandEnvironment env,
       BuildRequest buildRequest) {
-    execRoot = env.getExecRoot().asFragment();
-    registryBuilder.register(
-        ImportantOutputHandler.class,
-        new ImportantOutputHandler() {
-          @Override
-          public ImmutableMap<String, ActionInput> processOutputsAndGetLostArtifacts(
-              Iterable<Artifact> outputs,
-              ArtifactExpander expander,
-              InputMetadataProvider metadataProvider) {
-            return getLostOutputs(outputs, expander, metadataProvider);
-          }
-
-          @Override
-          public ImmutableMap<String, ActionInput> processRunfilesAndGetLostArtifacts(
-              PathFragment runfilesDir,
-              Map<PathFragment, Artifact> runfiles,
-              ArtifactExpander expander,
-              InputMetadataProvider metadataProvider) {
-            return getLostOutputs(runfiles.values(), expander, metadataProvider);
-          }
-        });
+    registryBuilder.register(ImportantOutputHandler.class, createOutputHandler(env));
   }
 
-  private ImmutableMap<String, ActionInput> getLostOutputs(
-      Iterable<Artifact> outputs,
-      ArtifactExpander expander,
-      InputMetadataProvider metadataProvider) {
-    ImmutableMap.Builder<String, ActionInput> lost = ImmutableMap.builder();
-    for (ActionInput output : expand(outputs, expander)) {
-      PathFragment execPath = output.getExecPath();
-      if (execPath.isAbsolute()) {
-        execPath = execPath.relativeTo(execRoot);
-      }
-      if (!pathsToConsiderLost.remove(execPath.getPathString())) {
-        continue;
-      }
-      FileArtifactValue metadata;
-      try {
-        metadata = metadataProvider.getInputMetadata(output);
-      } catch (IOException e) {
-        throw new IllegalStateException(e);
-      }
-      lost.put(digestFn.apply(metadata.getDigest()), output);
-    }
-    return lost.buildKeepingLast();
+  @ForOverride
+  protected ImportantOutputHandler createOutputHandler(CommandEnvironment env) {
+    return new MockImportantOutputHandler(env.getExecRoot().asFragment());
   }
 
-  private ImmutableList<ActionInput> expand(Iterable<Artifact> outputs, ArtifactExpander expander) {
-    return stream(outputs)
-        .flatMap(artifact -> expand(artifact, expander))
-        .collect(toImmutableList());
+  /**
+   * Returns whether the given output should be treated as lost.
+   *
+   * <p>If {@code true} is returned, the given output is removed from the set of lost outputs so
+   * that a subsequent call to this method with the same output will return {@code false}.
+   */
+  protected final boolean outputIsLost(PathFragment execPath) {
+    return pathsToConsiderLost.remove(execPath.getPathString());
   }
 
-  private Stream<? extends ActionInput> expand(Artifact output, ArtifactExpander expander) {
-    if (output.isTreeArtifact()) {
-      var children = expander.expandTreeArtifact(output).stream();
-      var archivedTreeArtifact = expander.getArchivedTreeArtifact(output);
-      return archivedTreeArtifact == null
-          ? children
-          : Stream.concat(children, Stream.of(archivedTreeArtifact));
+  private final class MockImportantOutputHandler implements ImportantOutputHandler {
+    private final PathFragment execRoot;
+
+    MockImportantOutputHandler(PathFragment execRoot) {
+      this.execRoot = execRoot;
     }
-    if (output.isFileset()) {
-      ImmutableList<FilesetOutputSymlink> links;
-      try {
-        links = expander.expandFileset(output);
-      } catch (MissingExpansionException e) {
-        throw new IllegalStateException(e);
+
+    @Override
+    public LostArtifacts processOutputsAndGetLostArtifacts(
+        Iterable<Artifact> outputs,
+        ArtifactExpander expander,
+        InputMetadataProvider metadataProvider) {
+      return getLostOutputs(outputs, expander, metadataProvider);
+    }
+
+    @Override
+    public LostArtifacts processRunfilesAndGetLostArtifacts(
+        PathFragment runfilesDir,
+        Map<PathFragment, Artifact> runfiles,
+        ArtifactExpander expander,
+        InputMetadataProvider metadataProvider) {
+      return getLostOutputs(runfiles.values(), expander, metadataProvider);
+    }
+
+    @Override
+    public void processTestOutputs(List<Path> testOutputs) {
+      throw new UnsupportedOperationException();
+    }
+
+    private LostArtifacts getLostOutputs(
+        Iterable<Artifact> outputs,
+        ArtifactExpander expander,
+        InputMetadataProvider metadataProvider) {
+      ImmutableMap.Builder<String, ActionInput> lost = ImmutableMap.builder();
+      ImmutableSetMultimap.Builder<ActionInput, Artifact> owners = ImmutableSetMultimap.builder();
+      for (OutputAndOwner outputAndOwner : expand(outputs, expander)) {
+        ActionInput output = outputAndOwner.output;
+        Artifact owner = outputAndOwner.owner;
+        PathFragment execPath = output.getExecPath();
+        if (execPath.isAbsolute()) {
+          execPath = execPath.relativeTo(execRoot);
+        }
+        if (!outputIsLost(execPath)) {
+          continue;
+        }
+        FileArtifactValue metadata;
+        try {
+          metadata = metadataProvider.getInputMetadata(output);
+        } catch (IOException e) {
+          throw new IllegalStateException(e);
+        }
+        lost.put(digestFn.apply(metadata.getDigest()), output);
+        if (owner != null) {
+          owners.put(output, owner);
+        }
       }
-      return links.stream()
-          .filter(FilesetOutputSymlink::isRelativeToExecRoot)
-          .map(link -> ActionInputHelper.fromPath(link.reconstituteTargetPath(execRoot)));
+      return new LostArtifacts(lost.buildKeepingLast(), owners.build()::get);
     }
-    return Stream.of(output);
+
+    private ImmutableList<OutputAndOwner> expand(
+        Iterable<Artifact> outputs, ArtifactExpander expander) {
+      return stream(outputs)
+          .flatMap(artifact -> expand(artifact, expander))
+          .collect(toImmutableList());
+    }
+
+    private Stream<OutputAndOwner> expand(Artifact output, ArtifactExpander expander) {
+      if (output.isTreeArtifact()) {
+        var children = expander.expandTreeArtifact(output).stream();
+        var archivedTreeArtifact = expander.getArchivedTreeArtifact(output);
+        var expansion =
+            archivedTreeArtifact == null
+                ? children
+                : Stream.concat(children, Stream.of(archivedTreeArtifact));
+        return expansion.map(child -> new OutputAndOwner(child, output));
+      }
+      if (output.isFileset()) {
+        ImmutableList<FilesetOutputSymlink> links;
+        try {
+          links = expander.expandFileset(output);
+        } catch (MissingExpansionException e) {
+          throw new IllegalStateException(e);
+        }
+        return links.stream()
+            .filter(FilesetOutputSymlink::isRelativeToExecRoot)
+            .map(
+                link ->
+                    new OutputAndOwner(
+                        ActionInputHelper.fromPath(link.reconstituteTargetPath(execRoot)), output));
+      }
+      return Stream.of(new OutputAndOwner(output, null));
+    }
+
+    private record OutputAndOwner(ActionInput output, @Nullable Artifact owner) {}
   }
 }

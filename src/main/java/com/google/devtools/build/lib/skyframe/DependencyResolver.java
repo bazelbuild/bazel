@@ -45,8 +45,10 @@ import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionCreationException;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyCache;
 import com.google.devtools.build.lib.analysis.producers.DependencyContext;
 import com.google.devtools.build.lib.analysis.producers.DependencyContextError;
 import com.google.devtools.build.lib.analysis.producers.DependencyContextProducer;
@@ -329,6 +331,7 @@ public final class DependencyResolver {
       ConfiguredTargetKey configuredTargetKey,
       RuleClassProvider ruleClassProvider,
       StarlarkTransitionCache transitionCache,
+      BuildConfigurationKeyCache buildConfigurationKeyCache,
       SemaphoreAcquirer semaphoreLocker,
       LookupEnvironment env,
       ExtendedEventHandler listener)
@@ -393,10 +396,12 @@ public final class DependencyResolver {
               configuredTargetKey,
               /* aspects= */ ImmutableList.of(),
               transitionCache,
+              buildConfigurationKeyCache,
               starlarkExecTransition.orElse(null),
               env,
               listener,
-              /* baseTargetPrerequisitesSupplier= */ null);
+              /* baseTargetPrerequisitesSupplier= */ null,
+              /* baseTargetUnloadedToolchainContexts= */ null);
       if (!transitiveRootCauses.isEmpty()) {
         NestedSet<Cause> causes = transitiveRootCauses.build();
         // TODO(bazel-team): consider reporting the error in this class vs. exporting it for
@@ -554,6 +559,18 @@ public final class DependencyResolver {
           e.asConfiguredValueCreationException(targetAndConfiguration);
       listener.handle(Event.error(target.getLocation(), cvce.getMessage()));
       throw new ReportedException(cvce);
+    } else if (untyped instanceof StarlarkExecTransitionLoadingException e) {
+      if (!e.getMessage().isEmpty()) {
+        // Report the error to the user.
+        listener.handle(Event.error(null, e.getMessage()));
+      }
+      throw new ReportedException(
+          new ConfiguredValueCreationException(
+              targetAndConfiguration.getTarget(),
+              configurationId(targetAndConfiguration.getConfiguration()),
+              e.getMessage(),
+              /* rootCauses= */ null,
+              /* detailedExitCode= */ null));
     } else {
       throw new IllegalStateException("unexpected exception with no appropriate handler", untyped);
     }
@@ -602,6 +619,9 @@ public final class DependencyResolver {
    * @param baseTargetPrerequisitesSupplier not null only in case of aspect evaluation. It provides
    *     a way to get the {@link ConfiguredTargetValue}s and {@link BuildConfigurationValue}s of the
    *     underlying target dependencies without creating a dependency edge from the aspect to them.
+   * @param baseTargetUnloadedToolchainContexts not null only in case of aspect evaluation. It's the
+   *     {@link UnloadedToolchainContext}s of the underlying target to support aspects toolchains
+   *     propagation.
    */
   // TODO(b/213351014): Make the control flow of this helper function more readable. This will
   //   involve making a corresponding change to State to match the control flow.
@@ -611,10 +631,12 @@ public final class DependencyResolver {
       ConfiguredTargetKey configuredTargetKey,
       ImmutableList<Aspect> aspects,
       StarlarkTransitionCache transitionCache,
+      BuildConfigurationKeyCache buildConfigurationKeyCache,
       @Nullable StarlarkAttributeTransitionProvider starlarkTransitionProvider,
       LookupEnvironment env,
       ExtendedEventHandler listener,
-      @Nullable BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier)
+      @Nullable BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier,
+      @Nullable ToolchainCollection<UnloadedToolchainContext> baseTargetUnloadedToolchainContexts)
       throws DependencyEvaluationException,
           ConfiguredValueCreationException,
           AspectCreationException,
@@ -638,7 +660,8 @@ public final class DependencyResolver {
                   ctgValue,
                   aspects,
                   dependencyContext.configConditions().asProviders(),
-                  toolchainContexts);
+                  toolchainContexts,
+                  baseTargetUnloadedToolchainContexts);
         } catch (DependencyResolutionHelpers.Failure e) {
           throw handleDependencyRootCauseError(ctgValue, e.getLocation(), e.getMessage(), listener);
         }
@@ -651,11 +674,13 @@ public final class DependencyResolver {
                         aspects,
                         starlarkTransitionProvider,
                         transitionCache,
+                        buildConfigurationKeyCache,
                         toolchainContexts,
                         dependencyLabels.attributeMap(),
                         state.transitiveState,
                         state.storedEvents,
-                        baseTargetPrerequisitesSupplier),
+                        baseTargetPrerequisitesSupplier,
+                        baseTargetUnloadedToolchainContexts),
                     dependencyLabels.labels(),
                     (DependencyMapProducer.ResultSink) state));
       }
@@ -709,6 +734,10 @@ public final class DependencyResolver {
             InvalidPlatformException invalidPlatformException = error.invalidPlatform();
             throw new ConfiguredValueCreationException(
                 ctgValue.getTarget(), invalidPlatformException.getMessage());
+          case TRANSITION_CREATION:
+            TransitionCreationException transitionCreationException = error.transitionCreation();
+            throw new ConfiguredValueCreationException(
+                ctgValue.getTarget(), transitionCreationException.getMessage());
         }
       }
       if (!state.transitiveState.hasRootCause() && state.dependencyMap == null) {

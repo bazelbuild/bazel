@@ -245,7 +245,7 @@ public class WorkspaceFactory {
         }
         try {
           Package.Builder builder =
-              Package.Builder.fromOrFailDisallowingSymbolicMacros(thread, "repository rules");
+              Package.Builder.fromOrFailAllowWorkspaceOnly(thread, "repository rules");
           // TODO(adonovan): this cast doesn't look safe!
           String externalRepoName = (String) kwargs.get("name");
           if (!allowOverride

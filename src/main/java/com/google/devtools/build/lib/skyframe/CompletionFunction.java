@@ -22,12 +22,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputDepOwners;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
@@ -40,6 +38,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifac
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.ImportantOutputException;
+import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifacts;
 import com.google.devtools.build.lib.actions.InputFileErrorException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
@@ -75,7 +74,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -140,8 +138,6 @@ public final class CompletionFunction<
         Environment env)
         throws InterruptedException;
   }
-
-  private static final Duration IMPORTANT_OUTPUT_HANDLER_LOGGING_THRESHOLD = Duration.ofMillis(100);
 
   private final PathResolverFactory pathResolverFactory;
   private final Completor<ValueT, ResultT, KeyT> completor;
@@ -291,7 +287,7 @@ public final class CompletionFunction<
 
     CompletionContext ctx =
         CompletionContext.create(
-            Maps.transformValues(treeArtifacts, TreeArtifactValue::getChildren),
+            treeArtifacts,
             expandedFilesets,
             key.topLevelArtifactContext().expandFilesets(),
             key.topLevelArtifactContext().fullyResolveFilesetSymlinks(),
@@ -305,19 +301,28 @@ public final class CompletionFunction<
     if (!rootCauses.isEmpty()) {
       Reset reset = null;
       if (!builtArtifacts.isEmpty()) {
-        reset =
-            informImportantOutputHandler(
-                key,
-                value,
-                env,
-                ImmutableList.copyOf(
-                    allArtifactsAreImportant
-                        ? builtArtifacts
-                        : Iterables.filter(builtArtifacts, importantArtifacts::contains)),
-                rootCauses,
-                ctx,
-                artifactsToBuild,
-                builtArtifacts);
+        // In error bubbling, we may be interrupted by Skyframe. Ensure that the interrupt doesn't
+        // prevent us from staging built artifacts and posting the failed event.
+        boolean interruptedDuringErrorBubbling = env.inErrorBubbling() && Thread.interrupted();
+        try {
+          reset =
+              informImportantOutputHandler(
+                  key,
+                  value,
+                  env,
+                  ImmutableList.copyOf(
+                      allArtifactsAreImportant
+                          ? builtArtifacts
+                          : Iterables.filter(builtArtifacts, importantArtifacts::contains)),
+                  rootCauses,
+                  ctx,
+                  artifactsToBuild,
+                  builtArtifacts);
+        } finally {
+          if (interruptedDuringErrorBubbling) {
+            Thread.currentThread().interrupt();
+          }
+        }
       }
       postFailedEvent(key, value, rootCauses, ctx, artifactsToBuild, builtArtifacts, env);
       if (reset != null) {
@@ -538,11 +543,11 @@ public final class CompletionFunction<
             ctx.getImportantInputMap(),
             ctx.getExpandedFilesets());
     try {
-      ImmutableMap<String, ActionInput> lostOutputs;
+      LostArtifacts lostOutputs;
       try (var ignored =
           GoogleAutoProfilerUtils.logged(
               "Informing important output handler of top-level outputs for " + label,
-              IMPORTANT_OUTPUT_HANDLER_LOGGING_THRESHOLD)) {
+              ImportantOutputHandler.LOG_THRESHOLD)) {
         lostOutputs =
             importantOutputHandler.processOutputsAndGetLostArtifacts(
                 key.topLevelArtifactContext().expandFilesets()
@@ -555,17 +560,19 @@ public final class CompletionFunction<
         return null;
       }
 
-      ActionInputDepOwners owners = ctx.getDepOwners(lostOutputs.values());
-
       // Filter out lost outputs from the set of built artifacts so that they are not reported. If
       // rewinding is successful, we'll report them later on.
-      for (ActionInput lostOutput : lostOutputs.values()) {
+      for (ActionInput lostOutput : lostOutputs.byDigest().values()) {
         builtArtifacts.remove(lostOutput);
-        builtArtifacts.removeAll(owners.getDepOwners(lostOutput));
+        builtArtifacts.removeAll(lostOutputs.owners().getDepOwners(lostOutput));
       }
 
       return actionRewindStrategy.prepareRewindPlanForLostTopLevelOutputs(
-          key, ImmutableSet.copyOf(Artifact.keys(importantArtifacts)), lostOutputs, owners, env);
+          key,
+          ImmutableSet.copyOf(Artifact.keys(importantArtifacts)),
+          lostOutputs.byDigest(),
+          lostOutputs.owners(),
+          env);
     } catch (ActionRewindException | ImportantOutputException e) {
       LabelCause cause = new LabelCause(label, e.getDetailedExitCode());
       rootCauses = NestedSetBuilder.fromNestedSet(rootCauses).add(cause).build();

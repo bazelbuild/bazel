@@ -43,7 +43,8 @@ public interface DiffAwareness extends Closeable {
      * per package path entry using one of the factories that returns a non-null value.
      */
     @Nullable
-    DiffAwareness maybeCreate(Root pathEntry, ImmutableSet<Path> ignoredPaths);
+    DiffAwareness maybeCreate(
+        Root pathEntry, ImmutableSet<Path> ignoredPaths, OptionsProvider optionsProvider);
   }
 
   /** Opaque view of the filesystem under a package path entry at a specific point in time. */
@@ -76,7 +77,7 @@ public interface DiffAwareness extends Closeable {
    *     {@link DiffAwareness} instance. The {@link DiffAwareness} is expected to close itself in
    *     this case.
    */
-  ModifiedFileSet getDiff(View oldView, View newView)
+  ModifiedFileSet getDiff(@Nullable View oldView, View newView)
       throws IncompatibleViewException, InterruptedException, BrokenDiffAwarenessException;
 
   /** @return the name of this implementation */

@@ -22,6 +22,7 @@ import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
@@ -50,11 +51,15 @@ final class CounterSeriesTraceData implements TraceData {
       Map<ProfilerTask, double[]> counterSeriesMap,
       Duration profileStart,
       Duration bucketDuration) {
-    Integer len = null;
-    for (ProfilerTask profilerTask : counterSeriesMap.keySet()) {
-      Preconditions.checkState(COUNTER_TASK_TO_SERIES_NAME.containsKey(profilerTask));
-      if (len == null) {
-        len = counterSeriesMap.get(profilerTask).length;
+    int len = -1;
+    for (Entry<ProfilerTask, double[]> entry : counterSeriesMap.entrySet()) {
+      ProfilerTask profilerTask = entry.getKey();
+      Preconditions.checkState(
+          COUNTER_TASK_TO_SERIES_NAME.containsKey(profilerTask),
+          "COUNTER_TASK_TO_SERIES_NAME does not contain %s",
+          profilerTask);
+      if (len == -1) {
+        len = entry.getValue().length;
 
         this.displayName = profilerTask.description;
 
@@ -63,7 +68,8 @@ final class CounterSeriesTraceData implements TraceData {
         // https://github.com/catapult-project/catapult/blob/master/tracing/tracing/base/color_scheme.html
         this.colorName = COUNTER_TASK_TO_COLOR.get(profilerTask);
       } else {
-        Preconditions.checkState(len.equals(counterSeriesMap.get(profilerTask).length));
+        // Check that second and subsequent series have the same length as the first.
+        Preconditions.checkState(len == entry.getValue().length);
       }
     }
     this.len = len;
@@ -114,7 +120,21 @@ final class CounterSeriesTraceData implements TraceData {
           entry(ProfilerTask.PRESSURE_STALL_FULL_MEMORY, "memory pressure (full)"),
           entry(ProfilerTask.PRESSURE_STALL_SOME_IO, "i/o pressure (some)"),
           entry(ProfilerTask.PRESSURE_STALL_SOME_MEMORY, "memory pressure (some)"),
-          entry(ProfilerTask.PRESSURE_STALL_SOME_CPU, "cpu pressure (some)"));
+          entry(ProfilerTask.PRESSURE_STALL_SOME_CPU, "cpu pressure (some)"),
+          entry(ProfilerTask.ACTION_EXECUTION_SKYFUNCTION, "action execution (total)"),
+          entry(ProfilerTask.ACTION_EXECUTION_SKYFUNCTION_DONE, "action execution (done)"),
+          entry(ProfilerTask.CONFIGURED_TARGET_SKYFUNCTION, "configured target (total)"),
+          entry(ProfilerTask.CONFIGURED_TARGET_SKYFUNCTION_DONE, "configured target (done)"),
+          entry(ProfilerTask.ASPECT_SKYFUNCTION, "aspect (total)"),
+          entry(ProfilerTask.ASPECT_SKYFUNCTION_DONE, "aspect (done)"),
+          entry(ProfilerTask.PACKAGE_SKYFUNCTION, "package (total)"),
+          entry(ProfilerTask.PACKAGE_SKYFUNCTION_DONE, "package (done)"),
+          entry(ProfilerTask.BZL_LOAD_SKYFUNCTION, "bzl_load (total)"),
+          entry(ProfilerTask.BZL_LOAD_SKYFUNCTION_DONE, "bzl_load (done)"),
+          entry(ProfilerTask.GLOB_SKYFUNCTION, "glob (total)"),
+          entry(ProfilerTask.GLOB_SKYFUNCTION_DONE, "glob (done)"),
+          entry(ProfilerTask.GLOBS_SKYFUNCTION, "globs (total)"),
+          entry(ProfilerTask.GLOBS_SKYFUNCTION_DONE, "globs (done)"));
 
   @Override
   public void writeTraceData(JsonWriter jsonWriter, long profileStartTimeNanos) throws IOException {

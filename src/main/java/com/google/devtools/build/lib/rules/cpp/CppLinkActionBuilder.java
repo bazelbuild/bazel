@@ -488,8 +488,13 @@ public class CppLinkActionBuilder {
                     backendUserCompileFlags);
             ltoOutputs.add(ltoArtifacts);
           } else {
-            // We should have created shared LTO backends when the library was created.
-            Preconditions.checkNotNull(lib.getSharedNonLtoBackends());
+            // We should have created shared non-LTO backends when the library was created.
+            if (lib.getSharedNonLtoBackends() == null) {
+              throw Starlark.errorf(
+                  "Statically linked test target requires non-LTO backends for its library inputs,"
+                      + " but library input %s does not specify shared_non_lto_backends",
+                  lib);
+            }
             LtoBackendArtifacts ltoArtifacts =
                 lib.getSharedNonLtoBackends().getOrDefault(objectFile, null);
             Preconditions.checkNotNull(ltoArtifacts);
@@ -586,6 +591,10 @@ public class CppLinkActionBuilder {
         // On Windows, We can always split the command line when building DLL.
       case NODEPS_DYNAMIC_LIBRARY:
       case DYNAMIC_LIBRARY:
+        // TODO(bazel-team): interfaceOutput != null should not block the creation of parameter
+        // files. After change #652438084, this might become a problem for dynamic libraries with
+        // a very large number of linker inputs since the command line may exceed the maximum
+        // length.
         return (interfaceOutput == null
             || featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS));
       case EXECUTABLE:

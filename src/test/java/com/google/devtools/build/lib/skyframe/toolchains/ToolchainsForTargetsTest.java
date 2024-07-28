@@ -404,6 +404,41 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
   }
 
   @Test
+  public void basicToolchainsWithAliasNoAutoExecGroups_test() throws Exception {
+    scratch.appendFile(
+        "toolchain/exec_group_rule.bzl",
+        """
+        def _impl(ctx):
+            if "//toolchain:test_toolchain" in ctx.toolchains:
+                fail("this is not expected, it's an exec gp toolchain")
+            if ctx.exec_groups["temp"].toolchains["//toolchain:test_toolchain"] == None:
+                fail("this is not expected, it's an exec gp toolchain")
+            return []
+
+        my_exec_group_rule = rule(
+            implementation = _impl,
+            exec_groups = {
+                "temp": exec_group(
+                    toolchains = ["//toolchain:test_toolchain"],
+                ),
+            },
+        )
+        """);
+
+    scratch.file(
+        "a/BUILD",
+        """
+        load("//toolchain:exec_group_rule.bzl", "my_exec_group_rule")
+
+        my_exec_group_rule(name = "a")
+        """);
+
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    assertThat(update("//a:a").hasError()).isFalse();
+  }
+
+  @Test
   public void execPlatform() throws Exception {
     // Add some platforms and custom constraints.
     scratch.file("platforms/BUILD", "platform(name = 'local_platform_a')");

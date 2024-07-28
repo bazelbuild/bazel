@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.bazel.BazelStartupOptionsModule.Options;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.StructuredCommandLineId;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.CanonicalCommandLineEvent;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.OriginalCommandLineEvent;
@@ -510,5 +511,65 @@ public class CommandLineEventTest {
     assertThat(line.getSections(0).getSectionTypeCase()).isEqualTo(SectionTypeCase.CHUNK_LIST);
     assertThat(line.getSections(0).getChunkList().getChunk(0))
         .isEqualTo("The quick brown fox jumps over the lazy dog");
+  }
+
+  @Test
+  public void redactedResidual_includesTarget_originalCommandLine() throws OptionsParsingException {
+    OptionsParser fakeStartupOptions =
+        OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
+    OptionsParser fakeCommandOptions =
+        OptionsParser.builder().optionsClasses(BuildEventProtocolOptions.class).build();
+    fakeCommandOptions.parse("--experimental_run_bep_event_include_residue=false");
+    fakeCommandOptions.setResidue(
+        ImmutableList.of("//some:target", "--sensitive_arg"), ImmutableList.of());
+
+    CommandLine line =
+        new OriginalCommandLineEvent(
+                "testblaze",
+                fakeStartupOptions,
+                "run",
+                fakeCommandOptions,
+                Optional.of(ImmutableList.of()))
+            .asStreamProto(null)
+            .getStructuredCommandLine();
+
+    assertThat(line.getCommandLineLabel()).isEqualTo("original");
+    checkCommandLineSectionLabels(line);
+    assertThat(line.getSections(0).getChunkList().getChunk(0)).isEqualTo("testblaze");
+    assertThat(line.getSections(1).getOptionList().getOptionCount()).isEqualTo(0);
+    assertThat(line.getSections(2).getChunkList().getChunk(0)).isEqualTo("run");
+    assertThat(line.getSections(3).getOptionList().getOptionCount()).isEqualTo(1);
+    assertThat(line.getSections(4).getChunkList().getChunkCount()).isEqualTo(2);
+    assertThat(line.getSections(4).getChunkList().getChunk(0)).isEqualTo("//some:target");
+    assertThat(line.getSections(4).getChunkList().getChunk(1)).isEqualTo("REDACTED");
+  }
+
+  @Test
+  public void redactedResidual_includesTarget_canonicalCommandLine()
+      throws OptionsParsingException {
+    OptionsParser fakeStartupOptions =
+        OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build();
+    OptionsParser fakeCommandOptions =
+        OptionsParser.builder().optionsClasses(BuildEventProtocolOptions.class).build();
+    fakeCommandOptions.parse("--experimental_run_bep_event_include_residue=false");
+    fakeCommandOptions.setResidue(
+        ImmutableList.of("//some:target", "--sensitive_arg"), ImmutableList.of());
+
+    CommandLine line =
+        new CanonicalCommandLineEvent("testblaze", fakeStartupOptions, "run", fakeCommandOptions)
+            .asStreamProto(null)
+            .getStructuredCommandLine();
+
+    assertThat(line.getCommandLineLabel()).isEqualTo("canonical");
+    checkCommandLineSectionLabels(line);
+    assertThat(line.getSections(0).getChunkList().getChunk(0)).isEqualTo("testblaze");
+    assertThat(line.getSections(1).getOptionList().getOptionCount()).isEqualTo(1);
+    assertThat(line.getSections(1).getOptionList().getOption(0).getCombinedForm())
+        .isEqualTo("--ignore_all_rc_files");
+    assertThat(line.getSections(2).getChunkList().getChunk(0)).isEqualTo("run");
+    assertThat(line.getSections(3).getOptionList().getOptionCount()).isEqualTo(1);
+    assertThat(line.getSections(4).getChunkList().getChunkCount()).isEqualTo(2);
+    assertThat(line.getSections(4).getChunkList().getChunk(0)).isEqualTo("//some:target");
+    assertThat(line.getSections(4).getChunkList().getChunk(1)).isEqualTo("REDACTED");
   }
 }

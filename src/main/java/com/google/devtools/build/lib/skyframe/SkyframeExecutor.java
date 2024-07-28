@@ -222,7 +222,9 @@ import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlat
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsCycleReporter;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsFunction;
 import com.google.devtools.build.lib.skyframe.toolchains.SingleToolchainResolutionFunction;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainResolutionFunction;
+import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.HeapOffsetHelper;
@@ -699,6 +701,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         SkyFunctions.ASPECT,
         new AspectFunction(
             new BuildViewProvider(),
+            ruleClassProvider,
             shouldStoreTransitivePackagesInLoadingAndAnalysis(),
             this::getExistingPackage,
             new BaseTargetPrerequisitesSupplierImpl()));
@@ -715,7 +718,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.BUILD_CONFIGURATION,
         new BuildConfigurationFunction(directories, ruleClassProvider));
-    map.put(SkyFunctions.BUILD_CONFIGURATION_KEY, new BuildConfigurationKeyFunction());
+    map.put(
+        SkyFunctions.BUILD_CONFIGURATION_KEY,
+        new BuildConfigurationKeyFunction(getSkyframeBuildView().getBuildConfigurationKeyCache()));
     map.put(
         SkyFunctions.PARSED_FLAGS,
         new ParsedFlagsFunction(ruleClassProvider.getFragmentRegistry().getOptionsClasses()));
@@ -884,10 +889,21 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   /** Inform this SkyframeExecutor that a new command is starting. */
   public void noteCommandStart() {}
 
-  /** Notify listeners about changed files, and release any associated memory afterwards. */
+  /**
+   * Notify listeners about changed files, and release any associated memory afterwards.
+   *
+   * <p>It's called at the end of the execution of a Blaze command and if the command builds, before
+   * the execution phase starts. In the latter case, the invocation at the end of the command will
+   * be a no-op so that the event about changed files is posted only once.
+   *
+   * <p>The reason why the event about changed files is posted early if the command builds is that
+   * it's used in the execution phase.
+   */
   public void drainChangedFiles() {
-    incrementalBuildMonitor.alertListeners(getEventBus());
-    incrementalBuildMonitor = null;
+    if (incrementalBuildMonitor != null) {
+      incrementalBuildMonitor.alertListeners(getEventBus());
+      incrementalBuildMonitor = null;
+    }
   }
 
   /**
@@ -1009,6 +1025,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   public void notifyCommandComplete(ExtendedEventHandler eventHandler) throws InterruptedException {
     try {
+      drainChangedFiles();
       memoizingEvaluator.noteEvaluationsAtSameVersionMayBeFinished(eventHandler);
     } finally {
       globFunction.complete();
@@ -3981,6 +3998,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         throws InterruptedException {
       return (BuildConfigurationValue) memoizingEvaluator.getExistingValue(key);
     }
+
+    @Override
+    @Nullable
+    public UnloadedToolchainContext getUnloadedToolchainContext(ToolchainContextKey key)
+        throws InterruptedException {
+      return (UnloadedToolchainContext) memoizingEvaluator.getExistingValue(key);
+    }
   }
 
   /**
@@ -4011,7 +4035,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
                 + StringUtilities.capitalize(productName)
                 + " will reclaim memory not needed to build the working set. Run '"
                 + productName
-                + " info working_set' to show the working set."));
+                + " dump --skyframe=working_set' to show the working set, after this command."));
 
     if (skyfocusOptions.handlingStrategy.equals(SkyfocusHandlingStrategy.STRICT)) {
       reporter.handle(Event.warn("Changes outside of the working set will cause a build error."));
@@ -4102,7 +4126,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             actionCache);
 
     skyfocusState =
-        newSkyfocusState.toBuilder().verificationSet(focusResult.verificationSet()).build();
+        newSkyfocusState.toBuilder()
+            .frontierSet(focusResult.deps())
+            .verificationSet(focusResult.verificationSet())
+            .build();
 
     // Shouldn't result in an empty graph.
     checkState(!focusResult.deps().isEmpty(), "FocusResult deps should not be empty");

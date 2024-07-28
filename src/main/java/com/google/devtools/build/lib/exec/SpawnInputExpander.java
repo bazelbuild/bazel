@@ -46,7 +46,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
-import javax.annotation.Nullable;
 
 /**
  * A helper class for spawn strategies to turn runfiles suppliers into input mappings. This class
@@ -54,16 +53,6 @@ import javax.annotation.Nullable;
  * laid out.
  */
 public final class SpawnInputExpander {
-
-  /** Accepts mappings from exec path to {@link ActionInput}. */
-  public interface InputSink {
-    void acceptMapping(PathFragment execPath, ActionInput input, @Nullable Artifact owner);
-
-    /** Adapts a {@link Map} to a {@link InputSink} which disregards owners. */
-    static InputSink fromMap(Map<PathFragment, ActionInput> map) {
-      return (execPath, input, owner) -> map.put(execPath, input);
-    }
-  }
 
   private final Path execRoot;
   private final RelativeSymlinkBehavior relSymlinkBehavior;
@@ -87,25 +76,24 @@ public final class SpawnInputExpander {
   }
 
   private static void addMapping(
-      InputSink inputSink,
+      Map<PathFragment, ActionInput> inputMap,
       PathFragment targetLocation,
       ActionInput input,
-      PathFragment baseDirectory,
-      @Nullable Artifact owner) {
+      PathFragment baseDirectory) {
     Preconditions.checkArgument(!targetLocation.isAbsolute(), targetLocation);
-    inputSink.acceptMapping(baseDirectory.getRelative(targetLocation), input, owner);
+    inputMap.put(baseDirectory.getRelative(targetLocation), input);
   }
 
   @VisibleForTesting
   void addSingleRunfilesTreeToInputs(
       RunfilesTree runfilesTree,
-      InputSink inputSink,
+      Map<PathFragment, ActionInput> inputMap,
       ArtifactExpander artifactExpander,
       PathMapper pathMapper,
       PathFragment baseDirectory)
       throws ForbiddenActionInputException {
     addSingleRunfilesTreeToInputs(
-        inputSink,
+        inputMap,
         runfilesTree.getExecPath(),
         runfilesTree.getMapping(),
         artifactExpander,
@@ -120,7 +108,7 @@ public final class SpawnInputExpander {
    * figure out how not to call this method (or else how to make this method more palatable)
    */
   public void addSingleRunfilesTreeToInputs(
-      InputSink inputSink,
+      Map<PathFragment, ActionInput> inputMap,
       PathFragment root,
       Map<PathFragment, Artifact> mappings,
       ArtifactExpander artifactExpander,
@@ -133,11 +121,10 @@ public final class SpawnInputExpander {
       Artifact artifact = mapping.getValue();
       if (artifact == null) {
         addMapping(
-            inputSink,
+            inputMap,
             mapForRunfiles(pathMapper, root, location),
             VirtualActionInput.EMPTY_MARKER,
-            baseDirectory,
-            /* owner= */ null);
+            baseDirectory);
         continue;
       }
       Preconditions.checkArgument(!artifact.isMiddlemanArtifact(), artifact);
@@ -146,7 +133,7 @@ public final class SpawnInputExpander {
             expandArchivedTreeArtifacts ? null : artifactExpander.getArchivedTreeArtifact(artifact);
         if (archivedTreeArtifact != null) {
           // TODO(bazel-team): Add path mapping support for archived tree artifacts.
-          addMapping(inputSink, location, archivedTreeArtifact, baseDirectory, artifact);
+          addMapping(inputMap, location, archivedTreeArtifact, baseDirectory);
         } else {
           List<ActionInput> expandedInputs =
               ActionInputHelper.expandArtifacts(
@@ -156,12 +143,11 @@ public final class SpawnInputExpander {
                   /* keepMiddlemanArtifacts= */ false);
           for (ActionInput input : expandedInputs) {
             addMapping(
-                inputSink,
+                inputMap,
                 mapForRunfiles(pathMapper, root, location)
                     .getRelative(((TreeFileArtifact) input).getParentRelativePath()),
                 input,
-                baseDirectory,
-                artifact);
+                baseDirectory);
           }
         }
       } else if (artifact.isFileset()) {
@@ -172,16 +158,11 @@ public final class SpawnInputExpander {
           throw new IllegalStateException(e);
         }
         // TODO(bazel-team): Add path mapping support for filesets.
-        addFilesetManifest(location, artifact, filesetLinks, inputSink, baseDirectory);
+        addFilesetManifest(location, artifact, filesetLinks, inputMap, baseDirectory);
       } else {
         // TODO: b/7075837 - If we want to prohibit directory inputs, we can check if
         //  localArtifact is a directory and, if so, throw a ForbiddenActionInputException.
-        addMapping(
-            inputSink,
-            mapForRunfiles(pathMapper, root, location),
-            artifact,
-            baseDirectory,
-            /* owner= */ null);
+        addMapping(inputMap, mapForRunfiles(pathMapper, root, location), artifact, baseDirectory);
       }
     }
   }
@@ -189,14 +170,13 @@ public final class SpawnInputExpander {
   @VisibleForTesting
   void addFilesetManifests(
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
-      InputSink inputSink,
+      Map<PathFragment, ActionInput> inputMap,
       PathFragment baseDirectory)
       throws ForbiddenRelativeSymlinkException {
     for (Map.Entry<Artifact, ImmutableList<FilesetOutputSymlink>> entry :
         filesetMappings.entrySet()) {
       Artifact fileset = entry.getKey();
-      addFilesetManifest(
-          fileset.getExecPath(), fileset, entry.getValue(), inputSink, baseDirectory);
+      addFilesetManifest(fileset.getExecPath(), fileset, entry.getValue(), inputMap, baseDirectory);
     }
   }
 
@@ -204,7 +184,7 @@ public final class SpawnInputExpander {
       PathFragment location,
       Artifact filesetArtifact,
       ImmutableList<FilesetOutputSymlink> filesetLinks,
-      InputSink inputSink,
+      Map<PathFragment, ActionInput> inputMap,
       PathFragment baseDirectory)
       throws ForbiddenRelativeSymlinkException {
     Preconditions.checkArgument(filesetArtifact.isFileset(), filesetArtifact);
@@ -218,7 +198,7 @@ public final class SpawnInputExpander {
               ? VirtualActionInput.EMPTY_MARKER
               : ActionInputHelper.fromPath(execRoot.getRelative(value).asFragment());
       // TODO(bazel-team): Add path mapping support for filesets.
-      addMapping(inputSink, mapping.getKey(), artifact, baseDirectory, filesetArtifact);
+      addMapping(inputMap, mapping.getKey(), artifact, baseDirectory);
     }
   }
 
@@ -230,7 +210,6 @@ public final class SpawnInputExpander {
       PathMapper pathMapper,
       PathFragment baseDirectory)
       throws ForbiddenActionInputException {
-    InputSink inputSink = InputSink.fromMap(inputMap);
     // Actions that accept TreeArtifacts as inputs generally expect the directory corresponding
     // to the artifact to be created, even if it is empty. We explicitly keep empty TreeArtifacts
     // here to signal consumers that they should create the directory.
@@ -243,27 +222,19 @@ public final class SpawnInputExpander {
     for (ActionInput input : inputs) {
       if (input instanceof TreeFileArtifact) {
         addMapping(
-            inputSink,
+            inputMap,
             pathMapper
                 .map(((TreeFileArtifact) input).getParent().getExecPath())
                 .getRelative(((TreeFileArtifact) input).getParentRelativePath()),
             input,
-            baseDirectory,
-            // Owners are disregarded since we're aggregating into a map.
-            /* owner= */ null);
+            baseDirectory);
       } else if (isMiddlemanArtifact(input)) {
         RunfilesTree runfilesTree =
             inputMetadataProvider.getRunfilesMetadata(input).getRunfilesTree();
         addSingleRunfilesTreeToInputs(
-            runfilesTree, inputSink, artifactExpander, pathMapper, baseDirectory);
+            runfilesTree, inputMap, artifactExpander, pathMapper, baseDirectory);
       } else {
-        addMapping(
-            inputSink,
-            pathMapper.map(input.getExecPath()),
-            input,
-            baseDirectory,
-            // Owners are disregarded since we're aggregating into a map.
-            /* owner= */ null);
+        addMapping(inputMap, pathMapper.map(input.getExecPath()), input, baseDirectory);
       }
     }
   }
@@ -286,7 +257,6 @@ public final class SpawnInputExpander {
       PathFragment baseDirectory)
       throws ForbiddenActionInputException {
     TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
-    InputSink inputSink = InputSink.fromMap(inputMap);
     addInputs(
         inputMap,
         spawn.getInputFiles(),
@@ -294,7 +264,7 @@ public final class SpawnInputExpander {
         inputMetadataProvider,
         spawn.getPathMapper(),
         baseDirectory);
-    addFilesetManifests(spawn.getFilesetMappings(), inputSink, baseDirectory);
+    addFilesetManifests(spawn.getFilesetMappings(), inputMap, baseDirectory);
     return inputMap;
   }
 
@@ -377,7 +347,7 @@ public final class SpawnInputExpander {
           public SortedMap<PathFragment, ActionInput> getLeavesInputMapping()
               throws ForbiddenRelativeSymlinkException {
             TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
-            addFilesetManifests(filesetMappings, InputSink.fromMap(inputMap), baseDirectory);
+            addFilesetManifests(filesetMappings, inputMap, baseDirectory);
             return inputMap;
           }
         });
@@ -469,11 +439,7 @@ public final class SpawnInputExpander {
               throws ForbiddenActionInputException {
             TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
             addSingleRunfilesTreeToInputs(
-                runfilesTree,
-                InputSink.fromMap(inputMap),
-                artifactExpander,
-                pathMapper,
-                baseDirectory);
+                runfilesTree, inputMap, artifactExpander, pathMapper, baseDirectory);
             return inputMap;
           }
         });

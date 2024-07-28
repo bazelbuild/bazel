@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.LOADS;
+
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
@@ -54,6 +56,7 @@ import java.util.Set;
 /** Command line wrapper for executing a query with blaze. */
 @Command(
     name = "query",
+    buildPhase = LOADS,
     options = {
       PackageOptions.class,
       QueryOptions.class,

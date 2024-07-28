@@ -440,6 +440,7 @@ public class BuildViewForTesting {
           ConfiguredTargetKey.fromConfiguredTarget(configuredTarget),
           ruleClassProvider,
           skyframeBuildView.getStarlarkTransitionCache(),
+          skyframeBuildView.getBuildConfigurationKeyCache(),
           /* semaphoreLocker= */ () -> {},
           new SkyFunctionEnvironmentForTesting(eventHandler, skyframeExecutor),
           eventHandler)) {

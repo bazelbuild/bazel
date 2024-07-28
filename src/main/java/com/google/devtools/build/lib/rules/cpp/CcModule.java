@@ -902,7 +902,7 @@ public abstract class CcModule
 
   /**
    * Create an LTO backend that does not perform any cross-module optimization because Starlark does
-   * not hava support for LTO indexing actions yet.
+   * not have support for LTO indexing actions yet.
    *
    * <p>TODO(b/128341904): Do cross module optimization once there is Starlark support.
    */
@@ -2301,6 +2301,7 @@ public abstract class CcModule
       Object mainOutputObject,
       Object useShareableArtifactFactory,
       Object buildConfig,
+      Object emitInterfaceSharedLibrary,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
     // TODO(bazel-team): Rename always_link to alwayslink before delisting. Also it looks like the
@@ -2385,7 +2386,8 @@ public abstract class CcModule
                 convertFromNoneable(onlyForDynamicLibsObject, false))
             .emitInterfaceSharedLibraries(
                 dynamicLinkTargetType == LinkTargetType.DYNAMIC_LIBRARY
-                    && actualFeatureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)
+                    && (convertFromNoneable(emitInterfaceSharedLibrary, false)
+                        || actualFeatureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS))
                     && CppHelper.useInterfaceSharedLibraries(
                         ccToolchainProvider.getCppConfiguration(), actualFeatureConfiguration))
             .setLinkerOutputArtifact(convertFromNoneable(mainOutput, null))

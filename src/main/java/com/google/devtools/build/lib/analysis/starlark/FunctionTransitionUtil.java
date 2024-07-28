@@ -163,10 +163,7 @@ public final class FunctionTransitionUtil {
    */
   private static BuildOptions maybeGetExecDefaults(
       BuildOptions fromOptions, StarlarkDefinedConfigTransition starlarkTransition) {
-    if (starlarkTransition == null
-        || fromOptions.get(CoreOptions.class).starlarkExecConfig == null
-        || !starlarkTransition.matchesExecConfigFlag(
-            fromOptions.get(CoreOptions.class).starlarkExecConfig)) {
+    if (starlarkTransition == null || !starlarkTransition.isExecTransition()) {
       // Not an exec transition: the baseline options are just the input options.
       return fromOptions;
     }
@@ -587,10 +584,7 @@ public final class FunctionTransitionUtil {
     }
 
     CoreOptions coreOptions = toOptions.get(CoreOptions.class);
-    boolean isExecTransition =
-        coreOptions.starlarkExecConfig != null
-            && starlarkTransition != null
-            && starlarkTransition.matchesExecConfigFlag(coreOptions.starlarkExecConfig);
+    boolean isExecTransition = starlarkTransition != null && starlarkTransition.isExecTransition();
 
     if (!isExecTransition
         && coreOptions.outputDirectoryNamingScheme.equals(

@@ -48,6 +48,10 @@ import javax.annotation.Nullable;
  *
  * <p>Most of the complexity in the implementation results from wanting incremental correctness in
  * the presence of symlinks, esp. ancestor directory symlinks.
+ *
+ * <p>For an overview of the problem space and our approach, see the https://youtu.be/EoYdWmMcqDs
+ * talk from BazelCon 2019 (slides:
+ * https://docs.google.com/presentation/d/e/2PACX-1vQWq1DUhl92dDs_okNxM7Qy9zX72tp7hMsGosGxmjhBLZ5e02IJf9dySK_6lEU2j6u_NOEaUCQGxEFh/pub).
  */
 public class FileFunction implements SkyFunction {
   private final AtomicReference<PathPackageLocator> pkgLocator;
@@ -192,14 +196,19 @@ public class FileFunction implements SkyFunction {
     }
 
     RootedPath rootedPathFromAncestors =
-        getChild(parentFileValue.realRootedPath(), baseName, parentRootedPath, rootedPath);
+        getChild(
+            parentFileValue.realRootedPath(parentRootedPath),
+            baseName,
+            parentRootedPath,
+            rootedPath);
 
     if (!parentFileValue.exists() || !parentFileValue.isDirectory()) {
       return new PartialResolutionResult(
           rootedPathFromAncestors, FileStateValue.NONEXISTENT_FILE_STATE_NODE);
     }
 
-    for (RootedPath parentPartialRootedPath : parentFileValue.logicalChainDuringResolution()) {
+    for (RootedPath parentPartialRootedPath :
+        parentFileValue.logicalChainDuringResolution(parentRootedPath)) {
       checkAndNotePathSeenDuringPartialResolution(
           getChild(parentPartialRootedPath, baseName, parentRootedPath, rootedPath),
           symlinkResolutionState,

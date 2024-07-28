@@ -42,12 +42,14 @@ import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.analysis.test.TestTagsProvider;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AllowlistChecker;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildSetting;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -349,7 +351,11 @@ public final class RuleConfiguredTargetBuilder {
       Label rdeLabel =
           ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel();
       // only allow native and builtins to override transitive validation propagation
-      if (rdeLabel != null && !rdeLabel.getRepository().getName().equals("_builtins")) {
+      if (rdeLabel != null
+          && BuiltinRestriction.isNotAllowed(
+              rdeLabel,
+              RepositoryMapping.ALWAYS_FALLBACK,
+              BuiltinRestriction.INTERNAL_STARLARK_API_ALLOWLIST)) {
         ruleContext.ruleError(rdeLabel + " cannot access the _transitive_validation private API");
         return;
       }

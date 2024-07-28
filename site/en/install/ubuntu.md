@@ -43,8 +43,11 @@ Bazel comes with two completion scripts. After installing Bazel, you can:
 
 ```posix-terminal
 sudo apt install apt-transport-https curl gnupg -y
+
 curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor >bazel-archive-keyring.gpg
+
 sudo mv bazel-archive-keyring.gpg /usr/share/keyrings
+
 echo "deb [arch=amd64 signed-by=/usr/share/keyrings/bazel-archive-keyring.gpg] https://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
 ```
 
@@ -81,6 +84,7 @@ Optionally, you can set `bazel` to a specific version by creating a symlink:
 
 ```posix-terminal
 sudo ln -s /usr/bin/bazel-1.0.0 /usr/bin/bazel
+
 bazel --version  # 1.0.0
 ```
 

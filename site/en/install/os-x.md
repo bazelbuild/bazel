@@ -107,6 +107,7 @@ Run the Bazel installer as follows:
 
 ```posix-terminal
 chmod +x "bazel-{{ '<var>' }}$BAZEL_VERSION{{ '</var>' }}-installer-darwin-x86_64.sh"
+
 ./bazel-{{ '<var>' }}$BAZEL_VERSION{{ '</var>' }}-installer-darwin-x86_64.sh --user
 ```
 

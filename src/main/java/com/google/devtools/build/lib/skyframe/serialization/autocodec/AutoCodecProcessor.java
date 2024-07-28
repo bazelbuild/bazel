@@ -13,48 +13,34 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
-import static com.google.common.base.Ascii.toLowerCase;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodecProcessor.InstantiatorKind.CONSTRUCTOR;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodecProcessor.InstantiatorKind.FACTORY_METHOD;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodecProcessor.InstantiatorKind.INTERNER;
-import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.getErasure;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.findRelationWithGenerics;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.getErasureAsMirror;
-import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.sanitizeTypeParameter;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.writeGeneratedClassToFile;
 
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Interner;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Marshaller;
-import com.google.devtools.build.lib.unsafe.UnsafeProvider;
-import com.squareup.javapoet.ClassName;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.Relation;
 import com.squareup.javapoet.JavaFile;
-import com.squareup.javapoet.MethodSpec;
-import com.squareup.javapoet.ParameterizedTypeName;
-import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
-import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import javax.tools.Diagnostic;
@@ -73,7 +59,6 @@ public class AutoCodecProcessor extends AbstractProcessor {
   private static final String PRINT_GENERATED_OPTION = "autocodec_print_generated";
 
   private ProcessingEnvironment env; // Captured from `init` method.
-  private Marshallers marshallers;
 
   @Override
   public Set<String> getSupportedOptions() {
@@ -94,7 +79,6 @@ public class AutoCodecProcessor extends AbstractProcessor {
   public synchronized void init(ProcessingEnvironment processingEnv) {
     super.init(processingEnv);
     this.env = processingEnv;
-    this.marshallers = new Marshallers(processingEnv);
   }
 
   @Override
@@ -137,30 +121,8 @@ public class AutoCodecProcessor extends AbstractProcessor {
   private TypeSpec defineClassWithInstantiator(
       TypeElement encodedType, ExecutableElement instantiator, AutoCodec annotation)
       throws SerializationProcessingException {
-    List<? extends VariableElement> fields = instantiator.getParameters();
-
-    TypeSpec.Builder codecClassBuilder =
-        Initializers.initializeCodecClassBuilder(encodedType, env)
-            .addSuperinterface(
-                ParameterizedTypeName.get(
-                    ClassName.get(ObjectCodec.class), getErasure(encodedType, env)));
-
-    if (encodedType.getAnnotation(AutoValue.class) == null) {
-      initializeUnsafeOffsets(codecClassBuilder, encodedType, fields);
-      codecClassBuilder.addMethod(
-          buildSerializeMethodWithInstantiator(encodedType, fields, annotation));
-    } else {
-      codecClassBuilder.addMethod(
-          buildSerializeMethodWithInstantiatorForAutoValue(encodedType, fields, annotation));
-    }
-
-    MethodSpec.Builder deserializeBuilder =
-        Initializers.initializeDeserializeMethodBuilder(encodedType, env);
-    buildDeserializeBody(deserializeBuilder, fields);
-    addReturnNew(deserializeBuilder, encodedType, instantiator, env);
-    codecClassBuilder.addMethod(deserializeBuilder.build());
-
-    return codecClassBuilder.build();
+    return new DeferredObjectCodecGenerator(env, instantiator.getParameters())
+        .defineCodec(encodedType, annotation, instantiator);
   }
 
   private TypeSpec defineClassWithInterner(
@@ -266,56 +228,12 @@ public class AutoCodecProcessor extends AbstractProcessor {
     return elt.getAnnotation(Interner.class) != null;
   }
 
-  private enum Relation {
-    INSTANCE_OF,
-    EQUAL_TO,
-    SUPERTYPE_OF,
-    UNRELATED_TO
-  }
-
-  @Nullable
-  private Relation findRelationWithGenerics(TypeMirror type1, TypeMirror type2) {
-    if (type1.getKind() == TypeKind.TYPEVAR
-        || type1.getKind() == TypeKind.WILDCARD
-        || type2.getKind() == TypeKind.TYPEVAR
-        || type2.getKind() == TypeKind.WILDCARD) {
-      return Relation.EQUAL_TO;
-    }
-    if (env.getTypeUtils().isAssignable(type1, type2)) {
-      if (env.getTypeUtils().isAssignable(type2, type1)) {
-        return Relation.EQUAL_TO;
-      }
-      return Relation.INSTANCE_OF;
-    }
-    if (env.getTypeUtils().isAssignable(type2, type1)) {
-      return Relation.SUPERTYPE_OF;
-    }
-    // From here on out, we can't detect subtype/supertype, we're only checking for equality.
-    TypeMirror erasedType1 = env.getTypeUtils().erasure(type1);
-    TypeMirror erasedType2 = env.getTypeUtils().erasure(type2);
-    if (!env.getTypeUtils().isSameType(erasedType1, erasedType2)) {
-      // Technically, there could be a relationship, but it's too hard to figure out for now.
-      return Relation.UNRELATED_TO;
-    }
-    List<? extends TypeMirror> genericTypes1 = ((DeclaredType) type1).getTypeArguments();
-    List<? extends TypeMirror> genericTypes2 = ((DeclaredType) type2).getTypeArguments();
-    if (genericTypes1.size() != genericTypes2.size()) {
-      return null;
-    }
-    for (int i = 0; i < genericTypes1.size(); i++) {
-      Relation result = findRelationWithGenerics(genericTypes1.get(i), genericTypes2.get(i));
-      if (result != Relation.EQUAL_TO) {
-        return Relation.UNRELATED_TO;
-      }
-    }
-    return Relation.EQUAL_TO;
-  }
-
   private void verifyFactoryMethod(TypeElement encodedType, ExecutableElement elt)
       throws SerializationProcessingException {
     boolean success = elt.getModifiers().contains(Modifier.STATIC);
     if (success) {
-      Relation equalityTest = findRelationWithGenerics(elt.getReturnType(), encodedType.asType());
+      Relation equalityTest =
+          findRelationWithGenerics(elt.getReturnType(), encodedType.asType(), env);
       success = equalityTest == Relation.EQUAL_TO || equalityTest == Relation.INSTANCE_OF;
     }
     if (!success) {
@@ -367,229 +285,6 @@ public class AutoCodecProcessor extends AbstractProcessor {
           method.getReturnType(),
           encodedType);
     }
-  }
-
-  private MethodSpec buildSerializeMethodWithInstantiator(
-      TypeElement encodedType, List<? extends VariableElement> fields, AutoCodec annotation)
-      throws SerializationProcessingException {
-    MethodSpec.Builder serializeBuilder =
-        Initializers.initializeSerializeMethodBuilder(encodedType, annotation, env);
-    for (VariableElement parameter : fields) {
-      Optional<FieldValueAndClass> hasField =
-          getFieldByNameRecursive(encodedType, parameter.getSimpleName().toString());
-      if (hasField.isPresent()) {
-        if (findRelationWithGenerics(hasField.get().value.asType(), parameter.asType())
-            == Relation.UNRELATED_TO) {
-          throw new SerializationProcessingException(
-              parameter,
-              "%s: parameter %s's type %s is unrelated to corresponding field type %s",
-              encodedType.getQualifiedName(),
-              parameter.getSimpleName(),
-              parameter.asType(),
-              hasField.get().value.asType());
-        }
-        TypeKind typeKind = parameter.asType().getKind();
-        serializeBuilder.addStatement(
-            "$T unsafe_$L = ($T) $T.unsafe().get$L(obj, $L_offset)",
-            sanitizeTypeParameter(parameter.asType(), env),
-            parameter.getSimpleName(),
-            sanitizeTypeParameter(parameter.asType(), env),
-            UnsafeProvider.class,
-            typeKind.isPrimitive() ? firstLetterUpper(toLowerCase(typeKind.toString())) : "Object",
-            parameter.getSimpleName());
-        marshallers.writeSerializationCode(
-            new SerializationCodeGenerator.Context(
-                serializeBuilder, parameter.asType(), "unsafe_" + parameter.getSimpleName()));
-      } else {
-        addSerializeParameterWithGetter(encodedType, parameter, serializeBuilder);
-      }
-    }
-    return serializeBuilder.build();
-  }
-
-  private String findGetterForClass(VariableElement parameter, TypeElement type)
-      throws SerializationProcessingException {
-    List<ExecutableElement> methods =
-        ElementFilter.methodsIn(env.getElementUtils().getAllMembers(type));
-
-    ImmutableSet.Builder<String> possibleGetterNamesBuilder =
-        ImmutableSet.<String>builder().add(parameter.getSimpleName().toString());
-
-    if (parameter.asType().getKind() == TypeKind.BOOLEAN) {
-      possibleGetterNamesBuilder.add(
-          addCamelCasePrefix(parameter.getSimpleName().toString(), "is"));
-    } else {
-      possibleGetterNamesBuilder.add(
-          addCamelCasePrefix(parameter.getSimpleName().toString(), "get"));
-    }
-    ImmutableSet<String> possibleGetterNames = possibleGetterNamesBuilder.build();
-
-    for (ExecutableElement element : methods) {
-      if (!element.getModifiers().contains(Modifier.STATIC)
-          && !element.getModifiers().contains(Modifier.PRIVATE)
-          && possibleGetterNames.contains(element.getSimpleName().toString())
-          && findRelationWithGenerics(parameter.asType(), element.getReturnType())
-              != Relation.UNRELATED_TO) {
-        return element.getSimpleName().toString();
-      }
-    }
-
-    throw new SerializationProcessingException(
-        parameter,
-        "%s: No getter found corresponding to parameter %s, %s",
-        type,
-        parameter.getSimpleName(),
-        parameter.asType());
-  }
-
-  private static String addCamelCasePrefix(String name, String prefix) {
-    return prefix + firstLetterUpper(name);
-  }
-
-  private static String firstLetterUpper(String str) {
-    return Character.toUpperCase(str.charAt(0)) + (str.length() == 1 ? "" : str.substring(1));
-  }
-
-  private void addSerializeParameterWithGetter(
-      TypeElement encodedType, VariableElement parameter, MethodSpec.Builder serializeBuilder)
-      throws SerializationProcessingException {
-    String getter = turnGetterIntoExpression(findGetterForClass(parameter, encodedType));
-    marshallers.writeSerializationCode(
-        new Marshaller.Context(serializeBuilder, parameter.asType(), getter));
-  }
-
-  private static String turnGetterIntoExpression(String getterName) {
-    return "obj." + getterName + "()";
-  }
-
-  private MethodSpec buildSerializeMethodWithInstantiatorForAutoValue(
-      TypeElement encodedType, List<? extends VariableElement> fields, AutoCodec annotation)
-      throws SerializationProcessingException {
-    MethodSpec.Builder serializeBuilder =
-        Initializers.initializeSerializeMethodBuilder(encodedType, annotation, env);
-    for (VariableElement parameter : fields) {
-      addSerializeParameterWithGetter(encodedType, parameter, serializeBuilder);
-    }
-    return serializeBuilder.build();
-  }
-
-  /**
-   * Adds a body to the deserialize method that extracts serialized parameters.
-   *
-   * <p>Parameter values are extracted into local variables with the same name as the parameter
-   * suffixed with a trailing underscore. For example, {@code target} becomes {@code target_}. This
-   * is to avoid name collisions with variables used internally by AutoCodec.
-   */
-  private void buildDeserializeBody(
-      MethodSpec.Builder builder, List<? extends VariableElement> fields)
-      throws SerializationProcessingException {
-    for (VariableElement parameter : fields) {
-      String paramName = parameter.getSimpleName() + "_";
-      marshallers.writeDeserializationCode(
-          new Marshaller.Context(builder, parameter.asType(), paramName));
-    }
-  }
-
-  /** Invokes the instantiator and returns the value. */
-  private static void addReturnNew(
-      MethodSpec.Builder builder,
-      TypeElement type,
-      ExecutableElement instantiator,
-      ProcessingEnvironment env) {
-    List<? extends TypeMirror> allThrown = instantiator.getThrownTypes();
-    if (!allThrown.isEmpty()) {
-      builder.beginControlFlow("try");
-    }
-    TypeName typeName = getErasure(type, env);
-    String parameters =
-        instantiator.getParameters().stream()
-            .map(AutoCodecProcessor::handleFromParameter)
-            .collect(Collectors.joining(", "));
-    if (instantiator.getKind().equals(ElementKind.CONSTRUCTOR)) {
-      builder.addStatement("return new $T($L)", typeName, parameters);
-    } else { // Otherwise, it's a factory method.
-      builder.addStatement("return $T.$L($L)", typeName, instantiator.getSimpleName(), parameters);
-    }
-    if (!allThrown.isEmpty()) {
-      for (TypeMirror thrown : allThrown) {
-        builder.nextControlFlow("catch ($T e)", TypeName.get(thrown));
-        builder.addStatement(
-            "throw new $T(\"$L instantiator threw an exception\", e)",
-            SerializationException.class,
-            type.getQualifiedName());
-      }
-      builder.endControlFlow();
-    }
-  }
-
-  /** Converts a constructor parameter to a String representing its handle within deserialize. */
-  private static String handleFromParameter(VariableElement parameter) {
-    return parameter.getSimpleName() + "_";
-  }
-
-  /**
-   * Adds fields to the codec class to hold offsets and adds a constructor to initialize them.
-   *
-   * <p>For a parameter with name {@code target}, the field will have name {@code target_offset}.
-   *
-   * @param parameters constructor parameters
-   */
-  private void initializeUnsafeOffsets(
-      TypeSpec.Builder builder,
-      TypeElement encodedType,
-      List<? extends VariableElement> parameters) {
-    MethodSpec.Builder constructor = MethodSpec.constructorBuilder();
-    for (VariableElement param : parameters) {
-      Optional<FieldValueAndClass> field =
-          getFieldByNameRecursive(encodedType, param.getSimpleName().toString());
-      if (!field.isPresent()) {
-        // Will attempt to use a getter for this field instead.
-        continue;
-      }
-      builder.addField(
-          TypeName.LONG, param.getSimpleName() + "_offset", Modifier.PRIVATE, Modifier.FINAL);
-      constructor.beginControlFlow("try");
-      constructor.addStatement(
-          "this.$L_offset = $T.unsafe().objectFieldOffset($T.class.getDeclaredField(\"$L\"))",
-          param.getSimpleName(),
-          UnsafeProvider.class,
-          ClassName.get(field.get().declaringClassType),
-          param.getSimpleName());
-      constructor.nextControlFlow("catch ($T e)", NoSuchFieldException.class);
-      constructor.addStatement("throw new $T(e)", IllegalStateException.class);
-      constructor.endControlFlow();
-    }
-    builder.addMethod(constructor.build());
-  }
-
-  /** The value of a field, as well as the class that directly declares it. */
-  private static class FieldValueAndClass {
-    final VariableElement value;
-    final TypeElement declaringClassType;
-
-    FieldValueAndClass(VariableElement value, TypeElement declaringClassType) {
-      this.value = value;
-      this.declaringClassType = declaringClassType;
-    }
-  }
-
-  private Optional<FieldValueAndClass> getFieldByNameRecursive(TypeElement type, String name) {
-    Optional<VariableElement> field =
-        ElementFilter.fieldsIn(type.getEnclosedElements()).stream()
-            .filter(f -> f.getSimpleName().contentEquals(name))
-            .findAny();
-
-    if (field.isPresent()) {
-      return Optional.of(new FieldValueAndClass(field.get(), type));
-    }
-    if (type.getSuperclass().getKind() != TypeKind.NONE) {
-      // Applies the erased superclass type so that it can be used in `T.class`.
-      return getFieldByNameRecursive(
-          (TypeElement)
-              env.getTypeUtils().asElement(env.getTypeUtils().erasure(type.getSuperclass())),
-          name);
-    }
-    return Optional.empty();
   }
 
   /** Emits a note to BUILD log during annotation processing for debugging. */

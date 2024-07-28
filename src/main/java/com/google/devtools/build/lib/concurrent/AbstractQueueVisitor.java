@@ -299,7 +299,20 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     }
   }
 
-  /** Schedules a call. Called in a worker thread. */
+  /**
+   * Schedules a {@linkplain Runnable runnable} to be executed in a worker thread.
+   *
+   * <p>The {@linkplain Runnable runnable} is not guaranteed to be executed since it is possible
+   * that the thread where the {@linkplain Runnable runnable} is scheduled blocks new actions or has
+   * already been interrupted. For more details, see:
+   *
+   * <ul>
+   *   <li>{@link WrappedRunnable#run()} immediate returns without executing the {@code
+   *       originalRunnable} when {@link #blockNewActions()} returns true,
+   *   <li>{@link #recordError} swallows {@link RejectedExecutionException} thrown by the
+   *       interrupted thread.
+   * </ul>
+   */
   @Override
   public final void execute(Runnable runnable) {
     executeWithExecutorService(runnable, executorService);

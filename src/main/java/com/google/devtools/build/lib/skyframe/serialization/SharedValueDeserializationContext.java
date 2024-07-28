@@ -172,6 +172,7 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
   }
 
   @Override
+  @SuppressWarnings("SunApi") // TODO: b/331765692 - delete this
   public void deserialize(CodedInputStream codedIn, Object parent, long offset)
       throws IOException, SerializationException {
     Object result = processTagAndDeserialize(codedIn);
@@ -222,6 +223,7 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
   }
 
   @Override
+  @SuppressWarnings("SunApi") // TODO: b/331765692 - delete this
   public void deserialize(CodedInputStream codedIn, Object parent, long offset, Runnable done)
       throws IOException, SerializationException {
     Object result = processTagAndDeserialize(codedIn);
@@ -245,6 +247,23 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
               return null;
             },
             directExecutor()));
+  }
+
+  @Override
+  public void deserializeArrayElement(CodedInputStream codedIn, Object[] arr, int index)
+      throws IOException, SerializationException {
+    Object result = processTagAndDeserialize(codedIn);
+    if (result == null) {
+      return;
+    }
+
+    if (result instanceof ListenableFuture<?> futureResult) {
+      addReadStatusFuture(
+          Futures.transform(futureResult, value -> arr[index] = value, directExecutor()));
+      return;
+    }
+
+    arr[index] = result;
   }
 
   @Override
@@ -410,18 +429,39 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
       throws SerializationException, IOException {
     int startingReadCount = readStatusFutures == null ? 0 : readStatusFutures.size();
 
-    Object value;
-    if (codec instanceof DeferredObjectCodec<?> deferredCodec) {
-      // On other analogous codepaths, `ObjectCodec.safeCast' is applied to the resulting value.
-      // Not all codecs have this property, notably DynamicCodec, but DeferredObjectCodec's type
-      // parameters guarantee type of the deserialized value.
-      value = deferredCodec.deserializeDeferred(this, codedIn);
-    } else {
-      value = codec.safeCast(codec.deserialize(this, codedIn));
-    }
+    Object value =
+        switch (codec) {
+          // On other analogous codepaths, `ObjectCodec.safeCast' is applied to the resulting value.
+          // Not all codecs have this property, notably DynamicCodec, but DeferredObjectCodec's type
+          // parameters guarantee type of the deserialized value.
+          case DeferredObjectCodec<?> deferredCodec ->
+              deferredCodec.deserializeDeferred(this, codedIn);
+          case InterningObjectCodec<?> interningCodec -> {
+            Object initialValue = interningCodec.deserializeInterned(this, codedIn);
+            @SuppressWarnings("unchecked")
+            InterningObjectCodec<Object> castCodec = (InterningObjectCodec<Object>) interningCodec;
+            yield new InterningDeferredValue(castCodec, codec.safeCast(initialValue));
+          }
+          default -> codec.safeCast(codec.deserialize(this, codedIn));
+        };
 
     this.lastStartingReadCount = startingReadCount;
     return value;
+  }
+
+  private static class InterningDeferredValue implements DeferredValue<Object> {
+    private final InterningObjectCodec<Object> codec;
+    private final Object value;
+
+    private InterningDeferredValue(InterningObjectCodec<Object> codec, Object value) {
+      this.codec = codec;
+      this.value = value;
+    }
+
+    @Override
+    public Object call() {
+      return codec.intern(value);
+    }
   }
 
   @Override

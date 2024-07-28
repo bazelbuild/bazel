@@ -469,7 +469,8 @@ public class JavaCommon {
             "resource_jars are not supported; use java_import and deps or runtime_deps instead.");
       }
       javaTargetAttributes.addResourceJars(
-          PrerequisiteArtifacts.nestedSet(ruleContext, "resource_jars"));
+          PrerequisiteArtifacts.nestedSet(
+              ruleContext.getRulePrerequisitesCollection(), "resource_jars"));
     }
 
     addPlugins(javaTargetAttributes);

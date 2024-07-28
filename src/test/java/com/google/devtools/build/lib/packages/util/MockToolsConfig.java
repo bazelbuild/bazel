@@ -22,6 +22,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -176,6 +178,37 @@ public final class MockToolsConfig {
   public void linkTools(String... tools) throws IOException {
     for (String tool : tools) {
       linkTool(tool);
+    }
+  }
+
+  public void copyDirectory(String relativeDirPath, int depth, boolean useEmptyBuildFiles)
+      throws IOException {
+    // Tests are assumed to be run from the main repository only.
+    Runfiles runfiles = Runfiles.preload().withSourceRepository("");
+    PathFragment rlocationPath =
+        PathFragment.create(TestConstants.WORKSPACE_NAME).getRelative(relativeDirPath);
+    java.nio.file.Path source =
+        FileSystems.getNativeFileSystem()
+            .getPath(runfiles.rlocation(rlocationPath.getPathString()))
+            .getPathFile()
+            .toPath();
+    try (Stream<java.nio.file.Path> stream = Files.walk(source, depth)) {
+      stream
+          .filter(f -> f.toFile().isFile())
+          .map(f -> source.relativize(f).toString())
+          .filter(f -> !f.isEmpty())
+          .forEach(
+              f -> {
+                try {
+                  if (f.endsWith("BUILD") && useEmptyBuildFiles) {
+                    create(relativeDirPath + "/" + f);
+                  } else {
+                    copyTool(relativeDirPath + "/" + f);
+                  }
+                } catch (IOException e) {
+                  throw new RuntimeException(e);
+                }
+              });
     }
   }
 }

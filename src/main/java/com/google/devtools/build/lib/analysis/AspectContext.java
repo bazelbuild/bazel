@@ -15,12 +15,15 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
@@ -30,6 +33,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Extends {@link RuleContext} to provide all data available during the analysis of an aspect. */
 public final class AspectContext extends RuleContext {
@@ -45,18 +49,87 @@ public final class AspectContext extends RuleContext {
 
   private final PrerequisitesCollection mainAspectPrerequisites;
 
+  /**
+   * The toolchain contexts for the base target.
+   *
+   * <p>It only contains the providers created by the aspects that propagate to the toolchains.
+   */
+  @Nullable
+  private final ToolchainCollection<AspectBaseTargetResolvedToolchainContext>
+      baseTargetToolchainContexts;
+
+  /** Whether the target uses auto exec groups. */
+  private final boolean targetUsesAutoExecGroups;
+
   AspectContext(
       RuleContext.Builder builder,
       AspectAwareAttributeMapper aspectAwareAttributeMapper,
       PrerequisitesCollection ruleAndBaseAspectsPrerequisites,
       PrerequisitesCollection mainAspectPrerequisites,
-      ExecGroupCollection execGroupCollection) {
+      ExecGroupCollection execGroupCollection,
+      @Nullable
+          ToolchainCollection<AspectBaseTargetResolvedToolchainContext> baseTargetToolchainContexts,
+      boolean targetUsesAutoExecGroups) {
     super(
         builder, aspectAwareAttributeMapper, ruleAndBaseAspectsPrerequisites, execGroupCollection);
 
     this.aspects = builder.getAspects();
     this.aspectDescriptors = aspects.stream().map(Aspect::getDescriptor).collect(toImmutableList());
     this.mainAspectPrerequisites = mainAspectPrerequisites;
+    this.baseTargetToolchainContexts = baseTargetToolchainContexts;
+    this.targetUsesAutoExecGroups = targetUsesAutoExecGroups;
+  }
+
+  /**
+   * Returns the toolchain contexts for the base target. Can be null if no aspect in the {@code
+   * aspects} path propagate to the toolchains.
+   */
+  @Nullable
+  public ToolchainCollection<AspectBaseTargetResolvedToolchainContext>
+      getBaseTargetToolchainContexts() {
+    return baseTargetToolchainContexts;
+  }
+
+  /** Returns the labels of default the toolchain types that aspects have propagated. */
+  public ImmutableSet<Label> getRequestedToolchainTypesLabels() {
+    if (targetUsesAutoExecGroups) {
+      return baseTargetToolchainContexts.getContextMap().entrySet().stream()
+          .filter(e -> isAutomaticExecGroup(e.getKey()))
+          .flatMap(e -> e.getValue().requestedToolchainTypeLabels().keySet().stream())
+          .collect(toImmutableSet());
+    } else {
+      return baseTargetToolchainContexts
+          .getDefaultToolchainContext()
+          .requestedToolchainTypeLabels()
+          .keySet();
+    }
+  }
+
+  /**
+   * Returns the toolchain data for the given type, or {@code null} if the toolchain type was not
+   * required in this context.
+   */
+  @Nullable
+  public AspectBaseTargetResolvedToolchainContext.ToolchainAspectsProviders getToolchainTarget(
+      Label toolchainType) {
+    var execGroupContext = baseTargetToolchainContexts.getDefaultToolchainContext();
+    if (targetUsesAutoExecGroups) {
+      execGroupContext =
+          baseTargetToolchainContexts.getContextMap().entrySet().stream()
+              .filter(
+                  e ->
+                      isAutomaticExecGroup(e.getKey())
+                          && e.getValue().requestedToolchainTypeLabels().containsKey(toolchainType))
+              .findFirst()
+              .map(e -> e.getValue())
+              .orElse(null);
+      if (execGroupContext == null) {
+        return null;
+      }
+    }
+    return execGroupContext
+        .getToolchains()
+        .get(execGroupContext.requestedToolchainTypeLabels().get(toolchainType));
   }
 
   /**
@@ -86,9 +159,10 @@ public final class AspectContext extends RuleContext {
       Builder builder,
       AttributeMap ruleAttributes,
       ImmutableListMultimap<DependencyKind, ConfiguredTargetAndData> targetsMap,
-      ExecGroupCollection execGroupCollection) {
+      ExecGroupCollection execGroupCollection,
+      ToolchainCollection<AspectBaseTargetResolvedToolchainContext> baseTargetToolchainContexts) {
     return createAspectContextWithSeparatedPrerequisites(
-        builder, ruleAttributes, targetsMap, execGroupCollection);
+        builder, ruleAttributes, targetsMap, execGroupCollection, baseTargetToolchainContexts);
   }
 
   /**
@@ -99,7 +173,8 @@ public final class AspectContext extends RuleContext {
       RuleContext.Builder builder,
       AttributeMap ruleAttributes,
       ImmutableListMultimap<DependencyKind, ConfiguredTargetAndData> prerequisitesMap,
-      ExecGroupCollection execGroupCollection) {
+      ExecGroupCollection execGroupCollection,
+      ToolchainCollection<AspectBaseTargetResolvedToolchainContext> baseTargetToolchainContexts) {
     ImmutableSortedKeyListMultimap.Builder<String, ConfiguredTargetAndData>
         mainAspectPrerequisites = ImmutableSortedKeyListMultimap.builder();
     ImmutableSortedKeyListMultimap.Builder<String, ConfiguredTargetAndData>
@@ -118,6 +193,9 @@ public final class AspectContext extends RuleContext {
       }
     }
 
+    boolean targetUsesAutoExecGroups =
+        RuleContext.usesAutoExecGroups(ruleAttributes, builder.getConfiguration());
+
     return new AspectContext(
         builder,
         new AspectAwareAttributeMapper(
@@ -134,7 +212,9 @@ public final class AspectContext extends RuleContext {
             builder.getErrorConsumer(),
             builder.getRule(),
             builder.getRuleClassNameForLogging()),
-        execGroupCollection);
+        execGroupCollection,
+        baseTargetToolchainContexts,
+        targetUsesAutoExecGroups);
   }
 
   private static AspectAwareAttributeMapper mergeRuleAndBaseAspectsAttributes(

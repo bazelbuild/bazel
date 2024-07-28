@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.ANALYZES;
+
 import com.google.common.base.Predicate;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
@@ -68,7 +70,7 @@ import java.util.Set;
 /** Implements 'blaze print_action' by finding the Configured target[s] for the file[s] listed. */
 @Command(
     name = "print_action",
-    builds = true,
+    buildPhase = ANALYZES,
     inheritsOptionsFrom = {BuildCommand.class},
     options = {PrintActionCommand.PrintActionOptions.class},
     help = "resource:print_action.txt",

@@ -411,4 +411,35 @@ EOF
   expect_log '//pbf:show: value = "via_transition"'
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/22995
+function test_cache_invalidation() {
+  local -r pkg="$FUNCNAME"
+  mkdir -p "$pkg"
+
+  cat > "$pkg/BUILD" <<EOF
+platform(
+    name = "pbf_demo",
+    flags = [
+        "--//pbf:flag=first",
+    ],
+)
+EOF
+
+  bazel build --platforms="//$pkg:pbf_demo" //pbf:show &> $TEST_log || fail "bazel failed"
+  expect_log '//pbf:show: value = "first"'
+
+  # Now change the platform definition.
+  cat > "$pkg/BUILD" <<EOF
+platform(
+    name = "pbf_demo",
+    flags = [
+        "--//pbf:flag=second",
+    ],
+)
+EOF
+
+  bazel build --platforms="//$pkg:pbf_demo" //pbf:show &> $TEST_log || fail "bazel failed"
+  expect_log '//pbf:show: value = "second"'
+}
+
 run_suite "Tests for platform based flags"

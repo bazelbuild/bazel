@@ -751,6 +751,7 @@ java_test(
     srcs = ["SkyfocusIntegrationTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyfocus_state",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",

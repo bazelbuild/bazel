@@ -49,6 +49,7 @@ public class BuildConfigurationKeyMapProducer
   // -------------------- Input --------------------
   private final ResultSink sink;
   private final StateMachine runAfter;
+  private final BuildConfigurationKeyCache buildConfigurationKeyCache;
   private final Map<String, BuildOptions> options;
 
   // -------------------- Internal State --------------------
@@ -57,8 +58,12 @@ public class BuildConfigurationKeyMapProducer
   private final Map<String, BuildConfigurationKey> results = new HashMap<>();
 
   public BuildConfigurationKeyMapProducer(
-      ResultSink sink, StateMachine runAfter, Map<String, BuildOptions> options) {
+      ResultSink sink,
+      StateMachine runAfter,
+      BuildConfigurationKeyCache buildConfigurationKeyCache,
+      Map<String, BuildOptions> options) {
     this.sink = sink;
+    this.buildConfigurationKeyCache = buildConfigurationKeyCache;
     this.runAfter = runAfter;
     this.options = options;
   }
@@ -71,6 +76,7 @@ public class BuildConfigurationKeyMapProducer
                 new BuildConfigurationKeyProducer<>(
                     (BuildConfigurationKeyProducer.ResultSink<String>) this,
                     StateMachine.DONE,
+                    buildConfigurationKeyCache,
                     entry.getKey(),
                     entry.getValue()))
         .forEach(tasks::enqueue);

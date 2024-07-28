@@ -118,12 +118,12 @@ public class TargetPatternFunction implements SkyFunction {
       // implementations that are unconcerned with MissingDepExceptions.
       return null;
     } catch (InterruptedException e) {
-      if (env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
+      if (env.inErrorBubbling()) {
         maybeThrowEncounteredException(parsedPattern, provider);
       }
       throw e;
     }
-    if (env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
+    if (env.inErrorBubbling()) {
       maybeThrowEncounteredException(parsedPattern, provider);
     }
     Preconditions.checkNotNull(resolvedTargets, key);

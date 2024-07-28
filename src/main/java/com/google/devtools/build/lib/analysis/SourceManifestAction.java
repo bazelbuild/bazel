@@ -68,7 +68,6 @@ public final class SourceManifestAction extends AbstractFileWriteAction
    * Interface for defining manifest formatting and reporting specifics. Implementations must be
    * immutable.
    */
-  @VisibleForTesting
   interface ManifestWriter {
 
     /**

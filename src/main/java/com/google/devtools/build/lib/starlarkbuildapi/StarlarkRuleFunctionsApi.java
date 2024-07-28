@@ -653,7 +653,7 @@ site of the rule. Such attributes can be assigned a default value (as in
             named = true,
             defaultValue = "[]",
             doc =
-                "[Currtenly no-op] List of toolchain types. The aspect propagates to target"
+                "Experimental: List of toolchain types. The aspect propagates to target"
                     + " toolchains which match these toolchain types."),
         @Param(
             name = "attrs",
@@ -751,9 +751,9 @@ site of the rule. Such attributes can be assigned a default value (as in
             named = true,
             defaultValue = "[]",
             doc =
-                "If set, the set of toolchains this rule requires. The list can contain String,"
+                "If set, the set of toolchains this aspect requires. The list can contain String,"
                     + " Label, or StarlarkToolchainTypeApi objects, in any combination. Toolchains"
-                    + " will be found by checking the current platform, and provided to the rule"
+                    + " will be found by checking the current platform, and provided to the aspect"
                     + " implementation via <code>ctx.toolchain</code>."),
         @Param(
             name = "incompatible_use_toolchain_transition",

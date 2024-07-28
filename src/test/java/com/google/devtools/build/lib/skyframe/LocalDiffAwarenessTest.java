@@ -69,13 +69,17 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
     testCaseRoot.createDirectoryAndParents();
     testCaseIgnoredDir = testCaseRoot.getChild("ignored-dir");
     testCaseIgnoredDir.createDirectoryAndParents();
-    localDiff =
-        (LocalDiffAwareness)
-            factory.maybeCreate(Root.fromPath(testCaseRoot), ImmutableSet.of(testCaseIgnoredDir));
 
     LocalDiffAwareness.Options localDiffOptions = new LocalDiffAwareness.Options();
     localDiffOptions.watchFS = true;
     watchFsEnabledProvider = FakeOptions.of(localDiffOptions);
+
+    localDiff =
+        (LocalDiffAwareness)
+            factory.maybeCreate(
+                Root.fromPath(testCaseRoot),
+                ImmutableSet.of(testCaseIgnoredDir),
+                watchFsEnabledProvider);
 
     // Ignore test failures when run on a Mac.
     //

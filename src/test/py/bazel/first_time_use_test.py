@@ -23,7 +23,6 @@ class FirstTimeUseTest(test_base.TestBase):
 
   def testNoPythonRequirement(self):
     """Regression test for https://github.com/bazelbuild/bazel/issues/6463."""
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     _, stdout, stderr = self.RunBazel(['info', 'release'])
     for line in stdout + stderr:
       if 'python' in line and 'not found on PATH' in line:
@@ -47,7 +46,6 @@ class FirstTimeUseTest(test_base.TestBase):
 
   def testNoBashRequiredForSimpleBazelRun(self):
     """Regression test for https://github.com/bazelbuild/bazel/issues/8229."""
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'py_binary(',
         '    name = "x",'

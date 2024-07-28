@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import java.util.ArrayList;
 import javax.annotation.Nullable;
 
@@ -48,7 +49,17 @@ public final class AspectResolutionHelpers {
    * #computeAspectCollection}.
    */
   public static ImmutableList<Aspect> computePropagatingAspects(
-      DependencyKind kind, ImmutableList<Aspect> aspectsPath, Rule rule) {
+      DependencyKind kind,
+      ImmutableList<Aspect> aspectsPath,
+      Rule rule,
+      @Nullable ToolchainCollection<UnloadedToolchainContext> baseTargetToolchainContext) {
+    if (DependencyKind.isBaseTargetToolchain(kind)) {
+      return computePropagatingAspectsToToolchainDep(
+          (DependencyKind.BaseTargetToolchainDependencyKind) kind,
+          aspectsPath,
+          baseTargetToolchainContext);
+    }
+
     Attribute attribute = kind.getAttribute();
     if (attribute == null) {
       return ImmutableList.of();
@@ -57,6 +68,42 @@ public final class AspectResolutionHelpers {
     collectPropagatingAspects(
         aspectsPath, attribute.getName(), kind.getOwningAspect(), aspectsBuilder);
     return aspectsBuilder.build();
+  }
+
+  /**
+   * Compute the set of aspects propagating to the given {@link BaseTargetToolchainDependencyKind}
+   * based on the {@code toolchains_aspects} of each aspect in the {@code aspectsPath}.
+   */
+  private static ImmutableList<Aspect> computePropagatingAspectsToToolchainDep(
+      DependencyKind.BaseTargetToolchainDependencyKind kind,
+      ImmutableList<Aspect> aspectsPath,
+      @Nullable ToolchainCollection<UnloadedToolchainContext> baseTargetToolchainContext) {
+    var toolchainContext = baseTargetToolchainContext.getToolchainContext(kind.getExecGroupName());
+    var toolchainType =
+        toolchainContext.requestedLabelToToolchainType().get(kind.getToolchainType());
+
+    // Since the label of the toolchain type can be an alias, we need to get all the labels that
+    // point to the same toolchain type to compare them against the toolchain types that the aspects
+    // can propagate.
+    var allToolchainTypelabels =
+        toolchainContext.requestedLabelToToolchainType().asMultimap().inverse().get(toolchainType);
+
+    var filteredAspectPath = new ArrayList<Aspect>();
+
+    int aspectsCount = aspectsPath.size();
+    for (int i = aspectsCount - 1; i >= 0; i--) {
+      Aspect aspect = aspectsPath.get(i);
+      if (allToolchainTypelabels.stream()
+              .anyMatch(label -> aspect.getDefinition().canPropagateToToolchainType(label))
+          || isAspectRequired(aspect, filteredAspectPath)) {
+        // Adds the aspect if it propagates to the toolchain type or it is
+        // required by an aspect already in the {@code filteredAspectPath}.
+        filteredAspectPath.add(aspect);
+      }
+    }
+    reverse(filteredAspectPath);
+
+    return ImmutableList.copyOf(filteredAspectPath);
   }
 
   /**

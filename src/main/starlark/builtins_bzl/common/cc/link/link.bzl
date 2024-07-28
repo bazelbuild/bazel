@@ -63,7 +63,8 @@ def link(
         link_artifact_name_suffix = "",
         main_output = None,
         use_shareable_artifact_factory = False,
-        build_config = None):
+        build_config = None,
+        emit_interface_shared_library = False):
     """Used for C++ transitive linking.
 
     In the most basic and most used case, the function creates an action for a single executable or
@@ -130,6 +131,10 @@ def link(
             If not specified, then one will be computed based on `name` and `output_type`.
         use_shareable_artifact_factory: (bool) undocumented.
         build_config: (None|BuildConfiguration) undocumented.
+        emit_interface_shared_library: (bool) When 'output_type' is 'dynamic_library' and this
+            parameter is set to True, an interface shared library will be generated during
+            linking. On Windows the interface shared library will always be generated
+            regardless of this parameter since it is a requirement for linking.
     Returns:
       (CcLinkingOutputs = {
         library_to_link: LibraryToLink,
@@ -191,5 +196,6 @@ def link(
         link_artifact_name_suffix,
         main_output,  # linker_output_artifact
         emit_interface_shared_libraries = dynamic_link_type == LINK_TARGET_TYPE.DYNAMIC_LIBRARY and
-                                          feature_configuration.is_enabled("targets_windows"),
+                                          (emit_interface_shared_library or
+                                           feature_configuration.is_enabled("targets_windows")),
     )

@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.producers;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -46,10 +44,6 @@ public class BuildConfigurationKeyProducer<C>
         ValueOrExceptionSink<PlatformMappingException>,
         PlatformFlagsProducer.ResultSink {
 
-  // Static cache for transformed options.
-  private static final Cache<BuildOptions, BuildConfigurationKey> CACHE =
-      Caffeine.newBuilder().weakKeys().build();
-
   /** Interface for clients to accept results of this computation. */
   public interface ResultSink<C> {
 
@@ -65,6 +59,7 @@ public class BuildConfigurationKeyProducer<C>
   // -------------------- Input --------------------
   private final ResultSink<C> sink;
   private final StateMachine runAfter;
+  private final BuildConfigurationKeyCache cache;
   private final C context;
   private final BuildOptions options;
 
@@ -73,16 +68,21 @@ public class BuildConfigurationKeyProducer<C>
   private NativeAndStarlarkFlags platformFlags;
 
   public BuildConfigurationKeyProducer(
-      ResultSink<C> sink, StateMachine runAfter, C context, BuildOptions options) {
+      ResultSink<C> sink,
+      StateMachine runAfter,
+      BuildConfigurationKeyCache cache,
+      C context,
+      BuildOptions options) {
     this.sink = sink;
     this.runAfter = runAfter;
+    this.cache = cache;
     this.context = context;
     this.options = options;
   }
 
   @Override
   public StateMachine step(Tasks tasks) throws InterruptedException {
-    BuildConfigurationKey result = CACHE.getIfPresent(this.options);
+    BuildConfigurationKey result = cache.get(this.options);
     if (result != null) {
       this.sink.acceptTransitionedConfiguration(this.context, result);
       return this.runAfter;
@@ -185,7 +185,7 @@ public class BuildConfigurationKeyProducer<C>
   }
 
   private StateMachine finishConfigurationKeyProcessing(BuildConfigurationKey newConfigurationKey) {
-    CACHE.put(this.options, newConfigurationKey);
+    cache.put(this.options, newConfigurationKey);
     sink.acceptTransitionedConfiguration(this.context, newConfigurationKey);
     return this.runAfter;
   }

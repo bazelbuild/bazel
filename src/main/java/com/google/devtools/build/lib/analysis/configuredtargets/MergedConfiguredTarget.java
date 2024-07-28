@@ -168,8 +168,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
     TransitiveInfoProviderMapBuilder nonBaseProviders = new TransitiveInfoProviderMapBuilder();
 
     // Merge output group providers.
-    OutputGroupInfo mergedOutputGroupInfo =
-        OutputGroupInfo.merge(getAllOutputGroupProviders(base, aspects));
+    OutputGroupInfo mergedOutputGroupInfo = mergeOutputGroupProviders(base, aspects);
     if (mergedOutputGroupInfo != null) {
       nonBaseProviders.put(mergedOutputGroupInfo);
     }
@@ -237,12 +236,16 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
     return new MergedConfiguredTarget(base, aspects, nonBaseProviders.build());
   }
 
-  private static ImmutableList<OutputGroupInfo> getAllOutputGroupProviders(
-      ConfiguredTarget base, Iterable<ConfiguredAspect> aspects) {
-    OutputGroupInfo baseProvider = OutputGroupInfo.get(base);
+  private static OutputGroupInfo mergeOutputGroupProviders(
+      @Nullable ConfiguredTarget base, Iterable<ConfiguredAspect> aspects)
+      throws DuplicateException {
     ImmutableList.Builder<OutputGroupInfo> providers = ImmutableList.builder();
-    if (baseProvider != null) {
-      providers.add(baseProvider);
+
+    if (base != null) {
+      OutputGroupInfo baseProvider = OutputGroupInfo.get(base);
+      if (baseProvider != null) {
+        providers.add(baseProvider);
+      }
     }
 
     for (ConfiguredAspect configuredAspect : aspects) {
@@ -252,7 +255,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
       }
       providers.add(aspectProvider);
     }
-    return providers.build();
+    return OutputGroupInfo.merge(providers.build());
   }
 
   private static ImmutableList<NestedSet<AnalysisFailure>> getAnalysisFailures(
@@ -315,5 +318,44 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   @Override
   public ConfiguredTarget unwrapIfMerged() {
     return base.unwrapIfMerged();
+  }
+
+  /** Returns only the providers from the aspects. */
+  public TransitiveInfoProviderMap getAspectsProviders() throws DuplicateException {
+    TransitiveInfoProviderMapBuilder aspectsProviders = new TransitiveInfoProviderMapBuilder();
+
+    // Merge output group providers of aspects only. Filtering the base target output
+    // groups from `nonBaseProviders` does not work because some groups like
+    // `OutputGroupInfo#Validation` contains artifacts from both base
+    // target and aspects.
+    var outputGroups = mergeOutputGroupProviders(/* base= */ null, aspects);
+    if (outputGroups != null) {
+      aspectsProviders.put(outputGroups);
+    }
+
+    // Merge other aspects providers.
+    for (int i = 0; i < nonBaseProviders.getProviderCount(); ++i) {
+      Object providerKey = nonBaseProviders.getProviderKeyAt(i);
+      if (OutputGroupInfo.STARLARK_CONSTRUCTOR.getKey().equals(providerKey)
+          || AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey().equals(providerKey)
+          || ExtraActionArtifactsProvider.class.equals(providerKey)
+          || RequiredConfigFragmentsProvider.class.equals(providerKey)) {
+        continue;
+      }
+
+      if (providerKey instanceof Class<?>) {
+        @SuppressWarnings("unchecked")
+        Class<? extends TransitiveInfoProvider> providerClass =
+            (Class<? extends TransitiveInfoProvider>) providerKey;
+        aspectsProviders.put(
+            providerClass, (TransitiveInfoProvider) nonBaseProviders.getProviderInstanceAt(i));
+      } else if (providerKey instanceof String legacyId) {
+        aspectsProviders.put(legacyId, nonBaseProviders.getProviderInstanceAt(i));
+      } else if (providerKey instanceof Provider.Key key) {
+        aspectsProviders.put((Info) nonBaseProviders.getProviderInstanceAt(i));
+      }
+    }
+
+    return aspectsProviders.build();
   }
 }

@@ -173,7 +173,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
         "--platforms=//minimal_buildenv/platforms:default",
         // Since this file tests builtins injection, replace the standard exec transition (which is
         // in builtins) with a no-op to avoid interference.
-        "--experimental_exec_config=//pkg2:dummy_exec_platforms.bzl%noop_transition");
+        "--experimental_exec_config=//pkg2:dummy_exec_platforms.bzl%noop_exec_transition");
   }
 
   @Override
@@ -200,11 +200,18 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     scratch.overwriteFile("pkg2/BUILD", "");
     scratch.file(
         "pkg2/dummy_exec_platforms.bzl",
-        "noop_transition = transition(",
-        "  implementation = lambda settings, attr: { '//command_line_option:is exec configuration':"
-            + " True },",
-        "  inputs = [],",
-        "  outputs = ['//command_line_option:is exec configuration'])");
+        """
+        # Since this isn't in builtins, use `transition`, not `exec_transition`
+        # This is fine, since this is a no-op and doesn't use any of the features that exec
+        # transitions are allowed to use.
+        noop_exec_transition = transition(
+            implementation = lambda settings, attr: {
+                '//command_line_option:is exec configuration': True,
+            },
+            inputs = [],
+            outputs = ['//command_line_option:is exec configuration'],
+        )
+        """);
   }
 
   @Override

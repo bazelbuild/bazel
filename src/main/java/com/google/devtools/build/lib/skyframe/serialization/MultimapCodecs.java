@@ -14,8 +14,6 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.devtools.build.lib.skyframe.serialization.ArrayProcessor.deserializeObjectArray;
-import static sun.misc.Unsafe.ARRAY_OBJECT_BASE_OFFSET;
-import static sun.misc.Unsafe.ARRAY_OBJECT_INDEX_SCALE;
 
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -62,8 +60,7 @@ public final class MultimapCodecs {
 
       ImmutableListMultimapBuffer buffer = new ImmutableListMultimapBuffer(size);
       for (int i = 0; i < size; i++) {
-        context.deserialize(
-            codedIn, buffer.keys, ARRAY_OBJECT_BASE_OFFSET + i * ARRAY_OBJECT_INDEX_SCALE);
+        context.deserializeArrayElement(codedIn, buffer.keys, i);
         int valuesCount = codedIn.readInt32();
         Object[] values = new Object[valuesCount];
         buffer.values[i] = values;
@@ -156,8 +153,7 @@ public final class MultimapCodecs {
       AsyncDeserializationContext context, CodedInputStream codedIn, MultimapBuffer buffer)
       throws SerializationException, IOException {
     for (int i = 0; i < buffer.size(); i++) {
-      context.deserialize(
-          codedIn, buffer.keys, ARRAY_OBJECT_BASE_OFFSET + i * ARRAY_OBJECT_INDEX_SCALE);
+      context.deserializeArrayElement(codedIn, buffer.keys, i);
 
       int valuesCount = codedIn.readInt32();
       Object[] values = new Object[valuesCount];

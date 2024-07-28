@@ -92,7 +92,11 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
       // The list of aspects is evaluated here to be done once per attribute, rather than once per
       // dependency.
       ImmutableList<Aspect> aspects =
-          computePropagatingAspects(kind, parameters.aspects(), parameters.associatedRule());
+          computePropagatingAspects(
+              kind,
+              parameters.aspects(),
+              parameters.associatedRule(),
+              parameters.baseTargetToolchainContexts());
       for (var label : entry.getValue()) {
         tasks.enqueue(
             new DependencyProducer(

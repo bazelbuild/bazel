@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.PathStrippable;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
@@ -526,12 +527,15 @@ public abstract class CommandLines {
 
     @Override
     public Iterable<String> arguments(
-        @Nullable ArtifactExpander artifactExpander, PathMapper pathMapper)
-        throws CommandLineExpansionException, InterruptedException {
-      if (arg instanceof PathStrippable pathStrippable) {
-        return ImmutableList.of(pathStrippable.expand(pathMapper::map));
-      }
-      return ImmutableList.of(CommandLineItem.expandToCommandLine(arg));
+        @Nullable ArtifactExpander artifactExpander, PathMapper pathMapper) {
+      return ImmutableList.of(
+          switch (arg) {
+            case PathStrippable ps -> ps.expand(pathMapper::map);
+            // StarlarkAction stores the executable path as a string to save memory, but it should
+            // still be mapped just like a PathFragment.
+            case String s -> pathMapper.map(PathFragment.create(s)).getPathString();
+            default -> CommandLineItem.expandToCommandLine(arg);
+          });
     }
   }
 }

@@ -114,7 +114,6 @@ java_library(
         "NotifyOnActionCacheHit.java",
         "ParamFileInfo.java",
         "ParameterFile.java",
-        "PathStrippable.java",
         "RemoteArtifactChecker.java",
         "ResourceEstimator.java",
         "RunningActionEvent.java",
@@ -146,7 +145,6 @@ java_library(
         "cache/VirtualActionInput.java",
     ],
     deps = [
-        ":action_input_helper",
         ":action_lookup_data",
         ":action_lookup_key",
         ":arg_chunk",
@@ -326,7 +324,6 @@ java_library(
         ":artifact_owner",
         ":commandline_item",
         ":package_roots",
-        ":path_strippable",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
@@ -470,6 +467,7 @@ java_library(
         ":artifacts",
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
@@ -518,15 +516,6 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "path_strippable",
-    srcs = ["PathStrippable.java"],
-    deps = [
-        ":commandline_item",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
     ],
 )
 

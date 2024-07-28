@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.ExecGroupCollectionApi;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainContextApi;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -48,4 +50,18 @@ public interface StarlarkAttributesCollectionApi extends StarlarkValue {
       structField = true,
       doc = "The kind of a rule, such as 'cc_library'")
   String getRuleClassName() throws EvalException;
+
+  @StarlarkMethod(
+      name = "toolchains",
+      structField = true,
+      doc = "Toolchains for the default exec group of the rule the aspect is applied to.")
+  ToolchainContextApi toolchains() throws EvalException;
+
+  @StarlarkMethod(
+      name = "exec_groups",
+      structField = true,
+      doc =
+          "A collection of the execution groups available for the rule the aspect is applied to,"
+              + " indexed by their names.")
+  ExecGroupCollectionApi execGroups() throws EvalException;
 }

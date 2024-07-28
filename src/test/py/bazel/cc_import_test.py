@@ -26,7 +26,6 @@ class CcImportTest(test_base.TestBase):
                          system_provided=0,
                          linkstatic=1,
                          provide_header=True):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
 
     # We use the outputs of cc_binary and cc_library as precompiled
     # libraries for cc_import

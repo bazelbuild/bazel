@@ -238,7 +238,9 @@ public interface AndroidSemantics {
       NestedSetBuilder<Artifact> bootclasspath = NestedSetBuilder.<Artifact>stableOrder();
       if (ruleContext.getConfiguration().getFragment(AndroidConfiguration.class).desugarJava8()) {
         bootclasspath.addTransitive(
-            PrerequisiteArtifacts.nestedSet(ruleContext, "$desugar_java8_extra_bootclasspath"));
+            PrerequisiteArtifacts.nestedSet(
+                ruleContext.getRulePrerequisitesCollection(),
+                "$desugar_java8_extra_bootclasspath"));
       }
       bootclasspath.add(androidSdkProvider.getAndroidJar());
       bootClassPathInfo = BootClassPathInfo.create(ruleContext, bootclasspath.build());

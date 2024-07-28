@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.starlark;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AliasProvider;
+import com.google.devtools.build.lib.analysis.AspectContext;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.PrerequisitesCollection;
@@ -29,6 +30,8 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAttributesCollectionApi;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.ExecGroupCollectionApi;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainContextApi;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -114,6 +117,36 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
   public String getRuleClassName() throws EvalException {
     checkMutable("kind");
     return ruleClassName;
+  }
+
+  @Override
+  public ToolchainContextApi toolchains() throws EvalException {
+    checkMutable("toolchains");
+    if (((AspectContext) starlarkRuleContext.getRuleContext()).getBaseTargetToolchainContexts()
+        == null) {
+      return StarlarkToolchainContext.TOOLCHAINS_NOT_VALID;
+    }
+    var aspectContext = ((AspectContext) starlarkRuleContext.getRuleContext());
+
+    return StarlarkToolchainContext.create(
+        aspectContext
+            .getBaseTargetToolchainContexts()
+            .getDefaultToolchainContext()
+            .targetDescription(),
+        /* resolveToolchainDataFunc= */ aspectContext::getToolchainTarget,
+        /* resolvedToolchainTypeLabels= */ aspectContext.getRequestedToolchainTypesLabels());
+  }
+
+  @Override
+  public ExecGroupCollectionApi execGroups() throws EvalException {
+    checkMutable("exec_groups");
+    if (((AspectContext) starlarkRuleContext.getRuleContext()).getBaseTargetToolchainContexts()
+        == null) {
+      return StarlarkExecGroupCollection.EXEC_GRPOUP_COLLECTION_NOT_VALID;
+    }
+    // Create a thin wrapper around the toolchain collection, to expose the Starlark API.
+    return StarlarkExecGroupCollection.create(
+        ((AspectContext) starlarkRuleContext.getRuleContext()).getBaseTargetToolchainContexts());
   }
 
   public ImmutableMap<Artifact, FilesToRunProvider> getExecutableRunfilesMap() {

@@ -19,7 +19,6 @@ from src.test.py.bazel import test_base
 class BazelWindowsSymlinksTest(test_base.TestBase):
 
   def createProjectFiles(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile(
         'foo/BUILD',
         [

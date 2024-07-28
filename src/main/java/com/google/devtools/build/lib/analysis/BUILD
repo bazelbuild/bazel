@@ -159,6 +159,7 @@ java_library(
         "AnalysisResult.java",
         "AnalysisRootCauseEvent.java",
         "AnalysisUtils.java",
+        "AspectBaseTargetResolvedToolchainContext.java",
         "AspectCompleteEvent.java",
         "AspectContext.java",
         "AspectResolutionHelpers.java",
@@ -322,6 +323,8 @@ java_library(
         ":repo_mapping_manifest_action",
         ":required_config_fragments_provider",
         ":resolved_toolchain_context",
+        ":resolved_toolchain_data",
+        ":resolved_toolchain_data_interface",
         ":rule_configured_object_value",
         ":rule_definition_environment",
         ":rule_error_consumer",
@@ -420,6 +423,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:toolchain_context_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:unloaded_toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config:configuration_transition_api",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
@@ -739,6 +744,7 @@ java_library(
     name = "dependency_kind",
     srcs = ["DependencyKind.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:exec_group",
         "//third_party:auto_value",
@@ -1036,8 +1042,8 @@ java_library(
     srcs = ["ResolvedToolchainContext.java"],
     deps = [
         ":config/toolchain_type_requirement",
+        ":resolved_toolchain_data_interface",
         ":template_variable_info",
-        ":toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -1051,6 +1057,25 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ],
+)
+
+java_library(
+    name = "resolved_toolchain_data_interface",
+    srcs = ["ResolvedToolchainsDataInterface.java"],
+    deps = [
+        ":resolved_toolchain_data",
+        ":toolchain_context",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "resolved_toolchain_data",
+    srcs = ["ResolvedToolchainData.java"],
+    deps = ["//src/main/java/net/starlark/java/eval"],
 )
 
 java_library(
@@ -1355,6 +1380,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -2528,6 +2554,7 @@ java_library(
     srcs = ["starlark/StarlarkExecGroupCollection.java"],
     deps = [
         ":resolved_toolchain_context",
+        ":resolved_toolchain_data_interface",
         ":starlark/starlark_toolchain_context",
         ":toolchain_collection",
         "//src/main/java/com/google/devtools/build/lib/packages:exec_group",
@@ -2582,6 +2609,7 @@ java_library(
     name = "starlark/starlark_toolchain_context",
     srcs = ["starlark/StarlarkToolchainContext.java"],
     deps = [
+        ":resolved_toolchain_data",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",

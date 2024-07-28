@@ -20,6 +20,8 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.exec.TreeDeleter;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -93,7 +95,7 @@ public class AsynchronousTreeDeleter implements TreeDeleter {
     checkNotNull(service, "Cannot call deleteTree after shutdown")
         .execute(
             () -> {
-              try {
+              try (SilentCloseable c = Profiler.instance().profile("trashPath.deleteTree")) {
                 trashPath.deleteTree();
               } catch (IOException e) {
                 logger.atWarning().withCause(e).log(

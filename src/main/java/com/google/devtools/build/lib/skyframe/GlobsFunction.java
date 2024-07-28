@@ -167,12 +167,17 @@ public final class GlobsFunction implements SkyFunction {
     Runnable drainStateMachineQueue =
         () -> {
           Runnable next;
+          boolean isInterrupted = false;
           while ((next = stateMachineRunnablesQueue.poll()) != null) {
+            if (isInterrupted) {
+              countDownLatch.countDown();
+              continue;
+            }
             next.run();
             if (Thread.interrupted()) {
+              isInterrupted = true;
               possibleInterruptedExceptionRef.compareAndSet(
                   /* expectedValue= */ null, new InterruptedException());
-              return;
             }
           }
         };

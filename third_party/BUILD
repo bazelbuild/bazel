@@ -10,7 +10,6 @@ filegroup(
     srcs = glob(["**"]) + [
         "//third_party/allocation_instrumenter:srcs",
         "//third_party/android_dex:srcs",
-        "//third_party/cncf_udpa:srcs",
         "//third_party/def_parser:srcs",
         "//third_party/googleapis:srcs",
         "//third_party/grpc:srcs",
@@ -27,7 +26,6 @@ filegroup(
         "//third_party/java/proguard:srcs",
         "//third_party/pprof:srcs",
         "//third_party/protobuf:srcs",
-        "//third_party/protoc_gen_validate:srcs",
         "//third_party/py/abseil:srcs",
         "//third_party/py/concurrent:srcs",
         "//third_party/py/dataclasses:srcs",
@@ -310,13 +308,14 @@ genrule(
     name = "fastutil_stripped_jar",
     srcs = [
         "@maven//:it_unimi_dsi_fastutil_file",
+        "@rules_java//toolchains:platformclasspath",
     ],
     outs = ["fastutil-stripped.jar"],
     cmd = """
     $(location :proguard) \
-        -injars $< \
+        -injars $(execpath @maven//:it_unimi_dsi_fastutil_file) \
         -outjars $@ \
-        -libraryjars '<java.home>/jmods/java.base.jmod(!**.jar;!module-info.class)' \
+        -libraryjars $(execpath @rules_java//toolchains:platformclasspath) \
         @$(location //tools:fastutil.proguard) \
       | tail -n +2 # Skip the "ProGuard, version X" line
     # Null out the file times stored in the jar to make the output reproducible.
