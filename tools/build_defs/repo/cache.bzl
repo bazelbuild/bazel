@@ -39,6 +39,9 @@ machines without the file in the cache. This behavior can be disabled with
 def get_default_canonical_id(repository_ctx, urls):
     """Returns the default canonical id to use for downloads.
 
+    Returns `""` (empty string) when Bazel is run with
+    `--repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0`.
+
     e.g.
     ```python
     load("@bazel_tools//tools/build_defs/repo:cache.bzl", "get_default_canonical_id")
