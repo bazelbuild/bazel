@@ -607,16 +607,8 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
           download completed successfully, and if successful, a hash of the file \
           with the fields <code>sha256</code> and <code>integrity</code>. \
           When <code>sha256</code> or <code>integrity</code> is user specified, setting an explicit \
-          <code>canonical_id</code> is highly recommended. e.g.\
-          <pre class='language-python'>
-          load("@bazel_tools//tools/build_defs/repo:cache.bzl", "get_default_canonical_id")
-          # ...
-              repository_ctx.download(
-                  url = urls,
-                  integrity = integrity
-                  canonical_id = get_default_canonical_id(repository_ctx, urls),
-              ),
-          </pre>
+          <code>canonical_id</code> is highly recommended. e.g. \
+          <a href='/rules/lib/repo/cache#get_default_canonical_id'><code>get_default_canonical_id</code></a>
           """,
       useStarlarkThread = true,
       parameters = {
@@ -810,16 +802,8 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
           download completed successfully, and if successful, a hash of the file with the \
           fields <code>sha256</code> and <code>integrity</code>. \
           When <code>sha256</code> or <code>integrity</code> is user specified, setting an explicit \
-          <code>canonical_id</code> is highly recommended. e.g.\
-          <pre class='language-python'>
-          load("@bazel_tools//tools/build_defs/repo:cache.bzl", "get_default_canonical_id")
-          # ...
-              repository_ctx.download_and_extract(
-                  url = urls,
-                  integrity = integrity
-                  canonical_id = get_default_canonical_id(repository_ctx, urls),
-              ),
-          </pre>
+          <code>canonical_id</code> is highly recommended. e.g. \
+          <a href='/rules/lib/repo/cache#get_default_canonical_id'><code>get_default_canonical_id</code></a>
           """,
       useStarlarkThread = true,
       parameters = {

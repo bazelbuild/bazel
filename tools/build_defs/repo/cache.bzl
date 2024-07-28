@@ -38,6 +38,17 @@ machines without the file in the cache. This behavior can be disabled with
 
 def get_default_canonical_id(repository_ctx, urls):
     """Returns the default canonical id to use for downloads.
+
+    e.g.
+    ```python
+    load("@bazel_tools//tools/build_defs/repo:cache.bzl", "get_default_canonical_id")
+    # ...
+        repository_ctx.download_and_extract(
+            url = urls,
+            integrity = integrity
+            canonical_id = get_default_canonical_id(repository_ctx, urls),
+        ),
+    ```
     
     Args:
       repository_ctx: The repository context of the repository rule calling this utility
