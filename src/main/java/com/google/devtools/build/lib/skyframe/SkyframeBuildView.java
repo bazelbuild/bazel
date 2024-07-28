@@ -71,6 +71,7 @@ import com.google.devtools.build.lib.analysis.config.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
+import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyCache;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
 import com.google.devtools.build.lib.analysis.test.CoverageArtifactsKnownEvent;
@@ -168,6 +169,8 @@ public final class SkyframeBuildView {
   private boolean foundActionConflictInLatestCheck;
 
   private final StarlarkTransitionCache starlarkTransitionCache = new StarlarkTransitionCache();
+  private final BuildConfigurationKeyCache buildConfigurationKeyCache =
+      new BuildConfigurationKeyCache();
 
   public SkyframeBuildView(
       ArtifactFactory artifactFactory,
@@ -357,6 +360,7 @@ public final class SkyframeBuildView {
       skyframeExecutor.clearAnalysisCache(topLevelTargets, topLevelAspects);
     }
     starlarkTransitionCache.clear();
+    buildConfigurationKeyCache.clear();
   }
 
   /**
@@ -1370,6 +1374,7 @@ public final class SkyframeBuildView {
   void clearLegacyData() {
     artifactFactory.clear();
     starlarkTransitionCache.clear();
+    buildConfigurationKeyCache.clear();
   }
 
   /**
@@ -1393,6 +1398,8 @@ public final class SkyframeBuildView {
   /** Clear the invalidated action lookup nodes detected during loading and analysis phases. */
   public void clearInvalidatedActionLookupKeys() {
     dirtiedActionLookupKeys = Sets.newConcurrentHashSet();
+    starlarkTransitionCache.clear();
+    buildConfigurationKeyCache.clear();
   }
 
   /**
@@ -1407,6 +1414,10 @@ public final class SkyframeBuildView {
 
   public StarlarkTransitionCache getStarlarkTransitionCache() {
     return starlarkTransitionCache;
+  }
+
+  public BuildConfigurationKeyCache getBuildConfigurationKeyCache() {
+    return buildConfigurationKeyCache;
   }
 
   private final class ActionLookupValueProgressReceiver implements EvaluationProgressReceiver {

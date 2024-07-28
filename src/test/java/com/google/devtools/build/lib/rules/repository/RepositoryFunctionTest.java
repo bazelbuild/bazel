@@ -19,11 +19,9 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
-import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValueWithContentsProxy;
 import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValueWithDigest;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.actions.FileValue.RegularFileValue;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Root;
@@ -61,18 +59,16 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
     RootedPath path =
         RootedPath.toRootedPath(Root.fromPath(rootDirectory), scratch.file("foo", "bar"));
 
-    // Digest should be returned if the FileStateValue has it.
-    FileStateValue fsv = new RegularFileStateValueWithDigest(3, new byte[] {1, 2, 3, 4});
-    FileValue fv = new RegularFileValue(path, fsv);
-    assertThat(RepoRecordedInput.File.fileValueToMarkerValue(fv)).isEqualTo("01020304");
+    // Digest should be returned if the FileValue has it.
+    FileValue fv = new RegularFileStateValueWithDigest(3, new byte[] {1, 2, 3, 4});
+    assertThat(RepoRecordedInput.File.fileValueToMarkerValue(path, fv)).isEqualTo("01020304");
 
     // Digest should also be returned if the FileStateValue doesn't have it.
     FileStatus status = Mockito.mock(FileStatus.class);
     when(status.getLastChangeTime()).thenReturn(100L);
     when(status.getNodeId()).thenReturn(200L);
-    fsv = new RegularFileStateValueWithContentsProxy(3, FileContentsProxy.create(status));
-    fv = new RegularFileValue(path, fsv);
+    fv = new RegularFileStateValueWithContentsProxy(3, FileContentsProxy.create(status));
     String expectedDigest = BaseEncoding.base16().lowerCase().encode(path.asPath().getDigest());
-    assertThat(RepoRecordedInput.File.fileValueToMarkerValue(fv)).isEqualTo(expectedDigest);
+    assertThat(RepoRecordedInput.File.fileValueToMarkerValue(path, fv)).isEqualTo(expectedDigest);
   }
 }

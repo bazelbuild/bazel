@@ -305,7 +305,8 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
      * for placing in a repository marker file. The file need not exist, and can be a file or a
      * directory.
      */
-    public static String fileValueToMarkerValue(FileValue fileValue) throws IOException {
+    public static String fileValueToMarkerValue(RootedPath rootedPath, FileValue fileValue)
+        throws IOException {
       if (fileValue.isDirectory()) {
         return "DIR";
       }
@@ -316,11 +317,12 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
       byte[] digest = fileValue.realFileStateValue().getDigest();
       if (digest == null) {
         // Fast digest not available, or it would have been in the FileValue.
-        digest = fileValue.realRootedPath().asPath().getDigest();
+        digest = fileValue.realRootedPath(rootedPath).asPath().getDigest();
       }
       return BaseEncoding.base16().lowerCase().encode(digest);
     }
 
+    @Override
     @Nullable
     public SkyKey getSkyKey(BlazeDirectories directories) {
       return FileValue.key(path.getRootedPath(directories));
@@ -330,13 +332,13 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
     public boolean isUpToDate(
         Environment env, BlazeDirectories directories, @Nullable String oldValue)
         throws InterruptedException {
+      var skyKey = getSkyKey(directories);
       try {
-        FileValue fileValue =
-            (FileValue) env.getValueOrThrow(getSkyKey(directories), IOException.class);
+        FileValue fileValue = (FileValue) env.getValueOrThrow(skyKey, IOException.class);
         if (fileValue == null) {
           return false;
         }
-        return oldValue.equals(fileValueToMarkerValue(fileValue));
+        return oldValue.equals(fileValueToMarkerValue((RootedPath) skyKey.argument(), fileValue));
       } catch (IOException e) {
         return false;
       }

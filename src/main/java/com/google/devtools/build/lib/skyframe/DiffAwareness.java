@@ -77,7 +77,7 @@ public interface DiffAwareness extends Closeable {
    *     {@link DiffAwareness} instance. The {@link DiffAwareness} is expected to close itself in
    *     this case.
    */
-  ModifiedFileSet getDiff(View oldView, View newView)
+  ModifiedFileSet getDiff(@Nullable View oldView, View newView)
       throws IncompatibleViewException, InterruptedException, BrokenDiffAwarenessException;
 
   /** @return the name of this implementation */

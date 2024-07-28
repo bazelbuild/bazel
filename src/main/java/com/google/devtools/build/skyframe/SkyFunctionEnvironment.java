@@ -1000,7 +1000,7 @@ public class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   }
 
   @Override
-  public boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors() {
+  public boolean inErrorBubbling() {
     return bubbleErrorInfo != null;
   }
 

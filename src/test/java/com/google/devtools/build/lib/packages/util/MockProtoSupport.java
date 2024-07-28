@@ -52,7 +52,10 @@ public final class MockProtoSupport {
             + "')");
   }
 
-  /** Create a dummy "net/proto2 compiler and proto APIs for all languages and versions. */
+  /**
+   * Create a dummy net/proto2 compiler, a dummy protoc_minimal and proto APIs for all languages and
+   * versions.
+   */
   private static void createNetProto2(MockToolsConfig config) throws IOException {
     config.create(
         "net/proto2/compiler/public/BUILD",
@@ -62,6 +65,18 @@ public final class MockProtoSupport {
         sh_binary(
             name = "protocol_compiler",
             srcs = ["protocol_compiler.sh"],
+        )
+        """);
+
+    // TODO: b/305068148 - Remove this after blaze is released with protoc_minimal.
+    config.create(
+        "third_party/protobuf/compiler/BUILD",
+        """
+        package(default_visibility = ["//visibility:public"])
+
+        sh_binary(
+            name = "protoc_minimal",
+            srcs = ["protoc_minimal.sh"],
         )
         """);
 

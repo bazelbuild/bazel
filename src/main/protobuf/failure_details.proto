@@ -525,7 +525,7 @@ message Filesystem {
         [(metadata) = { exit_code: 2 }];
     FILESYSTEM_JNI_NOT_AVAILABLE = 8 [(metadata) = { exit_code: 36 }];
 
-    reserved 7; // For internal use
+    reserved 7, 9, 10; // For internal use
   }
 
   Code code = 1;

@@ -18,7 +18,7 @@ import static java.util.stream.Collectors.joining;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.analysis.ResolvedToolchainData;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -56,19 +56,19 @@ public abstract class StarlarkToolchainContext implements ToolchainContextApi {
 
   public static ToolchainContextApi create(
       String targetDescription,
-      Function<Label, ToolchainInfo> resolveToolchainInfoFunc,
+      Function<Label, ResolvedToolchainData> resolveToolchainDataFunc,
       ImmutableSet<Label> resolvedToolchainTypeLabels) {
     Preconditions.checkNotNull(targetDescription);
-    Preconditions.checkNotNull(resolveToolchainInfoFunc);
+    Preconditions.checkNotNull(resolveToolchainDataFunc);
     Preconditions.checkNotNull(resolvedToolchainTypeLabels);
 
     return new AutoValue_StarlarkToolchainContext(
-        targetDescription, resolveToolchainInfoFunc, resolvedToolchainTypeLabels);
+        targetDescription, resolveToolchainDataFunc, resolvedToolchainTypeLabels);
   }
 
   protected abstract String targetDescription();
 
-  protected abstract Function<Label, ToolchainInfo> resolveToolchainInfoFunc();
+  protected abstract Function<Label, ResolvedToolchainData> resolveToolchainFunc();
 
   protected abstract ImmutableSet<Label> resolvedToolchainTypeLabels();
 
@@ -120,7 +120,7 @@ public abstract class StarlarkToolchainContext implements ToolchainContextApi {
           toolchainTypeLabel,
           resolvedToolchainTypeLabels().stream().map(Label::toString).collect(joining(", ")));
     }
-    ToolchainInfo toolchainInfo = resolveToolchainInfoFunc().apply(toolchainTypeLabel);
+    var toolchainInfo = resolveToolchainFunc().apply(toolchainTypeLabel);
     if (toolchainInfo == null) {
       return Starlark.NONE;
     }

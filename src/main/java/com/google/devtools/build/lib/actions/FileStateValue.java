@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
+import com.google.devtools.build.lib.actions.FileValue.RegularFileValue;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -34,7 +35,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.XattrProvider;
-import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Objects;
@@ -57,9 +57,14 @@ import javax.annotation.Nullable;
  * com.google.devtools.build.lib.skyframe.FileFunction}. Instead, {@link FileValue} should be used
  * by {@link com.google.devtools.build.skyframe.SkyFunction} consumers that care about files.
  *
+ * <p>The common case for {@link FileValue} is {@link RegularFileValue} (i.e. the path's real path
+ * is itself, and it's an existing file). As a memory optimization for this common case, we have
+ * {@link FileStateValue} be a {@link RegularFileValue} so that we don't need a wrapper object for
+ * the value of the corresponding {@link FileValue} node.
+ *
  * <p>All subclasses must implement {@link #equals} and {@link #hashCode} properly.
  */
-public abstract class FileStateValue implements HasDigest, SkyValue {
+public abstract class FileStateValue extends RegularFileValue implements HasDigest {
   @SerializationConstant
   public static final DirectoryFileStateValue DIRECTORY_FILE_STATE_NODE =
       new DirectoryFileStateValue();
@@ -205,6 +210,11 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
     return rootedPath;
   }
 
+  @Override
+  public FileStateValue realFileStateValue() {
+    return this;
+  }
+
   public abstract FileStateType getType();
 
   /** Returns the target of the symlink, or throws an exception if this is not a symlink. */
@@ -212,7 +222,8 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
     throw new IllegalStateException();
   }
 
-  long getSize() {
+  @Override
+  public long getSize() {
     throw new IllegalStateException();
   }
 
@@ -404,7 +415,7 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
     }
 
     @Override
-    long getSize() {
+    public long getSize() {
       return 0;
     }
 

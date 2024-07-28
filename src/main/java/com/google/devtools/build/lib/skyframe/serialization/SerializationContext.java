@@ -26,11 +26,11 @@ import javax.annotation.Nullable;
 /**
  * API provided to {@link ObjectCodec#serialize} implementations.
  *
- * <p>Implementations may be stateful or stateless. The {@link StalessSerializationContext} is
+ * <p>Implementations may be stateful or stateless. The {@link ImmutableSerializationContext} is
  * thread safe and it has rather flexible usage.
  *
  * <p>The two stateful contexts, {@link MemoizingSerializationContext} and {@link
- * SharedValueSerializationContetx} are tightly coupled to the output bytes. Deserializing memoized
+ * SharedValueSerializationContext} are tightly coupled to the output bytes. Deserializing memoized
  * streams requires the deserializer to know all the previously serialized values. In practice, it
  * only makes sense to tie the lifetime of a {@link CodedOutputStream} to the lifetime of a {@link
  * MemoizingSerializationContext}.

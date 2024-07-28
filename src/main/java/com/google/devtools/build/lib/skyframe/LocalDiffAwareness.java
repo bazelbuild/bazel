@@ -182,8 +182,12 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
   }
 
   @Override
-  public ModifiedFileSet getDiff(View oldView, View newView)
+  public ModifiedFileSet getDiff(@Nullable View oldView, View newView)
       throws IncompatibleViewException, BrokenDiffAwarenessException {
+    if (oldView == null) {
+      return ModifiedFileSet.EVERYTHING_MODIFIED;
+    }
+
     SequentialView oldSequentialView;
     SequentialView newSequentialView;
     try {

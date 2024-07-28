@@ -418,11 +418,13 @@ public class BlazeRuntimeWrapper {
                 runtime.getBugReporter(),
                 WorkerProcessMetricsCollector.instance(),
                 env.getLocalResourceManager(),
+                env.getSkyframeExecutor().getEvaluator().getInMemoryGraph(),
                 /* collectWorkerDataInProfiler= */ false,
                 /* collectLoadAverage= */ false,
                 /* collectSystemNetworkUsage= */ false,
                 /* collectResourceManagerEstimation= */ false,
-                /* collectPressureStallIndicators= */ false));
+                /* collectPressureStallIndicators= */ false,
+                /* collectSkyframeCounts= */ false));
 
     StoredEventHandler storedEventHandler = new StoredEventHandler();
     reporter.addHandler(storedEventHandler);
@@ -454,7 +456,6 @@ public class BlazeRuntimeWrapper {
 
   private void commandComplete(@Nullable Crash crash) throws Exception {
     Reporter reporter = env.getReporter();
-    getSkyframeExecutor().notifyCommandComplete(reporter);
     if (crash != null) {
       runtime.getBugReporter().handleCrash(crash, CrashContext.keepAlive().reportingTo(reporter));
     }

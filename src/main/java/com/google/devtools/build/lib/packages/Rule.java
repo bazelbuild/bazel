@@ -281,12 +281,10 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * Returns true if the given attribute is configurable.
    */
   public boolean isConfigurableAttribute(String attributeName) {
-    Attribute attribute = ruleClass.getAttributeByNameMaybe(attributeName);
     // TODO(murali): This method should be property of ruleclass not rule instance.
     // Further, this call to AbstractAttributeMapper.isConfigurable is delegated right back
     // to this instance!
-    return attribute != null
-        && AbstractAttributeMapper.isConfigurable(this, attributeName, attribute.getType());
+    return AbstractAttributeMapper.isConfigurable(this, attributeName);
   }
 
   /**

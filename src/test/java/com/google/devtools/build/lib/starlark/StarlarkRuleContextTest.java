@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.BuildInfoFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -3663,7 +3662,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(info).isNotNull();
     assertThat(info.getValue("toolchain_value")).isEqualTo("foo");
     assertThat(info.getValue("exec_groups")).isInstanceOf(StarlarkExecGroupCollection.class);
-    ImmutableMap<String, ResolvedToolchainContext> toolchainContexts =
+    var toolchainContexts =
         ((StarlarkExecGroupCollection) info.getValue("exec_groups"))
             .getToolchainCollectionForTesting();
     assertThat(toolchainContexts.keySet()).containsExactly(DEFAULT_EXEC_GROUP_NAME, "dragonfruit");
@@ -3722,7 +3721,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(info).isNotNull();
     assertThat(info.getValue("toolchain_value")).isEqualTo("foo");
     assertThat(info.getValue("exec_groups")).isInstanceOf(StarlarkExecGroupCollection.class);
-    ImmutableMap<String, ResolvedToolchainContext> toolchainContexts =
+    var toolchainContexts =
         ((StarlarkExecGroupCollection) info.getValue("exec_groups"))
             .getToolchainCollectionForTesting();
     assertThat(toolchainContexts.keySet())

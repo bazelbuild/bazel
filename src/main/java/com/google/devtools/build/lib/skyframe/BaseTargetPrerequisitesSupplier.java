@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
+import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import javax.annotation.Nullable;
 
 /**
@@ -34,5 +36,12 @@ public interface BaseTargetPrerequisitesSupplier {
   /** Directly retrieves configuration values from Skyframe without adding a dependency edge. */
   @Nullable
   BuildConfigurationValue getPrerequisiteConfiguration(BuildConfigurationKey key)
+      throws InterruptedException;
+
+  /**
+   * Directly retrieves unloaded toolchain contexts from Skyframe without adding a dependency edge.
+   */
+  @Nullable
+  UnloadedToolchainContext getUnloadedToolchainContext(ToolchainContextKey key)
       throws InterruptedException;
 }

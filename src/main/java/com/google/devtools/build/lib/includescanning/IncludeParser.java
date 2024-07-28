@@ -306,8 +306,7 @@ class IncludeParser {
         findFilters.add(rule.findFilter);
       }
       SkyframeLookupResult containingPackageLookupValues = env.getValuesAndExceptions(rulePaths);
-      if (env.valuesMissing()
-          && !env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
+      if (env.valuesMissing() && !env.inErrorBubbling()) {
         return null;
       }
       List<GlobDescriptor> globKeys = new ArrayList<>(rulePaths.size());
@@ -321,7 +320,7 @@ class IncludeParser {
                   containingPackageLookupValues.getOrThrow(
                       relativePathKey, NoSuchPackageException.class);
         } catch (NoSuchPackageException e) {
-          if (env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
+          if (env.inErrorBubbling()) {
             throw e;
           }
           logger.atWarning().withCause(e).log(
@@ -355,8 +354,7 @@ class IncludeParser {
         return null;
       }
       SkyframeLookupResult globResults = env.getValuesAndExceptions(globKeys);
-      if (env.valuesMissing()
-          && !env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
+      if (env.valuesMissing() && !env.inErrorBubbling()) {
         return null;
       }
       for (GlobDescriptor globKey : globKeys) {
@@ -368,7 +366,7 @@ class IncludeParser {
                   globResults.getOrThrow(
                       globKey, IOException.class, BuildFileNotFoundException.class);
         } catch (IOException | BuildFileNotFoundException e) {
-          if (env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
+          if (env.inErrorBubbling()) {
             throw e;
           }
           logger.atWarning().withCause(e).log(

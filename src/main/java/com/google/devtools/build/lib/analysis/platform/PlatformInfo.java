@@ -136,6 +136,7 @@ public class PlatformInfo extends NativeInfo
   /** Add this platform to the given fingerprint. */
   public void addTo(Fingerprint fp) {
     fp.addString(label.toString());
+    constraints.addToFingerprint(fp);
     fp.addNullableString(remoteExecutionProperties);
     fp.addStringMap(execProperties.properties());
     fp.addStrings(flags);
@@ -144,7 +145,6 @@ public class PlatformInfo extends NativeInfo
             .map(ConfigMatchingProvider::label)
             .map(Label::toString)
             .collect(toImmutableList()));
-    constraints.addToFingerprint(fp);
   }
 
   @Override
@@ -155,12 +155,15 @@ public class PlatformInfo extends NativeInfo
     return Objects.equals(label, that.label)
         && Objects.equals(constraints, that.constraints)
         && Objects.equals(remoteExecutionProperties, that.remoteExecutionProperties)
-        && Objects.equals(execProperties, that.execProperties);
+        && Objects.equals(execProperties, that.execProperties)
+        && Objects.equals(flags, that.flags)
+        && Objects.equals(requiredSettings, that.requiredSettings);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(label, constraints, remoteExecutionProperties, execProperties);
+    return Objects.hash(
+        label, constraints, remoteExecutionProperties, execProperties, flags, requiredSettings);
   }
 
   /** Returns a new {@link Builder} for creating a fresh {@link PlatformInfo} instance. */

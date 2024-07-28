@@ -97,7 +97,21 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
           + "the future.";
 
   String CONFIGURABLE_ARG = "configurable";
-  String CONFIGURABLE_ARG_DOC = "If true, this attribute supports select()s";
+  String CONFIGURABLE_ARG_DOC =
+      "This argument can only be specified for an attribute of a symbolic macro." //
+          + "<p>If <code>"
+          + CONFIGURABLE_ARG
+          + "</code> is explicitly set to <code>False</code>, the symbolic macro attribute is"
+          + " non-configurable - in other words, it cannot take a <code>select()</code> value. If"
+          + " the <code>"
+          + CONFIGURABLE_ARG
+          + "</code> is either unbound or explicitly set to <code>True</code>, the attribute is"
+          + " configurable and can take a <code>select()</code> value." //
+          + "<p>For an attribute of a rule or aspect, <code>"
+          + CONFIGURABLE_ARG
+          + "</code> must be left unbound. Most Starlark rule attributes are always configurable,"
+          + " with the exception of <code>attr.output()</code>, <code>attr.output_list()</code>,"
+          + " and <code>attr.license()</code> rule attributes, which are always non-configurable.";
 
   String CONFIGURATION_ARG = "cfg";
   // TODO(b/151742236): Update when new Starlark-based configuration framework is implemented.

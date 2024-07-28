@@ -419,6 +419,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected void initializeMockClient() throws IOException {
     analysisMock.setupMockClient(mockToolsConfig);
     analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
+    analysisMock.setupPrelude(mockToolsConfig);
   }
 
   protected AnalysisMock getAnalysisMock() {

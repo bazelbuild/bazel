@@ -52,7 +52,6 @@ class WindowsRemoteTest(test_base.TestBase):
   # this means the runfiles manifest, which is not present remotely, must exist
   # locally.
   def testBinaryRunsLocally(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'sh_binary(',
         '  name = "foo",',
@@ -81,7 +80,6 @@ class WindowsRemoteTest(test_base.TestBase):
     self.assertEqual(stdout, ['hello shell'])
 
   def testShTestRunsLocally(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'sh_test(',
         '  name = "foo_test",',
@@ -107,7 +105,6 @@ class WindowsRemoteTest(test_base.TestBase):
 
   # Remotely, the runfiles manifest does not exist.
   def testShTestRunsRemotely(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'sh_test(',
         '  name = "foo_test",',
@@ -134,7 +131,6 @@ class WindowsRemoteTest(test_base.TestBase):
   # The Java launcher uses Rlocation which has differing behavior for local and
   # remote.
   def testJavaTestRunsRemotely(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'java_test(',
         '  name = "foo_test",',
@@ -164,7 +160,6 @@ class WindowsRemoteTest(test_base.TestBase):
   # it elsewhere, add --test_env=JAVA_HOME to your Bazel invocation to fix this
   # test.
   def testJavaTestWithRuntimeRunsRemotely(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'package(default_visibility = ["//visibility:public"])',
         'java_test(',
@@ -194,7 +189,6 @@ class WindowsRemoteTest(test_base.TestBase):
   # for genrule tool launchers, so the runfiles directory is discovered based on
   # the executable path.
   def testGenruleWithToolRunsRemotely(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     # TODO(jsharpe): Replace sh_binary with py_binary once
     # https://github.com/bazelbuild/bazel/issues/5087 resolved.
     self.ScratchFile('foo/BUILD', [

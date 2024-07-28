@@ -17,7 +17,6 @@ import static com.google.devtools.build.lib.skyframe.serialization.strings.Unsaf
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
@@ -28,6 +27,7 @@ import com.google.errorprone.annotations.Immutable;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
 
 /**
@@ -52,7 +52,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public abstract class PathFragment
-    implements Comparable<PathFragment>, FileType.HasFileType, CommandLineItem {
+    implements Comparable<PathFragment>, FileType.HasFileType, PathStrippable {
   private static final OsPathPolicy OS = OsPathPolicy.getFilePathOs();
 
   @SerializationConstant
@@ -804,8 +804,8 @@ public abstract class PathFragment
   }
 
   @Override
-  public String expandToCommandLine() {
-    return normalizedPath;
+  public String expand(UnaryOperator<PathFragment> stripPaths) {
+    return stripPaths.apply(this).normalizedPath;
   }
 
   private static void checkBaseName(String baseName) {

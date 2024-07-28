@@ -1585,6 +1585,55 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void
+      testRuleClassImplicitOutputFunctionAndComputedDefaultDependingOnConfigurableAttribute()
+          throws Exception {
+    scratch.file(
+        "test/starlark/extension.bzl",
+        """
+        def custom_rule_impl(ctx):
+          ctx.actions.write(ctx.outputs.o, 'foo')
+          files = [ctx.outputs.o]
+          ftb = depset(files)
+          return [DefaultInfo(runfiles = ctx.runfiles(), files = ftb)]
+
+        def computed_func(select_attr):
+          return None
+
+        def output_func(irrelevant_attr):
+          return {'o': irrelevant_attr + '.txt'}
+
+        custom_rule = rule(
+          implementation = custom_rule_impl,
+          attrs = {
+            'select_attr': attr.string(),
+            'irrelevant_attr': attr.string(),
+            '_computed_attr': attr.label(default=computed_func),
+          },
+          outputs = output_func)
+        """);
+
+    scratch.file(
+        "test/starlark/BUILD",
+        """
+        load('//test/starlark:extension.bzl', 'custom_rule')
+
+        custom_rule(
+          name = 'cr',
+          irrelevant_attr = 'foo',
+          select_attr = select({"//conditions:default": "bar"}),
+        )
+        """);
+
+    ConfiguredTarget target = getConfiguredTarget("//test/starlark:cr");
+
+    assertThat(
+            ActionsTestUtil.baseArtifactNames(
+                target.getProvider(FileProvider.class).getFilesToBuild()))
+        .containsExactly("foo.txt");
+  }
+
+  @Test
   public void testRuleClassImplicitOutputs() throws Exception {
     scratch.file(
         "test/starlark/extension.bzl",

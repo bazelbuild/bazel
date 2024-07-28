@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransi
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigGlobalLibraryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import java.util.HashSet;
@@ -51,20 +52,53 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
       StarlarkThread thread)
       throws EvalException {
     StarlarkSemantics semantics = thread.getSemantics();
+    BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);
+
     List<String> inputsList = Sequence.cast(inputs, String.class, "inputs");
     List<String> outputsList = Sequence.cast(outputs, String.class, "outputs");
-    // TODO(b/288258583): use a more sustainable way of determining if this is an exec transition.
-    // Either match the transition name with the value of --experimental_exec_config (maybe passing
-    // that info through StarlarkSemantics) or add an "exec = True" parameter to Starlark's
-    // transition() function.
-    boolean isExecTransition = implementation.getLocation().file().endsWith("_exec_platforms.bzl");
-    BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);
     validateBuildSettingKeys(
-        inputsList, Settings.INPUTS, isExecTransition, moduleContext.packageContext());
+        inputsList, Settings.INPUTS, /* isExecTransition= */ false, moduleContext.packageContext());
     validateBuildSettingKeys(
-        outputsList, Settings.OUTPUTS, isExecTransition, moduleContext.packageContext());
+        outputsList,
+        Settings.OUTPUTS,
+        /* isExecTransition= */ false,
+        moduleContext.packageContext());
     Location location = thread.getCallerLocation();
     return StarlarkDefinedConfigTransition.newRegularTransition(
+        implementation,
+        inputsList,
+        outputsList,
+        semantics,
+        moduleContext.label(),
+        location,
+        moduleContext.repoMapping());
+  }
+
+  @Override
+  public ConfigurationTransitionApi execTransition(
+      StarlarkCallable implementation,
+      Sequence<?> inputs, // <String> expected
+      Sequence<?> outputs, // <String> expected
+      StarlarkThread thread)
+      throws EvalException {
+    // TODO: blaze-configurability-team - When we relax this, add checks that regular usages of
+    // transitions (ie, rule and attribute) cannot use exec_transition.
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+
+    StarlarkSemantics semantics = thread.getSemantics();
+    BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);
+
+    List<String> inputsList = Sequence.cast(inputs, String.class, "inputs");
+    List<String> outputsList = Sequence.cast(outputs, String.class, "outputs");
+    validateBuildSettingKeys(
+        inputsList, Settings.INPUTS, /* isExecTransition= */ true, moduleContext.packageContext());
+    validateBuildSettingKeys(
+        outputsList,
+        Settings.OUTPUTS,
+        /* isExecTransition= */ true,
+        moduleContext.packageContext());
+    Location location = thread.getCallerLocation();
+    return StarlarkDefinedConfigTransition.newExecTransition(
         implementation,
         inputsList,
         outputsList,
@@ -80,9 +114,9 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
       Dict<?, ?> changedSettings, // <String, String> expected
       StarlarkThread thread)
       throws EvalException {
+    BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);
     Map<String, Object> changedSettingsMap =
         Dict.cast(changedSettings, String.class, Object.class, "changed_settings dict");
-    BazelModuleContext moduleContext = BazelModuleContext.ofInnermostBzlOrThrow(thread);
     validateBuildSettingKeys(
         changedSettingsMap.keySet(),
         Settings.OUTPUTS,

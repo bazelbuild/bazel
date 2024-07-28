@@ -15,9 +15,12 @@ package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.Initializers.initializeCodecClassBuilder;
 import static com.google.devtools.build.lib.skyframe.serialization.autocodec.Initializers.initializeSerializeMethodBuilder;
+import static com.google.devtools.build.lib.skyframe.serialization.autocodec.TypeOperations.getErasure;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -37,25 +40,26 @@ abstract class CodecGenerator {
   final TypeSpec defineCodec(
       TypeElement encodedType, AutoCodec annotation, ExecutableElement instantiator)
       throws SerializationProcessingException {
-    List<? extends FieldGenerator> fieldGenerators = getFieldGenerators(encodedType);
+    ImmutableList<FieldGenerator> fieldGenerators = getFieldGenerators(encodedType);
 
     TypeSpec.Builder classBuilder = initializeCodecClassBuilder(encodedType, env);
-    performAdditionalCodecInitialization(classBuilder, encodedType, instantiator);
+    TypeName encodedTypeName = getErasure(encodedType, env);
+    performAdditionalCodecInitialization(
+        classBuilder, encodedTypeName, instantiator, fieldGenerators);
 
-    MethodSpec.Builder constructor = initializeConstructor(encodedType, fieldGenerators.size());
+    MethodSpec.Builder constructor = initializeConstructor(encodedType, fieldGenerators);
     MethodSpec.Builder serialize = initializeSerializeMethodBuilder(encodedType, annotation, env);
-    MethodSpec.Builder deserialize = initializeDeserializeMethod(encodedType);
+    MethodSpec.Builder deserialize = initializeDeserializeMethod(encodedTypeName);
 
     for (FieldGenerator generator : fieldGenerators) {
-      generator.generateOffsetMember(classBuilder, constructor);
+      generator.generateHandleMember(classBuilder, constructor);
       generator.generateAdditionalMemberVariables(classBuilder);
       generator.generateConstructorCode(constructor);
       generator.generateSerializeCode(serialize);
       generator.generateDeserializeCode(deserialize);
     }
 
-    addImplementationToEndOfMethods(
-        instantiator, constructor, deserialize, !fieldGenerators.isEmpty());
+    addImplementationToEndOfMethods(constructor, deserialize, fieldGenerators);
 
     return classBuilder
         .addMethod(constructor.build())
@@ -64,39 +68,47 @@ abstract class CodecGenerator {
         .build();
   }
 
+  /** Creates {@link FieldGenerator} instances that generate code for serialized fields. */
+  abstract ImmutableList<FieldGenerator> getFieldGenerators(TypeElement type)
+      throws SerializationProcessingException;
+
   /**
    * Performs additional initialization steps on the codec being created.
    *
    * <p>Adds the correct superclass. May define additional field-independent methods.
    */
   abstract void performAdditionalCodecInitialization(
-      TypeSpec.Builder classBuilder, TypeElement encodedType, ExecutableElement instantiator);
+      TypeSpec.Builder classBuilder,
+      TypeName encodedTypeName,
+      ExecutableElement instantiator,
+      List<? extends FieldGenerator> fieldGenerators);
 
-  /** Creates {@link FieldGenerator} instances that generate code for serialized fields. */
-  abstract List<? extends FieldGenerator> getFieldGenerators(TypeElement type)
-      throws SerializationProcessingException;
-
-  /**
-   * Initializes the field-independent parts of the constructor.
-   *
-   * @param fieldCount number of fields to serialize. This is used in two ways. 1. Exception
-   *     handling logic may depend on the presence of fields. 2. We cross check the number of fields
-   *     at runtime.
-   */
-  abstract MethodSpec.Builder initializeConstructor(TypeElement type, int fieldCount);
+  abstract void generateConstructorPreamble(
+      TypeElement encodedType,
+      ImmutableList<FieldGenerator> fieldGenerators,
+      MethodSpec.Builder constructor);
 
   /** Initializes the method that performs deserialization work. */
-  abstract MethodSpec.Builder initializeDeserializeMethod(TypeElement encodedType);
+  abstract MethodSpec.Builder initializeDeserializeMethod(TypeName typeName);
 
-  /**
-   * Adds field-independent code at the end of methods after per-field code is added.
-   *
-   * @param hasFields true if there are any fields to serialize, based on the result of {@link
-   *     #getFieldGenerators}. Exception handling logic may depend on the presence of fields.
-   */
+  /** Adds field-independent code at the end of methods after per-field code is added. */
   abstract void addImplementationToEndOfMethods(
-      ExecutableElement instantiator,
       MethodSpec.Builder constructor,
       MethodSpec.Builder deserialize,
-      boolean hasFields);
+      ImmutableList<FieldGenerator> fieldGenerators);
+
+  /** Initializes the (mostly) field-independent parts of the constructor. */
+  private final MethodSpec.Builder initializeConstructor(
+      TypeElement encodedType, ImmutableList<FieldGenerator> fieldGenerators) {
+    MethodSpec.Builder constructor = MethodSpec.constructorBuilder();
+    generateConstructorPreamble(encodedType, fieldGenerators, constructor);
+
+    if (fieldGenerators.stream().anyMatch(g -> g.getGetterName() == null)) {
+      // If there are any fields not retrieved by getters, the per-field section of the constructor
+      // will perform reflective operations to obtain handles to the variables. These are enclosed
+      // in a common try-catch block.
+      constructor.beginControlFlow("try");
+    }
+    return constructor;
+  }
 }

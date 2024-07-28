@@ -189,13 +189,25 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
 
   @Override
   public final boolean isConfigurable(String attributeName) {
-    Attribute attrDef = getAttributeDefinition(attributeName);
-    return attrDef != null && getSelectorList(attributeName, attrDef.getType()) != null;
+    return isConfigurable(rule, attributeName);
   }
 
-  public static <T> boolean isConfigurable(Rule rule, String attributeName, Type<T> type) {
-    SelectorList<T> selectorMaybe = rule.getSelectorList(attributeName, type);
-    return selectorMaybe != null;
+  /**
+   * Check if an attribute is configurable (uses select) or, if it's a computed default, if any of
+   * its inputs are configurable.
+   */
+  public static boolean isConfigurable(Rule rule, String attributeName) {
+    Object attr = rule.getAttr(attributeName);
+    if (attr instanceof Attribute.ComputedDefault) {
+      for (String dep : ((Attribute.ComputedDefault) attr).dependencies()) {
+        if (isConfigurable(rule, dep)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    Attribute attrDef = rule.getRuleClassObject().getAttributeByNameMaybe(attributeName);
+    return attrDef != null && rule.getSelectorList(attributeName, attrDef.getType()) != null;
   }
 
   /**

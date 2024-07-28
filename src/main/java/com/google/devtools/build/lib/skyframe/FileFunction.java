@@ -196,14 +196,19 @@ public class FileFunction implements SkyFunction {
     }
 
     RootedPath rootedPathFromAncestors =
-        getChild(parentFileValue.realRootedPath(), baseName, parentRootedPath, rootedPath);
+        getChild(
+            parentFileValue.realRootedPath(parentRootedPath),
+            baseName,
+            parentRootedPath,
+            rootedPath);
 
     if (!parentFileValue.exists() || !parentFileValue.isDirectory()) {
       return new PartialResolutionResult(
           rootedPathFromAncestors, FileStateValue.NONEXISTENT_FILE_STATE_NODE);
     }
 
-    for (RootedPath parentPartialRootedPath : parentFileValue.logicalChainDuringResolution()) {
+    for (RootedPath parentPartialRootedPath :
+        parentFileValue.logicalChainDuringResolution(parentRootedPath)) {
       checkAndNotePathSeenDuringPartialResolution(
           getChild(parentPartialRootedPath, baseName, parentRootedPath, rootedPath),
           symlinkResolutionState,

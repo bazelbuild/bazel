@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FilesToRunProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
-import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import javax.annotation.Nullable;
@@ -75,16 +74,6 @@ public interface AndroidStarlarkCommonApi<
       documented = false,
       structField = true)
   AndroidSplitTransitionApi getAndroidSplitTransition();
-
-  @StarlarkMethod(
-      name = "android_platforms_transition",
-      doc =
-          "A configuration for rules that uses the --android_platforms flag instead of --platforms."
-              + " This should only be used by Android rules during migration and is not for"
-              + " general use.",
-      documented = false,
-      structField = true)
-  ConfigurationTransitionApi getAndroidPlatformsTransition();
 
   @StarlarkMethod(
       name = "enable_implicit_sourceless_deps_exports_compatibility",

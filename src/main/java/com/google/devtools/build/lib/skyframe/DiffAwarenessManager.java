@@ -122,12 +122,6 @@ public final class DiffAwarenessManager {
     }
 
     View baselineView = diffAwarenessState.baselineView;
-    if (baselineView == null) {
-      logger.atInfo().log("Initial baseline view for %s is %s", pathEntry, newView);
-      diffAwarenessState.baselineView = newView;
-      return new InitialModifiedFileSet(newView.getWorkspaceInfo());
-    }
-
     ModifiedFileSet diff;
     logger.atInfo().log(
         "About to compute diff between %s and %s for %s", baselineView, newView, pathEntry);
@@ -243,30 +237,5 @@ public final class DiffAwarenessManager {
 
     @Override
     public void markProcessed() {}
-  }
-
-  /** Modified file set for a clean build. */
-  private static class InitialModifiedFileSet implements ProcessableModifiedFileSet {
-
-    @Nullable private final WorkspaceInfoFromDiff workspaceInfo;
-
-    InitialModifiedFileSet(@Nullable WorkspaceInfoFromDiff workspaceInfo) {
-      this.workspaceInfo = workspaceInfo;
-    }
-
-    @Override
-    public ModifiedFileSet getModifiedFileSet() {
-      return ModifiedFileSet.EVERYTHING_MODIFIED;
-    }
-
-    @Nullable
-    @Override
-    public WorkspaceInfoFromDiff getWorkspaceInfo() {
-      return workspaceInfo;
-    }
-
-    @Override
-    public void markProcessed() {
-    }
   }
 }

@@ -21,7 +21,6 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -243,7 +242,7 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
     return new ConfiguredTargetAndData(ct, tac.getTarget(), configuredTargetConfiguration, null);
   }
 
-  private ArtifactsToBuild getArtifactsToBuild(ConfiguredTargetAndData ctAndData) {
+  private static ArtifactsToBuild getArtifactsToBuild(ConfiguredTargetAndData ctAndData) {
     TopLevelArtifactContext context =
         new TopLevelArtifactContext(false, false, false, OutputGroupInfo.DEFAULT_GROUPS);
     return TopLevelArtifactHelper.getAllArtifactsToBuild(ctAndData.getConfiguredTarget(), context);
@@ -252,8 +251,6 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
   private CompletionContext getCompletionContext(
       Map<Artifact, FileArtifactValue> metadata,
       Map<SpecialArtifact, TreeArtifactValue> treeMetadata) {
-    ImmutableMap.Builder<Artifact, ImmutableSortedSet<TreeFileArtifact>> expandedArtifacts =
-        ImmutableMap.builder();
     ActionInputMap inputMap = new ActionInputMap(0);
 
     for (Map.Entry<Artifact, FileArtifactValue> entry : metadata.entrySet()) {
@@ -261,14 +258,13 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
     }
 
     for (Map.Entry<SpecialArtifact, TreeArtifactValue> entry : treeMetadata.entrySet()) {
-      expandedArtifacts.put(entry.getKey(), entry.getValue().getChildren());
       inputMap.putTreeArtifact(entry.getKey(), entry.getValue(), /* depOwner= */ null);
     }
 
     return new CompletionContext(
         directories.getExecRoot(TestConstants.WORKSPACE_NAME),
-        expandedArtifacts.buildOrThrow(),
-        /* expandedFilesets= */ ImmutableMap.of(),
+        ImmutableMap.copyOf(treeMetadata),
+        /* filesets= */ ImmutableMap.of(),
         ArtifactPathResolver.IDENTITY,
         inputMap,
         /* expandFilesets= */ false,

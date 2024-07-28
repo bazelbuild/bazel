@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe.config;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyCache;
 import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyMapProducer;
 import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyMapProducer.ResultSink;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
@@ -36,6 +37,12 @@ public class BuildConfigurationKeyFunction implements SkyFunction {
    */
   private static final String BUILD_OPTIONS_MAP_SINGLETON_KEY = "key";
 
+  private final BuildConfigurationKeyCache buildConfigurationKeyCache;
+
+  public BuildConfigurationKeyFunction(BuildConfigurationKeyCache buildConfigurationKeyCache) {
+    this.buildConfigurationKeyCache = buildConfigurationKeyCache;
+  }
+
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
@@ -49,6 +56,7 @@ public class BuildConfigurationKeyFunction implements SkyFunction {
             new BuildConfigurationKeyMapProducer(
                 sink,
                 /* runAfter= */ StateMachine.DONE,
+                buildConfigurationKeyCache,
                 ImmutableMap.of(BUILD_OPTIONS_MAP_SINGLETON_KEY, buildOptions)));
 
     boolean complete = driver.drive(env);

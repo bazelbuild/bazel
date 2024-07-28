@@ -115,6 +115,48 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     assertThat(getConfiguredTarget("//test/getrule:x")).isNotNull();
   }
 
+  // Regression test for b/355432322
+  @Test
+  public void existingRule_handlesSelectWithNoneValues_forLabelValuedAttributes() throws Exception {
+    scratch.file("test/starlark/BUILD");
+    scratch.file(
+        "test/starlark/rulestr.bzl",
+        """
+        def save_dep(rule_name):
+            r = native.existing_rule(rule_name)
+            test.save("dep", r["dep"])
+
+        def _impl(ctx):
+            pass
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "dep": attr.label(),
+            },
+        )
+        """);
+
+    scratch.file(
+        "test/getrule/BUILD",
+        """
+        load("//test/starlark:rulestr.bzl", "my_rule", "save_dep")
+
+        my_rule(
+            name = "x",
+            dep = select({"//conditions:default": None}),
+        )
+
+        save_dep("x")
+        """);
+
+    // Parse the BUILD file, to make sure select() makes it out of native.existing_rule().
+    assertThat(getConfiguredTarget("//test/getrule:x")).isNotNull();
+
+    // We have to compare by stringification because SelectorValue has reference equality semantics.
+    assertThat(getSaved("dep").toString()).isEqualTo("select({\"//conditions:default\": None})");
+  }
+
   @Test
   public void existingRule_returnsNone() throws Exception {
     scratch.file(

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.BaseTargetPrerequisitesSupplier;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
 
@@ -42,6 +43,7 @@ public final class PrerequisiteParameters {
   private final ImmutableList<Aspect> aspects;
   @Nullable private final StarlarkAttributeTransitionProvider starlarkTransitionProvider;
   private final StarlarkTransitionCache transitionCache;
+  private final BuildConfigurationKeyCache buildConfigurationKeyCache;
   @Nullable private final ToolchainCollection<ToolchainContext> toolchainContexts;
 
   @Nullable private final ConfiguredAttributeMapper attributeMap;
@@ -56,27 +58,44 @@ public final class PrerequisiteParameters {
    */
   @Nullable private final BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier;
 
+  /**
+   * The {@link UnloadedToolchainContext}s for the base target of the aspect under evaluation.
+   *
+   * <p>This is only non-null during aspect evaluation if the aspects path can propagate to
+   * toolchains.
+   */
+  @Nullable private final ToolchainCollection<UnloadedToolchainContext> baseTargetToolchainContexts;
+
   public PrerequisiteParameters(
       ConfiguredTargetKey configuredTargetKey,
       Target target,
       Iterable<Aspect> aspects,
       @Nullable StarlarkAttributeTransitionProvider starlarkTransitionProvider,
       StarlarkTransitionCache transitionCache,
+      BuildConfigurationKeyCache buildConfigurationKeyCache,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       @Nullable ConfiguredAttributeMapper attributeMap,
       TransitiveDependencyState transitiveState,
       ExtendedEventHandler eventHandler,
-      @Nullable BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier) {
+      @Nullable BaseTargetPrerequisitesSupplier baseTargetPrerequisitesSupplier,
+      @Nullable ToolchainCollection<UnloadedToolchainContext> baseTargetToolchainContexts) {
     this.configuredTargetKey = configuredTargetKey;
     this.target = target;
     this.aspects = ImmutableList.copyOf(aspects);
     this.starlarkTransitionProvider = starlarkTransitionProvider;
     this.transitionCache = transitionCache;
     this.toolchainContexts = toolchainContexts;
+    this.buildConfigurationKeyCache = buildConfigurationKeyCache;
     this.attributeMap = attributeMap;
     this.transitiveState = transitiveState;
     this.eventHandler = eventHandler;
     this.baseTargetPrerequisitesSupplier = baseTargetPrerequisitesSupplier;
+    this.baseTargetToolchainContexts = baseTargetToolchainContexts;
+  }
+
+  @Nullable
+  public ToolchainCollection<UnloadedToolchainContext> baseTargetToolchainContexts() {
+    return baseTargetToolchainContexts;
   }
 
   @Nullable
@@ -134,8 +153,10 @@ public final class PrerequisiteParameters {
   }
 
   @Nullable
-  public Label getExecutionPlatformLabel(String execGroup) {
-    var platform = toolchainContexts.getToolchainContext(execGroup).executionPlatform();
+  public Label getExecutionPlatformLabel(String execGroup, boolean isBaseTargetToolchain) {
+    var context = isBaseTargetToolchain ? baseTargetToolchainContexts : toolchainContexts;
+
+    var platform = context.getToolchainContext(execGroup).executionPlatform();
     if (platform == null) {
       return null;
     }
@@ -148,5 +169,9 @@ public final class PrerequisiteParameters {
 
   public ExtendedEventHandler eventHandler() {
     return eventHandler;
+  }
+
+  public BuildConfigurationKeyCache buildConfigurationKeyCache() {
+    return buildConfigurationKeyCache;
   }
 }

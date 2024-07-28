@@ -101,12 +101,24 @@ java_library(
 )
 
 java_library(
+    name = "build_configuration_key_cache",
+    srcs = ["BuildConfigurationKeyCache.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/config",
+        "//third_party:caffeine",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "build_configuration_key_map_producer",
     srcs = [
         "BuildConfigurationKeyMapProducer.java",
         "BuildConfigurationKeyProducer.java",
     ],
     deps = [
+        ":build_configuration_key_cache",
         ":platform_flags_producer",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
@@ -118,7 +130,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:caffeine",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

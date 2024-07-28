@@ -13,20 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.autocodec;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.unsafe.UnsafeProvider;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.MethodSpec;
+import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
-import javax.lang.model.element.Modifier;
+import javax.annotation.Nullable;
 import javax.lang.model.element.Name;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeMirror;
 
 /**
  * Generates code for a specific field.
  *
- * <p>Always stores the offset of the field in a variable named {@link #getOffsetName}.
+ * <p>Always stores a handle to the field in a variable named {@link #getHandleName}.
  */
 abstract class FieldGenerator {
   /**
@@ -36,25 +37,62 @@ abstract class FieldGenerator {
    */
   private static final String GENERATED_TAG = "$AutoCodec$";
 
-  private static final String OFFSET_SUFFIX = "_offset";
+  private static final String HANDLE_SUFFIX = "_handle";
 
-  private final VariableElement variable;
+  private final Name parameterName;
+  private final TypeMirror type;
+  private final TypeName typeName;
   private final ClassName parentName;
+  private final int hierarchyLevel;
   private final String namePrefix;
 
   /**
    * Constructor.
    *
-   * @param variable the field being serialized. Note that {@link VariableElement} contains a
-   *     reference to the enclosing class.
+   * @param parameterName name of the field being serialized
+   * @param type type of the field being serialized
+   * @param typeName Javapoet "type" of the parameter derived from {@code type}. A {@code
+   *     ProcessingEnvironment} is needed to retrieve this so it is retained for simplicity.
+   * @param parentName class name of field's parent or object being serialized. In the usual case,
+   *     the field refers to a member variable of a particular class, its parent. If no such member
+   *     variable can be found, a getter, matching on name and type may be used instead. In that
+   *     case, {@code parentName} refers to the type of the enclosing object being serialized.
    * @param hierarchyLevel a variable could occur in either the class being serialized or in one of
    *     its ancestor classes. This is 0 for the class itself, 1 for its superclass, and so on. It
-   *     is used to avoid naming collisions, particularly in the case of shadowed variables.
+   *     is used to avoid naming collisions, particularly in the case of shadowed variables. This is
+   *     0 if field retrieval uses a getter.
    */
-  FieldGenerator(VariableElement variable, int hierarchyLevel) {
-    this.variable = variable;
-    this.parentName = ClassName.get((TypeElement) variable.getEnclosingElement());
-    this.namePrefix = variable.getSimpleName() + GENERATED_TAG + hierarchyLevel;
+  FieldGenerator(
+      Name parameterName,
+      TypeMirror type,
+      TypeName typeName,
+      ClassName parentName,
+      int hierarchyLevel) {
+    this.parameterName = checkNotNull(parameterName);
+    this.type = checkNotNull(type);
+    this.typeName = checkNotNull(typeName);
+    this.parentName = checkNotNull(parentName);
+    this.hierarchyLevel = hierarchyLevel;
+    this.namePrefix = parameterName + GENERATED_TAG + hierarchyLevel;
+  }
+
+  /** Name of the field being serialized. */
+  final Name getParameterName() {
+    return parameterName;
+  }
+
+  /** Type of the field being serialized. */
+  final TypeMirror getType() {
+    return type;
+  }
+
+  /** {@link TypeName} of the field being serialized, derived from {@link #getType}. */
+  final TypeName getTypeName() {
+    return typeName;
+  }
+
+  final int getHierarchyLevel() {
+    return hierarchyLevel;
   }
 
   /** Any created member variables should start with this prefix. */
@@ -68,39 +106,36 @@ abstract class FieldGenerator {
   }
 
   /**
-   * Generated codecs store the offset of every field of the serialized class in a member variable.
+   * Name for a handle to the associated field.
    *
-   * @return name of the offset member variable
+   * <p>A handle can either be a {@link java.lang.invoke.VarHandle} or a field offset.
+   *
+   * @return name of the handle member variable
    */
-  final String getOffsetName() {
-    return namePrefix + OFFSET_SUFFIX;
+  // TODO: b/331765692 - cleanup use of field offsets
+  final String getHandleName() {
+    return namePrefix + HANDLE_SUFFIX;
+  }
+
+  /** Getter name, if a getter is used to retrieve the field. */
+  @Nullable
+  String getGetterName() {
+    return null;
   }
 
   /**
-   * Name of the field being serialized.
+   * Defines the handle field.
    *
-   * <p>Implementations may refer to this for reflection.
+   * <p>Adds the field to the {@code classBuilder} and assigns its value in {@code constructor}.
    */
-  final Name getParameterName() {
-    return variable.getSimpleName();
-  }
-
-  final void generateOffsetMember(TypeSpec.Builder classBuilder, MethodSpec.Builder constructor) {
-    classBuilder.addField(long.class, getOffsetName(), Modifier.PRIVATE, Modifier.FINAL);
-    constructor.addStatement(
-        "this.$L = $T.unsafe().objectFieldOffset($T.class.getDeclaredField(\"$L\"))",
-        getOffsetName(),
-        UnsafeProvider.class,
-        getParentName(),
-        variable.getSimpleName());
-  }
+  abstract void generateHandleMember(TypeSpec.Builder classBuilder, MethodSpec.Builder constructor);
 
   /**
    * Generates any additional member variables needed for this field.
    *
    * <p>To avoid collisions, field specific field names should be prefixed with {@link #namePrefix}.
    *
-   * <p>The *offset* field is already generated by {@link #generateOffsetMember}.
+   * <p>The *offset* field is already generated by {@link #generateHandleMember}.
    */
   void generateAdditionalMemberVariables(TypeSpec.Builder classBuilder) {}
 
@@ -108,7 +143,7 @@ abstract class FieldGenerator {
    * Adds field specific code to the constructor.
    *
    * <p>Many implementations don't need to do anything here given that the offset is already
-   * initialized by {@link #generateOffsetMember}.
+   * initialized by {@link #generateHandleMember}.
    */
   void generateConstructorCode(MethodSpec.Builder constructor) {}
 

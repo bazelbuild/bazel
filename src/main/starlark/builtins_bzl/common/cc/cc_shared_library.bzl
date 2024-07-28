@@ -85,7 +85,7 @@ def _sort_linker_inputs(topologically_sorted_labels, label_to_linker_inputs, lin
 # binaries because they link all dynamic_deps (cc_binary|cc_test).
 def _separate_static_and_dynamic_link_libraries(
         dynamic_deps,
-        direct_children,
+        deps_graph_nodes,
         can_be_linked_dynamically):
     (
         transitive_dynamic_dep_labels,
@@ -93,7 +93,7 @@ def _separate_static_and_dynamic_link_libraries(
     ) = _build_map_direct_dynamic_dep_to_transitive_dynamic_deps(dynamic_deps)
 
     node = None
-    all_children = reversed(direct_children)
+    deps_graph_nodes_to_process = reversed(deps_graph_nodes)
     targets_to_be_linked_statically_map = {}
     targets_to_be_linked_dynamically_set = {}
     seen_labels = {}
@@ -123,10 +123,10 @@ def _separate_static_and_dynamic_link_libraries(
 
     # Horrible I know. Perhaps Starlark team gives me a way to prune a tree.
     for i in range(2147483647):
-        if not len(all_children):
+        if not len(deps_graph_nodes_to_process):
             break
 
-        node = all_children[-1]
+        node = deps_graph_nodes_to_process[-1]
 
         must_add_children = False
 
@@ -189,7 +189,7 @@ def _separate_static_and_dynamic_link_libraries(
             # in which dependencies were listed in the deps attribute in the
             # BUILD file we must reverse the list so that the first one listed
             # in the BUILD file is processed first.
-            all_children.extend(reversed(node.children))
+            deps_graph_nodes_to_process.extend(reversed(node.children))
         else:
             if node.owners[0] not in first_owner_to_depset:
                 # We have 3 cases in this branch:
@@ -206,12 +206,12 @@ def _separate_static_and_dynamic_link_libraries(
                     transitive.append(transitive_dynamic_dep_labels[str(node.owners[0])])
 
                 first_owner_to_depset[node.owners[0]] = depset(direct = node.owners, transitive = transitive, order = "topological")
-            all_children.pop()
+            deps_graph_nodes_to_process.pop()
 
     topologically_sorted_labels = []
-    if direct_children:
+    if deps_graph_nodes:
         transitive = []
-        for child in direct_children:
+        for child in deps_graph_nodes:
             transitive.append(first_owner_to_depset[child.owners[0]])
         topologically_sorted_labels = depset(transitive = transitive, order = "topological").to_list()
 
@@ -329,11 +329,11 @@ def _contains_code_to_link(linker_input):
     return False
 
 def _find_top_level_linker_input_labels(
-        nodes,
+        deps_graph_nodes,
         linker_inputs_to_be_linked_statically_map,
         targets_to_be_linked_dynamically_set):
     top_level_linker_input_labels_set = {}
-    nodes_to_check = list(nodes)
+    nodes_to_check = list(deps_graph_nodes)
 
     seen_nodes_set = {}
     for i in range(2147483647):
@@ -374,13 +374,13 @@ def _filter_inputs(
         link_once_static_libs_map):
     curr_link_once_static_libs_set = {}
 
-    graph_structure_aspect_nodes = []
+    deps_root_tree_nodes = []
     dependency_linker_inputs_sets = []
     direct_deps_set = {}
     for dep in deps:
         direct_deps_set[str(dep.label)] = True
         dependency_linker_inputs_sets.append(dep[CcInfo].linking_context.linker_inputs)
-        graph_structure_aspect_nodes.append(dep[GraphNodeInfo])
+        deps_root_tree_nodes.append(dep[GraphNodeInfo])
 
     if ctx.attr.experimental_disable_topo_sort_do_not_use_remove_before_7_0:
         dependency_linker_inputs = depset(transitive = dependency_linker_inputs_sets).to_list()
@@ -404,7 +404,7 @@ def _filter_inputs(
         unused_dynamic_linker_inputs,
     ) = _separate_static_and_dynamic_link_libraries(
         ctx.attr.dynamic_deps,
-        graph_structure_aspect_nodes,
+        deps_root_tree_nodes,
         can_be_linked_dynamically,
     )
 
@@ -415,7 +415,7 @@ def _filter_inputs(
             linker_inputs_to_be_linked_statically_map.setdefault(owner, []).append(linker_input)
 
     top_level_linker_input_labels_set = _find_top_level_linker_input_labels(
-        graph_structure_aspect_nodes,
+        deps_root_tree_nodes,
         linker_inputs_to_be_linked_statically_map,
         targets_to_be_linked_dynamically_set,
     )

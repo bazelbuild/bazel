@@ -152,12 +152,12 @@ public class RewindingTestsHelper {
   final ActionEventRecorder recorder;
   final BuildIntegrationTestCase testCase;
   private final SpawnController spawnController = new SpawnController();
-  final LostImportantOutputHandlerModule lostOutputsModule =
-      new LostImportantOutputHandlerModule(this::toHex);
+  final LostImportantOutputHandlerModule lostOutputsModule;
 
   RewindingTestsHelper(BuildIntegrationTestCase testCase, ActionEventRecorder recorder) {
     this.testCase = checkNotNull(testCase);
     this.recorder = checkNotNull(recorder);
+    this.lostOutputsModule = createLostOutputsModule();
   }
 
   public final BlazeModule getLostOutputsModule() {
@@ -190,6 +190,11 @@ public class RewindingTestsHelper {
       hex.append(String.format("%02x", b));
     }
     return hex.toString();
+  }
+
+  @ForOverride
+  LostImportantOutputHandlerModule createLostOutputsModule() {
+    return new LostImportantOutputHandlerModule(this::toHex);
   }
 
   public final ControllableActionStrategyModule makeControllableActionStrategyModule(

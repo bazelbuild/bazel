@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.createRandomLeafArray;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructureWithEquivalenceReduction;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NotNest
 import com.google.devtools.build.lib.skyframe.serialization.testutils.GetRecordingStore;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.GetRecordingStore.GetRequest;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import com.google.errorprone.annotations.Keep;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -34,6 +36,7 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.ForkJoinPool;
 import org.junit.Test;
@@ -255,6 +258,101 @@ public final class SharedValueDeserializationContextTest {
         .setVerificationFunction(
             SharedValueDeserializationContextTest::verifyDeserializedNotNestedSetContainer)
         .runTests();
+  }
+
+  @Test
+  public void internedValueWithSharedElement() throws Exception {
+    new SerializationTester(InternedValue.create(101), InternedValue.create(45678))
+        .makeMemoizingAndAllowFutureBlocking(/* allowFutureBlocking= */ true)
+        .runTests();
+  }
+
+  private static class InternedValue {
+    private Integer value;
+
+    private static InternedValue create(int value) {
+      InternedValue result = new InternedValue();
+      result.value = value;
+      return result;
+    }
+
+    @Override
+    public int hashCode() {
+      return value;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj instanceof InternedValue that) {
+        return Objects.equals(value, that.value);
+      }
+      return false;
+    }
+  }
+
+  @Keep
+  private static class InternedValueCodec extends InterningObjectCodec<InternedValue> {
+    @Override
+    public Class<InternedValue> getEncodedClass() {
+      return InternedValue.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, InternedValue obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.putSharedValue(
+          obj.value, /* distinguisher= */ null, DeferredIntegerCodec.INSTANCE, codedOut);
+    }
+
+    @Override
+    public InternedValue deserializeInterned(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      InternedValue value = new InternedValue();
+      context.getSharedValue(
+          codedIn,
+          /* distinguisher= */ null,
+          DeferredIntegerCodec.INSTANCE,
+          value,
+          (parent, v) -> parent.value = (Integer) v);
+      return value;
+    }
+
+    @Override
+    @SuppressWarnings("CanIgnoreReturnValueSuggester") // fake implementation just returns input
+    public InternedValue intern(InternedValue interned) {
+      checkNotNull(interned.value);
+      return interned;
+    }
+  }
+
+  private static class DeferredIntegerCodec extends DeferredObjectCodec<Integer> {
+    private static final DeferredIntegerCodec INSTANCE = new DeferredIntegerCodec();
+
+    @Override
+    public Class<Integer> getEncodedClass() {
+      return Integer.class;
+    }
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, Integer obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      codedOut.writeInt32NoTag(obj);
+    }
+
+    @Override
+    public DeferredValue<Integer> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      int value = codedIn.readInt32();
+      return () -> value;
+    }
   }
 
   private ListenableFuture<Object> deserializeWithExecutor(

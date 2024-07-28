@@ -13,11 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 
 /** Context to be informed of top-level outputs and their runfiles. */
@@ -33,12 +38,11 @@ public interface ImportantOutputHandler extends ActionContext {
    * @param expander used to expand {@linkplain Artifact#isDirectory directory artifacts} in {@code
    *     outputs}
    * @param metadataProvider provides metadata for artifacts in {@code outputs} and their expansions
-   * @return a map from digest to output for any artifacts that need to be regenerated via action
-   *     rewinding
+   * @return any artifacts that need to be regenerated via action rewinding
    * @throws ImportantOutputException for an issue processing the outputs, not including lost
-   *     outputs which are reported in the returned map
+   *     outputs which are reported in the returned {@link LostArtifacts}
    */
-  ImmutableMap<String, ActionInput> processOutputsAndGetLostArtifacts(
+  LostArtifacts processOutputsAndGetLostArtifacts(
       Iterable<Artifact> outputs, ArtifactExpander expander, InputMetadataProvider metadataProvider)
       throws ImportantOutputException, InterruptedException;
 
@@ -56,17 +60,52 @@ public interface ImportantOutputHandler extends ActionContext {
    *     runfiles}
    * @param metadataProvider provides metadata for artifacts in {@code runfiles} and their
    *     expansions
-   * @return a map from digest to output for any artifacts that need to be regenerated via action
-   *     rewinding
+   * @return any artifacts that need to be regenerated via action rewinding
    * @throws ImportantOutputException for an issue processing the runfiles, not including lost
-   *     outputs which are reported in the returned map
+   *     outputs which are reported in the returned {@link LostArtifacts}
    */
-  ImmutableMap<String, ActionInput> processRunfilesAndGetLostArtifacts(
+  LostArtifacts processRunfilesAndGetLostArtifacts(
       PathFragment runfilesDir,
       Map<PathFragment, Artifact> runfiles,
       ArtifactExpander expander,
       InputMetadataProvider metadataProvider)
       throws ImportantOutputException, InterruptedException;
+
+  /**
+   * Informs this handler of outputs from a completed test attempt.
+   *
+   * <p>The given paths are under the exec root and are backed by an {@link
+   * com.google.devtools.build.lib.vfs.OutputService#createActionFileSystem action filesystem} if
+   * applicable.
+   *
+   * <p>Test outputs should never be lost. Test actions are not shareable across servers (see {@link
+   * Actions#dependsOnBuildId}), so outputs passed to this method come from a just-executed test
+   * action.
+   */
+  void processTestOutputs(List<Path> testOutputs)
+      throws ImportantOutputException, InterruptedException;
+
+  /**
+   * A threshold to pass to {@link
+   * com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils#logged(String, Duration)} for
+   * profiling {@link ImportantOutputHandler} operations.
+   */
+  Duration LOG_THRESHOLD = Duration.ofMillis(100);
+
+  /**
+   * Represents artifacts that need to be regenerated via action rewinding, along with their owners.
+   */
+  record LostArtifacts(ImmutableMap<String, ActionInput> byDigest, ActionInputDepOwners owners) {
+
+    public LostArtifacts(ImmutableMap<String, ActionInput> byDigest, ActionInputDepOwners owners) {
+      this.byDigest = checkNotNull(byDigest);
+      this.owners = checkNotNull(owners);
+    }
+
+    public boolean isEmpty() {
+      return byDigest.isEmpty();
+    }
+  }
 
   /** Represents an exception encountered during processing of important outputs. */
   final class ImportantOutputException extends Exception implements DetailedException {

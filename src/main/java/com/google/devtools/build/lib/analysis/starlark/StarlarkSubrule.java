@@ -440,6 +440,16 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
       this.runfilesFromDeps = null;
       this.fragmentCollection = null;
     }
+
+    @Override
+    public void repr(Printer printer) {
+      printer.append(
+          "<"
+              + subrule.getName()
+              + " context for "
+              + starlarkRuleContext.getRuleContext().getLabel()
+              + ">");
+    }
   }
 
   private static class SubruleAttribute {

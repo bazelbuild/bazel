@@ -76,7 +76,8 @@ def _link(
         link_artifact_name_suffix = _UNBOUND,
         main_output = _UNBOUND,
         use_shareable_artifact_factory = _UNBOUND,
-        build_config = _UNBOUND):
+        build_config = _UNBOUND,
+        emit_interface_shared_library = _UNBOUND):
     if output_type == "archive":
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
@@ -94,7 +95,8 @@ def _link(
        link_artifact_name_suffix != _UNBOUND or \
        main_output != _UNBOUND or \
        use_shareable_artifact_factory != _UNBOUND or \
-       build_config != _UNBOUND:
+       build_config != _UNBOUND or \
+       emit_interface_shared_library != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
 
     if use_test_only_flags == _UNBOUND:
@@ -121,6 +123,8 @@ def _link(
         use_shareable_artifact_factory = False
     if build_config == _UNBOUND:
         build_config = None
+    if emit_interface_shared_library == _UNBOUND:
+        emit_interface_shared_library = False
 
     return cc_common_internal.link(
         actions = actions,
@@ -149,6 +153,7 @@ def _link(
         main_output = main_output,
         use_shareable_artifact_factory = use_shareable_artifact_factory,
         build_config = build_config,
+        emit_interface_shared_library = emit_interface_shared_library,
     )
 
 def _create_lto_compilation_context(*, objects = {}):

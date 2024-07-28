@@ -111,21 +111,24 @@ public class SkyfocusExecutor {
                       return;
                     }
 
-                    // Check if the file belongs to a project directory (defined in PROJECT.scl)
-                    //
-                    // If this end up being costly, we could represent projectDirectories as a trie
-                    // and iterate with PathFragment#segments.
-                    for (PathFragment projectDirectory : projectDirectories) {
-                      if (fileStateKey
-                          .argument()
-                          .getRootRelativePath()
-                          .startsWith(projectDirectory)) {
+                    if (!projectDirectories.isEmpty()) {
+                      // Check if the file belongs to a project directory (defined in PROJECT.scl)
+                      //
+                      // If this ends up being costly, we could represent projectDirectories as a
+                      // trie and iterate with PathFragment#segments.
+                      for (PathFragment projectDirectory : projectDirectories) {
+                        PathFragment pathFragment = fileStateKey.argument().getRootRelativePath();
+                        if (!pathFragment.startsWith(projectDirectory)) {
+                          continue;
+                        }
                         newWorkingSet.add(fileStateKey.argument());
                         return;
                       }
+                      return;
                     }
 
-                    // Check if the file belongs to the package of a top level target being built.
+                    // If project directories are not defined, check if the file belongs to the
+                    // package of a top level target being built.
                     PathFragment currPath = fileStateKey.argument().getRootRelativePath();
                     while (currPath != null) {
                       try {

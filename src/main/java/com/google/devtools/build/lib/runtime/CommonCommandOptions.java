@@ -336,6 +336,18 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean collectPressureStallIndicators;
 
   @Option(
+      name = "experimental_collect_skyframe_counts_in_profiler",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "If enabled, the profiler collects SkyFunction counts in the Skyframe graph over time for"
+              + " key function types, like configured targets and action executions. May have a"
+              + " performance hit as this visits the ENTIRE Skyframe graph at every profiling time"
+              + " unit. Do not use this flag with performance-critical measurements.")
+  public boolean collectSkyframeCounts;
+
+  @Option(
       name = "memory_profile",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,

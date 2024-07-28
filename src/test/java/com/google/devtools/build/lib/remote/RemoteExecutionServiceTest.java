@@ -1649,7 +1649,7 @@ public class RemoteExecutionServiceTest {
 
     // act
     UploadManifest manifest = service.buildUploadManifest(action, spawnResult);
-    service.uploadOutputs(action, spawnResult);
+    service.uploadOutputs(action, spawnResult, () -> {});
 
     // assert
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
@@ -1696,7 +1696,7 @@ public class RemoteExecutionServiceTest {
 
     // act
     UploadManifest manifest = service.buildUploadManifest(action, spawnResult);
-    service.uploadOutputs(action, spawnResult);
+    service.uploadOutputs(action, spawnResult, () -> {});
 
     // assert
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
@@ -1770,7 +1770,7 @@ public class RemoteExecutionServiceTest {
 
     // act
     UploadManifest manifest = service.buildUploadManifest(action, spawnResult);
-    service.uploadOutputs(action, spawnResult);
+    service.uploadOutputs(action, spawnResult, () -> {});
 
     // assert
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
@@ -1806,7 +1806,7 @@ public class RemoteExecutionServiceTest {
 
     // act
     UploadManifest manifest = service.buildUploadManifest(action, spawnResult);
-    service.uploadOutputs(action, spawnResult);
+    service.uploadOutputs(action, spawnResult, () -> {});
 
     // assert
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
@@ -1858,7 +1858,7 @@ public class RemoteExecutionServiceTest {
             .build();
 
     // act
-    service.uploadOutputs(action, spawnResult);
+    service.uploadOutputs(action, spawnResult, () -> {});
 
     // assert
     assertThat(
@@ -1884,7 +1884,7 @@ public class RemoteExecutionServiceTest {
         .when(cache)
         .uploadActionResult(any(), any(), any());
 
-    service.uploadOutputs(action, spawnResult);
+    service.uploadOutputs(action, spawnResult, () -> {});
 
     assertThat(eventHandler.getEvents()).hasSize(1);
     Event evt = eventHandler.getEvents().get(0);
@@ -1909,7 +1909,7 @@ public class RemoteExecutionServiceTest {
             .setRunnerName("test")
             .build();
 
-    service.uploadOutputs(action, spawnResult);
+    service.uploadOutputs(action, spawnResult, () -> {});
 
     assertThat(eventHandler.getPosts())
         .containsAtLeast(
@@ -1936,7 +1936,7 @@ public class RemoteExecutionServiceTest {
             .setRunnerName("test")
             .build();
 
-    service.uploadOutputs(action, spawnResult);
+    service.uploadOutputs(action, spawnResult, () -> {});
 
     // assert
     assertThat(cache.getNumFindMissingDigests()).isEmpty();
