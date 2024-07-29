@@ -586,6 +586,14 @@ EOF
 }
 
 
+# Add protobuf to the MODULE.bazel file
+function add_protobuf() {
+  cat >> "$1" <<EOF
+bazel_dep(name = "protobuf", version = "3.19.6", repo_name = "com_google_protobuf")
+EOF
+}
+
+
 # Set up a lockfile to avoid accessing BCR for tests with a clean workspace.
 function write_default_lockfile() {
   module_lockfile=${1:-MODULE.bazel.lock}
