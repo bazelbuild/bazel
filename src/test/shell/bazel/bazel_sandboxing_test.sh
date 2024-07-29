@@ -486,10 +486,8 @@ function test_symlink_with_output_base_under_tmp() {
   local repo=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
   trap "rm -fr $repo" EXIT
 
-  touch WORKSPACE
-
   mkdir -p $repo/pkg
-  touch $repo/WORKSPACE
+  touch $repo/REPO.bazel
   cat > $repo/pkg/es1 <<'EOF'
 EXTERNAL_SOURCE_CONTENT
 EOF
@@ -507,7 +505,8 @@ EOF
   mkdir -p $repo/examples
   cd $repo/examples || fail "cd $repo/examples failed"
 
-  cat > WORKSPACE <<EOF
+  cat > MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "repo",
     path = "$repo",
@@ -703,7 +702,8 @@ function test_hermetic_tmp_under_tmp {
   mkdir -p "${temp_dir}/output-base"
 
   cd "${temp_dir}/workspace"
-  cat > WORKSPACE <<EOF
+  cat > MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name="repo", path="${temp_dir}/repo")
 EOF
 
@@ -733,7 +733,7 @@ genrule(
     "  echo reading $$i",
     "  cat $$i >> $@",
     "done",
-    "for i in a/s a/go b/s b/go ../repo/c/s ../repo/c/go; do",
+    "for i in a/s a/go b/s b/go ../_main~_repo_rules~repo/c/s ../_main~_repo_rules~repo/c/go; do",
     "  echo reading $$RUNFILES/$$i",
     "  cat $$RUNFILES/$$i >> $@",
     "done",
@@ -744,7 +744,7 @@ EOF
   touch a/bin.sh
   chmod +x a/bin.sh
 
-  touch ../repo/WORKSPACE
+  touch ../repo/REPO.bazel
   cat > ../repo/c/BUILD <<'EOF'
 exports_files(["s"])
 genrule(
@@ -769,7 +769,6 @@ EOF
 
   touch "a/s" "../package-path/b/s" "../repo/c/s"
 
-  cat WORKSPACE
   bazel \
     --output_base="${temp_dir}/output-base" \
     build \
