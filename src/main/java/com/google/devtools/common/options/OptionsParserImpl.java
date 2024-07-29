@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionValueDescription.ExpansionBundle;
+import com.google.devtools.common.options.OptionsParser.ArgAndFallbackData;
 import com.google.devtools.common.options.OptionsParser.OptionDescription;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.Keep;
@@ -452,17 +453,10 @@ class OptionsParserImpl {
   OptionsParserImplResult parse(
       PriorityCategory priorityCat,
       Function<OptionDefinition, String> sourceFunction,
-      List<String> args,
-      OptionsData fallbackData)
+      List<ArgAndFallbackData> args)
       throws OptionsParsingException {
     OptionsParserImplResult optionsParserImplResult =
-        parse(
-            nextPriorityPerPriorityCategory.get(priorityCat),
-            sourceFunction,
-            null,
-            null,
-            args,
-            fallbackData);
+        parse(nextPriorityPerPriorityCategory.get(priorityCat), sourceFunction, null, null, args);
     nextPriorityPerPriorityCategory.put(priorityCat, optionsParserImplResult.nextPriority);
     return optionsParserImplResult;
   }
@@ -480,16 +474,19 @@ class OptionsParserImpl {
       Function<OptionDefinition, String> sourceFunction,
       ParsedOptionDescription implicitDependent,
       ParsedOptionDescription expandedFrom,
-      List<String> args,
-      OptionsData fallbackData)
+      List<ArgAndFallbackData> args)
       throws OptionsParsingException {
     List<String> unparsedArgs = new ArrayList<>();
     List<String> unparsedPostDoubleDashArgs = new ArrayList<>();
     List<String> ignoredArgs = new ArrayList<>();
 
-    Iterator<String> argsIterator = argsPreProcessor.preProcess(args).iterator();
-    while (argsIterator.hasNext()) {
-      String arg = argsIterator.next();
+    Iterator<ArgAndFallbackData> argsAndFallbackDataIterator =
+        argsPreProcessor.preProcess(args).iterator();
+    Iterator<String> argsIterator = Iterators.transform(argsAndFallbackDataIterator, a -> a.arg);
+    while (argsAndFallbackDataIterator.hasNext()) {
+      ArgAndFallbackData argAndFallbackData = argsAndFallbackDataIterator.next();
+      String arg = argAndFallbackData.arg;
+      @Nullable OptionsData fallbackData = argAndFallbackData.fallbackData;
 
       if (!arg.startsWith("-")) {
         unparsedArgs.add(arg);
@@ -597,16 +594,14 @@ class OptionsParserImpl {
   OptionsParserImplResult parseArgsAsExpansionOfOption(
       ParsedOptionDescription optionToExpand,
       Function<OptionDefinition, String> sourceFunction,
-      List<String> args,
-      OptionsData fallbackData)
+      List<ArgAndFallbackData> args)
       throws OptionsParsingException {
     return parse(
         OptionPriority.getChildPriority(optionToExpand.getPriority()),
         sourceFunction,
         null,
         optionToExpand,
-        args,
-        fallbackData);
+        args);
   }
 
   /**
@@ -647,7 +642,8 @@ class OptionsParserImpl {
   }
 
   /** Takes care of tracking the parsed option's value in relation to other options. */
-  private void handleNewParsedOption(ParsedOptionDescription parsedOption, OptionsData fallbackData)
+  private void handleNewParsedOption(
+      ParsedOptionDescription parsedOption, @Nullable OptionsData fallbackData)
       throws OptionsParsingException {
     OptionDefinition optionDefinition = parsedOption.getOptionDefinition();
     ExpansionBundle expansionBundle = setOptionValue(parsedOption);
@@ -660,8 +656,7 @@ class OptionsParserImpl {
               o -> expansionBundle.sourceOfExpansionArgs,
               optionDefinition.hasImplicitRequirements() ? parsedOption : null,
               optionDefinition.isExpansionOption() ? parsedOption : null,
-              expansionBundle.expansionArgs,
-              fallbackData);
+              ArgAndFallbackData.wrapWithFallbackData(expansionBundle.expansionArgs, fallbackData));
       if (!optionsParserImplResult.getResidue().isEmpty()) {
 
         // Throw an assertion here, because this indicates an error in the definition of this

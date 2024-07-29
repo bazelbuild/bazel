@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.OpaqueOptionsData;
 import com.google.devtools.common.options.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParser.ArgAndFallbackData;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.ParsedOptionDescription;
 import java.util.ArrayList;
@@ -108,19 +109,19 @@ final class ConfigExpander {
       // them, to preserve order.
       for (ParsedOptionDescription configInstance : configInstances) {
         String configValueToExpand = (String) configInstance.getConvertedValue();
-        List<String> expansion =
+        var expansion =
             getExpansion(
                 eventHandler,
                 commandToRcArgs,
                 commandsToParse,
                 configValueToExpand,
-                rcFileNotesConsumer);
+                rcFileNotesConsumer,
+                fallbackData);
         var ignoredArgs =
             optionsParser.parseArgsAsExpansionOfOption(
                 configInstance,
                 String.format("expanded from --config=%s", configValueToExpand),
-                expansion,
-                fallbackData);
+                expansion);
         if (!ignoredArgs.isEmpty()) {
           rcFileNotesConsumer.accept(
               String.format(
@@ -134,18 +135,25 @@ final class ConfigExpander {
         optionsParser.getOptionValueDescription("enable_platform_specific_config");
     if (shouldEnablePlatformSpecificConfig(
         enablePlatformSpecificConfigDescription, commandToRcArgs, commandsToParse)) {
-      List<String> expansion =
+      var expansion =
           getExpansion(
               eventHandler,
               commandToRcArgs,
               commandsToParse,
               getPlatformName(),
-              rcFileNotesConsumer);
-      optionsParser.parseArgsAsExpansionOfOption(
-          Iterables.getOnlyElement(enablePlatformSpecificConfigDescription.getCanonicalInstances()),
-          String.format("enabled by --enable_platform_specific_config"),
-          expansion,
-          fallbackData);
+              rcFileNotesConsumer,
+              fallbackData);
+      ParsedOptionDescription optionToExpand =
+          Iterables.getOnlyElement(enablePlatformSpecificConfigDescription.getCanonicalInstances());
+      var ignoredArgs =
+          optionsParser.parseArgsAsExpansionOfOption(
+              optionToExpand, "enabled by --enable_platform_specific_config", expansion);
+      if (!ignoredArgs.isEmpty()) {
+        rcFileNotesConsumer.accept(
+            String.format(
+                "Ignored as unsupported by '%s': %s",
+                currentCommand, Joiner.on(' ').join(ignoredArgs)));
+      }
     }
 
     // At this point, we've expanded everything, identify duplicates, if any, to warn about
@@ -168,24 +176,26 @@ final class ConfigExpander {
     }
   }
 
-  private static List<String> getExpansion(
+  private static List<ArgAndFallbackData> getExpansion(
       EventHandler eventHandler,
       ListMultimap<String, RcChunkOfArgs> commandToRcArgs,
       List<String> commandsToParse,
       String configToExpand,
-      Consumer<String> rcFileNotesConsumer)
+      Consumer<String> rcFileNotesConsumer,
+      @Nullable OpaqueOptionsData fallbackData)
       throws OptionsParsingException {
     LinkedHashSet<String> configAncestorSet = new LinkedHashSet<>();
     configAncestorSet.add(configToExpand);
     List<String> longestChain = new ArrayList<>();
-    List<String> finalExpansion =
+    List<ArgAndFallbackData> finalExpansion =
         getExpansion(
             commandToRcArgs,
             commandsToParse,
             configAncestorSet,
             configToExpand,
             longestChain,
-            rcFileNotesConsumer);
+            rcFileNotesConsumer,
+            fallbackData);
 
     // In order to prevent warning about a long chain of 13 configs at the 10, 11, 12, and 13
     // point, we identify the longest chain for this 'high-level' --config found and only warn
@@ -212,15 +222,16 @@ final class ConfigExpander {
    *     should not be in the parents list of the second bar.
    * @param longestChain will be populated with the longest inheritance chain of configs.
    */
-  private static List<String> getExpansion(
+  private static List<ArgAndFallbackData> getExpansion(
       ListMultimap<String, RcChunkOfArgs> commandToRcArgs,
       List<String> commandsToParse,
       LinkedHashSet<String> configAncestorSet,
       String configToExpand,
       List<String> longestChain,
-      Consumer<String> rcFileNotesConsumer)
+      Consumer<String> rcFileNotesConsumer,
+      @Nullable OpaqueOptionsData fallbackData)
       throws OptionsParsingException {
-    List<String> expansion = new ArrayList<>();
+    List<ArgAndFallbackData> expansion = new ArrayList<>();
     boolean foundDefinition = false;
     // The expansion order of rc files is first by command priority, and then in the order the
     // rc files were read, respecting import statement placement.
@@ -236,7 +247,12 @@ final class ConfigExpander {
         // For each arg in the rcARgs chunk, we first check if it is a config, and if so, expand
         // it in place. We avoid cycles by tracking the parents of this config.
         for (String arg : rcArgs.getArgs()) {
-          expansion.add(arg);
+          expansion.add(
+              new ArgAndFallbackData(
+                  arg,
+                  commandToParse.equals(BlazeOptionHandler.COMMON_PSEUDO_COMMAND)
+                      ? fallbackData
+                      : null));
           if (arg.length() >= 8 && arg.substring(0, 8).equals("--config")) {
             // We have a config. Because we don't want to worry about formatting,
             // we will only accept --config=value, and will not accept value on a following line.
@@ -272,7 +288,8 @@ final class ConfigExpander {
                     extendedConfigAncestorSet,
                     newConfigValue,
                     longestChain,
-                    rcFileNotesConsumer));
+                    rcFileNotesConsumer,
+                    fallbackData));
           }
         }
       }
