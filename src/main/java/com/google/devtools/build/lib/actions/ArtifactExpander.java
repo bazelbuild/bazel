@@ -38,7 +38,7 @@ public interface ArtifactExpander {
    *
    * <p>If this expander does not have data for the given tree artifact, returns an empty set.
    */
-  default ImmutableSortedSet<TreeFileArtifact> expandTreeArtifactOrEmpty(Artifact treeArtifact) {
+  default ImmutableSortedSet<TreeFileArtifact> tryExpandTreeArtifact(Artifact treeArtifact) {
     try {
       return expandTreeArtifact(treeArtifact);
     } catch (MissingExpansionException e) {

@@ -393,7 +393,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     private static boolean hasDirectory(List<Object> originalValues) {
-      for (Object object : originalValues) {
+      int n = originalValues.size();
+      for (int i = 0; i < n; ++i) {
+        Object object = originalValues.get(i);
         if (isDirectory(object)) {
           return true;
         }
@@ -419,9 +421,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
               throw new CommandLineExpansionException(
                   String.format(
                       "Failed to expand directory %s. Either add the directory as an input of the"
-                          + " action or set 'expand_directories = False' in the 'add_all' call"
-                          + " to have the path of the directory added to the command line instead"
-                          + " of its contents.",
+                          + " action or set 'expand_directories = False' in the 'add_all' or"
+                          + " 'add_joined' call to have the path of the directory added to the"
+                          + " command line instead of its contents.",
                       Starlark.repr(artifact)));
             }
           } else if (artifact.isFileset()) {

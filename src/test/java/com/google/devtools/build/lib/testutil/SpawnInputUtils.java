@@ -99,7 +99,7 @@ public final class SpawnInputUtils {
 
   public static Artifact getExpandedToArtifact(
       String name, Artifact expandableArtifact, Spawn spawn, ActionExecutionContext context) {
-    return context.getArtifactExpander().expandTreeArtifactOrEmpty(expandableArtifact).stream()
+    return context.getArtifactExpander().tryExpandTreeArtifact(expandableArtifact).stream()
         .filter(artifact -> artifact.getExecPathString().contains(name))
         .findFirst()
         .orElseThrow(

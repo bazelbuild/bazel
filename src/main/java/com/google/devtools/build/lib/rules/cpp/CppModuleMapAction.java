@@ -224,7 +224,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     List<Artifact> expandedHeaders = new ArrayList<>();
     for (Artifact unexpandedHeader : unexpandedHeaders) {
       if (unexpandedHeader.isTreeArtifact()) {
-        expandedHeaders.addAll(artifactExpander.expandTreeArtifactOrEmpty(unexpandedHeader));
+        expandedHeaders.addAll(artifactExpander.tryExpandTreeArtifact(unexpandedHeader));
       } else {
         expandedHeaders.add(unexpandedHeader);
       }
