@@ -550,6 +550,13 @@ bazel_dep(name = "rules_cc", version = "0.0.9")
 EOF
 }
 
+# Add platform to the MODULE.bazel file
+function add_rules_java() {
+  cat >> "$1" <<EOF
+bazel_dep(name = "rules_java", version = "7.7.2")
+EOF
+}
+
 # Add rules_testing to the MODULE.bazel file
 function add_rules_testing() {
   cat >> "$1" <<EOF
