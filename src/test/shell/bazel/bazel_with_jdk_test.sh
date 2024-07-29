@@ -286,11 +286,17 @@ EOF
 
 # Bazel shall provide Java compilation toolchains that use local JDK.
 function test_bazel_compiles_with_localjdk() {
+  add_rules_java "MODULE.bazel"
+  cat >> MODULE.bazel <<EOF
+java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
+use_repo(java_toolchains, "local_jdk")
+EOF
+
   bazel aquery '//java/main:JavaExample' --extra_toolchains=@local_jdk//:all &>"${TEST_log}" \
       || fail "Failed to use extra toolchains provided by @local_jdk repository."
 
-  expect_log "exec external/local_jdk/bin/java"
-  expect_not_log "exec external/remotejdk11_linux/bin/java"
+  expect_log "exec external/rules_java~~toolchains~local_jdk/bin/java"
+  expect_not_log "remotejdk11_linux/bin/java"
 }
 
 run_suite "Tests detection of local JDK and that Bazel executes with a bundled JDK."
