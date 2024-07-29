@@ -36,9 +36,9 @@ import javax.annotation.Nullable;
  * each a sequence of "identifiers" (defined as a non-empty sequence of ASCII alphanumerical
  * characters and hyphens) separated by dots. The {@code RELEASE} part may not contain hyphens.
  *
- * <p>Otherwise, this format is identical to SemVer, especially in terms of the comparison algorithm
- * (https://semver.org/#spec-item-11). In other words, this format is intentionally looser than
- * SemVer; in particular:
+ * <p>Otherwise, this format is identical to SemVer, especially in terms of the <a
+ * href="https://semver.org/#spec-item-11">comparison algorithm</a>. In other words, this format is
+ * intentionally looser than SemVer; in particular:
  *
  * <ul>
  *   <li>the "release" part isn't limited to exactly 3 segments (major, minor, patch), but can be
@@ -50,6 +50,13 @@ import javax.annotation.Nullable;
  * <p>Any valid SemVer version is a valid Bazel module version. Additionally, two SemVer versions
  * {@code a} and {@code b} compare {@code a < b} iff the same holds when they're compared as Bazel
  * module versions.
+ *
+ * <p>Versions with a "build" part are generally accepted as input, but they're treated as if the
+ * "build" part is completely absent. That is, when Bazel outputs version strings, it never outputs
+ * the "build" part (in fact, it doesn't even store it); similarly, when Bazel accesses registries
+ * to request versions, the "build" part is never included. This gives us the nice property of
+ * "consistent with equals" natural ordering (see {@link Comparable}); that is, {@code
+ * a.compareTo(b) == 0} iff {@code a.equals(b)}.
  *
  * <p>The special "empty string" version can also be used, and compares higher than everything else.
  * It signifies that there is a {@link NonRegistryOverride} for a module.
@@ -112,15 +119,15 @@ public abstract class Version implements Comparable<Version> {
   /** Returns the "prerelease" part of the version string as a list of {@link Identifier}s. */
   abstract ImmutableList<Identifier> getPrerelease();
 
-  /** Returns the original version string. */
-  public abstract String getOriginal();
+  /** Returns the normalized version string (that is, with any "build" part stripped). */
+  public abstract String getNormalized();
 
   /**
    * Whether this is just the "empty string" version, which signifies a non-registry override for
    * the module.
    */
   boolean isEmpty() {
-    return getOriginal().isEmpty();
+    return getNormalized().isEmpty();
   }
 
   /**
@@ -164,7 +171,8 @@ public abstract class Version implements Comparable<Version> {
       }
     }
 
-    return new AutoValue_Version(releaseSplit.build(), prereleaseSplit.build(), version);
+    String normalized = Strings.isNullOrEmpty(prerelease) ? release : release + '-' + prerelease;
+    return new AutoValue_Version(releaseSplit.build(), prereleaseSplit.build(), normalized);
   }
 
   private static final Comparator<Version> COMPARATOR =
@@ -180,17 +188,18 @@ public abstract class Version implements Comparable<Version> {
 
   @Override
   public final String toString() {
-    return getOriginal();
+    return getNormalized();
   }
 
   @Override
   public final boolean equals(Object o) {
-    return this == o || (o instanceof Version && ((Version) o).getOriginal().equals(getOriginal()));
+    return this == o
+        || (o instanceof Version && ((Version) o).getNormalized().equals(getNormalized()));
   }
 
   @Override
   public final int hashCode() {
-    return Objects.hash("version", getOriginal().hashCode());
+    return Objects.hash("version", getNormalized().hashCode());
   }
 
   /** An exception encountered while trying to {@link Version#parse parse} a version. */

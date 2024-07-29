@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -178,6 +179,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                   extension,
                   usagesValue,
                   extension.getEvalFactors(),
+                  starlarkSemantics,
                   lockedExtension);
           if (singleExtensionValue != null) {
             return singleExtensionValue;
@@ -261,7 +263,13 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       lockFileInfo = Optional.empty();
     }
     return createSingleExtensionValue(
-        generatedRepoSpecs, moduleExtensionMetadata, extensionId, usagesValue, lockFileInfo, env);
+        generatedRepoSpecs,
+        moduleExtensionMetadata,
+        extensionId,
+        usagesValue,
+        lockFileInfo,
+        starlarkSemantics,
+        env);
   }
 
   /**
@@ -278,6 +286,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       RunnableExtension extension,
       SingleExtensionUsagesValue usagesValue,
       ModuleExtensionEvalFactors evalFactors,
+      StarlarkSemantics starlarkSemantics,
       LockFileModuleExtension lockedExtension)
       throws SingleExtensionEvalFunctionException,
           InterruptedException,
@@ -338,6 +347,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           extensionId,
           usagesValue,
           Optional.of(new LockFileModuleExtension.WithFactors(evalFactors, lockedExtension)),
+          starlarkSemantics,
           env);
     }
     if (lockfileMode.equals(LockfileMode.ERROR)) {
@@ -452,6 +462,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       ModuleExtensionId extensionId,
       SingleExtensionUsagesValue usagesValue,
       Optional<LockFileModuleExtension.WithFactors> lockFileInfo,
+      StarlarkSemantics starlarkSemantics,
       Environment env)
       throws SingleExtensionEvalFunctionException {
     Optional<RootModuleFileFixup> fixup = Optional.empty();
@@ -479,6 +490,11 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       }
     }
 
+    char separator =
+        starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_USE_PLUS_IN_REPO_NAMES)
+            ? '+'
+            : '~';
+
     return SingleExtensionValue.create(
         generatedRepoSpecs,
         generatedRepoSpecs.keySet().stream()
@@ -486,7 +502,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                 toImmutableBiMap(
                     e ->
                         RepositoryName.createUnvalidated(
-                            usagesValue.getExtensionUniqueName() + "~" + e),
+                            usagesValue.getExtensionUniqueName() + separator + e),
                     Function.identity())),
         lockFileInfo,
         fixup);
@@ -744,7 +760,11 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         Dict<String, Object> kwargs = repo.tag().getAttributeValues().attributes();
         // This cast should be safe since it should have been verified at tag creation time.
         String name = (String) kwargs.get("name");
-        String prefixedName = usagesValue.getExtensionUniqueName() + "~" + name;
+        char separator =
+            starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_USE_PLUS_IN_REPO_NAMES)
+                ? '+'
+                : '~';
+        String prefixedName = usagesValue.getExtensionUniqueName() + separator + name;
         Rule ruleInstance;
         AttributeValues attributesValue;
         try {
@@ -884,9 +904,13 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         ModuleExtensionId extensionId,
         RepositoryMapping mainRepositoryMapping)
         throws InterruptedException, SingleExtensionEvalFunctionException {
+      char separator =
+          starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_USE_PLUS_IN_REPO_NAMES)
+              ? '+'
+              : '~';
       ModuleExtensionEvalStarlarkThreadContext threadContext =
           new ModuleExtensionEvalStarlarkThreadContext(
-              usagesValue.getExtensionUniqueName() + "~",
+              usagesValue.getExtensionUniqueName() + separator,
               extensionId.getBzlFileLabel().getPackageIdentifier(),
               BazelModuleContext.of(bzlLoadValue.getModule()).repoMapping(),
               directories,
