@@ -1,0 +1,30 @@
+name: Label & Comment on Approved PR
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  approved:
+    if: github.event.review.state == 'APPROVED'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+                env:
+                requested_reviewers: ${{ toJson(github.event.pull_request.requested_reviewers) }}
+                github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: `Hi @{requested_reviewers}, Since the PR has been approved. To facilitate the gtechteam internal import process, could you please add the awaiting-PR-merge label?`
+                })
+                github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  labels: ['awaiting-PR-merge']
+                })
