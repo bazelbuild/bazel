@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
@@ -187,15 +188,17 @@ public final class CompletionFunction<
     ImmutableList<Artifact> allArtifacts = artifactsToBuild.getAllArtifacts().toList();
     InstrumentedFilesInfo instrumentedFilesInfo =
         value.getConfiguredObject().get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
-    Iterable<SkyKey> keysToRequest = Artifact.keys(allArtifacts);
+    Iterable<Artifact> artifactsToRequest = allArtifacts;
+    Artifact baselineCoverage = null;
+    FileArtifactValue baselineCoverageValue = null;
     if (value.getConfiguredObject() instanceof ConfiguredTarget && instrumentedFilesInfo != null) {
-      Artifact baselineCoverage = instrumentedFilesInfo.getBaselineCoverageArtifact();
+      baselineCoverage = instrumentedFilesInfo.getBaselineCoverageArtifact();
       if (baselineCoverage != null) {
-        keysToRequest =
-            Iterables.concat(keysToRequest, ImmutableList.of(Artifact.key(baselineCoverage)));
+        artifactsToRequest =
+            Iterables.concat(artifactsToRequest, ImmutableList.of(baselineCoverage));
       }
     }
-    SkyframeLookupResult inputDeps = env.getValuesAndExceptions(keysToRequest);
+    SkyframeLookupResult inputDeps = env.getValuesAndExceptions(Artifact.keys(artifactsToRequest));
 
     boolean allArtifactsAreImportant = artifactsToBuild.areAllOutputGroupsImportant();
 
@@ -226,45 +229,48 @@ public final class CompletionFunction<
     Set<Artifact> builtArtifacts = new HashSet<>();
     // Don't double-count files due to Skyframe restarts.
     FilesMetricConsumer currentConsumer = new FilesMetricConsumer();
-    for (Artifact input : allArtifacts) {
+    for (Artifact input : artifactsToRequest) {
       try {
         SkyValue artifactValue =
             inputDeps.getOrThrow(
                 Artifact.key(input), ActionExecutionException.class, SourceArtifactException.class);
-        if (artifactValue != null) {
-          if (artifactValue instanceof MissingArtifactValue) {
-            handleSourceFileError(
-                input,
-                ((MissingArtifactValue) artifactValue).getDetailedExitCode(),
-                rootCausesBuilder,
-                env,
-                value,
-                key);
-          } else {
-            builtArtifacts.add(input);
+        if (artifactValue == null) {
+          continue;
+        }
+        if (artifactValue instanceof MissingArtifactValue) {
+          handleSourceFileError(
+              input,
+              ((MissingArtifactValue) artifactValue).getDetailedExitCode(),
+              rootCausesBuilder,
+              env,
+              value,
+              key);
+        } else if (input.equals(baselineCoverage)) {
+          baselineCoverageValue =
+              ((ActionExecutionValue) artifactValue).getExistingFileArtifactValue(baselineCoverage);
+        } else {
+          builtArtifacts.add(input);
+          ActionInputMapHelper.addToMap(
+              inputMap,
+              treeArtifacts::put,
+              expandedFilesets,
+              topLevelFilesets,
+              input,
+              artifactValue,
+              env,
+              currentConsumer);
+          if (!allArtifactsAreImportant && importantArtifacts.contains(input)) {
+            // Calling #addToMap a second time with `input` and `artifactValue` will perform no-op
+            // updates to the secondary collections passed in (eg. treeArtifacts, expandedFilesets).
+            // MetadataConsumerForMetrics.NO_OP is used to avoid double-counting.
             ActionInputMapHelper.addToMap(
-                inputMap,
+                importantInputMap,
                 treeArtifacts::put,
                 expandedFilesets,
                 topLevelFilesets,
                 input,
                 artifactValue,
-                env,
-                currentConsumer);
-            if (!allArtifactsAreImportant && importantArtifacts.contains(input)) {
-              // Calling #addToMap a second time with `input` and `artifactValue` will perform no-op
-              // updates to the secondary collections passed in (eg. expandedArtifacts,
-              // topLevelFilesets). MetadataConsumerForMetrics.NO_OP is used to avoid
-              // double-counting.
-              ActionInputMapHelper.addToMap(
-                  importantInputMap,
-                  treeArtifacts::put,
-                  expandedFilesets,
-                  topLevelFilesets,
-                  input,
-                  artifactValue,
-                  env);
-            }
+                env);
           }
         }
       } catch (ActionExecutionException e) {
@@ -288,6 +294,7 @@ public final class CompletionFunction<
         CompletionContext.create(
             treeArtifacts,
             expandedFilesets,
+            baselineCoverageValue,
             key.topLevelArtifactContext().expandFilesets(),
             key.topLevelArtifactContext().fullyResolveFilesetSymlinks(),
             inputMap,
