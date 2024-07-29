@@ -74,11 +74,8 @@ function set_up() {
   if "$is_windows"; then
         java_tools_prebuilt_zip_file_url="file:///${java_tools_prebuilt_rlocation}"
   fi
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-EOF
-  cat $(rlocation io_bazel/src/tests/shell/bazel/rules_license_stanza.txt) >> WORKSPACE
-  cat >> WORKSPACE <<EOF
+  cat >> MODULE.bazel <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "local_java_tools",
     urls = ["${java_tools_zip_file_url}"]
@@ -88,10 +85,12 @@ http_archive(
     urls = ["${java_tools_prebuilt_zip_file_url}"]
 )
 EOF
-  cat $(rlocation io_bazel/src/tests/shell/bazel/rules_license_stanza.txt) >> WORKSPACE
-  cat > MODULE.bazel <<EOF
-bazel_dep(name = "abseil-cpp", version = "20240116.2", repo_name = "com_google_absl")
-EOF
+  # Dependencies of java_tools
+  add_platforms "MODULE.bazel"
+  add_rules_cc "MODULE.bazel"
+  add_rules_proto "MODULE.bazel"
+  add_rules_license "MODULE.bazel"
+  add_abseil_cpp "MODULE.bazel"
 }
 
 function expect_path_in_java_tools() {

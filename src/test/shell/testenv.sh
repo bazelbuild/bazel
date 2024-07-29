@@ -543,6 +543,13 @@ bazel_dep(name = "bazel_skylib", version = "1.7.1")
 EOF
 }
 
+# Add platform to the MODULE.bazel file
+function add_rules_cc() {
+  cat >> "$1" <<EOF
+bazel_dep(name = "rules_cc", version = "0.0.9")
+EOF
+}
+
 # Add rules_testing to the MODULE.bazel file
 function add_rules_testing() {
   cat >> "$1" <<EOF
@@ -556,6 +563,28 @@ function add_rules_python() {
 bazel_dep(name = "rules_python", version = "0.34.0")
 EOF
 }
+
+# Add rules_python to the MODULE.bazel file
+function add_rules_proto() {
+  cat >> "$1" <<EOF
+bazel_dep(name = "rules_proto", version = "4.0.0")
+EOF
+}
+
+# Add rules_license to the MODULE.bazel file
+function add_rules_license() {
+  cat >> "$1" <<EOF
+bazel_dep(name = "rules_license", version = "0.0.3")
+EOF
+}
+
+# Add abseil-cpp to the MODULE.bazel file
+function add_abseil_cpp() {
+  cat >> "$1" <<EOF
+bazel_dep(name = "abseil-cpp", version = "20240116.2", repo_name = "com_google_absl")
+EOF
+}
+
 
 # Set up a lockfile to avoid accessing BCR for tests with a clean workspace.
 function write_default_lockfile() {
