@@ -20,7 +20,7 @@ jobs:
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: context.issue.number,
-                  body: `Hi @{requested_reviewers}, Since the PR has been approved. To facilitate the gtechteam internal import process, could you please add the awaiting-PR-merge label?`
+                  body: `Hi @{requested_reviewers}, Since the PR has been approved. Please confirm if the approved PR should be internally merged! `
                 })
                 github.rest.issues.addLabels({
                   owner: context.repo.owner,
