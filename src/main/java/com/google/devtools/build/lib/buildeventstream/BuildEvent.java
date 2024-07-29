@@ -37,6 +37,9 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
   /**
    * A local file that is referenced by the build event. These can be uploaded to a separate backend
    * storage.
+   *
+   * <p>Despite the name, it is possible that a {@code LocalFile} is already stored remotely. If
+   * {@link #artifactMetadata} {@link FileArtifactValue#isRemote}, the upload may be skipped.
    */
   final class LocalFile {
 

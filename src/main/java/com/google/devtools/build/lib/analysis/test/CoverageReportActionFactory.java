@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionConflictException;
@@ -60,10 +59,6 @@ public interface CoverageReportActionFactory {
       }
     }
 
-    public ActionAnalysisMetadata getCoverageReportAction() {
-      return coverageReportAction;
-    }
-
     public ImmutableList<ActionAnalysisMetadata> getActions() {
       return actions;
     }
@@ -73,7 +68,7 @@ public interface CoverageReportActionFactory {
     }
 
     public Artifact getCoverageReportArtifact() {
-      return Iterables.getOnlyElement(coverageReportAction.getOutputs());
+      return coverageReportAction.getPrimaryOutput();
     }
   }
 

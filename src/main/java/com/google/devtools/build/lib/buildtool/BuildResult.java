@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileCompression;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildToolLogs;
@@ -329,6 +330,7 @@ public final class BuildResult {
       return this;
     }
 
+    @CanIgnoreReturnValue
     public BuildToolLogCollection addLocalFile(String name, Path path) {
       return addLocalFile(name, path, LocalFileType.LOG, LocalFileCompression.NONE);
     }
@@ -336,15 +338,23 @@ public final class BuildResult {
     @CanIgnoreReturnValue
     public BuildToolLogCollection addLocalFile(
         String name, Path path, LocalFileType localFileType, LocalFileCompression compression) {
+      return addLocalFile(
+          name,
+          new LocalFile(
+              path,
+              localFileType,
+              compression,
+              /* artifact= */ null,
+              /* artifactMetadata= */ null));
+    }
+
+    @CanIgnoreReturnValue
+    public BuildToolLogCollection addLocalFile(String name, LocalFile localFile) {
       Preconditions.checkState(!frozen);
-      switch (compression) {
-        case GZIP:
-          name = name + ".gz";
-          break;
-        case NONE:
-          break;
+      if (localFile.compression == LocalFileCompression.GZIP) {
+        name += ".gz";
       }
-      this.localFiles.add(new LogFileEntry(name, path, localFileType, compression));
+      this.localFiles.add(new LogFileEntry(name, localFile));
       return this;
     }
 
