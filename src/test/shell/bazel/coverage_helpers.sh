@@ -103,7 +103,9 @@ function assert_cc_coverage_result() {
 function get_coverage_file_path_from_test_log() {
   local ending_part="$(sed -n -e '/PASSED/,$p' "$TEST_log")"
 
-  local coverage_file_path=$(grep -Eo "/[/a-zA-Z0-9\.\_\-]+\.dat$" <<< "$ending_part")
+  # TODO(bzlmod): change ~ to + when flipping --incompatible_use_plus_in_repo_names
+  # https://github.com/bazelbuild/bazel/issues/23127
+  local coverage_file_path=$(grep -Eo "/[/a-zA-Z0-9~\.\_\-]+\.dat$" <<< "$ending_part")
   [[ -e "$coverage_file_path" ]] || fail "Coverage output file does not exist!"
   echo "$coverage_file_path"
 }
