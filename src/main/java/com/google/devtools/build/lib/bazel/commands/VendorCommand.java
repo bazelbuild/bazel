@@ -109,14 +109,16 @@ import javax.annotation.Nullable;
 public final class VendorCommand implements BlazeCommand {
   public static final String NAME = "vendor";
 
-  private final DownloadManager downloadManager;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
   @Nullable private VendorManager vendorManager = null;
+  @Nullable private DownloadManager downloadManager;
 
-  public VendorCommand(
-      DownloadManager downloadManager, Supplier<Map<String, String>> clientEnvironmentSupplier) {
-    this.downloadManager = downloadManager;
+  public VendorCommand(Supplier<Map<String, String>> clientEnvironmentSupplier) {
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
+  }
+
+  public void setDownloadManager(DownloadManager downloadManager) {
+    this.downloadManager = downloadManager;
   }
 
   @Override
