@@ -73,19 +73,21 @@ import net.starlark.java.eval.StarlarkThread;
 
 /** A repository function to delegate work done by Starlark remote repositories. */
 public final class StarlarkRepositoryFunction extends RepositoryFunction {
-  private final DownloadManager downloadManager;
   private double timeoutScaling = 1.0;
   private boolean useWorkers;
+  @Nullable private DownloadManager downloadManager;
   @Nullable private ProcessWrapper processWrapper = null;
   @Nullable private RepositoryRemoteExecutor repositoryRemoteExecutor;
   @Nullable private SyscallCache syscallCache;
 
-  public StarlarkRepositoryFunction(DownloadManager downloadManager) {
-    this.downloadManager = downloadManager;
-  }
+  public StarlarkRepositoryFunction() {}
 
   public void setTimeoutScaling(double timeoutScaling) {
     this.timeoutScaling = timeoutScaling;
+  }
+
+  public void setDownloadManager(DownloadManager downloadManager) {
+    this.downloadManager = downloadManager;
   }
 
   public void setProcessWrapper(@Nullable ProcessWrapper processWrapper) {

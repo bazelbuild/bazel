@@ -71,9 +71,7 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.Lockfile
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.RepositoryOverride;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.WorkerForRepoFetching;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
-import com.google.devtools.build.lib.bazel.repository.downloader.DelegatingDownloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
-import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriter;
 import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriterParseException;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
@@ -150,11 +148,6 @@ public class BazelRepositoryModule extends BlazeModule {
   private final AtomicBoolean isFetch = new AtomicBoolean(false);
   private final StarlarkRepositoryFunction starlarkRepositoryFunction;
   private final RepositoryCache repositoryCache = new RepositoryCache();
-  private final HttpDownloader httpDownloader = new HttpDownloader();
-  private final DelegatingDownloader delegatingDownloader =
-      new DelegatingDownloader(httpDownloader);
-  private final DownloadManager downloadManager =
-      new DownloadManager(repositoryCache, delegatingDownloader);
   private final MutableSupplier<Map<String, String>> clientEnvironmentSupplier =
       new MutableSupplier<>();
   private ImmutableMap<RepositoryName, PathFragment> overrides = ImmutableMap.of();
@@ -174,12 +167,16 @@ public class BazelRepositoryModule extends BlazeModule {
   private boolean disableNativeRepoRules;
   private SingleExtensionEvalFunction singleExtensionEvalFunction;
 
+  private final VendorCommand vendorCommand = new VendorCommand(clientEnvironmentSupplier);
+  private final RegistryFactoryImpl registryFactory =
+      new RegistryFactoryImpl(clientEnvironmentSupplier);
+
   @Nullable private CredentialModule credentialModule;
 
   private ImmutableMap<String, NonRegistryOverride> builtinModules = null;
 
   public BazelRepositoryModule() {
-    this.starlarkRepositoryFunction = new StarlarkRepositoryFunction(downloadManager);
+    this.starlarkRepositoryFunction = new StarlarkRepositoryFunction();
     this.repositoryHandlers = repositoryRules();
   }
 
@@ -228,7 +225,7 @@ public class BazelRepositoryModule extends BlazeModule {
     builder.addCommands(new FetchCommand());
     builder.addCommands(new ModCommand());
     builder.addCommands(new SyncCommand());
-    builder.addCommands(new VendorCommand(downloadManager, clientEnvironmentSupplier));
+    builder.addCommands(vendorCommand);
     builder.addInfoItems(new RepositoryCacheInfoItem(repositoryCache));
   }
 
@@ -252,7 +249,7 @@ public class BazelRepositoryModule extends BlazeModule {
             directories,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
     singleExtensionEvalFunction =
-        new SingleExtensionEvalFunction(directories, clientEnvironmentSupplier, downloadManager);
+        new SingleExtensionEvalFunction(directories, clientEnvironmentSupplier);
 
     if (builtinModules == null) {
       builtinModules = ModuleFileFunction.getBuiltinModules(directories.getEmbeddedBinariesRoot());
@@ -278,9 +275,7 @@ public class BazelRepositoryModule extends BlazeModule {
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
         .addSkyFunction(
             SkyFunctions.REGISTRY,
-            new RegistryFunction(
-                new RegistryFactoryImpl(downloadManager, clientEnvironmentSupplier),
-                directories.getWorkspace()))
+            new RegistryFunction(registryFactory, directories.getWorkspace()))
         .addSkyFunction(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
         .addSkyFunction(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
         .addSkyFunction(
@@ -314,6 +309,12 @@ public class BazelRepositoryModule extends BlazeModule {
 
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
+    DownloadManager downloadManager =
+        new DownloadManager(repositoryCache, env.getDownloaderDelegate(), env.getHttpDownloader());
+    this.starlarkRepositoryFunction.setDownloadManager(downloadManager);
+    this.vendorCommand.setDownloadManager(downloadManager);
+    this.registryFactory.setDownloadManager(downloadManager);
+
     clientEnvironmentSupplier.set(env.getRepoEnv());
     PackageOptions pkgOptions = env.getOptions().getOptions(PackageOptions.class);
     isFetch.set(pkgOptions != null && pkgOptions.fetch);
@@ -323,6 +324,7 @@ public class BazelRepositoryModule extends BlazeModule {
     starlarkRepositoryFunction.setProcessWrapper(processWrapper);
     starlarkRepositoryFunction.setSyscallCache(env.getSyscallCache());
     singleExtensionEvalFunction.setProcessWrapper(processWrapper);
+    singleExtensionEvalFunction.setDownloadManager(downloadManager);
 
     RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);
     if (repoOptions != null) {
@@ -453,16 +455,6 @@ public class BazelRepositoryModule extends BlazeModule {
         downloadManager.setDistdir(ImmutableList.of());
       }
 
-      if (repoOptions.httpTimeoutScaling > 0) {
-        httpDownloader.setTimeoutScaling((float) repoOptions.httpTimeoutScaling);
-      } else {
-        env.getReporter()
-            .handle(Event.warn("Ignoring request to scale http timeouts by a non-positive factor"));
-        httpDownloader.setTimeoutScaling(1.0f);
-      }
-      httpDownloader.setMaxAttempts(repoOptions.httpConnectorAttempts);
-      httpDownloader.setMaxRetryTimeout(repoOptions.httpConnectorRetryMaxTimeout);
-
       if (repoOptions.repositoryOverrides != null) {
         // To get the usual latest-wins semantics, we need a mutable map, as the builder
         // of an immutable map does not allow redefining the values of existing keys.
@@ -568,7 +560,6 @@ public class BazelRepositoryModule extends BlazeModule {
       }
       starlarkRepositoryFunction.setRepositoryRemoteExecutor(remoteExecutor);
       singleExtensionEvalFunction.setRepositoryRemoteExecutor(remoteExecutor);
-      delegatingDownloader.setDelegate(env.getRuntime().getDownloaderSupplier().get());
 
       clock = env.getClock();
       try {
