@@ -27,7 +27,6 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.time.Duration;
 import java.util.List;
 
 /** Command-line options for repositories. */
@@ -133,31 +132,7 @@ public class RepositoryOptions extends OptionsBase {
               + "to download them.")
   public List<PathFragment> experimentalDistdir;
 
-  @Option(
-      name = "http_timeout_scaling",
-      defaultValue = "1.0",
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help = "Scale all timeouts related to http downloads by the given factor")
-  public double httpTimeoutScaling;
 
-  @Option(
-      name = "http_connector_attempts",
-      defaultValue = "8",
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help = "The maximum number of attempts for http downloads.")
-  public int httpConnectorAttempts;
-
-  @Option(
-      name = "http_connector_retry_max_timeout",
-      defaultValue = "0s",
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help =
-          "The maximum timeout for http download retries. With a value of 0, no timeout maximum is"
-              + " defined.")
-  public Duration httpConnectorRetryMaxTimeout;
 
   @Option(
       name = "override_repository",

@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelpe
 import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.authandtls.credentialhelper.GetCredentialsResponse;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
-import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -89,7 +88,6 @@ import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
-import com.google.devtools.build.lib.skyframe.MutableSupplier;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -165,7 +163,7 @@ public final class RemoteModule extends BlazeModule {
   private final RepositoryRemoteExecutorFactoryDelegate repositoryRemoteExecutorFactoryDelegate =
       new RepositoryRemoteExecutorFactoryDelegate();
 
-  private final MutableSupplier<Downloader> remoteDownloaderSupplier = new MutableSupplier<>();
+  private Downloader remoteDownloader;
 
   private CredentialModule credentialModule;
 
@@ -174,7 +172,6 @@ public final class RemoteModule extends BlazeModule {
     builder.addBuildEventArtifactUploaderFactory(
         buildEventArtifactUploaderFactoryDelegate, "remote");
     builder.setRepositoryRemoteExecutorFactory(repositoryRemoteExecutorFactoryDelegate);
-    builder.setDownloaderSupplier(remoteDownloaderSupplier);
   }
 
   /** Returns whether remote execution should be available. */
@@ -725,9 +722,9 @@ public final class RemoteModule extends BlazeModule {
 
       Downloader fallbackDownloader = null;
       if (remoteOptions.remoteDownloaderLocalFallback) {
-        fallbackDownloader = new HttpDownloader();
+        fallbackDownloader = env.getHttpDownloader();
       }
-      remoteDownloaderSupplier.set(
+      remoteDownloader =
           new GrpcRemoteDownloader(
               buildRequestId,
               invocationId,
@@ -738,8 +735,9 @@ public final class RemoteModule extends BlazeModule {
               digestUtil.getDigestFunction(),
               remoteOptions,
               verboseFailures,
-              fallbackDownloader));
+              fallbackDownloader);
       downloaderChannel.release();
+      env.getDownloaderDelegate().setDelegate(remoteDownloader);
     }
   }
 
@@ -928,7 +926,7 @@ public final class RemoteModule extends BlazeModule {
 
     buildEventArtifactUploaderFactoryDelegate.reset();
     repositoryRemoteExecutorFactoryDelegate.reset();
-    remoteDownloaderSupplier.set(null);
+    remoteDownloader = null;
     actionContextProvider = null;
     actionInputFetcher = null;
     remoteOptions = null;
@@ -1227,7 +1225,7 @@ public final class RemoteModule extends BlazeModule {
   }
 
   @VisibleForTesting
-  MutableSupplier<Downloader> getRemoteDownloaderSupplier() {
-    return remoteDownloaderSupplier;
+  Downloader getRemoteDownloader() {
+    return remoteDownloader;
   }
 }
