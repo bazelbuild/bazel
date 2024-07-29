@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -71,7 +72,7 @@ public final class CppModuleMapActionTest {
         /* generateSubmodules= */ false,
         /* externDependencies= */ false,
         CoreOptions.OutputPathsMode.OFF,
-        (executionInfo, mnemonic) -> executionInfo);
+        /* executionInfo= */ ImmutableMap.of());
   }
 
   private Artifact createOutputArtifact(String rootRelativePath) {
