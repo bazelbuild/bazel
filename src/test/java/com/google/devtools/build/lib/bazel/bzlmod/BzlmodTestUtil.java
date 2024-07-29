@@ -307,7 +307,7 @@ public final class BzlmodTestUtil {
       mappingBuilder.put(names[i], RepositoryName.createUnvalidated(names[i + 1]));
     }
     return RepositoryMapping.create(
-        mappingBuilder.buildOrThrow(), key.getCanonicalRepoNameWithoutVersion());
+        mappingBuilder.buildOrThrow(), key.getCanonicalRepoNameWithoutVersionForTesting());
   }
 
   public static TagClass createTagClass(Attribute... attrs) {

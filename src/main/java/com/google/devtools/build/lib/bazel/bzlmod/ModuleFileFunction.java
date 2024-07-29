@@ -157,7 +157,8 @@ public class ModuleFileFunction implements SkyFunction {
     GetModuleFileResult getModuleFileResult;
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.BZLMOD, () -> "fetch module file: " + moduleKey)) {
-      getModuleFileResult = getModuleFile(moduleKey, moduleFileKey.getOverride(), env);
+      getModuleFileResult =
+          getModuleFile(moduleKey, moduleFileKey.getOverride(), starlarkSemantics, env);
     }
     if (getModuleFileResult == null) {
       return null;
@@ -481,7 +482,8 @@ public class ModuleFileFunction implements SkyFunction {
                     // A module with a non-registry override always has a unique version across the
                     // entire dep graph.
                     name ->
-                        ModuleKey.create(name, Version.EMPTY).getCanonicalRepoNameWithoutVersion(),
+                        ModuleKey.create(name, Version.EMPTY)
+                            .getCanonicalRepoNameWithoutVersion(starlarkSemantics),
                     name -> name));
     ImmutableSet<PathFragment> moduleFilePaths =
         Stream.concat(
@@ -552,14 +554,17 @@ public class ModuleFileFunction implements SkyFunction {
 
   @Nullable
   private GetModuleFileResult getModuleFile(
-      ModuleKey key, @Nullable ModuleOverride override, Environment env)
+      ModuleKey key,
+      @Nullable ModuleOverride override,
+      StarlarkSemantics starlarkSemantics,
+      Environment env)
       throws ModuleFileFunctionException, InterruptedException {
     // If there is a non-registry override for this module, we need to fetch the corresponding repo
     // first and read the module file from there.
     if (override instanceof NonRegistryOverride) {
       // A module with a non-registry override always has a unique version across the entire dep
       // graph.
-      RepositoryName canonicalRepoName = key.getCanonicalRepoNameWithoutVersion();
+      RepositoryName canonicalRepoName = key.getCanonicalRepoNameWithoutVersion(starlarkSemantics);
       RepositoryDirectoryValue repoDir =
           (RepositoryDirectoryValue) env.getValue(RepositoryDirectoryValue.key(canonicalRepoName));
       if (repoDir == null) {
