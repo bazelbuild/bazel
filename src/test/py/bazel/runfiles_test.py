@@ -339,6 +339,138 @@ class RunfilesTest(test_base.TestBase):
     self.assertEqual(stdout[0], "Hello, Bazel!")
     self.assertEqual(stdout[1], "Hello, World!")
 
+  def testWrappedShBinary(self):
+    self.writeWrapperRule()
+    self.ScratchFile("MODULE.bazel")
+    self.ScratchFile(
+        "BUILD",
+        [
+            "sh_binary(",
+            "  name = 'binary',",
+            "  srcs = ['binary.sh'],",
+            "  visibility = ['//visibility:public'],",
+            ")",
+        ],
+    )
+    self.ScratchFile(
+        "binary.sh",
+        [
+            "echo Hello, World!",
+        ],
+        executable=True,
+    )
+
+    _, stdout, _ = self.RunBazel(["run", "//wrapped"])
+    self.assertEqual(stdout, ["Hello, World!"])
+
+  def testWrappedPyBinary(self):
+    self.writeWrapperRule()
+    self.ScratchFile("MODULE.bazel")
+    self.ScratchFile(
+        "BUILD",
+        [
+            "py_binary(",
+            "  name = 'binary',",
+            "  srcs = ['binary.py'],",
+            "  visibility = ['//visibility:public'],",
+            ")",
+        ],
+    )
+    self.ScratchFile(
+        "binary.py",
+        [
+            "print('Hello, World!')",
+        ],
+    )
+
+    _, stdout, _ = self.RunBazel(["run", "//wrapped"])
+    self.assertEqual(stdout, ["Hello, World!"])
+
+  def testWrappedJavaBinary(self):
+    self.writeWrapperRule()
+    self.ScratchFile("MODULE.bazel")
+    self.ScratchFile(
+        "BUILD",
+        [
+            "java_binary(",
+            "  name = 'binary',",
+            "  srcs = ['Binary.java'],",
+            "  main_class = 'Binary',",
+            "  visibility = ['//visibility:public'],",
+            ")",
+        ],
+    )
+    self.ScratchFile(
+        "Binary.java",
+        [
+            "public class Binary {",
+            "  public static void main(String[] args) {",
+            '    System.out.println("Hello, World!");',
+            "  }",
+            "}",
+        ],
+    )
+
+    _, stdout, _ = self.RunBazel(["run", "//wrapped"])
+    self.assertEqual(stdout, ["Hello, World!"])
+
+  def writeWrapperRule(self):
+    self.ScratchFile("rules/BUILD")
+    self.ScratchFile(
+        "rules/wrapper.bzl",
+        [
+            "def _wrapper_impl(ctx):",
+            "    target = ctx.attr.target",
+            (
+                "    original_executable ="
+                " target[DefaultInfo].files_to_run.executable"
+            ),
+            (
+                "    executable ="
+                " ctx.actions.declare_file(original_executable.basename)"
+            ),
+            (
+                "    ctx.actions.symlink(output = executable, target_file ="
+                " original_executable)"
+            ),
+            (
+                "    data_runfiles ="
+                " ctx.runfiles([executable]).merge(target[DefaultInfo].data_runfiles)"
+            ),
+            (
+                "    default_runfiles ="
+                " ctx.runfiles([executable]).merge(target[DefaultInfo].default_runfiles)"
+            ),
+            "    return [",
+            "        DefaultInfo(",
+            "            executable = executable,",
+            "            files = target[DefaultInfo].files,",
+            "            data_runfiles = data_runfiles,",
+            "            default_runfiles = default_runfiles,",
+            "        ),    ]",
+            "wrapper = rule(",
+            "    implementation = _wrapper_impl,",
+            "    attrs = {",
+            "        'target': attr.label(",
+            "            cfg = 'target',",
+            "            executable = True,",
+            "        ),",
+            "    },",
+            "    executable = True,",
+            ")",
+        ],
+    )
+    self.ScratchFile(
+        "wrapped/BUILD",
+        [
+            "load('//rules:wrapper.bzl', 'wrapper')",
+            "wrapper(",
+            "  name = 'wrapped',",
+            "  target = '//:binary',",
+            ")",
+        ],
+    )
+
 
 if __name__ == "__main__":
   absltest.main()

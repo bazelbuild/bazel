@@ -213,8 +213,8 @@ def _create_executable(
     # 2. (non-Windows) A self-executable zip file of a bootstrap template based program.
     # 3. (Windows) A native Windows executable that finds and launches
     #    the actual underlying Bazel program (one of the above). Note that
-    #    it implicitly assumes one of the above is located next to it, and
-    #    that --build_python_zip defaults to true for Windows.
+    #    it implicitly assumes that --build_python_zip defaults to true for
+    #    Windows.
 
     should_create_executable_zip = False
     bootstrap_output = None
@@ -224,20 +224,24 @@ def _create_executable(
         else:
             bootstrap_output = executable
     else:
+        if build_zip_enabled:
+            python_file = zip_file
+        else:
+            # On Windows, the main executable has an "exe" extension, so
+            # here we re-use the un-extensioned name for the bootstrap output.
+            bootstrap_output = ctx.actions.declare_file(base_executable_name)
+            python_file = bootstrap_output
+
+            # The launcher looks for the non-zip executable next to
+            # itself, so add it to the default outputs.
+            extra_files_to_build.append(bootstrap_output)
         _create_windows_exe_launcher(
             ctx,
             output = executable,
             use_zip_file = build_zip_enabled,
             python_binary_path = runtime_details.executable_interpreter_path,
+            python_file = python_file,
         )
-        if not build_zip_enabled:
-            # On Windows, the main executable has an "exe" extension, so
-            # here we re-use the un-extensioned name for the bootstrap output.
-            bootstrap_output = ctx.actions.declare_file(base_executable_name)
-
-            # The launcher looks for the non-zip executable next to
-            # itself, so add it to the default outputs.
-            extra_files_to_build.append(bootstrap_output)
 
     if should_create_executable_zip:
         if bootstrap_output != None:
@@ -320,7 +324,8 @@ def _create_windows_exe_launcher(
         *,
         output,
         python_binary_path,
-        use_zip_file):
+        use_zip_file,
+        python_file):
     launch_info = ctx.actions.args()
     launch_info.use_param_file("%s", use_always = True)
     launch_info.set_param_file_format("multiline")
@@ -332,6 +337,7 @@ def _create_windows_exe_launcher(
     )
     launch_info.add(python_binary_path, format = "python_bin_path=%s")
     launch_info.add("1" if use_zip_file else "0", format = "use_zip_file=%s")
+    launch_info.add(python_file.short_path, format = "python_file_short_path=%s")
 
     ctx.actions.run(
         executable = ctx.executable._windows_launcher_maker,

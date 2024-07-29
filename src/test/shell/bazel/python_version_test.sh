@@ -266,7 +266,11 @@ print(__file__)
 EOF
 
   bazel build //test:pybin --build_python_zip &> $TEST_log || fail "bazel build failed"
-  pybin_location=$(bazel-bin/test/pybin)
+  # Clear out runfiles variables to ensure that the binary finds its own
+  # runfiles correctly.
+  pybin_location=$(env -u RUNFILES_DIR -u RUNFILES_MANIFEST_FILE \
+      -u RUNFILES_MANIFEST_ONLY -u JAVA_RUNFILES -u PYTHON_RUNFILES \
+      bazel-bin/test/pybin)
 
   # The pybin location is "<ms root>/runfiles/<workspace>/test/pybin.py",
   # so we have to go up 4 directories to get to the module space root
