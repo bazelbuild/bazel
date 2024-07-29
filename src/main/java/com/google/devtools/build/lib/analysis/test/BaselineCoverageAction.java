@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -88,19 +87,14 @@ public final class BaselineCoverageAction extends AbstractFileWriteAction
     return true;
   }
 
-  /** Notify interested parties about new baseline coverage data. */
-  private boolean notifyAboutBaselineCoverage(ExtendedEventHandler eventHandler) {
-    Artifact output = Iterables.getOnlyElement(getOutputs());
+  /** Notifies interested parties about new baseline coverage data. */
+  private void notifyAboutBaselineCoverage(ExtendedEventHandler eventHandler) {
+    Artifact output = getPrimaryOutput();
     String ownerString = Label.print(getOwner().getLabel());
     eventHandler.post(new BaselineCoverageResult(output, ownerString));
-    return true;
   }
 
-  /**
-   * Returns collection of baseline coverage artifacts associated with the given target.
-   * Will always return 0 or 1 elements.
-   */
-  static NestedSet<Artifact> create(
+  static BaselineCoverageAction create(
       RuleContext ruleContext, NestedSet<Artifact> instrumentedFiles) {
     // Baseline coverage artifacts will still go into "testlogs" directory.
     Artifact coverageData =
@@ -108,8 +102,7 @@ public final class BaselineCoverageAction extends AbstractFileWriteAction
             PathFragment.create(ruleContext.getTarget().getName())
                 .getChild("baseline_coverage.dat"),
             ruleContext.getTestLogsDirectory());
-    ruleContext.registerAction(new BaselineCoverageAction(
-        ruleContext.getActionOwner(), instrumentedFiles, coverageData));
-    return NestedSetBuilder.create(Order.STABLE_ORDER, coverageData);
+    return new BaselineCoverageAction(
+        ruleContext.getActionOwner(), instrumentedFiles, coverageData);
   }
 }

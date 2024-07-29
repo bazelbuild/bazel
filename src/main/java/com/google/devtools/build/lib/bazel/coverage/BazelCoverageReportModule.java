@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
@@ -59,7 +58,7 @@ public class BazelCoverageReportModule extends BlazeModule {
   }
 
   /** Possible values for the --combined_report option. */
-  public static enum ReportType {
+  public enum ReportType {
     NONE,
     LCOV,
   }
@@ -72,15 +71,13 @@ public class BazelCoverageReportModule extends BlazeModule {
   }
 
   @Override
-  public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return "build".equals(command.name())
-        ? ImmutableList.<Class<? extends OptionsBase>>of(Options.class)
-        : ImmutableList.<Class<? extends OptionsBase>>of();
+  public ImmutableList<Class<? extends OptionsBase>> getCommandOptions(Command command) {
+    return command.name().equals("build") ? ImmutableList.of(Options.class) : ImmutableList.of();
   }
 
   @Override
   public CoverageReportActionFactory getCoverageReportFactory(OptionsProvider commandOptions) {
-    final Options options = commandOptions.getOptions(Options.class);
+    Options options = commandOptions.getOptions(Options.class);
     return new CoverageReportActionFactory() {
       @Override
       @Nullable
@@ -89,7 +86,7 @@ public class BazelCoverageReportModule extends BlazeModule {
           EventBus eventBus,
           BlazeDirectories directories,
           Collection<ConfiguredTarget> targetsToTest,
-          NestedSet<Artifact> baselineCoverageArtifacts,
+          ImmutableList<Artifact> baselineCoverageArtifacts,
           ArtifactFactory artifactFactory,
           ActionKeyContext actionKeyContext,
           ActionLookupKey actionLookupKey,

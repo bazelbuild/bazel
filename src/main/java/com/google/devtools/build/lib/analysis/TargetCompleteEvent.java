@@ -116,7 +116,7 @@ public final class TargetCompleteEvent
   private final ImmutableList<BuildEventId> postedAfter;
   private final CompletionContext completionContext;
   private final ImmutableMap<String, ArtifactsInOutputGroup> outputs;
-  private final NestedSet<Artifact> baselineCoverageArtifacts;
+  @Nullable private final Artifact baselineCoverageArtifact;
   // The label as appeared in the BUILD file.
   private final Label originalLabel;
   private final boolean isTest;
@@ -146,7 +146,7 @@ public final class TargetCompleteEvent
         ConfiguredTargetKey.fromConfiguredTarget(targetAndData.getConfiguredTarget());
     postedAfterBuilder.add(BuildEventIdUtil.targetConfigured(originalLabel));
     DetailedExitCode mostImportantDetailedExitCode = null;
-    for (Cause cause : getRootCauses().toList()) {
+    for (Cause cause : this.rootCauses.toList()) {
       mostImportantDetailedExitCode =
           DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
               mostImportantDetailedExitCode, cause.getDetailedExitCode());
@@ -167,17 +167,10 @@ public final class TargetCompleteEvent
             : null;
     InstrumentedFilesInfo instrumentedFilesProvider =
         targetAndData.getConfiguredTarget().get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
-    if (instrumentedFilesProvider == null) {
-      this.baselineCoverageArtifacts = null;
-    } else {
-      NestedSet<Artifact> baselineCoverageArtifacts =
-          instrumentedFilesProvider.getBaselineCoverageArtifacts();
-      if (!baselineCoverageArtifacts.isEmpty()) {
-        this.baselineCoverageArtifacts = baselineCoverageArtifacts;
-      } else {
-        this.baselineCoverageArtifacts = null;
-      }
-    }
+    this.baselineCoverageArtifact =
+        instrumentedFilesProvider == null
+            ? null
+            : instrumentedFilesProvider.getBaselineCoverageArtifact();
     this.postedAfter = postedAfterBuilder.build();
     this.tags = targetAndData.getRuleTags();
   }
@@ -269,7 +262,7 @@ public final class TargetCompleteEvent
   @Override
   public ImmutableList<BuildEventId> getChildrenEvents() {
     ImmutableList.Builder<BuildEventId> childrenBuilder = ImmutableList.builder();
-    for (Cause cause : getRootCauses().toList()) {
+    for (Cause cause : rootCauses.toList()) {
       childrenBuilder.add(cause.getIdProto());
     }
     if (isTest) {
@@ -422,16 +415,14 @@ public final class TargetCompleteEvent
             });
       }
     }
-    if (baselineCoverageArtifacts != null) {
-      for (Artifact artifact : baselineCoverageArtifacts.toList()) {
-        // TODO(b/199940216): Coverage artifacts don't have metadata available.
-        builder.add(
-            new LocalFile(
-                completionContext.pathResolver().toPath(artifact),
-                LocalFileType.COVERAGE_OUTPUT,
-                /*artifact=*/ null,
-                /*artifactMetadata=*/ null));
-      }
+    if (baselineCoverageArtifact != null) {
+      // TODO(b/199940216): Coverage artifacts don't have metadata available.
+      builder.add(
+          new LocalFile(
+              completionContext.pathResolver().toPath(baselineCoverageArtifact),
+              LocalFileType.COVERAGE_OUTPUT,
+              /* artifact= */ null,
+              /* artifactMetadata= */ null));
     }
     return builder.build();
   }
@@ -453,8 +444,9 @@ public final class TargetCompleteEvent
         builder.setFailureDetail(failureDetail);
       }
     }
-    builder.addAllTag(getTags());
-    builder.addAllOutputGroup(getOutputFilesByGroup(converters.artifactGroupNamer()));
+    builder
+        .addAllTag(tags)
+        .addAllOutputGroup(getOutputFilesByGroup(converters.artifactGroupNamer()));
 
     if (isTest) {
       builder.setTestTimeout(Durations.fromSeconds(testTimeoutSeconds));
@@ -471,13 +463,13 @@ public final class TargetCompleteEvent
     // TODO(aehlig): remove direct reporting of artifacts as soon as clients no longer need it.
     if (converters.getOptions().legacyImportantOutputs) {
       addImportantOutputs(completionContext, builder, converters, filteredImportantArtifacts);
-      if (baselineCoverageArtifacts != null) {
+      if (baselineCoverageArtifact != null) {
         addImportantOutputs(
             completionContext,
             builder,
             artifact -> BASELINE_COVERAGE,
             converters,
-            baselineCoverageArtifacts.toList());
+            ImmutableList.of(baselineCoverageArtifact));
       }
     }
 
@@ -492,7 +484,7 @@ public final class TargetCompleteEvent
 
   @Override
   public ReportedArtifacts reportedArtifacts() {
-    return toReportedArtifacts(outputs, completionContext, baselineCoverageArtifacts);
+    return toReportedArtifacts(outputs, completionContext, baselineCoverageArtifact);
   }
 
   @Override
@@ -503,15 +495,15 @@ public final class TargetCompleteEvent
   static ReportedArtifacts toReportedArtifacts(
       ImmutableMap<String, ArtifactsInOutputGroup> outputs,
       CompletionContext completionContext,
-      @Nullable NestedSet<Artifact> baselineCoverageArtifacts) {
+      @Nullable Artifact baselineCoverageArtifact) {
     ImmutableSet.Builder<NestedSet<Artifact>> builder = ImmutableSet.builder();
     for (ArtifactsInOutputGroup artifactsInGroup : outputs.values()) {
       if (artifactsInGroup.areImportant()) {
         builder.add(artifactsInGroup.getArtifacts());
       }
     }
-    if (baselineCoverageArtifacts != null) {
-      builder.add(baselineCoverageArtifacts);
+    if (baselineCoverageArtifact != null) {
+      builder.add(NestedSetBuilder.create(Order.STABLE_ORDER, baselineCoverageArtifact));
     }
     return new ReportedArtifacts(builder.build(), completionContext);
   }
@@ -521,19 +513,15 @@ public final class TargetCompleteEvent
     return configurationEvent != null ? ImmutableList.of(configurationEvent) : ImmutableList.of();
   }
 
-  private Iterable<String> getTags() {
-    return tags;
-  }
-
   private Iterable<OutputGroup> getOutputFilesByGroup(ArtifactGroupNamer namer) {
-    return toOutputGroupProtos(outputs, namer, baselineCoverageArtifacts);
+    return toOutputGroupProtos(outputs, namer, baselineCoverageArtifact);
   }
 
   /** Returns {@link OutputGroup} protos for given output groups and optional coverage artifacts. */
   static ImmutableList<OutputGroup> toOutputGroupProtos(
       ImmutableMap<String, ArtifactsInOutputGroup> outputs,
       ArtifactGroupNamer namer,
-      @Nullable NestedSet<Artifact> baselineCoverageArtifacts) {
+      @Nullable Artifact baselineCoverageArtifact) {
     ImmutableList.Builder<OutputGroup> groups = ImmutableList.builder();
     outputs.forEach(
         (outputGroup, artifactsInOutputGroup) -> {
@@ -547,11 +535,13 @@ public final class TargetCompleteEvent
                   .addFileSets(namer.apply(artifactsInOutputGroup.getArtifacts().toNode()))
                   .build());
         });
-    if (baselineCoverageArtifacts != null) {
+    if (baselineCoverageArtifact != null) {
+      NestedSet.Node node =
+          NestedSetBuilder.create(Order.STABLE_ORDER, baselineCoverageArtifact).toNode();
       groups.add(
           OutputGroup.newBuilder()
               .setName(BASELINE_COVERAGE)
-              .addFileSets(namer.apply(baselineCoverageArtifacts.toNode()))
+              .addFileSets(namer.apply(node))
               .build());
     }
     return groups.build();

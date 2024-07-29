@@ -138,7 +138,7 @@ public final class AspectCompleteEvent
   @Override
   public ReportedArtifacts reportedArtifacts() {
     return TargetCompleteEvent.toReportedArtifacts(
-        artifactOutputGroups, completionContext, /*baselineCoverageArtifacts=*/ null);
+        artifactOutputGroups, completionContext, /* baselineCoverageArtifact= */ null);
   }
 
   @Override
@@ -150,7 +150,7 @@ public final class AspectCompleteEvent
         TargetCompleteEvent.toOutputGroupProtos(
             artifactOutputGroups,
             converters.artifactGroupNamer(),
-            /*baselineCoverageArtifacts=*/ null));
+            /* baselineCoverageArtifact= */ null));
     return GenericBuildEvent.protoChaining(this).setCompleted(builder.build()).build();
   }
 

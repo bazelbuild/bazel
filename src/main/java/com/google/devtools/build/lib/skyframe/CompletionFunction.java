@@ -187,14 +187,13 @@ public final class CompletionFunction<
     ImmutableList<Artifact> allArtifacts = artifactsToBuild.getAllArtifacts().toList();
     InstrumentedFilesInfo instrumentedFilesInfo =
         value.getConfiguredObject().get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
-    Iterable<SkyKey> keysToRequest;
+    Iterable<SkyKey> keysToRequest = Artifact.keys(allArtifacts);
     if (value.getConfiguredObject() instanceof ConfiguredTarget && instrumentedFilesInfo != null) {
-      keysToRequest =
-          Iterables.concat(
-              Artifact.keys(allArtifacts),
-              Artifact.keys(instrumentedFilesInfo.getBaselineCoverageArtifacts().toList()));
-    } else {
-      keysToRequest = Artifact.keys(allArtifacts);
+      Artifact baselineCoverage = instrumentedFilesInfo.getBaselineCoverageArtifact();
+      if (baselineCoverage != null) {
+        keysToRequest =
+            Iterables.concat(keysToRequest, ImmutableList.of(Artifact.key(baselineCoverage)));
+      }
     }
     SkyframeLookupResult inputDeps = env.getValuesAndExceptions(keysToRequest);
 

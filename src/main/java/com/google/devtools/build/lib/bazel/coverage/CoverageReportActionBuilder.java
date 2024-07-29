@@ -170,7 +170,7 @@ public final class CoverageReportActionBuilder {
       EventHandler reporter,
       BlazeDirectories directories,
       Collection<ConfiguredTarget> targetsToTest,
-      NestedSet<Artifact> baselineCoverageArtifacts,
+      ImmutableList<Artifact> baselineCoverageArtifacts,
       ArtifactFactory factory,
       ActionKeyContext actionKeyContext,
       ArtifactOwner artifactOwner,
@@ -179,7 +179,6 @@ public final class CoverageReportActionBuilder {
       LocationFunc locationFunc,
       boolean htmlReport)
       throws InterruptedException {
-
     if (targetsToTest == null || targetsToTest.isEmpty()) {
       return null;
     }
@@ -200,9 +199,7 @@ public final class CoverageReportActionBuilder {
     if (reportGenerator == null) {
       return null;
     }
-    builder.addAll(baselineCoverageArtifacts.toList());
-
-    ImmutableList<Artifact> coverageArtifacts = builder.build();
+    ImmutableList<Artifact> coverageArtifacts = builder.addAll(baselineCoverageArtifacts).build();
     if (!coverageArtifacts.isEmpty()) {
       PathFragment coverageDir = TestRunnerAction.COVERAGE_TMP_ROOT;
       Artifact lcovArtifact = factory.getDerivedArtifact(

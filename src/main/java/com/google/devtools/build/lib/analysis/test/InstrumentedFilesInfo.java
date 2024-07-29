@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.test.InstrumentedFilesInfoApi;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Tuple;
 
 /** An implementation class for the InstrumentedFilesProvider interface. */
@@ -32,34 +33,34 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
 
   public static final InstrumentedFilesInfo EMPTY =
       new InstrumentedFilesInfo(
-          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          null,
+          NestedSetBuilder.emptySet(Order.STABLE_ORDER),
           ImmutableMap.of(),
           NestedSetBuilder.emptySet(Order.STABLE_ORDER));
 
   private final NestedSet<Artifact> instrumentedFiles;
   private final NestedSet<Artifact> instrumentationMetadataFiles;
   private final NestedSet<Artifact> baselineCoverageFiles;
-  private final NestedSet<Artifact> baselineCoverageArtifacts;
+  @Nullable private final Artifact baselineCoverageArtifact;
   private final NestedSet<Artifact> coverageSupportFiles;
   private final ImmutableMap<String, String> coverageEnvironment;
   private final NestedSet<Tuple> reportedToActualSources;
 
-  public InstrumentedFilesInfo(
+  InstrumentedFilesInfo(
       NestedSet<Artifact> instrumentedFiles,
       NestedSet<Artifact> instrumentationMetadataFiles,
       NestedSet<Artifact> baselineCoverageFiles,
-      NestedSet<Artifact> baselineCoverageArtifacts,
+      @Nullable Artifact baselineCoverageArtifact,
       NestedSet<Artifact> coverageSupportFiles,
       ImmutableMap<String, String> coverageEnvironment,
       NestedSet<Tuple> reportedToActualSources) {
     this.instrumentedFiles = instrumentedFiles;
     this.instrumentationMetadataFiles = instrumentationMetadataFiles;
     this.baselineCoverageFiles = baselineCoverageFiles;
-    this.baselineCoverageArtifacts = baselineCoverageArtifacts;
+    this.baselineCoverageArtifact = baselineCoverageArtifact;
     this.coverageSupportFiles = coverageSupportFiles;
     this.coverageEnvironment = coverageEnvironment;
     this.reportedToActualSources = reportedToActualSources;
@@ -77,7 +78,7 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
 
   @Override
   public Depset getInstrumentedFilesForStarlark() {
-    return Depset.of(Artifact.class, getInstrumentedFiles());
+    return Depset.of(Artifact.class, instrumentedFiles);
   }
 
   /** Returns a collection of instrumentation metadata files. */
@@ -87,7 +88,7 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
 
   @Override
   public Depset getInstrumentationMetadataFilesForStarlark() {
-    return Depset.of(Artifact.class, getInstrumentationMetadataFiles());
+    return Depset.of(Artifact.class, instrumentationMetadataFiles);
   }
 
   /**
@@ -104,11 +105,15 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
   }
 
   /**
-   * The output artifact of the baseline coverage action; this is only ever a single artifact, which
-   * contains baseline coverage for the entire transitive closure of source files.
+   * Returns the output artifact of the {@link BaselineCoverageAction} or {@code null} if this is
+   * {@link #EMPTY}.
+   *
+   * <p>If non-null, the artifact contains baseline coverage for the entire transitive closure of
+   * source files.
    */
-  public NestedSet<Artifact> getBaselineCoverageArtifacts() {
-    return baselineCoverageArtifacts;
+  @Nullable
+  public Artifact getBaselineCoverageArtifact() {
+    return baselineCoverageArtifact;
   }
 
   /**
@@ -136,7 +141,7 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
    * "bazel-out/k8-fastbuild/bin/include/common/_virtual_includes/strategy/strategy.h", but its
    * actual source path is "include/common/strategy.h".
    */
-  public NestedSet<Tuple> getReportedToActualSources() {
+  NestedSet<Tuple> getReportedToActualSources() {
     return reportedToActualSources;
   }
 
