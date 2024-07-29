@@ -293,8 +293,11 @@ function test_java_test() {
 function test_native_python() {
   # On windows, we build a python executable zip as the python binary
   assert_build //examples/py_native:bin
-  # run the python package directly
-  ./bazel-bin/examples/py_native/bin >& $TEST_log \
+  # run the python package directly, clearing out runfiles variables to
+  # ensure that the binary finds its own runfiles correctly
+  env -u RUNFILES_DIR -u RUNFILES_MANIFEST_FILE -u RUNFILES_MANIFEST_ONLY \
+    -u JAVA_RUNFILES -u PYTHON_RUNFILES \
+    ./bazel-bin/examples/py_native/bin >& $TEST_log \
     || fail "//examples/py_native:bin execution failed"
   expect_log "Fib(5) == 8"
   # Using python <zipfile> to run the python package
