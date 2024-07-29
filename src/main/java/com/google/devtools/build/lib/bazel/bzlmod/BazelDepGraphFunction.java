@@ -33,7 +33,9 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.LabelConverter;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -42,6 +44,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map.Entry;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * This function runs Bazel module resolution, extracts the dependency graph from it and creates a
@@ -58,13 +61,14 @@ public class BazelDepGraphFunction implements SkyFunction {
       throws BazelDepGraphFunctionException, InterruptedException {
     BazelModuleResolutionValue selectionResult =
         (BazelModuleResolutionValue) env.getValue(BazelModuleResolutionValue.KEY);
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (env.valuesMissing()) {
       return null;
     }
     var depGraph = selectionResult.getResolvedDepGraph();
 
     ImmutableBiMap<RepositoryName, ModuleKey> canonicalRepoNameLookup =
-        computeCanonicalRepoNameLookup(depGraph);
+        computeCanonicalRepoNameLookup(depGraph, starlarkSemantics);
     ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById;
     try {
       extensionUsagesById = getExtensionUsagesById(depGraph, canonicalRepoNameLookup.inverse());
@@ -73,14 +77,17 @@ public class BazelDepGraphFunction implements SkyFunction {
     }
 
     ImmutableBiMap<String, ModuleExtensionId> extensionUniqueNames =
-        calculateUniqueNameForUsedExtensionId(extensionUsagesById);
+        calculateUniqueNameForUsedExtensionId(extensionUsagesById, starlarkSemantics);
 
     return BazelDepGraphValue.create(
         depGraph,
         canonicalRepoNameLookup,
         depGraph.values().stream().map(AbridgedModule::from).collect(toImmutableList()),
         extensionUsagesById,
-        extensionUniqueNames.inverse());
+        extensionUniqueNames.inverse(),
+        starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_USE_PLUS_IN_REPO_NAMES)
+            ? '+'
+            : '~');
   }
 
   private static ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
@@ -126,7 +133,7 @@ public class BazelDepGraphFunction implements SkyFunction {
   }
 
   private static ImmutableBiMap<RepositoryName, ModuleKey> computeCanonicalRepoNameLookup(
-      ImmutableMap<ModuleKey, Module> depGraph) {
+      ImmutableMap<ModuleKey, Module> depGraph, StarlarkSemantics semantics) {
     // Find modules with multiple versions in the dep graph. Currently, the only source of such
     // modules is multiple_version_override.
     ImmutableSet<String> multipleVersionsModules =
@@ -151,13 +158,14 @@ public class BazelDepGraphFunction implements SkyFunction {
             toImmutableBiMap(
                 key ->
                     multipleVersionsModules.contains(key.getName())
-                        ? key.getCanonicalRepoNameWithVersion()
-                        : key.getCanonicalRepoNameWithoutVersion(),
+                        ? key.getCanonicalRepoNameWithVersion(semantics)
+                        : key.getCanonicalRepoNameWithoutVersion(semantics),
                 key -> key));
   }
 
   private ImmutableBiMap<String, ModuleExtensionId> calculateUniqueNameForUsedExtensionId(
-      ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById) {
+      ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById,
+      StarlarkSemantics starlarkSemantics) {
     // Calculate a unique name for each used extension id with the following property that is
     // required for BzlmodRepoRuleFunction to unambiguously identify the extension that generates a
     // given repo:
@@ -166,18 +174,23 @@ public class BazelDepGraphFunction implements SkyFunction {
     BiMap<String, ModuleExtensionId> extensionUniqueNames = HashBiMap.create();
     for (ModuleExtensionId id : extensionUsagesById.rowKeySet()) {
       int attempt = 1;
-      while (extensionUniqueNames.putIfAbsent(makeUniqueNameCandidate(id, attempt), id) != null) {
+      while (extensionUniqueNames.putIfAbsent(
+              makeUniqueNameCandidate(id, attempt, starlarkSemantics), id)
+          != null) {
         attempt++;
       }
     }
     return ImmutableBiMap.copyOf(extensionUniqueNames);
   }
 
-  private static String makeUniqueNameCandidate(ModuleExtensionId id, int attempt) {
+  private static String makeUniqueNameCandidate(
+      ModuleExtensionId id, int attempt, StarlarkSemantics starlarkSemantics) {
+    boolean usePlus =
+        starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_USE_PLUS_IN_REPO_NAMES);
     // Ensure that the resulting extension name (and thus the repository names derived from it) do
     // not start with a tilde.
     RepositoryName repository = id.getBzlFileLabel().getRepository();
-    String nonEmptyRepoPart = repository.isMain() ? "_main" : repository.getName();
+    String nonEmptyRepoPart = repository.isMain() && !usePlus ? "_main" : repository.getName();
     // When using a namespace, prefix the extension name with "_" to distinguish the prefix from
     // those generated by non-namespaced extension usages. Extension names are identified by their
     // Starlark identifier, which in the case of an exported symbol cannot start with "_".
@@ -191,14 +204,18 @@ public class BazelDepGraphFunction implements SkyFunction {
         .map(
             namespace ->
                 String.format(
-                    "%s~_%s%s~%s~%s~%s",
+                    usePlus ? "%s+_%s%s+%s+%s+%s" : "%s~_%s%s~%s~%s~%s",
                     nonEmptyRepoPart,
                     id.getExtensionName(),
                     extensionNameDisambiguator,
                     namespace.getModule().getName(),
                     namespace.getModule().getVersion(),
                     namespace.getUsageExportedName()))
-        .orElse(nonEmptyRepoPart + "~" + id.getExtensionName() + extensionNameDisambiguator);
+        .orElse(
+            nonEmptyRepoPart
+                + (usePlus ? "+" : "~")
+                + id.getExtensionName()
+                + extensionNameDisambiguator);
   }
 
   static class BazelDepGraphFunctionException extends SkyFunctionException {
