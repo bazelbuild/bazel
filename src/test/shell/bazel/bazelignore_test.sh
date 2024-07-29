@@ -27,6 +27,7 @@ set -e
 
 test_ignores_comment_lines() {
     rm -rf work && mkdir work && cd work
+    touch MODULE.bazel
     mkdir -p ignoreme
     echo Not a valid BUILD file > ignoreme/BUILD
     mkdir -p '#foo/bar'
@@ -47,6 +48,7 @@ EOI
 
 test_does_not_glob_into_ignored_directory() {
     rm -rf work && mkdir work && cd work
+    touch MODULE.bazel
 
     echo 'filegroup(name="f", srcs=glob(["**"]))' > BUILD
     echo 'ignored' > .bazelignore
@@ -81,6 +83,7 @@ test_does_not_glob_into_ignored_directory() {
 
 test_broken_BUILD_files_ignored() {
     rm -rf work && mkdir work && cd work
+    touch MODULE.bazel
     mkdir -p ignoreme/deep/reallydep/stillignoreme
     echo This is a broken BUILD file > ignoreme/BUILD
     echo This is a broken BUILD file > ignoreme/deep/BUILD
@@ -96,6 +99,7 @@ test_broken_BUILD_files_ignored() {
 
 test_broken_BUILD_files_ignored_subdir() {
     rm -rf work && mkdir work && cd work
+    touch MODULE.bazel
     mkdir -p ignoreme/deep || fail "Couldn't mkdir"
     ln -s deeper ignoreme/deep/deeper || fail "Couldn't create cycle"
     touch BUILD
@@ -138,6 +142,7 @@ test_broken_BUILD_files_ignored_subdir() {
 
 test_symlink_cycle_ignored() {
     rm -rf work && mkdir work && cd work
+    touch MODULE.bazel
     mkdir -p ignoreme/deep
     (cd ignoreme/deep && ln -s . loop)
     touch BUILD
@@ -155,6 +160,7 @@ test_symlink_cycle_ignored() {
 
 test_build_specific_target() {
     rm -rf work && mkdir work && cd work
+    touch MODULE.bazel
     mkdir -p ignoreme
     echo Not a valid BUILD file > ignoreme/BUILD
     mkdir -p foo/bar
@@ -171,6 +177,7 @@ EOI
 
 test_aquery_specific_target() {
     rm -rf work && mkdir work && cd work
+    touch MODULE.bazel
     mkdir -p foo/ignoreme
     cat > foo/ignoreme/BUILD <<'EOI'
 genrule(
@@ -201,6 +208,7 @@ EOI
 
 test_invalid_path() {
     rm -rf work && mkdir work && cd work
+    touch MODULE.bazel
     echo -e "foo/\0/bar" > .bazelignore
     echo 'filegroup(name="f", srcs=glob(["**"]))' > BUILD
     if bazel build //... 2> "$TEST_log"; then
