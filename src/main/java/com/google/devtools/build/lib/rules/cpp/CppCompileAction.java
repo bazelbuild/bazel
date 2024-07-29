@@ -1026,7 +1026,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       for (Artifact input : set.toList()) {
         if (input.isTreeArtifact()) {
           allowedIncludes.addAll(
-              actionExecutionContext.getArtifactExpander().expandTreeArtifact(input));
+              actionExecutionContext.getArtifactExpander().expandTreeArtifactOrEmpty(input));
         }
         allowedIncludes.add(input);
       }

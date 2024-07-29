@@ -139,7 +139,7 @@ public final class ActionInputHelper {
         }
       } else if (artifact.isTreeArtifact()) {
         ImmutableSortedSet<TreeFileArtifact> children =
-            artifactExpander.expandTreeArtifact(artifact);
+            artifactExpander.expandTreeArtifactOrEmpty(artifact);
         if (children.isEmpty()) {
           emptyTreeArtifacts.add(artifact);
         } else {

@@ -393,9 +393,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     private static boolean hasDirectory(List<Object> originalValues) {
-      int n = originalValues.size();
-      for (int i = 0; i < n; ++i) {
-        Object object = originalValues.get(i);
+      for (Object object : originalValues) {
         if (isDirectory(object)) {
           return true;
         }
@@ -404,7 +402,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     private static boolean isDirectory(Object object) {
-      return object instanceof Artifact && ((Artifact) object).isDirectory();
+      return object instanceof Artifact artifact && artifact.isDirectory();
     }
 
     private static List<Object> expandDirectories(
@@ -415,7 +413,17 @@ public class StarlarkCustomCommandLine extends CommandLine {
         if (isDirectory(object)) {
           Artifact artifact = (Artifact) object;
           if (artifact.isTreeArtifact()) {
-            expandedValues.addAll(artifactExpander.expandTreeArtifact(artifact));
+            try {
+              expandedValues.addAll(artifactExpander.expandTreeArtifact(artifact));
+            } catch (MissingExpansionException e) {
+              throw new CommandLineExpansionException(
+                  String.format(
+                      "Failed to expand directory %s. Either add the directory as an input of the"
+                          + " action or set 'expand_directories = False' in the 'add_all' call"
+                          + " to have the path of the directory added to the command line instead"
+                          + " of its contents.",
+                      Starlark.repr(artifact)));
+            }
           } else if (artifact.isFileset()) {
             expandFileset(artifactExpander, artifact, expandedValues, pathMapper);
           } else {
@@ -1012,10 +1020,17 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
-    public ImmutableList<FileApi> list(FileApi file) {
+    public ImmutableList<FileApi> list(FileApi file) throws EvalException {
       Artifact artifact = (Artifact) file;
       if (artifact.isTreeArtifact()) {
-        return ImmutableList.copyOf(expander.expandTreeArtifact(artifact));
+        try {
+          return ImmutableList.copyOf(expander.expandTreeArtifact(artifact));
+        } catch (MissingExpansionException e) {
+          throw Starlark.errorf(
+              "Failed to expand directory %s. Only directories that are action inputs can be"
+                  + " expanded.",
+              Starlark.repr(artifact));
+        }
       } else {
         return ImmutableList.of(file);
       }
@@ -1057,7 +1072,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       }
       for (int i = 0; i < count; ++i) {
         args.set(0, originalValues.get(i));
-        Object ret = Starlark.call(thread, mapFn, args, /*kwargs=*/ ImmutableMap.of());
+        Object ret = Starlark.call(thread, mapFn, args, /* kwargs= */ ImmutableMap.of());
         if (ret instanceof String string) {
           consumer.accept(string);
         } else if (ret instanceof Sequence<?> sequence) {
@@ -1090,6 +1105,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     private final StarlarkCallable mapFn;
     private final Location location;
     private final StarlarkSemantics starlarkSemantics;
+
     /**
      * Indicates whether artifactExpander was provided on construction. This is used to distinguish
      * the case where it's not provided from the case where it was provided but subsequently

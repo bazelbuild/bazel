@@ -926,7 +926,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
             if (objectFile.isTreeArtifact() && expander != null) {
               expandedObjectFiles.addAll(
                   Collections2.transform(
-                      expander.expandTreeArtifact(objectFile), Artifact::getExecPathString));
+                      expander.expandTreeArtifactOrEmpty(objectFile), Artifact::getExecPathString));
             } else {
               expandedObjectFiles.add(objectFile.getExecPathString());
             }
