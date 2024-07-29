@@ -85,7 +85,7 @@ public final class BlazeOptionHandler {
 
   // All options set on this pseudo command are inherited by all commands, with unrecognized options
   // being ignored as long as they are recognized by at least one (other) command.
-  private static final String COMMON_PSEUDO_COMMAND = "common";
+  static final String COMMON_PSEUDO_COMMAND = "common";
 
   private static final String BUILD_COMMAND = "build";
   private static final ImmutableSet<String> BUILD_COMMAND_ANCESTORS =
