@@ -20,6 +20,7 @@ OS_PATH_POLICY_SOURCES = [
 PATH_FRAGMENT_SOURCES = [
     "PathFragment.java",
     "PathSegmentIterator.java",
+    "PathStrippable.java",
 ]
 
 OUTPUT_SERVICE_SOURCES = [
