@@ -422,7 +422,9 @@ public class CcStarlarkInternal implements StarlarkValue {
             generateSubmodules,
             withoutExternDependencies,
             PathMappers.getOutputPathsMode(ruleContext.getConfiguration()),
-            ruleContext.getConfiguration()::modifiedExecutionInfo));
+            ruleContext
+                .getConfiguration()
+                .modifiedExecutionInfo(ImmutableMap.of(), CppModuleMapAction.MNEMONIC)));
   }
 
   @SerializationConstant @VisibleForSerialization

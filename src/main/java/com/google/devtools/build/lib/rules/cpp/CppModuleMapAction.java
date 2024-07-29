@@ -17,7 +17,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -30,6 +33,7 @@ import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -40,7 +44,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.function.BiFunction;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -49,9 +53,11 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public final class CppModuleMapAction extends AbstractFileWriteAction {
+  public static final String MNEMONIC = "CppModuleMap";
 
   private static final String GUID = "4f407081-1951-40c1-befc-d6b4daff5de3";
-  private static final String MNEMONIC = "CppModuleMap";
+  private static final Interner<ImmutableSortedMap<String, String>> executionInfoInterner =
+      BlazeInterners.newWeakInterner();
 
   // C++ module map of the current target
   private final CppModuleMap cppModuleMap;
@@ -72,11 +78,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
   private final boolean compiledModule;
   private final boolean generateSubmodules;
   private final boolean externDependencies;
-  // Save memory by storing only the boolean value of whether path stripping is effectively enabled
-  // for this action, which it is if and only if the execution info and the output path mode have
-  // the required values. This avoids storing both, which would require two reference fields.
-  // See getExecutionInfo() and getOutputPathsMode().
-  private final boolean pathStrippingRequestedAndEnabled;
+  private final ImmutableSortedMap<String, String> executionInfo;
 
   public CppModuleMapAction(
       ActionOwner owner,
@@ -91,8 +93,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
       boolean generateSubmodules,
       boolean externDependencies,
       OutputPathsMode outputPathsMode,
-      BiFunction<ImmutableMap<String, String>, String, ImmutableMap<String, String>>
-          modifyExecutionInfo) {
+      ImmutableMap<String, String> executionInfo) {
     super(
         owner,
         NestedSetBuilder.<Artifact>stableOrder()
@@ -110,11 +111,22 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     this.compiledModule = compiledModule;
     this.generateSubmodules = generateSubmodules;
     this.externDependencies = externDependencies;
-    this.pathStrippingRequestedAndEnabled =
-        modifyExecutionInfo
-                .apply(ImmutableMap.of(), MNEMONIC)
-                .containsKey(ExecutionRequirements.SUPPORTS_PATH_MAPPING)
-            && outputPathsMode == OutputPathsMode.STRIP;
+    // Save memory by storing outputPathsMode implicitly via the presence of
+    // ExecutionRequirements.SUPPORTS_PATH_MAPPING in the key set. Path mapping is only effectively
+    // enabled if the key is present *and* the mode is set to STRIP, so if the latter is not the
+    // case, we can safely not store the key.
+    Map<String, String> storedExecutionInfo;
+    if (outputPathsMode == OutputPathsMode.STRIP) {
+      storedExecutionInfo = executionInfo;
+    } else {
+      storedExecutionInfo =
+          Maps.filterKeys(
+              executionInfo, k -> !k.equals(ExecutionRequirements.SUPPORTS_PATH_MAPPING));
+    }
+    this.executionInfo =
+        storedExecutionInfo.isEmpty()
+            ? ImmutableSortedMap.of()
+            : executionInfoInterner.intern(ImmutableSortedMap.copyOf(storedExecutionInfo));
   }
 
   @Override
@@ -353,13 +365,14 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
 
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
-    return pathStrippingRequestedAndEnabled
-        ? ImmutableMap.of(ExecutionRequirements.SUPPORTS_PATH_MAPPING, "")
-        : ImmutableMap.of();
+    return executionInfo;
   }
 
   private OutputPathsMode getOutputPathsMode() {
-    return pathStrippingRequestedAndEnabled ? OutputPathsMode.STRIP : OutputPathsMode.OFF;
+    // See comment in the constructor for how outputPathsMode is stored implicitly.
+    return executionInfo.containsKey(ExecutionRequirements.SUPPORTS_PATH_MAPPING)
+        ? OutputPathsMode.STRIP
+        : OutputPathsMode.OFF;
   }
 
   @VisibleForTesting
