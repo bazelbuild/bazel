@@ -20,5 +20,6 @@ java_library(
         "//third_party:jsr305",
         "//third_party:rxjava3",
         "//third_party/grpc-java:grpc-jar",
+        "@maven//:io_netty_netty_transport_native_unix_common",
     ],
 )

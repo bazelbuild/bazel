@@ -29,5 +29,7 @@ java_test(
         "//third_party:mockito",
         "//third_party:rxjava3",
         "//third_party:truth",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_netty_netty_transport_native_unix_common",
     ],
 )
