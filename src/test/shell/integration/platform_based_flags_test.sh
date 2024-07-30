@@ -442,4 +442,25 @@ EOF
   expect_log '//pbf:show: value = "second"'
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/23147
+function test_reset_starlark_flag_to_default() {
+  local -r pkg="$FUNCNAME"
+  mkdir -p "$pkg"
+
+  cat > "$pkg/BUILD" <<EOF
+platform(
+    name = "pbf_demo",
+    flags = [
+        # Reset the flag to the default value.
+        "--//pbf:flag=default",
+    ],
+)
+EOF
+
+  bazel build --//pbf:flag=cli --platforms="//$pkg:pbf_demo" //pbf:show &> $TEST_log || fail "bazel failed"
+  # Ensure the default value is seen.
+  expect_not_log '//pbf:show: value = "platform"'
+  expect_log '//pbf:show: value = "default"'
+}
+
 run_suite "Tests for platform based flags"

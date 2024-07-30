@@ -92,6 +92,50 @@ public class PlatformFlagsProducerTest extends ProducerTestCase {
     assertThat(result.starlarkFlags()).containsAtLeast("//flag:flag", "from_platform");
   }
 
+  // Regression test for https://github.com/bazelbuild/bazel/issues/23147
+  @Test
+  public void starlarkFlag_resetToDefault() throws Exception {
+    scratch.file(
+        "flag/def.bzl",
+        """
+        def _impl(ctx):
+            return []
+
+        basic_flag = rule(
+            implementation = _impl,
+            build_setting = config.string(flag = True),
+        )
+        """);
+
+    scratch.file(
+        "flag/BUILD",
+        """
+        load(":def.bzl", "basic_flag")
+
+        basic_flag(
+            name = "flag",
+            build_setting_default = "from_default",
+        )
+        """);
+
+    scratch.overwriteFile(
+        "lookup/BUILD",
+        """
+        platform(
+            name = "basic",
+            flags = [
+                "--//flag=from_default",
+            ],
+        )
+        """);
+
+    Label platformLabel = Label.parseCanonicalUnchecked("//lookup:basic");
+    NativeAndStarlarkFlags result = fetch(platformLabel);
+
+    assertThat(result).isNotNull();
+    assertThat(result.starlarkFlags()).containsAtLeast("//flag:flag", "from_default");
+  }
+
   @Test
   public void starlarkFlag_invalid() throws Exception {
     scratch.overwriteFile(
