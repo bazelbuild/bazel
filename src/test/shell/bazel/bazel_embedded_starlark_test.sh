@@ -28,6 +28,7 @@ test_pkg_tar() {
   rm -rf main
   mkdir main
   cd main
+  touch MODULE.bazel
   echo Hello World > foo.txt
   echo Hello World, again > bar.txt
   cat > BUILD <<'EOF'
@@ -50,6 +51,7 @@ test_pkg_tar_quoting() {
   rm -rf main out
   mkdir main
   cd main
+  touch MODULE.bazel
   mkdir data
   echo 'with equal' > data/'foo=bar'
   echo 'like an option' > data/--foo
