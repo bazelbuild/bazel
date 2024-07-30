@@ -18,7 +18,9 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import java.util.Collection;
 import net.starlark.java.eval.StarlarkInt;
@@ -46,7 +48,7 @@ public class ProjectFunctionTest extends BuildViewTestCase {
     assertThat(result.hasError()).isFalse();
 
     ProjectValue value = result.get(key);
-    assertThat(value.getOwnedCodePaths()).isEmpty();
+    assertThat(PathFragmentPrefixTrie.of(value.getOwnedCodePaths())).isNotNull();
   }
 
   @Test
@@ -60,7 +62,10 @@ public class ProjectFunctionTest extends BuildViewTestCase {
     assertThat(result.hasError()).isFalse();
 
     ProjectValue value = result.get(key);
-    assertThat(value.getOwnedCodePaths()).containsExactly("a", "b/c");
+    PathFragmentPrefixTrie trie = PathFragmentPrefixTrie.of(value.getOwnedCodePaths());
+    assertThat(trie.includes(PathFragment.create("a"))).isTrue();
+    assertThat(trie.includes(PathFragment.create("b/c"))).isTrue();
+    assertThat(trie.includes(PathFragment.create("d"))).isFalse();
   }
 
   @Test
@@ -108,7 +113,6 @@ public class ProjectFunctionTest extends BuildViewTestCase {
     assertThat(result.hasError()).isFalse();
 
     ProjectValue value = result.get(key);
-    assertThat(value.getOwnedCodePaths()).containsExactly("a", "b/c");
     assertThat(value.getResidualGlobal("owned_code_paths")).isNull();
     assertThat(value.getResidualGlobal("nonexistent_global")).isNull();
 

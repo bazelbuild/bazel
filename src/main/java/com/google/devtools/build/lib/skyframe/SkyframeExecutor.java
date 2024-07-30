@@ -127,6 +127,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.PooledInterner;
@@ -4070,7 +4071,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   public final void runSkyfocus(
       ImmutableSet<Label> topLevelTargets,
-      ImmutableSet<PathFragment> projectDirectories,
+      @Nullable PathFragmentPrefixTrie workingSetMatcher,
       Reporter reporter,
       @Nullable ActionCache actionCache,
       OptionsParsingResult options)
@@ -4104,7 +4105,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     Optional<SkyfocusState> maybeNewSkyfocusState =
         SkyfocusExecutor.prepareWorkingSet(
             topLevelTargets,
-            projectDirectories,
+            workingSetMatcher,
             (InMemoryMemoizingEvaluator) getEvaluator(),
             skyfocusState,
             packageManager,
