@@ -1,3 +1,19 @@
+## Release 8.0.0-pre.20240724.1 (2024-07-30)
+
+```
+Baseline: 0803ad3770155be411a703950502dc71743017bd
+```
+
+Important changes:
+
+  - Added `--experimental_collect_skyframe_counts_in_profiler` to
+    collect Skyframe node counts in the JSON profile over time.
+    Currently, the following SkyFunctions are measured: `BZL_LOAD`,
+    `GLOB`, `GLOBS`, `PACKAGE`, `CONFIGURED_TARGET`, `ASPECT`,
+    `ACTION_EXECUTION`.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jamison Lahman, Jordan Mele, Son Luong Ngoc.
+
 ## Release 8.0.0-pre.20240718.2 (2024-07-26)
 
 ```
