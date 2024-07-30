@@ -108,8 +108,8 @@ test_patch_file() {
 -echo Here be dragons...
 +echo There are dragons...
 EOF
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > MODULE.bazel <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext-0.1.2",
@@ -150,8 +150,8 @@ EOF
       || fail "expected the new patch to be applied"
 
   # Verify that changes to the patches attribute trigger enough rebuilding
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > MODULE.bazel <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext-0.1.2",
@@ -182,8 +182,8 @@ EOF
   mkdir main
   cd main
   echo "ignored anyway" > patch_foo.sh
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > MODULE.bazel <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext-0.1.2",
@@ -229,8 +229,8 @@ EOF
  echo There are dragons...
 EOF
 
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > MODULE.bazel <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext-0.1.2",
@@ -275,8 +275,8 @@ EOF
   mkdir main
   cd main
 
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > MODULE.bazel <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext-0.1.2",
@@ -327,8 +327,8 @@ EOF
   mkdir main
   cd main
 
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > MODULE.bazel <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext-0.1.2",
@@ -392,8 +392,8 @@ EOF
 -echo Here be dragons...
 +echo There are dragons...
 EOF
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+  cat > MODULE.bazel <<EOF
+new_git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 new_git_repository(
   name="ext",
   remote="${EXTREPODIR}/extgit/.git",
@@ -434,8 +434,8 @@ EOF
       || fail "expected the new patch to be applied"
 
   # Verify that changes to the patches attribute trigger enough rebuilding
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+  cat > MODULE.bazel <<EOF
+new_git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 new_git_repository(
   name="ext",
   remote="${EXTREPODIR}/extgit/.git",
@@ -473,8 +473,8 @@ EOF
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > MODULE.bazel <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="withbuild",
   strip_prefix="withbuild",
@@ -532,8 +532,8 @@ EOF
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > MODULE.bazel <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="withbuild",
   strip_prefix="withbuild",
@@ -600,8 +600,8 @@ EOF
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+  cat > MODULE.bazel <<EOF
+new_git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 new_git_repository(
   name="withbuild",
   remote="${EXTREPODIR}/withbuild/.git",
@@ -669,8 +669,8 @@ EOF
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+  cat > MODULE.bazel <<EOF
+new_git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 new_git_repository(
   name="withbuild",
   remote="${EXTREPODIR}/withbuild/.git",
@@ -726,8 +726,8 @@ EOF
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > MODULE.bazel <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="withbuild",
   strip_prefix="withbuild",
@@ -793,8 +793,8 @@ index 1f4c41e..9d548ff 100644
 2.18.0.rc1.244.gcf134e6275-goog
 
 EOF
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > MODULE.bazel <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext-0.1.2",
