@@ -104,17 +104,23 @@ public final class SpawnStrategyRegistry
    * <p>If the reason for selecting the context is worth mentioning to the user, logs a message
    * using the given {@link Reporter}.
    */
-  @VisibleForTesting
-  public List<? extends SpawnStrategy> getStrategies(Spawn spawn, EventHandler reporter) {
+  public List<? extends SpawnStrategy> getStrategies(Spawn spawn, @Nullable EventHandler reporter) {
     return getStrategies(spawn.getResourceOwner(), spawn.getMnemonic(), reporter);
   }
 
+  /**
+   * Returns the strategies applying to the given action, in priority order.
+   *
+   * <p>Which strategies are returned is based on the precedence as documented on the construction
+   * methods of {@linkplain Builder this registry's builder}.
+   *
+   * <p>If the reason for selecting the context is worth mentioning to the user, logs a message
+   * using the given {@link Reporter}.
+   */
   public List<? extends SpawnStrategy> getStrategies(
-      @Nullable ActionExecutionMetadata resourceOwner,
-      String mnemonic,
-      @Nullable EventHandler reporter) {
+      ActionExecutionMetadata resourceOwner, String mnemonic, @Nullable EventHandler reporter) {
     // Don't override test strategies by --strategy_regexp for backwards compatibility.
-    if (resourceOwner != null && !"TestRunner".equals(mnemonic)) {
+    if (!"TestRunner".equals(mnemonic)) {
       String description = resourceOwner.getProgressMessage();
       if (description != null) {
         ImmutableList<? extends SpawnStrategy> regexStrategies =
@@ -542,12 +548,12 @@ public final class SpawnStrategyRegistry
     }
 
     public ImmutableList<? extends SpawnStrategy> getStrategies(
-        String mnemonic, String description, EventHandler reporter) {
+        String mnemonic, String description, @Nullable EventHandler reporter) {
       for (Map.Entry<RegexFilter, List<String>> filterToIdentifiers :
           Multimaps.asMap(filterToIdentifiers).entrySet()) {
         if (filterToIdentifiers.getKey().isIncluded(description)) {
-          // TODO(schmitt): Why is this done here and not after running canExec?
           if (reporter != null) {
+            // TODO(schmitt): Why is this done here and not after running canExec?
             reporter.handle(
                 Event.progress(description + " with context " + filterToIdentifiers.getValue()));
           }
