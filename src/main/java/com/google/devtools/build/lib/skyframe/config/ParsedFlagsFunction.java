@@ -70,6 +70,7 @@ public class ParsedFlagsFunction implements SkyFunction {
         StarlarkOptionsParser.builder()
             .buildSettingLoader(new SkyframeTargetLoader(env, key.packageContext()))
             .nativeOptionsParser(fakeNativeParser)
+            .includeDefaultValues(key.includeDefaultValues())
             .build();
     try {
       if (!starlarkFlagParser.parseGivenArgs(starlarkFlags.build())) {
