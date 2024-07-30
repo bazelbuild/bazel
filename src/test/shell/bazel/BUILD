@@ -1367,7 +1367,10 @@ sh_test(
         ":test-deps",
         "//src/tools/remote:worker",
     ],
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",  # for Bzlmod
+    ],
     deps = [
         "//src/test/shell/bazel/remote:remote_utils",
         "@bazel_tools//tools/bash/runfiles",

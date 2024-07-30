@@ -1378,6 +1378,13 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder overrideArtifactVariable(String name, Artifact value) {
+      Preconditions.checkNotNull(value, "Cannot set null as a value for variable '%s'", name);
+      variablesMap.put(name, value);
+      return this;
+    }
+
     /**
      * Add an artifact or string variable that expands {@code name} to {@code value}.
      *

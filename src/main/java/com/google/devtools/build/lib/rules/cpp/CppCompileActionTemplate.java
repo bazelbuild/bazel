@@ -237,27 +237,23 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
 
     CcToolchainVariables.Builder buildVariables =
         CcToolchainVariables.builder(cppCompileActionBuilder.getVariables());
-    buildVariables.overrideStringVariable(
-        CompileBuildVariables.SOURCE_FILE.getVariableName(),
-        sourceTreeFileArtifact.getExecPathString());
-    buildVariables.overrideStringVariable(
-        CompileBuildVariables.OUTPUT_FILE.getVariableName(),
-        outputTreeFileArtifact.getExecPathString());
+    buildVariables.overrideArtifactVariable(
+        CompileBuildVariables.SOURCE_FILE.getVariableName(), sourceTreeFileArtifact);
+    buildVariables.overrideArtifactVariable(
+        CompileBuildVariables.OUTPUT_FILE.getVariableName(), outputTreeFileArtifact);
     if (dotdFileArtifact != null) {
-      buildVariables.overrideStringVariable(
-          CompileBuildVariables.DEPENDENCY_FILE.getVariableName(),
-          dotdFileArtifact.getExecPathString());
+      buildVariables.overrideArtifactVariable(
+          CompileBuildVariables.DEPENDENCY_FILE.getVariableName(), dotdFileArtifact);
     }
     if (diagnosticsFileArtifact != null) {
-      buildVariables.overrideStringVariable(
+      buildVariables.overrideArtifactVariable(
           CompileBuildVariables.SERIALIZED_DIAGNOSTICS_FILE.getVariableName(),
-          diagnosticsFileArtifact.getExecPathString());
+          diagnosticsFileArtifact);
     }
 
     if (ltoIndexFileArtifact != null) {
-      buildVariables.overrideStringVariable(
-          CompileBuildVariables.LTO_INDEXING_BITCODE_FILE.getVariableName(),
-          ltoIndexFileArtifact.getExecPathString());
+      buildVariables.overrideArtifactVariable(
+          CompileBuildVariables.LTO_INDEXING_BITCODE_FILE.getVariableName(), ltoIndexFileArtifact);
     }
 
     builder.setVariables(buildVariables.build());

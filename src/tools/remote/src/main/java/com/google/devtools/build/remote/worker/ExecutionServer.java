@@ -29,6 +29,7 @@ import build.bazel.remote.execution.v2.Platform.Property;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -36,6 +37,8 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.exec.BinTools;
+import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.remote.ExecutionStatusException;
 import com.google.devtools.build.lib.remote.UploadManifest;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
@@ -50,6 +53,7 @@ import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.shell.FutureCommandResult;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.runfiles.Runfiles;
 import com.google.longrunning.Operation;
 import com.google.protobuf.Any;
 import com.google.protobuf.ExtensionRegistry;
@@ -102,6 +106,8 @@ final class ExecutionServer extends ExecutionImplBase {
   private final ConcurrentHashMap<String, ListenableFuture<ActionResult>> operationsCache;
   private final ListeningExecutorService executorService;
   private final DigestUtil digestUtil;
+  private final LocalEnvProvider localEnvProvider;
+  private final BinTools binTools;
 
   public ExecutionServer(
       Path workPath,
@@ -135,6 +141,21 @@ final class ExecutionServer extends ExecutionImplBase {
     // Allow the core threads to die.
     realExecutor.allowCoreThreadTimeOut(true);
     this.executorService = MoreExecutors.listeningDecorator(realExecutor);
+    this.localEnvProvider = LocalEnvProvider.forCurrentOs(System.getenv());
+    String xcodeLocator;
+    try {
+      xcodeLocator =
+          Runfiles.preload()
+              .withSourceRepository("")
+              .rlocation(
+                  "io_bazel/src/tools/remote/src/main/java/com/google/devtools/build/remote/worker/xcode-locator");
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
+    this.binTools =
+        BinTools.forEmbeddedBin(
+            workPath.getFileSystem().getPath(xcodeLocator).getParentDirectory(),
+            ImmutableList.of("xcode-locator"));
   }
 
   @Override
@@ -414,12 +435,13 @@ final class ExecutionServer extends ExecutionImplBase {
     return timeoutMillis > 0 && wallTimeMillis > timeoutMillis;
   }
 
-  private static Map<String, String> getEnvironmentVariables(Command command) {
+  private Map<String, String> getEnvironmentVariables(Command command)
+      throws IOException, InterruptedException {
     HashMap<String, String> result = new HashMap<>();
     for (EnvironmentVariable v : command.getEnvironmentVariablesList()) {
       result.put(v.getName(), v.getValue());
     }
-    return result;
+    return new HashMap<>(localEnvProvider.rewriteLocalEnv(result, binTools, "/tmp"));
   }
 
   // Gets the uid of the current user. If uid could not be successfully fetched (e.g., on other
@@ -494,7 +516,7 @@ final class ExecutionServer extends ExecutionImplBase {
   // arguments. Otherwise, returns a Command that would run the specified command inside the
   // specified docker container.
   private com.google.devtools.build.lib.shell.Command getCommand(Command cmd, String pathString)
-      throws StatusException, InterruptedException {
+      throws StatusException, InterruptedException, IOException {
     Map<String, String> environmentVariables = getEnvironmentVariables(cmd);
     // This allows Bazel's integration tests to test for the remote platform.
     environmentVariables.put("BAZEL_REMOTE_PLATFORM", platformAsString(cmd.getPlatform()));

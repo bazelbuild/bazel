@@ -42,6 +42,7 @@ java_library(
     visibility = [
         "//src/main/java/com/google/devtools/build/skydoc:__pkg__",
         "//src/test/java/com/google/devtools/build/skydoc:__pkg__",
+        "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker:__pkg__",
         "//tools/java/runfiles/testing:__pkg__",
     ],
 )
