@@ -275,7 +275,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                             labelCache.get(
                                 toolsRepository
                                     + BaseRuleClasses.DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
-            .add(attr(":run_under", LABEL).value(RUN_UNDER))
+            .add(
+                attr(":run_under", LABEL)
+                    .cfg(ExecutionTransitionFactory.createFactory())
+                    .value(RUN_UNDER))
             .addAttribute(
                 attr(Rule.IS_EXECUTABLE_ATTRIBUTE_NAME, BOOLEAN)
                     .value(true)
