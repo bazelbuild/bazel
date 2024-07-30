@@ -4,10 +4,16 @@ cc_library(
     hdrs = ["hello-lib.h"],
 )
 
+cc_shared_library(
+    name = "hello-shared-lib",
+    deps = [":hello-lib"],
+)
+
 cc_binary(
     name = "hello-world",
     srcs = ["hello-world.cc"],
     deps = [":hello-lib"],
+    linkstatic = False,
 )
 
 cc_test(
