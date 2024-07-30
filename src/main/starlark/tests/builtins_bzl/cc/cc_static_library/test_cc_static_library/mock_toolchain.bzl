@@ -95,6 +95,7 @@ _mock_cc_toolchain_config = rule(
         "provide_validate_static_library": attr.bool(mandatory = True),
     },
     provides = [CcToolchainConfigInfo],
+    doc = "Mock toolchain for cc_static_library tests",
 )
 
 def mock_cc_toolchain(name, provide_validate_static_library = True):
