@@ -134,7 +134,7 @@ def _get_experimental_link_static_libraries_once(ctx):
 def _check_cc_shared_library_tags(ctx):
     pass
 
-def _get_cpp_modules_tools():
+def _cpp_modules_tools():
     return {
         "_aggregate_ddi": attr.label(
             executable = True,
@@ -186,7 +186,7 @@ semantics = struct(
     get_proto_aspects = _get_proto_aspects,
     get_nocopts_attr = _get_nocopts_attr,
     get_experimental_link_static_libraries_once = _get_experimental_link_static_libraries_once,
-    get_cpp_modules_tools = _get_cpp_modules_tools,
+    cpp_modules_tools = _cpp_modules_tools,
     check_cc_shared_library_tags = _check_cc_shared_library_tags,
     BUILD_INFO_TRANLATOR_LABEL = "@bazel_tools//tools/build_defs/build_info:cc_build_info",
     CC_PROTO_TOOLCHAIN = "@rules_cc//cc/proto:toolchain_type",

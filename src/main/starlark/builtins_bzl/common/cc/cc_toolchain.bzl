@@ -344,5 +344,5 @@ The label of the rule providing <code>cc_toolchain_config_info</code>.""",
             default = semantics.BUILD_INFO_TRANLATOR_LABEL,
             providers = [OutputGroupInfo],
         ),
-    } | semantics.get_cpp_modules_tools(),
+    } | semantics.cpp_modules_tools(),
 )
