@@ -69,13 +69,14 @@ function test_input_directories_in_external_repo_with_sibling_repository_layout(
   create_new_workspace
   l=$TEST_TMPDIR/l
   mkdir -p "$l/dir"
-  touch "$l/WORKSPACE"
+  touch "$l/REPO.bazel"
   touch "$l/dir/f"
   cat > "$l/BUILD" <<'EOF'
 exports_files(["dir"])
 EOF
 
-  cat >> WORKSPACE <<EOF
+  cat > MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name="l", path="$l")
 EOF
 
