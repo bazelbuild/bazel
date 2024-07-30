@@ -387,17 +387,29 @@ EOF
 function test_path_stripping_cc_remote() {
   local -r pkg="${FUNCNAME[0]}"
 
+  cat > MODULE.bazel <<EOF
+bazel_dep(name = "apple_support", version = "1.15.1")
+EOF
+
   mkdir -p "$pkg"
   cat > "$pkg/BUILD" <<EOF
-load("//$pkg/common/utils:defs.bzl", "transition_wrapper")
+load("//$pkg/common/utils:defs.bzl", "gen_cc", "transition_wrapper")
 
 cc_binary(
     name = "main",
-    srcs = ["main.cc"],
+    srcs = [
+        "main.cc",
+        ":gen",
+    ],
     deps = [
         "//$pkg/lib1",
         "//$pkg/lib2",
     ],
+)
+
+gen_cc(
+    name = "gen",
+    subject = "TreeArtifact",
 )
 
 transition_wrapper(
@@ -408,12 +420,16 @@ transition_wrapper(
 EOF
   cat > "$pkg/main.cc" <<EOF
 #include <iostream>
+#include <string>
 #include "$pkg/lib1/lib1.h"
 #include "lib2.h"
+
+std::string TreeArtifactGreeting();
 
 int main() {
   std::cout << GetLib1Greeting() << std::endl;
   std::cout << GetLib2Greeting() << std::endl;
+  std::cout << TreeArtifactGreeting() << std::endl;
   return 0;
 }
 EOF
@@ -567,6 +583,34 @@ transition_wrapper = rule(
     },
     executable = True,
 )
+
+def _gen_cc_impl(ctx):
+    out = ctx.actions.declare_directory(ctx.label.name)
+    ctx.actions.run_shell(
+        outputs = [out],
+        command = """\
+cat >{out_path}/gen.cc <<EOF2
+#include <string>
+
+std::string TreeArtifactGreeting() {{
+  return "Hello, {subject}!";
+}}
+EOF2
+        """.format(
+            out_path = out.path,
+            subject = ctx.attr.subject,
+        ),
+    )
+    return [
+        DefaultInfo(files = depset([out])),
+    ]
+
+gen_cc = rule(
+    implementation = _gen_cc_impl,
+    attrs = {
+        "subject": attr.string(),
+    },
+)
 EOF
   cat > "$pkg/common/utils/utils.cc.tpl" <<'EOF'
 #include "utils.h"
@@ -586,6 +630,7 @@ EOF
 
   expect_log 'Hello, lib1!'
   expect_log 'Hello, lib2!'
+  expect_log 'Hello, TreeArtifact!'
   expect_not_log 'remote cache hit'
 
   bazel run \
@@ -598,9 +643,10 @@ EOF
 
   expect_log 'Hi there, lib1!'
   expect_log 'Hi there, lib2!'
+  expect_log 'Hello, TreeArtifact!'
   # Compilation actions for lib1, lib2 and main should result in cache hits due
   # to path stripping, utils is legitimately different and should not.
-  expect_log ' 3 remote cache hit'
+  expect_log ' 4 remote cache hit'
 }
 
 function test_path_stripping_action_key_not_stale_for_path_collision() {
