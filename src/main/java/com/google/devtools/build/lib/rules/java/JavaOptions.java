@@ -288,12 +288,13 @@ public class JavaOptions extends FragmentOptions {
    * optimizers must understand the same flags as Proguard.
    */
   @Option(
-      name = "experimental_bytecode_optimizers",
+      name = "bytecode_optimizers",
       defaultValue = "Proguard",
       converter = LabelMapConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Do not use.")
+      help = "Do not use.",
+      oldName = "experimental_bytecode_optimizers")
   public Map<String, Label> bytecodeOptimizers;
 
   /**

@@ -360,7 +360,7 @@ bazel_fragments["JavaOptions"] = fragment(
         "//command_line_option:incompatible_disallow_resource_jars",
         "//command_line_option:java_runtime_version",
         "//command_line_option:java_language_version",
-        "//command_line_option:experimental_bytecode_optimizers",
+        "//command_line_option:bytecode_optimizers",
         "//command_line_option:split_bytecode_optimization_pass",
         "//command_line_option:bytecode_optimization_pass_actions",
         "//command_line_option:enforce_proguard_file_extension",
