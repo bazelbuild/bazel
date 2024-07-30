@@ -80,6 +80,7 @@ setup_remote() {
 
   mkdir main
   cd main
+  cat >> "WORKSPACE" <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="remote",
@@ -96,11 +97,13 @@ setup_local() {
   mkdir local_rep
   (
     cd local_rep
+    touch WORKSPACE
     echo 'genrule(name="g", outs=["go"], cmd="echo GO > $@")' > BUILD
   )
 
   mkdir main
   cd main
+  cat >> "WORKSPACE" <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name="local_rep",
@@ -171,6 +174,7 @@ run_override_repository_isnt_affected() {
   shift
 
   setup_local
+  touch WORKSPACE
   bazel build @local_rep//:g >& "$TEST_log" && fail "Expected build to fail" || true
   expect_log "no such package '@@local_rep//'"
 
@@ -231,6 +235,7 @@ test_no_build_doesnt_break_the_cache() {
 test_symlink_outside_still_checked() {
   mkdir main
   cd main
+  touch WORKSPACE
   echo 'sh_test(name = "symlink", srcs = ["symlink.sh"])' > BUILD
 
   mkdir ../foo
