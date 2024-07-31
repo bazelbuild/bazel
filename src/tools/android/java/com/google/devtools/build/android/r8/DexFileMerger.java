@@ -39,6 +39,7 @@ import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Iterator;
 import java.util.List;
@@ -176,6 +177,14 @@ public class DexFileMerger {
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "minSdkVersion to use when merging")
     public String minSdkVersion;
+
+    @Option(
+        name = "global_synthetics_path",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path to global desugaring synthetics file.")
+    public String desugarGlobals;
   }
 
   private static Options parseArguments(String[] args) throws IOException {
@@ -396,6 +405,10 @@ public class DexFileMerger {
 
     if (builder.getMinApiLevel() < NATIVE_MULTIDEX_API_LEVEL && options.mainDexListFile != null) {
       builder = builder.addMainDexListFiles(options.mainDexListFile);
+    }
+
+    if (!options.desugarGlobals.isEmpty()) {
+      builder = builder.addGlobalSyntheticsFiles(Paths.get(options.desugarGlobals));
     }
 
     ArchiveConsumer consumer =
