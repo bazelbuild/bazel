@@ -254,6 +254,7 @@ EOF
 function test_show_transitive_config_fragments() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
+  add_rules_python "MODULE.bazel"
   cat > $pkg/BUILD <<'EOF'
 load("@rules_python//python:py_library.bzl", "py_library")
 
@@ -327,6 +328,7 @@ EOF
 function test_show_transitive_config_fragments_alias() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
+  add_rules_python "MODULE.bazel"
   cat > $pkg/BUILD <<'EOF'
 load("@rules_python//python:py_library.bzl", "py_library")
 
@@ -388,6 +390,7 @@ EOF
 function test_show_transitive_config_fragments_host_deps() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
+  add_rules_python "MODULE.bazel"
   cat > $pkg/BUILD <<'EOF'
 load("@rules_python//python:py_library.bzl", "py_library")
 
@@ -419,6 +422,7 @@ EOF
 function test_show_transitive_config_fragments_through_output_file() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
+  add_rules_python "MODULE.bazel"
   cat > $pkg/BUILD <<'EOF'
 load("@rules_python//python:py_library.bzl", "py_library")
 
@@ -450,6 +454,7 @@ EOF
 function test_show_direct_config_fragments() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
+  add_rules_python "MODULE.bazel"
   cat > $pkg/BUILD <<'EOF'
 load("@rules_python//python:py_library.bzl", "py_library")
 
@@ -875,6 +880,7 @@ EOF
 function test_starlark_output_mode() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
+  add_rules_python "MODULE.bazel"
   cat > $pkg/BUILD <<'EOF'
 load("@rules_python//python:py_library.bzl", "py_library")
 
@@ -1009,6 +1015,7 @@ root_rule = rule(
 )
 EOF
 
+  add_rules_python "MODULE.bazel"
   cat > $pkg/BUILD <<'EOF'
 load(":rules.bzl", "bool_flag", "list_flag", "root_rule")
 load("@rules_python//python:py_library.bzl", "py_library")
@@ -1079,7 +1086,7 @@ EOF
 function test_starlark_build_options_invalid_arg() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
-
+  add_rules_python "MODULE.bazel"
   cat > $pkg/BUILD <<'EOF'
 load("@rules_python//python:py_library.bzl", "py_library")
 
@@ -1357,13 +1364,14 @@ function test_bazelignore_error_cquery_nocrash() {
   local -r pkg=$FUNCNAME
 
   mkdir -p $pkg/repo
-  touch $pkg/repo/WORKSPACE
+  touch $pkg/repo/REPO.bazel
   cat > $pkg/repo/BUILD <<EOF
   toolchain_type(name = "toolchain_type")
 EOF
 
-  cat > $pkg/WORKSPACE <<EOF
-  local_repository(name = "repo", path = "./repo")
+  cat > $pkg/MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(name = "repo", path = "./repo")
 EOF
   bazel cquery --output=starlark --starlark:expr 'target' @repo//:toolchain_type >output \
     2>"$TEST_log" && fail "Expected failure"
@@ -1390,7 +1398,8 @@ EOF
 
   mkdir -p $dir/main
   write_default_lockfile $dir/main/MODULE.bazel.lock
-  cat > $dir/main/WORKSPACE <<EOF
+  cat > $dir/main/MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = "repo", path = "../repo")
 EOF
   touch $dir/main/BUILD
@@ -1419,7 +1428,8 @@ EOF
 
   mkdir -p $dir/main
   write_default_lockfile $dir/main/MODULE.bazel.lock
-  cat > $dir/main/WORKSPACE <<EOF
+  cat > $dir/main/MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = "repo", path = "../repo")
 EOF
   touch $dir/main/BUILD
