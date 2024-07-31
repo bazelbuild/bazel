@@ -66,7 +66,7 @@ fi
 
 function set_up() {
   add_to_bazelrc "build --package_path=%workspace%"
-  setup_skylib_support
+  add_bazel_skylib "MODULE.bazel"
 }
 
 function tear_down() {
@@ -373,7 +373,7 @@ function test_starlark_recursive_glob_regular_file_not_included_in_rbuildfiles()
   mkdir -p foo/bar || fail "Couldn't make directories"
   echo "baz" > "foo/bar/baz.bzl" || fail "Couldn't create baz.bzl"
   echo 'sh_library(name = "foo", srcs = glob(["**/*.bzl"]))' > foo/BUILD
-  bazel query --universe_scope=//foo/...:* --order_output=no \
+  bazel query --announce_rc --universe_scope=//foo/...:* --order_output=no \
     'rbuildfiles(foo/bar/baz.bzl)' >& $TEST_log || fail "Expected success"
   expect_not_log "//foo:BUILD"
   # TODO(bazel-team): Remove this once test clean-up is automated.
@@ -498,6 +498,7 @@ EOF
 }
 
 function test_location_output_source_files() {
+  add_rules_python "MODULE.bazel"
   rm -rf foo
   mkdir -p foo
   cat > foo/BUILD <<EOF
@@ -530,6 +531,7 @@ EOF
 }
 
 function test_proto_output_source_files() {
+  add_rules_python "MODULE.bazel"
   rm -rf foo
   mkdir -p foo
   cat > foo/BUILD <<EOF
@@ -550,6 +552,7 @@ EOF
 }
 
 function test_xml_output_source_files() {
+  add_rules_python "MODULE.bazel"
   rm -rf foo
   mkdir -p foo
   cat > foo/BUILD <<EOF
@@ -978,7 +981,8 @@ EOF
 }
 
 function test_unnecessary_external_workspaces_not_loaded() {
-  cat > WORKSPACE <<'EOF'
+  cat > MODULE.bazel <<'EOF'
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "notthere",
     path = "/nope",
