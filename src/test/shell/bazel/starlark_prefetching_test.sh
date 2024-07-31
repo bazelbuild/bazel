@@ -35,7 +35,7 @@ test_label_arg() {
 def _impl(ctx):
   # Access the build file late
   ctx.execute(["/bin/sh", "-c", "date +%s >> ${WRKDIR}/log"])
-  ctx.file("WORKSPACE", "workspace(name = \"%s\")\n" % ctx.name)
+  ctx.file("REPO.bazel")
   ctx.symlink(ctx.attr.build_file, "BUILD")
 
 myrule=repository_rule(implementation=_impl,
@@ -50,8 +50,8 @@ genrule(
   cmd = "echo foo > $@",
 )
 EOF
-  cat > WORKSPACE <<'EOF'
-load("//:rule.bzl", "myrule")
+  cat > MODULE.bazel <<'EOF'
+myrule = use_repo_rule("//:rule.bzl", "myrule")
 myrule(name="ext", build_file="//:ext.BUILD")
 EOF
   write_default_lockfile "MODULE.bazel.lock"
@@ -70,7 +70,7 @@ test_unused_invalid_label_arg() {
   touch BUILD
   cat > rule.bzl <<'EOF'
 def _impl(ctx):
-  ctx.file("WORKSPACE", "workspace(name = \"%s\")\n" % ctx.name)
+  ctx.file("REPO.bazel")
   ctx.file("BUILD",
            "genrule(name=\"foo\", outs=[\"foo.txt\"], cmd = \"echo foo > $@\")")
 
@@ -79,8 +79,8 @@ myrule=repository_rule(implementation=_impl,
    "unused" : attr.label(),
  })
 EOF
-  cat > WORKSPACE <<'EOF'
-load("//:rule.bzl", "myrule")
+  cat > MODULE.bazel <<'EOF'
+myrule = use_repo_rule("//:rule.bzl", "myrule")
 myrule(name="ext", unused="//does/not/exist:file")
 EOF
   write_default_lockfile "MODULE.bazel.lock"
@@ -100,7 +100,7 @@ test_label_list_arg() {
   cat > rule.bzl <<EOF
 def _impl(ctx):
   ctx.execute(["/bin/sh", "-c", "date +%s >> ${WRKDIR}/log"])
-  ctx.file("WORKSPACE", "workspace(name = \"%s\")\n" % ctx.name)
+  ctx.file("REPO.bazel")
   ctx.file("BUILD",  """
 genrule(
   name="foo",
@@ -117,8 +117,8 @@ myrule=repository_rule(implementation=_impl,
    "data" : attr.label_list(),
  })
 EOF
-  cat > WORKSPACE <<'EOF'
-load("//:rule.bzl", "myrule")
+  cat > MODULE.bazel <<'EOF'
+myrule = use_repo_rule("//:rule.bzl", "myrule")
 myrule(name="ext", data = ["//:a.txt", "//:b.txt"])
 EOF
   write_default_lockfile "MODULE.bazel.lock"
@@ -140,7 +140,7 @@ test_unused_invalid_label_list_arg() {
   touch BUILD
   cat > rule.bzl <<'EOF'
 def _impl(ctx):
-  ctx.file("WORKSPACE", "workspace(name = \"%s\")\n" % ctx.name)
+  ctx.file("REPO.bazel")
   ctx.file("BUILD",
            "genrule(name=\"foo\", outs=[\"foo.txt\"], cmd = \"echo foo > $@\")")
 
@@ -149,8 +149,8 @@ myrule=repository_rule(implementation=_impl,
    "unused_list" : attr.label_list(),
  })
 EOF
-  cat > WORKSPACE <<'EOF'
-load("//:rule.bzl", "myrule")
+  cat > MODULE.bazel <<'EOF'
+myrule = use_repo_rule("//:rule.bzl", "myrule")
 myrule(name="ext", unused_list=["//does/not/exist:file1",
                                 "//does/not/exists:file2"])
 EOF
@@ -172,7 +172,7 @@ test_label_keyed_string_dict_arg() {
   cat > rule.bzl <<EOF
 def _impl(ctx):
     ctx.execute(["/bin/sh", "-c", "date +%s >> ${WRKDIR}/log"])
-    ctx.file("WORKSPACE", "workspace(name = \"%s\")\n" % ctx.name)
+    ctx.file("REPO.bazel")
     ctx.file("BUILD", """
 genrule(
     name = "foo",
@@ -192,8 +192,8 @@ myrule = repository_rule(
     },
 )
 EOF
-  cat > WORKSPACE <<'EOF'
-load("//:rule.bzl", "myrule")
+  cat > MODULE.bazel <<'EOF'
+myrule = use_repo_rule("//:rule.bzl", "myrule")
 myrule(name="ext", data = {"//:a.txt": "a", "//:b.txt": "b"})
 EOF
   write_default_lockfile "MODULE.bazel.lock"
@@ -215,7 +215,7 @@ test_unused_invalid_label_keyed_string_dict_arg() {
   touch BUILD
   cat > rule.bzl <<'EOF'
 def _impl(ctx):
-  ctx.file("WORKSPACE", "workspace(name = \"%s\")\n" % ctx.name)
+  ctx.file("REPO.bazel")
   ctx.file("BUILD",
            "genrule(name=\"foo\", outs=[\"foo.txt\"], cmd = \"echo foo > $@\")")
 
@@ -224,8 +224,8 @@ myrule=repository_rule(implementation=_impl,
    "unused_dict" : attr.label_keyed_string_dict(),
  })
 EOF
-  cat > WORKSPACE <<'EOF'
-load("//:rule.bzl", "myrule")
+  cat > MODULE.bazel <<'EOF'
+myrule = use_repo_rule("//:rule.bzl", "myrule")
 myrule(name="ext", unused_dict={"//does/not/exist:file1": "file1",
                                 "//does/not/exists:file2": "file2"})
 EOF
@@ -237,12 +237,12 @@ EOF
 function test_files_tracked_with_non_existing_files() {
   cat > rules.bzl <<'EOF'
 def _repo_impl(ctx):
-    ctx.symlink(ctx.path(Label("@//:WORKSPACE")).dirname, "link")
+    ctx.symlink(ctx.path(Label("@//:MODULE.bazel")).dirname, "link")
     print("b.txt: " + ctx.read("link/b.txt"))
     print("c.txt: " + ctx.read("link/c.txt"))
 
     ctx.file("BUILD")
-    ctx.file("WORKSPACE")
+    ctx.file("REPO.bazel")
 
 repo = repository_rule(
     _repo_impl,
@@ -256,8 +256,8 @@ repo = repository_rule(
 )
 EOF
 
-  cat > WORKSPACE <<'EOF'
-load(":rules.bzl", "repo")
+  cat > MODULE.bazel <<'EOF'
+repo = use_repo_rule("//:rules.bzl", "repo")
 repo(name = "ext")
 EOF
   write_default_lockfile "MODULE.bazel.lock"
