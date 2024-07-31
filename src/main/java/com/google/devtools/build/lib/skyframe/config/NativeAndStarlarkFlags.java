@@ -64,6 +64,10 @@ public abstract class NativeAndStarlarkFlags {
   @Nullable
   abstract RepositoryMapping repoMapping();
 
+  public boolean isEmpty() {
+    return nativeFlags().isEmpty() && starlarkFlags().isEmpty();
+  }
+
   public OptionsParsingResult parse() throws OptionsParsingException {
     OptionsParser parser =
         OptionsParser.builder()
