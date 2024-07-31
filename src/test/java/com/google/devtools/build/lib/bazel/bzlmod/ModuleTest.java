@@ -46,17 +46,16 @@ public class ModuleTest {
             module.getRepoMappingWithBazelDepsOnly(
                 Stream.of(key, fooKey, barKey, ModuleKey.ROOT)
                     .collect(
-                        toImmutableMap(
-                            k -> k, ModuleKey::getCanonicalRepoNameWithoutVersionForTesting))))
+                        toImmutableMap(k -> k, ModuleKey::getCanonicalRepoNameWithoutVersion))))
         .isEqualTo(
             createRepositoryMapping(
                 key,
                 "test_module",
-                "test_module~",
+                "test_module+",
                 "my_foo",
-                "foo~",
+                "foo+",
                 "my_bar",
-                "bar~",
+                "bar+",
                 "my_root",
                 ""));
   }
@@ -74,9 +73,7 @@ public class ModuleTest {
     assertThat(
             module.getRepoMappingWithBazelDepsOnly(
                 Stream.of(ModuleKey.ROOT, fooKey, barKey)
-                    .collect(
-                        toImmutableMap(
-                            k -> k, ModuleKey::getCanonicalRepoNameWithVersionForTesting))))
+                    .collect(toImmutableMap(k -> k, ModuleKey::getCanonicalRepoNameWithVersion))))
         .isEqualTo(
             createRepositoryMapping(
                 ModuleKey.ROOT,
@@ -85,21 +82,18 @@ public class ModuleTest {
                 "test_module",
                 "",
                 "my_foo",
-                "foo~v1.0",
+                "foo+1.0",
                 "my_bar",
-                "bar~v2.0"));
+                "bar+2.0"));
   }
 
   @Test
   public void getCanonicalRepoName_isNotAWindowsShortPath() {
+    assertNotAShortPath(createModuleKey("foo", "").getCanonicalRepoNameWithoutVersion().getName());
+    assertNotAShortPath(createModuleKey("foo", "1").getCanonicalRepoNameWithVersion().getName());
+    assertNotAShortPath(createModuleKey("foo", "1.2").getCanonicalRepoNameWithVersion().getName());
     assertNotAShortPath(
-        createModuleKey("foo", "").getCanonicalRepoNameWithoutVersionForTesting().getName());
-    assertNotAShortPath(
-        createModuleKey("foo", "1").getCanonicalRepoNameWithVersionForTesting().getName());
-    assertNotAShortPath(
-        createModuleKey("foo", "1.2").getCanonicalRepoNameWithVersionForTesting().getName());
-    assertNotAShortPath(
-        createModuleKey("foo", "1.2.3").getCanonicalRepoNameWithVersionForTesting().getName());
+        createModuleKey("foo", "1.2.3").getCanonicalRepoNameWithVersion().getName());
   }
 
   private static void assertNotAShortPath(String name) {

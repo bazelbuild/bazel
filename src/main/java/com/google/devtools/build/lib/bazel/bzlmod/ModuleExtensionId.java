@@ -60,13 +60,11 @@ public abstract class ModuleExtensionId {
 
     @Override
     public final String toString() {
-      // NOTE: Can't be bothered to switch this based on the flag. But DO change this to "+" by
-      // Bazel 8!
-      return getModule() + "~" + getUsageExportedName();
+      return getModule() + "+" + getUsageExportedName();
     }
 
     public static IsolationKey fromString(String s) throws Version.ParseException {
-      List<String> isolationKeyParts = Splitter.on("~").splitToList(s);
+      List<String> isolationKeyParts = Splitter.on("+").splitToList(s);
       return ModuleExtensionId.IsolationKey.create(
           ModuleKey.fromString(isolationKeyParts.get(0)), isolationKeyParts.get(1));
     }

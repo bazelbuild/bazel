@@ -50,10 +50,6 @@ _BAZEL_ARGS="--spawn_strategy=standalone \
 
 cp scripts/bootstrap/BUILD.bootstrap scripts/bootstrap/BUILD
 
-# Remove lines containing 'install_deps' to avoid loading @bazel_pip_dev_deps,
-# which requires fetching the python toolchain.
-sed -i.bak '/install_deps/d' WORKSPACE && rm WORKSPACE.bak
-
 if [ -z "${BAZEL-}" ]; then
   function _run_bootstrapping_bazel() {
     local command=$1

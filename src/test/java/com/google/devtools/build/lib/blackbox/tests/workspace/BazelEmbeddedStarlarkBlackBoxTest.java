@@ -112,13 +112,13 @@ public class BazelEmbeddedStarlarkBlackBoxTest extends AbstractBlackBoxTest {
     Path packedFile =
         context()
             .resolveBinPath(
-                bazel, String.format("external/_main~_repo_rules~ext_local/%s.tar", tarTarget));
+                bazel, String.format("external/+_repo_rules+ext_local/%s.tar", tarTarget));
     Files.copy(packedFile, zipFile);
 
     // now build the target from http_archive
     bazel.build("@ext//:" + RepoWithRuleWritingTextGenerator.TARGET);
 
-    Path xPath = context().resolveBinPath(bazel, "external/_main~_repo_rules~ext/out");
+    Path xPath = context().resolveBinPath(bazel, "external/+_repo_rules+ext/out");
     WorkspaceTestUtils.assertLinesExactly(xPath, HELLO_FROM_EXTERNAL_REPOSITORY);
 
     // and use the rule from http_archive in the main repository

@@ -73,7 +73,7 @@ import net.starlark.java.eval.StarlarkValue;
             + " makes this representation suited for use in BUILD files. While the exact form of"
             + " the representation is not guaranteed, typical examples are"
             + " <code>//foo:bar</code>, <code>@repo//foo:bar</code> and"
-            + " <code>@@canonical_name~//foo:bar.bzl</code>."
+            + " <code>@@canonical_name+//foo:bar.bzl</code>."
             + "<li>All other types are turned into strings in an <i>unspecified</i> manner. For "
             + "    this reason, you should avoid passing values that are not of string or "
             + "    <code>File</code> type to <code>add()</code>, and if you pass them to "

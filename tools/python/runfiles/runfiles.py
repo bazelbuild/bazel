@@ -172,7 +172,7 @@ class _Runfiles(object):
     """Returns the canonical name of the caller's Bazel repository.
 
     For example, this function returns '' (the empty string) when called from
-    the main repository and a string of the form 'rules_python~0.13.0` when
+    the main repository and a string of the form 'rules_python+0.13.0` when
     called from code in the repository corresponding to the rules_python Bazel
     module.
 

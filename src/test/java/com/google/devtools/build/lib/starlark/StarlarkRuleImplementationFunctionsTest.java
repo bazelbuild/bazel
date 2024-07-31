@@ -2760,12 +2760,12 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     ev.exec(
         "actions = ruleContext.actions",
         "a = []",
-        "a.append(actions.args().add(Label('@@repo~//:foo')))",
-        "a.append(actions.args().add('-flag', Label('@@repo~//:foo')))",
-        "a.append(actions.args().add('-flag', Label('@@repo~//:foo'), format = '_%s_'))",
-        "a.append(actions.args().add_all(['foo', Label('@@repo~//:foo')]))",
-        "a.append(actions.args().add_all(depset([Label('@@other_repo~//:foo'),"
-            + " Label('@@repo~//:foo')])))",
+        "a.append(actions.args().add(Label('@@repo+//:foo')))",
+        "a.append(actions.args().add('-flag', Label('@@repo+//:foo')))",
+        "a.append(actions.args().add('-flag', Label('@@repo+//:foo'), format = '_%s_'))",
+        "a.append(actions.args().add_all(['foo', Label('@@repo+//:foo')]))",
+        "a.append(actions.args().add_all(depset([Label('@@other_repo+//:foo'),"
+            + " Label('@@repo+//:foo')])))",
         "ruleContext.actions.run(",
         "  inputs = depset(ruleContext.files.srcs),",
         "  outputs = ruleContext.files.srcs,",
@@ -2780,15 +2780,15 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     assertThat(action.getArguments())
         .containsExactly(
             "foo/t.exe",
-            "@@repo~//:foo",
+            "@@repo+//:foo",
             "-flag",
-            "@@repo~//:foo",
+            "@@repo+//:foo",
             "-flag",
-            "_@@repo~//:foo_",
+            "_@@repo+//:foo_",
             "foo",
-            "@@repo~//:foo",
-            "@@other_repo~//:foo",
-            "@@repo~//:foo")
+            "@@repo+//:foo",
+            "@@other_repo+//:foo",
+            "@@repo+//:foo")
         .inOrder();
   }
 
@@ -2803,11 +2803,11 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     ev.exec(
         "actions = ruleContext.actions",
         "a = []",
-        "a.append(actions.args().add(Label('@@foo~//:foo')))",
-        "a.append(actions.args().add('-flag', Label('@@foo~//:foo')))",
-        "a.append(actions.args().add('-flag', Label('@@foo~//:foo'), format = '_%s_'))",
-        "a.append(actions.args().add_all(['foo', Label('@@foo~//:foo')]))",
-        "a.append(actions.args().add_all(depset([Label('@@repo~//:foo'), Label('@@foo~//:foo')])))",
+        "a.append(actions.args().add(Label('@@foo+//:foo')))",
+        "a.append(actions.args().add('-flag', Label('@@foo+//:foo')))",
+        "a.append(actions.args().add('-flag', Label('@@foo+//:foo'), format = '_%s_'))",
+        "a.append(actions.args().add_all(['foo', Label('@@foo+//:foo')]))",
+        "a.append(actions.args().add_all(depset([Label('@@repo+//:foo'), Label('@@foo+//:foo')])))",
         "ruleContext.actions.run(",
         "  inputs = depset(ruleContext.files.srcs),",
         "  outputs = ruleContext.files.srcs,",
@@ -2829,7 +2829,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
             "_@foo//:foo_",
             "foo",
             "@foo//:foo",
-            "@@repo~//:foo",
+            "@@repo+//:foo",
             "@foo//:foo")
         .inOrder();
   }
@@ -3516,23 +3516,23 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
     RepositoryMapping mainRepoMapping =
         RepositoryMapping.create(
-            ImmutableMap.of("apparent", RepositoryName.createUnvalidated("canonical~")),
+            ImmutableMap.of("apparent", RepositoryName.createUnvalidated("canonical+")),
             RepositoryName.MAIN);
     CommandLine commandLine1 =
         getCommandLine(
             mainRepoMapping,
             """
             args = ruleContext.actions.args()
-            args.add(Label("@@canonical~//foo:bar"))
-            args.add(str(Label("@@canonical~//foo:bar")))
+            args.add(Label("@@canonical+//foo:bar"))
+            args.add(str(Label("@@canonical+//foo:bar")))
             """);
     CommandLine commandLine2 =
         getCommandLine(
             mainRepoMapping,
             """
             args = ruleContext.actions.args()
-            args.add(Label("@@canonical~//foo:bar"))
-            args.add(Label("@@canonical~//foo:bar"))
+            args.add(Label("@@canonical+//foo:bar"))
+            args.add(Label("@@canonical+//foo:bar"))
             """);
 
     assertThat(getArguments(commandLine1, PathMapper.NOOP))
@@ -3550,23 +3550,23 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         RepositoryMapping.create(
             ImmutableMap.of(
                 "apparent1",
-                RepositoryName.createUnvalidated("canonical1~"),
+                RepositoryName.createUnvalidated("canonical1+"),
                 "apparent2",
-                RepositoryName.createUnvalidated("canonical2~")),
+                RepositoryName.createUnvalidated("canonical2+")),
             RepositoryName.MAIN);
     CommandLine commandLine1 =
         getCommandLine(
             mainRepoMapping,
             """
 args = ruleContext.actions.args()
-args.add_all(depset([Label("@@canonical1~//foo:bar"), Label("@@canonical2~//foo:bar")]))
+args.add_all(depset([Label("@@canonical1+//foo:bar"), Label("@@canonical2+//foo:bar")]))
 """);
     CommandLine commandLine2 =
         getCommandLine(
             mainRepoMapping,
             """
             args = ruleContext.actions.args()
-            args.add_all([Label("@@canonical1~//foo:bar"), str(Label("@@canonical2~//foo:bar"))])
+            args.add_all([Label("@@canonical1+//foo:bar"), str(Label("@@canonical2+//foo:bar"))])
             """);
 
     assertThat(getArguments(commandLine1, PathMapper.NOOP))

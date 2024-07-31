@@ -696,7 +696,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
 
     if (semantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
       // If Bzlmod is enabled, we use canonical label literal syntax here and prepend an extra '@'.
-      // So the result looks like "@@//foo:bar" for the main repo and "@@foo~1.0//bar:quux" for
+      // So the result looks like "@@//foo:bar" for the main repo and "@@foo+//bar:quux" for
       // other repos.
       printer.append(getUnambiguousCanonicalForm());
       return;

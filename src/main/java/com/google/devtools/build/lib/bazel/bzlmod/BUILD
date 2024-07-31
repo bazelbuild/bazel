@@ -26,7 +26,6 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:auto_value",
         "//third_party:gson",
@@ -128,7 +127,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//third_party:flogger",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -252,7 +250,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repo_recorded_input",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",

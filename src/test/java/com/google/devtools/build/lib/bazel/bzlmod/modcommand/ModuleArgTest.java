@@ -80,10 +80,10 @@ public class ModuleArgTest {
 
   ImmutableMap<ModuleKey, RepositoryName> moduleKeyToCanonicalNames =
       depGraph.keySet().stream()
-          .collect(toImmutableMap(k -> k, ModuleKey::getCanonicalRepoNameWithVersionForTesting));
+          .collect(toImmutableMap(k -> k, ModuleKey::getCanonicalRepoNameWithVersion));
   ImmutableBiMap<String, ModuleKey> baseModuleDeps = ImmutableBiMap.of("fred", foo2);
   ImmutableBiMap<String, ModuleKey> baseModuleUnusedDeps = ImmutableBiMap.of("fred", foo1);
-  RepositoryMapping rootMapping = createRepositoryMapping(ModuleKey.ROOT, "fred", "foo~v2.0");
+  RepositoryMapping rootMapping = createRepositoryMapping(ModuleKey.ROOT, "fred", "foo+2.0");
 
   public ModuleArgTest() throws Exception {}
 
@@ -103,7 +103,7 @@ public class ModuleArgTest {
 
     assertThat(
             arg.resolveToRepoNames(modulesIndex, depGraph, moduleKeyToCanonicalNames, rootMapping))
-        .containsExactly("foo@2.0", RepositoryName.create("foo~v2.0"));
+        .containsExactly("foo@2.0", RepositoryName.create("foo+2.0"));
   }
 
   @Test
@@ -192,7 +192,7 @@ public class ModuleArgTest {
     // resolving to repo names doesn't care about unused deps.
     assertThat(
             arg.resolveToRepoNames(modulesIndex, depGraph, moduleKeyToCanonicalNames, rootMapping))
-        .containsExactly("foo@2.0", RepositoryName.create("foo~v2.0"));
+        .containsExactly("foo@2.0", RepositoryName.create("foo+2.0"));
   }
 
   @Test
@@ -244,7 +244,7 @@ public class ModuleArgTest {
 
     assertThat(
             arg.resolveToRepoNames(modulesIndex, depGraph, moduleKeyToCanonicalNames, rootMapping))
-        .containsExactly("@fred", RepositoryName.create("foo~v2.0"));
+        .containsExactly("@fred", RepositoryName.create("foo+2.0"));
   }
 
   @Test
@@ -270,7 +270,7 @@ public class ModuleArgTest {
 
   @Test
   public void resolve_canonicalRepoName_good() throws Exception {
-    var arg = CanonicalRepoName.create(foo2.getCanonicalRepoNameWithVersionForTesting());
+    var arg = CanonicalRepoName.create(foo2.getCanonicalRepoNameWithVersion());
 
     assertThat(
             arg.resolveToModuleKeys(
@@ -285,12 +285,12 @@ public class ModuleArgTest {
 
     assertThat(
             arg.resolveToRepoNames(modulesIndex, depGraph, moduleKeyToCanonicalNames, rootMapping))
-        .containsExactly("@@foo~v2.0", RepositoryName.create("foo~v2.0"));
+        .containsExactly("@@foo+2.0", RepositoryName.create("foo+2.0"));
   }
 
   @Test
   public void resolve_canonicalRepoName_notFound() throws Exception {
-    var arg = CanonicalRepoName.create(RepositoryName.create("bar~v1.0"));
+    var arg = CanonicalRepoName.create(RepositoryName.create("bar+1.0"));
 
     assertThrows(
         InvalidArgumentException.class,
@@ -306,12 +306,12 @@ public class ModuleArgTest {
     // The repo need not exist in the "repo -> repo" case.
     assertThat(
             arg.resolveToRepoNames(modulesIndex, depGraph, moduleKeyToCanonicalNames, rootMapping))
-        .containsExactly("@@bar~v1.0", RepositoryName.create("bar~v1.0"));
+        .containsExactly("@@bar+1.0", RepositoryName.create("bar+1.0"));
   }
 
   @Test
   public void resolve_canonicalRepoName_unused() throws Exception {
-    var arg = CanonicalRepoName.create(foo1.getCanonicalRepoNameWithVersionForTesting());
+    var arg = CanonicalRepoName.create(foo1.getCanonicalRepoNameWithVersion());
 
     // Without --include_unused, this doesn't resolve, as foo@1.0 has been replaced by foo@2.0.
     assertThat(
@@ -343,6 +343,6 @@ public class ModuleArgTest {
     // resolving to repo names doesn't care about unused deps.
     assertThat(
             arg.resolveToRepoNames(modulesIndex, depGraph, moduleKeyToCanonicalNames, rootMapping))
-        .containsExactly("@@foo~v1.0", RepositoryName.create("foo~v1.0"));
+        .containsExactly("@@foo+1.0", RepositoryName.create("foo+1.0"));
   }
 }
