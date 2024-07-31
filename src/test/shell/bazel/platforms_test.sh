@@ -44,7 +44,7 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 
 function test_platforms_repository_builds_itself() {
   # We test that a built-in @platforms repository is buildable.
-  bazel build @platforms//:all &> $TEST_log \
+  bazel build @@platforms//:all &> $TEST_log \
       || fail "Build failed unexpectedly"
 }
 
@@ -66,7 +66,7 @@ EOF
   touch override/WORKSPACE || fail "couldn't touch override/WORKSPACE"
 
   # Copy the existing platforms repo to our test dir.
-  bazel build @platforms//...
+  bazel build --noenable_bzlmod --enable_workspace @platforms//...
   cp -r `bazel info output_base`/external/platforms/* override
 
   # Add a custom target
@@ -78,11 +78,12 @@ EOF
 
   cd platforms_can_be_overridden || fail "couldn't cd into workspace"
   # platforms is one of the WELL_KNOWN_MODULES, so it cannot be overridden by a workspace repository.
-  bazel build --noenable_bzlmod @platforms//:yolo &> $TEST_log || \
+  bazel build --noenable_bzlmod --enable_workspace @platforms//:yolo &> $TEST_log || \
     fail "Bazel failed to build @platforms"
 }
 
 function test_platform_accessor() {
+  add_platforms "MODULE.bazel"
   cat > rules.bzl <<'EOF'
 def _impl(ctx):
   platform = ctx.attr.platform[platform_common.PlatformInfo]
