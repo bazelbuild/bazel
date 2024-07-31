@@ -733,7 +733,7 @@ genrule(
     "  echo reading $$i",
     "  cat $$i >> $@",
     "done",
-    "for i in a/s a/go b/s b/go ../_main~_repo_rules~repo/c/s ../_main~_repo_rules~repo/c/go; do",
+    "for i in a/s a/go b/s b/go ../+_repo_rules+repo/c/s ../+_repo_rules+repo/c/go; do",
     "  echo reading $$RUNFILES/$$i",
     "  cat $$RUNFILES/$$i >> $@",
     "done",

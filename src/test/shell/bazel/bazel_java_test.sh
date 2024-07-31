@@ -1901,14 +1901,14 @@ EOF
   expect_log "in pkg/Library.java: ''"
 
   bazel run @other_repo//pkg:binary &>"$TEST_log" || fail "Run should succeed"
-  expect_log "in external/other_repo/pkg/Binary.java: '_main~_repo_rules~other_repo'"
-  expect_log "in external/other_repo/pkg/Library2.java: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/Binary.java: '+_repo_rules+other_repo'"
+  expect_log "in external/other_repo/pkg/Library2.java: '+_repo_rules+other_repo'"
   expect_log "in pkg/Library.java: ''"
 
   bazel test --test_output=streamed \
     @other_repo//pkg:test &>"$TEST_log" || fail "Test should succeed"
-  expect_log "in external/other_repo/pkg/Test.java: '_main~_repo_rules~other_repo'"
-  expect_log "in external/other_repo/pkg/Library2.java: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/Test.java: '+_repo_rules+other_repo'"
+  expect_log "in external/other_repo/pkg/Library2.java: '+_repo_rules+other_repo'"
   expect_log "in pkg/Library.java: ''"
 }
 

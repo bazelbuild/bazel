@@ -1329,7 +1329,7 @@ DA:6,1
 LH:1
 LF:2
 end_of_record'
-  local expected_result_collatz="SF:external/_main~_repo_rules~other_repo/src/main/com/example/Collatz.java
+  local expected_result_collatz="SF:external/+_repo_rules+other_repo/src/main/com/example/Collatz.java
 FN:3,com/example/Collatz::<init> ()V
 FN:6,com/example/Collatz::getCollatzFinal (I)I
 FNDA:0,com/example/Collatz::<init> ()V
@@ -1384,10 +1384,10 @@ LF:2
 end_of_record'
 
   assert_coverage_result "$expected_result_math" "$coverage_file_path"
-  assert_not_contains "SF:external/_main~_repo_rules~other_repo/" "$coverage_file_path"
+  assert_not_contains "SF:external/+_repo_rules+other_repo/" "$coverage_file_path"
 
   assert_coverage_result "$expected_result_math" bazel-out/_coverage/_coverage_report.dat
-  assert_not_contains "SF:external/_main~_repo_rules~other_repo/" bazel-out/_coverage/_coverage_report.dat
+  assert_not_contains "SF:external/+_repo_rules+other_repo/" bazel-out/_coverage/_coverage_report.dat
 }
 
 run_suite "test tests"

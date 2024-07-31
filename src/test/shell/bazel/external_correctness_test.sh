@@ -143,8 +143,8 @@ genrule(
 )
 EOF
   bazel build @a//b/c:echo-d &> $TEST_log || fail "Build failed"
-  assert_contains "bazel-out/.*-fastbuild/.*/external/_main~_repo_rules~a/b/c" \
-    "bazel-genfiles/external/_main~_repo_rules~a/b/c/d"
+  assert_contains "bazel-out/.*-fastbuild/.*/external/+_repo_rules+a/b/c" \
+    "bazel-genfiles/external/+_repo_rules+a/b/c/d"
 }
 
 function test_package_group_in_external_repos() {
@@ -164,11 +164,11 @@ EOF
   echo "local_repository(name='r', path='$REMOTE')" >> MODULE.bazel
   bazel build @r//v:rv >& $TEST_log || fail "Build failed"
   bazel build @r//a:ra >& $TEST_log && fail "Build succeeded"
-  expect_log "target '@@_main~_repo_rules~r//:fg' is not visible"
+  expect_log "target '@@+_repo_rules+r//:fg' is not visible"
   bazel build //a:ma >& $TEST_log && fail "Build succeeded"
-  expect_log "target '@@_main~_repo_rules~r//:fg' is not visible"
+  expect_log "target '@@+_repo_rules+r//:fg' is not visible"
   bazel build //v:mv >& $TEST_log && fail "Build succeeded"
-  expect_log "target '@@_main~_repo_rules~r//:fg' is not visible"
+  expect_log "target '@@+_repo_rules+r//:fg' is not visible"
 
 }
 
@@ -204,7 +204,7 @@ local_repository(
 EOF
 
   bazel build @remote2//:x &> $TEST_log || fail "Build failed"
-  assert_contains 1.0 bazel-genfiles/external/_main~_repo_rules~remote2/x.out
+  assert_contains 1.0 bazel-genfiles/external/+_repo_rules+remote2/x.out
 }
 
 function test_visibility_attributes_in_external_repos() {
@@ -236,7 +236,7 @@ EOF
 
   bazel build @r//:fg || fail "Build failed"
   bazel build //:fg >& $TEST_log && fail "Build succeeded"
-  expect_log "target '@@_main~_repo_rules~r//r:fg1' is not visible"
+  expect_log "target '@@+_repo_rules+r//r:fg1' is not visible"
 
 }
 
@@ -281,15 +281,15 @@ config_setting(name = "four", values = { "define": "ARG=four" })
 EOF
 
   bazel build @r//a:gr || fail "build failed"
-  assert_contains "default" bazel-genfiles/external/_main~_repo_rules~r/a/gro
+  assert_contains "default" bazel-genfiles/external/+_repo_rules+r/a/gro
   bazel build @r//a:gr --define=ARG=one|| fail "build failed"
-  assert_contains "one" bazel-genfiles/external/_main~_repo_rules~r/a/gro
+  assert_contains "one" bazel-genfiles/external/+_repo_rules+r/a/gro
   bazel build @r//a:gr --define=ARG=two || fail "build failed"
-  assert_contains "two" bazel-genfiles/external/_main~_repo_rules~r/a/gro
+  assert_contains "two" bazel-genfiles/external/+_repo_rules+r/a/gro
   bazel build @r//a:gr --define=ARG=three || fail "build failed"
-  assert_contains "three" bazel-genfiles/external/_main~_repo_rules~r/a/gro
+  assert_contains "three" bazel-genfiles/external/+_repo_rules+r/a/gro
   bazel build @r//a:gr --define=ARG=four || fail "build failed"
-  assert_contains "four" bazel-genfiles/external/_main~_repo_rules~r/a/gro
+  assert_contains "four" bazel-genfiles/external/+_repo_rules+r/a/gro
 
 }
 
@@ -319,11 +319,11 @@ EOF
   touch ../r/three
   bazel "$batch_flag" build @r//:fg &> $TEST_log || \
     fail "Expected build to succeed"
-  assert_contains "external/_main~_repo_rules~r/three" bazel-genfiles/external/_main~_repo_rules~r/fg.out
+  assert_contains "external/+_repo_rules+r/three" bazel-genfiles/external/+_repo_rules+r/fg.out
   touch ../r/subdir/four
   bazel "$batch_flag" build @r//:fg &> $TEST_log || \
     fail "Expected build to succeed"
-  assert_contains "external/_main~_repo_rules~r/subdir/four" bazel-genfiles/external/_main~_repo_rules~r/fg.out
+  assert_contains "external/+_repo_rules+r/subdir/four" bazel-genfiles/external/+_repo_rules+r/fg.out
 }
 
 function test_top_level_dir_changes_batch() {

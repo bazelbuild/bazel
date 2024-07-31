@@ -295,7 +295,7 @@ EOF
   bazel aquery '//java/main:JavaExample' --extra_toolchains=@local_jdk//:all &>"${TEST_log}" \
       || fail "Failed to use extra toolchains provided by @local_jdk repository."
 
-  expect_log "exec external/rules_java~~toolchains~local_jdk/bin/java"
+  expect_log "exec external/rules_java++toolchains+local_jdk/bin/java"
   expect_not_log "remotejdk11_linux/bin/java"
 }
 

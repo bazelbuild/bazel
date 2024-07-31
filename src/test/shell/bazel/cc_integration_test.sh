@@ -1565,12 +1565,12 @@ EOF
   expect_log "in pkg/library.cpp: ''"
 
   bazel run @other_repo//pkg:binary &>"$TEST_log" || fail "Run should succeed"
-  expect_log "in external/_main~_repo_rules~other_repo/pkg/binary.cpp: '_main~_repo_rules~other_repo'"
+  expect_log "in external/+_repo_rules+other_repo/pkg/binary.cpp: '+_repo_rules+other_repo'"
   expect_log "in pkg/library.cpp: ''"
 
   bazel test --test_output=streamed \
     @other_repo//pkg:test &>"$TEST_log" || fail "Test should succeed"
-  expect_log "in external/_main~_repo_rules~other_repo/pkg/test.cpp: '_main~_repo_rules~other_repo'"
+  expect_log "in external/+_repo_rules+other_repo/pkg/test.cpp: '+_repo_rules+other_repo'"
   expect_log "in pkg/library.cpp: ''"
 }
 

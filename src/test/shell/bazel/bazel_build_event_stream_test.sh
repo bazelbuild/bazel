@@ -184,10 +184,10 @@ EOF
   bazel build -k --build_event_text_file=$TEST_log  //pkg:main //pkg:main2 \
     && fail "expected failure" || :
 
-  # TODO(bzlmod): Figure out how "//external:_main~_repo_rules~remote" was generated.
-  expect_log 'label: "//external:_main~_repo_rules~remote"'
+  # TODO(bzlmod): Figure out how "//external:+_repo_rules+remote" was generated.
+  expect_log 'label: "//external:+_repo_rules+remote"'
   expect_log 'description:.*This is the error message'
-  expect_not_log 'label.*@_main~_repo_rules~remote//file'
+  expect_not_log 'label.*@+_repo_rules+remote//file'
 }
 
 function test_residue_in_run_bep(){

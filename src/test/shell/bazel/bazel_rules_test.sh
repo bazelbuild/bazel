@@ -381,8 +381,8 @@ EOF
   cd ..
 
   bazel build @other_repo//package:hi >$TEST_log 2>&1 || fail "Should build"
-  expect_log "bazel-.*bin/external/_main~_repo_rules~other_repo/package/a/b"
-  expect_log "bazel-.*bin/external/_main~_repo_rules~other_repo/package/c/d"
+  expect_log "bazel-.*bin/external/+_repo_rules+other_repo/package/a/b"
+  expect_log "bazel-.*bin/external/+_repo_rules+other_repo/package/c/d"
 }
 
 function test_genrule_toolchain_dependency {
@@ -955,13 +955,13 @@ function test_bash_runfiles_current_repository_binary_enable_runfiles() {
     &>"$TEST_log" || fail "Run should succeed"
   expect_log "in pkg/binary.sh: ''"
   expect_log "in pkg/library.sh: ''"
-  expect_log "in external/other_repo/pkg/library2.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/library2.sh: '+_repo_rules+other_repo'"
 
   RUNFILES_LIB_DEBUG=1 bazel run --enable_bzlmod --enable_runfiles @other_repo//pkg:binary \
     &>"$TEST_log" || fail "Run should succeed"
-  expect_log "in external/other_repo/pkg/binary.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/binary.sh: '+_repo_rules+other_repo'"
   expect_log "in pkg/library.sh: ''"
-  expect_log "in external/other_repo/pkg/library2.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/library2.sh: '+_repo_rules+other_repo'"
 }
 
 function test_bash_runfiles_current_repository_binary_enable_runfiles_direct_run() {
@@ -973,15 +973,15 @@ function test_bash_runfiles_current_repository_binary_enable_runfiles_direct_run
     || fail "Direct run should succeed"
   expect_log "in pkg/binary.sh: ''"
   expect_log "in pkg/library.sh: ''"
-  expect_log "in external/other_repo/pkg/library2.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/library2.sh: '+_repo_rules+other_repo'"
 
   bazel run --enable_bzlmod --enable_runfiles @other_repo//pkg:binary \
     &>"$TEST_log" || fail "Run should succeed"
-  clean_runfiles_run bazel-bin/external/_main~_repo_rules~other_repo/pkg/binary$exe_suffix \
+  clean_runfiles_run bazel-bin/external/+_repo_rules+other_repo/pkg/binary$exe_suffix \
     &>"$TEST_log" || fail "Direct run should succeed"
-  expect_log "in external/other_repo/pkg/binary.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/binary.sh: '+_repo_rules+other_repo'"
   expect_log "in pkg/library.sh: ''"
-  expect_log "in external/other_repo/pkg/library2.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/library2.sh: '+_repo_rules+other_repo'"
 }
 
 function test_bash_runfiles_current_repository_test_enable_runfiles() {
@@ -991,13 +991,13 @@ function test_bash_runfiles_current_repository_test_enable_runfiles() {
     --test_output=all //pkg:test &>"$TEST_log" || fail "Test should succeed"
   expect_log "in pkg/test.sh: ''"
   expect_log "in pkg/library.sh: ''"
-  expect_log "in external/other_repo/pkg/library2.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/library2.sh: '+_repo_rules+other_repo'"
 
   bazel test --enable_bzlmod --enable_runfiles --test_env=RUNFILES_LIB_DEBUG=1 \
     --test_output=all @other_repo//pkg:test &>"$TEST_log" || fail "Test should succeed"
-  expect_log "in external/other_repo/pkg/test.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/test.sh: '+_repo_rules+other_repo'"
   expect_log "in pkg/library.sh: ''"
-  expect_log "in external/other_repo/pkg/library2.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/library2.sh: '+_repo_rules+other_repo'"
 }
 
 function test_bash_runfiles_current_repository_binary_noenable_runfiles() {
@@ -1007,13 +1007,13 @@ function test_bash_runfiles_current_repository_binary_noenable_runfiles() {
     &>"$TEST_log" || fail "Run should succeed"
   expect_log "in pkg/binary.sh: ''"
   expect_log "in pkg/library.sh: ''"
-  expect_log "in external/other_repo/pkg/library2.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/library2.sh: '+_repo_rules+other_repo'"
 
   RUNFILES_LIB_DEBUG=1 bazel run --enable_bzlmod --noenable_runfiles @other_repo//pkg:binary \
     &>"$TEST_log" || fail "Run should succeed"
-  expect_log "in external/other_repo/pkg/binary.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/binary.sh: '+_repo_rules+other_repo'"
   expect_log "in pkg/library.sh: ''"
-  expect_log "in external/other_repo/pkg/library2.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/library2.sh: '+_repo_rules+other_repo'"
 }
 
 function test_bash_runfiles_current_repository_binary_noenable_runfiles_direct_run() {
@@ -1025,15 +1025,15 @@ function test_bash_runfiles_current_repository_binary_noenable_runfiles_direct_r
     || fail "Direct run should succeed"
   expect_log "in pkg/binary.sh: ''"
   expect_log "in pkg/library.sh: ''"
-  expect_log "in external/other_repo/pkg/library2.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/library2.sh: '+_repo_rules+other_repo'"
 
   bazel run --enable_bzlmod --noenable_runfiles @other_repo//pkg:binary \
     &>"$TEST_log" || fail "Run should succeed"
-  clean_runfiles_run bazel-bin/external/_main~_repo_rules~other_repo/pkg/binary$exe_suffix \
+  clean_runfiles_run bazel-bin/external/+_repo_rules+other_repo/pkg/binary$exe_suffix \
     &>"$TEST_log" || fail "Direct run should succeed"
-  expect_log "in external/other_repo/pkg/binary.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/binary.sh: '+_repo_rules+other_repo'"
   expect_log "in pkg/library.sh: ''"
-  expect_log "in external/other_repo/pkg/library2.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/library2.sh: '+_repo_rules+other_repo'"
 }
 
 function test_bash_runfiles_current_repository_test_noenable_runfiles() {
@@ -1043,13 +1043,13 @@ function test_bash_runfiles_current_repository_test_noenable_runfiles() {
     --test_output=all //pkg:test &>"$TEST_log" || fail "Test should succeed"
   expect_log "in pkg/test.sh: ''"
   expect_log "in pkg/library.sh: ''"
-  expect_log "in external/other_repo/pkg/library2.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/library2.sh: '+_repo_rules+other_repo'"
 
   bazel test --enable_bzlmod --noenable_runfiles --test_env=RUNFILES_LIB_DEBUG=1 \
     --test_output=all @other_repo//pkg:test &>"$TEST_log" || fail "Test should succeed"
-  expect_log "in external/other_repo/pkg/test.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/test.sh: '+_repo_rules+other_repo'"
   expect_log "in pkg/library.sh: ''"
-  expect_log "in external/other_repo/pkg/library2.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/library2.sh: '+_repo_rules+other_repo'"
 }
 
 function test_bash_runfiles_current_repository_binary_nobuild_runfile_links() {
@@ -1059,13 +1059,13 @@ function test_bash_runfiles_current_repository_binary_nobuild_runfile_links() {
     &>"$TEST_log" || fail "Run should succeed"
   expect_log "in pkg/binary.sh: ''"
   expect_log "in pkg/library.sh: ''"
-  expect_log "in external/other_repo/pkg/library2.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/library2.sh: '+_repo_rules+other_repo'"
 
   RUNFILES_LIB_DEBUG=1 bazel run --enable_bzlmod --nobuild_runfile_links @other_repo//pkg:binary \
     &>"$TEST_log" || fail "Run should succeed"
-  expect_log "in external/other_repo/pkg/binary.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/binary.sh: '+_repo_rules+other_repo'"
   expect_log "in pkg/library.sh: ''"
-  expect_log "in external/other_repo/pkg/library2.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/library2.sh: '+_repo_rules+other_repo'"
 }
 
 function test_bash_runfiles_current_repository_binary_nobuild_runfile_links_direct_run() {
@@ -1077,15 +1077,15 @@ function test_bash_runfiles_current_repository_binary_nobuild_runfile_links_dire
     || fail "Direct run should succeed"
   expect_log "in pkg/binary.sh: ''"
   expect_log "in pkg/library.sh: ''"
-  expect_log "in external/other_repo/pkg/library2.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/library2.sh: '+_repo_rules+other_repo'"
 
   bazel run --enable_bzlmod --nobuild_runfile_links @other_repo//pkg:binary \
     &>"$TEST_log" || fail "Run should succeed"
-  clean_runfiles_run bazel-bin/external/_main~_repo_rules~other_repo/pkg/binary$exe_suffix \
+  clean_runfiles_run bazel-bin/external/+_repo_rules+other_repo/pkg/binary$exe_suffix \
     &>"$TEST_log" || fail "Direct run should succeed"
-  expect_log "in external/other_repo/pkg/binary.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/binary.sh: '+_repo_rules+other_repo'"
   expect_log "in pkg/library.sh: ''"
-  expect_log "in external/other_repo/pkg/library2.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/library2.sh: '+_repo_rules+other_repo'"
 }
 
 function test_bash_runfiles_current_repository_test_nobuild_runfile_links() {
@@ -1096,14 +1096,14 @@ function test_bash_runfiles_current_repository_test_nobuild_runfile_links() {
     &>"$TEST_log" || fail "Test should succeed"
   expect_log "in pkg/test.sh: ''"
   expect_log "in pkg/library.sh: ''"
-  expect_log "in external/other_repo/pkg/library2.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/library2.sh: '+_repo_rules+other_repo'"
 
   bazel test --enable_bzlmod --noenable_runfiles --nobuild_runfile_links \
     --test_env=RUNFILES_LIB_DEBUG=1 --test_output=all @other_repo//pkg:test \
     &>"$TEST_log" || fail "Test should succeed"
-  expect_log "in external/other_repo/pkg/test.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/test.sh: '+_repo_rules+other_repo'"
   expect_log "in pkg/library.sh: ''"
-  expect_log "in external/other_repo/pkg/library2.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/library2.sh: '+_repo_rules+other_repo'"
 }
 
 function test_bash_runfiles_current_repository_action_binary_main_repo() {
@@ -1251,7 +1251,7 @@ EOF
   chmod +x other_repo/pkg/binary.sh
 
   bazel build --enable_bzlmod //pkg:gen &>"$TEST_log" || fail "Build should succeed"
-  expect_log "in external/other_repo/pkg/binary.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in external/other_repo/pkg/binary.sh: '+_repo_rules+other_repo'"
 }
 
 function test_bash_runfiles_current_repository_action_generated_binary_external_repo() {
@@ -1313,7 +1313,7 @@ EOF
   chmod +x other_repo/pkg/binary.sh
 
   bazel build --enable_bzlmod //pkg:gen &>"$TEST_log" || fail "Build should succeed"
-  expect_log "in copy of external/other_repo/pkg/binary.sh: '_main~_repo_rules~other_repo'"
+  expect_log "in copy of external/other_repo/pkg/binary.sh: '+_repo_rules+other_repo'"
 }
 
 run_suite "rules test"

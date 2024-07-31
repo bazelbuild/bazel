@@ -101,7 +101,7 @@ EOF
 
   cat > zoo/dumper.sh <<EOF
 #!/bin/sh
-cat ../_main~_repo_rules~pandas/red/baby-panda
+cat ../+_repo_rules+pandas/red/baby-panda
 cat red/day-keeper
 EOF
   chmod +x zoo/dumper.sh
@@ -576,7 +576,7 @@ genrule(
 EOF
   bazel fetch @mutant//:turtle || fail "Fetch failed"
   bazel build @mutant//:turtle &> $TEST_log || fail "First build failed"
-  assert_contains "Leonardo" bazel-genfiles/external/_main~_repo_rules~mutant/tmnt
+  assert_contains "Leonardo" bazel-genfiles/external/+_repo_rules+mutant/tmnt
 
   cat > mutant.BUILD <<EOF
 genrule(
@@ -587,7 +587,7 @@ genrule(
 )
 EOF
   bazel build @mutant//:turtle &> $TEST_log || fail "Second build failed"
-  assert_contains "Donatello" bazel-genfiles/external/_main~_repo_rules~mutant/tmnt
+  assert_contains "Donatello" bazel-genfiles/external/+_repo_rules+mutant/tmnt
 }
 
 function test_external_deps_in_remote_repo() {
@@ -621,7 +621,7 @@ genrule(
 EOF
 
  bazel build @r//:r || fail "build failed"
- assert_contains "GOLF" bazel-genfiles/external/_main~_repo_rules~r/r.out
+ assert_contains "GOLF" bazel-genfiles/external/+_repo_rules+r/r.out
 }
 
 function test_local_deps() {
@@ -997,8 +997,8 @@ local_repository(name='r', path='$r')
 EOF
 
   bazel build @r//a:b || fail "build failed"
-  cat bazel-genfiles/external/_main~_repo_rules~r/a/bo > $TEST_log
-  expect_log "@_main~_repo_rules~r a"
+  cat bazel-genfiles/external/+_repo_rules+r/a/bo > $TEST_log
+  expect_log "@+_repo_rules+r a"
 }
 
 function test_slash_in_repo_name() {
