@@ -154,6 +154,6 @@ public abstract class Worker {
    */
   abstract String getRecordingStreamMessage();
 
-  /** Returns process id pf worker, if process started. Otherwise returns -1. */
+  /** Returns process id of the worker, if the process already started. Otherwise returns -1. */
   abstract long getProcessId();
 }
