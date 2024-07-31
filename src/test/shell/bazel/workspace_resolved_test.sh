@@ -506,6 +506,7 @@ broken_rule = repository_rule(
 )
 EOF
   touch BUILD
+  cat > WORKSPACE <<'EOF'
 load("//:rule.bzl", "broken_rule")
 
 broken_rule(name = "broken")
