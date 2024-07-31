@@ -159,7 +159,7 @@ public class LibraryToLinkValueTest {
                     /* field= */ "path",
                     /* expander= */ null,
                     /* throwOnMissingVariable= */ false)
-                .getStringValue("variable name doesn't matter"))
+                .getStringValue("variable name doesn't matter", PathMapper.NOOP))
         .isEqualTo("foo/bar.so");
     assertThat(
             libraryToLinkValue
