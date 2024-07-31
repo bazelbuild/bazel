@@ -55,7 +55,8 @@ function test_repo_mapping_manifest() {
   local pkg="${FUNCNAME[0]}"
   local pkg2="${FUNCNAME[0]}_pkg2"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
-  cat > "$pkg/WORKSPACE" <<EOF
+  cat > "$pkg/MODULE.bazel" <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "pkg2",
     path = "../$pkg2",
@@ -70,7 +71,7 @@ cc_binary(name = "foo",
 )
 EOF
   mkdir -p "$pkg2" || fail "mkdir -p $pkg2"
-  touch "$pkg2/WORKSPACE"
+  touch "$pkg2/REPO.bazel"
   touch "$pkg2/bar.cpp"
   cat > "$pkg2/BUILD" <<EOF
 cc_binary(name = "bar",
@@ -82,7 +83,7 @@ EOF
   bazel aquery --output=textproto --include_file_write_contents \
      "//:foo" >output 2> "$TEST_log" || fail "Expected success"
   cat output >> "$TEST_log"
-  assert_contains "^file_contents:.*pkg2,__main__,_main" output
+  assert_contains "^file_contents:.*pkg2,+_repo_rules+pkg2" output
 
   bazel aquery --output=text --include_file_write_contents "//:foo" | \
     sed -nr '/Mnemonic: RepoMappingManifest/,/^ *$/p' >output \
@@ -92,7 +93,7 @@ EOF
   # Verify file contents if we can decode base64-encoded data.
   if which base64 >/dev/null; then
     sed -nr 's/^ *FileWriteContents: \[(.*)\]/echo \1 | base64 -d/p' output | \
-       sh | tee -a "$TEST_log"  | assert_contains "pkg2,__main__,_main" -
+       sh | tee -a "$TEST_log"  | assert_contains "pkg2,+_repo_rules+pkg2" -
   fi
 }
 
