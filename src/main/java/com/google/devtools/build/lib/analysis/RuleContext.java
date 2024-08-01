@@ -882,6 +882,18 @@ public class RuleContext extends TargetContext
   }
 
   /**
+   * Returns the {@code --run_under} prerequisite based on the value of {@code
+   * --incompatible_bazel_test_exec_run_under}.
+   */
+  @Nullable
+  public TransitiveInfoCollection getRunUnderPrerequisite() {
+    return getPrerequisite(
+        getConfiguration().runUnderExecConfigForTests()
+            ? ":run_under_exec_config"
+            : ":run_under_target_config");
+  }
+
+  /**
    * Returns the list of transitive info collections that feed into this target through the
    * specified attribute.
    */

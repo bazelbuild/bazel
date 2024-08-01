@@ -849,6 +849,22 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean additiveModifyExecutionInfo;
 
   @Option(
+      name = "incompatible_bazel_test_exec_run_under",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {
+        OptionEffectTag.AFFECTS_OUTPUTS,
+      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If enabled, \"bazel test --run_under=//:runner\" builds \"//:runner\" in the exec"
+              + " configuration. If disabled, it builds \"//:runner\" in the target configuration."
+              + " Bazel executes tests on exec machines, so the former is more correct. This"
+              + " doesn't affect \"bazel run\", which always builds \"`--run_under=//foo\" in the"
+              + " target configuration.")
+  public boolean bazelTestExecRunUnder;
+
+  @Option(
       name = "include_config_fragments_provider",
       defaultValue = "off",
       converter = IncludeConfigFragmentsEnumConverter.class,

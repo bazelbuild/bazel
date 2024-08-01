@@ -17,7 +17,8 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.analysis.BaseRuleClasses.RUN_UNDER;
+import static com.google.devtools.build.lib.analysis.BaseRuleClasses.RUN_UNDER_EXEC_CONFIG;
+import static com.google.devtools.build.lib.analysis.BaseRuleClasses.RUN_UNDER_TARGET_CONFIG;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.TIMEOUT_DEFAULT;
 import static com.google.devtools.build.lib.analysis.BaseRuleClasses.getTestRuntimeLabelList;
 import static com.google.devtools.build.lib.analysis.test.ExecutionInfo.DEFAULT_TEST_RUNNER_EXEC_GROUP;
@@ -275,10 +276,16 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                             labelCache.get(
                                 toolsRepository
                                     + BaseRuleClasses.DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
+            // See similar definitions in BaseRuleClasses for context.
             .add(
-                attr(":run_under", LABEL)
+                attr(":run_under_exec_config", LABEL)
                     .cfg(ExecutionTransitionFactory.createFactory())
-                    .value(RUN_UNDER))
+                    .value(RUN_UNDER_EXEC_CONFIG)
+                    .skipPrereqValidatorCheck())
+            .add(
+                attr(":run_under_target_config", LABEL)
+                    .value(RUN_UNDER_TARGET_CONFIG)
+                    .skipPrereqValidatorCheck())
             .addAttribute(
                 attr(Rule.IS_EXECUTABLE_ATTRIBUTE_NAME, BOOLEAN)
                     .value(true)
