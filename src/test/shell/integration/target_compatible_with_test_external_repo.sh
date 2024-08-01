@@ -52,13 +52,14 @@ fi
 
 function set_up() {
   mkdir -p target_skipping || fail "couldn't create directory"
+  touch target_skipping/MODULE.bazel
   cat > target_skipping/pass.sh <<EOF || fail "couldn't create pass.sh"
 #!/bin/bash
 exit 0
 EOF
   chmod +x target_skipping/pass.sh
 
-  cat > target_skipping/fail.sh <<EOF|| fail "couldn't create fail.sh"
+  cat > target_skipping/fail.sh <<EOF || fail "couldn't create fail.sh"
 #!/bin/bash
 exit 1
 EOF
@@ -161,9 +162,6 @@ sh_binary(
     ],
 )
 EOF
-
-  cat > target_skipping/WORKSPACE <<EOF || fail "couldn't create WORKSPACE"
-EOF
 }
 
 add_to_bazelrc "test --nocache_test_results"
@@ -174,14 +172,15 @@ function tear_down() {
 }
 
 function test_failure_on_incompatible_top_level_target_in_external_repo() {
-  cat >> target_skipping/WORKSPACE <<EOF
+  cat > target_skipping/MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "test_repo",
     path = "third_party/test_repo",
 )
 EOF
   mkdir -p target_skipping/third_party/test_repo/
-  touch target_skipping/third_party/test_repo/WORKSPACE
+  touch target_skipping/third_party/test_repo/REPO.bazel
   cat > target_skipping/third_party/test_repo/BUILD <<EOF
 cc_binary(
     name = "bin",
@@ -196,7 +195,6 @@ int main() {
     return 0;
 }
 EOF
-  write_default_lockfile "target_skipping/MODULE.bazel.lock"
   cd target_skipping || fail "couldn't cd into workspace"
   bazel test \
     --show_result=10 \
@@ -204,12 +202,12 @@ EOF
     --platforms=@//:foo3_platform \
     --build_event_text_file="${TEST_log}".build.json \
     @test_repo//:bin &> "${TEST_log}" && fail "Bazel passed unexpectedly."
-  expect_log 'ERROR:.*Target @@test_repo//:bin is incompatible and cannot be built'
+  expect_log 'ERROR:.*Target @@+_repo_rules+test_repo//:bin is incompatible and cannot be built'
   expect_log '^ERROR: Build did NOT complete successfully'
   # Now look at the build event log.
   mv "${TEST_log}".build.json "${TEST_log}"
   expect_log '^    name: "PARSING_FAILURE"$'
-  expect_log 'Target @@test_repo//:bin is incompatible and cannot be built.'
+  expect_log 'Target @@+_repo_rules+test_repo//:bin is incompatible and cannot be built.'
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/12374
@@ -226,8 +224,8 @@ repo_rule = repository_rule(
 )
 EOF
 
-  cat >> WORKSPACE <<EOF
-load(':repo.bzl', 'repo_rule')
+  cat >> MODULE.bazel <<EOF
+repo_rule = use_repo_rule(':repo.bzl', 'repo_rule')
 repo_rule(name = 'defines_tcw')
 EOF
 
