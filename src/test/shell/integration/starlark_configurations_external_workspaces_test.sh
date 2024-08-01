@@ -127,12 +127,13 @@ EOF
 
 
 function test_set_flag_with_workspace_name() {
+  echo "workspace(name = '${WORKSPACE_NAME}')" > WORKSPACE
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
 
   write_build_setting_bzl "@${WORKSPACE_NAME}"
 
-  bazel build //$pkg:my_drink --@//$pkg:type="coffee" \
+  bazel build --enable_workspace //$pkg:my_drink --@//$pkg:type="coffee" \
     > output 2>"$TEST_log" || fail "Expected success"
 
   expect_log "type=coffee"
@@ -144,12 +145,12 @@ function test_reference_inner_repository_flags() {
   mkdir -p $subpkg
 
   ## set up outer repo
-  cat > $pkg/WORKSPACE <<EOF
+  cat > $pkg/MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "sub",
   path = "./sub")
 EOF
-  write_default_lockfile "$pkg/MODULE.bazel.lock"
 
   ## set up inner repo
   cat > $subpkg/BUILD <<EOF
@@ -199,10 +200,9 @@ rule_with_transition = rule(
 )
 EOF
 
-  cat > $subpkg/WORKSPACE <<EOF
-workspace(name = "sub")
+  cat > $subpkg/MODULE.bazel <<EOF
+module(name = "sub")
 EOF
-  write_default_lockfile "$subpkg/MODULE.bazel.lock"
 
   # from the outer repo
   cd $pkg
