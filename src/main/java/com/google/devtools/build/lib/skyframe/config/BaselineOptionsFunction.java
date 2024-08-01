@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.config;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -33,16 +35,26 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.Version;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** A builder for {@link BaselineOptionsValue} instances. */
 public final class BaselineOptionsFunction implements SkyFunction {
+
+  private final Version minimalVersionToInject;
+
+  public BaselineOptionsFunction(Version minimalVersionToInject) {
+    this.minimalVersionToInject = checkNotNull(minimalVersionToInject);
+  }
+
   @Override
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, BaselineOptionsFunctionException {
+    env.injectVersionForNonHermeticFunction(minimalVersionToInject);
+
     BaselineOptionsValue.Key key = (BaselineOptionsValue.Key) skyKey.argument();
 
     BuildOptions rawBaselineOptions = PrecomputedValue.BASELINE_CONFIGURATION.get(env);
