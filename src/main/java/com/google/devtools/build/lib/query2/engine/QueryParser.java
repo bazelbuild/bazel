@@ -13,12 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.devtools.build.lib.query2.engine.Lexer.BINARY_OPERATORS;
+import static java.lang.Math.min;
+import static java.util.stream.Collectors.joining;
 
 import com.google.devtools.build.lib.query2.engine.Lexer.TokenKind;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -82,28 +86,92 @@ public final class QueryParser {
     nextToken();
   }
 
-  /** Returns an exception. Don't forget to throw it. */
-  private QuerySyntaxException syntaxError(Lexer.Token token) {
+  /** Throws a syntax error exception. */
+  @CanIgnoreReturnValue
+  private QuerySyntaxException syntaxError(Lexer.Token token) throws QuerySyntaxException {
     String message = "premature end of input";
     if (token.kind != TokenKind.EOF) {
       StringBuilder buf = new StringBuilder("syntax error at '");
       String sep = "";
       for (int index = tokens.indexOf(token),
-               max = Math.min(tokens.size() - 1, index + 3); // 3 tokens of context
-               index < max; ++index) {
+              max = Math.min(tokens.size() - 1, index + 3); // 3 tokens of context
+          index < max;
+          ++index) {
         buf.append(sep).append(tokens.get(index));
         sep = " ";
       }
       buf.append("'");
       message = buf.toString();
     }
-    return new QuerySyntaxException(message);
+    throw new QuerySyntaxException(message);
+  }
+
+  /** Throws an exception indicating that the current token is an unknown function name. */
+  @CanIgnoreReturnValue
+  private QuerySyntaxException unknownFunctionError(Lexer.Token token) throws QuerySyntaxException {
+    checkArgument(token.kind == TokenKind.WORD);
+    StringBuilder buf = new StringBuilder("unknown function '");
+    buf.append(token);
+    buf.append("' at '");
+    appendInputContext(buf, token);
+    buf.append("'; expected one of ['");
+    buf.append(functions.keySet().stream().sorted().collect(joining("', '")));
+    buf.append("']");
+    throw new QuerySyntaxException(buf.toString());
+  }
+
+  /**
+   * Throws an exception indicating that the current function is being called with the wrong number
+   * of arguments.
+   */
+  @CanIgnoreReturnValue
+  private QuerySyntaxException functionArgumentCountError(
+      QueryFunction function, String description) throws QuerySyntaxException {
+    StringBuilder buf = new StringBuilder(description);
+    buf.append(" arguments to function '");
+    buf.append(function.getName());
+    buf.append("' at '");
+    appendInputContext(buf, token);
+    buf.append("'");
+    throw new QuerySyntaxException(buf.toString());
+  }
+
+  /**
+   * Throws an exception indicating that the current function is being called with too few
+   * arguments.
+   */
+  @CanIgnoreReturnValue
+  private QuerySyntaxException tooFewArgumentsError(QueryFunction function)
+      throws QuerySyntaxException {
+    throw functionArgumentCountError(function, "too few");
+  }
+
+  /**
+   * Throws an exception indicating that the current function is being called with too many
+   * arguments.
+   */
+  @CanIgnoreReturnValue
+  private QuerySyntaxException tooManyArgumentsError(QueryFunction function)
+      throws QuerySyntaxException {
+    throw functionArgumentCountError(function, "too many");
+  }
+
+  private void appendInputContext(StringBuilder buf, Lexer.Token token) {
+    String sep = "";
+    for (int index = tokens.indexOf(token),
+            max = min(tokens.size() - 1, index + 3); // 3 tokens of context
+        index < max;
+        ++index) {
+      buf.append(sep).append(tokens.get(index));
+      sep = " ";
+    }
   }
 
   /**
    * Consumes the current token. If it is not of the specified (expected) kind, throws {@link
    * QuerySyntaxException}. Returns the value associated with the consumed token, if any.
    */
+  @CanIgnoreReturnValue
   private String consume(TokenKind kind) throws QuerySyntaxException {
     if (token.kind != kind) {
       throw syntaxError(token);
@@ -121,7 +189,9 @@ public final class QueryParser {
     String intString = consume(TokenKind.WORD);
     try {
       return Integer.parseInt(intString);
-    } catch (NumberFormatException e) {
+    } catch (
+        @SuppressWarnings("UnusedException")
+        NumberFormatException e) {
       throw new QuerySyntaxException("expected an integer literal: '" + intString + "'");
     }
   }
@@ -199,74 +269,89 @@ public final class QueryParser {
    */
   private QueryExpression parsePrimary() throws QuerySyntaxException {
     switch (token.kind) {
-      case WORD: {
-        String word = consume(TokenKind.WORD);
-        if (token.kind == TokenKind.LPAREN) {
-          QueryFunction function = functions.get(word);
-          if (function == null) {
-            throw syntaxError(token);
-          }
-          List<Argument> args = new ArrayList<>();
-          TokenKind tokenKind = TokenKind.LPAREN;
-          int argsSeen = 0;
-          for (ArgumentType type : function.getArgumentTypes()) {
-            if (token.kind == TokenKind.RPAREN && argsSeen >= function.getMandatoryArguments()) {
-              break;
+      case WORD:
+        {
+          Lexer.Token wordToken = token;
+          String word = consume(TokenKind.WORD);
+          if (token.kind == TokenKind.LPAREN) {
+            QueryFunction function = functions.get(word);
+            if (function == null) {
+              throw unknownFunctionError(wordToken);
+            }
+            List<Argument> args = new ArrayList<>();
+            TokenKind tokenKind = TokenKind.LPAREN;
+            int argsSeen = 0;
+            for (ArgumentType type : function.getArgumentTypes()) {
+              if (token.kind == TokenKind.RPAREN) {
+                // Got rparen instead of argument-separating comma.
+                if (argsSeen >= function.getMandatoryArguments()) {
+                  break;
+                } else {
+                  throw tooFewArgumentsError(function);
+                }
+              }
+
+              // Consume lparen on first iteration, comma on subsequent iterations.
+              consume(tokenKind);
+              tokenKind = TokenKind.COMMA;
+              if (argsSeen == 0 && token.kind == TokenKind.RPAREN) {
+                // Got rparen instead of mandatory first argument.
+                throw tooFewArgumentsError(function);
+              }
+              switch (type) {
+                case EXPRESSION:
+                  args.add(Argument.of(parseExpression()));
+                  break;
+
+                case WORD:
+                  args.add(Argument.of(consume(TokenKind.WORD)));
+                  break;
+
+                case INTEGER:
+                  args.add(Argument.of(consumeIntLiteral()));
+                  break;
+              }
+
+              argsSeen++;
             }
 
-            consume(tokenKind);
-            tokenKind = TokenKind.COMMA;
-            switch (type) {
-              case EXPRESSION:
-                args.add(Argument.of(parseExpression()));
-                break;
-
-              case WORD:
-                args.add(Argument.of(consume(TokenKind.WORD)));
-                break;
-
-              case INTEGER:
-                args.add(Argument.of(consumeIntLiteral()));
-                break;
-
-              default:
-                throw new IllegalStateException();
+            if (token.kind == TokenKind.COMMA && argsSeen > 0) {
+              throw tooManyArgumentsError(function);
             }
-
-            argsSeen++;
-          }
-
-          consume(TokenKind.RPAREN);
-          return new FunctionExpression(function, args);
-        } else {
+            consume(TokenKind.RPAREN);
+            return new FunctionExpression(function, args);
+          } else {
             return validateTargetLiteral(word);
+          }
         }
-      }
-      case LET: {
-        consume(TokenKind.LET);
-        String name = consume(TokenKind.WORD);
-        consume(TokenKind.EQUALS);
-        QueryExpression varExpr = parseExpression();
-        consume(TokenKind.IN);
-        QueryExpression bodyExpr = parseExpression();
-        return new LetExpression(name, varExpr, bodyExpr);
-      }
-      case LPAREN: {
-        consume(TokenKind.LPAREN);
-        QueryExpression expr = parseExpression();
-        consume(TokenKind.RPAREN);
-        return expr;
-      }
-      case SET: {
-        nextToken();
-        consume(TokenKind.LPAREN);
-        List<TargetLiteral> words = new ArrayList<>();
-        while (token.kind == TokenKind.WORD) {
+      case LET:
+        {
+          consume(TokenKind.LET);
+          String name = consume(TokenKind.WORD);
+          consume(TokenKind.EQUALS);
+          QueryExpression varExpr = parseExpression();
+          consume(TokenKind.IN);
+          QueryExpression bodyExpr = parseExpression();
+          return new LetExpression(name, varExpr, bodyExpr);
+        }
+      case LPAREN:
+        {
+          consume(TokenKind.LPAREN);
+          QueryExpression expr = parseExpression();
+          consume(TokenKind.RPAREN);
+          return expr;
+        }
+      case SET:
+        {
+          nextToken();
+          consume(TokenKind.LPAREN);
+          List<TargetLiteral> words = new ArrayList<>();
+          while (token.kind == TokenKind.WORD) {
             words.add(validateTargetLiteral(consume(TokenKind.WORD)));
+          }
+          consume(TokenKind.RPAREN);
+          return new SetExpression(words);
         }
-        consume(TokenKind.RPAREN);
-        return new SetExpression(words);
-      }
       default:
         throw syntaxError(token);
     }
