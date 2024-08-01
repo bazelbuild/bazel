@@ -99,6 +99,13 @@ _mock_cc_toolchain_config = rule(
 )
 
 def mock_cc_toolchain(name, provide_validate_static_library = True):
+    """Creates a mock cc_toolchain for testing cc_static_library.
+
+    Args:
+        name: The name of the cc_toolchain.
+        provide_validate_static_library: Whether to provide the
+          validate_static_library action_config.
+    """
     archiver = util.empty_file(
         name = name + "_my_ar",
     )
