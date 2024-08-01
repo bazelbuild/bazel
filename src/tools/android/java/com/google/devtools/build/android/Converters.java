@@ -18,6 +18,9 @@ import com.android.builder.core.VariantTypeImpl;
 import com.android.manifmerger.ManifestMerger2;
 import com.android.manifmerger.ManifestMerger2.MergeType;
 import com.android.repository.Revision;
+import com.beust.jcommander.IStringConverter;
+import com.beust.jcommander.ParameterException;
+import com.beust.jcommander.converters.StringConverter;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -227,6 +230,43 @@ public final class Converters {
     }
   }
 
+  /** Converter class for _existing_ `Path`-s that is compatible with JCommander. */
+  public static class CompatExistingPathConverter extends CompatPathConverter {
+    public CompatExistingPathConverter() {
+      super(true);
+    }
+  }
+
+  /** Converter class for `Path`-s that is compatible with JCommander. */
+  public static class CompatPathConverter implements IStringConverter<Path> {
+    private final boolean mustExist;
+
+    public CompatPathConverter() {
+      this.mustExist = false;
+    }
+
+    protected CompatPathConverter(boolean mustExist) {
+      this.mustExist = mustExist;
+    }
+
+    @Override
+    public Path convert(String input) throws ParameterException {
+      // Below snippet is cribbed from PathConverter.convert(). The only difference is that this
+      // throws a ParameterException instead of an OptionsParsingException.
+      try {
+        Path path = FileSystems.getDefault().getPath(input);
+        if (mustExist && !Files.exists(path)) {
+          throw new ParameterException(
+              String.format("%s is not a valid path: it does not exist.", input));
+        }
+        return path;
+      } catch (InvalidPathException e) {
+        throw new ParameterException(
+            String.format("%s is not a valid path: %s.", input, e.getMessage()), e);
+      }
+    }
+  }
+
   /** Validating converter for Paths. A Path is considered valid if it resolves to a file. */
   public static class PathConverter extends Converter.Contextless<Path> {
 
@@ -327,6 +367,58 @@ public final class Converters {
   }
 
   /**
+   * Converts args of format key;value[,key;value]*. Most of the logic is recycled from
+   * DictionaryConverter. The main difference here is compatibility with JCommander's converter
+   * interface (IStringConverter) and its primary exception class (ParameterException).
+   */
+  public abstract static class CompatDictionaryConverter<K, V>
+      implements IStringConverter<Map<K, V>> {
+    IStringConverter<K> keyConverter;
+    IStringConverter<V> valueConverter;
+
+    public CompatDictionaryConverter(
+        IStringConverter<K> keyConverter, IStringConverter<V> valueConverter) {
+      this.keyConverter = keyConverter;
+      this.valueConverter = valueConverter;
+    }
+
+    @Override
+    public Map<K, V> convert(String input) throws ParameterException {
+      // This method is cribbed from {@code DictionaryConverter.convert()}. The only differences are
+      // that this throws a ParameterException instead of an OptionsParsingException, and
+      // JCommander's {@code IStringConverter<>} is used instead of {@code Converter<>}.
+      if (input.isEmpty()) {
+        return ImmutableMap.of();
+      }
+      Map<K, V> map = new LinkedHashMap<>();
+      // Only split on comma and colon that are not escaped with a backslash
+      for (String entry : input.split(UNESCAPED_COMMA_REGEX)) {
+        String[] entryFields = entry.split(UNESCAPED_COLON_REGEX, -1);
+        if (entryFields.length < 2) {
+          throw new ParameterException(
+              String.format(
+                  "Dictionary entry [%s] does not contain both a key and a value.", entry));
+        } else if (entryFields.length > 2) {
+          throw new ParameterException(
+              String.format("Dictionary entry [%s] contains too many fields.", entry));
+        }
+        // Unescape any comma or colon that is not a key or value separator.
+        String keyString = unescapeInput(entryFields[0]);
+        K key = keyConverter.convert(keyString);
+        if (map.containsKey(keyString)) {
+          throw new ParameterException(
+              String.format("Dictionary already contains the key [%s].", keyString));
+        }
+        // Unescape any comma or colon that is not a key or value separator.
+        String valueString = unescapeInput(entryFields[1]);
+        V value = valueConverter.convert(valueString);
+        map.put(key, value);
+      }
+      return ImmutableMap.copyOf(map);
+    }
+  }
+
+  /**
    * A converter for dictionary arguments of the format key:value[,key:value]*. The keys and values
    * may contain colons and commas as long as they are escaped with a backslash.
    */
@@ -384,6 +476,17 @@ public final class Converters {
   }
 
   /**
+   * Converts dictionary args for {@code Map<String, String>}, compatible with JCommander. Should be
+   * backward compatible with StringDictionaryConverter.
+   */
+  public static class CompatStringDictionaryConverter
+      extends CompatDictionaryConverter<String, String> {
+    public CompatStringDictionaryConverter() {
+      super(new StringConverter(), new StringConverter());
+    }
+  }
+
+  /**
    * A converter for dictionary arguments of the format key:value[,key:value]*. The keys and values
    * may contain colons and commas as long as they are escaped with a backslash. The key and value
    * types are both String.
@@ -398,6 +501,17 @@ public final class Converters {
     public Map<String, String> convert(String input, Object conversionContext)
         throws OptionsParsingException {
       return super.convert(input, conversionContext);
+    }
+  }
+
+  /**
+   * Converts dictionary args for {@code Map<Path, String>}, compatible with JCommander. Should be
+   * backward compatible with ExistingPathStringDictionaryConverter.
+   */
+  public static class CompatExistingPathStringDictionaryConverter
+      extends CompatDictionaryConverter<Path, String> {
+    public CompatExistingPathStringDictionaryConverter() {
+      super(new CompatExistingPathConverter(), new StringConverter());
     }
   }
 
