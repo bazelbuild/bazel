@@ -104,19 +104,16 @@ public abstract class ModuleKey {
       // getVersion().isEmpty() is true only for modules with non-registry overrides, which enforce
       // that there is a single version of the module in the dep graph.
       Preconditions.checkState(!getVersion().isEmpty());
-      // Prepend "v" to prevent canonical repo names, which form segments of file paths, from
-      // looking like a Windows short path. Such paths segments would incur additional file IO
-      // during analysis (see WindowsShortPath).
-      suffix = "v" + getVersion().toString();
+      suffix = getVersion().toString();
     } else {
-      // This results in canonical repository names such as `rules_foo~` for the module `rules_foo`.
+      // This results in canonical repository names such as `rules_foo+` for the module `rules_foo`.
       // This particular format is chosen since:
-      // * The tilde ensures that canonical and apparent repository names can be distinguished even
+      // * The plus ensures that canonical and apparent repository names can be distinguished even
       //   in contexts where users don't rely on `@` vs. `@@` to distinguish between them. For
       //   example, this means that the repo mapping as applied by runfiles libraries is idempotent.
-      // * Appending a tilde even in the case of a unique version means that module repository
-      //   names always contain the same number of tilde-separated components, which improves
-      //   compatibility with existing logic based on the `rules_foo~1.2.3` format.
+      // * Appending a plus even in the case of a unique version means that module repository
+      //   names always contain the same number of plus-separated components, which improves
+      //   compatibility with existing logic based on the `rules_foo+1.2.3` format.
       // * By making it so that the module name and the canonical repository name of a module are
       //   never identical, even when using an override, we introduce "grease" that intentionally
       //   tickles bugs in code that doesn't properly distinguish between the two, e.g., by not
@@ -125,7 +122,7 @@ public abstract class ModuleKey {
       //   rarely used.
       suffix = "";
     }
-    return RepositoryName.createUnvalidated(String.format("%s~%s", getName(), suffix));
+    return RepositoryName.createUnvalidated(String.format("%s+%s", getName(), suffix));
   }
 
   public static ModuleKey fromString(String s) throws Version.ParseException {

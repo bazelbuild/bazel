@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.worker;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
@@ -55,6 +56,8 @@ import javax.annotation.Nullable;
  * WorkerMultiplexer} wakes up the relevant {@code WorkerProxy} to retrieve the response.
  */
 public class WorkerMultiplexer {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   /**
    * A queue of {@link WorkRequest} instances that need to be sent to the worker. {@link
    * WorkerProxy} instances add to this queue, while the requestSender subthread remove requests and
@@ -218,6 +221,8 @@ public class WorkerMultiplexer {
         }
       }
       String id = workerKey.getMnemonic() + "-" + workerKey.hashCode();
+      logger.atInfo().log(
+          "Created multiplexer process %s for worker %s", process.getProcessId(), id);
       // TODO(larsrc): Consider moving sender/receiver threads into separate classes.
       this.requestSender =
           new Thread(

@@ -39,7 +39,6 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -60,8 +59,7 @@ import javax.annotation.Nullable;
  * rebuilds if no other file is changed. This is useful for frequently-changing information that
  * does not significantly affect the build, e.g. the current time.
  *
- * <p>For more information, see {@link
- * com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory}.
+ * <p>For more information, see {@link Factory}.
  */
 public abstract class WorkspaceStatusAction extends AbstractAction {
 
@@ -91,20 +89,11 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
     public PathFragment workspaceStatusCommand;
   }
 
-  /** The type of a workspace status action key. */
-  public enum KeyType {
-    INTEGER,
-    STRING,
-  }
-
   /**
    * Action context required by the workspace status action as well as language-specific actions
    * that write workspace status artifacts.
    */
   public interface Context extends ActionContext {
-    ImmutableMap<String, Key> getStableKeys();
-
-    ImmutableMap<String, Key> getVolatileKeys();
 
     // TODO(ulfjack): Maybe move these to a separate ActionContext interface?
     WorkspaceStatusAction.Options getOptions();
@@ -112,36 +101,6 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
     ImmutableMap<String, String> getClientEnv();
 
     com.google.devtools.build.lib.shell.Command getCommand();
-  }
-
-  /** A key in the workspace status info file. */
-  public static class Key {
-    private final KeyType type;
-
-    private final String defaultValue;
-    private final String redactedValue;
-
-    private Key(KeyType type, String defaultValue, String redactedValue) {
-      this.type = type;
-      this.defaultValue = defaultValue;
-      this.redactedValue = redactedValue;
-    }
-
-    public KeyType getType() {
-      return type;
-    }
-
-    public String getDefaultValue() {
-      return defaultValue;
-    }
-
-    public String getRedactedValue() {
-      return redactedValue;
-    }
-
-    public static Key of(KeyType type, String defaultValue, String redactedValue) {
-      return new Key(type, defaultValue, redactedValue);
-    }
   }
 
   /**
@@ -172,23 +131,6 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
     Artifact createStableArtifact(String name);
 
     Artifact createVolatileArtifact(String name);
-  }
-
-  /**
-   * Environment for the {@link Factory} to create the dummy workspace status information. This is a
-   * subset of the information provided by CommandEnvironment. However, we cannot reference the
-   * CommandEnvironment from here due to layering.
-   */
-  public interface DummyEnvironment {
-    Path getWorkspace();
-
-    /** Returns optional precomputed workspace info to include in the build info event. */
-    @Nullable
-    WorkspaceInfoFromDiff getWorkspaceInfoFromDiff();
-
-    String getBuildRequestId();
-
-    OptionsProvider getOptions();
   }
 
   /** Factory for {@link WorkspaceStatusAction}. */

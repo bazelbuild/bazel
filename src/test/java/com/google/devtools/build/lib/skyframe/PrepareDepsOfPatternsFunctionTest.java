@@ -214,9 +214,9 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     WalkableGraph walkableGraph = getGraphFromPatternsEvaluation(patternSequence);
 
     // Then the graph contains a value for the target "@//rinne:rinne" and the dep
-    // "@@repo~//a:x",
+    // "@@repo+//a:x",
     assertValidValue(walkableGraph, getKeyForLabel(Label.create("//rinne", "rinne")));
-    assertValidValue(walkableGraph, getKeyForLabel(Label.create("@repo~//a", "x")));
+    assertValidValue(walkableGraph, getKeyForLabel(Label.create("@repo+//a", "x")));
   }
 
   // Regression test for b/225877591 ("Unexpected missing value in PrepareDepsOfPatternsFunction
@@ -365,9 +365,9 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     registry.addModule(
         ModuleKey.create("repo", Version.parse("1.0")),
         "module(name = \"repo\", version = \"1.0\")");
-    scratch.file(moduleRoot.getRelative("repo~v1.0/WORKSPACE").getPathString(), "");
+    scratch.file(moduleRoot.getRelative("repo+1.0/WORKSPACE").getPathString(), "");
     scratch.file(
-        moduleRoot.getRelative("repo~v1.0/a/BUILD").getPathString(), "exports_files(['x'])");
+        moduleRoot.getRelative("repo+1.0/a/BUILD").getPathString(), "exports_files(['x'])");
     invalidatePackages();
   }
 

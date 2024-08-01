@@ -2504,27 +2504,27 @@ public abstract class AbstractQueryTest<T> {
         ")");
     helper.addModule(
         ModuleKey.create("repo", Version.parse("1.0")), "module(name = 'repo', version = '1.0')");
-    writeFile(helper.getModuleRoot().getRelative("repo~v1.0/WORKSPACE").getPathString(), "");
+    writeFile(helper.getModuleRoot().getRelative("repo+1.0/WORKSPACE").getPathString(), "");
     writeFile(
-        helper.getModuleRoot().getRelative("repo~v1.0/a/BUILD").getPathString(),
+        helper.getModuleRoot().getRelative("repo+1.0/a/BUILD").getPathString(),
         "exports_files(['x', 'y', 'z'])",
         "sh_library(name = 'a_shar')");
     writeFile(
-        helper.getModuleRoot().getRelative("repo~v1.0/a/b/BUILD").getPathString(),
+        helper.getModuleRoot().getRelative("repo+1.0/a/b/BUILD").getPathString(),
         "exports_files(['p', 'q'])",
         "sh_library(name = 'a_b_shar')");
     RepositoryMapping mapping =
         RepositoryMapping.create(
-            ImmutableMap.of("my_repo", RepositoryName.create("repo~")), RepositoryName.MAIN);
+            ImmutableMap.of("my_repo", RepositoryName.create("repo+")), RepositoryName.MAIN);
     helper.setMainRepoTargetParser(mapping);
   }
 
-  protected static final String REPO_A_RULES = "@@repo~//a:a_shar";
-  protected static final String REPO_AB_RULES = "@@repo~//a/b:a_b_shar";
+  protected static final String REPO_A_RULES = "@@repo+//a:a_shar";
+  protected static final String REPO_AB_RULES = "@@repo+//a/b:a_b_shar";
   protected static final String REPO_AB_ALL =
-      "@@repo~//a/b:BUILD @@repo~//a/b:a_b_shar @@repo~//a/b:p @@repo~//a/b:q";
+      "@@repo+//a/b:BUILD @@repo+//a/b:a_b_shar @@repo+//a/b:p @@repo+//a/b:q";
   protected static final String REPO_A_ALL =
-      "@@repo~//a:BUILD @@repo~//a:a_shar @@repo~//a:x @@repo~//a:y @@repo~//a:z";
+      "@@repo+//a:BUILD @@repo+//a:a_shar @@repo+//a:x @@repo+//a:y @@repo+//a:z";
   protected static final String REPO_A_AB_RULES = REPO_AB_RULES + " " + REPO_A_RULES;
   protected static final String REPO_A_AB_ALL = REPO_AB_ALL + " " + REPO_A_ALL;
 

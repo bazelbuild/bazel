@@ -541,7 +541,7 @@ package_group(
     name = "allowed",
     packages = [
         "//__EXTERNAL_REPOS__/external_repo/...",
-        "//__EXTERNAL_REPOS__/external_repo~/...",
+        "//__EXTERNAL_REPOS__/external_repo+/...",
         "//__EXTERNAL_REPOS__/bazel_tools/...",
         ##"//tools/python/windows...",
     ],

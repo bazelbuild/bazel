@@ -387,17 +387,29 @@ EOF
 function test_path_stripping_cc_remote() {
   local -r pkg="${FUNCNAME[0]}"
 
+  cat > MODULE.bazel <<EOF
+bazel_dep(name = "apple_support", version = "1.15.1")
+EOF
+
   mkdir -p "$pkg"
   cat > "$pkg/BUILD" <<EOF
-load("//$pkg/common/utils:defs.bzl", "transition_wrapper")
+load("//$pkg/common/utils:defs.bzl", "gen_cc", "transition_wrapper")
 
 cc_binary(
     name = "main",
-    srcs = ["main.cc"],
+    srcs = [
+        "main.cc",
+        ":gen",
+    ],
     deps = [
         "//$pkg/lib1",
         "//$pkg/lib2",
     ],
+)
+
+gen_cc(
+    name = "gen",
+    subject = "TreeArtifact",
 )
 
 transition_wrapper(
@@ -408,12 +420,16 @@ transition_wrapper(
 EOF
   cat > "$pkg/main.cc" <<EOF
 #include <iostream>
+#include <string>
 #include "$pkg/lib1/lib1.h"
 #include "lib2.h"
+
+std::string TreeArtifactGreeting();
 
 int main() {
   std::cout << GetLib1Greeting() << std::endl;
   std::cout << GetLib2Greeting() << std::endl;
+  std::cout << TreeArtifactGreeting() << std::endl;
   return 0;
 }
 EOF
@@ -567,6 +583,34 @@ transition_wrapper = rule(
     },
     executable = True,
 )
+
+def _gen_cc_impl(ctx):
+    out = ctx.actions.declare_directory(ctx.label.name)
+    ctx.actions.run_shell(
+        outputs = [out],
+        command = """\
+cat >{out_path}/gen.cc <<EOF2
+#include <string>
+
+std::string TreeArtifactGreeting() {{
+  return "Hello, {subject}!";
+}}
+EOF2
+        """.format(
+            out_path = out.path,
+            subject = ctx.attr.subject,
+        ),
+    )
+    return [
+        DefaultInfo(files = depset([out])),
+    ]
+
+gen_cc = rule(
+    implementation = _gen_cc_impl,
+    attrs = {
+        "subject": attr.string(),
+    },
+)
 EOF
   cat > "$pkg/common/utils/utils.cc.tpl" <<'EOF'
 #include "utils.h"
@@ -586,6 +630,7 @@ EOF
 
   expect_log 'Hello, lib1!'
   expect_log 'Hello, lib2!'
+  expect_log 'Hello, TreeArtifact!'
   expect_not_log 'remote cache hit'
 
   bazel run \
@@ -598,9 +643,153 @@ EOF
 
   expect_log 'Hi there, lib1!'
   expect_log 'Hi there, lib2!'
+  expect_log 'Hello, TreeArtifact!'
   # Compilation actions for lib1, lib2 and main should result in cache hits due
   # to path stripping, utils is legitimately different and should not.
-  expect_log ' 3 remote cache hit'
+  expect_log ' 4 remote cache hit'
+}
+
+function test_path_stripping_action_key_not_stale_for_path_collision() {
+  mkdir rules
+  cat > rules/defs.bzl <<'EOF'
+LocationInfo = provider(fields = ["location"])
+
+def _location_setting_impl(ctx):
+    return LocationInfo(location = ctx.build_setting_value)
+
+location_setting = rule(
+    implementation = _location_setting_impl,
+    build_setting = config.string(),
+)
+
+def _location_transition_impl(settings, attr):
+    return {"//rules:location": attr.location}
+
+_location_transition = transition(
+    implementation = _location_transition_impl,
+    inputs = [],
+    outputs = ["//rules:location"],
+)
+
+def _bazelcon_greeting_impl(ctx):
+    file = ctx.actions.declare_file("greeting.txt")
+    content = "Hello, BazelCon {}!\n".format(ctx.attr.location)
+    ctx.actions.write(file, content)
+    return [
+        DefaultInfo(files = depset([file])),
+        LocationInfo(location = ctx.attr.location),
+    ]
+
+bazelcon_greeting = rule(
+    _bazelcon_greeting_impl,
+    cfg = _location_transition,
+    attrs = {
+        "location": attr.string(),
+    },
+)
+
+def _file_path(target):
+    return target[DefaultInfo].files.to_list()[0].path
+
+def _all_greetings_impl(ctx):
+    out = ctx.actions.declare_file(ctx.label.name)
+
+    targets = ctx.attr.greetings
+    if ctx.attr.sort:
+        targets = sorted(targets, key = lambda target: target[LocationInfo].location)
+
+    args = ctx.actions.args()
+    args.add(out)
+    args.add_all(targets, map_each = _file_path)
+
+    ctx.actions.run_shell(
+        inputs = depset(ctx.files.greetings),
+        outputs = [out],
+        arguments = [args],
+        command = "cat ${@:2} > $1",
+        execution_requirements = {"supports-path-mapping": ""},
+    )
+
+    return [DefaultInfo(files = depset([out]))]
+
+all_greetings = rule(
+    _all_greetings_impl,
+    attrs = {
+        "greetings": attr.label_list(allow_files = True),
+        "sort": attr.bool(),
+    },
+)
+EOF
+  cat > rules/BUILD << 'EOF'
+load("//rules:defs.bzl", "location_setting")
+
+location_setting(
+    name = "location",
+    build_setting_default = "",
+)
+EOF
+
+  mkdir -p pkg/greetings
+  cat > pkg/greetings/BUILD <<'EOF'
+load("//rules:defs.bzl", "bazelcon_greeting")
+bazelcon_greeting(
+    name = "munich",
+    location = "Munich",
+    visibility = ["//visibility:public"],
+)
+bazelcon_greeting(
+    name = "new_york",
+    location = "New York",
+    visibility = ["//visibility:public"],
+)
+bazelcon_greeting(
+    name = "mountain_view",
+    location = "Mountain View",
+    visibility = ["//visibility:public"],
+)
+EOF
+  cat > pkg/BUILD <<'EOF'
+load("//rules:defs.bzl", "all_greetings")
+all_greetings(
+    name = "all_greetings",
+    greetings = [
+        "//pkg/greetings:new_york",
+        "//pkg/greetings:munich",
+        "//pkg/greetings:mountain_view",
+    ],
+)
+EOF
+
+  bazel build pkg:all_greetings -s \
+    --experimental_output_paths=strip \
+    --remote_executor=grpc://localhost:${worker_port} \
+     &> $TEST_log || fail "run failed unexpectedly"
+  assert_equals "Hello, BazelCon New York!
+Hello, BazelCon Munich!
+Hello, BazelCon Mountain View!" "$(cat "$(bazel cquery --output=files //pkg:all_greetings)")"
+
+  # Change the action command line in a way that only affects the unstripped
+  # map_each output.
+  cat > pkg/BUILD <<'EOF'
+load("//rules:defs.bzl", "all_greetings")
+all_greetings(
+    name = "all_greetings",
+    greetings = [
+        "//pkg/greetings:new_york",
+        "//pkg/greetings:munich",
+        "//pkg/greetings:mountain_view",
+    ],
+    sort = True,
+)
+EOF
+
+  bazel build pkg:all_greetings \
+    --experimental_output_paths=strip \
+    --remote_executor=grpc://localhost:${worker_port} \
+     &> $TEST_log || fail "run failed unexpectedly"
+  assert_equals "Hello, BazelCon Mountain View!
+Hello, BazelCon Munich!
+Hello, BazelCon New York!" "$(cat "$(bazel cquery --output=files //pkg:all_greetings)")"
 }
 
 function test_path_stripping_deduplicated_action() {

@@ -123,8 +123,8 @@ public class StarlarkBazelModuleTest {
     assertThat(pomTags.get(0).getValue("pom_xmls"))
         .isEqualTo(
             StarlarkList.immutableOf(
-                Label.parseCanonical("@@foo~//:pom.xml"),
-                Label.parseCanonical("@@bar~//:pom.xml")));
+                Label.parseCanonical("@@foo+//:pom.xml"),
+                Label.parseCanonical("@@bar+//:pom.xml")));
   }
 
   @Test

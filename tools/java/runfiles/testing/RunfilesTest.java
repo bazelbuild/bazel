@@ -264,21 +264,21 @@ public final class RunfilesTest {
         tempFile(
             "foo.repo_mapping",
             ImmutableList.of(
-                ",config.json,config.json~1.2.3",
+                ",config.json,config.json+1.2.3",
                 ",my_module,_main",
-                ",my_protobuf,protobuf~3.19.2",
+                ",my_protobuf,protobuf+3.19.2",
                 ",my_workspace,_main",
-                "protobuf~3.19.2,config.json,config.json~1.2.3",
-                "protobuf~3.19.2,protobuf,protobuf~3.19.2"));
+                "protobuf+3.19.2,config.json,config.json+1.2.3",
+                "protobuf+3.19.2,protobuf,protobuf+3.19.2"));
     Path mf =
         tempFile(
             "foo.runfiles_manifest",
             ImmutableList.of(
                 "_repo_mapping " + rm,
                 "config.json /etc/config.json",
-                "protobuf~3.19.2/foo/runfile C:/Actual Path\\protobuf\\runfile",
+                "protobuf+3.19.2/foo/runfile C:/Actual Path\\protobuf\\runfile",
                 "_main/bar/runfile /the/path/./to/other//other runfile.txt",
-                "protobuf~3.19.2/bar/dir E:\\Actual Path\\Directory"));
+                "protobuf+3.19.2/bar/dir E:\\Actual Path\\Directory"));
     Runfiles r = Runfiles.createManifestBasedForTesting(mf.toString()).withSourceRepository("");
 
     assertThat(r.rlocation("my_module/bar/runfile"))
@@ -290,23 +290,23 @@ public final class RunfilesTest {
     assertThat(r.rlocation("my_protobuf/bar/dir")).isEqualTo("E:\\Actual Path\\Directory");
     assertThat(r.rlocation("my_protobuf/bar/dir/file"))
         .isEqualTo("E:\\Actual Path\\Directory/file");
-    assertThat(r.rlocation("my_protobuf/bar/dir/de eply/nes ted/fi~le"))
-        .isEqualTo("E:\\Actual Path\\Directory/de eply/nes ted/fi~le");
+    assertThat(r.rlocation("my_protobuf/bar/dir/de eply/nes ted/fi+le"))
+        .isEqualTo("E:\\Actual Path\\Directory/de eply/nes ted/fi+le");
 
     assertThat(r.rlocation("protobuf/foo/runfile")).isNull();
     assertThat(r.rlocation("protobuf/bar/dir")).isNull();
     assertThat(r.rlocation("protobuf/bar/dir/file")).isNull();
-    assertThat(r.rlocation("protobuf/bar/dir/dir/de eply/nes ted/fi~le")).isNull();
+    assertThat(r.rlocation("protobuf/bar/dir/dir/de eply/nes ted/fi+le")).isNull();
 
     assertThat(r.rlocation("_main/bar/runfile"))
         .isEqualTo("/the/path/./to/other//other runfile.txt");
-    assertThat(r.rlocation("protobuf~3.19.2/foo/runfile"))
+    assertThat(r.rlocation("protobuf+3.19.2/foo/runfile"))
         .isEqualTo("C:/Actual Path\\protobuf\\runfile");
-    assertThat(r.rlocation("protobuf~3.19.2/bar/dir")).isEqualTo("E:\\Actual Path\\Directory");
-    assertThat(r.rlocation("protobuf~3.19.2/bar/dir/file"))
+    assertThat(r.rlocation("protobuf+3.19.2/bar/dir")).isEqualTo("E:\\Actual Path\\Directory");
+    assertThat(r.rlocation("protobuf+3.19.2/bar/dir/file"))
         .isEqualTo("E:\\Actual Path\\Directory/file");
-    assertThat(r.rlocation("protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le"))
-        .isEqualTo("E:\\Actual Path\\Directory/de eply/nes  ted/fi~le");
+    assertThat(r.rlocation("protobuf+3.19.2/bar/dir/de eply/nes  ted/fi+le"))
+        .isEqualTo("E:\\Actual Path\\Directory/de eply/nes  ted/fi+le");
 
     assertThat(r.rlocation("config.json")).isEqualTo("/etc/config.json");
     assertThat(r.rlocation("_main")).isNull();
@@ -320,21 +320,21 @@ public final class RunfilesTest {
         tempFile(
             "foo.repo_mapping",
             ImmutableList.of(
-                ",config.json,config.json~1.2.3",
+                ",config.json,config.json+1.2.3",
                 ",my_module,_main",
-                ",my_protobuf,protobuf~3.19.2",
+                ",my_protobuf,protobuf+3.19.2",
                 ",my_workspace,_main",
-                "protobuf~3.19.2,config.json,config.json~1.2.3",
-                "protobuf~3.19.2,protobuf,protobuf~3.19.2"));
+                "protobuf+3.19.2,config.json,config.json+1.2.3",
+                "protobuf+3.19.2,protobuf,protobuf+3.19.2"));
     Path mf =
         tempFile(
             "foo.runfiles_manifest",
             ImmutableList.of(
                 "_repo_mapping " + rm,
                 "config.json /etc/config.json",
-                "protobuf~3.19.2/foo/runfile C:/Actual Path\\protobuf\\runfile",
+                "protobuf+3.19.2/foo/runfile C:/Actual Path\\protobuf\\runfile",
                 "_main/bar/runfile /the/path/./to/other//other runfile.txt",
-                "protobuf~3.19.2/bar/dir E:\\Actual Path\\Directory"));
+                "protobuf+3.19.2/bar/dir E:\\Actual Path\\Directory"));
     Runfiles r = Runfiles.createManifestBasedForTesting(mf.toString()).unmapped();
 
     assertThat(r.rlocation("my_module/bar/runfile")).isNull();
@@ -342,22 +342,22 @@ public final class RunfilesTest {
     assertThat(r.rlocation("my_protobuf/foo/runfile")).isNull();
     assertThat(r.rlocation("my_protobuf/bar/dir")).isNull();
     assertThat(r.rlocation("my_protobuf/bar/dir/file")).isNull();
-    assertThat(r.rlocation("my_protobuf/bar/dir/de eply/nes ted/fi~le")).isNull();
+    assertThat(r.rlocation("my_protobuf/bar/dir/de eply/nes ted/fi+le")).isNull();
 
     assertThat(r.rlocation("protobuf/foo/runfile")).isNull();
     assertThat(r.rlocation("protobuf/bar/dir")).isNull();
     assertThat(r.rlocation("protobuf/bar/dir/file")).isNull();
-    assertThat(r.rlocation("protobuf/bar/dir/dir/de eply/nes ted/fi~le")).isNull();
+    assertThat(r.rlocation("protobuf/bar/dir/dir/de eply/nes ted/fi+le")).isNull();
 
     assertThat(r.rlocation("_main/bar/runfile"))
         .isEqualTo("/the/path/./to/other//other runfile.txt");
-    assertThat(r.rlocation("protobuf~3.19.2/foo/runfile"))
+    assertThat(r.rlocation("protobuf+3.19.2/foo/runfile"))
         .isEqualTo("C:/Actual Path\\protobuf\\runfile");
-    assertThat(r.rlocation("protobuf~3.19.2/bar/dir")).isEqualTo("E:\\Actual Path\\Directory");
-    assertThat(r.rlocation("protobuf~3.19.2/bar/dir/file"))
+    assertThat(r.rlocation("protobuf+3.19.2/bar/dir")).isEqualTo("E:\\Actual Path\\Directory");
+    assertThat(r.rlocation("protobuf+3.19.2/bar/dir/file"))
         .isEqualTo("E:\\Actual Path\\Directory/file");
-    assertThat(r.rlocation("protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le"))
-        .isEqualTo("E:\\Actual Path\\Directory/de eply/nes  ted/fi~le");
+    assertThat(r.rlocation("protobuf+3.19.2/bar/dir/de eply/nes  ted/fi+le"))
+        .isEqualTo("E:\\Actual Path\\Directory/de eply/nes  ted/fi+le");
 
     assertThat(r.rlocation("config.json")).isEqualTo("/etc/config.json");
     assertThat(r.rlocation("_main")).isNull();
@@ -371,46 +371,46 @@ public final class RunfilesTest {
         tempFile(
             "foo.repo_mapping",
             ImmutableList.of(
-                ",config.json,config.json~1.2.3",
+                ",config.json,config.json+1.2.3",
                 ",my_module,_main",
-                ",my_protobuf,protobuf~3.19.2",
+                ",my_protobuf,protobuf+3.19.2",
                 ",my_workspace,_main",
-                "protobuf~3.19.2,config.json,config.json~1.2.3",
-                "protobuf~3.19.2,protobuf,protobuf~3.19.2"));
+                "protobuf+3.19.2,config.json,config.json+1.2.3",
+                "protobuf+3.19.2,protobuf,protobuf+3.19.2"));
     Path mf =
         tempFile(
             "foo.runfiles/MANIFEST",
             ImmutableList.of(
                 "_repo_mapping " + rm,
                 "config.json /etc/config.json",
-                "protobuf~3.19.2/foo/runfile C:/Actual Path\\protobuf\\runfile",
+                "protobuf+3.19.2/foo/runfile C:/Actual Path\\protobuf\\runfile",
                 "_main/bar/runfile /the/path/./to/other//other runfile.txt",
-                "protobuf~3.19.2/bar/dir E:\\Actual Path\\Directory"));
+                "protobuf+3.19.2/bar/dir E:\\Actual Path\\Directory"));
     Runfiles r =
         Runfiles.createManifestBasedForTesting(mf.toString())
-            .withSourceRepository("protobuf~3.19.2");
+            .withSourceRepository("protobuf+3.19.2");
 
     assertThat(r.rlocation("protobuf/foo/runfile")).isEqualTo("C:/Actual Path\\protobuf\\runfile");
     assertThat(r.rlocation("protobuf/bar/dir")).isEqualTo("E:\\Actual Path\\Directory");
     assertThat(r.rlocation("protobuf/bar/dir/file")).isEqualTo("E:\\Actual Path\\Directory/file");
-    assertThat(r.rlocation("protobuf/bar/dir/de eply/nes  ted/fi~le"))
-        .isEqualTo("E:\\Actual Path\\Directory/de eply/nes  ted/fi~le");
+    assertThat(r.rlocation("protobuf/bar/dir/de eply/nes  ted/fi+le"))
+        .isEqualTo("E:\\Actual Path\\Directory/de eply/nes  ted/fi+le");
 
     assertThat(r.rlocation("my_module/bar/runfile")).isNull();
     assertThat(r.rlocation("my_protobuf/foo/runfile")).isNull();
     assertThat(r.rlocation("my_protobuf/bar/dir")).isNull();
     assertThat(r.rlocation("my_protobuf/bar/dir/file")).isNull();
-    assertThat(r.rlocation("my_protobuf/bar/dir/de eply/nes  ted/fi~le")).isNull();
+    assertThat(r.rlocation("my_protobuf/bar/dir/de eply/nes  ted/fi+le")).isNull();
 
     assertThat(r.rlocation("_main/bar/runfile"))
         .isEqualTo("/the/path/./to/other//other runfile.txt");
-    assertThat(r.rlocation("protobuf~3.19.2/foo/runfile"))
+    assertThat(r.rlocation("protobuf+3.19.2/foo/runfile"))
         .isEqualTo("C:/Actual Path\\protobuf\\runfile");
-    assertThat(r.rlocation("protobuf~3.19.2/bar/dir")).isEqualTo("E:\\Actual Path\\Directory");
-    assertThat(r.rlocation("protobuf~3.19.2/bar/dir/file"))
+    assertThat(r.rlocation("protobuf+3.19.2/bar/dir")).isEqualTo("E:\\Actual Path\\Directory");
+    assertThat(r.rlocation("protobuf+3.19.2/bar/dir/file"))
         .isEqualTo("E:\\Actual Path\\Directory/file");
-    assertThat(r.rlocation("protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le"))
-        .isEqualTo("E:\\Actual Path\\Directory/de eply/nes  ted/fi~le");
+    assertThat(r.rlocation("protobuf+3.19.2/bar/dir/de eply/nes  ted/fi+le"))
+        .isEqualTo("E:\\Actual Path\\Directory/de eply/nes  ted/fi+le");
 
     assertThat(r.rlocation("config.json")).isEqualTo("/etc/config.json");
     assertThat(r.rlocation("_main")).isNull();
@@ -425,36 +425,36 @@ public final class RunfilesTest {
         tempFile(
             dir.resolve("_repo_mapping").toString(),
             ImmutableList.of(
-                ",config.json,config.json~1.2.3",
+                ",config.json,config.json+1.2.3",
                 ",my_module,_main",
-                ",my_protobuf,protobuf~3.19.2",
+                ",my_protobuf,protobuf+3.19.2",
                 ",my_workspace,_main",
-                "protobuf~3.19.2,config.json,config.json~1.2.3",
-                "protobuf~3.19.2,protobuf,protobuf~3.19.2"));
+                "protobuf+3.19.2,config.json,config.json+1.2.3",
+                "protobuf+3.19.2,protobuf,protobuf+3.19.2"));
     Runfiles r = Runfiles.createDirectoryBasedForTesting(dir.toString()).withSourceRepository("");
 
     assertThat(r.rlocation("my_module/bar/runfile")).isEqualTo(dir + "/_main/bar/runfile");
     assertThat(r.rlocation("my_workspace/bar/runfile")).isEqualTo(dir + "/_main/bar/runfile");
     assertThat(r.rlocation("my_protobuf/foo/runfile"))
-        .isEqualTo(dir + "/protobuf~3.19.2/foo/runfile");
-    assertThat(r.rlocation("my_protobuf/bar/dir")).isEqualTo(dir + "/protobuf~3.19.2/bar/dir");
+        .isEqualTo(dir + "/protobuf+3.19.2/foo/runfile");
+    assertThat(r.rlocation("my_protobuf/bar/dir")).isEqualTo(dir + "/protobuf+3.19.2/bar/dir");
     assertThat(r.rlocation("my_protobuf/bar/dir/file"))
-        .isEqualTo(dir + "/protobuf~3.19.2/bar/dir/file");
-    assertThat(r.rlocation("my_protobuf/bar/dir/de eply/nes ted/fi~le"))
-        .isEqualTo(dir + "/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le");
+        .isEqualTo(dir + "/protobuf+3.19.2/bar/dir/file");
+    assertThat(r.rlocation("my_protobuf/bar/dir/de eply/nes ted/fi+le"))
+        .isEqualTo(dir + "/protobuf+3.19.2/bar/dir/de eply/nes ted/fi+le");
 
     assertThat(r.rlocation("protobuf/foo/runfile")).isEqualTo(dir + "/protobuf/foo/runfile");
-    assertThat(r.rlocation("protobuf/bar/dir/dir/de eply/nes ted/fi~le"))
-        .isEqualTo(dir + "/protobuf/bar/dir/dir/de eply/nes ted/fi~le");
+    assertThat(r.rlocation("protobuf/bar/dir/dir/de eply/nes ted/fi+le"))
+        .isEqualTo(dir + "/protobuf/bar/dir/dir/de eply/nes ted/fi+le");
 
     assertThat(r.rlocation("_main/bar/runfile")).isEqualTo(dir + "/_main/bar/runfile");
-    assertThat(r.rlocation("protobuf~3.19.2/foo/runfile"))
-        .isEqualTo(dir + "/protobuf~3.19.2/foo/runfile");
-    assertThat(r.rlocation("protobuf~3.19.2/bar/dir")).isEqualTo(dir + "/protobuf~3.19.2/bar/dir");
-    assertThat(r.rlocation("protobuf~3.19.2/bar/dir/file"))
-        .isEqualTo(dir + "/protobuf~3.19.2/bar/dir/file");
-    assertThat(r.rlocation("protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le"))
-        .isEqualTo(dir + "/protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le");
+    assertThat(r.rlocation("protobuf+3.19.2/foo/runfile"))
+        .isEqualTo(dir + "/protobuf+3.19.2/foo/runfile");
+    assertThat(r.rlocation("protobuf+3.19.2/bar/dir")).isEqualTo(dir + "/protobuf+3.19.2/bar/dir");
+    assertThat(r.rlocation("protobuf+3.19.2/bar/dir/file"))
+        .isEqualTo(dir + "/protobuf+3.19.2/bar/dir/file");
+    assertThat(r.rlocation("protobuf+3.19.2/bar/dir/de eply/nes  ted/fi+le"))
+        .isEqualTo(dir + "/protobuf+3.19.2/bar/dir/de eply/nes  ted/fi+le");
 
     assertThat(r.rlocation("config.json")).isEqualTo(dir + "/config.json");
   }
@@ -466,12 +466,12 @@ public final class RunfilesTest {
         tempFile(
             dir.resolve("_repo_mapping").toString(),
             ImmutableList.of(
-                ",config.json,config.json~1.2.3",
+                ",config.json,config.json+1.2.3",
                 ",my_module,_main",
-                ",my_protobuf,protobuf~3.19.2",
+                ",my_protobuf,protobuf+3.19.2",
                 ",my_workspace,_main",
-                "protobuf~3.19.2,config.json,config.json~1.2.3",
-                "protobuf~3.19.2,protobuf,protobuf~3.19.2"));
+                "protobuf+3.19.2,config.json,config.json+1.2.3",
+                "protobuf+3.19.2,protobuf,protobuf+3.19.2"));
     Runfiles r = Runfiles.createDirectoryBasedForTesting(dir.toString()).unmapped();
 
     assertThat(r.rlocation("my_module/bar/runfile")).isEqualTo(dir + "/my_module/bar/runfile");
@@ -481,21 +481,21 @@ public final class RunfilesTest {
     assertThat(r.rlocation("my_protobuf/bar/dir")).isEqualTo(dir + "/my_protobuf/bar/dir");
     assertThat(r.rlocation("my_protobuf/bar/dir/file"))
         .isEqualTo(dir + "/my_protobuf/bar/dir/file");
-    assertThat(r.rlocation("my_protobuf/bar/dir/de eply/nes ted/fi~le"))
-        .isEqualTo(dir + "/my_protobuf/bar/dir/de eply/nes ted/fi~le");
+    assertThat(r.rlocation("my_protobuf/bar/dir/de eply/nes ted/fi+le"))
+        .isEqualTo(dir + "/my_protobuf/bar/dir/de eply/nes ted/fi+le");
 
     assertThat(r.rlocation("protobuf/foo/runfile")).isEqualTo(dir + "/protobuf/foo/runfile");
-    assertThat(r.rlocation("protobuf/bar/dir/dir/de eply/nes ted/fi~le"))
-        .isEqualTo(dir + "/protobuf/bar/dir/dir/de eply/nes ted/fi~le");
+    assertThat(r.rlocation("protobuf/bar/dir/dir/de eply/nes ted/fi+le"))
+        .isEqualTo(dir + "/protobuf/bar/dir/dir/de eply/nes ted/fi+le");
 
     assertThat(r.rlocation("_main/bar/runfile")).isEqualTo(dir + "/_main/bar/runfile");
-    assertThat(r.rlocation("protobuf~3.19.2/foo/runfile"))
-        .isEqualTo(dir + "/protobuf~3.19.2/foo/runfile");
-    assertThat(r.rlocation("protobuf~3.19.2/bar/dir")).isEqualTo(dir + "/protobuf~3.19.2/bar/dir");
-    assertThat(r.rlocation("protobuf~3.19.2/bar/dir/file"))
-        .isEqualTo(dir + "/protobuf~3.19.2/bar/dir/file");
-    assertThat(r.rlocation("protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le"))
-        .isEqualTo(dir + "/protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le");
+    assertThat(r.rlocation("protobuf+3.19.2/foo/runfile"))
+        .isEqualTo(dir + "/protobuf+3.19.2/foo/runfile");
+    assertThat(r.rlocation("protobuf+3.19.2/bar/dir")).isEqualTo(dir + "/protobuf+3.19.2/bar/dir");
+    assertThat(r.rlocation("protobuf+3.19.2/bar/dir/file"))
+        .isEqualTo(dir + "/protobuf+3.19.2/bar/dir/file");
+    assertThat(r.rlocation("protobuf+3.19.2/bar/dir/de eply/nes  ted/fi+le"))
+        .isEqualTo(dir + "/protobuf+3.19.2/bar/dir/de eply/nes  ted/fi+le");
 
     assertThat(r.rlocation("config.json")).isEqualTo(dir + "/config.json");
   }
@@ -507,35 +507,35 @@ public final class RunfilesTest {
         tempFile(
             dir.resolve("_repo_mapping").toString(),
             ImmutableList.of(
-                ",config.json,config.json~1.2.3",
+                ",config.json,config.json+1.2.3",
                 ",my_module,_main",
-                ",my_protobuf,protobuf~3.19.2",
+                ",my_protobuf,protobuf+3.19.2",
                 ",my_workspace,_main",
-                "protobuf~3.19.2,config.json,config.json~1.2.3",
-                "protobuf~3.19.2,protobuf,protobuf~3.19.2"));
+                "protobuf+3.19.2,config.json,config.json+1.2.3",
+                "protobuf+3.19.2,protobuf,protobuf+3.19.2"));
     Runfiles r =
         Runfiles.createDirectoryBasedForTesting(dir.toString())
-            .withSourceRepository("protobuf~3.19.2");
+            .withSourceRepository("protobuf+3.19.2");
 
-    assertThat(r.rlocation("protobuf/foo/runfile")).isEqualTo(dir + "/protobuf~3.19.2/foo/runfile");
-    assertThat(r.rlocation("protobuf/bar/dir")).isEqualTo(dir + "/protobuf~3.19.2/bar/dir");
+    assertThat(r.rlocation("protobuf/foo/runfile")).isEqualTo(dir + "/protobuf+3.19.2/foo/runfile");
+    assertThat(r.rlocation("protobuf/bar/dir")).isEqualTo(dir + "/protobuf+3.19.2/bar/dir");
     assertThat(r.rlocation("protobuf/bar/dir/file"))
-        .isEqualTo(dir + "/protobuf~3.19.2/bar/dir/file");
-    assertThat(r.rlocation("protobuf/bar/dir/de eply/nes  ted/fi~le"))
-        .isEqualTo(dir + "/protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le");
+        .isEqualTo(dir + "/protobuf+3.19.2/bar/dir/file");
+    assertThat(r.rlocation("protobuf/bar/dir/de eply/nes  ted/fi+le"))
+        .isEqualTo(dir + "/protobuf+3.19.2/bar/dir/de eply/nes  ted/fi+le");
 
     assertThat(r.rlocation("my_module/bar/runfile")).isEqualTo(dir + "/my_module/bar/runfile");
-    assertThat(r.rlocation("my_protobuf/bar/dir/de eply/nes  ted/fi~le"))
-        .isEqualTo(dir + "/my_protobuf/bar/dir/de eply/nes  ted/fi~le");
+    assertThat(r.rlocation("my_protobuf/bar/dir/de eply/nes  ted/fi+le"))
+        .isEqualTo(dir + "/my_protobuf/bar/dir/de eply/nes  ted/fi+le");
 
     assertThat(r.rlocation("_main/bar/runfile")).isEqualTo(dir + "/_main/bar/runfile");
-    assertThat(r.rlocation("protobuf~3.19.2/foo/runfile"))
-        .isEqualTo(dir + "/protobuf~3.19.2/foo/runfile");
-    assertThat(r.rlocation("protobuf~3.19.2/bar/dir")).isEqualTo(dir + "/protobuf~3.19.2/bar/dir");
-    assertThat(r.rlocation("protobuf~3.19.2/bar/dir/file"))
-        .isEqualTo(dir + "/protobuf~3.19.2/bar/dir/file");
-    assertThat(r.rlocation("protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le"))
-        .isEqualTo(dir + "/protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le");
+    assertThat(r.rlocation("protobuf+3.19.2/foo/runfile"))
+        .isEqualTo(dir + "/protobuf+3.19.2/foo/runfile");
+    assertThat(r.rlocation("protobuf+3.19.2/bar/dir")).isEqualTo(dir + "/protobuf+3.19.2/bar/dir");
+    assertThat(r.rlocation("protobuf+3.19.2/bar/dir/file"))
+        .isEqualTo(dir + "/protobuf+3.19.2/bar/dir/file");
+    assertThat(r.rlocation("protobuf+3.19.2/bar/dir/de eply/nes  ted/fi+le"))
+        .isEqualTo(dir + "/protobuf+3.19.2/bar/dir/de eply/nes  ted/fi+le");
 
     assertThat(r.rlocation("config.json")).isEqualTo(dir + "/config.json");
   }

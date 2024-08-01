@@ -201,7 +201,7 @@ public class BuildConfigurationKeyProducer<C>
   private BuildConfigurationKey applyFlagsForOptions(BuildOptions options)
       throws OptionsParsingException {
     // Does the target platform provide any flags?
-    if (this.platformFlags != null) {
+    if (this.platformFlags != null && !this.platformFlags.isEmpty()) {
       OptionsParsingResult parsingResult = platformFlags.parse();
       BuildOptions updatedOptions = options.applyParsingResult(parsingResult);
       return BuildConfigurationKey.create(updatedOptions);

@@ -191,7 +191,7 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
         )
         """);
 
-    // Files under //somewhere/else will be included because of this PROJECT.scl file.
+    // Files under //somewhere/else will be not because of this PROJECT.scl file.
     write(
         "hello/PROJECT.scl",
         """
@@ -209,6 +209,54 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     assertContainsEvent("automatically deriving working set");
     assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
         .containsExactly("somewhere/else", "somewhere/else/BUILD", "somewhere/else/file.txt");
+  }
+
+  @Test
+  public void workingSet_projectFileCanHandleExcludedDirectories() throws Exception {
+    addOptions("--experimental_enable_scl_dialect");
+
+    write("hello/x.txt", "x");
+    write("hello/world/y.txt", "y");
+    write("hello/world/again/z.txt", "z");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt", "world/y.txt", "world/again/z.txt", "//somewhere/else:files"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    write(
+        "hello/PROJECT.scl",
+        """
+        owned_code_paths = [
+          "hello", # included
+          "-hello/world", # excluded
+          "hello/world/again", # included
+          "-somewhere/else", # excluded
+        ]
+        """);
+
+    write("somewhere/else/file.txt", "some content");
+    write(
+        "somewhere/else/BUILD",
+        """
+        filegroup(name = "files", srcs = ["file.txt"])
+        """);
+
+    buildTarget("//hello:target");
+    assertContainsEvent("automatically deriving working set");
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly(
+            "hello",
+            "hello/PROJECT.scl",
+            "hello/BUILD",
+            "hello/x.txt",
+            "hello/world/again",
+            "hello/world/again/z.txt");
   }
 
   @Test

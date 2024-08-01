@@ -381,13 +381,13 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
   @Test
   public void testBadYankedVersionFormat() throws Exception {
     setupModulesForYankedVersion();
-    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of("b~1.0"));
+    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of("b+1.0"));
     EvaluationResult<BazelModuleResolutionValue> result =
         evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError().toString())
         .contains(
-            "Parsing command line flag --allow_yanked_versions=b~1.0 failed, module versions must"
+            "Parsing command line flag --allow_yanked_versions=b+1.0 failed, module versions must"
                 + " be of the form '<module name>@<version>'");
   }
 

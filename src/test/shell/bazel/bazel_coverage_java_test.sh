@@ -33,7 +33,7 @@ override_java_tools "${RULES_JAVA_REPO_NAME}" "${JAVA_TOOLS_ZIP}" "${JAVA_TOOLS_
 COVERAGE_GENERATOR_WORKSPACE_FILE="$1"; shift
 if [[ "${COVERAGE_GENERATOR_WORKSPACE_FILE}" != "released" ]]; then
   COVERAGE_GENERATOR_DIR="$(dirname "$(rlocation $COVERAGE_GENERATOR_WORKSPACE_FILE)")"
-  add_to_bazelrc "build --override_repository=bazel_tools~remote_coverage_tools_extension~remote_coverage_tools=${COVERAGE_GENERATOR_DIR}"
+  add_to_bazelrc "build --override_repository=bazel_tools+remote_coverage_tools_extension+remote_coverage_tools=${COVERAGE_GENERATOR_DIR}"
 fi
 
 if [[ $# -gt 0 ]]; then

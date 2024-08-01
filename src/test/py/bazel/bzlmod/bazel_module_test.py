@@ -271,8 +271,10 @@ class BazelModuleTest(test_base.TestBase):
                                          allow_failure=True)
     self.AssertExitCode(exit_code, 48, stderr)
     self.assertIn(
-        "ERROR: <builtin>: //pkg:_main~module_ext~foo: no such attribute 'invalid_attr' in 'repo_rule' rule",
-        stderr)
+        'ERROR: <builtin>: //pkg:+module_ext+foo: no such attribute'
+        " 'invalid_attr' in 'repo_rule' rule",
+        stderr,
+    )
     self.assertTrue(
         any([
             '/pkg/extension.bzl", line 3, column 14, in _module_ext_impl'
@@ -424,10 +426,10 @@ class BazelModuleTest(test_base.TestBase):
 
     _, _, stderr = self.RunBazel(['build', '@bar//quux:book'])
     stderr = '\n'.join(stderr)
-    self.assertIn('1st: @@bar~//quux:bleb', stderr)
-    self.assertIn('2nd: @@bar~//bleb:bleb', stderr)
+    self.assertIn('1st: @@bar+//quux:bleb', stderr)
+    self.assertIn('2nd: @@bar+//bleb:bleb', stderr)
     self.assertIn('3rd: @@//bleb:bleb', stderr)
-    self.assertIn('4th: @@bar~//bleb:bleb', stderr)
+    self.assertIn('4th: @@bar+//bleb:bleb', stderr)
     self.assertIn('5th: @@bleb//bleb:bleb', stderr)
     self.assertIn('6th: @@//bleb:bleb', stderr)
 
@@ -471,10 +473,10 @@ class BazelModuleTest(test_base.TestBase):
     stderr = '\n'.join(stderr)
     # @bar is mapped to @@baz, which Bzlmod doesn't recognize, so we leave it be
     self.assertIn('1st: @@baz//:z', stderr)
-    # @my_aaa is mapped to @@aaa, which Bzlmod remaps to @@aaa~
-    self.assertIn('2nd: @@aaa~//:z', stderr)
-    # @bbb isn't mapped in WORKSPACE, but Bzlmod maps it to @@bbb~
-    self.assertIn('3rd: @@bbb~//:z', stderr)
+    # @my_aaa is mapped to @@aaa, which Bzlmod remaps to @@aaa+
+    self.assertIn('2nd: @@aaa+//:z', stderr)
+    # @bbb isn't mapped in WORKSPACE, but Bzlmod maps it to @@bbb+
+    self.assertIn('3rd: @@bbb+//:z', stderr)
     # @blarg isn't mapped by WORKSPACE or Bzlmod
     self.assertIn('4th: @@blarg//:z', stderr)
 
@@ -664,9 +666,9 @@ class BazelModuleTest(test_base.TestBase):
     )
     stderr = '\n'.join(stderr)
     self.assertIn('@@ reporting in: root@0.1', stderr)
-    self.assertIn('@@foo~ reporting in: foo@1.0', stderr)
-    self.assertIn('@@foo~~report_ext~report_repo reporting in: foo@1.0', stderr)
-    self.assertIn('@@bar~ reporting in: bar@2.0', stderr)
+    self.assertIn('@@foo+ reporting in: foo@1.0', stderr)
+    self.assertIn('@@foo++report_ext+report_repo reporting in: foo@1.0', stderr)
+    self.assertIn('@@bar+ reporting in: bar@2.0', stderr)
     self.assertIn('@@quux reporting in: None@None', stderr)
 
   def testWorkspaceToolchainRegistrationWithPlatformsConstraint(self):
@@ -812,7 +814,7 @@ class BazelModuleTest(test_base.TestBase):
     )
     self.ScratchFile('hello/MODULE.bazel', ['wat'])
     _, _, stderr = self.RunBazel(['build', '@what'], allow_failure=True)
-    self.assertIn('ERROR: @@hello~//:MODULE.bazel', '\n'.join(stderr))
+    self.assertIn('ERROR: @@hello+//:MODULE.bazel', '\n'.join(stderr))
 
   def testLoadRulesJavaSymbolThroughBazelTools(self):
     """Tests that loads from @bazel_tools that delegate to other modules resolve."""

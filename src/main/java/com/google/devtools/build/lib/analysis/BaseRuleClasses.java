@@ -255,8 +255,21 @@ public class BaseRuleClasses {
                   .value(
                       coverageReportGeneratorAttribute(
                           env.getToolsLabel(DEFAULT_COVERAGE_REPORT_GENERATOR_VALUE))))
-          // The target itself and run_under both run on the same machine.
-          .add(attr(":run_under", LABEL).value(RUN_UNDER).skipPrereqValidatorCheck());
+          // --run_under targets always run on exec machines:
+          //   * For "$ bazel run", they run directly on the machine running bazel.
+          //   * For "$ bazel test", they run on the build machine that executes tests.
+          //
+          // This may be different than the target platform. For example, if testing embedded device
+          // code where the test runner's job is to upload the target binary to the embedded device.
+          //
+          // TODO: https://github.com/bazelbuild/bazel/discussions/21805 Setting cfg() here makes
+          // this work for "$ bazel test" but not "$ bazel run". Make this work for "$ bazel run"
+          // by updating RunCommand.java to self-transition --run_under to the exec configuration.
+          .add(
+              attr(":run_under", LABEL)
+                  .cfg(ExecutionTransitionFactory.createFactory())
+                  .value(RUN_UNDER)
+                  .skipPrereqValidatorCheck());
 
       env.getNetworkAllowlistForTests()
           .ifPresent(

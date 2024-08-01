@@ -107,9 +107,9 @@ class BazelFetchTest(test_base.TestBase):
     self.RunBazel(['fetch'])
     _, stdout, _ = self.RunBazel(['info', 'output_base'])
     repos_fetched = os.listdir(stdout[0] + '/external')
-    self.assertIn('aaa~', repos_fetched)
-    self.assertIn('bbb~', repos_fetched)
-    self.assertIn('_main~ext~hello', repos_fetched)
+    self.assertIn('aaa+', repos_fetched)
+    self.assertIn('bbb+', repos_fetched)
+    self.assertIn('+ext+hello', repos_fetched)
 
   def testFetchConfig(self):
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
@@ -147,9 +147,9 @@ class BazelFetchTest(test_base.TestBase):
     self.RunBazel(['fetch', '--configure'])
     _, stdout, _ = self.RunBazel(['info', 'output_base'])
     repos_fetched = os.listdir(stdout[0] + '/external')
-    self.assertNotIn('aaa~', repos_fetched)
-    self.assertNotIn('_main~ext~notConfig', repos_fetched)
-    self.assertIn('_main~ext~IamConfig', repos_fetched)
+    self.assertNotIn('aaa+', repos_fetched)
+    self.assertNotIn('+ext+notConfig', repos_fetched)
+    self.assertIn('+ext+IamConfig', repos_fetched)
 
   def testFetchFailsWithMultipleOptions(self):
     exit_code, _, stderr = self.RunBazel(
@@ -185,12 +185,12 @@ class BazelFetchTest(test_base.TestBase):
     )
     self.ScratchFile('BUILD')
     # Test canonical/apparent repo names & multiple repos
-    self.RunBazel(['fetch', '--repo=@@bbb~', '--repo=@my_repo'])
+    self.RunBazel(['fetch', '--repo=@@bbb+', '--repo=@my_repo'])
     _, stdout, _ = self.RunBazel(['info', 'output_base'])
     repos_fetched = os.listdir(stdout[0] + '/external')
-    self.assertIn('bbb~', repos_fetched)
-    self.assertIn('ccc~', repos_fetched)
-    self.assertNotIn('aaa~', repos_fetched)
+    self.assertIn('bbb+', repos_fetched)
+    self.assertIn('ccc+', repos_fetched)
+    self.assertNotIn('aaa+', repos_fetched)
 
   def testFetchInvalidRepo(self):
     # Invalid repo name (not canonical or apparent)

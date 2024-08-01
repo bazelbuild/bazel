@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
-import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Options;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
@@ -287,17 +286,8 @@ public final class AnalysisTestUtil {
     }
   }
 
-  /** A WorkspaceStatusAction.Context that has no stable keys and no volatile keys. */
+  /** A {@link WorkspaceStatusAction.Context} that does not support any operations. */
   public static class DummyWorkspaceStatusActionContext implements WorkspaceStatusAction.Context {
-    @Override
-    public ImmutableMap<String, Key> getStableKeys() {
-      return ImmutableMap.of();
-    }
-
-    @Override
-    public ImmutableMap<String, Key> getVolatileKeys() {
-      return ImmutableMap.of();
-    }
 
     @Override
     public Options getOptions() {
@@ -412,7 +402,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public ImmutableMap<String, Object> getStarlarkDefinedBuiltins() throws InterruptedException {
+    public ImmutableMap<String, Object> getStarlarkDefinedBuiltins() {
       return null;
     }
 

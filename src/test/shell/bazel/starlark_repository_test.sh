@@ -2673,7 +2673,7 @@ module(name="bar")
 EOF
 
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
-  expect_log "I see: @@foo~//:data"
+  expect_log "I see: @@foo+//:data"
 
   # So far, so good. Now we make `@data` point to bar instead!
   cat > MODULE.bazel <<EOF
@@ -2686,7 +2686,7 @@ local_path_override(module_name="bar", path="bar")
 EOF
   # for the repo `r`, nothing except the repo mapping has changed.
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
-  expect_log "I see: @@bar~//:data"
+  expect_log "I see: @@bar+//:data"
 }
 
 function test_repo_mapping_change_in_bzl_init() {
@@ -2720,7 +2720,7 @@ module(name="bar")
 EOF
 
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
-  expect_log "I see: @@foo~//:data"
+  expect_log "I see: @@foo+//:data"
 
   # So far, so good. Now we make `@data` point to bar instead!
   cat > MODULE.bazel <<EOF
@@ -2733,7 +2733,7 @@ local_path_override(module_name="bar", path="bar")
 EOF
   # for the repo `r`, nothing except the repo mapping has changed.
   bazel build @r >& $TEST_log || fail "expected bazel to succeed"
-  expect_log "I see: @@bar~//:data"
+  expect_log "I see: @@bar+//:data"
 }
 
 function test_file_watching_inside_working_dir() {
@@ -2873,7 +2873,7 @@ EOF
 def _foo(rctx):
   rctx.file("BUILD", "filegroup(name='foo')")
   # this repo might not have been defined yet
-  rctx.watch("../_main~_repo_rules~bar/BUILD")
+  rctx.watch("../+_repo_rules+bar/BUILD")
   print("I see something!")
 foo=repository_rule(_foo)
 EOF
@@ -2881,7 +2881,7 @@ EOF
   bazel build @foo >& $TEST_log || fail "expected bazel to succeed"
   expect_log "I see something!"
 
-  # Defining @@_main~_repo_rules~bar should now cause @foo to refetch.
+  # Defining @@+_repo_rules+bar should now cause @foo to refetch.
   cat >> MODULE.bazel <<EOF
 bar = use_repo_rule("//:bar.bzl", "bar")
 bar(name = "bar")

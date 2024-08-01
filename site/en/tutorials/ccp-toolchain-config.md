@@ -67,7 +67,7 @@ Set up your build environment as follows:
     ```bash
     bazel build //main:hello-world --toolchain_resolution_debug='@bazel_tools//tools/cpp:toolchain_type'
 
-    INFO: ToolchainResolution: Target platform @@local_config_platform//:host: Selected execution platform @@local_config_platform//:host, type @@bazel_tools//tools/cpp:toolchain_type -> toolchain @@bazel_tools~cc_configure_extension~local_config_cc//:cc-compiler-k8
+    INFO: ToolchainResolution: Target platform @@local_config_platform//:host: Selected execution platform @@local_config_platform//:host, type @@bazel_tools//tools/cpp:toolchain_type -> toolchain @@bazel_tools+cc_configure_extension+local_config_cc//:cc-compiler-k8
     ```
 
     Without specifying `--platforms`, Bazel builds the target for

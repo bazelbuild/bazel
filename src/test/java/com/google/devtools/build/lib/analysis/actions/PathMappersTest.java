@@ -22,10 +22,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Starlark;
@@ -34,9 +36,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link StrippingPathMapper}. */
+/** Tests for {@link PathMappers}. */
 @RunWith(JUnit4.class)
-public class StrippingPathMapperTest extends BuildViewTestCase {
+public class PathMappersTest extends BuildViewTestCase {
 
   @Before
   public void setUp() throws Exception {
@@ -231,64 +233,12 @@ public class StrippingPathMapperTest extends BuildViewTestCase {
   }
 
   @Test
-  public void starlarkRule_stringExecutablePath() throws Exception {
-    scratch.file("defs/BUILD");
-    scratch.file(
-        "defs/defs.bzl",
-        """
-        def my_rule_impl(ctx):
-            out = ctx.actions.declare_file(ctx.label.name)
-            ctx.actions.run(
-                executable = ctx.executable.tool.path,
-                arguments = [ctx.actions.args().add(out)],
-                outputs = [out],
-                tools = [ctx.executable.tool],
-                execution_requirements = {"supports-path-mapping": "1"},
-            )
-            return DefaultInfo(files = depset([out]))
-
-        my_rule = rule(
-            implementation = my_rule_impl,
-            attrs = {
-                "tool": attr.label(
-                    default = "//foo:script",
-                    cfg = "exec",
-                    executable = True,
-                ),
-            },
-        )
-        """);
-    scratch.file(
-        "foo/BUILD",
-        """
-        sh_binary(
-            name = 'script',
-            srcs = ['script.sh'],
-            visibility = ['//visibility:public'],
-        )
-        """);
-    scratch.file(
-        "BUILD",
-        """
-        load("//defs:defs.bzl", "my_rule")
-        my_rule(name = "my_rule")
-        """);
-
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//:my_rule");
-    Artifact outputArtifact =
-        configuredTarget.getProvider(FileProvider.class).getFilesToBuild().toList().get(0);
-    SpawnAction action = (SpawnAction) getGeneratingAction(outputArtifact);
-    Spawn spawn =
-        action.getSpawn(
-            new ActionExecutionContextBuilder()
-                .setMetadataProvider(new FakeActionInputFileCache())
-                .build());
-
-    assertThat(spawn.getPathMapper().isNoop()).isFalse();
-    String outDir = analysisMock.getProductName() + "-out";
-    assertThat(spawn.getArguments())
-        .containsExactly(
-            "%s/cfg/bin/foo/script".formatted(outDir), "%s/cfg/bin/my_rule".formatted(outDir))
-        .inOrder();
+  public void forActionKey() {
+    var pathMapper = PathMappers.forActionKey(CoreOptions.OutputPathsMode.STRIP);
+    assertThat(pathMapper.isNoop()).isFalse();
+    assertThat(pathMapper.map(PathFragment.create("pkg/file")))
+        .isEqualTo(PathFragment.create("pkg/file"));
+    assertThat(pathMapper.map(PathFragment.create("bazel-out/k8-fastbuild-ST-12345/bin/pkg/file")))
+        .isEqualTo(PathFragment.create("bazel-out/pm-k8-fastbuild-ST-12345/bin/pkg/file"));
   }
 }

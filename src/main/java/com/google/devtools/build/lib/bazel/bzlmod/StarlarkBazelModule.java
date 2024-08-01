@@ -139,7 +139,7 @@ public class StarlarkBazelModule implements StarlarkValue {
     }
     return new StarlarkBazelModule(
         module.getName(),
-        module.getVersion().getOriginal(),
+        module.getVersion().getNormalized(),
         new Tags(Maps.transformValues(typeCheckedTags, StarlarkList::immutableCopyOf)),
         module.getKey().equals(ModuleKey.ROOT));
   }

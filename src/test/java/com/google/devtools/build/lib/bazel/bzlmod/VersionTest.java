@@ -36,17 +36,24 @@ public class VersionTest {
   }
 
   @Test
+  public void testNormalized() throws Exception {
+    assertThat(Version.parse("1.0").getNormalized()).isEqualTo("1.0");
+    assertThat(Version.parse("1.0+build").getNormalized()).isEqualTo("1.0");
+    assertThat(Version.parse("1.0-pre").getNormalized()).isEqualTo("1.0-pre");
+    assertThat(Version.parse("1.0-pre+build-kek.lol").getNormalized()).isEqualTo("1.0-pre");
+    assertThat(Version.parse("1.0+build-notpre").getNormalized()).isEqualTo("1.0");
+  }
+
+  @Test
   public void testReleaseVersion() throws Exception {
     assertThat(Version.parse("2.0")).isGreaterThan(Version.parse("1.0"));
     assertThat(Version.parse("2.0")).isGreaterThan(Version.parse("1.9"));
     assertThat(Version.parse("11.0")).isGreaterThan(Version.parse("3.0"));
     assertThat(Version.parse("1.0.1")).isGreaterThan(Version.parse("1.0"));
     assertThat(Version.parse("1.0.0")).isGreaterThan(Version.parse("1.0"));
-    assertThat(Version.parse("1.0+build2"))
-        .isEquivalentAccordingToCompareTo(Version.parse("1.0+build3"));
+    assertThat(Version.parse("1.0+build2")).isEqualTo(Version.parse("1.0+build3"));
     assertThat(Version.parse("1.0")).isGreaterThan(Version.parse("1.0-pre"));
-    assertThat(Version.parse("1.0"))
-        .isEquivalentAccordingToCompareTo(Version.parse("1.0+build-notpre"));
+    assertThat(Version.parse("1.0")).isEqualTo(Version.parse("1.0+build-notpre"));
   }
 
   @Test

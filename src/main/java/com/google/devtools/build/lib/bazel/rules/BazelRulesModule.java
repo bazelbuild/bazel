@@ -577,6 +577,14 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "No-op.")
     public boolean incompatibleDepsetForJavaOutputSourceJars;
+
+    @Option(
+        name = "incompatible_use_plus_in_repo_names",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
+        help = "No-op.")
+    public boolean incompatibleUsePlusInRepoNames;
   }
 
   @Override

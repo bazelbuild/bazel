@@ -1,3 +1,4 @@
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
@@ -13,15 +14,25 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
+copy_file(
+    name = "xcode_locator",
+    src = "//tools/osx:xcode-locator",
+    out = "xcode-locator",
+)
+
 java_library(
     name = "worker",
     srcs = glob(["*.java"]),
+    data = [
+        ":xcode_locator",
+    ],
     resources = ["//src/main/tools:linux-sandbox"],
     visibility = ["//src/tools/remote:__subpackages__"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",
+        "//src/main/java/com/google/devtools/build/lib/exec/local",
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/remote:store",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
@@ -46,6 +57,7 @@ java_library(
         "//third_party/grpc-java:grpc-jar",
         "//third_party/protobuf:protobuf_java",
         "//third_party/protobuf:protobuf_java_util",
+        "//tools/java/runfiles",
         "@googleapis//:google_bytestream_bytestream_java_grpc",
         "@googleapis//:google_bytestream_bytestream_java_proto",
         "@googleapis//:google_longrunning_operations_java_proto",

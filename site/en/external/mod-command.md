@@ -395,7 +395,7 @@ use_repo(toolchains, my_jdk="remotejdk17_linux")
     ## rules_cc@0.0.1:
     # <builtin>
     http_archive(
-      name = "rules_cc~",
+      name = "rules_cc+",
       urls = ["https://bcr.bazel.build/test-mirror/github.com/bazelbuild/rules_cc/releases/download/0.0.1/rules_cc-0.0.1.tar.gz", "https://github.com/bazelbuild/rules_cc/releases/download/0.0.1/rules_cc-0.0.1.tar.gz"],
       integrity = "sha256-Tcy/0iwN7xZMj0dFi9UODHFI89kgAs20WcKpamhJgkE=",
       strip_prefix = "",
@@ -408,7 +408,7 @@ use_repo(toolchains, my_jdk="remotejdk17_linux")
     ## stardoc:
     # <builtin>
     http_archive(
-      name = "stardoc~",
+      name = "stardoc+",
       urls = ["https://bcr.bazel.build/test-mirror/github.com/bazelbuild/stardoc/releases/download/0.5.0/stardoc-0.5.0.tar.gz", "https://github.com/bazelbuild/stardoc/releases/download/0.5.0/stardoc-0.5.0.tar.gz"],
       integrity = "sha256-yXlNzIAmow/2fPfPkeviRcopSyCwcYRdEsGSr+JDrXI=",
       strip_prefix = "",
@@ -443,7 +443,7 @@ use_repo(toolchains, my_jdk="remotejdk17_linux")
     imported from some specific extension as part of the dependency graph.
 
     ```sh
-    bazel mod show_extension @@rules_java~5.0.0//java:extensions.bzl%toolchains
+    bazel mod show_extension @@rules_java+5.0.0//java:extensions.bzl%toolchains
     ```
 
     ```none
@@ -538,7 +538,7 @@ use_repo(toolchains, my_jdk="remotejdk17_linux")
     ## @remote_java_tools:
     # <builtin>
     http_archive(
-      name = "rules_java~~toolchains~remote_java_tools",
+      name = "rules_java++toolchains+remote_java_tools",
       urls = ["https://mirror.bazel.build/bazel_java_tools/releases/java/v11.5/java_tools-v11.5.zip", "https://github.com/bazelbuild/java_tools/releases/download/java_v11.5/java_tools-v11.5.zip"],
       sha256 = "b763ee80e5754e593fd6d5be6d7343f905bc8b73d661d36d842b024ca11b6793",
     )

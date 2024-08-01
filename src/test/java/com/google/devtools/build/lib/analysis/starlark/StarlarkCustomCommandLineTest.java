@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkCustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -239,7 +240,8 @@ public final class StarlarkCustomCommandLineTest {
             /* treeExpansions= */ ImmutableMap.of(),
             ImmutableMap.of(fileset, ImmutableList.of(symlink1, symlink2)));
 
-    commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
+    commandLine.addToFingerprint(
+        actionKeyContext, artifactExpander, CoreOptions.OutputPathsMode.OFF, fingerprint);
 
     assertThat(fingerprint.digestAndReset()).isNotEmpty();
   }
@@ -259,7 +261,8 @@ public final class StarlarkCustomCommandLineTest {
             ImmutableMap.of(tree, ImmutableSortedSet.of(child)),
             /*filesetExpansions*/ ImmutableMap.of());
 
-    commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
+    commandLine.addToFingerprint(
+        actionKeyContext, artifactExpander, CoreOptions.OutputPathsMode.OFF, fingerprint);
 
     assertThat(fingerprint.digestAndReset()).isNotEmpty();
   }
@@ -276,7 +279,9 @@ public final class StarlarkCustomCommandLineTest {
 
     assertThrows(
         CommandLineExpansionException.class,
-        () -> commandLine.addToFingerprint(actionKeyContext, EMPTY_EXPANDER, fingerprint));
+        () ->
+            commandLine.addToFingerprint(
+                actionKeyContext, EMPTY_EXPANDER, CoreOptions.OutputPathsMode.OFF, fingerprint));
   }
 
   @Test
