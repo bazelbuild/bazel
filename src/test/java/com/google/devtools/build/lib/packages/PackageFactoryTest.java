@@ -1199,7 +1199,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testSymbolicMacro_macroAndRuleMayShareName_macroDeclareddFirst() throws Exception {
+  public void testSymbolicMacro_macroAndRuleMayShareName_macroDeclaredFirst() throws Exception {
     defineMacroBzl();
     expectEvalSuccess(
         """
@@ -1331,7 +1331,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testSymbolicMacro_macroPreventsImplicitCreationOfInputFile() throws Exception {
+  public void testSymbolicMacro_macroPreventsImplicitCreationOfInputFilesUnderItsNamespaces()
+      throws Exception {
     defineMacroBzl();
     scratch.file(
         "pkg/BUILD",
@@ -1340,12 +1341,16 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         my_macro(name = "foo")
         cc_library(
             name = "lib",
-            srcs = ["foo", "bar"],
+            srcs = ["foo", "foo_", "foo_bar", "baz"],
         )
         """);
+    // You can't implicitly make an input file with a name that foo could've defined. (You can still
+    // have an explicit exports_files() do it.)
     Package pkg = loadPackage("pkg");
-    assertThat(pkg.getTarget("bar")).isInstanceOf(InputFile.class);
     assertThat(pkg.getTargets()).doesNotContainKey("foo");
+    assertThat(pkg.getTargets()).doesNotContainKey("foo_bar");
+    assertThat(pkg.getTarget("foo_")).isInstanceOf(InputFile.class);
+    assertThat(pkg.getTarget("baz")).isInstanceOf(InputFile.class);
   }
 
   @Test

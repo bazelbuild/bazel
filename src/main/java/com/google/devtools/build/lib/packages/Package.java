@@ -994,7 +994,23 @@ public class Package {
      * <p>This field is null if name conflict checking is disabled. It is also null after the
      * package is built.
      */
+    // TODO(#19922): Technically we don't need to store entries for rules that were created by
+    // macros; see rulesCreatedInMacros, below.
     @Nullable private Map<Rule, List<Label>> ruleLabels = new HashMap<>();
+
+    /**
+     * Stores labels of rule targets that were created in symbolic macros. We don't implicitly
+     * create input files on behalf of such targets (though they may still be created on behalf of
+     * other targets not in macros).
+     *
+     * <p>This field is null if name conflict checking is disabled. It is also null after the
+     * package is built.
+     */
+    // TODO(#19922): This can be eliminated once we have Targets directly store a reference to the
+    // MacroInstance that instantiated them. (This is a little nontrivial because we'd like to avoid
+    // simply adding a new field to Target subclasses, and instead want to combine it with the
+    // existing Package-typed field.)
+    @Nullable private Set<Rule> rulesCreatedInMacros = new HashSet<>();
 
     /**
      * The collection of the prefixes of every output file. Maps each prefix to an arbitrary output
@@ -1569,6 +1585,9 @@ public class Package {
       if (newTarget instanceof Rule) {
         List<Label> ruleLabelsForOldTarget = ruleLabels.remove(oldTarget);
         if (ruleLabelsForOldTarget != null) {
+          // TODO(brandjon): Can the new target have different labels than the old? If so, we
+          // probably need newTarget.getLabels() here instead. Moot if we can delete this along with
+          // WORKSPACE logic.
           ruleLabels.put((Rule) newTarget, ruleLabelsForOldTarget);
         }
       }
@@ -1797,6 +1816,7 @@ public class Package {
       Preconditions.checkState(nameConflictCheckingPolicy == NameConflictCheckingPolicy.UNKNOWN);
       this.nameConflictCheckingPolicy = NameConflictCheckingPolicy.NOT_GUARANTEED;
       this.ruleLabels = null;
+      this.rulesCreatedInMacros = null;
       this.outputFilePrefixes = null;
       return this;
     }
@@ -1843,6 +1863,9 @@ public class Package {
       checkRuleAndOutputs(rule, labels);
       addRuleInternal(rule);
       ruleLabels.put(rule, labels);
+      if (!macroStack.isEmpty()) {
+        rulesCreatedInMacros.add(rule);
+      }
     }
 
     /** Adds a symbolic macro instance to the package. */
@@ -1915,28 +1938,39 @@ public class Package {
       Map<String, InputFile> newInputFiles = new HashMap<>();
       for (Rule rule : getRules()) {
         if (discoverAssumedInputFiles) {
-          // All labels mentioned by a rule that refer to an unknown target in the current package
-          // are assumed to be InputFiles, so let's create them. We add them to a temporary map
-          // to avoid concurrent modification to this.targets while iterating (via getRules()).
+          // Labels mentioned by a rule that refer to an unknown target in the current package are
+          // assumed to be InputFiles, unless they overlap a namespace owned by a macro. Create
+          // these InputFiles now. But don't do this for rules created within a symbolic macro,
+          // since we don't want the evaluation of the macro to affect the semantics of whether or
+          // not this target was created (i.e. all implicitly created files are knowable without
+          // necessarily evaluating symbolic macros).
+          if (rulesCreatedInMacros.contains(rule)) {
+            continue;
+          }
+          // We use a temporary map, newInputFiles, to avoid concurrent modification to this.targets
+          // while iterating (via getRules() above).
           List<Label> labels = (ruleLabels != null) ? ruleLabels.get(rule) : rule.getLabels();
           for (Label label : labels) {
+            String name = label.getName();
             if (label.getPackageIdentifier().equals(pkg.getPackageIdentifier())
-                && !targets.containsKey(label.getName())
-                // The existence of a macro by the same name blocks implicit creation of an input
-                // file. This is because we plan on allowing macros to be passed as inputs to other
-                // macros, and don't want this usage to be implicitly conflated with an unrelated
-                // input file by the same name (e.g., if the macro's label makes its way into a
-                // target definition by mistake, we want that to be treated as an unknown target
-                // rather than a missing input file).
-                // TODO(#19922): Update this comment when said behavior is implemented.
-                && !macros.containsKey(label.getName())
-                && !newInputFiles.containsKey(label.getName())) {
+                && !targets.containsKey(name)
+                && !newInputFiles.containsKey(name)) {
+              // Check for collision with a macro namespace. Currently this is a linear loop over
+              // all symbolic macros in the package.
+              // TODO(#19922): This is quadratic complexity, optimize with a trie or similar if
+              // needed.
+              boolean macroConflictsFound = false;
+              for (String macroName : macros.keySet()) {
+                macroConflictsFound |= nameIsWithinMacroNamespace(name, macroName);
+              }
+              if (!macroConflictsFound) {
               Location loc = rule.getLocation();
-              newInputFiles.put(
-                  label.getName(),
-                  noImplicitFileExport
-                      ? new PrivateVisibilityInputFile(pkg, label, loc)
-                      : new InputFile(pkg, label, loc));
+                newInputFiles.put(
+                    name,
+                    noImplicitFileExport
+                        ? new PrivateVisibilityInputFile(pkg, label, loc)
+                        : new InputFile(pkg, label, loc));
+              }
             }
           }
         }
@@ -1977,6 +2011,7 @@ public class Package {
         rule.freeze();
       }
       ruleLabels = null;
+      rulesCreatedInMacros = null;
       outputFilePrefixes = null;
       targets = Maps.unmodifiableBiMap(targets);
 
@@ -2104,32 +2139,46 @@ public class Package {
     }
 
     /**
-     * Throws {@link NameConflictException} if the given name of a declared object inside a symbolic
-     * macro (i.e., a target or a submacro) does not follow the required prefix-based naming
-     * convention.
+     * Returns whether a given {@code name} is within the namespace that would be owned by a macro
+     * called {@code macroName}.
      *
-     * <p>A macro "foo" may define targets and submacros that have the name "foo" (the macro's "main
-     * target") or "foo_BAR" where BAR is a non-empty string. The macro may not define the name
-     * "foo_", or names that do not have "foo" as a prefix.
+     * <p>This is purely a string operation and does not reference actual targets and macros.
+     *
+     * <p>A macro named "foo" owns the namespace consisting of "foo" and all "foo_BAR" where BAR is
+     * a non-empty string. This criteria is transitive; a submacro's namespace is a subset of the
+     * parent macro's namespace.
+     *
+     * <p>Note that just because a name is within a macro's namespace does not necessarily mean the
+     * corresponding target or macro was declared within this macro.
+     */
+    private boolean nameIsWithinMacroNamespace(String name, String macroName) {
+      if (name.equals(macroName)) {
+        return true;
+      } else if (name.startsWith(macroName)) {
+        String suffix = name.substring(macroName.length());
+        // 0-length suffix handled above.
+        if (suffix.length() >= 2 && suffix.startsWith("_")) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    /**
+     * Throws {@link NameConflictException} if the given name of a declared object (target or
+     * submacro) inside a symbolic macro does not follow the required prefix-based naming
+     * convention.
      */
     private void checkDeclaredNameValidForMacro(
         String what, String declaredName, String enclosingMacroName) throws NameConflictException {
-      if (declaredName.equals(enclosingMacroName)) {
-        return;
-      } else if (declaredName.startsWith(enclosingMacroName)) {
-        String suffix = declaredName.substring(enclosingMacroName.length());
-        // 0-length suffix handled above.
-        if (suffix.length() > 2 && suffix.startsWith("_")) {
-          return;
-        }
+      if (!nameIsWithinMacroNamespace(declaredName, enclosingMacroName)) {
+        throw new NameConflictException(
+            String.format(
+                """
+                macro '%s' cannot declare %s named '%s'. Name must be the same as the \
+                macro's name or a suffix of the macro's name plus '_'.""",
+                enclosingMacroName, what, declaredName));
       }
-
-      throw new NameConflictException(
-          String.format(
-              """
-              macro '%s' cannot declare %s named '%s'. Name must be the same as the \
-              macro's name or a suffix of the macro's name plus '_'.""",
-              enclosingMacroName, what, declaredName));
     }
 
     /**
