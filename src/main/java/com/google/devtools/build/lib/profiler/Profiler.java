@@ -466,20 +466,19 @@ public final class Profiler {
 
     JsonTraceFileWriter writer = null;
     if (stream != null && format != null) {
-      switch (format) {
-        case JSON_TRACE_FILE_FORMAT:
-          writer =
-              new JsonTraceFileWriter(stream, execStartTimeNanos, slimProfile, outputBase, buildID);
-          break;
-        case JSON_TRACE_FILE_COMPRESSED_FORMAT:
-          writer =
-              new JsonTraceFileWriter(
-                  new GZIPOutputStream(stream),
-                  execStartTimeNanos,
-                  slimProfile,
-                  outputBase,
-                  buildID);
-      }
+      writer =
+          switch (format) {
+            case JSON_TRACE_FILE_FORMAT ->
+                new JsonTraceFileWriter(
+                    stream, execStartTimeNanos, slimProfile, outputBase, buildID);
+            case JSON_TRACE_FILE_COMPRESSED_FORMAT ->
+                new JsonTraceFileWriter(
+                    new GZIPOutputStream(stream),
+                    execStartTimeNanos,
+                    slimProfile,
+                    outputBase,
+                    buildID);
+          };
       writer.start();
     }
     this.writerRef.set(writer);

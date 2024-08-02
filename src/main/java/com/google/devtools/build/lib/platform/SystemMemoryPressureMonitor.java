@@ -63,16 +63,12 @@ public final class SystemMemoryPressureMonitor {
 
     /** These constants are mapped to enum in third_party/bazel/src/main/native/unix_jni.h. */
     static Level fromInt(int number) {
-      switch (number) {
-        case 0:
-          return NORMAL;
-        case 1:
-          return WARNING;
-        case 2:
-          return CRITICAL;
-        default:
-          throw new IllegalStateException("Unknown memory pressure level: " + number);
-      }
+      return switch (number) {
+        case 0 -> NORMAL;
+        case 1 -> WARNING;
+        case 2 -> CRITICAL;
+        default -> throw new IllegalStateException("Unknown memory pressure level: " + number);
+      };
     }
   };
 

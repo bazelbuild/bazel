@@ -32,8 +32,8 @@ import java.util.Map;
 /**
  * LL(1) recursive descent parser for the Blaze query language, revision 2.
  *
- * In the grammar below, non-terminals are lowercase and terminals are
- * uppercase, or character literals.
+ * <p>In the grammar below, non-terminals are lowercase and terminals are uppercase, or character
+ * literals.
  *
  * <pre>
  * expr ::= WORD
@@ -269,91 +269,78 @@ public final class QueryParser {
    */
   private QueryExpression parsePrimary() throws QuerySyntaxException {
     switch (token.kind) {
-      case WORD:
-        {
-          Lexer.Token wordToken = token;
-          String word = consume(TokenKind.WORD);
-          if (token.kind == TokenKind.LPAREN) {
-            QueryFunction function = functions.get(word);
-            if (function == null) {
-              throw unknownFunctionError(wordToken);
-            }
-            List<Argument> args = new ArrayList<>();
-            TokenKind tokenKind = TokenKind.LPAREN;
-            int argsSeen = 0;
-            for (ArgumentType type : function.getArgumentTypes()) {
-              if (token.kind == TokenKind.RPAREN) {
-                // Got rparen instead of argument-separating comma.
-                if (argsSeen >= function.getMandatoryArguments()) {
-                  break;
-                } else {
-                  throw tooFewArgumentsError(function);
-                }
-              }
-
-              // Consume lparen on first iteration, comma on subsequent iterations.
-              consume(tokenKind);
-              tokenKind = TokenKind.COMMA;
-              if (argsSeen == 0 && token.kind == TokenKind.RPAREN) {
-                // Got rparen instead of mandatory first argument.
+      case WORD -> {
+        Lexer.Token wordToken = token;
+        String word = consume(TokenKind.WORD);
+        if (token.kind == TokenKind.LPAREN) {
+          QueryFunction function = functions.get(word);
+          if (function == null) {
+            throw unknownFunctionError(wordToken);
+          }
+          List<Argument> args = new ArrayList<>();
+          TokenKind tokenKind = TokenKind.LPAREN;
+          int argsSeen = 0;
+          for (ArgumentType type : function.getArgumentTypes()) {
+            if (token.kind == TokenKind.RPAREN) {
+              // Got rparen instead of argument-separating comma.
+              if (argsSeen >= function.getMandatoryArguments()) {
+                break;
+              } else {
                 throw tooFewArgumentsError(function);
               }
-              switch (type) {
-                case EXPRESSION:
-                  args.add(Argument.of(parseExpression()));
-                  break;
-
-                case WORD:
-                  args.add(Argument.of(consume(TokenKind.WORD)));
-                  break;
-
-                case INTEGER:
-                  args.add(Argument.of(consumeIntLiteral()));
-                  break;
-              }
-
-              argsSeen++;
             }
 
-            if (token.kind == TokenKind.COMMA && argsSeen > 0) {
-              throw tooManyArgumentsError(function);
+            // Consume lparen on first iteration, comma on subsequent iterations.
+            consume(tokenKind);
+            tokenKind = TokenKind.COMMA;
+            if (argsSeen == 0 && token.kind == TokenKind.RPAREN) {
+              // Got rparen instead of mandatory first argument.
+              throw tooFewArgumentsError(function);
             }
-            consume(TokenKind.RPAREN);
-            return new FunctionExpression(function, args);
-          } else {
-            return validateTargetLiteral(word);
+            switch (type) {
+              case EXPRESSION -> args.add(Argument.of(parseExpression()));
+              case WORD -> args.add(Argument.of(consume(TokenKind.WORD)));
+              case INTEGER -> args.add(Argument.of(consumeIntLiteral()));
+            }
+
+            argsSeen++;
           }
-        }
-      case LET:
-        {
-          consume(TokenKind.LET);
-          String name = consume(TokenKind.WORD);
-          consume(TokenKind.EQUALS);
-          QueryExpression varExpr = parseExpression();
-          consume(TokenKind.IN);
-          QueryExpression bodyExpr = parseExpression();
-          return new LetExpression(name, varExpr, bodyExpr);
-        }
-      case LPAREN:
-        {
-          consume(TokenKind.LPAREN);
-          QueryExpression expr = parseExpression();
-          consume(TokenKind.RPAREN);
-          return expr;
-        }
-      case SET:
-        {
-          nextToken();
-          consume(TokenKind.LPAREN);
-          List<TargetLiteral> words = new ArrayList<>();
-          while (token.kind == TokenKind.WORD) {
-            words.add(validateTargetLiteral(consume(TokenKind.WORD)));
+
+          if (token.kind == TokenKind.COMMA && argsSeen > 0) {
+            throw tooManyArgumentsError(function);
           }
           consume(TokenKind.RPAREN);
-          return new SetExpression(words);
+          return new FunctionExpression(function, args);
+        } else {
+          return validateTargetLiteral(word);
         }
-      default:
-        throw syntaxError(token);
+      }
+      case LET -> {
+        consume(TokenKind.LET);
+        String name = consume(TokenKind.WORD);
+        consume(TokenKind.EQUALS);
+        QueryExpression varExpr = parseExpression();
+        consume(TokenKind.IN);
+        QueryExpression bodyExpr = parseExpression();
+        return new LetExpression(name, varExpr, bodyExpr);
+      }
+      case LPAREN -> {
+        consume(TokenKind.LPAREN);
+        QueryExpression expr = parseExpression();
+        consume(TokenKind.RPAREN);
+        return expr;
+      }
+      case SET -> {
+        nextToken();
+        consume(TokenKind.LPAREN);
+        List<TargetLiteral> words = new ArrayList<>();
+        while (token.kind == TokenKind.WORD) {
+          words.add(validateTargetLiteral(consume(TokenKind.WORD)));
+        }
+        consume(TokenKind.RPAREN);
+        return new SetExpression(words);
+      }
+      default -> throw syntaxError(token);
     }
   }
 

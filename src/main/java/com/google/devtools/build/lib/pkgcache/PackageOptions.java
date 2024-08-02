@@ -40,15 +40,13 @@ public class PackageOptions extends OptionsBase {
   public static class DefaultVisibilityConverter extends Converter.Contextless<RuleVisibility> {
     @Override
     public RuleVisibility convert(String input) throws OptionsParsingException {
-      switch (input) {
-        case "public":
-          return RuleVisibility.PUBLIC;
-        case "private":
-          return RuleVisibility.PRIVATE;
-        default:
-          throw new OptionsParsingException(
-              "Not a valid default visibility: '" + input + "' (should be 'public' or 'private'");
-      }
+      return switch (input) {
+        case "public" -> RuleVisibility.PUBLIC;
+        case "private" -> RuleVisibility.PRIVATE;
+        default ->
+            throw new OptionsParsingException(
+                "Not a valid default visibility: '" + input + "' (should be 'public' or 'private'");
+      };
     }
 
     @Override

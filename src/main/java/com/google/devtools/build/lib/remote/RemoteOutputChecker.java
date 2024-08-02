@@ -63,22 +63,14 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
       RemoteOutputsMode outputsMode,
       ImmutableList<Pattern> patternsToDownload) {
     this.clock = clock;
-    switch (commandName) {
-      case "build":
-        this.commandMode = CommandMode.BUILD;
-        break;
-      case "test":
-        this.commandMode = CommandMode.TEST;
-        break;
-      case "run":
-        this.commandMode = CommandMode.RUN;
-        break;
-      case "coverage":
-        this.commandMode = CommandMode.COVERAGE;
-        break;
-      default:
-        this.commandMode = CommandMode.UNKNOWN;
-    }
+    this.commandMode =
+        switch (commandName) {
+          case "build" -> CommandMode.BUILD;
+          case "test" -> CommandMode.TEST;
+          case "run" -> CommandMode.RUN;
+          case "coverage" -> CommandMode.COVERAGE;
+          default -> CommandMode.UNKNOWN;
+        };
     this.outputsMode = outputsMode;
     this.patternsToDownload = patternsToDownload;
   }
@@ -231,21 +223,19 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
   }
 
   private boolean shouldAddTopLevelTarget(@Nullable ConfiguredTarget configuredTarget) {
-    switch (commandMode) {
-      case RUN:
-        // Always download outputs of toplevel targets in run mode.
-        return true;
-      case COVERAGE:
-      case TEST:
+    return switch (commandMode) {
+      // Always download outputs of toplevel targets in run mode.
+      case RUN -> true;
+      case COVERAGE, TEST -> {
         // Do not download test binary in test/coverage mode.
         if (configuredTarget instanceof RuleConfiguredTarget ruleConfiguredTarget) {
           var isTestRule = isTestRuleName(ruleConfiguredTarget.getRuleClassString());
-          return !isTestRule && outputsMode != RemoteOutputsMode.MINIMAL;
+          yield !isTestRule && outputsMode != RemoteOutputsMode.MINIMAL;
         }
-        return outputsMode != RemoteOutputsMode.MINIMAL;
-      default:
-        return outputsMode != RemoteOutputsMode.MINIMAL;
-    }
+        yield outputsMode != RemoteOutputsMode.MINIMAL;
+      }
+      default -> outputsMode != RemoteOutputsMode.MINIMAL;
+    };
   }
 
   private boolean matchesPattern(PathFragment execPath) {
