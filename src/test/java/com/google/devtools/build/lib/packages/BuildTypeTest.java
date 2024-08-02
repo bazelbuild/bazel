@@ -18,6 +18,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -639,6 +640,18 @@ public final class BuildTypeTest {
                     BuildType.LABEL)
                 .isUnconditional())
         .isTrue();
+  }
+
+  @Test
+  public void testSelectorValue_equals() {
+    new EqualsTester()
+        .addEqualityGroup(
+            new SelectorValue(ImmutableMap.of("a", 1, "b", 2), ""),
+            new SelectorValue(ImmutableMap.of("b", 2, "a", 1), ""))
+        .addEqualityGroup(new SelectorValue(ImmutableMap.of("a", 1, "b", 2), "Match failed"))
+        .addEqualityGroup(new SelectorValue(ImmutableMap.of("a", 1, "c", 2), ""))
+        .addEqualityGroup(new SelectorValue(ImmutableMap.of("a", 1, "b", 3), ""))
+        .testEquals();
   }
 
   private static <T> ImmutableList<Label> collectLabels(Type<T> type, T value) {
