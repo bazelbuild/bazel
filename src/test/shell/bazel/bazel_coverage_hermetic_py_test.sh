@@ -40,7 +40,7 @@ function get_coverage_file_path_from_test_log() {
   ending_part="$(sed -n -e '/PASSED/,$p' "$TEST_log")"
 
   local coverage_file_path
-  coverage_file_path=$(grep -Eo "/[/a-zA-Z0-9\.\_\-]+\.dat$" <<< "$ending_part")
+  coverage_file_path=$(grep -Eo "/[/a-zA-Z0-9+\.\_\-]+\.dat$" <<< "$ending_part")
   [[ -e "$coverage_file_path" ]] || fail "Coverage output file does not exist!"
   echo "$coverage_file_path"
 }
