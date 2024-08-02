@@ -319,12 +319,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     ImmutableSet.Builder<ProfilerTask> profiledTasksBuilder = ImmutableSet.builder();
     Profiler.Format format = Format.JSON_TRACE_FILE_FORMAT;
     Path profilePath = null;
-    String profileName = null;
     UploadContext streamingContext = null;
     try {
       if (tracerEnabled) {
         if (options.profilePath == null) {
-          profileName = "command.profile.gz";
           format = Format.JSON_TRACE_FILE_COMPRESSED_FORMAT;
           if (bepOptions != null && bepOptions.streamingLogFileUploads) {
             BuildEventArtifactUploader buildEventArtifactUploader =
@@ -332,7 +330,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             streamingContext = buildEventArtifactUploader.startUpload(LocalFileType.LOG, null);
             out = streamingContext.getOutputStream();
           } else {
-            profilePath = workspace.getOutputBase().getRelative(profileName);
+            profilePath = workspace.getOutputBase().getRelative("command.profile.gz");
             out = profilePath.getOutputStream();
           }
         } else {
@@ -445,7 +443,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     } catch (IOException e) {
       eventHandler.handle(Event.error("Error while creating profile file: " + e.getMessage()));
     }
-    return new ProfilerStartedEvent(profileName, profilePath, format, streamingContext);
+    return new ProfilerStartedEvent(profilePath, streamingContext, format);
   }
 
   public FileSystem getFileSystem() {
