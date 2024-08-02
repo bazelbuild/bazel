@@ -53,7 +53,7 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
-    write_default_lockfile "MODULE.bazel.lock"
+    setup_module_dot_bazel "MODULE.bazel"
     bazel build //:it
     cp `bazel info bazel-genfiles`/it.txt output
     cat output
@@ -95,7 +95,7 @@ waiting_repo = use_repo_rule("//:repo.bzl", "waiting_repo")
 
 waiting_repo(name="wait")
 EOF
-    write_default_lockfile "MODULE.bazel.lock"
+    setup_module_dot_bazel "MODULE.bazel"
     cat > BUILD <<'EOF'
 genrule(
   name = "it",

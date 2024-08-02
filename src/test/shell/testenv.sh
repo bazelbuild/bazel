@@ -623,11 +623,11 @@ EOF
 }
 
 
-# Set up a lockfile to avoid accessing BCR for tests with a clean workspace.
-function write_default_lockfile() {
-  module_lockfile=${1:-MODULE.bazel.lock}
-  touch "$(dirname ${module_lockfile})/MODULE.bazel"
-  cp -f $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) ${module_lockfile}
+# Set up MODULE.bazel and MODULE.bazel.lock to avoid accessing BCR for tests with a clean workspace.
+function setup_module_dot_bazel() {
+  module_dot_bazel=${1:-MODULE.bazel}
+  touch $module_dot_bazel
+  cp -f $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) "$(dirname ${module_dot_bazel})/MODULE.bazel.lock"
 }
 
 workspaces=()
@@ -642,7 +642,7 @@ function create_new_workspace() {
 
   copy_tools_directory
 
-  write_default_lockfile "MODULE.bazel.lock"
+  setup_module_dot_bazel "MODULE.bazel"
 
   maybe_setup_python_windows_tools
 }
@@ -678,7 +678,7 @@ function cleanup_workspace() {
         try_with_timeout rm -fr "$i"
       fi
     done
-    write_default_lockfile "MODULE.bazel.lock"
+    setup_module_dot_bazel "MODULE.bazel"
   fi
   for i in "${workspaces[@]}"; do
     if [ "$i" != "${WORKSPACE_DIR:-}" ]; then

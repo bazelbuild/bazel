@@ -62,7 +62,7 @@ local_repository(
     path = "../$pkg2",
 )
 EOF
-  write_default_lockfile "$pkg/MODULE.bazel.lock"
+  setup_module_dot_bazel "$pkg/MODULE.bazel"
   touch "$pkg/foo.cpp"
   cat > "$pkg/BUILD" <<EOF
 cc_binary(name = "foo",

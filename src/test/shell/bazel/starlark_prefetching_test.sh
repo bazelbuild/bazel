@@ -54,7 +54,7 @@ EOF
 myrule = use_repo_rule("//:rule.bzl", "myrule")
 myrule(name="ext", build_file="//:ext.BUILD")
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
+  setup_module_dot_bazel "MODULE.bazel"
   bazel build @ext//:foo || fail "expected success"
   [ `cat "${WRKDIR}/log" | wc -l` -eq 1 ] \
       || fail "did not find precisely one invocation of the action"
@@ -83,7 +83,7 @@ EOF
 myrule = use_repo_rule("//:rule.bzl", "myrule")
 myrule(name="ext", unused="//does/not/exist:file")
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
+  setup_module_dot_bazel "MODULE.bazel"
   bazel build @ext//:foo || fail "expected success"
 }
 
@@ -121,7 +121,7 @@ EOF
 myrule = use_repo_rule("//:rule.bzl", "myrule")
 myrule(name="ext", data = ["//:a.txt", "//:b.txt"])
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
+  setup_module_dot_bazel "MODULE.bazel"
   echo Hello > a.txt
   echo World > b.txt
   bazel build @ext//:foo || fail "expected success"
@@ -154,7 +154,7 @@ myrule = use_repo_rule("//:rule.bzl", "myrule")
 myrule(name="ext", unused_list=["//does/not/exist:file1",
                                 "//does/not/exists:file2"])
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
+  setup_module_dot_bazel "MODULE.bazel"
   bazel build @ext//:foo || fail "expected success"
 }
 
@@ -196,7 +196,7 @@ EOF
 myrule = use_repo_rule("//:rule.bzl", "myrule")
 myrule(name="ext", data = {"//:a.txt": "a", "//:b.txt": "b"})
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
+  setup_module_dot_bazel "MODULE.bazel"
   echo Hello > a.txt
   echo World > b.txt
   bazel build @ext//:foo || fail "expected success"
@@ -229,7 +229,7 @@ myrule = use_repo_rule("//:rule.bzl", "myrule")
 myrule(name="ext", unused_dict={"//does/not/exist:file1": "file1",
                                 "//does/not/exists:file2": "file2"})
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
+  setup_module_dot_bazel "MODULE.bazel"
   bazel build @ext//:foo || fail "expected success"
 }
 
@@ -260,7 +260,7 @@ EOF
 repo = use_repo_rule("//:rules.bzl", "repo")
 repo(name = "ext")
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
+  setup_module_dot_bazel "MODULE.bazel"
   touch BUILD
 
   # a.txt is intentionally not created

@@ -72,7 +72,7 @@ fi
 function set_up() {
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
   cd "${WRKDIR}"
-  write_default_lockfile "MODULE.bazel.lock"
+  setup_module_dot_bazel "MODULE.bazel"
   # create an archive file with files interesting for patching
   mkdir hello_world-0.1.2
   cat > hello_world-0.1.2/hello_world.c <<'EOF'
@@ -136,7 +136,7 @@ http_archive(
   },
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
+  setup_module_dot_bazel "MODULE.bazel"
 
   bazel build @hello_world//child:foo_bar
 }
@@ -175,7 +175,7 @@ http_archive(
   },
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
+  setup_module_dot_bazel "MODULE.bazel"
 
   bazel build @hello_world//:hello_world
 }
@@ -214,7 +214,7 @@ http_archive(
   },
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
+  setup_module_dot_bazel "MODULE.bazel"
 
   bazel build @hello_world//:hello_world &> $TEST_log 2>&1 && fail "Expected to fail"
   expect_log "but wanted sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFY="
@@ -250,7 +250,7 @@ http_archive(
   },
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
+  setup_module_dot_bazel "MODULE.bazel"
 
   bazel build @hello_world//:hello_world
 }
@@ -285,7 +285,7 @@ http_archive(
   },
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
+  setup_module_dot_bazel "MODULE.bazel"
 
   bazel build @hello_world//:hello_world &> $TEST_log 2>&1 && fail "Expected to fail"
   expect_log "Error in download: Cannot write outside of the repository directory"
@@ -320,7 +320,7 @@ http_archive(
   },
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
+  setup_module_dot_bazel "MODULE.bazel"
 
   bazel build @hello_world//:hello_world &> $TEST_log 2>&1 && fail "Expected to fail"
   expect_log "Error in download: Cannot write outside of the repository directory"

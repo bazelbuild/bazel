@@ -1397,7 +1397,7 @@ sh_library(name='japanese')
 EOF
 
   mkdir -p $dir/main
-  write_default_lockfile $dir/main/MODULE.bazel.lock
+  setup_module_dot_bazel $dir/main/MODULE.bazel
   cat > $dir/main/MODULE.bazel <<EOF
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = "repo", path = "../repo")
@@ -1427,7 +1427,7 @@ sh_library(name='japanese')
 EOF
 
   mkdir -p $dir/main
-  write_default_lockfile $dir/main/MODULE.bazel.lock
+  setup_module_dot_bazel $dir/main/MODULE.bazel
   cat > $dir/main/MODULE.bazel <<EOF
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = "repo", path = "../repo")
