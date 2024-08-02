@@ -41,6 +41,7 @@ function test_android_sdk_repository_path_from_environment() {
   # Overwrite WORKSPACE that was created by setup_android_sdk_support with one
   # that does not set the path attribute of android_sdk_repository.
   rm WORKSPACE
+  cat >> WORKSPACE <<EOF
 android_sdk_repository(
     name = "androidsdk",
 )
@@ -53,6 +54,7 @@ EOF
 function test_android_sdk_repository_no_path_or_android_home() {
   create_new_workspace
   setup_android_platforms
+  cat >> WORKSPACE <<EOF
 android_sdk_repository(
     name = "androidsdk",
     api_level = 25,
@@ -66,6 +68,7 @@ function test_android_sdk_repository_wrong_path() {
   create_new_workspace
   setup_android_platforms
   mkdir "$TEST_SRCDIR/some_dir"
+  cat >> WORKSPACE <<EOF
 android_sdk_repository(
     name = "androidsdk",
     api_level = 25,

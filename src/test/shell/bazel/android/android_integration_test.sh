@@ -196,9 +196,6 @@ android_binary(
     resource_files = glob(["res/**"]),
 )
 EOF
-  cat > MODULE.bazel << 'EOF'
-bazel_dep(name = "platforms", version = "0.0.7")
-EOF
 
   # The next line ensures that the test passes in IPv6-only networks.
   export JAVA_TOOL_OPTIONS="-Djava.net.preferIPv6Addresses=true"
@@ -212,6 +209,18 @@ EOF
 function test_android_tools_version() {
   create_new_workspace
   setup_android_sdk_support
+
+  cat >> WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "rules_pkg",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.9.1/rules_pkg-0.9.1.tar.gz",
+        "https://github.com/bazelbuild/rules_pkg/releases/download/0.9.1/rules_pkg-0.9.1.tar.gz",
+    ],
+    sha256 = "8f9ee2dc10c1ae514ee599a8b42ed99fa262b757058f65ad3c384289ff70c4b8",
+)
+EOF
 
   label="1.2.3 4.5.6 1000000000000000000000000000000000000002"
   bazel build --embed_label="$label" //tools/android/runtime_deps:version.txt

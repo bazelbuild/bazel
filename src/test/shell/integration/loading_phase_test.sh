@@ -471,6 +471,9 @@ function test_bazel_bin_is_not_a_package() {
   bazel build --symlink_prefix="foo_prefix-" "//$pkg" || fail "build failed"
   [[ -d "foo_prefix-bin" ]] || fail "bazel-bin was not created"
 
+  # Remove tools dir set up by copy_tools_directory from testenv.sh
+  rm -rf tools
+
   # Assert that "//..." does not expand to //foo_prefix-*
   bazel query //... >& "$TEST_log"
   expect_log_once "//$pkg:$pkg"

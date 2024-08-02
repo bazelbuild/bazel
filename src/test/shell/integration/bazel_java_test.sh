@@ -243,7 +243,7 @@ EOF
   # Check that we use local_jdk when it's not specified.
   bazel build //java:javabin
   cat bazel-bin/java/javabin >& $TEST_log
-  expect_log "JAVABIN=.*/rules_java+.*+toolchains+remotejdk21_linux/bin/java"
+  expect_log "JAVABIN=.*/rules_java+.*+toolchains+local_jdk/bin/java"
 }
 
 function write_javabase_files() {

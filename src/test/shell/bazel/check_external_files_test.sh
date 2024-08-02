@@ -174,7 +174,7 @@ run_override_repository_isnt_affected() {
   shift
 
   setup_local
-  touch WORKSPACE
+  echo > WORKSPACE
   bazel build @local_rep//:g >& "$TEST_log" && fail "Expected build to fail" || true
   expect_log "no such package '@@local_rep//'"
 
