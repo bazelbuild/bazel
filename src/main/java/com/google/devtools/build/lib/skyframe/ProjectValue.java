@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Collection;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -28,19 +29,24 @@ public final class ProjectValue implements SkyValue {
 
   private final ImmutableSet<String> ownedCodePaths;
 
+  private final ImmutableMap<String, Collection<String>> activeDirectories;
+
   private final ImmutableMap<String, Object> residualGlobals;
 
   public ProjectValue(
-      ImmutableSet<String> ownedCodePaths, ImmutableMap<String, Object> residualGlobals) {
+      ImmutableSet<String> ownedCodePaths,
+      ImmutableMap<String, Collection<String>> activeDirectories,
+      ImmutableMap<String, Object> residualGlobals) {
     this.ownedCodePaths = ownedCodePaths;
     this.residualGlobals = residualGlobals;
+    this.activeDirectories = activeDirectories;
   }
 
   /**
    * Returns the residual global referenced by the {@code key} found in the PROJECT file.
    *
    * <p>This returns null for non-existent keys and reserved globals. Use the dedicated getters to
-   * access the reserved globals. See {@code ProjectFunction.RESERVED_GLOBALS} for the list.
+   * access the reserved globals. See {@code ProjectFunction.ReservedGlobals} for the list.
    */
   @Nullable
   public Object getResidualGlobal(String key) {
@@ -48,11 +54,19 @@ public final class ProjectValue implements SkyValue {
   }
 
   /**
-   * Returns the list of code paths defined by the {@code ProjectFunction.OWNED_CODE_PATHS_KEY}. If
-   * the list is not defined in the file, returns an empty set.
+   * Returns the list of code paths owned by the project. If the list is not defined in the file,
+   * returns an empty set.
    */
   public ImmutableSet<String> getOwnedCodePaths() {
     return ownedCodePaths;
+  }
+
+  /**
+   * Returns the map of named active directories in the project. If the map is not defined in the
+   * file, returns an empty map.
+   */
+  public ImmutableMap<String, Collection<String>> getActiveDirectories() {
+    return activeDirectories;
   }
 
   /** The SkyKey. Uses the label of the project file as the input. */

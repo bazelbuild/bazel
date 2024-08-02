@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
@@ -49,6 +50,28 @@ public class ProjectFunctionTest extends BuildViewTestCase {
 
     ProjectValue value = result.get(key);
     assertThat(PathFragmentPrefixTrie.of(value.getOwnedCodePaths())).isNotNull();
+  }
+
+  @Test
+  public void projectFunction_returnsActiveDirectories() throws Exception {
+    scratch.file(
+        "test/PROJECT.scl", "active_directories = {'a': ['foo'], 'b': ['bar', '-bar/baz']}");
+    scratch.file("test/BUILD");
+    ProjectValue.Key key = new ProjectValue.Key(Label.parseCanonical("//test:PROJECT.scl"));
+
+    EvaluationResult<ProjectValue> result =
+        SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, false, reporter);
+    assertThat(result.hasError()).isFalse();
+
+    ProjectValue value = result.get(key);
+    ImmutableMap<String, PathFragmentPrefixTrie> trie =
+        PathFragmentPrefixTrie.transformValues(value.getActiveDirectories());
+    assertThat(trie.get("a").includes(PathFragment.create("foo"))).isTrue();
+    assertThat(trie.get("a").includes(PathFragment.create("bar"))).isFalse();
+    assertThat(trie.get("b").includes(PathFragment.create("bar"))).isTrue();
+    assertThat(trie.get("b").includes(PathFragment.create("bar/baz"))).isFalse();
+    assertThat(trie.get("b").includes(PathFragment.create("bar/qux"))).isTrue();
+    assertThat(trie.get("c")).isNull();
   }
 
   @Test

@@ -13,12 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect;
 
+
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -81,7 +84,7 @@ public final class PathFragmentPrefixTrie {
     root = new InterimSegment();
   }
 
-  public static PathFragmentPrefixTrie of(Set<String> paths) {
+  public static PathFragmentPrefixTrie of(Collection<String> paths) {
     PathFragmentPrefixTrie trie = new PathFragmentPrefixTrie();
     paths.forEach(
         p -> {
@@ -94,6 +97,11 @@ public final class PathFragmentPrefixTrie {
           }
         });
     return trie;
+  }
+
+  public static ImmutableMap<String, PathFragmentPrefixTrie> transformValues(
+      Map<String, Collection<String>> map) {
+    return ImmutableMap.copyOf(Maps.transformValues(map, PathFragmentPrefixTrie::of));
   }
 
   /** Puts the explicit inclusion or exclusion state for a {@link PathFragment} into the trie. */
