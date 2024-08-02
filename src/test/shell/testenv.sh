@@ -529,74 +529,96 @@ function setup_objc_test_support() {
   IOS_SDK_VERSION=$(xcrun --sdk iphoneos --show-sdk-version)
 }
 
+function get_version_from_default_lock_file() {
+  # Parse the version from the default lock file.
+  lockfile=$(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock)
+  module=$1
+  local version=$(grep -oP "modules/$module/\K[^/]+(?=/source\.json)" "$lockfile")
+  if [[ -z $version ]]; then
+      log_fatal "Version not found for module $module in $lockfile"
+  else
+      echo "$version"
+  fi
+}
+
 # Add platform to the MODULE.bazel file
 function add_platforms() {
+  version=$(get_version_from_default_lock_file "platforms")
   cat >> "$1" <<EOF
-bazel_dep(name = "platforms", version = "0.0.9")
+bazel_dep(name = "platforms", version = "$version")
 EOF
 }
 
 # Add bazel_skylib to the MODULE.bazel file
 function add_bazel_skylib() {
+  version=$(get_version_from_default_lock_file "bazel_skylib")
   cat >> "$1" <<EOF
-bazel_dep(name = "bazel_skylib", version = "1.7.1")
+bazel_dep(name = "bazel_skylib", version = "$version")
 EOF
 }
 
 # Add platform to the MODULE.bazel file
 function add_rules_cc() {
+  version=$(get_version_from_default_lock_file "rules_cc")
   cat >> "$1" <<EOF
-bazel_dep(name = "rules_cc", version = "0.0.9")
+bazel_dep(name = "rules_cc", version = "$version")
 EOF
 }
 
 # Add platform to the MODULE.bazel file
 function add_rules_java() {
+  version=$(get_version_from_default_lock_file "rules_java")
   cat >> "$1" <<EOF
-bazel_dep(name = "rules_java", version = "7.7.2")
+bazel_dep(name = "rules_java", version = "$version")
 EOF
 }
 
 # Add rules_testing to the MODULE.bazel file
 function add_rules_testing() {
+  version=$(get_version_from_default_lock_file "rules_testing")
   cat >> "$1" <<EOF
-bazel_dep(name = "rules_testing", version = "0.6.0")
+bazel_dep(name = "rules_testing", version = "$version")
 EOF
 }
 
 # Add rules_python to the MODULE.bazel file
 function add_rules_python() {
+  version=$(get_version_from_default_lock_file "rules_python")
   cat >> "$1" <<EOF
-bazel_dep(name = "rules_python", version = "0.34.0")
+bazel_dep(name = "rules_python", version = "$version")
 EOF
 }
 
 # Add rules_python to the MODULE.bazel file
 function add_rules_proto() {
+  version=$(get_version_from_default_lock_file "rules_proto")
   cat >> "$1" <<EOF
-bazel_dep(name = "rules_proto", version = "4.0.0")
+bazel_dep(name = "rules_proto", version = "$version")
 EOF
 }
 
 # Add rules_license to the MODULE.bazel file
 function add_rules_license() {
+  version=$(get_version_from_default_lock_file "rules_license")
   cat >> "$1" <<EOF
-bazel_dep(name = "rules_license", version = "0.0.3")
+bazel_dep(name = "rules_license", version = "$version")
 EOF
 }
 
 # Add abseil-cpp to the MODULE.bazel file
 function add_abseil_cpp() {
+  version=$(get_version_from_default_lock_file "abseil-cpp")
   cat >> "$1" <<EOF
-bazel_dep(name = "abseil-cpp", version = "20240116.2", repo_name = "com_google_absl")
+bazel_dep(name = "abseil-cpp", version = "$version", repo_name = "com_google_absl")
 EOF
 }
 
 
 # Add protobuf to the MODULE.bazel file
 function add_protobuf() {
+  version=$(get_version_from_default_lock_file "protobuf")
   cat >> "$1" <<EOF
-bazel_dep(name = "protobuf", version = "3.19.6", repo_name = "com_google_protobuf")
+bazel_dep(name = "protobuf", version = "$version", repo_name = "com_google_protobuf")
 EOF
 }
 
