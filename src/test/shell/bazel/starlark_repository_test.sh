@@ -3159,7 +3159,7 @@ EOF
 function test_unexported_rule() {
   # alas, we still need to support this while WORKSPACE is around...
   create_new_workspace
-  touch MODULE.bazel
+  setup_module_dot_bazel "MODULE.bazel"
   touch BUILD
   cat > r.bzl <<EOF
 def _impl(rctx):

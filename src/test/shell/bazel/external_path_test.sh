@@ -29,7 +29,7 @@ repo_with_local_include() {
   # Generate a repository, in the current working directory, with a target
   # //src:hello that includes a file via a local path.
 
-  touch MODULE.bazel
+  setup_module_dot_bazel "MODULE.bazel"
   mkdir src
   cat > src/main.c <<'EOF'
 #include <stdio.h>
@@ -57,7 +57,7 @@ library_with_local_include() {
   # is a library with headers that include via paths relative to the root of
   # that repository
 
-  touch MODULE.bazel
+  setup_module_dot_bazel "MODULE.bazel"
   mkdir lib
   cat > lib/lib.h <<'EOF'
 #include "lib/constants.h"
@@ -267,7 +267,7 @@ repo_with_local_path_reference() {
   # create, in the current working directory, a package called
   # withpath, that contains rule depending on hard-code path relative
   # to the repository root.
-  touch MODULE.bazel
+  setup_module_dot_bazel "MODULE.bazel"
   mkdir -p withpath
   cat > withpath/BUILD <<'EOF'
 genrule(
@@ -329,7 +329,7 @@ repo_with_local_implicit_dependencies() {
   # that has an implicit dependency on a target in the same repository;
   # the point here is that this dependency can be named without knowledge
   #  of the repository name.
-  touch MODULE.bazel
+  setup_module_dot_bazel "MODULE.bazel"
   mkdir -p rule
   cat > rule/BUILD <<'EOF'
 exports_files(["to_upper.sh"])
@@ -467,7 +467,7 @@ repo_with_embedded_paths() {
   # create, in the current working directory, a package called rule
   # that has an implicit dependency on a target in the same repository
   # that is referred-to by an embedded path.
-  touch MODULE.bazel
+  setup_module_dot_bazel "MODULE.bazel"
   mkdir -p rule
   cat > rule/preamb.html <<'EOF'
 <html>
@@ -633,7 +633,7 @@ repo_with_embedded_foreign_path() {
   # create, in the current working directory, a package called
   # rule that has an implicit dependency on @data//:file.txt, a target
   # of a different, external, repository.
-  touch MODULE.bazel
+  setup_module_dot_bazel "MODULE.bazel"
   mkdir -p rule
   cat > rule/BUILD <<'EOF'
 genrule(

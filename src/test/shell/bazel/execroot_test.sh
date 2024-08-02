@@ -71,7 +71,7 @@ EOF
 }
 
 function test_sibling_repository_layout() {
-    touch MODULE.bazel
+    setup_module_dot_bazel "MODULE.bazel"
 
     mkdir -p external/foo
     cat > external/foo/BUILD <<'EOF'
@@ -96,7 +96,7 @@ EOF
 
 # Regression test for b/149771751
 function test_sibling_repository_layout_indirect_dependency() {
-    touch MODULE.bazel
+    setup_module_dot_bazel "MODULE.bazel"
 
     mkdir external
     mkdir -p foo
@@ -121,7 +121,7 @@ EOF
 
 # Regression test for b/149771751
 function test_subdirectory_repository_layout_indirect_dependency() {
-    touch MODULE.bazel
+    setup_module_dot_bazel "MODULE.bazel"
 
     mkdir external
     mkdir -p foo
@@ -145,7 +145,7 @@ EOF
 }
 
 function test_no_sibling_repository_layout() {
-    touch MODULE.bazel
+    setup_module_dot_bazel "MODULE.bazel"
 
     mkdir -p external/foo
     cat > external/foo/BUILD <<'EOF'
@@ -171,7 +171,7 @@ EOF
 }
 
 function test_external_directory_globs() {
-  touch MODULE.bazel
+  setup_module_dot_bazel "MODULE.bazel"
 
   mkdir -p external/a external/c
   echo file_ab > external/a/b
@@ -194,7 +194,7 @@ EOF
 }
 
 function test_cc_smoke_with_new_layouts() {
-  touch MODULE.bazel
+  setup_module_dot_bazel "MODULE.bazel"
   mkdir -p external/a
   cat > external/a/BUILD <<EOF
 cc_binary(name='a', srcs=['a.cc'])
@@ -213,7 +213,7 @@ EOF
 }
 
 function test_java_smoke_with_new_layouts() {
-  touch MODULE.bazel
+  setup_module_dot_bazel "MODULE.bazel"
   mkdir -p external/java/a
   cat > external/java/a/BUILD <<EOF
 java_binary(name='a', srcs=['A.java'])

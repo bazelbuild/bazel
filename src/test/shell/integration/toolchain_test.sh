@@ -46,7 +46,7 @@ function set_up() {
   create_new_workspace
   # Clean out the MODULE.bazel file.
   rm MODULE.bazel
-  touch MODULE.bazel
+  setup_module_dot_bazel "MODULE.bazel"
 
   # Create shared report rule for printing toolchain info.
   mkdir -p report

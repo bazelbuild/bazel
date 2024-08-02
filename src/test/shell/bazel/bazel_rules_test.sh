@@ -1107,7 +1107,7 @@ function test_bash_runfiles_current_repository_test_nobuild_runfile_links() {
 }
 
 function test_bash_runfiles_current_repository_action_binary_main_repo() {
-  touch MODULE.bazel
+  setup_module_dot_bazel "MODULE.bazel"
 
   mkdir -p pkg
   cat > pkg/BUILD.bazel <<'EOF'
@@ -1150,7 +1150,7 @@ EOF
 }
 
 function test_bash_runfiles_current_repository_action_generated_binary_main_repo() {
-  touch MODULE.bazel
+  setup_module_dot_bazel "MODULE.bazel"
 
   mkdir -p pkg
   cat > pkg/BUILD.bazel <<'EOF'
