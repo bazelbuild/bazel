@@ -532,7 +532,7 @@ function setup_objc_test_support() {
 # Add platform to the MODULE.bazel file
 function add_platforms() {
   cat >> "$1" <<EOF
-bazel_dep(name = "platforms", version = "0.0.10")
+bazel_dep(name = "platforms", version = "0.0.9")
 EOF
 }
 

@@ -109,7 +109,7 @@ function test_include_validation_sandbox_disabled() {
   local workspace="${FUNCNAME[0]}"
   mkdir -p "${workspace}"/lib
 
-  touch "${workspace}/MODULE.bazel"
+  write_default_lockfile "${workspace}/MODULE.bazel.lock"
   cat >> "${workspace}/BUILD" << EOF
 cc_library(
     name = "foo",
