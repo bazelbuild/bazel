@@ -269,6 +269,17 @@ def _impl(ctx):
     static_link_cpp_runtimes_feature = feature(
         name = "static_link_cpp_runtimes",
         enabled = False,
+        flag_sets = [
+            flag_set(
+                actions = [
+                    ACTION_NAMES.cpp_link_executable,
+                    ACTION_NAMES.cpp_link_dynamic_library,
+                    ACTION_NAMES.lto_index_for_executable,
+                    ACTION_NAMES.lto_index_for_dynamic_library,
+                ],
+                flag_groups = [flag_group(flags = ["-static-libstdc++"])],
+            ),
+        ],
     )
 
     default_compile_flags_feature = feature(
@@ -1062,6 +1073,7 @@ def _impl(ctx):
         ],
     )
 
+    cpp_runtimes = ["-lstdc++", "-lc++"]
     default_link_libs_feature = feature(
         name = "default_link_libs",
         enabled = True,
@@ -1069,6 +1081,22 @@ def _impl(ctx):
             flag_set(
                 actions = all_link_actions + lto_index_actions,
                 flag_groups = [flag_group(flags = ctx.attr.link_libs)] if ctx.attr.link_libs else [],
+                with_features = [
+                    with_feature_set(not_features = ["static_link_cpp_runtimes"]),
+                ],
+            ),
+            flag_set(
+                actions = all_link_actions + lto_index_actions,
+                flag_groups = [flag_group(
+                    flags = [
+                        link_lib
+                        for link_lib in ctx.attr.link_libs
+                        if link_lib not in cpp_runtimes
+                    ],
+                )] if ctx.attr.link_libs else [],
+                with_features = [
+                    with_feature_set(features = ["static_link_cpp_runtimes"]),
+                ],
             ),
         ],
     )
