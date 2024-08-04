@@ -1916,6 +1916,46 @@ EOF
   fi
 }
 
+function test_static_link_cpp_runtimes_feature() {
+  mkdir pkg
+  cat > pkg/BUILD <<'EOF'
+cc_binary(
+  name = 'example',
+  srcs = ['example.cc'],
+)
+EOF
+  cat > pkg/example.cc <<'EOF'
+int main() {
+    return 0;
+}
+EOF
+
+  if is_darwin; then
+    bazel build --features static_link_cpp_runtimes --linkopt '-l:libc++.a' \
+        //pkg:example &> "$TEST_log" || fail "Build failed"
+    otool -L bazel-bin/pkg/example &> "$TEST_log" || fail "otool failed"
+    expect_log 'libc'
+    expect_not_log 'libc\+\+'
+  else
+    bazel build --features static_link_cpp_runtimes --linkopt '-l:libstdc++.a' \
+        //pkg:example &> "$TEST_log" || fail "Build failed"
+    ldd bazel-bin/pkg/example &> "$TEST_log" || fail "ldd failed"
+    expect_log 'libc'
+    expect_not_log 'libstdc\+\+'
+  fi
+
+  bazel build //pkg:example &> "$TEST_log" || fail "Build failed"
+  if is_darwin; then
+    otool -L bazel-bin/pkg/example &> "$TEST_log" || fail "otool failed"
+    expect_log 'libc'
+    expect_log 'libc\+\+'
+  else
+    ldd bazel-bin/pkg/example &> "$TEST_log" || fail "ldd failed"
+    expect_log 'libc'
+    expect_log 'libstdc\+\+'
+  fi
+}
+
 function test_parse_headers_unclean() {
   mkdir pkg
   cat > pkg/BUILD <<'EOF'
