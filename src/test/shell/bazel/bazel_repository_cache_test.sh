@@ -38,8 +38,9 @@ function setup_repository() {
 
   # Test with the extension
   serve_file $repo2_zip
-  rm WORKSPACE
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  rm MODULE.bazel
+  cat >> $(setup_module_dot_bazel "MODULE.bazel") <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = 'endangered',
@@ -57,16 +58,17 @@ function setup_starlark_repository() {
 
   zip_file="${server_dir}/zip_file.zip"
 
-  create_workspace_with_default_repos "${server_dir}"/WORKSPACE
+  setup_module_dot_bazel "${server_dir}"/MODULE.bazel
   echo "some content" > "${server_dir}"/file
-  zip -0 -ry $zip_file "${server_dir}"/WORKSPACE "${server_dir}"/file >& $TEST_log
+  zip -0 -ry $zip_file "${server_dir}"/MODULE.bazel "${server_dir}"/file >& $TEST_log
 
   zip_sha256="$(sha256sum "${zip_file}" | head -c 64)"
 
   # Start HTTP server with Python
   startup_server "${server_dir}"
 
-load('//:test.bzl', 'repo')
+  cat >> $(setup_module_dot_bazel "MODULE.bazel") <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
 repo(name = 'foo')
 EOF
   touch BUILD
@@ -99,7 +101,7 @@ function http_archive_helper() {
     rm -rf "$repo2"
     mkdir -p "$repo2/fox"
     cd "$repo2"
-    touch WORKSPACE
+    setup_module_dot_bazel "MODULE.bazel"
     cat > fox/BUILD <<EOF
 filegroup(
     name = "fox",
@@ -119,7 +121,7 @@ EOF
     # handle breaking a response into chunks.
     dd if=/dev/zero of=fox/padding bs=1024 count=10240 >& $TEST_log
     repo2_zip="$TEST_TMPDIR/fox.zip"
-    zip -0 -ry "$repo2_zip" WORKSPACE fox >& $TEST_log
+    zip -0 -ry "$repo2_zip" MODULE.bazel fox >& $TEST_log
     repo2_name=$(basename "$repo2_zip")
     sha256=$(sha256sum "$repo2_zip" | cut -f 1 -d ' ')
     integrity="sha256-$(cat "$repo2_zip" | openssl dgst -sha256 -binary | openssl base64 -A)"
@@ -131,7 +133,8 @@ EOF
   mkdir -p zoo
 
   if [[ $write_workspace = 0 ]]; then
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+    cat >> $(setup_module_dot_bazel "MODULE.bazel") <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = 'endangered',
@@ -150,7 +153,7 @@ EOF
 
     cat > zoo/female.sh <<EOF
 #!/bin/sh
-../endangered/fox/male
+../+_repo_rules+endangered/fox/male
 EOF
     chmod +x zoo/female.sh
 fi
@@ -160,7 +163,7 @@ fi
   shutdown_server
   expect_log "$what_does_the_fox_say"
 
-  base_external_path=bazel-out/../external/endangered/fox
+  base_external_path=bazel-out/../external/+_repo_rules+endangered/fox
   assert_files_same ${base_external_path}/male ${base_external_path}/male_relative
   assert_files_same ${base_external_path}/male ${base_external_path}/male_absolute
 }
@@ -253,8 +256,9 @@ function test_write_cache_without_hash() {
   setup_repository
 
   # Have a WORKSPACE file without the specified sha256
-  rm WORKSPACE
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  rm MODULE.bazel
+  cat >> $(setup_module_dot_bazel "MODULE.bazel") <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = 'endangered',
@@ -288,8 +292,9 @@ EOF
     && fail "expected failure" || :
 
   # However, if we add the hash, the value is taken from cache
-  rm WORKSPACE
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  rm MODULE.bazel
+  cat >> $(setup_module_dot_bazel "MODULE.bazel") <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = 'endangered',
@@ -482,9 +487,10 @@ function test_http_archive_no_default_canonical_id() {
     //zoo:breeding-program >& $TEST_log \
     || echo "Expected fetch to succeed"
 
-  # Break url in WORKSPACE
-  rm WORKSPACE
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  # Break url in MODULE.bazel
+  rm MODULE.bazel
+  cat >> $(setup_module_dot_bazel "MODULE.bazel") <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = 'endangered',
@@ -517,9 +523,10 @@ function test_http_archive_urls_as_default_canonical_id() {
   bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \
     || echo "Expected fetch to succeed"
 
-  # Break url in WORKSPACE
-  rm WORKSPACE
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  # Break url in MODULE.bazel
+  rm MODULE.bazel
+  cat >> $(setup_module_dot_bazel "MODULE.bazel") <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = 'endangered',
