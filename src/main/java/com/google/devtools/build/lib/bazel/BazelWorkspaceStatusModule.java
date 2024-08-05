@@ -23,11 +23,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildInfo;
@@ -52,7 +50,6 @@ import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.NetUtil;
 import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -250,22 +247,6 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     @Override
     public String getMnemonic() {
       return "BazelWorkspaceStatusAction";
-    }
-
-    @Override
-    protected void computeKey(
-        ActionKeyContext actionKeyContext,
-        @Nullable ArtifactExpander artifactExpander,
-        Fingerprint fp) {}
-
-    @Override
-    public boolean executeUnconditionally() {
-      return true;
-    }
-
-    @Override
-    public boolean isVolatile() {
-      return true;
     }
 
     @Override

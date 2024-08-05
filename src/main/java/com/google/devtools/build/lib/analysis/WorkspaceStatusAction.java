@@ -21,14 +21,17 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.WorkspaceStatus;
 import com.google.devtools.build.lib.server.FailureDetails.WorkspaceStatus.Code;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -175,6 +178,25 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
    * build changes, e.g. the name of the user running the build or the hostname.
    */
   public abstract Artifact getStableStatus();
+
+  @Override
+  public boolean executeUnconditionally() {
+    return true;
+  }
+
+  @Override
+  public boolean isVolatile() {
+    return true;
+  }
+
+  @Override
+  protected final void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable ArtifactExpander artifactExpander,
+      Fingerprint fp) {
+    // Since executeUnconditionally() is true (and this action is special-cased anyway), there is no
+    // point in calculating a fingerprint.
+  }
 
   protected ActionExecutionException createExecutionException(Exception e, Code detailedCode) {
     String message = "Failed to determine " + workspaceStatusDescription + ": " + e.getMessage();

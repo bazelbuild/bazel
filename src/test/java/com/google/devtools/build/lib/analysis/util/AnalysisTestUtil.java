@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
@@ -63,7 +62,6 @@ import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
-import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -265,15 +263,19 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public String getMnemonic() {
-      return "DummyBuildInfoAction";
+    public boolean executeUnconditionally() {
+      return false; // Some test assertions rely on this action being cached.
     }
 
     @Override
-    public void computeKey(
-        ActionKeyContext actionKeyContext,
-        @Nullable ArtifactExpander artifactExpander,
-        Fingerprint fp) {}
+    public boolean isVolatile() {
+      return false;
+    }
+
+    @Override
+    public String getMnemonic() {
+      return "DummyBuildInfoAction";
+    }
 
     @Override
     public Artifact getVolatileStatus() {
@@ -469,8 +471,8 @@ public final class AnalysisTestUtil {
 
   /**
    * Apply {@code function} to the path string of the given ArtifactRoot. If the root path matches
-   * {@link OUTPUT_PATH_CPP_PREFIX_PATTERN} or {@link OUTPUT_PATH_ANDROID_PREFIX_PATTERN}, also use
-   * those to update the path and invoke {@code function} again.
+   * {@link #OUTPUT_PATH_CPP_PREFIX_PATTERN} or {@link #OUTPUT_PATH_ANDROID_PREFIX_PATTERN}, also
+   * use those to update the path and invoke {@code function} again.
    *
    * @return the result of {@code function} from the most specific root path
    */
