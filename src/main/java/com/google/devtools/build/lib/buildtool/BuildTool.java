@@ -290,7 +290,8 @@ public class BuildTool {
         PathFragmentPrefixTrie workingSetMatcher =
             projectFile == null
                 ? null
-                : getWorkingSetMatcher(projectFile, env.getSkyframeExecutor(), env.getReporter());
+                : getWorkingSetMatcherForSkyfocus(
+                    projectFile, env.getSkyframeExecutor(), env.getReporter());
         env.getSkyframeExecutor()
             .runSkyfocus(
                 topLevelTargets,
@@ -819,7 +820,7 @@ public class BuildTool {
   }
 
   /** Returns the project directories found in a project file. */
-  private static PathFragmentPrefixTrie getWorkingSetMatcher(
+  private static PathFragmentPrefixTrie getWorkingSetMatcherForSkyfocus(
       Label projectFile, SkyframeExecutor skyframeExecutor, ExtendedEventHandler eventHandler)
       throws InvalidConfigurationException {
     ProjectValue.Key key = new ProjectValue.Key(projectFile);
@@ -835,7 +836,7 @@ public class BuildTool {
           Code.INVALID_PROJECT);
     }
 
-    return PathFragmentPrefixTrie.of(((ProjectValue) result.get(key)).getOwnedCodePaths());
+    return PathFragmentPrefixTrie.of(((ProjectValue) result.get(key)).getDefaultActiveDirectory());
   }
 
   /** Creates a BuildOptions class for the given options taken from an {@link OptionsProvider}. */

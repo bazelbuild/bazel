@@ -27,19 +27,15 @@ import javax.annotation.Nullable;
 /** A SkyValue representing the parsed definitions from a PROJECT.scl file. */
 public final class ProjectValue implements SkyValue {
 
-  private final ImmutableSet<String> ownedCodePaths;
-
   private final ImmutableMap<String, Collection<String>> activeDirectories;
 
   private final ImmutableMap<String, Object> residualGlobals;
 
   public ProjectValue(
-      ImmutableSet<String> ownedCodePaths,
       ImmutableMap<String, Collection<String>> activeDirectories,
       ImmutableMap<String, Object> residualGlobals) {
-    this.ownedCodePaths = ownedCodePaths;
-    this.residualGlobals = residualGlobals;
     this.activeDirectories = activeDirectories;
+    this.residualGlobals = residualGlobals;
   }
 
   /**
@@ -54,11 +50,17 @@ public final class ProjectValue implements SkyValue {
   }
 
   /**
-   * Returns the list of code paths owned by the project. If the list is not defined in the file,
-   * returns an empty set.
+   * Return the default active directory. If there are zero active directories, return the empty
+   * set.
    */
-  public ImmutableSet<String> getOwnedCodePaths() {
-    return ownedCodePaths;
+  public ImmutableSet<String> getDefaultActiveDirectory() {
+    if (activeDirectories.isEmpty()) {
+      return ImmutableSet.of();
+    }
+    Preconditions.checkArgument(
+        activeDirectories.containsKey("default"),
+        "active_directories must contain the 'default' key");
+    return ImmutableSet.copyOf(activeDirectories.get("default"));
   }
 
   /**

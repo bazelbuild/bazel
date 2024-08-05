@@ -142,11 +142,7 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     write(
         "hello/PROJECT.scl",
         """
-        owned_code_paths = [
-          "hello",
-          "somewhere/else",
-          "not/used",
-        ]
+        active_directories = { "default": [ "hello", "somewhere/else", "not/used" ] }
         """);
 
     write("somewhere/else/file.txt", "some content");
@@ -191,11 +187,10 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
         )
         """);
 
-    // Files under //somewhere/else will be not because of this PROJECT.scl file.
     write(
         "hello/PROJECT.scl",
         """
-        owned_code_paths = ["somewhere/else"]
+        active_directories = {"default": ["somewhere/else"] }
         """);
 
     write("somewhere/else/file.txt", "some content");
@@ -232,12 +227,14 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     write(
         "hello/PROJECT.scl",
         """
-        owned_code_paths = [
-          "hello", # included
-          "-hello/world", # excluded
-          "hello/world/again", # included
-          "-somewhere/else", # excluded
-        ]
+        active_directories = {
+          "default": [
+            "hello", # included
+            "-hello/world", # excluded
+            "hello/world/again", # included
+            "-somewhere/else", # excluded
+          ],
+        }
         """);
 
     write("somewhere/else/file.txt", "some content");

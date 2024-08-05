@@ -17,7 +17,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.skyframe.SkyFunctionException.Transience.PERSISTENT;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -68,35 +67,11 @@ public class ProjectFunction implements SkyFunction {
       return null;
     }
 
-    Object ownedCodePathsRaw =
-        bzlLoadValue.getModule().getGlobal(ReservedGlobals.OWNED_CODE_PATHS.getKey());
-
-    // TODO: all of these typechecking should probably be handled by a proto spec.
-
-    // Crude typechecking to prevent server crashes.
-    @SuppressWarnings("unchecked")
-    Collection<? extends String> ownedCodePaths =
-        switch (ownedCodePathsRaw) {
-          case null -> ImmutableSet.of();
-          case Collection<?> xs -> {
-            for (Object x : xs) {
-              if (!(x instanceof String)) {
-                throw new ProjectFunctionException(
-                    new TypecheckFailureException(
-                        "expected a list of strings, got element of " + x.getClass()));
-              }
-            }
-            yield (Collection<String>) xs;
-          }
-          default ->
-              throw new ProjectFunctionException(
-                  new TypecheckFailureException(
-                      "expected a list of strings, got " + ownedCodePathsRaw.getClass()));
-        };
-
     Object activeDirectoriesRaw =
         bzlLoadValue.getModule().getGlobal(ReservedGlobals.ACTIVE_DIRECTORIES.getKey());
 
+    // Crude typechecking to prevent server crashes.
+    // TODO: all of these typechecking should probably be handled by a proto spec.
     @SuppressWarnings("unchecked")
     ImmutableMap<String, Collection<String>> activeDirectories =
         switch (activeDirectoriesRaw) {
@@ -148,8 +123,13 @@ public class ProjectFunction implements SkyFunction {
                         .noneMatch(global -> entry.getKey().equals(global.getKey())))
             .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
-    return new ProjectValue(
-        ImmutableSet.copyOf(ownedCodePaths), activeDirectories, residualGlobals);
+    if (!activeDirectories.isEmpty() && activeDirectories.get("default") == null) {
+      throw new ProjectFunctionException(
+          new ActiveSetRootsException(
+              "non-empty active_directories must contain the 'default' key"));
+    }
+
+    return new ProjectValue(activeDirectories, residualGlobals);
   }
 
   private static final class TypecheckFailureException extends Exception {
@@ -158,8 +138,18 @@ public class ProjectFunction implements SkyFunction {
     }
   }
 
+  private static final class ActiveSetRootsException extends Exception {
+    ActiveSetRootsException(String msg) {
+      super(msg);
+    }
+  }
+
   private static final class ProjectFunctionException extends SkyFunctionException {
     ProjectFunctionException(TypecheckFailureException cause) {
+      super(cause, PERSISTENT);
+    }
+
+    ProjectFunctionException(ActiveSetRootsException cause) {
       super(cause, PERSISTENT);
     }
 
