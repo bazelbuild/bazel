@@ -77,6 +77,7 @@ function set_up() {
   setup_bazelrc
   export MSYS_NO_PATHCONV=1
   export MSYS2_ARG_CONV_EXCL="*"
+  add_platforms "MODULE.bazel"
   mkdir platforms
   cat >platforms/BUILD <<EOF
 platform(

@@ -68,7 +68,6 @@ fi
 #
 # Unpacks the test Git repositories in the test temporary directory.
 function set_up() {
-  bazel clean --expunge
   local repos_dir=$TEST_TMPDIR/repos
   if [ -e "$repos_dir" ]; then
     rm -rf $repos_dir
