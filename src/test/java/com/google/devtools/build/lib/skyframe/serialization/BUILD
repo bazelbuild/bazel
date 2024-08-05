@@ -366,6 +366,19 @@ java_test(
     ],
 )
 
+java_test(
+    name = "ProfileCollectorTest",
+    size = "small",
+    srcs = ["ProfileCollectorTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "//third_party/pprof:profile_java_proto",
+    ],
+)
+
 java_library(
     name = "serialization-tests",
     testonly = 1,
@@ -386,6 +399,7 @@ java_library(
             "ModuleCodecTest.java",
             "DictCodecTest.java",
             "DirectoryListingStateValueCodecTest.java",
+            "ProfileCollectorTest.java",
             "RecursivePkgKeyCodecTest.java",
             "RootedPathCodecTest.java",
             "IgnoredPackagePrefixesValueCodecTest.java",
