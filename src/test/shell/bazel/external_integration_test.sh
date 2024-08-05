@@ -514,8 +514,9 @@ EOF
 }
 
 function test_deferred_download_error() {
-  cat >> $(setup_module_dot_bazel "MODULE.bazel") <<'EOF'
-defer = use_repo_rule("//:defer.bzl", "defer")
+  # TODO(bzlmod): This test hangs after moving to MODULE.bazel
+  cat > WORKSPACE <<'EOF'
+load("//:defer.bzl", "defer")
 
 defer(name="defer")
 EOF
@@ -538,7 +539,7 @@ EOF
   touch BUILD
 
   # Start Bazel
-  bazel query @defer//:all >& $TEST_log && fail "Bazel unexpectedly succeeded"
+  bazel query --enable_workspace @defer//:all >& $TEST_log && fail "Bazel unexpectedly succeeded"
   expect_log "Error downloading.*doesnotexist"
   expect_not_log "survived wait"
 }
@@ -574,7 +575,7 @@ def _defer_impl(rctx):
   # Tell the rest of the test to unblock the HTTP server
   rctx.execute(["/bin/sh", "-c", "echo ok > ${server_dir}/gate_socket"])
   deferred.wait()
-  rctx.file("REPO.bazel", "")
+  rctx.file("WORKSPACE", "")
   rctx.file("BUILD", "filegroup(name='f', srcs=glob(['**']))")
 
 defer = repository_rule(implementation = _defer_impl)
@@ -1123,8 +1124,8 @@ EOF
 }
 
 function test_use_bind_as_repository() {
-  cat >> $(setup_module_dot_bazel "MODULE.bazel") <<'EOF'
-use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+  cat > WORKSPACE <<'EOF'
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'foobar', path = 'foo')
 bind(name = 'foo', actual = '@foobar//:test')
 EOF
@@ -1140,7 +1141,7 @@ genrule(
     outs = ["foo.txt"],
 )
 EOF
-  bazel build :foo &> "$TEST_log" && fail "Expected failure" || true
+  bazel build --enable_workspace :foo &> "$TEST_log" && fail "Expected failure" || true
   expect_log "No repository visible as '@foo' from main repository"
 }
 
