@@ -115,7 +115,7 @@ test_local_paths_remote() {
 
   mkdir main
   cd main
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="remote",
@@ -179,7 +179,7 @@ test_lib_paths_remote() {
 
   mkdir main
   cd main
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="remote",
@@ -245,7 +245,7 @@ EOF
 
   mkdir main
   cd main
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="remotelib",
@@ -313,7 +313,7 @@ DISABLED_test_fixed_path_remote() {
 
   mkdir main
   cd main
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="remote",
@@ -397,7 +397,7 @@ test_remote_rules() {
 
   mkdir main
   cd main
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="r",
@@ -446,7 +446,7 @@ EOF
 
   mkdir main
   cd main
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="a",
@@ -559,7 +559,7 @@ test_embedded_remote() {
 
   mkdir main
   cd main
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="r",
@@ -612,7 +612,7 @@ EOF
 
   mkdir main
   cd main
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="r",
@@ -685,7 +685,7 @@ exports_files(["file.txt"], visibility = ["//visibility:public"])
 EOF
   tar cvf data.tar data
   rm -rf data
-  cat > main/MODULE.bazel <<EOF
+  cat >> $(setup_module_dot_bazel "main/MODULE.bazel") <<EOF
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="data",
@@ -693,7 +693,6 @@ http_archive(
   urls=["file://$(pwd)/data.tar"],
 )
 EOF
-  setup_module_dot_bazel "main/MODULE.bazel"
 }
 
 test_embedded_foreign_paths_local() {
@@ -734,7 +733,7 @@ test_embedded_foreign_paths_remote() {
   (cd rule && repo_with_embedded_foreign_path)
   tar cvf rule.tar rule
   rm -rf rule
-  cat >> main/MODULE.bazel <<EOF
+  cat >> $(setup_module_dot_bazel "main/MODULE.bazel") <<EOF
 http_archive(
   name="rule",
   strip_prefix="rule",
