@@ -529,6 +529,29 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         .doesNotContain("//test:my_child");
   }
 
+
+  @Test
+  public void incompatibleTarget() throws Exception {
+    writeFile(
+        "test/BUILD",
+        """
+            constraint_setting(name = "incompatible_setting")
+            constraint_value(
+                name = "incompatible",
+                constraint_setting = ":incompatible_setting",
+            )
+            genrule(
+                name = "my_target",
+                cmd = "touch $@",
+                outs = ["out"],
+                target_compatible_with = [":incompatible"],
+            )""");
+
+    options.transitions = Transitions.LITE;
+    AnalysisProtosV2.CqueryResult cqueryResult =
+        getProtoOutput("deps(//test:my_target)", AnalysisProtosV2.CqueryResult.parser());
+  }
+
   private CqueryNode getKeyedTargetByLabel(Set<CqueryNode> keyedTargets, String label) {
     return Iterables.getOnlyElement(
         keyedTargets.stream()
