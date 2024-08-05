@@ -68,9 +68,6 @@ source "$(rlocation "io_bazel/src/test/shell/bazel/remote_helpers.sh")" \
 
 mock_rules_java_to_avoid_downloading
 
-# Make sure no repository cache is used in this test
-add_to_bazelrc "build --repository_cache="
-
 # Basic test.
 function test_macro_local_repository() {
   create_new_workspace
@@ -88,7 +85,7 @@ EOF
 
   cd ${WORKSPACE_DIR}
   cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
-ext = use_extension("//:test.bzl", "ext")
+ext = use_extension("//:test.bzl", "repo_ext")
 use_repo(ext, "endangered")
 EOF
 
@@ -102,7 +99,7 @@ def macro(path):
   print('bleh')
   local_repository(name='endangered', path=path)
 
-repo_ext = module_extension(implementation = lamda ctx: macro('$repo2'))
+repo_ext = module_extension(implementation = lambda ctx: macro('$repo2'))
 EOF
   mkdir -p zoo
   cat > zoo/BUILD <<'EOF'
@@ -139,11 +136,11 @@ EOF
   cd ${WORKSPACE_DIR}
   cat >test.bzl <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
-def macro(path):
+def macro():
   print('blah')
   local_repository(name='endangered', path='$repo2')
 
-repo_ext = module_extension(implementation = lamda ctx: macro())
+repo_ext = module_extension(implementation = lambda ctx: macro())
 EOF
   bazel build //zoo:ball-pit >& $TEST_log || fail "Failed to build"
   expect_log "blah"
@@ -1492,7 +1489,7 @@ EOF
 
 function test_timeout_tunable() {
   cat >> $(setup_module_dot_bazel "MODULE.bazel")  <<'EOF'
-load("//:repo.bzl", "with_timeout")
+with_timeout = use_repo_rule("//:repo.bzl", "with_timeout")
 
 with_timeout(name="maytimeout")
 EOF
@@ -1507,9 +1504,9 @@ def _impl(ctx):
 
 with_timeout = repository_rule(attrs = {}, implementation = _impl)
 EOF
-  bazel sync && fail "expected timeout" || :
+  bazel fetch --repo=@maytimeout && fail "expected timeout" || :
 
-  bazel sync --experimental_scale_timeouts=100 \
+  bazel fetch --repo=@maytimeout --experimental_scale_timeouts=100 \
       || fail "expected success now the timeout is scaled"
 
   bazel build @maytimeout//... \
@@ -2298,7 +2295,7 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
-  bazel build --noenable_bzlmod --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
+  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
       || fail "Expected success despite needing a file behind credential helper"
 }
 
@@ -2329,7 +2326,7 @@ genrule(
 )
 EOF
 
-  bazel build --repository_disable_download //:it > "${TEST_log}" 2>&1 \
+  bazel build --repository_disable_download --repository_cache= //:it > "${TEST_log}" 2>&1 \
       && fail "Expected failure" || :
   expect_log "Failed to download repository @.*: download is disabled"
 }
@@ -2344,8 +2341,8 @@ function test_disable_download_should_allow_distdir() {
   mkdir main
   cp x.tar main
   cd main
-  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
-http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   url = "http://127.0.0.1/x.tar",
@@ -2362,7 +2359,7 @@ genrule(
 EOF
 
   # for some reason --repository_disable_download fails with bzlmod trying to download @platforms.
-  bazel build --distdir="." --repository_disable_download --enable_workspace --noenable_bzlmod //:it || fail "Failed to build"
+  bazel build --distdir="." --repository_disable_download --repository_cache= --enable_workspace --noenable_bzlmod //:it || fail "Failed to build"
 }
 
 function test_disable_download_should_allow_local_repository() {
@@ -2420,9 +2417,11 @@ EOF
   expect_log_n "hello world!" 1
 
   # virtual worker thread, never restarts
-  bazel shutdown
+  # TODO(bzlmod): bazel shutdown should work, instead Bzlmod repo with local=True isn't always re-fetched
+  bazel clean --expunge
   bazel build @foo//:bar --experimental_worker_for_repo_fetching=virtual >& $TEST_log \
     || fail "Expected build to succeed"
+  cat $TEST_log
   expect_log_n "hello world!" 1
 }
 
@@ -2527,6 +2526,9 @@ EOF
 
 
   bazel build @foo//:all || fail "expected bazel to succeed"
+
+  # echo "headers: "
+  # cat $headers
 
   headers="${TEST_TMPDIR}/netrc_headers.json"
   assert_contains '"Authorization": "Basic Zm9vOmJhcg=="' "$headers"
@@ -3274,8 +3276,8 @@ EOF
 function test_legacy_label_print() {
     WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
     cd "${WRKDIR}"
-    cat > WORKSPACE <<'EOF'
-load("//:my_repository_rule.bzl", "my_repository_rule")
+    cat > $(setup_module_dot_bazel "MODULE.bazel") <<'EOF'
+my_repository_rule = use_repo_rule("//:my_repository_rule.bzl", "my_repository_rule")
 
 my_repository_rule(
     name = "my_first_repo",
@@ -3306,10 +3308,10 @@ filegroup(
     ],
 )
 EOF
-    bazel build --noenable_bzlmod //:foo >& $TEST_log || fail "expected bazel to succeed"
-    expect_log "main repo: //:foo @//:foo"
-    expect_log "my_first_repo: @my_first_repo//:foo @my_first_repo//:foo"
-    expect_log "my_second_repo: @my_first_repo//:foo @my_first_repo//:foo"
+    bazel build //:foo >& $TEST_log || fail "expected bazel to succeed"
+    expect_log "main repo: //:foo @@//:foo"
+    expect_log "my_first_repo: @my_first_repo//:foo @@+_repo_rules+my_first_repo//:foo"
+    expect_log "my_second_repo: @my_first_repo//:foo @@+_repo_rules+my_first_repo//:foo"
 }
 
 run_suite "local repository tests"
