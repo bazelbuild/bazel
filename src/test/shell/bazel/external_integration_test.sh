@@ -454,8 +454,9 @@ function test_deferred_download_two_parallel_downloads() {
 
   startup_server "${server_dir}"
 
-  cat >> $(setup_module_dot_bazel "MODULE.bazel") <<'EOF'
-use_repo_rule("defer.bzl", "defer")
+  # TODO(bzlmod): This test hangs after moving to MODULE.bazel
+  cat > WORKSPACE <<'EOF'
+load("defer.bzl", "defer")
 
 defer(name="defer")
 EOF
@@ -489,7 +490,7 @@ EOF
   touch BUILD
 
   # Start Bazel
-  bazel query @defer//:all >& $TEST_log &
+  bazel query --enable_workspace @defer//:all >& $TEST_log &
   local bazel_pid=$!
 
   # Wait until the .download() calls return
