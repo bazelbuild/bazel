@@ -575,9 +575,8 @@ EOF
 
 # Add rules_testing to the MODULE.bazel file
 function add_rules_testing() {
-  version=$(get_version_from_default_lock_file "rules_testing")
   cat >> "$1" <<EOF
-bazel_dep(name = "rules_testing", version = "$version")
+bazel_dep(name = "rules_testing", version = "0.6.0")
 EOF
 }
 
@@ -628,6 +627,7 @@ function setup_module_dot_bazel() {
   module_dot_bazel=${1:-MODULE.bazel}
   touch $module_dot_bazel
   cp -f $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) "$(dirname ${module_dot_bazel})/MODULE.bazel.lock"
+  echo $module_dot_bazel
 }
 
 workspaces=()
