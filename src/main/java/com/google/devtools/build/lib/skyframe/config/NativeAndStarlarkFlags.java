@@ -19,10 +19,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.common.options.OptionDefinition;
+import com.google.devtools.common.options.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -113,8 +117,45 @@ public abstract class NativeAndStarlarkFlags {
    * @return the new options after applying this object to the original options
    */
   public BuildOptions mergeWith(BuildOptions source) throws OptionsParsingException {
-    // TODO: https://github.com/bazelbuild/bazel/issues/23147 - Inline applyParsingResult and remove
-    // it from BuildOptions.
-    return source.applyParsingResult(this.parse());
+    OptionsParsingResult parsingResult = this.parse();
+    BuildOptions.Builder builder = source.toBuilder();
+
+    // Handle native options.
+    for (OptionValueDescription optionValue : parsingResult.allOptionValues()) {
+      OptionDefinition optionDefinition = optionValue.getOptionDefinition();
+      // All options obtained from an options parser are guaranteed to have been defined in an
+      // FragmentOptions class.
+      Class<? extends FragmentOptions> fragmentOptionClass =
+          optionDefinition.getDeclaringClass(FragmentOptions.class);
+
+      FragmentOptions fragment = builder.getFragmentOptions(fragmentOptionClass);
+      if (fragment == null) {
+        // Preserve trimming by ignoring fragments not present in the original options.
+        continue;
+      }
+      updateOptionValue(fragment, optionDefinition, optionValue);
+    }
+
+    // Also copy Starlark options.
+    Map<Label, Object> parsedStarlarkOptions =
+        BuildOptions.labelizeStarlarkOptions(parsingResult.getStarlarkOptions());
+    for (Map.Entry<Label, Object> starlarkOption : parsedStarlarkOptions.entrySet()) {
+      // TODO: https://github.com/bazelbuild/bazel/issues/23147 -check for default values and remove
+      // them.
+      builder.addStarlarkOption(starlarkOption.getKey(), starlarkOption.getValue());
+    }
+
+    return builder.build();
+  }
+
+  private static void updateOptionValue(
+      FragmentOptions fragment,
+      OptionDefinition optionDefinition,
+      OptionValueDescription optionValue) {
+    // TODO: https://github.com/bazelbuild/bazel/issues/22453 - This will completely overwrite
+    // accumulating flags, which is almost certainly not what users want. Instead this should
+    // intelligently merge options.
+    Object value = optionValue.getValue();
+    optionDefinition.setValue(fragment, value);
   }
 }

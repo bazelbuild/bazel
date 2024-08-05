@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerializat
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.OptionDefinition;
-import com.google.devtools.common.options.OptionValueDescription;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -267,58 +266,6 @@ public final class BuildOptions implements Cloneable {
       ImmutableMap<Label, Object> starlarkOptionsMap) {
     this.fragmentOptionsMap = fragmentOptionsMap;
     this.starlarkOptionsMap = starlarkOptionsMap;
-  }
-
-  /**
-   * Applies any options set in the parsing result on top of these options, returning the resulting
-   * build options.
-   *
-   * <p>To preserve fragment trimming, this method will not expand the set of included native
-   * fragments. If the parsing result contains native options whose owning fragment is not part of
-   * these options they will be ignored (i.e. not set on the resulting options). Starlark options
-   * are not affected by this restriction.
-   *
-   * @param parsingResult any options that are being modified
-   * @return the new options after applying the parsing result to the original options
-   */
-  public BuildOptions applyParsingResult(OptionsParsingResult parsingResult) {
-    BuildOptions.Builder builder = this.toBuilder();
-
-    // Handle native options.
-    for (OptionValueDescription optionValue : parsingResult.allOptionValues()) {
-      OptionDefinition optionDefinition = optionValue.getOptionDefinition();
-      // All options obtained from an options parser are guaranteed to have been defined in an
-      // FragmentOptions class.
-      Class<? extends FragmentOptions> fragmentOptionClass =
-          optionDefinition.getDeclaringClass(FragmentOptions.class);
-
-      FragmentOptions fragment = builder.getFragmentOptions(fragmentOptionClass);
-      if (fragment == null) {
-        // Preserve trimming by ignoring fragments not present in the original options.
-        continue;
-      }
-      updateOptionValue(fragment, optionDefinition, optionValue);
-    }
-
-    // Also copy Starlark options
-    Map<Label, Object> parsedStarlarkOptions =
-        labelizeStarlarkOptions(parsingResult.getStarlarkOptions());
-    for (Map.Entry<Label, Object> starlarkOption : parsedStarlarkOptions.entrySet()) {
-      builder.addStarlarkOption(starlarkOption.getKey(), starlarkOption.getValue());
-    }
-
-    return builder.build();
-  }
-
-  private static void updateOptionValue(
-      FragmentOptions fragment,
-      OptionDefinition optionDefinition,
-      OptionValueDescription optionValue) {
-    // TODO: https://github.com/bazelbuild/bazel/issues/22453 - This will completely overwrite
-    // accumulating flags, which is almost certainly not what users want. Instead this should
-    // intelligently merge options.
-    Object value = optionValue.getValue();
-    optionDefinition.setValue(fragment, value);
   }
 
   /**
