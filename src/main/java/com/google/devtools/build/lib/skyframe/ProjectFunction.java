@@ -125,7 +125,7 @@ public class ProjectFunction implements SkyFunction {
 
     if (!activeDirectories.isEmpty() && activeDirectories.get("default") == null) {
       throw new ProjectFunctionException(
-          new ActiveSetRootsException(
+          new ActiveDirectoriesException(
               "non-empty active_directories must contain the 'default' key"));
     }
 
@@ -138,8 +138,8 @@ public class ProjectFunction implements SkyFunction {
     }
   }
 
-  private static final class ActiveSetRootsException extends Exception {
-    ActiveSetRootsException(String msg) {
+  private static final class ActiveDirectoriesException extends Exception {
+    ActiveDirectoriesException(String msg) {
       super(msg);
     }
   }
@@ -149,7 +149,7 @@ public class ProjectFunction implements SkyFunction {
       super(cause, PERSISTENT);
     }
 
-    ProjectFunctionException(ActiveSetRootsException cause) {
+    ProjectFunctionException(ActiveDirectoriesException cause) {
       super(cause, PERSISTENT);
     }
 
