@@ -248,7 +248,7 @@ same inputs as it did before, but the structure of the build is different:
 /docs/images/tutorial_java_02.svg)
 
 You've now built the project with two targets. The `ProjectRunner` target builds
-two source files and depends on one other target (`:greeter`), which builds
+one source files and depends on one other target (`:greeter`), which builds
 one additional source file.
 
 ### Use multiple packages
