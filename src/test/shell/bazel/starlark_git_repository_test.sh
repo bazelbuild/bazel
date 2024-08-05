@@ -85,6 +85,8 @@ function set_up() {
   tar zxf refetch-repo.tar.gz
   tar zxf strip-prefix-repo.tar.gz
 
+  setup_module_dot_bazel "MODULE.bazel"
+
   # Fix environment variables for a hermetic use of git.
   export GIT_CONFIG_NOSYSTEM=1
   export GIT_CONFIG_NOGLOBAL=1
