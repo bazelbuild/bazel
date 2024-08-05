@@ -82,7 +82,8 @@ public class ParsedFlagsFunction implements SkyFunction {
     NativeAndStarlarkFlags flags =
         NativeAndStarlarkFlags.builder()
             .nativeFlags(nativeFlags.build())
-            .starlarkFlags(fakeNativeParser.getStarlarkOptions())
+            .starlarkFlags(starlarkFlagParser.getStarlarkOptions())
+            .starlarkFlagDefaults(starlarkFlagParser.getDefaultValues())
             .optionsClasses(optionsClasses)
             .repoMapping(key.packageContext().repoMapping())
             .build();

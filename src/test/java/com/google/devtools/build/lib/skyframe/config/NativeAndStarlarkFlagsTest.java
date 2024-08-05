@@ -115,6 +115,7 @@ public class NativeAndStarlarkFlagsTest {
             .optionsClasses(BUILD_CONFIG_OPTIONS)
             .nativeFlags(ImmutableList.of("--str_option=bar", "--nobool_option"))
             .starlarkFlags(ImmutableMap.of("//custom:flag", "hello"))
+            .starlarkFlagDefaults(ImmutableMap.of("//custom:flag", "default"))
             .build();
 
     OptionsParsingResult result = flags.parse();
@@ -134,6 +135,7 @@ public class NativeAndStarlarkFlagsTest {
             .optionsClasses(BUILD_CONFIG_OPTIONS)
             .nativeFlags(ImmutableList.of("--str_option=bar", "--nobool_option"))
             .starlarkFlags(ImmutableMap.of("//custom:flag", "hello"))
+            .starlarkFlagDefaults(ImmutableMap.of("//custom:flag", "default"))
             .build();
 
     BuildOptions modified = flags.mergeWith(original);
@@ -252,6 +254,7 @@ public class NativeAndStarlarkFlagsTest {
         NativeAndStarlarkFlags.builder()
             .optionsClasses(BUILD_CONFIG_OPTIONS)
             .starlarkFlags(ImmutableMap.of("//custom:flag", "override"))
+            .starlarkFlagDefaults(ImmutableMap.of("//custom:flag", "default"))
             .build();
 
     BuildOptions modified = flags.mergeWith(original);
@@ -272,8 +275,8 @@ public class NativeAndStarlarkFlagsTest {
     NativeAndStarlarkFlags flags =
         NativeAndStarlarkFlags.builder()
             .optionsClasses(BUILD_CONFIG_OPTIONS)
-            // TODO: somehow indicate the default
             .starlarkFlags(ImmutableMap.of("//custom:flag", "default"))
+            .starlarkFlagDefaults(ImmutableMap.of("//custom:flag", "default"))
             .build();
 
     BuildOptions modified = flags.mergeWith(original);
