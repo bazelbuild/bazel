@@ -225,7 +225,7 @@ public final class PlatformMappingValue implements SkyValue {
       }
 
       NativeAndStarlarkFlags args = platformsToFlags.get(targetPlatform);
-      modifiedOptions = originalOptions.applyParsingResult(args.parse());
+      modifiedOptions = args.mergeWith(originalOptions);
     } else {
       boolean mappingFound = false;
       for (Map.Entry<NativeAndStarlarkFlags, Label> flagsToPlatform : flagsToPlatforms.entrySet()) {

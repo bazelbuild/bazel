@@ -28,7 +28,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.Collection;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -165,8 +164,7 @@ public class FlagSetFunction implements SkyFunction {
   private BuildOptions changeOptions(BuildOptions fromOptions, ParsedFlagsValue parsedFlags)
       throws FlagSetFunctionException {
     try {
-      OptionsParsingResult parsingResult = parsedFlags.flags().parse();
-      return fromOptions.applyParsingResult(parsingResult);
+      return parsedFlags.flags().mergeWith(fromOptions);
     } catch (OptionsParsingException e) {
       throw new FlagSetFunctionException(e, Transience.PERSISTENT);
     }
