@@ -17,6 +17,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.common.options.OptionsParser;
@@ -88,5 +89,32 @@ public abstract class NativeAndStarlarkFlags {
     parser.parse(this.nativeFlags().asList());
     parser.setStarlarkOptions(this.starlarkFlags());
     return parser;
+  }
+
+  /**
+   * Returns a new {@link BuildOptions} instance, which contains all flags from the given {@link
+   * BuildOptions} with the flags in this {@link NativeAndStarlarkFlags} merged in.
+   *
+   * <p>The merging logic is as follows:
+   * <li>For native flags, only the fragments in the original {@link BuildOptions} are kept.
+   * <li>Any native flags in this instance, for fragments that are kept, are set to the value from
+   *     this instance.
+   * <li>All Starlark flags from the original {@link BuildOptions} are kept, then all Starlark
+   *     options from this instance are added.
+   * <li>Any Starlark flags which are present in both, the value from this instance is kept.
+   *
+   *     <p>To preserve fragment trimming, this method will not expand the set of included native
+   *     fragments from the original {@link BuildOptions}. If the parsing result contains native
+   *     options whose owning fragment is not part of the original {@link BuildOptions} they will be
+   *     ignored (i.e. not set on the resulting options). Starlark options are not affected by this
+   *     restriction.
+   *
+   * @param source the base options to modify
+   * @return the new options after applying this object to the original options
+   */
+  public BuildOptions mergeWith(BuildOptions source) throws OptionsParsingException {
+    // TODO: https://github.com/bazelbuild/bazel/issues/23147 - Inline applyParsingResult and remove
+    // it from BuildOptions.
+    return source.applyParsingResult(this.parse());
   }
 }

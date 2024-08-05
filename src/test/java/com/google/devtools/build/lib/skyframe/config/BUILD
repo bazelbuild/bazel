@@ -36,6 +36,22 @@ java_test(
 )
 
 java_test(
+    name = "NativeAndStarlarkFlagsTest",
+    srcs = ["NativeAndStarlarkFlagsTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/config",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/test/java/com/google/devtools/build/lib/analysis/config:ConfigTests_lib",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "PlatformMappingFunctionParserTest",
     srcs = ["PlatformMappingFunctionParserTest.java"],
     deps = [
