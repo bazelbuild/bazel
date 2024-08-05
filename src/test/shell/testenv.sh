@@ -604,15 +604,6 @@ bazel_dep(name = "rules_license", version = "$version")
 EOF
 }
 
-# Add abseil-cpp to the MODULE.bazel file
-function add_abseil_cpp() {
-  version=$(get_version_from_default_lock_file "abseil-cpp")
-  cat >> "$1" <<EOF
-bazel_dep(name = "abseil-cpp", version = "$version", repo_name = "com_google_absl")
-EOF
-}
-
-
 # Add protobuf to the MODULE.bazel file
 function add_protobuf() {
   version=$(get_version_from_default_lock_file "protobuf")

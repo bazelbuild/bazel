@@ -84,13 +84,13 @@ http_archive(
     name = "local_java_tools_prebuilt",
     urls = ["${java_tools_prebuilt_zip_file_url}"]
 )
+bazel_dep(name = "abseil-cpp", version = "20240116.2", repo_name = "com_google_absl")
 EOF
   # Dependencies of java_tools
   add_platforms "MODULE.bazel"
   add_rules_cc "MODULE.bazel"
   add_rules_proto "MODULE.bazel"
   add_rules_license "MODULE.bazel"
-  add_abseil_cpp "MODULE.bazel"
 }
 
 function expect_path_in_java_tools() {
