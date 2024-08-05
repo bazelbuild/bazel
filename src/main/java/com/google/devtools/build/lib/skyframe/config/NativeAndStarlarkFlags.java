@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.config;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -144,12 +145,8 @@ public abstract class NativeAndStarlarkFlags {
     }
 
     // Also copy Starlark options.
-    Map<Label, Object> parsedStarlarkOptions =
-        BuildOptions.labelizeStarlarkOptions(parsingResult.getStarlarkOptions());
-    for (Map.Entry<Label, Object> starlarkOption : parsedStarlarkOptions.entrySet()) {
-      // TODO: https://github.com/bazelbuild/bazel/issues/23147 -check for default values and remove
-      // them.
-      builder.addStarlarkOption(starlarkOption.getKey(), starlarkOption.getValue());
+    for (Map.Entry<String, Object> starlarkOption : parsingResult.getStarlarkOptions().entrySet()) {
+      updateStarlarkFlag(builder, starlarkOption.getKey(), starlarkOption.getValue());
     }
 
     return builder.build();
@@ -164,5 +161,24 @@ public abstract class NativeAndStarlarkFlags {
     // intelligently merge options.
     Object value = optionValue.getValue();
     optionDefinition.setValue(fragment, value);
+  }
+
+  private void updateStarlarkFlag(
+      BuildOptions.Builder builder, String rawFlagName, Object rawFlagValue) {
+    Label flagName = Label.parseCanonicalUnchecked(rawFlagName);
+    // If the known default value is the same as the new value, unset it.
+    if (isStarlarkFlagSetToDefault(rawFlagName, rawFlagValue)) {
+      builder.removeStarklarkOption(flagName);
+    } else {
+      builder.addStarlarkOption(flagName, rawFlagValue);
+    }
+  }
+
+  private boolean isStarlarkFlagSetToDefault(String rawFlagName, Object rawFlagValue) {
+    if (this.starlarkFlagDefaults().containsKey(rawFlagName)) {
+      Object defaultValue = this.starlarkFlagDefaults().get(rawFlagName);
+      return Objects.equal(defaultValue, rawFlagValue);
+    }
+    return false;
   }
 }

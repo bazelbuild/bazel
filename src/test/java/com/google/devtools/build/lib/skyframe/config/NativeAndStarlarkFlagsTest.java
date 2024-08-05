@@ -29,7 +29,6 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.List;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -265,7 +264,6 @@ public class NativeAndStarlarkFlagsTest {
   }
 
   @Test
-  @Ignore("https://github.com/bazelbuild/bazel/issues/23147")
   public void mergeWith_starlark_resetToDefault() throws Exception {
     BuildOptions original =
         BuildOptions.of(BUILD_CONFIG_OPTIONS).toBuilder()

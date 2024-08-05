@@ -393,6 +393,13 @@ public final class BuildOptions implements Cloneable {
       return this;
     }
 
+    /** Removes the Starlark option from this builder. */
+    @CanIgnoreReturnValue
+    public Builder removeStarklarkOption(Label key) {
+      starlarkOptions.remove(key);
+      return this;
+    }
+
     /** Removes the value for the Starlark option with the given key. */
     @CanIgnoreReturnValue
     public Builder removeStarlarkOption(Label key) {
