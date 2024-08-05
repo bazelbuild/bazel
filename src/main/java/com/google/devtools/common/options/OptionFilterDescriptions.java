@@ -72,7 +72,7 @@ public class OptionFilterDescriptions {
         .put(
             OptionDocumentationCategory.INPUT_STRICTNESS,
             "Options that affect how strictly Bazel enforces valid build inputs (rule definitions, "
-                + " flag combinations, etc.)")
+                + "flag combinations, etc.)")
         .put(
             OptionDocumentationCategory.SIGNING,
             "Options that affect the signing outputs of a build")
