@@ -128,9 +128,9 @@ public interface ActionAnalysisMetadata {
   /**
    * Returns the input Artifacts that this Action depends upon. May be empty.
    *
-   * <p>For actions that discover inputs, a different result may be returned before and after input
-   * discovery, because input discovery may add additional artifacts from {@link
-   * #getSchedulingDependencies}.
+   * <p>For actions that do input discovery or input pruning, a different result may be returned
+   * before and after action execution, because input discovery may add additional artifacts from
+   * {@link #getSchedulingDependencies}, and input pruning may remove them.
    */
   NestedSet<Artifact> getInputs();
 
