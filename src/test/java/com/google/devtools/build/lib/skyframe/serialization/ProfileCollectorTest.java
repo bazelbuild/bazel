@@ -16,15 +16,31 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
+import static java.util.concurrent.ForkJoinPool.commonPool;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec;
+import com.google.errorprone.annotations.Keep;
 import com.google.perftools.profiles.ProfileProto;
 import com.google.perftools.profiles.ProfileProto.Line;
 import com.google.perftools.profiles.ProfileProto.Location;
 import com.google.perftools.profiles.ProfileProto.Profile;
 import com.google.perftools.profiles.ProfileProto.ValueType;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -95,6 +111,243 @@ public final class ProfileCollectorTest {
             new Sample(ImmutableList.of("b", "a"), 2, 6),
             // 3 samples, bytes = 25 + 10 + 1 - (20 + 5) = 11.
             new Sample(ImmutableList.of("a"), 3, 11));
+  }
+
+  @Test
+  public void memoizingCodec_profilingCorrectlyAccountsForBackreferences() throws Exception {
+    // This test verifies that with the MemoizingSerializationContext, profiling correctly accounts
+    // for memoized backreferences in the leaf and non-leaf case and nulls.
+
+    // The example memoizes in a couple different places.
+    var subject = new ArrayList<ExampleLeaf>();
+    // 1. Initial item.
+    subject.add(new ExampleLeaf("a", "b"));
+    // 2. "a" is a memoized backreference to the 1st item's leaf "a".
+    subject.add(new ExampleLeaf("a", "c"));
+    // 3. Entire item will be a memoized backreference to the 1st item.
+    subject.add(new ExampleLeaf("a", "b"));
+    // 4. Exercises null leaves.
+    subject.add(new ExampleLeaf(null, null));
+    // 5. Exercises a null non-leaf.
+    subject.add(null);
+
+    var codecs = new ObjectCodecs();
+    var profileCollector = new ProfileCollector();
+
+    byte[] bytes =
+        codecs.serializeMemoizedToBytes(
+            subject, /* outputCapacity= */ 32, /* bufferSize= */ 32, profileCollector);
+    assertThat(codecs.deserializeMemoized(bytes)).isEqualTo(subject); // sanity check
+
+    ImmutableList<Sample> samples = getSamples(profileCollector.toProto());
+
+    // Verifies the object counts of the samples. Exact byte counts are omitted to avoid
+    // brittleness.
+    ImmutableList<Sample> bytesErasedSamples =
+        samples.stream()
+            .map(sample -> new Sample(sample.stack(), sample.count(), 0))
+            .collect(toImmutableList());
+    assertThat(bytesErasedSamples)
+        .containsExactly(
+            new Sample(
+                ImmutableList.of(ArrayListCodec.class.getCanonicalName()),
+                1, // There's exactly 1 ArrayList.
+                0),
+            new Sample(
+                ImmutableList.of(
+                    ExampleLeafCodec.class.getCanonicalName(),
+                    ArrayListCodec.class.getCanonicalName()),
+                // The 4 samples here are the 1st-4th items. The null item doesn't increment the
+                // count.
+                4,
+                0),
+            new Sample(
+                ImmutableList.of(
+                    UnsafeStringCodec.class.getCanonicalName(),
+                    ExampleLeafCodec.class.getCanonicalName(),
+                    ArrayListCodec.class.getCanonicalName()),
+                // The 6 samples here are 2 each from the 1st, 2nd and 4th list items. Memoized
+                // leaves count as distinct samples. The 2 nulls in the 4th item can be counted as
+                // two Strings because their type is known to the parent codec. The Strings in the
+                // 3rd item are fully memoized away at the ExampleLeaf level.
+                6,
+                0));
+
+    // Verifies that the profiler sees exactly the same number of bytes as output.
+    int profiledBytes = samples.stream().mapToInt(Sample::bytes).sum();
+    assertThat(profiledBytes).isEqualTo(bytes.length);
+  }
+
+  private record ExampleLeaf(String first, String second) {}
+
+  @Keep
+  private static class ExampleLeafCodec extends LeafObjectCodec<ExampleLeaf> {
+    @Override
+    public Class<ExampleLeaf> getEncodedClass() {
+      return ExampleLeaf.class;
+    }
+
+    @Override
+    public void serialize(
+        LeafSerializationContext context, ExampleLeaf obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serializeLeaf(obj.first(), stringCodec(), codedOut);
+      context.serializeLeaf(obj.second(), stringCodec(), codedOut);
+    }
+
+    @Override
+    public ExampleLeaf deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      return new ExampleLeaf(
+          context.deserializeLeaf(codedIn, stringCodec()),
+          context.deserializeLeaf(codedIn, stringCodec()));
+    }
+  }
+
+  @Test
+  public void sharedValue_isOnlySerializedOnceAndInANewStack() throws Exception {
+    var subject = new ExampleLeafSharer();
+    subject.leaf = new ExampleLeaf("abc", "def");
+
+    var codecs = new ObjectCodecs();
+    var fingerprintValueService = FingerprintValueService.createForTesting();
+    var profileCollector = new ProfileCollector();
+
+    final int runCount = 20;
+
+    AtomicInteger totalBytes = new AtomicInteger();
+    var writeStatuses = Collections.synchronizedList(new ArrayList<ListenableFuture<Void>>());
+
+    var allRunsDone = new CountDownLatch(runCount);
+    for (int i = 0; i < runCount; i++) {
+      commonPool()
+          .execute(
+              () -> {
+                try {
+                  SerializationResult<ByteString> result;
+                  try {
+                    result =
+                        codecs.serializeMemoizedAndBlocking(
+                            fingerprintValueService, subject, profileCollector);
+                  } catch (SerializationException e) {
+                    writeStatuses.add(immediateFailedFuture(e));
+                    return;
+                  }
+                  totalBytes.getAndAdd(result.getObject().size());
+
+                  ListenableFuture<Void> writeStatus = result.getFutureToBlockWritesOn();
+                  if (writeStatus != null) {
+                    writeStatuses.add(writeStatus);
+                  }
+                } finally {
+                  allRunsDone.countDown();
+                }
+              });
+    }
+    allRunsDone.await();
+
+    var unused = Futures.whenAllSucceed(writeStatuses).call(() -> null, directExecutor()).get();
+
+    ImmutableList<Sample> samples = getSamples(profileCollector.toProto());
+
+    var topStack = ImmutableList.<String>of(ExampleLeafSharerCodec.class.getCanonicalName());
+    // Erases the bytes except for the top of the stack which is recorded in `totalBytes`. The other
+    // bytes could be brittle to run assertions aren't easily recorded and would be brittle to
+    // assert on.
+    ImmutableList<Sample> bytesErasedSamples =
+        samples.stream()
+            .map(
+                sample ->
+                    sample.stack().equals(topStack)
+                        ? sample
+                        : new Sample(sample.stack(), sample.count(), 0))
+            .collect(toImmutableList());
+    assertThat(bytesErasedSamples)
+        .containsExactly(
+            //  The top level value is serialized runCount times and the bytes are precisely tracked
+            //  in `totalBytes`.
+            new Sample(topStack, runCount, totalBytes.get()),
+            // The shared ExampleLeaf instance is only serialized once. Note that this is a shared
+            // value, it is serialized under a new, independent stack.
+            new Sample(ImmutableList.of(DeferredExampleLeafCodec.class.getCanonicalName()), 1, 0),
+            new Sample(
+                ImmutableList.of(
+                    UnsafeStringCodec.class.getCanonicalName(),
+                    DeferredExampleLeafCodec.class.getCanonicalName()),
+                2, // "abc" and "def" in `subject.leaf`
+                0));
+  }
+
+  private static class ExampleLeafSharer {
+    private ExampleLeaf leaf; // mutable simplifies deserialization code
+
+    private static void setLeaf(ExampleLeafSharer sharer, Object obj) {
+      sharer.leaf = (ExampleLeaf) obj;
+    }
+  }
+
+  @Keep
+  private static class ExampleLeafSharerCodec extends AsyncObjectCodec<ExampleLeafSharer> {
+    @Override
+    public Class<ExampleLeafSharer> getEncodedClass() {
+      return ExampleLeafSharer.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, ExampleLeafSharer obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.putSharedValue(
+          obj.leaf, /* distinguisher= */ null, DeferredExampleLeafCodec.INSTANCE, codedOut);
+    }
+
+    @Override
+    public ExampleLeafSharer deserializeAsync(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      ExampleLeafSharer result = new ExampleLeafSharer();
+      context.registerInitialValue(result);
+      context.getSharedValue(
+          codedIn,
+          /* distinguisher= */ null,
+          DeferredExampleLeafCodec.INSTANCE,
+          result,
+          ExampleLeafSharer::setLeaf);
+      return result;
+    }
+  }
+
+  /** As {@link DeferredObjectCodec} as required by {@link SerializationContext#putSharedValue}. */
+  private static class DeferredExampleLeafCodec extends DeferredObjectCodec<ExampleLeaf> {
+    private static final DeferredExampleLeafCodec INSTANCE = new DeferredExampleLeafCodec();
+
+    @Override
+    public Class<ExampleLeaf> getEncodedClass() {
+      return ExampleLeaf.class;
+    }
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, ExampleLeaf obj, CodedOutputStream codedOut)
+        throws IOException, SerializationException {
+      context.serializeLeaf(obj.first(), stringCodec(), codedOut);
+      context.serializeLeaf(obj.second(), stringCodec(), codedOut);
+    }
+
+    @Override
+    public DeferredValue<ExampleLeaf> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      var result =
+          new ExampleLeaf(
+              context.deserializeLeaf(codedIn, stringCodec()),
+              context.deserializeLeaf(codedIn, stringCodec()));
+      return () -> result;
+    }
   }
 
   private record Sample(ImmutableList<String> stack, int count, int bytes) {}

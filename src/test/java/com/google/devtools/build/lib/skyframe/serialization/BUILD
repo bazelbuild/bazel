@@ -376,6 +376,7 @@ java_test(
         "//third_party:junit4",
         "//third_party:truth",
         "//third_party/pprof:profile_java_proto",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
