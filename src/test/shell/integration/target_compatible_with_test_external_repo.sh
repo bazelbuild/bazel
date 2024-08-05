@@ -172,7 +172,7 @@ function tear_down() {
 }
 
 function test_failure_on_incompatible_top_level_target_in_external_repo() {
-  cat > target_skipping/MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "target_skipping/MODULE.bazel") <<EOF
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "test_repo",
