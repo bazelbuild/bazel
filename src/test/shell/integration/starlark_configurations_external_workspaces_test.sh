@@ -145,7 +145,7 @@ function test_reference_inner_repository_flags() {
   mkdir -p $subpkg
 
   ## set up outer repo
-  cat > $pkg/MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "$pkg/MODULE.bazel") <<EOF
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "sub",
@@ -200,7 +200,7 @@ rule_with_transition = rule(
 )
 EOF
 
-  cat > $subpkg/MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "$subpkg/MODULE.bazel") <<EOF
 module(name = "sub")
 EOF
 
