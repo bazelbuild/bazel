@@ -39,7 +39,6 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -149,7 +148,6 @@ public final class PlatformMappingValue implements SkyValue {
   private final ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags;
   private final ImmutableMap<NativeAndStarlarkFlags, Label> flagsToPlatforms;
   private final ImmutableSet<Class<? extends FragmentOptions>> optionsClasses;
-  private final LoadingCache<NativeAndStarlarkFlags, OptionsParsingResult> parserCache;
   private final LoadingCache<BuildOptions, BuildOptions> mappingCache;
 
   /**
@@ -169,10 +167,6 @@ public final class PlatformMappingValue implements SkyValue {
     this.platformsToFlags = checkNotNull(platformsToFlags);
     this.flagsToPlatforms = checkNotNull(flagsToPlatforms);
     this.optionsClasses = checkNotNull(optionsClasses);
-    this.parserCache =
-        Caffeine.newBuilder()
-            .initialCapacity(platformsToFlags.size() + flagsToPlatforms.size())
-            .build(NativeAndStarlarkFlags::parse);
     this.mappingCache = Caffeine.newBuilder().weakKeys().build(this::computeMapping);
   }
 
@@ -230,14 +224,14 @@ public final class PlatformMappingValue implements SkyValue {
         return originalOptions;
       }
 
-      modifiedOptions =
-          originalOptions.applyParsingResult(parseWithCache(platformsToFlags.get(targetPlatform)));
+      NativeAndStarlarkFlags args = platformsToFlags.get(targetPlatform);
+      modifiedOptions = originalOptions.applyParsingResult(args.parse());
     } else {
       boolean mappingFound = false;
       for (Map.Entry<NativeAndStarlarkFlags, Label> flagsToPlatform : flagsToPlatforms.entrySet()) {
         NativeAndStarlarkFlags flags = flagsToPlatform.getKey();
         Label platformLabel = flagsToPlatform.getValue();
-        if (originalOptions.matches(parseWithCache(flags))) {
+        if (originalOptions.matches(flags.parse())) {
           modifiedOptions = originalOptions.clone();
           modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(platformLabel);
           mappingFound = true;
@@ -253,17 +247,6 @@ public final class PlatformMappingValue implements SkyValue {
     }
 
     return modifiedOptions;
-  }
-
-  private OptionsParsingResult parseWithCache(NativeAndStarlarkFlags args)
-      throws OptionsParsingException {
-    try {
-      return parserCache.get(args);
-    } catch (CompletionException e) {
-      throwIfInstanceOf(e.getCause(), OptionsParsingException.class);
-      throwIfUnchecked(e.getCause());
-      throw e;
-    }
   }
 
   @Override
