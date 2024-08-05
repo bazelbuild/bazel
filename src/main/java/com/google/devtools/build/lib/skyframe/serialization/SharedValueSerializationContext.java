@@ -310,7 +310,9 @@ final class SharedValueSerializationContext extends MemoizingSerializationContex
     } catch (SerializationException e) {
       // An exception has occurred. Ensures that any additional errors from writing are handled
       // before throwing the exception.
-      reportAnyFailures(Futures.whenAllSucceed(futuresToBlockWritingOn));
+      if (futuresToBlockWritingOn != null) {
+        reportAnyFailures(Futures.whenAllSucceed(futuresToBlockWritingOn));
+      }
       throw e;
     }
     return SerializationResult.create(

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -22,6 +23,9 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NestedArrayCodec;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NotNestedSetCodec;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -295,6 +299,84 @@ public final class SharedValueSerializationContextTest {
     }
     for (SerializationResult<ByteString> result : resultList) {
       assertThat(result.getFutureToBlockWritesOn().isDone()).isTrue();
+    }
+  }
+
+  @Test
+  public void errorInSharedPut() throws Exception {
+    // When a shared value is serialized in error by one thread, another thread serializing the
+    // same shared value reports the same error.
+    FingerprintValueService fingerprintValueService = FingerprintValueService.createForTesting();
+    var codecs =
+        new ObjectCodecs(
+            ObjectCodecRegistry.newBuilder().add(new FaultySharedValueExampleCodec()).build());
+    var subject1 = new SharedValueExample(10);
+    var thrown1 =
+        assertThrows(
+            SerializationException.class,
+            () -> codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject1));
+
+    var subject2 = new SharedValueExample(subject1.sharedData());
+    var thrown2 =
+        assertThrows(
+            SerializationException.class,
+            () -> codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject2));
+    assertThat(thrown2).hasCauseThat().isSameInstanceAs(thrown1);
+  }
+
+  /** Test data for {@link #errorInSharedPut}. */
+  private record SharedValueExample(Integer sharedData) {}
+
+  private static class FaultySharedValueExampleCodec
+      extends DeferredObjectCodec<SharedValueExample> {
+    @Override
+    public Class<SharedValueExample> getEncodedClass() {
+      return SharedValueExample.class;
+    }
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, SharedValueExample obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.putSharedValue(
+          obj.sharedData(), /* distinguisher= */ null, FaultySerializationCodec.INSTANCE, codedOut);
+    }
+
+    @Override
+    public DeferredValue<SharedValueExample> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn) {
+      throw new AssertionError("not reachable");
+    }
+  }
+
+  private static class FaultySerializationCodec extends DeferredObjectCodec<Integer> {
+    private static final FaultySerializationCodec INSTANCE = new FaultySerializationCodec();
+
+    @Override
+    public Class<Integer> getEncodedClass() {
+      return Integer.class;
+    }
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, Integer obj, CodedOutputStream codedOut)
+        throws SerializationException {
+      throw new SerializationException("injected error");
+    }
+
+    @Override
+    public DeferredValue<Integer> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn) {
+      throw new AssertionError("not reachable");
     }
   }
 
