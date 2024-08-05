@@ -68,6 +68,9 @@ source "$(rlocation "io_bazel/src/test/shell/bazel/remote_helpers.sh")" \
 
 mock_rules_java_to_avoid_downloading
 
+# Make sure no repository cache is used in this test
+add_to_bazelrc "common --repository_cache="
+
 # Basic test.
 function test_macro_local_repository() {
   create_new_workspace
