@@ -46,20 +46,6 @@ android_sh_test(
 )
 
 android_sh_test(
-    name = "android_local_test_integration_test",
-    size = "large",
-    srcs = ["android_local_test_integration_test.sh"],
-    data = [
-        ":android_helper",
-        "//external:android_sdk_for_testing",
-        "//src/test/shell/bazel:test-deps",
-    ],
-    tags = [
-        "no_windows",
-    ],
-)
-
-android_sh_test(
     name = "aapt_integration_test",
     size = "large",
     srcs = ["aapt_integration_test.sh"],

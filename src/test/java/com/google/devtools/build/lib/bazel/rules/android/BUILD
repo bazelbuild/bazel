@@ -17,7 +17,6 @@ java_test(
     name = "AndroidTests",
     srcs = [
         "AndroidSdkRepositoryTest.java",
-        "BazelAndroidLocalTestTest.java",
     ],
     resources = [
         "//tools/android:android_sdk_repository_template.bzl",
@@ -38,7 +37,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//src/test/java/com/google/devtools/build/lib/rules/android:AndroidBuildViewTestCase",
-        "//src/test/java/com/google/devtools/build/lib/rules/android:AndroidLocalTestTest",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",

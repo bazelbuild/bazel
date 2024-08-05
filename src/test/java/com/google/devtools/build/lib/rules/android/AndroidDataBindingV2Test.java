@@ -82,41 +82,6 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
         "java/android/library/MyLib.java", "package android.library; public class MyLib {};");
   }
 
-  private void writeNonDataBindingLocalTestFiles() throws Exception {
-
-    scratch.file(
-        "javatests/android/test/BUILD",
-        """
-        android_local_test(
-            name = "databinding_enabled_test",
-            srcs = ["MyTest.java"],
-            manifest = "AndroidManifest.xml",
-            deps = ["//java/android/library:lib_with_databinding"],
-        )
-        """);
-
-    scratch.file(
-        "javatests/android/test/MyTest.java", "package android.test; public class MyTest {};");
-  }
-
-  private void writeDataBindingLocalTestFiles() throws Exception {
-
-    scratch.file(
-        "javatests/android/test/BUILD",
-        """
-        android_local_test(
-            name = "databinding_enabled_test",
-            srcs = ["MyTest.java"],
-            enable_data_binding = 1,
-            manifest = "AndroidManifest.xml",
-            deps = ["//java/android/library:lib_with_databinding"],
-        )
-        """);
-
-    scratch.file(
-        "javatests/android/test/MyTest.java", "package android.test; public class MyTest {};");
-  }
-
   private void writeDataBindingFiles() throws Exception {
 
     writeDataBindingLibrariesFiles();
@@ -1129,86 +1094,6 @@ public class AndroidDataBindingV2Test extends AndroidBuildViewTestCase {
     Artifact shrinkAapt2Artifact = getShrinkAapt2Artifact(allArtifacts);
     assertThat(getGeneratingSpawnActionArgs(shrinkAapt2Artifact))
         .contains("--useDataBindingAndroidX");
-  }
-
-  @Test
-  public void dataBinding_androidLocalTest_dataBindingDisabled_doesNotUseDataBindingFlags()
-      throws Exception {
-    if (!getAnalysisMock().isThisBazel()) {
-      return;
-    }
-
-    writeDataBindingFiles();
-    writeNonDataBindingLocalTestFiles();
-
-    ConfiguredTarget testTarget =
-        getConfiguredTarget("//javatests/android/test:databinding_enabled_test");
-    Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(testTarget));
-    JavaCompileAction testCompileAction =
-        (JavaCompileAction)
-            getGeneratingAction(
-                getFirstArtifactEndingWith(allArtifacts, "databinding_enabled_test-class.jar"));
-    ImmutableList<String> expectedMissingJavacopts =
-        ImmutableList.of(
-            "-Aandroid.databinding.sdkDir=/not/used",
-            "-Aandroid.databinding.artifactType=APPLICATION",
-            "-Aandroid.databinding.exportClassListOutFile=/tmp/exported_classes",
-            "-Aandroid.databinding.modulePackage=android.test",
-            "-Aandroid.databinding.minApi=14",
-            "-Aandroid.databinding.enableV2=1",
-            "-Aandroid.databinding.directDependencyPkgs=[android.library]");
-    assertThat(getJavacArguments(testCompileAction)).containsNoneIn(expectedMissingJavacopts);
-
-    JavaCompileInfo javaCompileInfo =
-        testCompileAction
-            .getExtraActionInfo(actionKeyContext)
-            .getExtension(JavaCompileInfo.javaCompileInfo);
-    assertThat(javaCompileInfo.getJavacOptList()).containsNoneIn(expectedMissingJavacopts);
-  }
-
-  @Test
-  public void dataBinding_androidLocalTest_dataBindingEnabled_usesDataBindingFlags()
-      throws Exception {
-    if (!getAnalysisMock().isThisBazel()) {
-      return;
-    }
-
-    writeDataBindingFiles();
-    writeDataBindingLocalTestFiles();
-
-    ConfiguredTarget testTarget =
-        getConfiguredTarget("//javatests/android/test:databinding_enabled_test");
-    Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(testTarget));
-    JavaCompileAction testCompileAction =
-        (JavaCompileAction)
-            getGeneratingAction(
-                getFirstArtifactEndingWith(allArtifacts, "databinding_enabled_test-class.jar"));
-    String dataBindingFilesDir =
-        targetConfig
-            .getBinDirectory(RepositoryName.MAIN)
-            .getExecPath()
-            .getRelative("javatests/android/test/databinding/databinding_enabled_test")
-            .getPathString();
-    String inputDir = dataBindingFilesDir + "/" + DataBinding.DEP_METADATA_INPUT_DIR;
-    String outputDir = dataBindingFilesDir + "/" + DataBinding.METADATA_OUTPUT_DIR;
-    ImmutableList<String> expectedJavacopts =
-        ImmutableList.of(
-            "-Aandroid.databinding.dependencyArtifactsDir=" + inputDir,
-            "-Aandroid.databinding.aarOutDir=" + outputDir,
-            "-Aandroid.databinding.sdkDir=/not/used",
-            "-Aandroid.databinding.artifactType=APPLICATION",
-            "-Aandroid.databinding.exportClassListOutFile=/tmp/exported_classes",
-            "-Aandroid.databinding.modulePackage=android.test",
-            "-Aandroid.databinding.minApi=14",
-            "-Aandroid.databinding.enableV2=1",
-            "-Aandroid.databinding.directDependencyPkgs=[android.library]");
-    assertThat(getJavacArguments(testCompileAction)).containsAtLeastElementsIn(expectedJavacopts);
-
-    JavaCompileInfo javaCompileInfo =
-        testCompileAction
-            .getExtraActionInfo(actionKeyContext)
-            .getExtension(JavaCompileInfo.javaCompileInfo);
-    assertThat(javaCompileInfo.getJavacOptList()).containsAtLeastElementsIn(expectedJavacopts);
   }
 
   private Artifact getAapt2PackgeActionArtifact(Set<Artifact> allArtifacts) {

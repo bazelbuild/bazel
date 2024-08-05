@@ -153,33 +153,6 @@ public class ProcessedAndroidData {
         .build(dataContext, resources, assets, manifest, dataBindingContext);
   }
 
-  /** Processes Android data (assets, resources, and manifest) for android_local_test targets. */
-  public static ProcessedAndroidData processLocalTestDataFrom(
-      AndroidDataContext dataContext,
-      DataBindingContext dataBindingContext,
-      StampedAndroidManifest manifest,
-      Map<String, String> manifestValues,
-      AndroidResources resources,
-      AndroidAssets assets,
-      ResourceDependencies resourceDeps,
-      AssetDependencies assetDeps,
-      List<String> noCompressExtensions,
-      ResourceFilterFactory resourceFilterFactory)
-      throws InterruptedException {
-
-    return builderForNonIncrementalTopLevelTarget(dataContext, manifest, manifestValues)
-        .setManifestOut(
-            dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST))
-        .setMergedResourcesOut(
-            dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
-        .setCrunchPng(false)
-        .withResourceDependencies(resourceDeps)
-        .withAssetDependencies(assetDeps)
-        .setUncompressedExtensions(noCompressExtensions)
-        .setResourceFilterFactory(resourceFilterFactory)
-        .build(dataContext, resources, assets, manifest, dataBindingContext);
-  }
-
   /** Processes Android data (assets, resources, and manifest) for android_test targets. */
   public static ProcessedAndroidData processTestDataFrom(
       AndroidDataContext dataContext,
