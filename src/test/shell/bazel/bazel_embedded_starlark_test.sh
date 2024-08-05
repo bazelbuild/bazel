@@ -85,7 +85,7 @@ EOF
   EXTREPODIR=`pwd`
   mkdir main
   cd main
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
@@ -128,7 +128,7 @@ EOF
 
   mkdir main
   cd main
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 new_git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 new_git_repository(
   name="ext",
