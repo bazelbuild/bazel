@@ -533,7 +533,7 @@ function get_version_from_default_lock_file() {
   # Parse the version from the default lock file.
   lockfile=$(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock)
   module=$1
-  local version=$(grep -oP "modules/$module/\K[^/]+(?=/source\.json)" "$lockfile")
+  local version=$(sed -n "s|.*modules/$module/\([^/]*\)/source\.json.*|\1|p" "$lockfile")
   if [[ -z $version ]]; then
       log_fatal "Version not found for module $module in $lockfile"
   else
