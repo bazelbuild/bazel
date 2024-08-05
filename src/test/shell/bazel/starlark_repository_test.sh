@@ -87,9 +87,9 @@ genrule(
 EOF
 
   cd ${WORKSPACE_DIR}
-load('//:test.bzl', 'macro')
-
-macro('$repo2')
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
+ext = use_extension("//:test.bzl", "ext")
+use_repo(ext, "endangered")
 EOF
 
   # Empty package for the .bzl file
@@ -101,6 +101,8 @@ load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 def macro(path):
   print('bleh')
   local_repository(name='endangered', path=path)
+
+repo_ext = module_extension(implementation = lamda ctx: macro('$repo2'))
 EOF
   mkdir -p zoo
   cat > zoo/BUILD <<'EOF'
@@ -140,6 +142,8 @@ load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 def macro(path):
   print('blah')
   local_repository(name='endangered', path='$repo2')
+
+repo_ext = module_extension(implementation = lamda ctx: macro())
 EOF
   bazel build //zoo:ball-pit >& $TEST_log || fail "Failed to build"
   expect_log "blah"
@@ -154,6 +158,7 @@ EOF
 function test_load_from_symlink_to_outside_of_workspace() {
   OTHER=$TEST_TMPDIR/other
 
+  cat > WORKSPACE <<EOF
 load("//a/b:c.bzl", "c")
 EOF
 
@@ -166,7 +171,7 @@ EOF
 
   touch BUILD
   ln -s $TEST_TMPDIR/other/a a
-  bazel build //:BUILD || fail "Failed to build"
+  bazel build --enable_workspace //:BUILD || fail "Failed to build"
   rm -fr $TEST_TMPDIR/other
 }
 
@@ -200,13 +205,14 @@ exports_files(["test.bzl"])
 EOF
 
   cd ${WORKSPACE_DIR}
+  cat >> WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name='proxy', path='$repo3')
 load('@proxy//:test.bzl', 'macro')
 macro('$repo2')
 EOF
 
-  bazel build @endangered//carnivore:mongoose >& $TEST_log \
+  bazel build --enable_workspace @endangered//carnivore:mongoose >& $TEST_log \
     || fail "Failed to build"
   expect_log "bleh"
 }
@@ -233,6 +239,7 @@ macro()
 EOF
 
   cd ${WORKSPACE_DIR}
+  cat >> WORKSPACE <<EOF
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name='foo', path='$repo2')
 load("@foo//:ext.bzl", "macro")
@@ -243,7 +250,7 @@ EOF
 genrule(name = "foo", srcs=["@foo//:data.txt"], outs=["foo.txt"], cmd = "cat $< | tee $@")
 EOF
 
-  bazel build //:foo >& $TEST_log || fail "Failed to build"
+  bazel build --enable_workspace //:foo >& $TEST_log || fail "Failed to build"
   expect_log "bleh"
   expect_log "Tra-la!"
 }
@@ -267,6 +274,7 @@ EOF
   cat >WORKSPACE
 
   cd ${WORKSPACE_DIR}
+  cat > WORKSPACE <<EOF
 load("@foo//:ext.bzl", "macro")
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 macro()
@@ -274,7 +282,7 @@ local_repository(name='foo', path='$repo2')
 EOF
 
   local exitCode=0
-  bazel build @foo//:data.txt >& $TEST_log || exitCode=$?
+  bazel build --enable_workspace @foo//:data.txt >& $TEST_log || exitCode=$?
   [ $exitCode != 0 ] || fail "building @foo//:data.txt succeed while expected failure"
 
   expect_not_log "PACKAGE"
@@ -292,7 +300,7 @@ EOF
 
   # Test build //...
   bazel clean --expunge
-  bazel build //... >& $TEST_log || exitCode=$?
+  bazel build --enable_workspace //... >& $TEST_log || exitCode=$?
   [ $exitCode != 0 ] || fail "building //... succeed while expected failure"
 
   expect_not_log "PACKAGE"
@@ -300,7 +308,7 @@ EOF
 
   # Retest with query //...
   bazel clean --expunge
-  bazel query //... >& $TEST_log || exitCode=$?
+  bazel query --enable_workspace //... >& $TEST_log || exitCode=$?
   [ $exitCode != 0 ] || fail "querying //... succeed while expected failure"
 
   expect_not_log "PACKAGE"
@@ -310,16 +318,14 @@ EOF
 function test_starlark_local_repository() {
   create_new_workspace
   repo2=$new_workspace_dir
-  # Remove the WORKSPACE file in the symlinked repo, so our Starlark rule has to
-  # create one.
-  rm $repo2/WORKSPACE
 
   cat > BUILD <<'EOF'
 genrule(name='bar', cmd='echo foo | tee $@', outs=['bar.txt'])
 EOF
 
   cd ${WORKSPACE_DIR}
-load('//:test.bzl', 'repo')
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
 repo(name='foo', path='$repo2')
 EOF
 
@@ -338,7 +344,7 @@ EOF
 
   bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_log "foo"
-  cat bazel-bin/external/foo/bar.txt >$TEST_log
+  cat bazel-bin/external/+_repo_rules+foo/bar.txt >$TEST_log
   expect_log "foo"
 }
 
@@ -350,7 +356,8 @@ function setup_starlark_repository() {
   echo "filegroup(name='bar', srcs=['bar.txt'])" > BUILD
 
   cd "${WORKSPACE_DIR}"
-load('//:test.bzl', 'repo')
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
 repo(name = 'foo')
 EOF
   # Need to be in a package
@@ -764,7 +771,7 @@ function test_starlark_repository_bzl_invalidation_batch() {
 function test_starlark_repo_bzl_invalidation_wrong_digest() {
   # regression test for https://github.com/bazelbuild/bazel/pull/21131#discussion_r1471924084
   create_new_workspace
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 ext = use_extension("//:r.bzl", "ext")
 use_repo(ext, "r")
 EOF
@@ -1001,8 +1008,8 @@ function test_repo_env_invalidation() {
     # regression test for https://github.com/bazelbuild/bazel/issues/8869
     WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
     cd "${WRKDIR}"
-    cat > WORKSPACE <<'EOF'
-load("//:my_repository_rule.bzl", "my_repository_rule")
+    cat > $(setup_module_dot_bazel "MODULE.bazel") <<'EOF'
+my_repository_rule = use_repo_rule("//:my_repository_rule.bzl", "my_repository_rule")
 
 my_repository_rule(
     name = "my_repository_rule",
@@ -1069,10 +1076,10 @@ EOF
 
   bazel run @foo//:bar >& $TEST_log || fail "Execution of @foo//:bar failed"
   output_base=$(bazel info output_base)
-  test -x "${output_base}/external/foo/test.sh" || fail "test.sh is not executable"
-  test -x "${output_base}/external/foo/test2.sh" || fail "test2.sh is not executable"
-  test ! -x "${output_base}/external/foo/BUILD" || fail "BUILD is executable"
-  test ! -x "${output_base}/external/foo/test2" || fail "test2 is executable"
+  test -x "${output_base}/external/+_repo_rules+foo/test.sh" || fail "test.sh is not executable"
+  test -x "${output_base}/external/+_repo_rules+foo/test2.sh" || fail "test2.sh is not executable"
+  test ! -x "${output_base}/external/+_repo_rules+foo/BUILD" || fail "BUILD is executable"
+  test ! -x "${output_base}/external/+_repo_rules+foo/test2" || fail "test2 is executable"
 }
 
 function test_starlark_repository_download() {
@@ -1108,15 +1115,15 @@ EOF
 
   output_base="$(bazel info output_base)"
   # Test download
-  test -e "${output_base}/external/foo/download_with_sha256.txt" \
+  test -e "${output_base}/external/+_repo_rules+foo/download_with_sha256.txt" \
     || fail "download_with_sha256.txt is not downloaded"
-  test -e "${output_base}/external/foo/download_executable_file.sh" \
+  test -e "${output_base}/external/+_repo_rules+foo/download_executable_file.sh" \
     || fail "download_executable_file.sh is not downloaded"
   # Test download
-  diff "${output_base}/external/foo/download_with_sha256.txt" \
+  diff "${output_base}/external/+_repo_rules+foo/download_with_sha256.txt" \
     "${download_with_sha256}" >/dev/null \
     || fail "download_with_sha256.txt is not downloaded successfully"
-  diff "${output_base}/external/foo/download_executable_file.sh" \
+  diff "${output_base}/external/+_repo_rules+foo/download_executable_file.sh" \
     "${download_executable_file}" >/dev/null \
     || fail "download_executable_file.sh is not downloaded successfully"
 
@@ -1126,9 +1133,9 @@ EOF
   fi
 
   # Test executable
-  test ! -x "${output_base}/external/foo/download_with_sha256.txt" \
+  test ! -x "${output_base}/external/+_repo_rules+foo/download_with_sha256.txt" \
     || fail "download_with_sha256.txt is executable"
-  test -x "${output_base}/external/foo/download_executable_file.sh" \
+  test -x "${output_base}/external/+_repo_rules+foo/download_executable_file.sh" \
     || fail "download_executable_file.sh is not executable"
 }
 
@@ -1197,13 +1204,13 @@ EOF
         >& $TEST_log && shutdown_server || fail "Execution of @foo//:all failed"
 
   output_base="$(bazel info output_base)"
-  grep "no_sha_return $not_provided_sha256" $output_base/external/foo/returned_shas.txt \
+  grep "no_sha_return $not_provided_sha256" $output_base/external/+_repo_rules+foo/returned_shas.txt \
       || fail "expected calculated sha256 $not_provided_sha256"
-  grep "with_sha_return $provided_sha256" $output_base/external/foo/returned_shas.txt \
+  grep "with_sha_return $provided_sha256" $output_base/external/+_repo_rules+foo/returned_shas.txt \
       || fail "expected provided sha256 $provided_sha256"
-  grep "compressed_with_sha_return $compressed_provided_sha256" $output_base/external/foo/returned_shas.txt \
+  grep "compressed_with_sha_return $compressed_provided_sha256" $output_base/external/+_repo_rules+foo/returned_shas.txt \
       || fail "expected provided sha256 $compressed_provided_sha256"
-  grep "compressed_no_sha_return $compressed_not_provided_sha256" $output_base/external/foo/returned_shas.txt \
+  grep "compressed_no_sha_return $compressed_not_provided_sha256" $output_base/external/+_repo_rules+foo/returned_shas.txt \
       || fail "expected compressed calculated sha256 $compressed_not_provided_sha256"
 }
 
@@ -1226,7 +1233,8 @@ function test_starlark_repository_download_args() {
   cat > bar.txt
   echo "filegroup(name='bar', srcs=['bar.txt'])" > BUILD
 
-load('//:test.bzl', 'repo')
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
+repo = use_repo_rule('//:test.bzl', 'repo')
 repo(name = 'foo',
      urls = [
        "http://localhost:${fileserver_port}/download_1.txt",
@@ -1262,7 +1270,7 @@ EOF
 
   output_base="$(bazel info output_base)"
   # Test download
-  test -e "${output_base}/external/foo/whatever.txt" \
+  test -e "${output_base}/external/+_repo_rules+foo/whatever.txt" \
     || fail "whatever.txt is not downloaded"
 }
 
@@ -1315,26 +1323,26 @@ EOF
 
   output_base="$(bazel info output_base)"
   # Test cleanup
-  test -e "${output_base}/external/foo/server_dir/download_and_extract1.tar.gz" \
+  test -e "${output_base}/external/+_repo_rules+foo/server_dir/download_and_extract1.tar.gz" \
     && fail "temp file was not deleted successfully" || true
-  test -e "${output_base}/external/foo/server_dir/download_and_extract2.zip" \
+  test -e "${output_base}/external/+_repo_rules+foo/server_dir/download_and_extract2.zip" \
     && fail "temp file was not deleted successfully" || true
-  test -e "${output_base}/external/foo/server_dir/download_and_extract3.zip" \
+  test -e "${output_base}/external/+_repo_rules+foo/server_dir/download_and_extract3.zip" \
     && fail "temp file was not deleted successfully" || true
   # Test download_and_extract
-  diff "${output_base}/external/foo/server_dir/download_and_extract1.txt" \
+  diff "${output_base}/external/+_repo_rules+foo/server_dir/download_and_extract1.txt" \
     "${file_prefix}1.txt" >/dev/null \
     || fail "download_and_extract1.tar.gz was not extracted successfully"
-  diff "${output_base}/external/foo/some/path/server_dir/download_and_extract1.txt" \
+  diff "${output_base}/external/+_repo_rules+foo/some/path/server_dir/download_and_extract1.txt" \
     "${file_prefix}1.txt" >/dev/null \
     || fail "download_and_extract1.tar.gz was not extracted successfully in some/path"
-  diff "${output_base}/external/foo/server_dir/download_and_extract2.txt" \
+  diff "${output_base}/external/+_repo_rules+foo/server_dir/download_and_extract2.txt" \
     "${file_prefix}2.txt" >/dev/null \
     || fail "download_and_extract2.zip was not extracted successfully"
-  diff "${output_base}/external/foo/server_dir/download_and_extract3.txt" \
+  diff "${output_base}/external/+_repo_rules+foo/server_dir/download_and_extract3.txt" \
     "${file_prefix}3.txt" >/dev/null \
     || fail "download_and_extract3.zip was not extracted successfully"
-  diff "${output_base}/external/foo/other/path/server_dir/download_and_extract3.txt" \
+  diff "${output_base}/external/+_repo_rules+foo/other/path/server_dir/download_and_extract3.txt" \
     "${file_prefix}3.txt" >/dev/null \
     || fail "download_and_extract3.tar.gz was not extracted successfully"
 }
@@ -1354,6 +1362,7 @@ genrule(
 EOF
 
   cd ${WORKSPACE_DIR}
+  cat >> WORKSPACE <<EOF
 load('//:test.bzl', 'macro')
 
 macro('$repo2')
@@ -1377,7 +1386,7 @@ EOF
   else
     version="${version#* }"
   fi
-  bazel build @test//:test >& $TEST_log || fail "Failed to build"
+  bazel build --enable_workspace @test//:test >& $TEST_log || fail "Failed to build"
   expect_log ": ${version}."
 }
 
@@ -1385,7 +1394,6 @@ EOF
 # Test native.existing_rule(s), regression test for #1277
 function test_existing_rule() {
   create_new_workspace
-  setup_skylib_support
   repo2=$new_workspace_dir
 
   cat > BUILD
@@ -1412,7 +1420,10 @@ def macro():
   test("non_existing")
 EOF
 
-  bazel query //... >& $TEST_log || fail "Failed to build"
+  # Remove tools directory set up by copy_tools_directory in testenv.sh
+  rm -rf tools
+
+  bazel query --enable_workspace //... >& $TEST_log || fail "Failed to build"
   expect_log "existing = True,True"
   expect_log "non_existing = False,False"
 }
@@ -1457,21 +1468,21 @@ EOF
   echo "Just to get the path" > reference.txt
   echo "initial" > reference.txt.shadow
 
-  bazel build //:source //:configure
+  bazel build --enable_workspace //:source //:configure
   grep 'initial' `bazel info bazel-bin`/source.txt \
        || fail '//:source not generated properly'
   grep 'initial' `bazel info bazel-bin`/configure.txt \
        || fail '//:configure not generated properly'
 
   echo "new value" > reference.txt.shadow
-  bazel sync --configure --experimental_repository_resolved_file=resolved.bzl \
+  bazel sync --enable_workspace --configure --experimental_repository_resolved_file=resolved.bzl \
         2>&1 || fail "Expected sync --configure to succeed"
   grep -q 'name.*configure' resolved.bzl \
       || fail "Expected 'configure' to be synced"
   grep -q 'name.*source' resolved.bzl \
       && fail "Expected 'source' not to be synced" || :
 
-  bazel build //:source //:configure
+  bazel build --enable_workspace //:source //:configure
   grep -q 'initial' `bazel info bazel-bin`/source.txt \
        || fail '//:source did not keep its old value'
   grep -q 'new value' `bazel info bazel-bin`/configure.txt \
@@ -1480,6 +1491,7 @@ EOF
 
 
 function test_timeout_tunable() {
+  cat >> $(setup_module_dot_bazel "MODULE.bazel")  <<'EOF'
 load("//:repo.bzl", "with_timeout")
 
 with_timeout(name="maytimeout")
@@ -1530,25 +1542,25 @@ EOF
 
   # Normal sync should hit both repositories
   echo; echo bazel sync; echo
-  bazel sync
+  bazel sync --enable_workspace
   assert_equals 1 $(cat "${TEST_TMPDIR}/executionFOO")
   assert_equals 1 $(cat "${TEST_TMPDIR}/executionBAR")
 
   # Only foo
   echo; echo bazel sync --only foo; echo
-  bazel sync --only foo
+  bazel sync --enable_workspace --only foo
   assert_equals 2 $(cat "${TEST_TMPDIR}/executionFOO")
   assert_equals 1 $(cat "${TEST_TMPDIR}/executionBAR")
 
   # Only bar
   echo; echo bazel sync --only bar; echo
-  bazel sync --only bar
+  bazel sync --enable_workspace --only bar
   assert_equals 2 $(cat "${TEST_TMPDIR}/executionFOO")
   assert_equals 2 $(cat "${TEST_TMPDIR}/executionBAR")
 
   # Only bar
   echo; echo bazel sync --only bar; echo
-  bazel sync --only bar
+  bazel sync --enable_workspace --only bar
   assert_equals 2 $(cat "${TEST_TMPDIR}/executionFOO")
   assert_equals 3 $(cat "${TEST_TMPDIR}/executionBAR")
 }
@@ -1586,6 +1598,7 @@ def root_cause():
   )
 
 EOF
+  cat > WORKSPACE <<'EOF'
 load("//:root.bzl", "root_cause")
 load("//:repo.bzl", "trivial_repo")
 
@@ -1606,7 +1619,7 @@ trivial_repo(
 )
 EOF
 
-  bazel build //:it > "${TEST_log}" 2>&1 \
+  bazel build --enable_workspace //:it > "${TEST_log}" 2>&1 \
       && fail "Expected failure" || :
 
   # Extract the first error message printed
@@ -1642,7 +1655,7 @@ repo = repository_rule(implementation=_impl, attrs = {})
 def root_cause():
   repo(name = "this_is_the_root_cause")
 EOF
-  bazel build //:it > "${TEST_log}" 2>&1 \
+  bazel build --enable_workspace //:it > "${TEST_log}" 2>&1 \
       && fail "Expected failure" || :
 
   # Extract the first error message printed (see previous awk command).
@@ -1659,6 +1672,7 @@ EOF
 }
 
 function test_circular_load_error_message() {
+  cat > WORKSPACE <<'EOF'
 load("//:a.bzl", "total")
 EOF
   touch BUILD
@@ -1677,7 +1691,7 @@ b = 20
 difference = b - a
 EOF
 
-  bazel build //... > "${TEST_log}" 2>&1 && fail "Expected failure" || :
+  bazel build --enable_workspace //... > "${TEST_log}" 2>&1 && fail "Expected failure" || :
 
   expect_not_log "[iI]nternal [eE]rror"
   expect_not_log "IllegalStateException"
@@ -1686,6 +1700,7 @@ EOF
 }
 
 function test_ciruclar_load_error_with_path_message() {
+  cat > WORKSPACE <<'EOF'
 load("//:x.bzl", "x")
 EOF
   touch BUILD
@@ -1713,7 +1728,7 @@ b = 20
 difference = b - a
 EOF
 
-  bazel build //... > "${TEST_log}" 2>&1 && fail "Expected failure" || :
+  bazel build --enable_workspace //... > "${TEST_log}" 2>&1 && fail "Expected failure" || :
 
   expect_not_log "[iI]nternal [eE]rror"
   expect_not_log "IllegalStateException"
@@ -1773,7 +1788,8 @@ maybe_with_auth = repository_rule(
 )
 EOF
 
-load("//:auth.bzl", "maybe_with_auth")
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
+maybe_with_auth = use_repo_rule("//:auth.bzl", "maybe_with_auth")
 maybe_with_auth(
   name = "ext",
   url = "http://127.0.0.1:$nc_port/x.tar",
@@ -1857,7 +1873,7 @@ def _impl(ctx):
   rc = read_netrc(ctx, ctx.attr.path)
   ctx.file("data.bzl", "netrc = %s" % (rc,))
   ctx.file("BUILD", "")
-  ctx.file("WORKSPACE", "")
+  ctx.file("REPO.bazel", "")
 
 netrcrepo = repository_rule(
   implementation = _impl,
@@ -1870,7 +1886,8 @@ EOF
     netrc_dir="$(cygpath -m ${netrc_dir})"
   fi
 
-load("//:def.bzl", "netrcrepo")
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
+netrcrepo = use_repo_rule("//:def.bzl", "netrcrepo")
 
 netrcrepo(name = "netrc", path="${netrc_dir}/.netrc")
 EOF
@@ -1968,7 +1985,8 @@ EOF
     netrc_dir="$(cygpath -m ${netrc_dir})"
   fi
 
-load("//:def.bzl", "authrepo")
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
+authrepo = use_repo_rule("//:def.bzl", "authrepo")
 
 authrepo(
   name = "auth",
@@ -2048,8 +2066,8 @@ function test_disallow_unverified_http() {
   tar cvf x.tar x
   sha256="$(sha256sum x.tar | head -c 64)"
   serve_file x.tar
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > MODULE.bazel <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   url = "http://127.0.0.1:$nc_port/x.tar",
@@ -2067,7 +2085,7 @@ EOF
   expect_log 'plain http.*missing checksum'
 
   # After adding a good checksum, we expect success
-  ed WORKSPACE <<EOF
+  ed MODULE.bazel <<EOF
 /url
 a
 sha256 = "$sha256",
@@ -2098,8 +2116,8 @@ function test_http_archive_netrc() {
   if "$is_windows"; then
     netrc_dir="$(cygpath -m ${netrc_dir})"
   fi
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   url = "http://127.0.0.1:$nc_port/x.tar",
@@ -2135,8 +2153,8 @@ function test_http_archive_auth_patterns() {
   if "$is_windows"; then
     netrc_dir="$(cygpath -m ${netrc_dir})"
   fi
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   url = "http://127.0.0.1:$nc_port/x.tar",
@@ -2183,8 +2201,8 @@ EOF
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   url = "http://127.0.0.1:$nc_port/x.tar",
@@ -2217,8 +2235,8 @@ function test_http_archive_credential_helper() {
   tar cvf x.tar x
   sha256=$(sha256sum x.tar | head -c 64)
   serve_file_auth x.tar
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   url = "http://127.0.0.1:$nc_port/x.tar",
@@ -2264,8 +2282,8 @@ EOF
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   url = "http://127.0.0.1:$nc_port/x.tar",
@@ -2294,8 +2312,8 @@ function test_disable_download_should_prevent_downloading() {
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   url = "http://127.0.0.1:$nc_port/x.tar",
@@ -2326,8 +2344,8 @@ function test_disable_download_should_allow_distdir() {
   mkdir main
   cp x.tar main
   cd main
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   url = "http://127.0.0.1/x.tar",
@@ -2344,7 +2362,7 @@ genrule(
 EOF
 
   # for some reason --repository_disable_download fails with bzlmod trying to download @platforms.
-  bazel build --distdir="." --repository_disable_download --noenable_bzlmod //:it || fail "Failed to build"
+  bazel build --distdir="." --repository_disable_download --enable_workspace --noenable_bzlmod //:it || fail "Failed to build"
 }
 
 function test_disable_download_should_allow_local_repository() {
@@ -2371,7 +2389,7 @@ genrule(
 )
 EOF
   # for some reason --repository_disable_download fails with bzlmod trying to download @platforms.
-  bazel build --repository_disable_download --noenable_bzlmod //:it || fail "Failed to build"
+  bazel build --repository_disable_download --enable_workspace --noenable_bzlmod //:it || fail "Failed to build"
 }
 
 function test_no_restarts_fetching_with_worker_thread() {
@@ -2409,15 +2427,15 @@ EOF
 }
 
 function test_duplicate_value_in_environ() {
-  cat >> WORKSPACE <<EOF
-load('//:def.bzl', 'repo')
+  cat > MODULE.bazel <<EOF
+repo = use_repo_rule('//:def.bzl', 'repo')
 repo(name='foo')
 EOF
 
   touch BUILD
   cat > def.bzl <<'EOF'
 def _impl(repository_ctx):
-  repository_ctx.file("WORKSPACE")
+  repository_ctx.file("REPO.bazel")
   repository_ctx.file("BUILD", """filegroup(name="bar",srcs=[])""")
 
 repo = repository_rule(
@@ -2607,7 +2625,7 @@ EOF
 
 function test_repo_boundary_files() {
   create_new_workspace
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
 EOF
@@ -2630,7 +2648,7 @@ EOF
 function test_repo_mapping_change_in_rule_impl() {
   # regression test for #20722
   create_new_workspace
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
 bazel_dep(name="foo", repo_name="data")
@@ -2676,7 +2694,7 @@ EOF
 function test_repo_mapping_change_in_bzl_init() {
   # same as above, but tests .bzl init time repo mapping usages
   create_new_workspace
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
 bazel_dep(name="foo", repo_name="data")
@@ -2724,7 +2742,7 @@ function test_file_watching_inside_working_dir() {
   # when reading a file inside the working directory (where the repo
   # is to be fetched), we shouldn't watch it.
   create_new_workspace
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
 EOF
@@ -2752,7 +2770,7 @@ function test_file_watching_inside_working_dir_forcing_error() {
   # is to be fetched), we shouldn't watch it. Forcing the watch should
   # result in an error.
   create_new_workspace
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
 EOF
@@ -2776,7 +2794,7 @@ function test_file_watching_outside_workspace() {
   echo nothing > ${outside_dir}/data.txt
 
   create_new_workspace
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
 EOF
@@ -2808,7 +2826,7 @@ function test_file_watching_in_other_repo() {
   echo nothing > ${outside_dir}/data.txt
 
   create_new_workspace
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 foo = use_repo_rule("//:r.bzl", "foo")
 foo(name = "foo")
 bar = use_repo_rule("//:r.bzl", "bar")
@@ -2848,7 +2866,7 @@ EOF
 
 function test_file_watching_in_undefined_repo() {
   create_new_workspace
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 foo = use_repo_rule("//:foo.bzl", "foo")
 foo(name = "foo")
 EOF
@@ -2888,7 +2906,7 @@ EOF
 
 function test_file_watching_in_other_repo_cycle() {
   create_new_workspace
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 foo = use_repo_rule("//:r.bzl", "foo")
 foo(name = "foo")
 bar = use_repo_rule("//:r.bzl", "bar")
@@ -2916,7 +2934,7 @@ function test_watch_file_status_change() {
   echo something > ${outside_dir}/data.txt
 
   create_new_workspace
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
 EOF
@@ -2977,7 +2995,7 @@ function test_watch_file_status_change_dangling_symlink() {
   ln -s ${outside_dir}/pointee ${outside_dir}/pointer
 
   create_new_workspace
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
 EOF
@@ -3018,7 +3036,7 @@ function test_watch_file_status_change_symlink_parent() {
   mkdir -p "${outside_dir}/a"
 
   create_new_workspace
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
 EOF
@@ -3063,7 +3081,7 @@ function test_path_readdir_watches_dirents() {
   touch ${outside_dir}/baz
 
   create_new_workspace
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
 EOF
@@ -3113,7 +3131,7 @@ function test_watch_tree() {
   touch ${outside_dir}/baz
 
   create_new_workspace
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 r = use_repo_rule("//:r.bzl", "r")
 r(name = "r")
 EOF
@@ -3159,7 +3177,7 @@ EOF
 function test_unexported_rule() {
   # alas, we still need to support this while WORKSPACE is around...
   create_new_workspace
-  setup_module_dot_bazel "MODULE.bazel"
+  touch MODULE.bazel
   touch BUILD
   cat > r.bzl <<EOF
 def _impl(rctx):
@@ -3172,7 +3190,7 @@ load('//:r.bzl', 'r')
 r()
 EOF
 
-  bazel build @r >& $TEST_log || fail "expected bazel to succeed"
+  bazel build --enable_workspace @r >& $TEST_log || fail "expected bazel to succeed"
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/21823.
@@ -3229,7 +3247,7 @@ function test_keep_going_weird_deadlock() {
     return
   fi
   create_new_workspace
-  cat > MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 r=use_repo_rule("//:r.bzl", "r")
 r(name="r")
 EOF

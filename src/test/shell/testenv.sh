@@ -633,7 +633,7 @@ function create_new_workspace() {
 
   copy_tools_directory
 
-  setup_module_dot_bazel "MODULE.bazel"
+  setup_module_dot_bazel "MODULE.bazel" > /dev/null
 
   maybe_setup_python_windows_tools
 }
