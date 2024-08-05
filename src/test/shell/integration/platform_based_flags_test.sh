@@ -137,7 +137,7 @@ exports_files([
 
 sample_flag(
     name = "flag",
-    build_setting_default = "default",
+    build_setting_default = "default_value_for_flag",
 )
 
 show_sample_flag(
@@ -150,7 +150,7 @@ EOF
 # No platform flags, just verifying the flags.
 function test_sample_flag() {
   bazel build //pbf:show &> $TEST_log || fail "bazel failed"
-  expect_log '//pbf:show: value = "default"'
+  expect_log '//pbf:show: value = "default_value_for_flag"'
 
   bazel build --//pbf:flag=cli //pbf:show &> $TEST_log || fail "bazel failed"
   expect_log '//pbf:show: value = "cli"'
@@ -248,7 +248,7 @@ load(":sample_flag2.bzl", "sample_flag2", "show_sample_flag2")
 
 sample_flag2(
     name = "flag2",
-    build_setting_default = "default",
+    build_setting_default = "default_value_for_flag2",
 )
 
 show_sample_flag2(
@@ -320,7 +320,7 @@ EOF
   add_to_bazelrc "common:pbf --platforms=//$pkg:pbf_demo"
 
   bazel build //pbf:show &> $TEST_log || fail "bazel failed"
-  expect_log '//pbf:show: value = "default"'
+  expect_log '//pbf:show: value = "default_value_for_flag"'
 
   bazel build --config=pbf //pbf:show &> $TEST_log || fail "bazel failed"
   expect_log '//pbf:show: value = "platform"'
@@ -440,6 +440,35 @@ EOF
 
   bazel build --platforms="//$pkg:pbf_demo" //pbf:show &> $TEST_log || fail "bazel failed"
   expect_log '//pbf:show: value = "second"'
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/23147
+function test_reset_starlark_flag_to_default() {
+  local -r pkg="$FUNCNAME"
+  mkdir -p "$pkg"
+
+  cat > "$pkg/BUILD" <<EOF
+platform(
+    name = "pbf_demo",
+    flags = [
+        # Reset the flag to the default value.
+        "--//pbf:flag=default_value_for_flag",
+    ],
+)
+EOF
+
+  bazel build --//pbf:flag=cli --platforms="//$pkg:pbf_demo" //pbf:show &> $TEST_log || fail "bazel failed"
+
+  # Ensure the default value is seen.
+  expect_not_log '//pbf:show: value = "platform"'
+  expect_log '//pbf:show: value = "default_value_for_flag"'
+
+  # Check that the now-default Starlark flag is not present in the
+  # configuration.
+  for config in $(bazel config | tail -n +2 | cut -d ' ' -f 1); do
+    bazel config "${config}" &> $TEST_log
+    expect_not_log "//pbf:flag:.*default_value_for_flag" "Found default value for //pbf:flag in config ${config}"
+  done
 }
 
 run_suite "Tests for platform based flags"

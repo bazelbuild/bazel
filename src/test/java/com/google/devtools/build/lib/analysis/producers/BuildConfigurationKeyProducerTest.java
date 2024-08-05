@@ -320,7 +320,6 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
 
   // Regression test for https://github.com/bazelbuild/bazel/issues/23147
   @Test
-  @Ignore("https://github.com/bazelbuild/bazel/issues/23147")
   public void createKey_platformFlags_resetToDefault_starlark() throws Exception {
     createStarlarkFlag();
     scratch.overwriteFile(

@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.Inva
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.common.options.OptionsParsingException;
 import javax.annotation.Nullable;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -98,7 +97,6 @@ public class PlatformFlagsProducerTest extends ProducerTestCase {
 
   // Regression test for https://github.com/bazelbuild/bazel/issues/23147
   @Test
-  @Ignore("https://github.com/bazelbuild/bazel/issues/23147")
   public void starlarkFlag_resetToDefault() throws Exception {
     createStarlarkFlag();
     scratch.overwriteFile(
