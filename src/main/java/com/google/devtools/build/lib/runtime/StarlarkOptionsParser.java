@@ -100,13 +100,21 @@ public class StarlarkOptionsParser {
 
   private final BuildSettingLoader buildSettingLoader;
 
+  // TODO: https://github.com/bazelbuild/bazel/issues/22365 - Unify these maps into a common data
+  // structure. Consider using OptionDefinition to simplify.
+
   // Result of #parse, store the parsed options and their values.
   private final Map<String, Object> starlarkOptions = new TreeMap<>();
+
   // Map of parsed starlark options to their loaded BuildSetting objects (used for canonicalization)
   private final Map<String, BuildSetting> parsedBuildSettings = new HashMap<>();
 
   // Local cache of build settings so we don't repeatedly load them.
   private final Map<String, Target> buildSettings = new HashMap<>();
+
+  // The default value for each build setting.
+  private final Map<String, Object> buildSettingDefaults = new HashMap<>();
+
   // whether options explicitly set to their default values are added to {@code starlarkOptions}
   private final boolean includeDefaultValues;
 
@@ -211,23 +219,20 @@ public class StarlarkOptionsParser {
       boolean allowsMultiple = buildSettingObject.allowsMultiple();
       parsedBuildSettings.put(buildSetting, buildSettingObject);
       Object value = buildSettingAndFinalValue.getSecond();
+      Object rawDefaultValue =
+          buildSettingTarget.getAssociatedRule().getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME);
       if (allowsMultiple) {
-        List<?> defaultValue =
-            ImmutableList.of(
-                Objects.requireNonNull(
-                    buildSettingTarget
-                        .getAssociatedRule()
-                        .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME)));
+        List<?> defaultValue = ImmutableList.of(Objects.requireNonNull(rawDefaultValue));
+        this.buildSettingDefaults.put(buildSetting, defaultValue);
         List<?> newValue = (List<?>) value;
         if (!newValue.equals(defaultValue) || includeDefaultValues) {
           parsedOptions.put(buildSetting, value);
         }
       } else {
-        if (!value.equals(
-                buildSettingTarget
-                    .getAssociatedRule()
-                    .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))
-            || includeDefaultValues) {
+        if (rawDefaultValue != null) {
+          this.buildSettingDefaults.put(buildSetting, rawDefaultValue);
+        }
+        if (!value.equals(rawDefaultValue) || includeDefaultValues) {
           parsedOptions.put(buildSetting, buildSettingAndFinalValue.getSecond());
         }
       }
@@ -375,6 +380,14 @@ public class StarlarkOptionsParser {
     return aliasChain.map(Label::getCanonicalForm).collect(joining(" -> "));
   }
 
+  public ImmutableMap<String, Object> getStarlarkOptions() {
+    return ImmutableMap.copyOf(this.starlarkOptions);
+  }
+
+  public ImmutableMap<String, Object> getDefaultValues() {
+    return ImmutableMap.copyOf(this.buildSettingDefaults);
+  }
+
   public boolean checkIfParsedOptionAllowsMultiple(String option) {
     BuildSetting setting = parsedBuildSettings.get(option);
     return setting.allowsMultiple() || setting.isRepeatableFlag();
@@ -382,6 +395,11 @@ public class StarlarkOptionsParser {
 
   public Type<?> getParsedOptionType(String option) {
     return parsedBuildSettings.get(option).getType();
+  }
+
+  @Nullable
+  public Object getDefaultValue(String option) {
+    return buildSettingDefaults.get(option);
   }
 
   /** Return a canoncalized list of the starlark options and values that this parser has parsed. */
