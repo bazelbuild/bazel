@@ -97,25 +97,6 @@ android_sh_test(
 )
 
 android_sh_test(
-    name = "android_ndk_integration_test",
-    size = "medium",
-    timeout = "long",
-    srcs = ["android_ndk_integration_test.sh"],
-    data = [
-        ":android_helper",
-        "//external:android_ndk_for_testing",
-        "//external:android_sdk_for_testing",
-        "//src/test/shell/bazel:test-deps",
-    ],
-    shard_count = 6,
-    tags = [
-        # See https://github.com/bazelbuild/bazel/issues/17784.
-        "no-remote",
-        "no_windows",
-    ],
-)
-
-android_sh_test(
     name = "aidl_integration_test",
     size = "medium",
     srcs = ["aidl_integration_test.sh"],

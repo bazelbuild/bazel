@@ -104,8 +104,7 @@ public class RepositoryOptions extends OptionsBase {
       help =
           "If false, native repo rules can be used in WORKSPACE; otherwise, Starlark repo rules "
               + "must be used instead. Native repo rules include local_repository, "
-              + "new_local_repository, local_config_platform, android_sdk_repository, and "
-              + "android_ndk_repository.")
+              + "new_local_repository, local_config_platform, and android_sdk_repository.")
   public boolean disableNativeRepoRules;
 
   @Option(

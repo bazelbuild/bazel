@@ -82,7 +82,7 @@ genrule(
     cmd = "\n".join([
         "cp $< $@",
         # Comment out the android repos if they exist.
-        "sed -i.bak -e 's/^android_sdk_repository/# android_sdk_repository/' -e 's/^android_ndk_repository/# android_ndk_repository/' $@",
+        "sed -i.bak -e 's/^android_sdk_repository/# android_sdk_repository/' $@",
     ]),
 )
 

@@ -76,8 +76,6 @@ import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriter;
 import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriterParseException;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.clock.Clock;
@@ -198,7 +196,6 @@ public class BazelRepositoryModule extends BlazeModule {
         .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction())
         .put(NewLocalRepositoryRule.NAME, new NewLocalRepositoryFunction())
         .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction())
-        .put(AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction())
         .put(LocalConfigPlatformRule.NAME, new LocalConfigPlatformFunction())
         .buildOrThrow();
   }

@@ -9,16 +9,13 @@ package(
 filegroup(
     name = "srcs",
     testonly = 0,
-    srcs = glob(["*"]) + [
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules/android/ndkcrosstools:srcs",
-    ],
+    srcs = glob(["*"]),
     visibility = ["//src:__subpackages__"],
 )
 
 java_test(
     name = "AndroidTests",
     srcs = [
-        "AndroidNdkRepositoryTest.java",
         "AndroidSdkRepositoryTest.java",
         "BazelAndroidLocalTestTest.java",
     ],

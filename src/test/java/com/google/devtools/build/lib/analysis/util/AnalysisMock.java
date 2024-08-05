@@ -37,8 +37,6 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCom
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.packages.util.LoadingMock;
@@ -150,8 +148,7 @@ public abstract class AnalysisMock extends LoadingMock {
     ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers =
         new ImmutableMap.Builder<String, RepositoryFunction>()
             .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction())
-            .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction())
-            .put(AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction());
+            .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction());
 
     addExtraRepositoryFunctions(repositoryHandlers);
 

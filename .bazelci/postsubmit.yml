@@ -3,8 +3,7 @@
 tasks:
   centos7:
     shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-        android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
+      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' WORKSPACE.bzlmod
       - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
@@ -52,8 +51,7 @@ tasks:
       - test
   fedora39:
     shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-        android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
+      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' WORKSPACE.bzlmod
       - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
@@ -68,8 +66,7 @@ tasks:
       - test
   ubuntu2204:
     shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-        android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
+      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' WORKSPACE.bzlmod
       - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
@@ -105,8 +102,7 @@ tasks:
       CC_CONFIGURE_DEBUG: 1
     name: "Clang"
     shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-        android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
+      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' WORKSPACE.bzlmod
       - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
@@ -126,8 +122,7 @@ tasks:
       - test
   ubuntu2004:
     shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-        android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
+      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' WORKSPACE.bzlmod
       - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
@@ -159,8 +154,7 @@ tasks:
   macos:
     shards: 20
     shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-        android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
+      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' WORKSPACE.bzlmod
       - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
@@ -217,8 +211,7 @@ tasks:
   macos_arm64:
     shards: 5
     shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
-        android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
+      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' WORKSPACE.bzlmod
       - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
@@ -326,9 +319,7 @@ tasks:
     platform: ubuntu2004
     name: "RBE"
     shell_commands:
-      - sed -i.bak
-        -e 's/^# android_sdk_repository/android_sdk_repository/'
-        -e 's/^# android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
+      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' WORKSPACE.bzlmod
       - rm -f WORKSPACE.bzlmod.bak
     build_flags:
       - "--config=remote"
@@ -382,8 +373,7 @@ tasks:
       - test
   kythe_ubuntu2204:
     shell_commands:
-    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/'
-      -e 's/^# android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
+    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' WORKSPACE.bzlmod
     - rm -f WORKSPACE.bzlmod.bak
     # Remove _nowkt suffix because it's only available in newer protobuf releases. See b/329055020.
     # TODO(chiwang): Remove this once we have upgraded to protobuf 25+.
