@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.Inva
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.common.options.OptionsParsingException;
 import javax.annotation.Nullable;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -49,8 +50,7 @@ public class PlatformFlagsProducerTest extends ProducerTestCase {
     assertThat(result.nativeFlags()).contains("--compilation_mode=dbg");
   }
 
-  @Test
-  public void starlarkFlag() throws Exception {
+  private void createStarlarkFlag() throws Exception {
     scratch.file(
         "flag/def.bzl",
         """
@@ -73,7 +73,11 @@ public class PlatformFlagsProducerTest extends ProducerTestCase {
             build_setting_default = "from_default",
         )
         """);
+  }
 
+  @Test
+  public void starlarkFlag() throws Exception {
+    createStarlarkFlag();
     scratch.overwriteFile(
         "lookup/BUILD",
         """
@@ -90,6 +94,29 @@ public class PlatformFlagsProducerTest extends ProducerTestCase {
 
     assertThat(result).isNotNull();
     assertThat(result.starlarkFlags()).containsAtLeast("//flag:flag", "from_platform");
+  }
+
+  // Regression test for https://github.com/bazelbuild/bazel/issues/23147
+  @Test
+  @Ignore("https://github.com/bazelbuild/bazel/issues/23147")
+  public void starlarkFlag_resetToDefault() throws Exception {
+    createStarlarkFlag();
+    scratch.overwriteFile(
+        "lookup/BUILD",
+        """
+        platform(
+            name = "basic",
+            flags = [
+                "--//flag=from_default",
+            ],
+        )
+        """);
+
+    Label platformLabel = Label.parseCanonicalUnchecked("//lookup:basic");
+    NativeAndStarlarkFlags result = fetch(platformLabel);
+
+    assertThat(result).isNotNull();
+    assertThat(result.starlarkFlags()).containsAtLeast("//flag:flag", "from_default");
   }
 
   @Test

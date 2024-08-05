@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.config.CommonOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
@@ -52,14 +53,14 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
         name = "option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
-        defaultValue = "super secret")
+        defaultValue = "from_default")
     public String option;
 
     @Option(
         name = "internal_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
-        defaultValue = "super secret",
+        defaultValue = "from_default",
         metadataTags = {OptionMetadataTag.INTERNAL})
     public String internalOption;
 
@@ -101,6 +102,31 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
         "platforms/BUILD",
         """
         platform(name = "sample")
+        """);
+  }
+
+  private void createStarlarkFlag() throws Exception {
+    scratch.file(
+        "flag/def.bzl",
+        """
+        def _impl(ctx):
+            return []
+
+        basic_flag = rule(
+            implementation = _impl,
+            build_setting = config.string(flag = True),
+        )
+        """);
+
+    scratch.file(
+        "flag/BUILD",
+        """
+        load(":def.bzl", "basic_flag")
+
+        basic_flag(
+            name = "flag",
+            build_setting_default = "from_default",
+        )
         """);
   }
 
@@ -177,7 +203,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
   }
 
   @Test
-  public void createKey_platformFlags() throws Exception {
+  public void createKey_platformFlags_native() throws Exception {
     scratch.overwriteFile(
         "platforms/BUILD",
         """
@@ -200,7 +226,30 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
   }
 
   @Test
-  public void createKey_platformFlags_override() throws Exception {
+  public void createKey_platformFlags_starlark() throws Exception {
+    createStarlarkFlag();
+    scratch.overwriteFile(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "sample",
+            flags = [
+                "--//flag=from_platform",
+            ],
+        )
+        """);
+    invalidatePackages(false);
+
+    BuildOptions baseOptions = createBuildOptions("--platforms=//platforms:sample");
+    BuildConfigurationKey result = fetch(baseOptions);
+
+    assertThat(result).isNotNull();
+    assertThat(result.getOptions().getStarlarkOptions())
+        .containsAtLeast(Label.parseCanonicalUnchecked("//flag"), "from_platform");
+  }
+
+  @Test
+  public void createKey_platformFlags_override_native() throws Exception {
     scratch.overwriteFile(
         "platforms/BUILD",
         """
@@ -223,7 +272,82 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
   }
 
   @Test
-  // Re-enable this once merging repeatable flags works properly.
+  public void createKey_platformFlags_override_starlark() throws Exception {
+    createStarlarkFlag();
+    scratch.overwriteFile(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "sample",
+            flags = [
+                "--//flag=from_platform",
+            ],
+        )
+        """);
+    invalidatePackages(false);
+
+    BuildOptions baseOptions =
+        createBuildOptions("--platforms=//platforms:sample", "--//flag=from_cli");
+    BuildConfigurationKey result = fetch(baseOptions);
+
+    assertThat(result).isNotNull();
+    assertThat(result.getOptions().getStarlarkOptions())
+        .containsAtLeast(Label.parseCanonicalUnchecked("//flag"), "from_platform");
+  }
+
+  @Test
+  public void createKey_platformFlags_resetToDefault_native() throws Exception {
+    scratch.overwriteFile(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "sample",
+            flags = [
+                "--option=from_default",
+            ],
+        )
+        """);
+    invalidatePackages(false);
+
+    BuildOptions baseOptions =
+        createBuildOptions("--platforms=//platforms:sample", "--option=from_cli");
+    BuildConfigurationKey result = fetch(baseOptions);
+
+    assertThat(result).isNotNull();
+    assertThat(result.getOptions().contains(DummyTestOptions.class)).isTrue();
+    assertThat(result.getOptions().get(DummyTestOptions.class).option).isEqualTo("from_default");
+  }
+
+  // Regression test for https://github.com/bazelbuild/bazel/issues/23147
+  @Test
+  @Ignore("https://github.com/bazelbuild/bazel/issues/23147")
+  public void createKey_platformFlags_resetToDefault_starlark() throws Exception {
+    createStarlarkFlag();
+    scratch.overwriteFile(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "sample",
+            flags = [
+                "--//flag=from_default",
+            ],
+        )
+        """);
+    invalidatePackages(false);
+
+    BuildOptions baseOptions =
+        createBuildOptions("--platforms=//platforms:sample", "--//flag=from_cli");
+    BuildConfigurationKey result = fetch(baseOptions);
+
+    assertThat(result).isNotNull();
+    // Default key values should not be present in starlark options.
+    assertThat(result.getOptions().getStarlarkOptions())
+        .doesNotContainKey(Label.parseCanonicalUnchecked("//flag"));
+  }
+
+  @Test
+  // Re-enable this once merging repeatable flags works properly. Also add a corresponding Starlark
+  // flag to test.
   @Ignore("https://github.com/bazelbuild/bazel/issues/22453")
   public void createKey_platformFlags_accumulate() throws Exception {
     scratch.overwriteFile(

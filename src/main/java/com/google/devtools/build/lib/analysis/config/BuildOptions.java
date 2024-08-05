@@ -247,7 +247,13 @@ public final class BuildOptions implements Cloneable {
 
   /** Maps options class definitions to FragmentOptions objects. */
   private final ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptionsMap;
-  /** Maps Starlark options names to Starlark options values. */
+
+  /**
+   * Maps Starlark options names to Starlark options values. This should never contain an entry for
+   * a Starlark option and the default value: if a Starlark option is explicitly or implicitly set
+   * to the default it should be removed from this map so that configurations are not duplicated
+   * needlessly.
+   */
   private final ImmutableMap<Label, Object> starlarkOptionsMap;
 
   // Lazily initialized both for performance and correctness - BuildOptions instances may be mutated

@@ -55,8 +55,17 @@ public abstract class NativeAndStarlarkFlags {
         .optionsClasses(ImmutableSet.of());
   }
 
+  /**
+   * The native flags from a given set of flags, in the format <code>[--flag=value]</code> or <code>
+   * ["--flag", "value"]</code>.
+   */
   public abstract ImmutableList<String> nativeFlags();
 
+  /**
+   * The Starlark flags from a given set of flags, mapped to the correct converted data type. If a
+   * Starlark flag is explicitly set to the default value it should still appear in this map so that
+   * consumers can properly handle the flag.
+   */
   public abstract ImmutableMap<String, Object> starlarkFlags();
 
   abstract ImmutableSet<Class<? extends FragmentOptions>> optionsClasses();
