@@ -33,7 +33,8 @@ EOF
 
   bazel build //:gen || fail "Expected build to succeed"
 
-  if [[ "$(ls "$(bazel info output_base)/*.jfr")" ]]; then
+  output_base=$(bazel info output_base)
+  if [[ $(find "$output_base" -maxdepth 1 -name "*.jfr") ]]; then
     fail "Expected no profiler outputs"
   fi
 }
