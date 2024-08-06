@@ -1,3 +1,11 @@
+## Release 8.0.0-pre.20240730.1 (2024-08-06)
+
+```
+Baseline: c75124148e025945b96b5b7c165c37d2975e865d
+```
+
+This release contains contributions from many people at Google, as well as Cornelius Riemenschneider, Fabian Meumertzheim, Laurent Le Brun, Xdng Yng.
+
 ## Release 8.0.0-pre.20240729.1 (2024-08-01)
 
 ```
