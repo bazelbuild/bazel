@@ -24,7 +24,6 @@ import static java.util.concurrent.ForkJoinPool.commonPool;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec;
 import com.google.errorprone.annotations.Keep;
 import com.google.perftools.profiles.ProfileProto;
 import com.google.perftools.profiles.ProfileProto.Line;
@@ -51,8 +50,8 @@ public final class ProfileCollectorTest {
   @Test
   public void toProto_hasExpectedMetadata() {
     var collector = new ProfileCollector();
-    collector.recordSample(ImmutableList.of("a", "b"), 10);
-    collector.recordSample(ImmutableList.of("a"), 20);
+    collector.recordSample(ImmutableList.of(codecA(), codecB()), 10);
+    collector.recordSample(ImmutableList.of(codecA()), 20);
 
     Profile profile = collector.toProto();
 
@@ -68,7 +67,7 @@ public final class ProfileCollectorTest {
                 ProfileCollector.BYTES));
     // The records are traversed in a non-deterministic order. Depending on which one comes first,
     // "a" or "b" might be the earlier entry in the string table.
-    assertThat(stringTable.subList(5, 7)).containsExactly("a", "b");
+    assertThat(stringTable.subList(5, 7)).containsExactly(CODEC_A_TEXT, CODEC_B_TEXT);
 
     assertThat(profile.getSampleTypeList())
         .containsExactly(
@@ -81,36 +80,76 @@ public final class ProfileCollectorTest {
     assertThat(getSamples(profile))
         .containsExactly(
             // The stack trace is reversed with the leaf is position 0, as per the proto spec.
-            new Sample(ImmutableList.of("b", "a"), 1, 10),
+            new Sample(ImmutableList.of(CODEC_B_TEXT, CODEC_A_TEXT), 1, 10),
             // This was originally 20 but became 10 by subtracting the child.
-            new Sample(ImmutableList.of("a"), 1, 10));
+            new Sample(ImmutableList.of(CODEC_A_TEXT), 1, 10));
   }
 
   @Test
   public void toProto_aggregatesSamples() {
     var collector = new ProfileCollector();
-    collector.recordSample(ImmutableList.of("a", "b", "c"), 10);
-    collector.recordSample(ImmutableList.of("a", "b", "d"), 7);
-    collector.recordSample(ImmutableList.of("a", "b"), 20);
-    collector.recordSample(ImmutableList.of("a"), 25);
+    collector.recordSample(ImmutableList.of(codecA(), codecB(), codecC()), 10);
+    collector.recordSample(ImmutableList.of(codecA(), codecB(), codecD()), 7);
+    collector.recordSample(ImmutableList.of(codecA(), codecB()), 20);
+    collector.recordSample(ImmutableList.of(codecA()), 25);
 
-    collector.recordSample(ImmutableList.of("a", "b", "d"), 2);
-    collector.recordSample(ImmutableList.of("a", "b"), 5);
-    collector.recordSample(ImmutableList.of("a"), 10);
+    collector.recordSample(ImmutableList.of(codecA(), codecB(), codecD()), 2);
+    collector.recordSample(ImmutableList.of(codecA(), codecB()), 5);
+    collector.recordSample(ImmutableList.of(codecA()), 10);
 
-    collector.recordSample(ImmutableList.of("a"), 1);
+    collector.recordSample(ImmutableList.of(codecA()), 1);
 
     assertThat(getSamples(collector.toProto()))
         .containsExactly(
             // Only 1 entry. The stack trace is reversed with the leaf in position, as per the proto
             // spec.
-            new Sample(ImmutableList.of("c", "b", "a"), 1, 10),
+            new Sample(getStackText(codecC(), codecB(), codecA()), 1, 10),
             // 2 samples, bytes = 2 + 7.
-            new Sample(ImmutableList.of("d", "b", "a"), 2, 9),
+            new Sample(getStackText(codecD(), codecB(), codecA()), 2, 9),
             // 2 samples, bytes = 20 + 5 - (9 + 10) = 6.
-            new Sample(ImmutableList.of("b", "a"), 2, 6),
+            new Sample(getStackText(codecB(), codecA()), 2, 6),
             // 3 samples, bytes = 25 + 10 + 1 - (20 + 5) = 11.
-            new Sample(ImmutableList.of("a"), 3, 11));
+            new Sample(getStackText(codecA()), 3, 11));
+  }
+
+  private static CodecA codecA() {
+    return CodecA.INSTANCE;
+  }
+
+  private static final String CODEC_A_TEXT =
+      codecA().getEncodedClass().getCanonicalName()
+          + "("
+          + codecA().getClass().getCanonicalName()
+          + ")";
+
+  private static CodecB codecB() {
+    return CodecB.INSTANCE;
+  }
+
+  private static final String CODEC_B_TEXT =
+      codecB().getEncodedClass().getCanonicalName()
+          + "("
+          + codecB().getClass().getCanonicalName()
+          + ")";
+
+  private static CodecC codecC() {
+    return CodecC.INSTANCE;
+  }
+
+  private static CodecD codecD() {
+    return CodecD.INSTANCE;
+  }
+
+  @Test
+  public void getDisplayText_convertsLambdas() {
+    Runnable anon = () -> {};
+    // Anonymous classes have no canonical name.
+    assertThat(anon.getClass().getCanonicalName()).isNull();
+
+    var codec = new DynamicCodec(anon.getClass());
+    String text = ProfileCollector.getDisplayText(codec);
+    assertThat(text)
+        .isEqualTo(anon.getClass().getName() + "(" + DynamicCodec.class.getCanonicalName() + ")");
   }
 
   @Test
@@ -147,25 +186,22 @@ public final class ProfileCollectorTest {
         samples.stream()
             .map(sample -> new Sample(sample.stack(), sample.count(), 0))
             .collect(toImmutableList());
+    ArrayListCodec arrayListCodec = new ArrayListCodec();
+    ExampleLeafCodec exampleLeafCodec = new ExampleLeafCodec();
     assertThat(bytesErasedSamples)
         .containsExactly(
             new Sample(
-                ImmutableList.of(ArrayListCodec.class.getCanonicalName()),
+                getStackText(arrayListCodec),
                 1, // There's exactly 1 ArrayList.
                 0),
             new Sample(
-                ImmutableList.of(
-                    ExampleLeafCodec.class.getCanonicalName(),
-                    ArrayListCodec.class.getCanonicalName()),
+                getStackText(exampleLeafCodec, arrayListCodec),
                 // The 4 samples here are the 1st-4th items. The null item doesn't increment the
                 // count.
                 4,
                 0),
             new Sample(
-                ImmutableList.of(
-                    UnsafeStringCodec.class.getCanonicalName(),
-                    ExampleLeafCodec.class.getCanonicalName(),
-                    ArrayListCodec.class.getCanonicalName()),
+                getStackText(stringCodec(), exampleLeafCodec, arrayListCodec),
                 // The 6 samples here are 2 each from the 1st, 2nd and 4th list items. Memoized
                 // leaves count as distinct samples. The 2 nulls in the 4th item can be counted as
                 // two Strings because their type is known to the parent codec. The Strings in the
@@ -250,7 +286,7 @@ public final class ProfileCollectorTest {
 
     ImmutableList<Sample> samples = getSamples(profileCollector.toProto());
 
-    var topStack = ImmutableList.<String>of(ExampleLeafSharerCodec.class.getCanonicalName());
+    ImmutableList<String> topStack = getStackText(ExampleLeafSharerCodec.INSTANCE);
     // Erases the bytes except for the top of the stack which is recorded in `totalBytes`. The other
     // bytes could be brittle to run assertions aren't easily recorded and would be brittle to
     // assert on.
@@ -269,11 +305,9 @@ public final class ProfileCollectorTest {
             new Sample(topStack, runCount, totalBytes.get()),
             // The shared ExampleLeaf instance is only serialized once. Note that this is a shared
             // value, it is serialized under a new, independent stack.
-            new Sample(ImmutableList.of(DeferredExampleLeafCodec.class.getCanonicalName()), 1, 0),
+            new Sample(getStackText(DeferredExampleLeafCodec.INSTANCE), 1, 0),
             new Sample(
-                ImmutableList.of(
-                    UnsafeStringCodec.class.getCanonicalName(),
-                    DeferredExampleLeafCodec.class.getCanonicalName()),
+                getStackText(stringCodec(), DeferredExampleLeafCodec.INSTANCE),
                 2, // "abc" and "def" in `subject.leaf`
                 0));
   }
@@ -288,6 +322,8 @@ public final class ProfileCollectorTest {
 
   @Keep
   private static class ExampleLeafSharerCodec extends AsyncObjectCodec<ExampleLeafSharer> {
+    private static final ExampleLeafSharerCodec INSTANCE = new ExampleLeafSharerCodec();
+
     @Override
     public Class<ExampleLeafSharer> getEncodedClass() {
       return ExampleLeafSharer.class;
@@ -350,6 +386,14 @@ public final class ProfileCollectorTest {
     }
   }
 
+  private static ImmutableList<String> getStackText(ObjectCodec<?>... codecs) {
+    var text = ImmutableList.<String>builder();
+    for (var codec : codecs) {
+      text.add(ProfileCollector.getDisplayText(codec));
+    }
+    return text.build();
+  }
+
   private record Sample(ImmutableList<String> stack, int count, int bytes) {}
 
   /** Converts the {@code profile} message into an easily inspectable list of {@link Sample}s. */
@@ -391,5 +435,109 @@ public final class ProfileCollectorTest {
       samples.add(new Sample(stack, (int) (long) values.get(0), (int) (long) values.get(1)));
     }
     return samples.build();
+  }
+
+  private record A() {}
+
+  private static class CodecA extends AsyncObjectCodec<A> {
+    private static final CodecA INSTANCE = new CodecA();
+
+    @Override
+    public Class<A> getEncodedClass() {
+      return A.class;
+    }
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, A obj, CodedOutputStream codedOut) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public A deserializeAsync(AsyncDeserializationContext context, CodedInputStream codedIn) {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  private record B() {}
+
+  private static class CodecB extends AsyncObjectCodec<B> {
+    private static final CodecB INSTANCE = new CodecB();
+
+    @Override
+    public Class<B> getEncodedClass() {
+      return B.class;
+    }
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, B obj, CodedOutputStream codedOut) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public B deserializeAsync(AsyncDeserializationContext context, CodedInputStream codedIn) {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  private record C() {}
+
+  private static class CodecC extends AsyncObjectCodec<C> {
+    private static final CodecC INSTANCE = new CodecC();
+
+    @Override
+    public Class<C> getEncodedClass() {
+      return C.class;
+    }
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, C obj, CodedOutputStream codedOut) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public C deserializeAsync(AsyncDeserializationContext context, CodedInputStream codedIn) {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  private record D() {}
+
+  private static class CodecD extends AsyncObjectCodec<D> {
+    private static final CodecD INSTANCE = new CodecD();
+
+    @Override
+    public Class<D> getEncodedClass() {
+      return D.class;
+    }
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, D obj, CodedOutputStream codedOut) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public D deserializeAsync(AsyncDeserializationContext context, CodedInputStream codedIn) {
+      throw new UnsupportedOperationException();
+    }
   }
 }

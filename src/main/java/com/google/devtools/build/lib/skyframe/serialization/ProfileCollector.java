@@ -38,7 +38,7 @@ public final class ProfileCollector {
   @VisibleForTesting static final String STORAGE = "storage";
   @VisibleForTesting static final String BYTES = "bytes";
 
-  private final ConcurrentHashMap<ImmutableList<String>, Counts> records =
+  private final ConcurrentHashMap<ImmutableList<ObjectCodec<?>>, Counts> records =
       new ConcurrentHashMap<>();
 
   /**
@@ -52,14 +52,14 @@ public final class ProfileCollector {
    *     current object being serialized
    * @param byteCount the transitive bytes serialized at the given object
    */
-  void recordSample(List<String> locationStack, int byteCount) {
+  void recordSample(List<ObjectCodec<?>> locationStack, int byteCount) {
     var counts = getCounts(locationStack);
     counts.count().getAndIncrement();
     counts.totalBytes().getAndAdd(byteCount);
 
     // Subtracts bytes from the ancestor to avoid double counting.
     if (locationStack.size() > 1) {
-      List<String> prefix = locationStack.subList(0, locationStack.size() - 1);
+      List<ObjectCodec<?>> prefix = locationStack.subList(0, locationStack.size() - 1);
       getCounts(prefix).totalBytes().getAndAdd(-byteCount);
     }
   }
@@ -73,15 +73,15 @@ public final class ProfileCollector {
               Sample.newBuilder()
                   .addValue(counts.count().get())
                   .addValue(counts.totalBytes().get());
-          for (String name : Lists.reverse(stack)) {
-            sample.addLocationId(profileBuilder.getOrAddLocation(name));
+          for (ObjectCodec<?> codec : Lists.reverse(stack)) {
+            sample.addLocationId(profileBuilder.getOrAddLocation(getDisplayText(codec)));
           }
           profileBuilder.addSample(sample);
         });
     return profileBuilder.build();
   }
 
-  private Counts getCounts(List<String> locationStack) {
+  private Counts getCounts(List<ObjectCodec<?>> locationStack) {
     var counts = records.get(locationStack);
     if (counts != null) {
       return counts;
@@ -95,6 +95,16 @@ public final class ProfileCollector {
       return previousCounts;
     }
     return newCounts;
+  }
+
+  @VisibleForTesting
+  static String getDisplayText(ObjectCodec<?> codec) {
+    Class<?> encodedClass = codec.getEncodedClass();
+    String name = encodedClass.getCanonicalName();
+    if (name == null) {
+      name = encodedClass.getName(); // anonymous classes have a name, but no canonical name
+    }
+    return name + "(" + codec.getClass().getCanonicalName() + ")";
   }
 
   private record Counts(AtomicInteger count, AtomicInteger totalBytes) {

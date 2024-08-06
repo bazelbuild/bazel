@@ -28,14 +28,14 @@ import java.util.ArrayList;
  */
 final class ProfileRecorder {
   private final ProfileCollector profileCollector;
-  private final ArrayList<String> locationStack = new ArrayList<>();
+  private final ArrayList<ObjectCodec<?>> locationStack = new ArrayList<>();
 
   ProfileRecorder(ProfileCollector profileCollector) {
     this.profileCollector = profileCollector;
   }
 
   void pushLocation(ObjectCodec<?> codec) {
-    locationStack.add(codec.getClass().getCanonicalName());
+    locationStack.add(codec);
   }
 
   void recordBytesAndPopLocation(int startBytes, CodedOutputStream codedOut) {
