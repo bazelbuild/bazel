@@ -79,7 +79,8 @@ public class AndroidStarlarkCommon
       Artifact input,
       Sequence<?> dexopts, // <String> expected.
       FilesToRunProvider dexmerger,
-      StarlarkInt minSdkVersion)
+      StarlarkInt minSdkVersion,
+      Object desugarGlobals)
       throws EvalException, RuleErrorException {
     AndroidBinary.createTemplatedMergerActions(
         starlarkRuleContext.getRuleContext(),
@@ -87,7 +88,8 @@ public class AndroidStarlarkCommon
         (SpecialArtifact) input,
         Sequence.cast(dexopts, String.class, "dexopts"),
         dexmerger,
-        minSdkVersion.toInt("min_sdk_version"));
+        minSdkVersion.toInt("min_sdk_version"),
+        desugarGlobals);
   }
 
   @StarlarkMethod(name = AndroidIdeInfoProviderApi.NAME, structField = true, documented = false)
