@@ -466,7 +466,7 @@ EOF
     # Work-around replacing the path with a short DOS path.
     tmpdir_value="$(cygpath -m -l "${tmpdir_value}")"
   fi
-  assert_starts_with "${TEST_TMPDIR}/" "${tmpdir_value}"
+  assert_starts_with "${bazel_root}/" "${tmpdir_value}"
 }
 
 function test_blaze_run_with_custom_test_tmpdir() {
