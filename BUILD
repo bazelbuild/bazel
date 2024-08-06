@@ -90,16 +90,11 @@ genrule(
     name = "generate_dist_lockfile",
     srcs = [
         "MODULE.bazel",
-        "//third_party/googleapis:MODULE.bazel",
         "//third_party/remoteapis:MODULE.bazel",
         "//third_party:BUILD",
         "//third_party:rules_jvm_external_6.0.patch",
-        "//third_party:protobuf_21.7.patch",
-        "//third_party/upb:BUILD",
-        "//third_party/upb:00_remove_toolchain_transition.patch",
-        "//third_party/upb:01_remove_werror.patch",
-        "//third_party/grpc:BUILD",
-        "//third_party/grpc:00_disable_layering_check.patch",
+        "//third_party/protobuf:BUILD",
+        "//third_party/protobuf:remove_rules_rust.patch",
     ],
     outs = ["MODULE.bazel.lock.dist"],
     cmd = " && ".join([
@@ -123,7 +118,8 @@ genrule(
 pkg_tar(
     name = "bootstrap-jars",
     srcs = [
-        "@blake3",
+        "//third_party/googleapis:dist_jars",
+        "//third_party/grpc-java:grpc_jars",
         "@com_google_protobuf//:protobuf_java",
         "@com_google_protobuf//:protobuf_java_util",
         "@com_google_protobuf//:protobuf_javalite",

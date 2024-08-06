@@ -39,33 +39,29 @@ filegroup(
     srcs = glob(["**"]),
 )
 
-distrib_jar_filegroup(
-    name = "bootstrap-grpc-jars",
-    srcs = [
-        "@maven//:io_grpc_grpc_api_file",
-        "@maven//:io_grpc_grpc_auth_file",
-        "@maven//:io_grpc_grpc_context_file",
-        "@maven//:io_grpc_grpc_core_file",
-        "@maven//:io_grpc_grpc_netty_file",
-        "@maven//:io_grpc_grpc_protobuf_file",
-        "@maven//:io_grpc_grpc_protobuf_lite_file",
-        "@maven//:io_grpc_grpc_stub_file",
-    ],
-    enable_distributions = ["debian"],
-)
+# @grpc-java specifies overrides for these maven coordinates, so these are not actually
+# jars, but built from source from the @grpc-java repo.
+GRPC_JARS = [
+    "@maven//:io_grpc_grpc_api",
+    "@maven//:io_grpc_grpc_auth",
+    "@maven//:io_grpc_grpc_context",
+    "@maven//:io_grpc_grpc_core",
+    "@maven//:io_grpc_grpc_inprocess",
+    "@maven//:io_grpc_grpc_netty",
+    "@maven//:io_grpc_grpc_protobuf",
+    "@maven//:io_grpc_grpc_protobuf_lite",
+    "@maven//:io_grpc_grpc_stub",
+]
 
+# TODO: wyv@ - rename this to just `grpc-java`.
 java_library(
     name = "grpc-jar",
-    exports = [
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_auth",
-        "@maven//:io_grpc_grpc_context",
-        "@maven//:io_grpc_grpc_core",
-        "@maven//:io_grpc_grpc_netty",
-        "@maven//:io_grpc_grpc_protobuf",
-        "@maven//:io_grpc_grpc_protobuf_lite",
-        "@maven//:io_grpc_grpc_stub",
-    ],
+    exports = GRPC_JARS,
+)
+
+filegroup(
+    name = "grpc_jars",
+    srcs = GRPC_JARS,
 )
 
 distrib_cc_binary(

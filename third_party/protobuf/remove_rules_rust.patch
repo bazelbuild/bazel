@@ -1,0 +1,50 @@
+diff --git a/MODULE.bazel b/MODULE.bazel
+index 213d3c2..4958368 100755
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -68,11 +68,6 @@ bazel_dep(
+     version = "0.28.0",
+ )
+ 
+-bazel_dep(
+-    name = "rules_rust",
+-    version = "0.45.1",
+-)
+-
+ bazel_dep(
+     name = "platforms",
+     version = "0.0.8",
+@@ -128,33 +123,6 @@ pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+ 
+ use_repo(pip, "pip_deps")
+ 
+-rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+-
+-rust.toolchain(edition = "2021")
+-
+-use_repo(rust, "rust_toolchains")
+-
+-register_toolchains("@rust_toolchains//:all")
+-
+-crate = use_extension("@rules_rust//crate_universe:extension.bzl", "crate")
+-
+-crate.spec(
+-    package = "googletest",
+-    version = ">0.0.0",
+-)
+-
+-crate.spec(
+-    package = "paste",
+-    version = ">=1",
+-)
+-
+-crate.from_specs()
+-
+-use_repo(
+-    crate,
+-    crate_index = "crates",
+-)
+-
+ maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+ 
+ maven.install(

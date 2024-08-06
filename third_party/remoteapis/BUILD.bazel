@@ -1,3 +1,5 @@
+load("@io_bazel//third_party/grpc:build_defs.bzl", "java_grpc_library")
+load("@io_bazel//tools/build_rules:utilities.bzl", "java_library_srcs")
 load("@rules_java//java:defs.bzl", "java_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
 
@@ -9,9 +11,6 @@ exports_files([
     "LICENSE",
     "MODULE.bazel",
 ])
-
-load("@io_bazel//third_party/grpc:build_defs.bzl", "java_grpc_library")
-load("@io_bazel//tools/build_rules:utilities.bzl", "java_library_srcs")
 
 filegroup(
     name = "srcs",
@@ -47,8 +46,8 @@ proto_library(
         ":build_bazel_remote_execution_v2_remote_execution_proto",
         "@com_google_protobuf//:duration_proto",
         "@com_google_protobuf//:timestamp_proto",
-        "@googleapis//:google_api_annotations_proto",
-        "@googleapis//:google_rpc_status_proto",
+        "@googleapis//google/api:annotations_proto",
+        "@googleapis//google/rpc:status_proto",
     ],
 )
 
@@ -61,10 +60,10 @@ proto_library(
         "@com_google_protobuf//:duration_proto",
         "@com_google_protobuf//:timestamp_proto",
         "@com_google_protobuf//:wrappers_proto",
-        "@googleapis//:google_api_annotations_proto",
-        "@googleapis//:google_api_http_proto",
-        "@googleapis//:google_longrunning_operations_proto",
-        "@googleapis//:google_rpc_status_proto",
+        "@googleapis//google/api:annotations_proto",
+        "@googleapis//google/api:http_proto",
+        "@googleapis//google/longrunning:operations_proto",
+        "@googleapis//google/rpc:status_proto",
     ],
 )
 
@@ -99,6 +98,6 @@ java_grpc_library(
     srcs = [":build_bazel_remote_execution_v2_remote_execution_proto"],
     deps = [
         ":build_bazel_remote_execution_v2_remote_execution_java_proto",
-        "@googleapis//:google_longrunning_operations_java_proto",
+        "@googleapis//google/longrunning:longrunning_java_proto",
     ],
 )
