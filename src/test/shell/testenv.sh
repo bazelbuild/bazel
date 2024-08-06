@@ -687,8 +687,7 @@ function cleanup_workspace() {
 }
 
 function testenv_tear_down() {
-  # cleanup_workspace
-  true
+  cleanup_workspace
 }
 
 # This is called by unittest.bash upon eventual exit of the test suite.
