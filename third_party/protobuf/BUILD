@@ -6,6 +6,11 @@ filegroup(
     visibility = ["//third_party:__pkg__"],
 )
 
+exports_files([
+    "BUILD",
+    "remove_rules_rust.patch",
+])
+
 alias(
     name = "protoc",
     actual = "@com_google_protobuf//:protoc",
