@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedMap;
@@ -116,9 +117,16 @@ final class SandboxedWorker extends SingleplexWorker {
             workDir,
             hardenedSandboxOptions != null
                 ? ImmutableList.of(PathFragment.create(tmpDirPath.getPathString()))
-                : ImmutableList.of());
+                : ImmutableList.of(),
+            shouldUseInMemoryTracking(workerOptions, workerKey));
     this.hardenedSandboxOptions = hardenedSandboxOptions;
     this.treeDeleter = treeDeleter;
+  }
+
+  private static boolean shouldUseInMemoryTracking(
+      WorkerOptions workerOptions, WorkerKey workerKey) {
+    List<String> mnemonics = workerOptions.workerSandboxInMemoryTracking;
+    return mnemonics != null && mnemonics.contains(workerKey.getMnemonic());
   }
 
   @Override

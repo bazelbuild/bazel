@@ -270,6 +270,19 @@ public class WorkerOptions extends OptionsBase {
   public int workerMemoryLimitMb;
 
   @Option(
+      name = "experimental_worker_sandbox_inmemory_tracking",
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "A worker key mnemonic for which the contents of the sandbox directory are tracked in"
+              + " memory. This may improve build performance at the cost of additional memory"
+              + " usage. Only affects sandboxed workers. May be specified multiple times for"
+              + " different mnemonics.")
+  public List<String> workerSandboxInMemoryTracking;
+
+  @Option(
       name = "experimental_worker_allowlist",
       converter = CommaSeparatedOptionSetConverter.class,
       defaultValue = "null",
