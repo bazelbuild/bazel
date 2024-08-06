@@ -27,6 +27,10 @@ function is_darwin() {
   [[ "${PLATFORM}" =~ darwin ]]
 }
 
+function is_windows() {
+  [[ "${PLATFORM}" =~ msys ]]
+}
+
 function _log_base() {
   prefix=$1
   shift
@@ -47,7 +51,7 @@ if ! type rlocation &> /dev/null; then
 fi
 
 # Set some environment variables needed on Windows.
-if [[ $PLATFORM =~ msys ]]; then
+if is_windows; then
   # TODO(philwo) remove this once we have a Bazel release that includes the CL
   # moving the Windows-specific TEST_TMPDIR into TestStrategy.
   TEST_TMPDIR_BASENAME="$(basename "$TEST_TMPDIR")"
@@ -219,6 +223,9 @@ if [[ "$RUNNING_IN_BAZEL_SANDBOX" == 1 ]]; then
   # --sandbox_add_mount_pair option but is the only place other than
   # $TEST_TMPDIR where we are guaranteed to be able to write.
   bazel_root="/tmp/output_user_root"
+elif is_windows; then
+  # Create a shorter bazel root on Windows to avoid long path issue.
+  bazel_root=$(mktemp -d "C:/tmp/XXXXXXXX")
 else
   # OS X has a limit in the pipe length, so force the root to a shorter one
   bazel_root="${TEST_TMPDIR}/root"
@@ -256,7 +263,7 @@ function try_with_timeout() {
 }
 
 function setup_localjdk_javabase() {
-  if [[ $PLATFORM =~ msys ]]; then
+  if is_windows; then
     jdk_binary=local_jdk/bin/java.exe
   else
     jdk_binary=local_jdk/bin/java
@@ -266,7 +273,7 @@ function setup_localjdk_javabase() {
     echo "error: failed to find $jdk_binary, make sure you have java \
 installed or pass --java_runtime_verison=XX with the correct version" >&2
   fi
-  if [[ $PLATFORM =~ msys ]]; then
+  if is_windows; then
     jdk_dir="$(cygpath -m $(cd ${jdk_binary_rlocation}/../..; pwd))"
   else
     jdk_dir="$(dirname $(dirname ${jdk_binary_rlocation}))"
@@ -648,7 +655,7 @@ function setup_clean_workspace() {
   [ "${new_workspace_dir}" = "${WORKSPACE_DIR}" ] \
     || log_fatal "Failed to create workspace"
 
-  if [[ $PLATFORM =~ msys ]]; then
+  if is_windows; then
     export BAZEL_SH="$(cygpath --windows /bin/bash)"
   fi
 }
@@ -680,7 +687,8 @@ function cleanup_workspace() {
 }
 
 function testenv_tear_down() {
-  cleanup_workspace
+  # cleanup_workspace
+  true
 }
 
 # This is called by unittest.bash upon eventual exit of the test suite.
@@ -787,7 +795,7 @@ function disable_bzlmod() {
 function use_fake_python_runtimes_for_testsuite() {
   # The stub script template automatically appends ".exe" to the Python binary
   # name if it doesn't already end in ".exe", ".com", or ".bat".
-  if [[ $PLATFORM =~ msys ]]; then
+  if is_windows; then
     PYTHON3_FILENAME="python3.bat"
   else
     PYTHON3_FILENAME="python3.sh"
@@ -826,7 +834,7 @@ toolchain(
 EOF
 
   # Windows .bat has uppercase ECHO and no shebang.
-  if [[ $PLATFORM =~ msys ]]; then
+  if is_windows; then
     cat > tools/python/$PYTHON3_FILENAME << EOF
 @ECHO I am Python 3
 EOF

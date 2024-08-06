@@ -74,7 +74,7 @@ function set_up() {
   if "$is_windows"; then
         java_tools_prebuilt_zip_file_url="file:///${java_tools_prebuilt_rlocation}"
   fi
-  cat >> MODULE.bazel <<EOF
+  cat > $(setup_module_dot_bazel "MODULE.bazel") <<EOF
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "local_java_tools",
