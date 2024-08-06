@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
+import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -35,10 +36,20 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
+import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.DynamicCodec;
+import com.google.devtools.build.lib.skyframe.serialization.DynamicCodec.FieldHandler;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaModuleFlagsProviderApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.Keep;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
@@ -647,6 +658,83 @@ public final class JavaInfo extends NativeInfo
           neverlink,
           javaConstraints,
           creationLocation);
+    }
+  }
+
+  @Keep
+  private static final class Codec extends DeferredObjectCodec<JavaInfo> {
+
+    @Override
+    public Class<? extends JavaInfo> getEncodedClass() {
+      return JavaInfo.class;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, JavaInfo obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.putSharedValue(obj, null, InternalNonSharingCodec.INSTANCE, codedOut);
+    }
+
+    @Override
+    public DeferredValue<JavaInfo> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      SimpleDeferredValue<JavaInfo> deferredValue = SimpleDeferredValue.create();
+      context.getSharedValue(
+          codedIn, null, InternalNonSharingCodec.INSTANCE, deferredValue, SimpleDeferredValue::set);
+      return deferredValue;
+    }
+  }
+
+  @Keep
+  private static final class InternalNonSharingCodec extends DeferredObjectCodec<JavaInfo> {
+
+    public static final InternalNonSharingCodec INSTANCE = new InternalNonSharingCodec();
+
+    private final ImmutableList<FieldHandler> handlers;
+
+    private InternalNonSharingCodec() {
+      this.handlers =
+          ImmutableList.copyOf(DynamicCodec.getFieldHandlerMap(JavaInfo.class).values());
+    }
+
+    @Override
+    public boolean autoRegister() {
+      // This is the internal implementation for the JavaInfo codec. Instead (auto) register
+      // the external codec that does shared value serialization that uses this codec.
+      return false;
+    }
+
+    @Override
+    public Class<? extends JavaInfo> getEncodedClass() {
+      return JavaInfo.class;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, JavaInfo obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      for (FieldHandler handler : handlers) {
+        handler.serialize(context, codedOut, obj);
+      }
+    }
+
+    @Override
+    @SuppressWarnings("SunApi") // TODO: b/331765692 - delete this
+    public DeferredValue<JavaInfo> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+
+      JavaInfo obj;
+      try {
+        obj = (JavaInfo) unsafe().allocateInstance(JavaInfo.class);
+      } catch (InstantiationException e) {
+        throw new SerializationException("Could not instantiate JavaInfo with Unsafe", e);
+      }
+      for (FieldHandler handler : handlers) {
+        handler.deserialize(context, codedIn, obj);
+      }
+
+      return () -> obj;
     }
   }
 }

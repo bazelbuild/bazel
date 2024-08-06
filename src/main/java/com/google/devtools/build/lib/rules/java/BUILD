@@ -43,14 +43,17 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/java",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
