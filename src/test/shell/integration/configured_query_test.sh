@@ -217,6 +217,38 @@ function test_transitions_full() {
   assert_contains "host_dep#//$pkg:host#(exec + (TestTrimmingTransition + ConfigFeatureFlagTaggedTrimmingTransition))" output
 }
 
+function test_transitions_incompatible_target() {
+  local -r pkg=$FUNCNAME
+
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+constraint_setting(name = "incompatible_setting")
+constraint_value(
+    name = "incompatible",
+    constraint_setting = ":incompatible_setting",
+)
+genrule(
+    name = "gr",
+    srcs = [":input"],
+    cmd = "touch $@",
+    outs = ["out"],
+    target_compatible_with = [":incompatible"],
+)
+genrule(
+    name = "input",
+    cmd = "echo hi > $@",
+    outs = ["in"],
+)
+EOF
+
+    bazel cquery "deps(//$pkg:gr)" --transitions=lite \
+      > output 2>"$TEST_log" || fail "Excepted success"
+
+    assert_contains "//$pkg:gr" output
+    assert_not_contains "//$pkg:input" output
+    expect_log "WARNING: Skipping dependencies of incompatible target //$pkg:gr"
+}
+
 function write_test_targets() {
   mkdir -p $pkg
   cat > $pkg/rule.bzl <<'EOF'
