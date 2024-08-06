@@ -93,6 +93,11 @@ function set_up() {
   export XDG_CONFIG_HOME=
 }
 
+# Shutdown Bazel so that we can safely delete files on Windows
+function tear_down() {
+  bazel shutdown
+}
+
 function get_pluto_repo() {
   echo "$TEST_TMPDIR/repos/pluto"
 }

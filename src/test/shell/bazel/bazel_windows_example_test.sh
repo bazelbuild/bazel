@@ -97,6 +97,11 @@ platform(
     ],
 )
 EOF
+
+  cat >> MODULE.bazel <<EOF
+cc_configure = use_extension("@bazel_tools//tools/cpp:cc_configure.bzl", "cc_configure_extension")
+use_repo(cc_configure, "local_config_cc")
+EOF
 }
 
 # An assertion that execute a binary from a sub directory (to test runfiles)

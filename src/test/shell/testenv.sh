@@ -676,7 +676,7 @@ function cleanup_workspace() {
         try_with_timeout rm -fr "$i"
       fi
     done
-    setup_module_dot_bazel "MODULE.bazel"
+    setup_module_dot_bazel "MODULE.bazel" > /dev/null
   fi
   for i in "${workspaces[@]}"; do
     if [ "$i" != "${WORKSPACE_DIR:-}" ]; then
