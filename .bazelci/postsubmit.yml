@@ -152,7 +152,7 @@ tasks:
       - build
       - test
   macos:
-    shards: 20
+    shards: 5
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' WORKSPACE.bzlmod
       - rm -f WORKSPACE.bzlmod.bak
@@ -181,30 +181,20 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # https://github.com/bazelbuild/bazel/issues/16526
-      - "-//src/test/shell/bazel:starlark_repository_test"
-      # https://github.com/bazelbuild/bazel/issues/17407
-      - "-//src/test/shell/bazel/apple:bazel_apple_test"
-      # https://github.com/bazelbuild/bazel/issues/17408
-      - "-//src/test/shell/bazel/apple:bazel_objc_test"
+      # Disable python and shell integration tests on Intel Macs
+      - "-//src/test/shell/..."
+      - "-//src/test/py/..."
       # https://github.com/bazelbuild/bazel/issues/17410
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
-      # https://github.com/bazelbuild/bazel/issues/17456
-      - "-//src/test/shell/bazel:bazel_determinism_test"
-      # https://github.com/bazelbuild/bazel/issues/17457
-      - "-//src/test/shell/bazel:jdeps_test"
-      # https://github.com/bazelbuild/bazel/issues/21495
-      - "-//src/test/shell/bazel:srcs_test"
       # Disable android tests since we are moving Android rules out of Bazel repo.
-      - "-//src/test/shell/bazel/android/..."
       - "-//src/tools/android/java/com/google/devtools/build/android/..."
       - "-//src/test/java/com/google/devtools/build/android/dexer:AllTests"
       # ServerTests frequently runs into deadlocks on Intel Macs
       - "-//src/test/java/com/google/devtools/build/lib/server:ServerTests"
-      # bazel_proto_library_test is timeout flaky on Intel Macs, which usually means a runtime of 2 hours or more
-      - "-//src/test/shell/bazel:bazel_proto_library_test"
-      # Takes too long on Intel VMs
-      - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
+      # Add back a few Apple specific tests
+      - "+//src/test/shell/bazel/apple/..."
+      # Add back one bootstrap test for Intel Mac
+      - "+//src/test/shell/bazel:bazel_bootstrap_distfile_test"
     include_json_profile:
       - build
       - test
