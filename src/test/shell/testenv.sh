@@ -225,6 +225,7 @@ if [[ "$RUNNING_IN_BAZEL_SANDBOX" == 1 ]]; then
   bazel_root="/tmp/output_user_root"
 elif is_windows; then
   # Create a shorter bazel root on Windows to avoid long path issue.
+  mkdir -p C:/tmp
   bazel_root=$(mktemp -d "C:/tmp/XXXXXXXX")
 else
   # OS X has a limit in the pipe length, so force the root to a shorter one
