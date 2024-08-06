@@ -116,6 +116,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -686,11 +687,13 @@ public final class ActionExecutionFunction implements SkyFunction {
         PathFragment parent =
             checkNotNull(path.getParentDirectory(), "Must pass in files, not root directory");
         checkArgument(!parent.isAbsolute(), path);
-        ContainingPackageLookupValue.Key depKey =
-            ContainingPackageLookupValue.key(
-                PackageIdentifier.discoverFromExecPath(path, true, siblingRepositoryLayout));
-        depKeys.put(path, depKey);
-        packageLookupsRequested.add(depKey);
+        Optional<PackageIdentifier> pkgId =
+            PackageIdentifier.discoverFromExecPath(path, true, siblingRepositoryLayout);
+        if (pkgId.isPresent()) {
+          ContainingPackageLookupValue.Key depKey = ContainingPackageLookupValue.key(pkgId.get());
+          depKeys.put(path, depKey);
+          packageLookupsRequested.add(depKey);
+        }
       }
 
       SkyframeLookupResult values = env.getValuesAndExceptions(depKeys.values());
