@@ -392,27 +392,14 @@ public final class SerializationWithSkyframeTest {
         AsyncDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       ExampleKey key = context.deserializeLeaf(codedIn, exampleKeyCodec());
-      var builder = new ExampleValueBuilder();
-      context.getSkyValue(key, builder, ExampleValueBuilder::setValue);
+      SimpleDeferredValue<ExampleValue> builder = SimpleDeferredValue.create();
+      context.getSkyValue(key, builder, SimpleDeferredValue::set);
       return builder;
     }
   }
 
   private static ExampleValueCodec exampleValueCodec() {
     return ExampleValueCodec.INSTANCE;
-  }
-
-  private static final class ExampleValueBuilder implements DeferredValue<ExampleValue> {
-    private ExampleValue value;
-
-    @Override
-    public ExampleValue call() {
-      return value;
-    }
-
-    private static void setValue(ExampleValueBuilder builder, Object obj) {
-      builder.value = (ExampleValue) obj;
-    }
   }
 
   @Keep // used reflectively
