@@ -236,6 +236,7 @@ EOF
 }
 
 function test_java() {
+  add_rules_java "MODULE.bazel"
   local java_pkg=examples/java-native/src/main/java/com/example/myproject
 
   assert_build_output ./bazel-bin/${java_pkg}/libhello-lib.jar ${java_pkg}:hello-lib
@@ -276,6 +277,7 @@ function test_java_with_jar_under_different_drive() {
 
   trap delete_tmp_drive EXIT
 
+  add_rules_java "MODULE.bazel"
   local java_pkg=examples/java-native/src/main/java/com/example/myproject
   bazel --output_user_root=${TMP_DRIVE}:/tmp build ${java_pkg}:hello-world
 
@@ -287,6 +289,7 @@ function test_java_test() {
   local java_native_tests=//examples/java-native/src/test/java/com/example/myproject
   local java_native_main=//examples/java-native/src/main/java/com/example/myproject
 
+  add_rules_java "MODULE.bazel"
   assert_build "-- //examples/java-native/... -${java_native_main}:hello-error-prone"
   assert_build_fails "${java_native_main}:hello-error-prone" \
       "Did you mean 'result = b == -1;'?"
