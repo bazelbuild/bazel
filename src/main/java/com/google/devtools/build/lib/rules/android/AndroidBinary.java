@@ -2042,7 +2042,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
    * Sets up a monodex {@code $dexmerger} actions for each dex archive in the given tree artifact
    * and puts the outputs in a tree artifact.
    */
-  public static void createTemplatedMergerActions(
+  private static void createTemplatedMergerActions(
       RuleContext ruleContext,
       SpecialArtifact outputTree,
       SpecialArtifact inputTree,
