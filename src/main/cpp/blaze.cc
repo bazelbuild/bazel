@@ -1627,6 +1627,9 @@ bool BlazeServer::Connect() {
   // locally over gRPC; so we want to ignore any configured proxies when setting
   // up a gRPC channel to the server.
   channel_args.SetInt(GRPC_ARG_ENABLE_HTTP_PROXY, 0);
+  // The Bazel server may send responses larger than the default (4 MiB), e.g.
+  // when an invocation has a very large failure detail.
+  channel_args.SetMaxReceiveMessageSize(20 * 1024 * 1024);
   std::shared_ptr<grpc::Channel> channel(grpc::CreateCustomChannel(
       port, grpc::InsecureChannelCredentials(), channel_args));
   std::unique_ptr<CommandServer::Stub> client(CommandServer::NewStub(channel));
