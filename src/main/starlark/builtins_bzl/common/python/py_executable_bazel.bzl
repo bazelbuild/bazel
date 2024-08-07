@@ -23,7 +23,11 @@ load(
     "union_attrs",
 )
 load(":common/python/common_bazel.bzl", "collect_cc_info", "get_imports", "maybe_precompile")
-load(":common/python/providers.bzl", "DEFAULT_STUB_SHEBANG")
+load(
+    ":common/python/providers.bzl",
+    "DEFAULT_STUB_SHEBANG",
+    "PyInfo",
+)
 load(
     ":common/python/py_executable.bzl",
     "create_base_executable_rule",
@@ -89,6 +93,7 @@ def create_executable_rule(*, attrs, **kwargs):
     return create_base_executable_rule(
         attrs = BAZEL_EXECUTABLE_ATTRS | attrs,
         fragments = ["py", "bazel_py"],
+        provides = [PyInfo],
         **kwargs
     )
 
