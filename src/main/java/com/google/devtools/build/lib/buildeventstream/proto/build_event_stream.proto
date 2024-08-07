@@ -933,6 +933,9 @@ message BuildMetrics {
       // This is only set if all the actions reported a time
       google.protobuf.Duration system_time = 5;
       google.protobuf.Duration user_time = 6;
+
+      // The total number of actions of this type registered during the build.
+      int64 actions_created = 7;
     }
     // Contains the top N actions by number of actions executed.
     repeated ActionData action_data = 4;

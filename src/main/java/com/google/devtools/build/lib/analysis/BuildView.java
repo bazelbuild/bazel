@@ -184,6 +184,10 @@ public class BuildView {
     return skyframeBuildView.getEvaluatedActionCounts();
   }
 
+  public ImmutableMap<String, Integer> getEvaluatedActionsCountsByMnemonic() {
+    return skyframeBuildView.getEvaluatedActionCountsByMnemonic();
+  }
+
   public PackageManagerStatistics getAndClearPkgManagerStatistics() {
     return skyframeExecutor.getPackageManager().getAndClearStatistics();
   }
