@@ -142,7 +142,7 @@ register_toolchains("//my_pkg:my_toolchain")
 
 # TODO(#7844): Add support for a windows (.bat) version of the autodetecting
 # toolchain, based on the "py" wrapper (e.g. "py -2" and "py -3"). Use select()
-# in the template attr of the _generate_*wrapper targets.
+# in the template attr of the generate_*wrapper targets.
 
 def define_autodetecting_toolchain(
         name,
@@ -172,13 +172,13 @@ def define_autodetecting_toolchain(
              "'autodetecting_toolchain'")
 
     expand_pyversion_template(
-        name = "_generate_wrappers",
+        name = "generate_wrappers",
         template = pywrapper_template,
         out2 = ":py2wrapper.sh",
         out3 = ":py3wrapper.sh",
         out2_nonstrict = ":py2wrapper_nonstrict.sh",
         out3_nonstrict = ":py3wrapper_nonstrict.sh",
-        visibility = ["//visibility:private"],
+        visibility = ["//visibility:public"],
     )
 
     # Note that the pywrapper script is a .sh file, not a sh_binary target. If
