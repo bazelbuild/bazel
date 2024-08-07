@@ -39,14 +39,14 @@ public abstract class ActionOwner {
   @SerializationConstant
   public static final ActionOwner SYSTEM_ACTION_OWNER =
       createDummy(
-          /* label= */ null,
+          /* label= */ Label.parseCanonicalUnchecked("@_builtins//virtual:system_action_owner"),
           Location.BUILTIN,
           /* targetKind= */ "empty target kind",
           /* buildConfigurationMnemonic= */ "system",
           /* configurationChecksum= */ "system",
           /* buildConfigurationEvent= */ null,
           /* isToolConfiguration= */ false,
-          /* executionPlatform= */ null,
+          /* executionPlatform= */ PlatformInfo.BUILTIN_PLATFORM_INFO,
           /* aspectDescriptors= */ ImmutableList.of(),
           /* execProperties= */ ImmutableMap.of());
 
