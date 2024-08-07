@@ -585,6 +585,14 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
         help = "No-op.")
     public boolean incompatibleUsePlusInRepoNames;
+
+    @Option(
+        name = "experimental_announce_profile_path",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean announceProfilePath;
   }
 
   @Override

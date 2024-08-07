@@ -341,9 +341,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           profilePath = workspace.getWorkspace().getRelative(options.profilePath);
           out = profilePath.getOutputStream(/* append= */ false, /* internal= */ true);
         }
-        if (profilePath != null && options.announceProfilePath) {
-          eventHandler.handle(Event.info("Writing tracer profile to '" + profilePath + "'"));
-        }
         for (ProfilerTask profilerTask : ProfilerTask.values()) {
           if (!profilerTask.isVfs()
               // CRITICAL_PATH corresponds to writing the file.
