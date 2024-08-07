@@ -133,8 +133,6 @@ public abstract class InterimModule extends ModuleBase {
     /** Optional; defaults to {@link #setName}. */
     public abstract Builder setRepoName(String value);
 
-    public abstract Builder setBazelCompatibility(ImmutableList<String> value);
-
     abstract ImmutableList.Builder<String> bazelCompatibilityBuilder();
 
     @CanIgnoreReturnValue
@@ -143,8 +141,6 @@ public abstract class InterimModule extends ModuleBase {
       return this;
     }
 
-    public abstract Builder setExecutionPlatformsToRegister(ImmutableList<String> value);
-
     abstract ImmutableList.Builder<String> executionPlatformsToRegisterBuilder();
 
     @CanIgnoreReturnValue
@@ -152,8 +148,6 @@ public abstract class InterimModule extends ModuleBase {
       executionPlatformsToRegisterBuilder().addAll(values);
       return this;
     }
-
-    public abstract Builder setToolchainsToRegister(ImmutableList<String> value);
 
     abstract ImmutableList.Builder<String> toolchainsToRegisterBuilder();
 
@@ -166,22 +160,6 @@ public abstract class InterimModule extends ModuleBase {
     public abstract Builder setOriginalDeps(ImmutableMap<String, DepSpec> value);
 
     public abstract Builder setDeps(ImmutableMap<String, DepSpec> value);
-
-    abstract ImmutableMap.Builder<String, DepSpec> depsBuilder();
-
-    @CanIgnoreReturnValue
-    public Builder addDep(String depRepoName, DepSpec depSpec) {
-      depsBuilder().put(depRepoName, depSpec);
-      return this;
-    }
-
-    abstract ImmutableMap.Builder<String, DepSpec> originalDepsBuilder();
-
-    @CanIgnoreReturnValue
-    public Builder addOriginalDep(String depRepoName, DepSpec depSpec) {
-      originalDepsBuilder().put(depRepoName, depSpec);
-      return this;
-    }
 
     public abstract Builder setRegistry(Registry value);
 
