@@ -327,6 +327,19 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " more information, see https://github.com/bazelbuild/bazel/issues/17134.")
   public boolean useAutoExecGroups;
 
+  @Option(
+      name = "incompatible_explicit_target_compatible_with",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "When enabled, a target that is incompatible with the target configuration due to one its"
+              + " dependencies but is itself compatible based on its explicitly set"
+              + " `target_compatible_with` attribute will fail during analysis instead of silently"
+              + " being skipped.")
+  public boolean explicitTargetCompatibleWith;
+
   /** Regardless of input, converts to an empty list. For use with affectedByStarlarkTransition */
   public static class EmptyListConverter extends Converter.Contextless<List<String>> {
     @Override

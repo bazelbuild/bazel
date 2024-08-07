@@ -1646,4 +1646,105 @@ EOF
   expect_log "Target //missing_toolchain:my_rule was skipped"
 }
 
+function test_explicit_target_compatible_with_partial_match() {
+  local -r pkg=${FUNCNAME[0]}
+
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+sh_binary(
+    name = "bin",
+    srcs = ["bin.sh"],
+    deps = [":lib1"],
+    target_compatible_with = [
+        "//target_skipping:foo2",
+    ],
+)
+
+sh_library(
+    name = "lib1",
+    srcs = ["lib1.sh"],
+    deps = [":lib2"],
+)
+
+sh_library(
+    name = "lib2",
+    srcs = ["lib2.sh"],
+    target_compatible_with = [
+        "//target_skipping:foo2",
+        "//target_skipping:bar2",
+    ],
+)
+EOF
+  touch $pkg/{bin.sh,lib1.sh,lib2.sh}
+  chmod +x $pkg/{bin.sh,lib1.sh,lib2.sh}
+
+  bazel build \
+    --show_result=10 \
+    --platforms=//target_skipping:foo1_bar1_platform \
+    --incompatible_explicit_target_compatible_with \
+    //$pkg:all &> "${TEST_log}" || fail "Bazel failed unexpectedly."
+  expect_log "Target //$pkg:lib1 was skipped"
+  expect_log "Target //$pkg:lib2 was skipped"
+  expect_log "Target //$pkg:bin was skipped"
+
+  bazel build \
+    --platforms=//target_skipping:foo2_bar1_platform \
+    --incompatible_explicit_target_compatible_with \
+    //$pkg:all &> "${TEST_log}" && fail "Bazel succeeded unexpectedly."
+  expect_log_once "The target //$pkg:bin has an explicit target_compatible_with attribute, but is indirectly incompatible with the current platform //target_skipping:foo2_bar1_platform due to its dependencies. Either remove the target_compatible_with attribute or ensure that it doesn't match the constraints that are incompatible with its dependencies. This error can be temporarily disabled with --noincompatible_explicit_target_compatible_with."
+  expect_log_once "^Dependency chain:\$"
+  expect_log_once "^    //$pkg:bin "
+  expect_log_once "^    //$pkg:lib1 "
+  expect_log_once "^    //$pkg:lib2 .*  <-- target platform (//target_skipping:foo2_bar1_platform) didn't satisfy constraint //target_skipping:bar2\$"
+  expect_log 'ERROR: Build did NOT complete successfully'
+}
+
+function test_explicit_target_compatible_with_empty() {
+  local -r pkg=${FUNCNAME[0]}
+
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+sh_binary(
+    name = "bin",
+    srcs = ["bin.sh"],
+    deps = [":lib1"],
+    target_compatible_with = [],
+)
+
+sh_library(
+    name = "lib1",
+    srcs = ["lib1.sh"],
+    deps = [":lib2"],
+)
+
+sh_library(
+    name = "lib2",
+    srcs = ["lib2.sh"],
+    target_compatible_with = [
+        "//target_skipping:foo1",
+    ],
+)
+EOF
+  touch $pkg/{bin.sh,lib1.sh,lib2.sh}
+  chmod +x $pkg/{bin.sh,lib1.sh,lib2.sh}
+
+  bazel build \
+    --show_result=10 \
+    --platforms=//target_skipping:foo1_bar1_platform \
+    --incompatible_explicit_target_compatible_with \
+    //$pkg:all &> "${TEST_log}" || fail "Bazel failed unexpectedly."
+  expect_not_log " was skipped"
+
+  bazel build \
+    --platforms=//target_skipping:foo2_bar1_platform \
+    --incompatible_explicit_target_compatible_with \
+    //$pkg:all &> "${TEST_log}" && fail "Bazel succeeded unexpectedly."
+  expect_log_once "The target //$pkg:bin has an explicit target_compatible_with attribute, but is indirectly incompatible with the current platform //target_skipping:foo2_bar1_platform due to its dependencies. Either remove the target_compatible_with attribute or ensure that it doesn't match the constraints that are incompatible with its dependencies. This error can be temporarily disabled with --noincompatible_explicit_target_compatible_with."
+  expect_log_once "^Dependency chain:\$"
+  expect_log_once "^    //$pkg:bin "
+  expect_log_once "^    //$pkg:lib1 "
+  expect_log_once "^    //$pkg:lib2 .*  <-- target platform (//target_skipping:foo2_bar1_platform) didn't satisfy constraint //target_skipping:foo1\$"
+  expect_log 'ERROR: Build did NOT complete successfully'
+}
+
 run_suite "target_compatible_with tests"
