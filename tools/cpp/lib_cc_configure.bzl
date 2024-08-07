@@ -204,7 +204,7 @@ def get_cpu_value(repository_ctx):
         return "ppc"
     if arch in ["s390x"]:
         return "s390x"
-    if arch in ["mips64"]:
+    if arch in ["mips64", "mips64el"]:
         return "mips64"
     if arch in ["riscv64"]:
         return "riscv64"
