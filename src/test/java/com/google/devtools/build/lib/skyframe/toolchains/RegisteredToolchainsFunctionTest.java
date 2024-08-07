@@ -419,7 +419,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
             createModuleKey("toolchain_def", "1.0"), "module(name='toolchain_def',version='1.0')");
 
     // Everyone depends on toolchain_def@1.0 for the declare_toolchain macro.
-    Path toolchainDefDir = moduleRoot.getRelative("toolchain_def~v1.0");
+    Path toolchainDefDir = moduleRoot.getRelative("toolchain_def+1.0");
     scratch.file(toolchainDefDir.getRelative("WORKSPACE").getPathString());
     scratch.file(
         toolchainDefDir.getRelative("BUILD").getPathString(),
@@ -440,8 +440,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
         "        data = 'stuff')");
 
     // Now create the toolchains for each module.
-    for (String repo :
-        ImmutableList.of("bbb~v1.0", "ccc~v1.1", "ddd~v1.0", "ddd~v1.1", "eee~v1.0")) {
+    for (String repo : ImmutableList.of("bbb+1.0", "ccc+1.1", "ddd+1.0", "ddd+1.1", "eee+1.0")) {
       scratch.file(moduleRoot.getRelative(repo).getRelative("WORKSPACE").getPathString());
       scratch.file(
           moduleRoot.getRelative(repo).getRelative("BUILD").getPathString(),
@@ -493,10 +492,10 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
             Label.parseCanonical("//toolchain:suffix_toolchain_2_impl"),
             Label.parseCanonical("//:wstool2_impl"),
             // Other modules' toolchains
-            Label.parseCanonical("@@bbb~//:tool_impl"),
-            Label.parseCanonical("@@ccc~//:tool_impl"),
-            Label.parseCanonical("@@eee~//:tool_impl"),
-            Label.parseCanonical("@@ddd~//:tool_impl"),
+            Label.parseCanonical("@@bbb+//:tool_impl"),
+            Label.parseCanonical("@@ccc+//:tool_impl"),
+            Label.parseCanonical("@@eee+//:tool_impl"),
+            Label.parseCanonical("@@ddd+//:tool_impl"),
             // WORKSPACE suffix toolchains
             Label.parseCanonical("//toolchain:suffix_toolchain_1_impl"))
         .inOrder();

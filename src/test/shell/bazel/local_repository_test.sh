@@ -489,13 +489,10 @@ android_sdk_repository(name = "foo3a", path = "./missing")
 
 android_sdk_repository(name = "foo3b")
 
-android_ndk_repository(name = "foo4a", path = "./missing")
-
-android_ndk_repository(name = "foo4b")
 eof
 
   # All repositories can be used as a kind of marker and be queried, even if they can't be fetched.
-  for repo in foo1 foo2 foo3a foo3b foo4a foo4b; do
+  for repo in foo1 foo2 foo3a foo3b; do
     bazel query "//external:$repo" >& "$TEST_log" || fail "Expected success"
   done
 
@@ -512,12 +509,6 @@ eof
 
   ANDROID_HOME=./fake bazel query @foo3b//:* >& "$TEST_log" && fail "Expected failure" || true
   expect_log "@foo3b.* path is \"./fake\" (absolute: \"[^\"]*workspace/fake\").*symlink could not be created"
-
-  bazel query @foo4a//:* >& "$TEST_log" && fail "Expected failure" || true
-  expect_log "@foo4a.* path is \"./missing\" (absolute: \"[^\"]*workspace/missing\").*symlink could not be created"
-
-  ANDROID_NDK_HOME=./fake bazel query @foo4b//:* >& "$TEST_log" && fail "Expected failure" || true
-  expect_log "@foo4b.* path is \"./fake\" (absolute: \"[^\"]*workspace/fake\").*symlink could not be created"
 }
 
 function test_path_looking_like_home_directory_is_reported_as_user_defined_it() {
@@ -531,13 +522,10 @@ android_sdk_repository(name = "foo3a", path = "~/missing")
 
 android_sdk_repository(name = "foo3b")
 
-android_ndk_repository(name = "foo4a", path = "~/missing")
-
-android_ndk_repository(name = "foo4b")
 eof
 
   # All repositories can be used as a kind of marker and be queried, even if they can't be fetched.
-  for repo in foo1 foo2 foo3a foo3b foo4a foo4b; do
+  for repo in foo1 foo2 foo3a foo3b; do
     bazel query "//external:$repo" >& "$TEST_log" || fail "Expected success"
   done
 
@@ -558,14 +546,6 @@ eof
   # will actually be expanded to the full path of the home directory.
   HOME=/fake_home ANDROID_HOME=~/fake bazel query @foo3b//:* >& "$TEST_log" && fail "Expected failure" || true
   expect_log "@foo3b.* path is \"/fake_home/fake\" (absolute: \"/fake_home/fake\").*symlink could not be created"
-
-  bazel query @foo4a//:* >& "$TEST_log" && fail "Expected failure" || true
-  expect_log "@foo4a.* path is \"~/missing\" (absolute: \"[^\"]*workspace/~/missing\").*symlink could not be created"
-
-  # Since "~/" is a Bash shorthand for "$HOME" and setting an envvar is a Bash command,
-  # ANDROID_NDK_HOME will actually be expanded to the full path of the home directory.
-  HOME=/fake_home ANDROID_NDK_HOME=~/fake bazel query @foo4b//:* >& "$TEST_log" && fail "Expected failure" || true
-  expect_log "@foo4b.* path is \"/fake_home/fake\" (absolute: \"/fake_home/fake\").*symlink could not be created"
 }
 
 function test_overlaid_build_file() {
@@ -1047,7 +1027,7 @@ local_repository(
 EOF
 
   bazel build @r/a//:bin &> $TEST_log && fail "expected build failure, but succeeded"
-  expect_log "repo names may contain only A-Z, a-z, 0-9, '-', '_', '.' and '~'"
+  expect_log "repo names may contain only A-Z, a-z, 0-9, '-', '_', '.' and '+'"
 }
 
 function test_remote_includes() {

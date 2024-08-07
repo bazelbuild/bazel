@@ -17,23 +17,36 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.skyframe.SkyFunctionException.Transience.PERSISTENT;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Map.Entry;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 
 /** A {@link SkyFunction} that loads metadata from a PROJECT.scl file. */
 public class ProjectFunction implements SkyFunction {
 
-  private static final String OWNED_CODE_PATHS_KEY = "owned_code_paths";
+  /** The top level reserved globals in the PROJECT.scl file. */
+  private enum ReservedGlobals {
+    OWNED_CODE_PATHS("owned_code_paths"),
 
-  // The set of top level reserved globals in the PROJECT.scl file.
-  private static final ImmutableSet<String> RESERVED_GLOBALS =
-      ImmutableSet.of(OWNED_CODE_PATHS_KEY);
+    ACTIVE_DIRECTORIES("active_directories");
+
+    private final String key;
+
+    ReservedGlobals(String key) {
+      this.key = key;
+    }
+
+    String getKey() {
+      return key;
+    }
+  }
 
   @Nullable
   @Override
@@ -54,35 +67,69 @@ public class ProjectFunction implements SkyFunction {
       return null;
     }
 
-    Object ownedCodePathsRaw = bzlLoadValue.getModule().getGlobal(OWNED_CODE_PATHS_KEY);
+    Object activeDirectoriesRaw =
+        bzlLoadValue.getModule().getGlobal(ReservedGlobals.ACTIVE_DIRECTORIES.getKey());
 
     // Crude typechecking to prevent server crashes.
+    // TODO: all of these typechecking should probably be handled by a proto spec.
     @SuppressWarnings("unchecked")
-    Collection<? extends String> ownedCodePaths =
-        switch (ownedCodePathsRaw) {
-          case null -> ImmutableSet.of();
-          case Collection<?> xs -> {
-            for (Object x : xs) {
-              if (!(x instanceof String)) {
+    ImmutableMap<String, Collection<String>> activeDirectories =
+        switch (activeDirectoriesRaw) {
+          case null -> ImmutableMap.of();
+          case Dict<?, ?> dict -> {
+            ImmutableMap.Builder<String, Collection<String>> builder = ImmutableMap.builder();
+            for (Entry<?, ?> entry : dict.entrySet()) {
+              Object k = entry.getKey();
+
+              if (!(k instanceof String activeDirectoriesKey)) {
                 throw new ProjectFunctionException(
                     new TypecheckFailureException(
-                        "expected a list of strings, got element of " + x.getClass()));
+                        "expected string, got element of " + k.getClass()));
               }
+
+              Object values = entry.getValue();
+              if (!(values instanceof Collection<?> activeDirectoriesValues)) {
+                throw new ProjectFunctionException(
+                    new TypecheckFailureException(
+                        "expected list, got element of " + values.getClass()));
+              }
+
+              for (Object activeDirectory : activeDirectoriesValues) {
+                if (!(activeDirectory instanceof String)) {
+                  throw new ProjectFunctionException(
+                      new TypecheckFailureException(
+                          "expected a list of strings, got element of "
+                              + activeDirectory.getClass()));
+                }
+              }
+
+              builder.put(activeDirectoriesKey, (Collection<String>) values);
             }
-            yield (Collection<String>) xs;
+
+            yield builder.buildOrThrow();
           }
           default ->
               throw new ProjectFunctionException(
                   new TypecheckFailureException(
-                      "expected a list of strings, got " + ownedCodePathsRaw.getClass()));
+                      "expected a map of string to list of strings, got "
+                          + activeDirectoriesRaw.getClass()));
         };
 
     ImmutableMap<String, Object> residualGlobals =
         bzlLoadValue.getModule().getGlobals().entrySet().stream()
-            .filter(entry -> !RESERVED_GLOBALS.contains(entry.getKey()))
+            .filter(
+                entry ->
+                    Arrays.stream(ReservedGlobals.values())
+                        .noneMatch(global -> entry.getKey().equals(global.getKey())))
             .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
-    return new ProjectValue(ImmutableSet.copyOf(ownedCodePaths), residualGlobals);
+    if (!activeDirectories.isEmpty() && activeDirectories.get("default") == null) {
+      throw new ProjectFunctionException(
+          new ActiveDirectoriesException(
+              "non-empty active_directories must contain the 'default' key"));
+    }
+
+    return new ProjectValue(activeDirectories, residualGlobals);
   }
 
   private static final class TypecheckFailureException extends Exception {
@@ -91,8 +138,18 @@ public class ProjectFunction implements SkyFunction {
     }
   }
 
+  private static final class ActiveDirectoriesException extends Exception {
+    ActiveDirectoriesException(String msg) {
+      super(msg);
+    }
+  }
+
   private static final class ProjectFunctionException extends SkyFunctionException {
     ProjectFunctionException(TypecheckFailureException cause) {
+      super(cause, PERSISTENT);
+    }
+
+    ProjectFunctionException(ActiveDirectoriesException cause) {
       super(cause, PERSISTENT);
     }
 

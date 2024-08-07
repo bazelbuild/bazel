@@ -198,9 +198,9 @@ dependencies. This helps prevent accidental breakages due to changes in
 transitive dependencies.
 
 The [canonical name](/external/overview#canonical-repo-name) of a repo backing a
-module is either `{{ "<var>" }}module_name{{ "</var>" }}~{{ "<var>" }}version{{
-"</var>" }}` (for example, `bazel_skylib~1.0.3`) or `{{ "<var>" }}module_name{{
-"</var>" }}~` (for example, `bazel_features~`), depending on whether there are
+module is either `{{ "<var>" }}module_name{{ "</var>" }}+{{ "<var>" }}version{{
+"</var>" }}` (for example, `bazel_skylib+1.0.3`) or `{{ "<var>" }}module_name{{
+"</var>" }}+` (for example, `bazel_features+`), depending on whether there are
 multiple versions of the module in the entire dependency graph (see
 [`multiple_version_override`](/rules/lib/globals/module#multiple_version_override)).
 Note that **the canonical name format** is not an API you should depend on and

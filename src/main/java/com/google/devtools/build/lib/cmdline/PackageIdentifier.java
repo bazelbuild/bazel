@@ -32,6 +32,7 @@ import com.google.devtools.build.skyframe.SkyKey.SkyKeyInterner;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -88,8 +89,11 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
    *
    * In this case, this method returns a package identifier for foo/bar, even though that is not a
    * package. Callers need to look up the actual package if needed.
+   *
+   * <p>Returns {@link Optional#empty()} if the path corresponds to an invalid label (e.g. with a
+   * malformed repo name).
    */
-  public static PackageIdentifier discoverFromExecPath(
+  public static Optional<PackageIdentifier> discoverFromExecPath(
       PathFragment execPath, boolean forFiles, boolean siblingRepositoryLayout) {
     Preconditions.checkArgument(!execPath.isAbsolute(), execPath);
     PathFragment tofind =
@@ -104,10 +108,15 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
     if (tofind.startsWith(prefix)) {
       // Using the path prefix can be either "external" or "..", depending on whether the sibling
       // repository layout is used.
-      RepositoryName repository = RepositoryName.createUnvalidated(tofind.getSegment(1));
-      return PackageIdentifier.create(repository, tofind.subFragment(2));
+      try {
+        RepositoryName repository = RepositoryName.create(tofind.getSegment(1));
+        return Optional.of(PackageIdentifier.create(repository, tofind.subFragment(2)));
+      } catch (LabelSyntaxException e) {
+        // The path corresponds to an invalid label.
+        return Optional.empty();
+      }
     } else {
-      return PackageIdentifier.createInMainRepo(tofind);
+      return Optional.of(PackageIdentifier.createInMainRepo(tofind));
     }
   }
 
@@ -224,7 +233,7 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
    *       <dt><code>@protobuf//some/pkg</code>
    *       <dd>if this package lives in a repository with "protobuf" as <code>name</code> of a
    *           repository in WORKSPACE or as apparent name of a Bzlmod dependency of the main module
-   *       <dt><code>@@protobuf~3.19.2//some/pkg</code>
+   *       <dt><code>@@protobuf+//some/pkg</code>
    *       <dd>only with Bzlmod if the current package belongs to a repository that is not visible
    *           from the main module
    */

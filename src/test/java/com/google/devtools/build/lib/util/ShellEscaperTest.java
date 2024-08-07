@@ -42,10 +42,10 @@ public class ShellEscaperTest {
     assertThat(escapeString("${filename%.c}.o")).isEqualTo("'${filename%.c}.o'");
     assertThat(escapeString("<html!>")).isEqualTo("'<html!>'");
     assertThat(escapeString("~not_home")).isEqualTo("'~not_home'");
-    assertThat(escapeString("external/protobuf~v3.19.6/src/google"))
-        .isEqualTo("external/protobuf~v3.19.6/src/google");
-    assertThat(escapeString("external/~install_dev_dependencies~foo/pkg"))
-        .isEqualTo("external/~install_dev_dependencies~foo/pkg");
+    assertThat(escapeString("external/protobuf+3.19.6/src/goo~gle"))
+        .isEqualTo("external/protobuf+3.19.6/src/goo~gle");
+    assertThat(escapeString("external/+install_dev_dependencies+foo/pkg"))
+        .isEqualTo("external/+install_dev_dependencies+foo/pkg");
   }
 
   @Test

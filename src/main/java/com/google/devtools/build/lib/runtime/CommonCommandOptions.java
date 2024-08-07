@@ -31,6 +31,7 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -543,6 +544,40 @@ public class CommonCommandOptions extends OptionsBase {
               + " likely that these nodes will be needed again. If so, the program will re-evaluate"
               + " them.")
   public boolean heuristicallyDropNodes;
+
+  @Option(
+      name = "http_timeout_scaling",
+      defaultValue = "1.0",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "Scale all timeouts related to http downloads by the given factor")
+  public double httpTimeoutScaling;
+
+  @Option(
+      name = "http_connector_attempts",
+      defaultValue = "8",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "The maximum number of attempts for http downloads.")
+  public int httpConnectorAttempts;
+
+  @Option(
+      name = "http_connector_retry_max_timeout",
+      defaultValue = "0s",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "The maximum timeout for http download retries. With a value of 0, no timeout maximum is"
+              + " defined.")
+  public Duration httpConnectorRetryMaxTimeout;
+
+  @Option(
+      name = "http_max_parallel_downloads",
+      defaultValue = "8",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "The maximum number parallel http downloads.")
+  public int httpMaxParallelDownloads;
 
   /** The option converter to check that the user can only specify legal profiler tasks. */
   public static class ProfilerTaskConverter extends EnumConverter<ProfilerTask> {

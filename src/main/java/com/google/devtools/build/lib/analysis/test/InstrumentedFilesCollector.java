@@ -428,12 +428,18 @@ public final class InstrumentedFilesCollector {
 
     InstrumentedFilesInfo build() {
       NestedSet<Artifact> baselineCoverageFiles = baselineCoverageInstrumentedFilesBuilder.build();
+
+      // Create one baseline coverage action per target, for the transitive closure of files.
+      var baselineCoverageAction =
+          BaselineCoverageAction.create(ruleContext, baselineCoverageFiles);
+      ruleContext.registerAction(baselineCoverageAction);
+      Artifact baselineCoverageArtifact = baselineCoverageAction.getPrimaryOutput();
+
       return new InstrumentedFilesInfo(
           instrumentedFilesBuilder.build(),
           metadataFilesBuilder.build(),
           baselineCoverageFiles,
-          // Create one baseline coverage action per target, for the transitive closure of files.
-          BaselineCoverageAction.create(ruleContext, baselineCoverageFiles),
+          baselineCoverageArtifact,
           coverageSupportFilesBuilder.build(),
           coverageEnvironmentBuilder.buildKeepingLast(),
           reportedToActualSources);

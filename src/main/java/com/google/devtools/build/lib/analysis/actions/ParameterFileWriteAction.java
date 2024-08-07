@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -175,7 +176,8 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
       throws CommandLineExpansionException, InterruptedException {
     fp.addString(GUID);
     fp.addString(type.toString());
-    commandLine.addToFingerprint(actionKeyContext, artifactExpander, fp);
+    commandLine.addToFingerprint(
+        actionKeyContext, artifactExpander, CoreOptions.OutputPathsMode.OFF, fp);
   }
 
   @Override
@@ -191,7 +193,8 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
       // incomprehensible. Instead, just give a digest, which makes it easy to
       // tell if two contents are equal or not.
       var fp = new Fingerprint();
-      commandLine.addToFingerprint(new ActionKeyContext(), null, fp);
+      commandLine.addToFingerprint(
+          new ActionKeyContext(), null, CoreOptions.OutputPathsMode.OFF, fp);
       message.append(BaseEncoding.base16().lowerCase().encode(fp.digestAndReset()));
       message.append(
           "\n"

@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
-import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -76,7 +75,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Mockito;
 
 /** Tests for {@link BazelModuleResolutionFunction}. */
 @RunWith(JUnit4.class)
@@ -121,9 +119,7 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
     ConfiguredRuleClassProvider ruleClassProvider = builder.build();
     ImmutableMap<String, RepositoryFunction> repositoryHandlers =
         ImmutableMap.of(LocalRepositoryRule.NAME, new LocalRepositoryFunction());
-    DownloadManager downloadManager = Mockito.mock(DownloadManager.class);
-    StarlarkRepositoryFunction starlarkRepositoryFunction =
-        new StarlarkRepositoryFunction(downloadManager);
+    StarlarkRepositoryFunction starlarkRepositoryFunction = new StarlarkRepositoryFunction();
 
     evaluator =
         new InMemoryMemoizingEvaluator(
@@ -385,13 +381,13 @@ public class BazelModuleResolutionFunctionTest extends FoundationTestCase {
   @Test
   public void testBadYankedVersionFormat() throws Exception {
     setupModulesForYankedVersion();
-    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of("b~1.0"));
+    YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of("b+1.0"));
     EvaluationResult<BazelModuleResolutionValue> result =
         evaluator.evaluate(ImmutableList.of(BazelModuleResolutionValue.KEY), evaluationContext);
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError().toString())
         .contains(
-            "Parsing command line flag --allow_yanked_versions=b~1.0 failed, module versions must"
+            "Parsing command line flag --allow_yanked_versions=b+1.0 failed, module versions must"
                 + " be of the form '<module name>@<version>'");
   }
 

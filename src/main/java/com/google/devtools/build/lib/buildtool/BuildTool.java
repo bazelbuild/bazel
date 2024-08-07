@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoExecutionEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
@@ -79,7 +80,6 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.RegexPatternOption;
@@ -287,14 +287,15 @@ public class BuildTool {
                 .collect(toImmutableSet());
         Label projectFile =
             getProjectFile(topLevelTargets, env.getSkyframeExecutor(), env.getReporter());
-        ImmutableSet<PathFragment> projectDirectories =
+        PathFragmentPrefixTrie workingSetMatcher =
             projectFile == null
-                ? ImmutableSet.of()
-                : getProjectDirectories(projectFile, env.getSkyframeExecutor(), env.getReporter());
+                ? null
+                : getWorkingSetMatcherForSkyfocus(
+                    projectFile, env.getSkyframeExecutor(), env.getReporter());
         env.getSkyframeExecutor()
             .runSkyfocus(
                 topLevelTargets,
-                projectDirectories,
+                workingSetMatcher,
                 env.getReporter(),
                 env.getBlazeWorkspace().getPersistentActionCache(),
                 env.getOptions());
@@ -819,7 +820,7 @@ public class BuildTool {
   }
 
   /** Returns the project directories found in a project file. */
-  private static ImmutableSet<PathFragment> getProjectDirectories(
+  private static PathFragmentPrefixTrie getWorkingSetMatcherForSkyfocus(
       Label projectFile, SkyframeExecutor skyframeExecutor, ExtendedEventHandler eventHandler)
       throws InvalidConfigurationException {
     ProjectValue.Key key = new ProjectValue.Key(projectFile);
@@ -835,8 +836,7 @@ public class BuildTool {
           Code.INVALID_PROJECT);
     }
 
-    return ((ProjectValue) result.get(key))
-        .getOwnedCodePaths().stream().map(PathFragment::create).collect(toImmutableSet());
+    return PathFragmentPrefixTrie.of(((ProjectValue) result.get(key)).getDefaultActiveDirectory());
   }
 
   /** Creates a BuildOptions class for the given options taken from an {@link OptionsProvider}. */

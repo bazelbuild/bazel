@@ -73,7 +73,7 @@ public abstract class RepositoryMappingValue implements SkyValue {
     return new AutoValue_RepositoryMappingValue(
         repositoryMapping,
         Optional.of(associatedModuleName),
-        Optional.of(associatedModuleVersion.getOriginal()));
+        Optional.of(associatedModuleVersion.getNormalized()));
   }
 
   /**

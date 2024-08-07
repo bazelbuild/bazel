@@ -19,7 +19,7 @@
 
 set -u
 ADDITIONAL_BUILD_FLAGS=$1
-WORKER_TYPE_LOG_STRING=$2
+WORKER_TYPE=$2
 WORKER_PROTOCOL=$3
 shift 3
 
@@ -94,7 +94,7 @@ function test_compiles_hello_library_using_persistent_javac() {
 
   bazel build java/main:main &> "$TEST_log" \
     || fail "build failed"
-  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Javac worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE} Javac worker (id [0-9]\+, key hash -\?[0-9]\+)"
   $BINS/java/main/main | grep -q "Hello, Library!;Hello, World!" \
     || fail "comparison failed"
 }
@@ -106,7 +106,7 @@ function test_compiles_hello_library_using_persistent_javac_sibling_layout() {
     --experimental_sibling_repository_layout java/main:main \
     --worker_max_instances=Javac=1 \
     &> "$TEST_log" || fail "build failed"
-  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Javac worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE} Javac worker (id [0-9]\+, key hash -\?[0-9]\+)"
   $BINS/java/main/main | grep -q "Hello, Library!;Hello, World!" \
     || fail "comparison failed"
 }
@@ -571,7 +571,7 @@ EOF
 
   bazel build --worker_quit_after_build :hello_world_1 &> "$TEST_log" \
     || fail "build failed"
-  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE} Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
   expect_log "Destroying Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
   expect_log "Build completed, shutting down worker pool..."
 }
@@ -590,7 +590,7 @@ EOF
   bazel build --worker_quit_after_build :hello_world_1 &> "$TEST_log" \
     || fail "build failed"
 
-  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE} Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
 
   worker_log=$(egrep -o -- 'logging to .*/b(azel|laze)-workers/worker-[0-9]-Work.log' "$TEST_log" | sed 's/^logging to //')
 
@@ -650,7 +650,7 @@ EOF
   bazel build --worker_quit_after_build :hello_world &> "$TEST_log" \
     || fail "build failed"
 
-  expect_not_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_not_log "Created new ${WORKER_TYPE} Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
   expect_not_log "Destroying Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
 
   # WorkerSpawnStrategy falls back to standalone strategy, so we still expect the output to be generated.
@@ -692,7 +692,7 @@ EOF
   bazel build :hello_clean &> "$TEST_log" \
     || fail "build failed"
   assert_equals "hello clean" "$(cat $BINS/hello_clean.out)"
-  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE} Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
 
   bazel clean &> "$TEST_log" \
     || fail "clean failed"
@@ -800,7 +800,7 @@ EOF
       --experimental_collect_worker_data_in_profiler \
       :hello_world_1 &> "$TEST_log" \
     || fail "build failed"
-  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_log "Created new ${WORKER_TYPE} Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
   # Now see that we have metrics in the build event log.
   mv "${TEST_log}".build.json "${TEST_log}"
   expect_log "mnemonic: \"Work\""
@@ -811,5 +811,56 @@ EOF
   (( metric_events >= 2 )) || fail "Expected at least 2 worker metric collections"
 }
 
+function do_test_sandbox_cleanup {
+  # Skip if worker sandboxing isn't enabled.
+  if [[ "${WORKER_TYPE}" != "sandboxed" ]]; then
+    return 0;
+  fi
+
+  prepare_example_worker
+
+  mkdir -p a b c
+  touch a/1.txt b/2.txt b/3.txt c/4.txt
+
+  cat >>BUILD <<EOF
+work(
+  name = "first",
+  worker = ":worker",
+  worker_key_mnemonic = "Worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
+  args = ["--print_dir_listing=${WORKSPACE_SUBDIR}"],
+  srcs = ["a/1.txt", "b/2.txt"],
+)
+work(
+  name = "second",
+  worker = ":worker",
+  worker_key_mnemonic = "Worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
+  args = ["--print_dir_listing=${WORKSPACE_SUBDIR}"],
+  srcs = ["b/3.txt", "c/4.txt", "first.out"],
+)
+EOF
+
+  bazel build "$@" \
+    :first :second &> "$TEST_log" || fail "Build failed"
+
+  assert_contains "DIRENT a/1.txt" $BINS/first.out
+  assert_contains "DIRENT b/2.txt" $BINS/first.out
+  assert_not_contains "DIRENT b/3.txt" $BINS/first.out
+  assert_not_contains "DIRENT c" $BINS/first.out
+
+  assert_not_contains "DIRENT a" $BINS/second.out
+  assert_not_contains "DIRENT b/2.txt" $BINS/second.out
+  assert_contains "DIRENT b/3.txt" $BINS/second.out
+  assert_contains "DIRENT c/4.txt" $BINS/second.out
+}
+
+function test_sandbox_cleanup_without_tracking() {
+  do_test_sandbox_cleanup
+}
+
+function test_sandbox_cleanup_with_tracking() {
+  do_test_sandbox_cleanup --experimental_worker_sandbox_inmemory_tracking=Worker
+}
 
 run_suite "Worker integration tests"

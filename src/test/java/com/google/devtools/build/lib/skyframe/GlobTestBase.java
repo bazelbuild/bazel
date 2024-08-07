@@ -211,6 +211,10 @@ public abstract class GlobTestBase {
   @ForOverride
   protected abstract void createGlobSkyFunction(Map<SkyFunctionName, SkyFunction> skyFunctions);
 
+  protected boolean alwaysUsesDirListing() {
+    return false;
+  }
+
   private void createTestFiles() throws IOException {
     pkgPath.createDirectoryAndParents();
     FileSystemUtils.createEmptyFile(pkgPath.getRelative("BUILD"));
@@ -463,7 +467,7 @@ public abstract class GlobTestBase {
       throws Exception;
 
   @Test
-  public void testGlobWithoutWildcardsDoesNotCallReaddir() throws Exception {
+  public void testGlobWithoutWildcards() throws Exception {
     String pattern = "foo/bar/wiz/file";
 
     assertSingleGlobMatches(pattern, "foo/bar/wiz/file");
@@ -473,18 +477,36 @@ public abstract class GlobTestBase {
     // Nothing has been invalidated yet, so the cached result is returned.
     assertSingleGlobMatches(pattern, "foo/bar/wiz/file");
 
-    differencer.invalidate(
-        ImmutableList.of(
-            DirectoryListingStateValue.key(
-                RootedPath.toRootedPath(Root.fromPath(root), pkgPath.getRelative("foo/bar/wiz")))));
-    // The result should not rely on the DirectoryListingValue, so it's still a cache hit.
-    assertSingleGlobMatches(pattern, "foo/bar/wiz/file");
+    if (alwaysUsesDirListing()) {
+      differencer.invalidate(
+          ImmutableList.of(
+              FileStateValue.key(
+                  RootedPath.toRootedPath(
+                      Root.fromPath(root), pkgPath.getRelative("foo/bar/wiz/file")))));
+      // The result should not rely on the FileStateValue, so it's still a cache hit.
+      assertSingleGlobMatches(pattern, "foo/bar/wiz/file");
 
-    differencer.invalidate(
-        ImmutableList.of(
-            FileStateValue.key(
-                RootedPath.toRootedPath(
-                    Root.fromPath(root), pkgPath.getRelative("foo/bar/wiz/file")))));
+      differencer.invalidate(
+          ImmutableList.of(
+              DirectoryListingStateValue.key(
+                  RootedPath.toRootedPath(
+                      Root.fromPath(root), pkgPath.getRelative("foo/bar/wiz")))));
+    } else {
+      differencer.invalidate(
+          ImmutableList.of(
+              DirectoryListingStateValue.key(
+                  RootedPath.toRootedPath(
+                      Root.fromPath(root), pkgPath.getRelative("foo/bar/wiz")))));
+      // The result should not rely on the DirectoryListingValue, so it's still a cache hit.
+      assertSingleGlobMatches(pattern, "foo/bar/wiz/file");
+
+      differencer.invalidate(
+          ImmutableList.of(
+              FileStateValue.key(
+                  RootedPath.toRootedPath(
+                      Root.fromPath(root), pkgPath.getRelative("foo/bar/wiz/file")))));
+    }
+
     // This should have invalidated the glob result.
     assertSingleGlobMatches(pattern /* => nothing */);
   }
@@ -854,7 +876,7 @@ public abstract class GlobTestBase {
     EvaluationResult<GlobValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), EVALUATION_OPTIONS);
 
-    if (withRecursiveWildcard) {
+    if (withRecursiveWildcard || alwaysUsesDirListing()) {
       assertThat(result.hasError()).isTrue();
       ErrorInfo errorInfo = result.getError(skyKey);
       assertThat(errorInfo.getException())

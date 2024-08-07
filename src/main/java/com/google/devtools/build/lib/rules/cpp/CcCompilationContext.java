@@ -268,22 +268,14 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   /**
-   * Returns the transitive compilation prerequisites consolidated into middlemen prerequisites, or
-   * an empty set if there are no prerequisites.
+   * Returns the transitive compilation prerequisites.
    *
    * <p>Transitive compilation prerequisites are the prerequisites that will be needed by all
    * reverse dependencies; note that these do specifically not include any compilation prerequisites
    * that are only needed by the rule itself (for example, compiled source files from the {@code
    * srcs} attribute).
    *
-   * <p>To reduce the number of edges in the action graph, we express the dependency on compilation
-   * prerequisites as a transitive dependency via a middleman. After they have been accumulated
-   * ({@link Builder#addDependentCcCompilationContext(CcCompilationContext)}, and {@link
-   * Builder#addDependentCcCompilationContexts(Iterable)}, they are consolidated into a single
-   * middleman Artifact when {@link Builder#build()} is called.
-   *
-   * <p>The returned set can be empty if there are no prerequisites. Usually, it contains a single
-   * middleman.
+   * <p>The returned set can be empty if there are no prerequisites.
    */
   public NestedSet<Artifact> getTransitiveCompilationPrerequisites() {
     return compilationPrerequisites;

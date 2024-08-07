@@ -156,7 +156,10 @@ public class WorkerOptions extends OptionsBase {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
-      help = "If enabled, workers will be executed in a sandboxed environment.")
+      help =
+          "If enabled, singleplex workers will run in a sandboxed environment. Singleplex workers"
+              + " are always sandboxed when running under the dynamic execution strategy,"
+              + " irrespective of this flag.")
   public boolean workerSandboxing;
 
   @Option(
@@ -182,9 +185,11 @@ public class WorkerOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "If enabled, multiplex workers will be sandboxed, using a separate sandbox directory"
-              + " per work request. Only workers that have the 'supports-multiplex-sandboxing' "
-              + "execution requirement will be sandboxed.")
+          "If enabled, multiplex workers with a 'supports-multiplex-sandboxing' execution"
+              + " requirement will run in a sandboxed environment, using a separate sandbox"
+              + " directory per work request. Multiplex workers with the execution requirement are"
+              + " always sandboxed when running under the dynamic execution strategy,"
+              + " irrespective of this flag.")
   public boolean multiplexSandboxing;
 
   @Option(
@@ -263,6 +268,19 @@ public class WorkerOptions extends OptionsBase {
               + "worker exceeds the limit. If not used together with dynamic execution and "
               + "`--experimental_dynamic_ignore_local_signals=9`, this may crash your build.")
   public int workerMemoryLimitMb;
+
+  @Option(
+      name = "experimental_worker_sandbox_inmemory_tracking",
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "A worker key mnemonic for which the contents of the sandbox directory are tracked in"
+              + " memory. This may improve build performance at the cost of additional memory"
+              + " usage. Only affects sandboxed workers. May be specified multiple times for"
+              + " different mnemonics.")
+  public List<String> workerSandboxInMemoryTracking;
 
   @Option(
       name = "experimental_worker_allowlist",

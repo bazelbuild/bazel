@@ -85,21 +85,16 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
 
   public static AqueryOutputHandler constructAqueryOutputHandler(
       OutputType outputType, OutputStream out, PrintStream printStream) {
-    switch (outputType) {
-      case BINARY:
-      case DELIMITED_BINARY:
-      case TEXT:
-        return new StreamedConsumingOutputHandler(
-            outputType,
-            out,
-            CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE),
-            printStream,
-            new LinkedBlockingQueue<>(BLOCKING_QUEUE_SIZE));
-      case JSON:
-        return new MonolithicOutputHandler(printStream);
-    }
-    // The above cases are exhaustive.
-    throw new AssertionError("Wrong output type: " + outputType);
+    return switch (outputType) {
+      case BINARY, DELIMITED_BINARY, TEXT ->
+          new StreamedConsumingOutputHandler(
+              outputType,
+              out,
+              CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE),
+              printStream,
+              new LinkedBlockingQueue<>(BLOCKING_QUEUE_SIZE));
+      case JSON -> new MonolithicOutputHandler(printStream);
+    };
   }
 
   @Override

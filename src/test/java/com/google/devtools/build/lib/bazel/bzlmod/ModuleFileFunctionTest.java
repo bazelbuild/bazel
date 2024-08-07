@@ -267,8 +267,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     0));
     assertThat(rootModuleFileValue.getNonRegistryOverrideCanonicalRepoNameLookup())
         .containsExactly(
-            RepositoryName.create("eee~"), "eee",
-            RepositoryName.create("ggg~"), "ggg");
+            RepositoryName.create("eee+"), "eee",
+            RepositoryName.create("ggg+"), "ggg");
   }
 
   @Test
@@ -1271,6 +1271,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     assertThrows(EvalException.class, () -> ModuleFileGlobals.validateModuleName("_foo"));
     assertThrows(EvalException.class, () -> ModuleFileGlobals.validateModuleName("foo#bar"));
     assertThrows(EvalException.class, () -> ModuleFileGlobals.validateModuleName("foo~bar"));
+    assertThrows(EvalException.class, () -> ModuleFileGlobals.validateModuleName("foo+bar"));
   }
 
   @Test
@@ -1689,6 +1690,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     assertContainsEvent(
         "Error in use_extension: invalid label \"@foo/bar:extensions.bzl\": invalid repository"
             + " name 'foo/bar:extensions.bzl': repo names may contain only A-Z, a-z, 0-9, '-',"
-            + " '_', '.' and '~' and must not start with '~'");
+            + " '_', '.' and '+'");
   }
 }

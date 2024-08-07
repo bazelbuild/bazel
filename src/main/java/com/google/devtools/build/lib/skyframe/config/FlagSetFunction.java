@@ -15,14 +15,10 @@ package com.google.devtools.build.lib.skyframe.config;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
-import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.ProjectValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.config.ParsedFlagsFunction.ParsedFlagsFunctionException;
@@ -32,7 +28,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.Collection;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -85,7 +80,7 @@ public class FlagSetFunction implements SkyFunction {
     if (parsedFlags == null) {
       return null;
     }
-    return FlagSetValue.create(changeOptions(key.getTargetOptions(), parsedFlags, env));
+    return FlagSetValue.create(changeOptions(key.getTargetOptions(), parsedFlags));
   }
 
   /**
@@ -166,15 +161,10 @@ public class FlagSetFunction implements SkyFunction {
   }
 
   /** Modifies input build options with the desired flag set and returns the result. */
-  private BuildOptions changeOptions(
-      BuildOptions fromOptions, ParsedFlagsValue parsedFlags, Environment env)
-      throws FlagSetFunctionException, InterruptedException {
+  private BuildOptions changeOptions(BuildOptions fromOptions, ParsedFlagsValue parsedFlags)
+      throws FlagSetFunctionException {
     try {
-      FlagSetTransition transition = new FlagSetTransition(parsedFlags.flags().parse());
-      BuildOptionsView buildOptionsView =
-          new BuildOptionsView(fromOptions, parsedFlags.flags().optionsClasses());
-      return Iterables.getOnlyElement(
-          transition.apply(buildOptionsView, env.getListener()).values());
+      return parsedFlags.flags().mergeWith(fromOptions);
     } catch (OptionsParsingException e) {
       throw new FlagSetFunctionException(e, Transience.PERSISTENT);
     }
@@ -189,21 +179,6 @@ public class FlagSetFunction implements SkyFunction {
   private static final class UnsupportedConfigException extends Exception {
     UnsupportedConfigException(String msg) {
       super(msg);
-    }
-  }
-
-  /** Transition that applies the config defines in PROJECT.scl to existing buildOptions */
-  private static class FlagSetTransition implements PatchTransition {
-    public final OptionsParsingResult parsingResult;
-
-    public FlagSetTransition(OptionsParsingResult parsingResult) {
-      this.parsingResult = parsingResult;
-    }
-
-    @Override
-    public BuildOptions patch(BuildOptionsView originalOptions, EventHandler eventHandler) {
-      BuildOptions toOptions = originalOptions.underlying().clone();
-      return toOptions.applyParsingResult(parsingResult);
     }
   }
 }

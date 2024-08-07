@@ -2201,26 +2201,24 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
   }
 
-  protected Iterable<String> baselineCoverageArtifactBasenames(ConfiguredTarget target)
+  protected ImmutableList<String> baselineCoverageArtifactBasenames(ConfiguredTarget target)
       throws Exception {
+    Artifact baselineCoverage =
+        target.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR).getBaselineCoverageArtifact();
+    if (baselineCoverage == null) {
+      return ImmutableList.of();
+    }
     ImmutableList.Builder<String> basenames = ImmutableList.builder();
-    for (Artifact baselineCoverage :
-        target
-            .get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR)
-            .getBaselineCoverageArtifacts()
-            .toList()) {
-      BaselineCoverageAction baselineAction =
-          (BaselineCoverageAction) getGeneratingAction(baselineCoverage);
-      ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-      baselineAction
-          .newDeterministicWriter(ActionsTestUtil.createContext(reporter))
-          .writeOutputFile(bytes);
+    var baselineCoverageAction = (BaselineCoverageAction) getGeneratingAction(baselineCoverage);
+    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+    baselineCoverageAction
+        .newDeterministicWriter(ActionsTestUtil.createContext(reporter))
+        .writeOutputFile(bytes);
 
-      for (String line : Splitter.on('\n').split(bytes.toString(UTF_8))) {
-        if (line.startsWith("SF:")) {
-          String basename = line.substring(line.lastIndexOf('/') + 1);
-          basenames.add(basename);
-        }
+    for (String line : Splitter.on('\n').split(bytes.toString(UTF_8))) {
+      if (line.startsWith("SF:")) {
+        String basename = line.substring(line.lastIndexOf('/') + 1);
+        basenames.add(basename);
       }
     }
     return basenames.build();

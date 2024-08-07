@@ -26,7 +26,6 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.build.skyframe.state.StateMachine.ValueOrExceptionSink;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -201,9 +200,8 @@ public class BuildConfigurationKeyProducer<C>
   private BuildConfigurationKey applyFlagsForOptions(BuildOptions options)
       throws OptionsParsingException {
     // Does the target platform provide any flags?
-    if (this.platformFlags != null) {
-      OptionsParsingResult parsingResult = platformFlags.parse();
-      BuildOptions updatedOptions = options.applyParsingResult(parsingResult);
+    if (this.platformFlags != null && !this.platformFlags.isEmpty()) {
+      BuildOptions updatedOptions = platformFlags.mergeWith(options);
       return BuildConfigurationKey.create(updatedOptions);
     }
 

@@ -31,6 +31,8 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionModule.IgnoreFailureCheck;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import java.time.Duration;
 import java.time.Instant;
@@ -167,7 +169,9 @@ class LocalBranch extends Branch {
         throw new InterruptedException();
       }
       if (delayLocalExecution.get()) {
-        Thread.sleep(options.localExecutionDelay);
+        try (SilentCloseable c = Profiler.instance().profile("delay local branch")) {
+          Thread.sleep(options.localExecutionDelay);
+        }
       }
       return runLocally(
           spawn,

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.CompletionContext.FAILED_COMPLETION_CTX;
 import static com.google.devtools.build.lib.analysis.TargetCompleteEvent.newFileFromArtifact;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.actions.EventReportingArtifacts.ReportedArt
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
@@ -41,9 +43,11 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Map;
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -232,6 +236,46 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
     assertThat(fileProtos.get(0).getName()).isEqualTo(utf8FileName);
   }
 
+  @Test
+  public void baselineCoverage_referencedWithMetadata() throws Exception {
+    scratch.file("foo/BUILD", "sh_test(name = 'test', srcs = ['test.sh'])");
+    Path testSh = scratch.file("foo/test.sh");
+    useConfiguration("--collect_code_coverage");
+    ConfiguredTargetAndData ctAndData = getCtAndData("//foo:test");
+
+    ArtifactsToBuild artifactsToBuild = getArtifactsToBuild(ctAndData);
+    FileArtifactValue testShMetadata = FileArtifactValue.createForTesting(testSh);
+    Artifact baselineCoverageArtifact =
+        ctAndData
+            .getConfiguredTarget()
+            .get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR)
+            .getBaselineCoverageArtifact();
+    FileArtifactValue baselineCoverageMetadata =
+        FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3}, null, 10);
+    CompletionContext completionContext =
+        getCompletionContext(
+            artifactsToBuild.getAllArtifacts().toList().stream()
+                .filter(a -> !a.isMiddlemanArtifact())
+                .collect(toImmutableMap(a -> a, a -> testShMetadata)),
+            ImmutableMap.of(),
+            baselineCoverageMetadata);
+
+    TargetCompleteEvent event =
+        TargetCompleteEvent.successfulBuild(
+            ctAndData,
+            completionContext,
+            artifactsToBuild.getAllArtifactsByOutputGroup(),
+            /* announceTargetSummary= */ false);
+
+    assertThat(event.referencedLocalFiles())
+        .contains(
+            new LocalFile(
+                baselineCoverageArtifact.getPath(),
+                LocalFileType.COVERAGE_OUTPUT,
+                baselineCoverageArtifact,
+                baselineCoverageMetadata));
+  }
+
   private ConfiguredTargetAndData getCtAndData(String target) throws Exception {
     AnalysisResult result = update(target);
     ConfiguredTarget ct = Iterables.getOnlyElement(result.getTargetsToBuild());
@@ -251,6 +295,13 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
   private CompletionContext getCompletionContext(
       Map<Artifact, FileArtifactValue> metadata,
       Map<SpecialArtifact, TreeArtifactValue> treeMetadata) {
+    return getCompletionContext(metadata, treeMetadata, /* baselineCoverageValue= */ null);
+  }
+
+  private CompletionContext getCompletionContext(
+      Map<Artifact, FileArtifactValue> metadata,
+      Map<SpecialArtifact, TreeArtifactValue> treeMetadata,
+      @Nullable FileArtifactValue baselineCoverageValue) {
     ActionInputMap inputMap = new ActionInputMap(0);
 
     for (Map.Entry<Artifact, FileArtifactValue> entry : metadata.entrySet()) {
@@ -265,6 +316,7 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
         directories.getExecRoot(TestConstants.WORKSPACE_NAME),
         ImmutableMap.copyOf(treeMetadata),
         /* filesets= */ ImmutableMap.of(),
+        baselineCoverageValue,
         ArtifactPathResolver.IDENTITY,
         inputMap,
         /* expandFilesets= */ false,

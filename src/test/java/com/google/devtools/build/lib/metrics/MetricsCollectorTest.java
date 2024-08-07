@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.metrics;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.testutil.TestConstants.PLATFORM_LABEL;
@@ -132,6 +133,51 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     buildTarget("//foo:foo");
     BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
     assertThat(buildMetrics.getActionSummary().getActionsExecuted()).isEqualTo(0);
+  }
+
+  @Test
+  public void testActionsCreatedForIndividualMnemonics() throws Exception {
+    write(
+        "bar/BUILD",
+        """
+        load(":bar.bzl", "bar")
+        bar(name = "bar")
+        """);
+    write(
+        "bar/bar.bzl",
+        """
+        def _impl(ctx):
+            output1 = ctx.actions.declare_file(ctx.attr.name + ".out1")
+            output2 = ctx.actions.declare_file(ctx.attr.name + ".out2")
+            ctx.actions.write(output1, "foo")
+            ctx.actions.write(output2, "bar")
+            # Note that we created 2 actions, but pass along only one of their outputs.
+            return [DefaultInfo(files = depset([output1]))]
+
+        bar = rule(
+            implementation = _impl,
+        )
+        """);
+    buildTarget("//bar:bar");
+
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    List<ActionData> actionData = buildMetrics.getActionSummary().getActionDataList();
+    ImmutableList<ActionData> fileWriteActions =
+        actionData.stream()
+            .filter(a -> a.getMnemonic().equals("FileWrite"))
+            .collect(toImmutableList());
+    assertThat(fileWriteActions).hasSize(1);
+    ActionData fileWriteAction = fileWriteActions.get(0);
+    assertThat(fileWriteAction.getActionsCreated()).isEqualTo(2);
+    assertThat(fileWriteAction.getActionsExecuted()).isEqualTo(1);
+
+    long totalActionsCreated = actionData.stream().mapToLong(ActionData::getActionsCreated).sum();
+    long totalActionsExecuted = actionData.stream().mapToLong(ActionData::getActionsExecuted).sum();
+    assertThat(totalActionsCreated).isEqualTo(3);
+    assertThat(totalActionsExecuted).isEqualTo(2);
+    assertThat(totalActionsCreated).isEqualTo(buildMetrics.getActionSummary().getActionsCreated());
+    assertThat(totalActionsExecuted)
+        .isEqualTo(buildMetrics.getActionSummary().getActionsExecuted());
   }
 
   @Test

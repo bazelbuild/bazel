@@ -184,6 +184,7 @@ public final class CompletionContextTest {
         execRoot,
         ImmutableMap.copyOf(treeExpansions),
         ImmutableMap.copyOf(filesetExpansions),
+        /* baselineCoverageValue= */ null,
         ArtifactPathResolver.IDENTITY,
         inputMap,
         expandFilesets,

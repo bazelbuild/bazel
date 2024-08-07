@@ -70,6 +70,7 @@ public class ParsedFlagsFunction implements SkyFunction {
         StarlarkOptionsParser.builder()
             .buildSettingLoader(new SkyframeTargetLoader(env, key.packageContext()))
             .nativeOptionsParser(fakeNativeParser)
+            .includeDefaultValues(key.includeDefaultValues())
             .build();
     try {
       if (!starlarkFlagParser.parseGivenArgs(starlarkFlags.build())) {
@@ -78,15 +79,18 @@ public class ParsedFlagsFunction implements SkyFunction {
     } catch (OptionsParsingException e) {
       throw new ParsedFlagsFunctionException(e);
     }
-    NativeAndStarlarkFlags flags =
+    NativeAndStarlarkFlags.Builder flags =
         NativeAndStarlarkFlags.builder()
             .nativeFlags(nativeFlags.build())
-            .starlarkFlags(fakeNativeParser.getStarlarkOptions())
+            .starlarkFlags(starlarkFlagParser.getStarlarkOptions())
             .optionsClasses(optionsClasses)
-            .repoMapping(key.packageContext().repoMapping())
-            .build();
+            .repoMapping(key.packageContext().repoMapping());
 
-    return ParsedFlagsValue.create(flags);
+    if (key.includeDefaultValues()) {
+      flags.starlarkFlagDefaults(starlarkFlagParser.getDefaultValues());
+    }
+
+    return ParsedFlagsValue.create(flags.build());
   }
 
   /**

@@ -37,6 +37,7 @@ import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -47,6 +48,7 @@ import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 /** An example implementation of a worker process that is used for integration tests. */
 public final class ExampleWorker {
@@ -267,6 +269,13 @@ public final class ExampleWorker {
     if (options.printInputs) {
       for (Map.Entry<String, String> input : inputs.entrySet()) {
         outputs.add("INPUT " + input.getKey() + " " + input.getValue());
+      }
+    }
+
+    if (!options.printDirListing.isEmpty()) {
+      Path rootDir = Path.of(options.printDirListing);
+      try (Stream<Path> paths = Files.walk(rootDir, Integer.MAX_VALUE)) {
+        paths.forEach((path) -> outputs.add("DIRENT " + rootDir.relativize(path)));
       }
     }
 

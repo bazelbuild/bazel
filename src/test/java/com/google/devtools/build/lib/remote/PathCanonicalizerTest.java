@@ -209,6 +209,23 @@ public final class PathCanonicalizerTest {
   }
 
   @Test
+  public void testClearUnknownPathDescendingFromSymlink() throws Exception {
+    createSymlink("/a/b", "/d");
+    createNonSymlink("/d");
+    assertSuccess("/a/b", "/d");
+    deleteTree("/a/b/c");
+    assertSuccess("/a/b", "/d");
+  }
+
+  @Test
+  public void testClearUnknownPathDescendingFromNonSymlink() throws Exception {
+    createNonSymlink("/a/b");
+    assertSuccess("/a/b", "/a/b");
+    deleteTree("/a/b/c");
+    assertSuccess("/a/b", "/a/b");
+  }
+
+  @Test
   public void testSymlinkSelfLoop() throws Exception {
     createSymlink("/a/b", "/a/b");
     assertFailure(FileSymlinkLoopException.class, "/a/b");

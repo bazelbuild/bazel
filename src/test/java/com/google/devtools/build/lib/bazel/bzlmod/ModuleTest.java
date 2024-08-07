@@ -51,11 +51,11 @@ public class ModuleTest {
             createRepositoryMapping(
                 key,
                 "test_module",
-                "test_module~",
+                "test_module+",
                 "my_foo",
-                "foo~",
+                "foo+",
                 "my_bar",
-                "bar~",
+                "bar+",
                 "my_root",
                 ""));
   }
@@ -82,9 +82,9 @@ public class ModuleTest {
                 "test_module",
                 "",
                 "my_foo",
-                "foo~v1.0",
+                "foo+1.0",
                 "my_bar",
-                "bar~v2.0"));
+                "bar+2.0"));
   }
 
   @Test

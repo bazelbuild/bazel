@@ -38,18 +38,34 @@ public final class ParsedFlagsValue implements SkyValue {
      * Returns a new {@link Key} for the given command-line flags, such as {@code
      * --compilation_mode=bdg} or {@code --//custom/starlark:flag=23}.
      */
+    public static Key create(ImmutableList<String> rawFlags, PackageContext packageContext) {
+      return create(rawFlags, packageContext, /* includeDefaultValues= */ false);
+    }
+
+    /**
+     * Returns a new {@link Key} for the given command-line flags, such as {@code
+     * --compilation_mode=bdg} or {@code --//custom/starlark:flag=23}.
+     */
     @AutoCodec.Instantiator
     @VisibleForSerialization
-    public static Key create(ImmutableList<String> rawFlags, PackageContext packageContext) {
-      return interner.intern(new Key(rawFlags, packageContext));
+    public static Key create(
+        ImmutableList<String> rawFlags,
+        PackageContext packageContext,
+        boolean includeDefaultValues) {
+      return interner.intern(new Key(rawFlags, packageContext, includeDefaultValues));
     }
 
     private final ImmutableList<String> rawFlags;
     private final PackageContext packageContext;
+    private final boolean includeDefaultValues;
 
-    private Key(ImmutableList<String> rawFlags, PackageContext packageContext) {
+    private Key(
+        ImmutableList<String> rawFlags,
+        PackageContext packageContext,
+        boolean includeDefaultValues) {
       this.rawFlags = rawFlags;
       this.packageContext = packageContext;
+      this.includeDefaultValues = includeDefaultValues;
     }
 
     public ImmutableList<String> rawFlags() {
@@ -58,6 +74,10 @@ public final class ParsedFlagsValue implements SkyValue {
 
     public PackageContext packageContext() {
       return packageContext;
+    }
+
+    public boolean includeDefaultValues() {
+      return includeDefaultValues;
     }
 
     @Override

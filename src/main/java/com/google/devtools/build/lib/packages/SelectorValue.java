@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -89,5 +90,29 @@ public final class SelectorValue implements StarlarkValue, HasBinary {
   @Override
   public void repr(Printer printer) {
     printer.append("select(").repr(dictionary).append(")");
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof SelectorValue that)) {
+      return false;
+    }
+    // TODO(bazel-team): We probably have some inconsistencies here. 1) We're not checking the
+    // order of the dictionary, which is relevant to matching semantics. 2) We're checking the
+    // type, which depends on the concrete type of the first entry's value, which could be a
+    // subtype that is not semantically meaningful to the user. These problems are probably best
+    // solved by merging this class into the BuildType-land equivalent, with normalization that
+    // removes subtype distinctions by copying into standard attribute types.
+    return Objects.equal(dictionary, that.dictionary)
+        && Objects.equal(type, that.type)
+        && Objects.equal(noMatchError, that.noMatchError);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(dictionary, type, noMatchError);
   }
 }

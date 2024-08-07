@@ -18,7 +18,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.auto.value.AutoValue;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -89,23 +88,39 @@ public final class FingerprintValueCache {
           .weakKeys()
           .build();
 
-  /**
-   * Disables population of {@link #deserializationCache} during serialization.
-   *
-   * <p>When serialization completes, the usual behavior is to populate the deserialization cache so
-   * that any subsequent deserialization of the value will hit the cache. This blocks the round-trip
-   * serialization testing of deserialization code paths as a side effect. Setting this true
-   * disables population of the deserialization cache on serialization.
-   */
-  private final boolean exerciseDeserializationForTesting;
+  private final SyncMode mode;
 
-  public FingerprintValueCache() {
-    this(/* exerciseDeserializationForTesting= */ false);
+  /** Determines synchronization behavior of the bidirectional cache. */
+  public enum SyncMode {
+    /**
+     * Keeps the two caches {@link #serializationCache} and {@link #deserializationCache}
+     * synchronized in a best-effort manner.
+     *
+     * <p>When a cache operation completes asynchronously, it updates the cache entry's value from a
+     * future pointing to the result to the result itself. It also updates the reverse mapping at
+     * the same time. This may save work when the client is simultaneously a cache reader and
+     * writer.
+     */
+    LINKED,
+    /**
+     * The two caches are not synchronized.
+     *
+     * <p>This saves memory when the client is exclusively a reader or writer.
+     *
+     * <p>It is also useful in testing round-tripping behavior when populating the reverse mapping
+     * would cause a cache hit that reduces test coverage. That is, when linked, serialization
+     * followed by deserialization would result in a cache hit that skips actual deserialization
+     * work.
+     */
+    NOT_LINKED,
   }
 
-  @VisibleForTesting
-  public FingerprintValueCache(boolean exerciseDeserializationForTesting) {
-    this.exerciseDeserializationForTesting = exerciseDeserializationForTesting;
+  public FingerprintValueCache() {
+    this(SyncMode.LINKED);
+  }
+
+  public FingerprintValueCache(SyncMode mode) {
+    this.mode = mode;
   }
 
   /**
@@ -193,8 +208,8 @@ public final class FingerprintValueCache {
             // Serialization and fingerprinting has succeeded and storing the bytes in the
             // FingerprintValueStore has started.
 
-            // Stores the reverse mapping in `deserializationCache`.
-            if (!exerciseDeserializationForTesting) {
+            if (mode.equals(SyncMode.LINKED)) {
+              // Stores the reverse mapping in `deserializationCache`.
               deserializationCache.put(createKey(operation.fingerprint(), distinguisher), obj);
             }
 
@@ -236,7 +251,10 @@ public final class FingerprintValueCache {
           @Override
           public void onSuccess(Object value) {
             deserializationCache.put(key, value);
-            serializationCache.put(value, fingerprint);
+            if (mode.equals(SyncMode.LINKED)) {
+              // Stores the reverse mapping in `serializationCache`.
+              serializationCache.put(value, fingerprint);
+            }
           }
 
           @Override

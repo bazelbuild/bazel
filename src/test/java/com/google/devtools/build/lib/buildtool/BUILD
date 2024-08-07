@@ -749,6 +749,7 @@ java_test(
 java_test(
     name = "SkyfocusIntegrationTest",
     srcs = ["SkyfocusIntegrationTest.java"],
+    shard_count = 2,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands",

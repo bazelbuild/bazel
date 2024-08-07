@@ -594,15 +594,18 @@ echo "goodbye $@"
 EOF
   chmod +x "$pkg/farewell.sh"
 
-  bazel run --run_under="//$pkg:greetings friend &&" -- "//$pkg:farewell" buddy \
+  bazel run --run_under="//$pkg:greetings friend && unset RUNFILES_MANIFEST_FILE &&" -- "//$pkg:farewell" buddy \
       >$TEST_log || fail "expected test to pass"
   # TODO(https://github.com/bazelbuild/bazel/issues/22148): bazel-team - This is
   # just demonstrating how things are, it's probably not how we want them to be.
+  # "unset RUNFILES_MANIFEST_FILE" is necessary because the environment
+  # variables set by //pkg:greetings are otherwise passed to //pkg:farewell and
+  # break its runfiles discovery.
   if "$is_windows"; then
     expect_log "hello there friend"
     expect_log "goodbye buddy"
   else
-    expect_log "hello there friend && .*bin/$pkg/farewell buddy"
+    expect_log "hello there friend && unset RUNFILES_MANIFEST_FILE && .*bin/$pkg/farewell buddy"
     expect_not_log "goodbye"
   fi
 }

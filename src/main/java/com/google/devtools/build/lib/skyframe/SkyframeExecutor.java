@@ -127,6 +127,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.PooledInterner;
@@ -269,6 +270,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.Version;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 import com.google.devtools.build.skyframe.state.StateMachineEvaluatorForTesting;
@@ -724,7 +726,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.PARSED_FLAGS,
         new ParsedFlagsFunction(ruleClassProvider.getFragmentRegistry().getOptionsClasses()));
-    map.put(SkyFunctions.BASELINE_OPTIONS, new BaselineOptionsFunction());
+    map.put(
+        SkyFunctions.BASELINE_OPTIONS,
+        new BaselineOptionsFunction(getMinimalVersionForBaselineOptionsFunction()));
     map.put(
         SkyFunctions.STARLARK_BUILD_SETTINGS_DETAILS, new StarlarkBuildSettingsDetailsFunction());
     map.put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction(ruleClassProvider));
@@ -833,6 +837,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected SkyFunction newDirectoryListingStateFunction() {
     return new DirectoryListingStateFunction(externalFilesHelper, syscallCache);
+  }
+
+  protected Version getMinimalVersionForBaselineOptionsFunction() {
+    return Version.minimal();
   }
 
   protected SkyFunction newActionExecutionFunction() {
@@ -4070,7 +4078,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   public final void runSkyfocus(
       ImmutableSet<Label> topLevelTargets,
-      ImmutableSet<PathFragment> projectDirectories,
+      @Nullable PathFragmentPrefixTrie workingSetMatcher,
       Reporter reporter,
       @Nullable ActionCache actionCache,
       OptionsParsingResult options)
@@ -4104,7 +4112,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     Optional<SkyfocusState> maybeNewSkyfocusState =
         SkyfocusExecutor.prepareWorkingSet(
             topLevelTargets,
-            projectDirectories,
+            workingSetMatcher,
             (InMemoryMemoizingEvaluator) getEvaluator(),
             skyfocusState,
             packageManager,

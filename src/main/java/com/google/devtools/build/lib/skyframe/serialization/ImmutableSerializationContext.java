@@ -78,4 +78,10 @@ final class ImmutableSerializationContext extends SerializationContext {
   public boolean isMemoizing() {
     return false;
   }
+
+  @Override
+  @Nullable
+  ProfileRecorder getProfileRecorder() {
+    return null;
+  }
 }

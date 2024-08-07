@@ -26,20 +26,20 @@ public interface ActionLookupValue extends SkyValue {
   default Action getAction(int index) {
     ActionAnalysisMetadata result = getActions().get(index);
     // Avoid Preconditions.checkState which would box the int arg.
-    if (!(result instanceof Action)) {
+    if (!(result instanceof Action action)) {
       throw new IllegalStateException(String.format("Not action: %s %s %s", result, index, this));
     }
-    return (Action) result;
+    return action;
   }
 
   default ActionTemplate<?> getActionTemplate(int index) {
     ActionAnalysisMetadata result = getActions().get(index);
     // Avoid Preconditions.checkState which would box the int arg.
-    if (!(result instanceof ActionTemplate)) {
+    if (!(result instanceof ActionTemplate<?> actionTemplate)) {
       throw new IllegalStateException(
           String.format("Not action template: %s %s %s", result, index, this));
     }
-    return (ActionTemplate<?>) result;
+    return actionTemplate;
   }
 
   /** Returns the number of {@link Action} objects present in this value. */

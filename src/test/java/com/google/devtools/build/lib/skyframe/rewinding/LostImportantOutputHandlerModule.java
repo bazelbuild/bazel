@@ -119,6 +119,11 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
       throw new UnsupportedOperationException();
     }
 
+    @Override
+    public void processWorkspaceStatusOutputs(Path stableOutput, Path volatileOutput) {
+      throw new UnsupportedOperationException();
+    }
+
     private LostArtifacts getLostOutputs(
         Iterable<Artifact> outputs,
         ArtifactExpander expander,

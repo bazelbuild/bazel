@@ -98,18 +98,19 @@ import net.starlark.java.syntax.Location;
 public class SingleExtensionEvalFunction implements SkyFunction {
   private final BlazeDirectories directories;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
-  private final DownloadManager downloadManager;
 
   private double timeoutScaling = 1.0;
   @Nullable private ProcessWrapper processWrapper = null;
   @Nullable private RepositoryRemoteExecutor repositoryRemoteExecutor = null;
+  @Nullable private DownloadManager downloadManager = null;
 
   public SingleExtensionEvalFunction(
-      BlazeDirectories directories,
-      Supplier<Map<String, String>> clientEnvironmentSupplier,
-      DownloadManager downloadManager) {
+      BlazeDirectories directories, Supplier<Map<String, String>> clientEnvironmentSupplier) {
     this.directories = directories;
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
+  }
+
+  public void setDownloadManager(DownloadManager downloadManager) {
     this.downloadManager = downloadManager;
   }
 
@@ -484,7 +485,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                 toImmutableBiMap(
                     e ->
                         RepositoryName.createUnvalidated(
-                            usagesValue.getExtensionUniqueName() + "~" + e),
+                            usagesValue.getExtensionUniqueName() + "+" + e),
                     Function.identity())),
         lockFileInfo,
         fixup);
@@ -742,7 +743,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         Dict<String, Object> kwargs = repo.tag().getAttributeValues().attributes();
         // This cast should be safe since it should have been verified at tag creation time.
         String name = (String) kwargs.get("name");
-        String prefixedName = usagesValue.getExtensionUniqueName() + "~" + name;
+        String prefixedName = usagesValue.getExtensionUniqueName() + "+" + name;
         Rule ruleInstance;
         AttributeValues attributesValue;
         try {
@@ -883,7 +884,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         throws InterruptedException, SingleExtensionEvalFunctionException {
       ModuleExtensionEvalStarlarkThreadContext threadContext =
           new ModuleExtensionEvalStarlarkThreadContext(
-              usagesValue.getExtensionUniqueName() + "~",
+              usagesValue.getExtensionUniqueName() + "+",
               extensionId.getBzlFileLabel().getPackageIdentifier(),
               BazelModuleContext.of(bzlLoadValue.getModule()).repoMapping(),
               mainRepositoryMapping,

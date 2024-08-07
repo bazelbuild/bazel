@@ -197,6 +197,14 @@ wstring BinaryLauncherBase::GetLaunchInfoByKey(const string& key) {
   return item->second;
 }
 
+wstring BinaryLauncherBase::GetLaunchInfoByKeyOrEmpty(const std::string& key) {
+  auto item = launch_info.find(key);
+  if (item == launch_info.end()) {
+    return L"";
+  }
+  return item->second;
+}
+
 const vector<wstring>& BinaryLauncherBase::GetCommandlineArguments() const {
   return this->commandline_arguments;
 }

@@ -1910,7 +1910,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               ruleContext.getUniqueDirectory("dexfiles"), ruleContext.getBinOrGenfilesDirectory());
       FilesToRunProvider dexMerger = ruleContext.getExecutablePrerequisite("$dexmerger");
       createTemplatedMergerActions(
-          ruleContext, multidexShards, shardsToMerge, dexopts, dexMerger, minSdkVersion);
+          ruleContext,
+          multidexShards,
+          shardsToMerge,
+          dexopts,
+          dexMerger,
+          minSdkVersion,
+          null /* desugarGlobals */);
       // TODO(b/69431301): avoid this action and give the files to apk build action directly
       createZipMergeAction(ruleContext, multidexShards, classesDex);
     }
@@ -2042,7 +2048,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       SpecialArtifact inputTree,
       List<String> dexopts,
       FilesToRunProvider executable,
-      int minSdkVersion) {
+      int minSdkVersion,
+      Object desugarGlobals) {
     SpawnActionTemplate.Builder dexmerger =
         new SpawnActionTemplate.Builder(inputTree, outputTree)
             .setExecutable(executable)
@@ -2061,6 +2068,12 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                         dexopts, Predicates.not(Predicates.equalTo(DX_MINIMAL_MAIN_DEX_OPTION)))));
     if (minSdkVersion > 0) {
       commandLine.add("--min_sdk_version", Integer.toString(minSdkVersion));
+    }
+    Artifact desugarGlobalsArtifact =
+        AndroidStarlarkData.fromNoneable(desugarGlobals, Artifact.class);
+    if (desugarGlobalsArtifact != null) {
+      dexmerger.addCommonInputs(ImmutableList.of(desugarGlobalsArtifact));
+      commandLine.addPath("--global_synthetics_path", desugarGlobalsArtifact.getExecPath());
     }
     dexmerger.setCommandLineTemplate(commandLine.build());
     ruleContext.registerAction(dexmerger.build(ruleContext.getActionOwner()));

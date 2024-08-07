@@ -297,6 +297,7 @@ public final class AnalysisPhaseRunner {
                 analysisResult.getTargetsToBuild(),
                 view.getEvaluatedCounts(),
                 view.getEvaluatedActionsCounts(),
+                view.getEvaluatedActionsCountsByMnemonic(),
                 timer.stop().elapsed(TimeUnit.MILLISECONDS),
                 view.getAndClearPkgManagerStatistics(),
                 env.getSkyframeExecutor().wasAnalysisCacheInvalidatedAndResetBit()));

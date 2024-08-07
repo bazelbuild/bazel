@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
-import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.bugreport.Crash;
@@ -139,7 +138,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
@@ -192,7 +190,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private final ActionKeyContext actionKeyContext;
   private final ImmutableMap<String, AuthHeadersProvider> authHeadersProviderMap;
   @Nullable private final RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory;
-  private final Supplier<Downloader> downloaderSupplier;
 
   // Workspace state (currently exactly one workspace per server)
   private BlazeWorkspace workspace;
@@ -219,8 +216,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       String productName,
       BuildEventArtifactUploaderFactoryMap buildEventArtifactUploaderFactoryMap,
       ImmutableMap<String, AuthHeadersProvider> authHeadersProviderMap,
-      RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory,
-      Supplier<Downloader> downloaderSupplier) {
+      RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory) {
     // Server state
     this.fileSystem = fileSystem;
     this.blazeModules = blazeModules;
@@ -250,7 +246,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     this.authHeadersProviderMap =
         Preconditions.checkNotNull(authHeadersProviderMap, "authHeadersProviderMap");
     this.repositoryRemoteExecutorFactory = repositoryRemoteExecutorFactory;
-    this.downloaderSupplier = downloaderSupplier;
   }
 
   public BlazeWorkspace initWorkspace(BlazeDirectories directories, BinTools binTools)
@@ -324,12 +319,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     ImmutableSet.Builder<ProfilerTask> profiledTasksBuilder = ImmutableSet.builder();
     Profiler.Format format = Format.JSON_TRACE_FILE_FORMAT;
     Path profilePath = null;
-    String profileName = null;
     UploadContext streamingContext = null;
     try {
       if (tracerEnabled) {
         if (options.profilePath == null) {
-          profileName = "command.profile.gz";
           format = Format.JSON_TRACE_FILE_COMPRESSED_FORMAT;
           if (bepOptions != null && bepOptions.streamingLogFileUploads) {
             BuildEventArtifactUploader buildEventArtifactUploader =
@@ -337,7 +330,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             streamingContext = buildEventArtifactUploader.startUpload(LocalFileType.LOG, null);
             out = streamingContext.getOutputStream();
           } else {
-            profilePath = workspace.getOutputBase().getRelative(profileName);
+            profilePath = workspace.getOutputBase().getRelative("command.profile.gz");
             out = profilePath.getOutputStream();
           }
         } else {
@@ -450,7 +443,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     } catch (IOException e) {
       eventHandler.handle(Event.error("Error while creating profile file: " + e.getMessage()));
     }
-    return new ProfilerStartedEvent(profileName, profilePath, format, streamingContext);
+    return new ProfilerStartedEvent(profilePath, streamingContext, format);
   }
 
   public FileSystem getFileSystem() {
@@ -1459,10 +1452,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     return repositoryRemoteExecutorFactory;
   }
 
-  public Supplier<Downloader> getDownloaderSupplier() {
-    return downloaderSupplier;
-  }
-
   /**
    * A builder for {@link BlazeRuntime} objects. The only required fields are the {@link
    * BlazeDirectories}, and the {@link com.google.devtools.build.lib.packages.RuleClassProvider}
@@ -1589,8 +1578,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               productName,
               serverBuilder.getBuildEventArtifactUploaderMap(),
               serverBuilder.getAuthHeadersProvidersMap(),
-              serverBuilder.getRepositoryRemoteExecutorFactory(),
-              serverBuilder.getDownloaderSupplier());
+              serverBuilder.getRepositoryRemoteExecutorFactory());
       AutoProfiler.setClock(runtime.getClock());
       BugReport.setRuntime(runtime);
       return runtime;

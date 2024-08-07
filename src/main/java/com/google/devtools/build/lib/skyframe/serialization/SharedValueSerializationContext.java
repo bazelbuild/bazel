@@ -40,8 +40,8 @@ import javax.annotation.Nullable;
  * #fingerprintValueService} store. The status of these uploads may be observed through {@link
  * #createFutureToBlockWritingOn} and {@link SerializationResult#getFutureToBlockWritesOn}.
  */
-final class SharedValueSerializationContext extends MemoizingSerializationContext {
-  private final FingerprintValueService fingerprintValueService;
+abstract class SharedValueSerializationContext extends MemoizingSerializationContext {
+  final FingerprintValueService fingerprintValueService;
 
   /**
    * Futures that represent writes to remote storage.
@@ -65,7 +65,7 @@ final class SharedValueSerializationContext extends MemoizingSerializationContex
       ObjectCodecRegistry codecRegistry,
       ImmutableClassToInstanceMap<Object> dependencies,
       FingerprintValueService fingerprintValueService) {
-    return new SharedValueSerializationContext(
+    return new SharedValueSerializationContextImpl(
         codecRegistry, dependencies, fingerprintValueService);
   }
 
@@ -89,23 +89,31 @@ final class SharedValueSerializationContext extends MemoizingSerializationContex
       ObjectCodecRegistry codecRegistry,
       ImmutableClassToInstanceMap<Object> dependencies,
       FingerprintValueService fingerprintValueService,
-      @Nullable Object subject)
+      @Nullable Object subject,
+      @Nullable ProfileCollector profileCollector)
       throws SerializationException {
     ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
     CodedOutputStream codedOut = CodedOutputStream.newInstance(bytesOut);
     SharedValueSerializationContext context =
-        new SharedValueSerializationContext(codecRegistry, dependencies, fingerprintValueService);
+        profileCollector == null
+            ? new SharedValueSerializationContextImpl(
+                codecRegistry, dependencies, fingerprintValueService)
+            : new SharedValueSerializationProfilingContext(
+                codecRegistry, dependencies, fingerprintValueService, profileCollector);
     try {
       context.serialize(subject, codedOut);
       codedOut.flush();
     } catch (IOException e) {
       throw new SerializationException("Failed to serialize: " + subject, e);
     }
+    if (profileCollector != null) {
+      context.getProfileRecorder().checkStackEmpty(subject);
+    }
     return context.createResult(bytesOut.toByteArray());
   }
 
   @Override
-  public <T> void putSharedValue(
+  public final <T> void putSharedValue(
       T child,
       @Nullable Object distinguisher,
       DeferredObjectCodec<T> codec,
@@ -171,7 +179,7 @@ final class SharedValueSerializationContext extends MemoizingSerializationContex
    * {@link FuturePut#fillInPlaceholderAndReturnWriteStatus} is called to update placeholders
    * present in the serialized bytes.
    */
-  private <T> void putOwnedSharedValue(
+  private final <T> void putOwnedSharedValue(
       T child,
       DeferredObjectCodec<T> codec,
       CodedOutputStream codedOut,
@@ -188,9 +196,17 @@ final class SharedValueSerializationContext extends MemoizingSerializationContex
       ByteArrayOutputStream childStream = new ByteArrayOutputStream();
       CodedOutputStream childCodedOut = CodedOutputStream.newInstance(childStream);
       SharedValueSerializationContext childContext = getFreshContext();
-      codec.serialize(childContext, child, childCodedOut);
-      childCodedOut.flush();
 
+      ProfileRecorder childRecorder = childContext.getProfileRecorder();
+      if (childRecorder == null) {
+        codec.serialize(childContext, child, childCodedOut);
+      } else {
+        childRecorder.pushLocation(codec);
+        codec.serialize(childContext, child, childCodedOut);
+        childRecorder.recordBytesAndPopLocation(/* startBytes= */ 0, childCodedOut);
+      }
+
+      childCodedOut.flush();
       childBytes = childStream.toByteArray();
       childWriteStatuses =
           childContext.futuresToBlockWritingOn == null
@@ -233,14 +249,11 @@ final class SharedValueSerializationContext extends MemoizingSerializationContex
     recordFuturePut(futureStore, codedOut);
   }
 
-  @Override
-  public SharedValueSerializationContext getFreshContext() {
-    return new SharedValueSerializationContext(
-        getCodecRegistry(), getDependencies(), fingerprintValueService);
-  }
+  @Override // to narrow the return type
+  public abstract SharedValueSerializationContext getFreshContext();
 
   @Override
-  public void addFutureToBlockWritingOn(ListenableFuture<Void> future) {
+  public final void addFutureToBlockWritingOn(ListenableFuture<Void> future) {
     if (futuresToBlockWritingOn == null) {
       futuresToBlockWritingOn = new ArrayList<>();
     }
@@ -249,7 +262,7 @@ final class SharedValueSerializationContext extends MemoizingSerializationContex
 
   @Override
   @Nullable
-  public ListenableFuture<Void> createFutureToBlockWritingOn() {
+  public final ListenableFuture<Void> createFutureToBlockWritingOn() {
     if (futurePuts == null) {
       if (futuresToBlockWritingOn == null) {
         return null;
@@ -272,8 +285,8 @@ final class SharedValueSerializationContext extends MemoizingSerializationContex
    * <p>Adds the corresponding entry to {@link #futurePuts} and inserts placeholder bytes into
    * {@code codedOut}.
    */
-  private void recordFuturePut(ListenableFuture<PutOperation> futurePut, CodedOutputStream codedOut)
-      throws IOException {
+  private final void recordFuturePut(
+      ListenableFuture<PutOperation> futurePut, CodedOutputStream codedOut) throws IOException {
     if (futurePuts == null) {
       futurePuts = new ArrayList<>();
     }
@@ -282,7 +295,8 @@ final class SharedValueSerializationContext extends MemoizingSerializationContex
     codedOut.writeRawBytes(fingerprintValueService.fingerprintPlaceholder());
   }
 
-  private SerializationResult<ByteString> createResult(byte[] bytes) throws SerializationException {
+  private final SerializationResult<ByteString> createResult(byte[] bytes)
+      throws SerializationException {
     // TODO: b/297857068 - If ByteString.copyFrom overhead is excessive, use reflection to avoid it.
     if (futurePuts == null) {
       ByteString finalBytes = ByteString.copyFrom(bytes);
@@ -310,7 +324,9 @@ final class SharedValueSerializationContext extends MemoizingSerializationContex
     } catch (SerializationException e) {
       // An exception has occurred. Ensures that any additional errors from writing are handled
       // before throwing the exception.
-      reportAnyFailures(Futures.whenAllSucceed(futuresToBlockWritingOn));
+      if (futuresToBlockWritingOn != null) {
+        reportAnyFailures(Futures.whenAllSucceed(futuresToBlockWritingOn));
+      }
       throw e;
     }
     return SerializationResult.create(
@@ -323,7 +339,7 @@ final class SharedValueSerializationContext extends MemoizingSerializationContex
    *
    * <p>The caller must ensure that {@link #futurePuts} is non-null.
    */
-  private List<ListenableFuture<Void>> initializeCombinedWriteStatusesList() {
+  private final List<ListenableFuture<Void>> initializeCombinedWriteStatusesList() {
     if (futuresToBlockWritingOn == null) {
       return new ArrayList<>(futurePuts.size());
     }
@@ -358,7 +374,7 @@ final class SharedValueSerializationContext extends MemoizingSerializationContex
    * <p>When {@link PutOperation} becomes available, {@link fillInPlaceholderAndReturnWriteStatus}
    * must be called.
    */
-  private static class FuturePut {
+  private static final class FuturePut {
     /** Where the fingerprint should be written when it becomes available. */
     private final int offset;
 
@@ -391,6 +407,56 @@ final class SharedValueSerializationContext extends MemoizingSerializationContex
       PutOperation put = getDoneSerializationFuture(futurePut);
       put.fingerprint().copyTo(bytes, offset);
       return put.writeStatus();
+    }
+  }
+
+  private static final class SharedValueSerializationContextImpl
+      extends SharedValueSerializationContext {
+    private SharedValueSerializationContextImpl(
+        ObjectCodecRegistry codecRegistry,
+        ImmutableClassToInstanceMap<Object> dependencies,
+        FingerprintValueService fingerprintValueService) {
+      super(codecRegistry, dependencies, fingerprintValueService);
+    }
+
+    @Override
+    public SharedValueSerializationContext getFreshContext() {
+      return new SharedValueSerializationContextImpl(
+          getCodecRegistry(), getDependencies(), fingerprintValueService);
+    }
+
+    @Override
+    @Nullable
+    public ProfileRecorder getProfileRecorder() {
+      return null;
+    }
+  }
+
+  private static final class SharedValueSerializationProfilingContext
+      extends SharedValueSerializationContext {
+    private final ProfileRecorder profileRecorder;
+
+    private SharedValueSerializationProfilingContext(
+        ObjectCodecRegistry codecRegistry,
+        ImmutableClassToInstanceMap<Object> dependencies,
+        FingerprintValueService fingerprintValueService,
+        ProfileCollector profileCollector) {
+      super(codecRegistry, dependencies, fingerprintValueService);
+      this.profileRecorder = new ProfileRecorder(profileCollector);
+    }
+
+    @Override
+    public SharedValueSerializationContext getFreshContext() {
+      return new SharedValueSerializationProfilingContext(
+          getCodecRegistry(),
+          getDependencies(),
+          fingerprintValueService,
+          profileRecorder.getProfileCollector());
+    }
+
+    @Override
+    public ProfileRecorder getProfileRecorder() {
+      return profileRecorder;
     }
   }
 }

@@ -19,36 +19,40 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.vfs.Path;
 import javax.annotation.Nullable;
 
-/**
- * This event is fired when the profiler is started.
- */
+/** This event is fired when the profiler is started. */
 public class ProfilerStartedEvent implements ExtendedEventHandler.Postable {
   @Nullable private final Path profilePath;
   @Nullable private final UploadContext streamingContext;
   private final Profiler.Format format;
-  @Nullable private final String name;
 
   public ProfilerStartedEvent(
-      String name, Path profilePath, Profiler.Format format, UploadContext streamingContext) {
+      @Nullable Path profilePath,
+      @Nullable UploadContext streamingContext,
+      Profiler.Format format) {
     this.profilePath = profilePath;
     this.streamingContext = streamingContext;
     this.format = format;
-    this.name = name;
   }
 
+  @Nullable
   public Path getProfilePath() {
     return profilePath;
   }
 
+  @Nullable
   public UploadContext getStreamingContext() {
     return streamingContext;
   }
 
-  public Profiler.Format getFormat() {
-    return format;
-  }
-
   public String getName() {
-    return name;
+    switch (format) {
+      case JSON_TRACE_FILE_FORMAT -> {
+        return "command.profile.json";
+      }
+      case JSON_TRACE_FILE_COMPRESSED_FORMAT -> {
+        return "command.profile.gz";
+      }
+    }
+    throw new UnsupportedOperationException();
   }
 }

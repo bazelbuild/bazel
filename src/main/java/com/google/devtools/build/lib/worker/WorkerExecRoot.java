@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxContents;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -26,11 +27,15 @@ import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /** Creates and manages the contents of a working directory of a persistent worker. */
 final class WorkerExecRoot {
   private final Path workDir;
   private final List<PathFragment> extraDirs;
+
+  private final boolean useInMemoryTracking;
+  @Nullable private SandboxContents sandboxContents;
 
   /**
    * Creates a new WorkerExecRoot.
@@ -39,9 +44,10 @@ final class WorkerExecRoot {
    * @param extraDirs Directories that must survive sandbox cleanup, e.g. for things that are
    *     bind-mounted.
    */
-  public WorkerExecRoot(Path workDir, List<PathFragment> extraDirs) {
+  public WorkerExecRoot(Path workDir, List<PathFragment> extraDirs, boolean useInMemoryTracking) {
     this.workDir = workDir;
     this.extraDirs = extraDirs;
+    this.useInMemoryTracking = useInMemoryTracking;
   }
 
   public void createFileSystem(
@@ -69,12 +75,22 @@ final class WorkerExecRoot {
     // We're traversing from workDir's parent directory because external repositories can now be
     // symlinked as siblings of workDir when --experimental_sibling_repository_layout is in effect.
     SandboxHelpers.cleanExisting(
-        workDir.getParentDirectory(), inputs, inputsToCreate, dirsToCreate, workDir, treeDeleter);
+        workDir.getParentDirectory(),
+        inputs,
+        inputsToCreate,
+        dirsToCreate,
+        workDir,
+        treeDeleter,
+        sandboxContents);
+
+    if (useInMemoryTracking) {
+      // Track the sandbox contents in memory. This makes the cleanup faster in subsequent runs.
+      sandboxContents = SandboxHelpers.createContentMap(workDir, inputs, outputs);
+    }
 
     // Finally, create anything that is still missing. This is non-strict only for historical
-    // reasons,
-    // we haven't seen what would break if we make it strict.
-    SandboxHelpers.createDirectories(dirsToCreate, workDir, /* strict=*/ false);
+    // reasons, we haven't seen what would break if we make it strict.
+    SandboxHelpers.createDirectories(dirsToCreate, workDir, /* strict= */ false);
     createInputs(inputsToCreate, inputs, workDir);
   }
 

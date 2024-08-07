@@ -1172,7 +1172,11 @@ public class TestRunnerAction extends AbstractAction
       } else {
         TestRunnerSpawnAndMaxAttempts nextRunnerAndAttempts =
             computeNextRunnerAndMaxAttempts(
-                testResult, testRunnerSpawn, failedAttempts.size() + 1, actualMaxAttempts);
+                testResult,
+                testRunnerSpawn,
+                failedAttempts.size() + 1,
+                actualMaxAttempts,
+                spawnResults);
         if (nextRunnerAndAttempts != null) {
           failedAttempts.add(
               testRunnerSpawn.finalizeFailedTestAttempt(result, failedAttempts.size() + 1));
@@ -1221,11 +1225,12 @@ public class TestRunnerAction extends AbstractAction
       TestAttemptResult.Result result,
       TestRunnerSpawn testRunnerSpawn,
       int numAttempts,
-      int maxAttempts)
+      int maxAttempts,
+      List<SpawnResult> results)
       throws ExecException, InterruptedException {
     checkState(result != Result.PASSED, "Should not compute retry runner if last result passed");
     if (result.canRetry() && numAttempts < maxAttempts) {
-      TestRunnerSpawn nextRunner = testRunnerSpawn.getFlakyRetryRunner();
+      TestRunnerSpawn nextRunner = testRunnerSpawn.getFlakyRetryRunner(results);
       if (nextRunner != null) {
         return TestRunnerSpawnAndMaxAttempts.create(nextRunner, maxAttempts);
       }

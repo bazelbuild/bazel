@@ -80,13 +80,14 @@ def parse_http_artifacts(ctx, lockfile_path, required_repos):
 
     for extension_id, extension_entry in lockfile["moduleExtensions"].items():
         if extension_id.startswith("@@"):
-            # @@rules_foo~//:extensions.bzl%foo --> rules_foo~
-            module_repo_name = extension_id.removeprefix("@@").partition("//")[0]
+            # "@@rules_foo+//:extensions.bzl%foo" --> "rules_foo+"
+            # "@@rules_foo~//:extensions.bzl%foo" --> "rules_foo+" (legacy format; remove after building with 8.0)
+            module_repo_name = extension_id.removeprefix("@@").partition("//")[0].replace("~", "+")
         else:
-            # //:extensions.bzl%foo --> _main
-            module_repo_name = "_main"
+            # "//:extensions.bzl%foo" --> ""
+            module_repo_name = ""
         extension_name = extension_id.partition("%")[2]
-        repo_name_prefix = "{}~{}~".format(module_repo_name, extension_name)
+        repo_name_prefix = "{}+{}+".format(module_repo_name, extension_name)
         extensions = []
         for _, extension_per_platform in extension_entry.items():
             extensions.append(extension_per_platform)
@@ -168,4 +169,4 @@ def _module_repo_name(module):
     if module_name in _WELL_KNOWN_MODULES:
         return module_name
 
-    return "{}~".format(module_name)
+    return "{}+".format(module_name)

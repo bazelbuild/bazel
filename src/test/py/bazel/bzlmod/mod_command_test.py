@@ -177,27 +177,27 @@ class ModCommandTest(test_base.TestBase):
         stdout,
         [
             '<root> (my_project@1.0)',
-            '|___$@@ext2~//:ext.bzl%ext',
-            '|   |___repo1',
-            '|___$@@ext~//:ext.bzl%ext',
+            '|___$@@ext+//:ext.bzl%ext',
             '|   |___repo1',
             '|   |...repo2',
             '|   |...repo5',
+            '|___$@@ext2+//:ext.bzl%ext',
+            '|   |___repo1',
             '|___ext@1.0',
             '|___ext2@1.0',
             '|___foo@1.0',
-            '|   |___$@@ext~//:ext.bzl%ext ...',
+            '|   |___$@@ext+//:ext.bzl%ext ...',
             '|   |   |___repo1',
             '|   |___ext@1.0 (*)',
             '|   |___bar@2.0',
-            '|       |___$@@ext2~//:ext.bzl%ext ...',
+            '|       |___$@@ext+//:ext.bzl%ext ...',
             '|       |   |___repo3',
-            '|       |___$@@ext~//:ext.bzl%ext ...',
+            '|       |___$@@ext2+//:ext.bzl%ext ...',
             '|       |   |___repo3',
             '|       |___ext@1.0 (*)',
             '|       |___ext2@1.0 (*)',
             '|___foo@2.0',
-            '    |___$@@ext~//:ext.bzl%ext ...',
+            '    |___$@@ext+//:ext.bzl%ext ...',
             '    |   |___repo3',
             '    |   |___repo4',
             '    |___bar@2.0 (*)',
@@ -221,16 +221,16 @@ class ModCommandTest(test_base.TestBase):
         stdout,
         [
             '<root> (my_project@1.0)',
-            '|___$@@ext~//:ext.bzl%ext',
+            '|___$@@ext+//:ext.bzl%ext',
             '|   |___repo1',
             '|___foo@1.0 #',
-            '|   |___$@@ext~//:ext.bzl%ext',
+            '|   |___$@@ext+//:ext.bzl%ext',
             '|   |   |___repo1',
             '|   |___bar@2.0 #',
-            '|       |___$@@ext~//:ext.bzl%ext',
+            '|       |___$@@ext+//:ext.bzl%ext',
             '|           |___repo3',
             '|___foo@2.0 #',
-            '    |___$@@ext~//:ext.bzl%ext',
+            '    |___$@@ext+//:ext.bzl%ext',
             '    |   |___repo3',
             '    |   |___repo4',
             '    |___bar@2.0 (*)',
@@ -258,7 +258,7 @@ class ModCommandTest(test_base.TestBase):
     self.assertListEqual(
         stdout,
         [
-            '## @@ext~//:ext.bzl%ext:',
+            '## @@ext+//:ext.bzl%ext:',
             '',
             'Fetched repositories:',
             '  - repo1 (imported by <root>, foo@1.0)',
@@ -313,31 +313,18 @@ class ModCommandTest(test_base.TestBase):
         rstrip=True,
     )
     self.assertRegex(
-        stdout.pop(6), r'^## Usage in bar@2.0 from .*MODULE\.bazel:11$'
+        stdout.pop(9), r'^## Usage in foo@2.0 from .*MODULE\.bazel:8$'
     )
     self.assertRegex(
-        stdout.pop(21), r'^## Usage in foo@2.0 from .*MODULE\.bazel:8$'
+        stdout.pop(16), r'^## Usage in bar@2.0 from .*MODULE\.bazel:8$'
     )
     self.assertRegex(
-        stdout.pop(28), r'^## Usage in bar@2.0 from .*MODULE\.bazel:8$'
+        stdout.pop(28), r'^## Usage in bar@2.0 from .*MODULE\.bazel:11$'
     )
     self.assertListEqual(
         stdout,
         [
-            '## @@ext2~//:ext.bzl%ext:',
-            '',
-            'Fetched repositories:',
-            '  - repo1 (imported by <root>)',
-            '  - repo3 (imported by bar@2.0)',
-            '',
-            # pop(6)
-            'ext.dep(name="repo3")',
-            'use_repo(',
-            '  ext,',
-            '  my_repo2="repo3",',
-            ')',
-            '',
-            '## @@ext~//:ext.bzl%ext:',
+            '## @@ext+//:ext.bzl%ext:',
             '',
             'Fetched repositories:',
             '  - repo1 (imported by <root>, foo@1.0)',
@@ -346,7 +333,7 @@ class ModCommandTest(test_base.TestBase):
             '  - repo2',
             '  - repo5',
             '',
-            # pop(21)
+            # pop(9)
             'ext.dep(name="repo4")',
             'use_repo(',
             '  ext,',
@@ -354,11 +341,24 @@ class ModCommandTest(test_base.TestBase):
             '  my_repo4="repo4",',
             ')',
             '',
-            # pop(28)
+            # pop(16)
             'ext.dep(name="repo3")',
             'use_repo(',
             '  ext,',
             '  my_repo3="repo3",',
+            ')',
+            '',
+            '## @@ext2+//:ext.bzl%ext:',
+            '',
+            'Fetched repositories:',
+            '  - repo1 (imported by <root>)',
+            '  - repo3 (imported by bar@2.0)',
+            '',
+            # pop(28)
+            'ext.dep(name="repo3")',
+            'use_repo(',
+            '  ext,',
+            '  my_repo2="repo3",',
             ')',
             '',
         ],
@@ -392,7 +392,7 @@ class ModCommandTest(test_base.TestBase):
         rstrip=True,
     )
     self.assertIn(
-        'No extension @@ext~//foo:unknown.bzl%x exists in the dependency graph',
+        'No extension @@ext+//foo:unknown.bzl%x exists in the dependency graph',
         '\n'.join(stderr),
     )
 
@@ -427,7 +427,7 @@ class ModCommandTest(test_base.TestBase):
             '## @bar_from_foo2:',
             '# <builtin>',
             'http_archive(',
-            '  name = "bar~",',
+            '  name = "bar+",',
             # pop(4) -- urls=[...]
             # pop(4) -- integrity=...
             '  strip_prefix = "",',
@@ -436,7 +436,7 @@ class ModCommandTest(test_base.TestBase):
             '  remote_patches = {},',
             '  remote_patch_strip = 0,',
             ')',
-            '# Rule bar~ instantiated at (most recent call last):',
+            '# Rule bar+ instantiated at (most recent call last):',
             '#   <builtin> in <toplevel>',
             '# Rule http_archive defined at (most recent call last):',
             # pop(13)
@@ -444,19 +444,19 @@ class ModCommandTest(test_base.TestBase):
             '## ext@1.0:',
             '# <builtin>',
             'local_repository(',
-            '  name = "ext~",',
+            '  name = "ext+",',
             # pop(19) -- path=...
             ')',
-            '# Rule ext~ instantiated at (most recent call last):',
+            '# Rule ext+ instantiated at (most recent call last):',
             '#   <builtin> in <toplevel>',
             '',
             '## @my_repo3:',
             '# <builtin>',
             'data_repo(',
-            '  name = "ext~~ext~repo3",',
+            '  name = "ext++ext+repo3",',
             '  data = "requested repo",',
             ')',
-            '# Rule ext~~ext~repo3 instantiated at (most recent call last):',
+            '# Rule ext++ext+repo3 instantiated at (most recent call last):',
             '#   <builtin> in <toplevel>',
             '# Rule data_repo defined at (most recent call last):',
             # pop(32)
@@ -464,10 +464,10 @@ class ModCommandTest(test_base.TestBase):
             '## @my_repo4:',
             '# <builtin>',
             'data_repo(',
-            '  name = "ext~~ext~repo4",',
+            '  name = "ext++ext+repo4",',
             '  data = "requested repo",',
             ')',
-            '# Rule ext~~ext~repo4 instantiated at (most recent call last):',
+            '# Rule ext++ext+repo4 instantiated at (most recent call last):',
             '#   <builtin> in <toplevel>',
             '# Rule data_repo defined at (most recent call last):',
             # pop(42)
@@ -475,7 +475,7 @@ class ModCommandTest(test_base.TestBase):
             '## bar@2.0:',
             '# <builtin>',
             'http_archive(',
-            '  name = "bar~",',
+            '  name = "bar+",',
             # pop(47) -- urls=[...]
             # pop(47) -- integrity=...
             '  strip_prefix = "",',
@@ -484,7 +484,7 @@ class ModCommandTest(test_base.TestBase):
             '  remote_patches = {},',
             '  remote_patch_strip = 0,',
             ')',
-            '# Rule bar~ instantiated at (most recent call last):',
+            '# Rule bar+ instantiated at (most recent call last):',
             '#   <builtin> in <toplevel>',
             '# Rule http_archive defined at (most recent call last):',
             # pop(55)
@@ -507,14 +507,15 @@ class ModCommandTest(test_base.TestBase):
         stderr,
     )
 
+  # fix for https://github.com/bazelbuild/bazel/issues/22587
   def testShowRepoThrowsNonexistentRepo(self):
     _, _, stderr = self.RunBazel(
-        ['mod', 'show_repo', '@@lol'],
+        ['mod', 'show_repo', '<root>'],
         allow_failure=True,
         rstrip=True,
     )
     self.assertIn(
-        "ERROR: In repo argument @@lol: no such repo. Type 'bazel help mod' "
+        "ERROR: In repo argument <root>: no such repo. Type 'bazel help mod' "
         'for syntax and help.',
         stderr,
     )
@@ -525,7 +526,7 @@ class ModCommandTest(test_base.TestBase):
             'mod',
             'dump_repo_mapping',
             '',
-            'foo~v2.0',
+            'foo+2.0',
         ],
     )
     root_mapping, foo_mapping = [json.loads(l) for l in stdout]
@@ -533,9 +534,9 @@ class ModCommandTest(test_base.TestBase):
     self.assertContainsSubset(
         {
             'my_project': '',
-            'foo1': 'foo~v1.0',
-            'foo2': 'foo~v2.0',
-            'myrepo2': 'ext2~~ext~repo1',
+            'foo1': 'foo+1.0',
+            'foo2': 'foo+2.0',
+            'myrepo2': 'ext2++ext+repo1',
             'bazel_tools': 'bazel_tools',
         }.items(),
         root_mapping.items(),
@@ -543,9 +544,9 @@ class ModCommandTest(test_base.TestBase):
 
     self.assertContainsSubset(
         {
-            'foo': 'foo~v2.0',
-            'ext_mod': 'ext~',
-            'my_repo3': 'ext~~ext~repo3',
+            'foo': 'foo+2.0',
+            'ext_mod': 'ext+',
+            'my_repo3': 'ext++ext+repo3',
             'bazel_tools': 'bazel_tools',
         }.items(),
         foo_mapping.items(),
@@ -569,8 +570,8 @@ class ModCommandTest(test_base.TestBase):
     )
     self.assertIn(
         "ERROR: invalid repository name '{}': repo names may contain only A-Z,"
-        " a-z, 0-9, '-', '_', '.' and '~' and must not start with '~'. Type"
-        " 'bazel help mod' for syntax and help.",
+        " a-z, 0-9, '-', '_', '.' and '+'. Type 'bazel help mod' for syntax"
+        ' and help.',
         stderr,
     )
 

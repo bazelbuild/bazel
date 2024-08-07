@@ -490,68 +490,6 @@ flags:
 EOF
 }
 
-function setup_android_ndk_support() {
-  ANDROID_NDK=$PWD/android_ndk
-  NDK_SRCDIR=$TEST_SRCDIR/androidndk/ndk
-  mkdir -p $ANDROID_NDK
-  for i in $NDK_SRCDIR/*; do
-    if [[ "$(basename $i)" != "BUILD" ]]; then
-      ln -s "$i" "$ANDROID_NDK/$(basename $i)"
-    fi
-  done
-  cat >> WORKSPACE <<EOF
-android_ndk_repository(
-    name = "androidndk",
-    path = "$ANDROID_NDK",
-)
-EOF
-  mkdir -p test_android_platforms
-  cat > test_android_platforms/BUILD <<EOF
-package(default_visibility = ["//visibility:public"])
-platform(
-    name = "x86",
-    constraint_values = [
-        "@platforms//os:android",
-        "@platforms//cpu:x86_32",
-    ],
-)
-
-platform(
-    name = "x86_64",
-    constraint_values = [
-        "@platforms//os:android",
-        "@platforms//cpu:x86_64",
-    ],
-)
-
-platform(
-    name = "armeabi-v7a",
-    constraint_values = [
-        "@platforms//os:android",
-        "@platforms//cpu:armv7",
-    ],
-)
-
-platform(
-    name = "arm64-v8a",
-    constraint_values =
-        [
-            "@platforms//cpu:arm64",
-            "@platforms//os:android",
-        ],
-)
-EOF
-  add_to_bazelrc "build --platform_mappings=test_android_platforms/mappings"
-  cat > test_android_platforms/mappings <<EOF
-platforms:
-  //test_android_platforms:armeabi-v7a
-    --cpu=armeabi-v7a
-flags:
-  --cpu=armeabi-v7a
-    //test_android_platforms:armeabi-v7a
-EOF
-}
-
 function setup_javatest_common() {
   # TODO(bazel-team): we should use remote repositories.
   mkdir -p third_party
@@ -1022,7 +960,7 @@ function override_java_tools() {
   JAVA_TOOLS_ZIP="$1"; shift
   JAVA_TOOLS_PREBUILT_ZIP="$1"; shift
 
-  JAVA_TOOLS_REPO_PREFIX="${RULES_JAVA_REPO_NAME}~toolchains~"
+  JAVA_TOOLS_REPO_PREFIX="${RULES_JAVA_REPO_NAME}+toolchains+"
 
   if [[ "${JAVA_TOOLS_ZIP}" != "released" ]]; then
     JAVA_TOOLS_ZIP_FILE="$(rlocation "${JAVA_TOOLS_ZIP}")"
