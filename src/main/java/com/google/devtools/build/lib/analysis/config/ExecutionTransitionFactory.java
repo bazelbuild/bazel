@@ -212,11 +212,10 @@ public class ExecutionTransitionFactory
       //   of exactly how the immutable state and mutable state of BuildOptions is interacting.
       //   Might be good to have an option to wipeout that state rather than cloning so much.
       switch (coreOptions.execConfigurationDistinguisherScheme) {
-        case LEGACY:
-          coreOptions.platformSuffix =
-              String.format("exec-%X", executionPlatform.getCanonicalForm().hashCode());
-          break;
-        case FULL_HASH:
+        case LEGACY ->
+            coreOptions.platformSuffix =
+                String.format("exec-%X", executionPlatform.getCanonicalForm().hashCode());
+        case FULL_HASH -> {
           coreOptions.platformSuffix = "";
           // execOptions creation above made a clone, which will have a fresh hashCode
           int fullHash = result.hashCode();
@@ -224,8 +223,8 @@ public class ExecutionTransitionFactory
           // Previous call to hashCode irreparably locked in state so must clone to refresh since
           // options mutated after that
           result = result.clone();
-          break;
-        case DIFF_TO_AFFECTED:
+        }
+        case DIFF_TO_AFFECTED -> {
           // Setting platform_suffix here should not be necessary for correctness but
           // done for user clarity.
           coreOptions.platformSuffix = "exec";
@@ -235,10 +234,10 @@ public class ExecutionTransitionFactory
           FunctionTransitionUtil.updateAffectedByStarlarkTransition(coreOptions, diff);
           // Previous call to diff irreparably locked in state so must clone to refresh.
           result = result.clone();
-          break;
-        default:
-          // else if OFF just mark that we are now in an exec transition
-          coreOptions.platformSuffix = "exec";
+        }
+        default ->
+            // else if OFF just mark that we are now in an exec transition
+            coreOptions.platformSuffix = "exec";
       }
       coreOptions.affectedByStarlarkTransition =
           options.underlying().get(CoreOptions.class).affectedByStarlarkTransition;

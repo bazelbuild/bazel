@@ -161,17 +161,15 @@ final class DependencyProducer
     ExecutionPlatformResult executionPlatformResult =
         getExecutionPlatformLabel(kind, parameters.toolchainContexts(), parameters.aspects());
     switch (executionPlatformResult.kind()) {
-      case LABEL:
-        transitionData.executionPlatform(executionPlatformResult.label());
-        break;
-      case NULL_LABEL:
-        transitionData.executionPlatform(null);
-        break;
-      case SKIP:
+      case LABEL -> transitionData.executionPlatform(executionPlatformResult.label());
+      case NULL_LABEL -> transitionData.executionPlatform(null);
+      case SKIP -> {
         sink.acceptDependencyValues(index, EMPTY_OUTPUT);
         return DONE;
-      case ERROR:
+      }
+      case ERROR -> {
         return new ExecGroupErrorEmitter(executionPlatformResult.error());
+      }
     }
     ConfigurationTransition attributeTransition;
     try {

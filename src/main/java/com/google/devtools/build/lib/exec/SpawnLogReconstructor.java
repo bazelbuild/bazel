@@ -53,26 +53,18 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
     ExecLogEntry entry;
     while ((entry = ExecLogEntry.parseDelimitedFrom(in)) != null) {
       switch (entry.getTypeCase()) {
-        case INVOCATION:
-          hashFunctionName = entry.getInvocation().getHashFunctionName();
-          break;
-        case FILE:
-          fileMap.put(entry.getId(), reconstructFile(entry.getFile()));
-          break;
-        case DIRECTORY:
-          dirMap.put(entry.getId(), reconstructDir(entry.getDirectory()));
-          break;
-        case UNRESOLVED_SYMLINK:
-          symlinkMap.put(entry.getId(), reconstructSymlink(entry.getUnresolvedSymlink()));
-          break;
-        case INPUT_SET:
-          setMap.put(entry.getId(), entry.getInputSet());
-          break;
-        case SPAWN:
+        case INVOCATION -> hashFunctionName = entry.getInvocation().getHashFunctionName();
+        case FILE -> fileMap.put(entry.getId(), reconstructFile(entry.getFile()));
+        case DIRECTORY -> dirMap.put(entry.getId(), reconstructDir(entry.getDirectory()));
+        case UNRESOLVED_SYMLINK ->
+            symlinkMap.put(entry.getId(), reconstructSymlink(entry.getUnresolvedSymlink()));
+        case INPUT_SET -> setMap.put(entry.getId(), entry.getInputSet());
+        case SPAWN -> {
           return reconstructSpawnExec(entry.getSpawn());
-        default:
-          throw new IOException(
-              String.format("unknown entry type %d", entry.getTypeCase().getNumber()));
+        }
+        default ->
+            throw new IOException(
+                String.format("unknown entry type %d", entry.getTypeCase().getNumber()));
       }
     }
     return null;
@@ -114,29 +106,27 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
 
     for (ExecLogEntry.Output output : entry.getOutputsList()) {
       switch (output.getTypeCase()) {
-        case FILE_ID:
+        case FILE_ID -> {
           File file = getFromMap(fileMap, output.getFileId());
           listedOutputs.add(file.getPath());
           builder.addActualOutputs(file);
-          break;
-        case DIRECTORY_ID:
+        }
+        case DIRECTORY_ID -> {
           Pair<String, Collection<File>> dir = getFromMap(dirMap, output.getDirectoryId());
           listedOutputs.add(dir.getFirst());
           for (File dirFile : dir.getSecond()) {
             builder.addActualOutputs(dirFile);
           }
-          break;
-        case UNRESOLVED_SYMLINK_ID:
+        }
+        case UNRESOLVED_SYMLINK_ID -> {
           File symlink = getFromMap(symlinkMap, output.getUnresolvedSymlinkId());
           listedOutputs.add(symlink.getPath());
           builder.addActualOutputs(symlink);
-          break;
-        case INVALID_OUTPUT_PATH:
-          listedOutputs.add(output.getInvalidOutputPath());
-          break;
-        default:
-          throw new IOException(
-              String.format("unknown output type %d", output.getTypeCase().getNumber()));
+        }
+        case INVALID_OUTPUT_PATH -> listedOutputs.add(output.getInvalidOutputPath());
+        default ->
+            throw new IOException(
+                String.format("unknown output type %d", output.getTypeCase().getNumber()));
       }
     }
 

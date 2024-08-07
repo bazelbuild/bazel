@@ -185,24 +185,21 @@ public final class StarlarkDocumentationProcessor {
 
     // Maps (essentially free-form) strings in annotations to permitted categories.
     public static Category of(StarlarkBuiltin annot) {
-      switch (annot.category()) {
-        case DocCategory.CONFIGURATION_FRAGMENT:
-          return CONFIGURATION_FRAGMENT;
-        case DocCategory.PROVIDER:
-          return PROVIDER;
-        case DocCategory.BUILTIN:
-          return BUILTIN;
-        case DocCategory.TOP_LEVEL_MODULE:
-          return TOP_LEVEL_MODULE;
-        case "core": // interpreter built-ins (e.g. int)
-        case "core.lib": // Starlark standard modules (e.g. json)
-          return CORE;
-        default:
-          throw new IllegalStateException(
-              String.format(
-                  "docgen does not recognize DocCategory '%s' for StarlarkBuiltin '%s'",
-                  annot.category(), annot.name()));
-      }
+      return switch (annot.category()) {
+        case DocCategory.CONFIGURATION_FRAGMENT -> CONFIGURATION_FRAGMENT;
+        case DocCategory.PROVIDER -> PROVIDER;
+        case DocCategory.BUILTIN -> BUILTIN;
+        case DocCategory.TOP_LEVEL_MODULE -> TOP_LEVEL_MODULE;
+        case "core", "core.lib" ->
+            // interpreter built-ins (e.g. int)
+            // Starlark standard modules (e.g. json)
+            CORE;
+        default ->
+            throw new IllegalStateException(
+                String.format(
+                    "docgen does not recognize DocCategory '%s' for StarlarkBuiltin '%s'",
+                    annot.category(), annot.name()));
+      };
     }
 
     Category(String title, String path, String description) {

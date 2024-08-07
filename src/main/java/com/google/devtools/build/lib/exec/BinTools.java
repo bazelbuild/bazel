@@ -134,18 +134,13 @@ public final class BinTools {
           ? dirent.getName()
           : relative + "/" + dirent.getName();
       switch (dirent.getType()) {
-        case FILE:
-          result.add(childRelative);
-          break;
-
-        case DIRECTORY:
-          scanDirectoryRecursively(result, root.getChild(dirent.getName()), childRelative);
-          break;
-
-        default:
+        case FILE -> result.add(childRelative);
+        case DIRECTORY ->
+            scanDirectoryRecursively(result, root.getChild(dirent.getName()), childRelative);
+        default -> {
           // Nothing to do here -- we ignore symlinks, since they should not be present in the
           // embedded binaries tree.
-          break;
+        }
       }
     }
   }

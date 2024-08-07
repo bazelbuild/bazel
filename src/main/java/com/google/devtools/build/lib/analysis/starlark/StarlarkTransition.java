@@ -361,16 +361,12 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
       StarlarkTransition transition, Settings settings) {
     ImmutableSet.Builder<Label> result = ImmutableSet.builder();
     switch (settings) {
-      case INPUTS:
-        addLabelIfRelevant(result, transition.getInputs());
-        break;
-      case OUTPUTS:
-        addLabelIfRelevant(result, transition.getOutputs());
-        break;
-      case INPUTS_AND_OUTPUTS:
+      case INPUTS -> addLabelIfRelevant(result, transition.getInputs());
+      case OUTPUTS -> addLabelIfRelevant(result, transition.getOutputs());
+      case INPUTS_AND_OUTPUTS -> {
         addLabelIfRelevant(result, transition.getInputs());
         addLabelIfRelevant(result, transition.getOutputs());
-        break;
+      }
     }
     return result.build();
   }

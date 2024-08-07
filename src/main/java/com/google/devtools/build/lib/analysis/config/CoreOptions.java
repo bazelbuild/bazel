@@ -638,14 +638,10 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public OutputDirectoryNamingScheme outputDirectoryNamingScheme;
 
   public boolean useBaselineForOutputDirectoryNamingScheme() {
-    switch (outputDirectoryNamingScheme) {
-      case DIFF_AGAINST_BASELINE:
-      case DIFF_AGAINST_DYNAMIC_BASELINE:
-        return true;
-      case LEGACY:
-        return false;
-    }
-    throw new IllegalStateException("unreachable");
+    return switch (outputDirectoryNamingScheme) {
+      case DIFF_AGAINST_BASELINE, DIFF_AGAINST_DYNAMIC_BASELINE -> true;
+      case LEGACY -> false;
+    };
   }
 
   @Option(
