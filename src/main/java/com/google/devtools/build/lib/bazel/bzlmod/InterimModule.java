@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import java.util.Optional;
 import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
@@ -38,7 +37,6 @@ import javax.annotation.Nullable;
  * each dep, the {@code compatibility_level}, the {@code registry} the module comes from, etc.
  */
 @AutoValue
-@GenerateTypeAdapter
 public abstract class InterimModule extends ModuleBase {
 
   /**
