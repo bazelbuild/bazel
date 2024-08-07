@@ -16,7 +16,12 @@ package com.google.devtools.build.lib.remote.grpc;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import io.grpc.CallOptions;
 import io.grpc.ClientCall;
+import io.grpc.ForwardingClientCall.SimpleForwardingClientCall;
+import io.grpc.ForwardingClientCallListener.SimpleForwardingClientCallListener;
+import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
+import io.grpc.Status;
+import io.netty.channel.unix.Errors;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.functions.Action;
@@ -118,7 +123,13 @@ public class SharedConnectionFactory implements ConnectionPool {
                     .map(
                         conn ->
                             new SharedConnection(
-                                conn, /* onClose= */ () -> tokenBucket.addToken(token))));
+                                conn,
+                                /* onClose= */ () -> tokenBucket.addToken(token),
+                                /* onFatalError= */ () -> {
+                                  synchronized (this) {
+                                    connectionAsyncSubject = null;
+                                  }
+                                })));
   }
 
   /** Returns current number of available connections. */
@@ -130,16 +141,33 @@ public class SharedConnectionFactory implements ConnectionPool {
   public static class SharedConnection implements Connection {
     private final Connection connection;
     private final Action onClose;
+    private final Runnable onFatalError;
 
-    public SharedConnection(Connection connection, Action onClose) {
+    public SharedConnection(Connection connection, Action onClose, Runnable onFatalError) {
       this.connection = connection;
       this.onClose = onClose;
+      this.onFatalError = onFatalError;
     }
 
     @Override
     public <ReqT, RespT> ClientCall<ReqT, RespT> call(
         MethodDescriptor<ReqT, RespT> method, CallOptions options) {
-      return connection.call(method, options);
+      return new SimpleForwardingClientCall<>(connection.call(method, options)) {
+        @Override
+        public void start(Listener<RespT> responseListener, Metadata headers) {
+          super.start(
+              new SimpleForwardingClientCallListener<>(responseListener) {
+                @Override
+                public void onClose(Status status, Metadata trailers) {
+                  if (isFatalError(status.getCause())) {
+                    onFatalError.run();
+                  }
+                  super.onClose(status, trailers);
+                }
+              },
+              headers);
+        }
+      };
     }
 
     @Override
@@ -154,6 +182,12 @@ public class SharedConnectionFactory implements ConnectionPool {
     /** Returns the underlying connection this shared connection built on */
     public Connection getUnderlyingConnection() {
       return connection;
+    }
+
+    private static boolean isFatalError(@Nullable Throwable t) {
+      // A low-level netty error indicates that the connection is fundamentally broken
+      // and should not be reused for retries.
+      return t instanceof Errors.NativeIoException;
     }
   }
 }
