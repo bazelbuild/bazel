@@ -76,14 +76,11 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
       public static LocalFileType forArtifact(
           Artifact artifact, @Nullable FileArtifactValue metadata) {
         if (metadata != null) {
-          switch (metadata.getType()) {
-            case DIRECTORY:
-              return LocalFileType.OUTPUT_DIRECTORY;
-            case SYMLINK:
-              return LocalFileType.OUTPUT_SYMLINK;
-            default:
-              return LocalFileType.OUTPUT_FILE;
-          }
+          return switch (metadata.getType()) {
+            case DIRECTORY -> LocalFileType.OUTPUT_DIRECTORY;
+            case SYMLINK -> LocalFileType.OUTPUT_SYMLINK;
+            default -> LocalFileType.OUTPUT_FILE;
+          };
         }
         if (artifact.isDirectory()) {
           return LocalFileType.OUTPUT_DIRECTORY;

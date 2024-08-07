@@ -1465,17 +1465,14 @@ the same path on case-insensitive filesystems.
     AUTO;
 
     static ShouldWatch fromString(String s) throws EvalException {
-      switch (s) {
-        case "yes":
-          return YES;
-        case "no":
-          return NO;
-        case "auto":
-          return AUTO;
-        default:
-          throw Starlark.errorf(
-              "bad value for 'watch' parameter; want 'yes', 'no', or 'auto', got %s", s);
-      }
+      return switch (s) {
+        case "yes" -> YES;
+        case "no" -> NO;
+        case "auto" -> AUTO;
+        default ->
+            throw Starlark.errorf(
+                "bad value for 'watch' parameter; want 'yes', 'no', or 'auto', got %s", s);
+      };
     }
   }
 

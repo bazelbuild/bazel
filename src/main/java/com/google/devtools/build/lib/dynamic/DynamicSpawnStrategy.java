@@ -295,14 +295,14 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     }
 
     switch (strategyThatCancelled.get()) {
-      case LOCAL:
+      case LOCAL -> {
         localName = winner;
         winnerBranchType = LOCAL;
-        break;
-      case REMOTE:
+      }
+      case REMOTE -> {
         remoteName = winner;
         winnerBranchType = REMOTE;
-        break;
+      }
     }
 
     context

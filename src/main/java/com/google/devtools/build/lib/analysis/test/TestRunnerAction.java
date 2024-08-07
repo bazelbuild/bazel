@@ -560,15 +560,12 @@ public class TestRunnerAction extends AbstractAction
             this::maybeReadCacheStatus,
             testProperties.isExternal(),
             executionSettings.getTotalRuns());
-    switch (cacheStatus) {
-      case NO_STATUS_ON_DISK:
-        // execute unconditionally if no status available on disk
-      case NO:
-        return true;
-      case YES:
-        return false;
-    }
-    throw new IllegalStateException("Unreachable. Bad cache status: " + cacheStatus);
+    return switch (cacheStatus) {
+      case NO_STATUS_ON_DISK, NO ->
+          // execute unconditionally if no status available on disk
+          true;
+      case YES -> false;
+    };
   }
 
   @VisibleForTesting
@@ -610,15 +607,10 @@ public class TestRunnerAction extends AbstractAction
             this::maybeReadCacheStatus,
             testProperties.isExternal(),
             executionSettings.getTotalRuns());
-    switch (cacheStatus) {
-        // optimistically cache results if status unavailable
-      case YES:
-      case NO_STATUS_ON_DISK:
-        return true;
-      case NO:
-        return false;
-    }
-    throw new IllegalStateException("Unreachable. Bad cache status: " + cacheStatus);
+    return switch (cacheStatus) {
+      case YES, NO_STATUS_ON_DISK -> true;
+      case NO -> false;
+    };
   }
 
   @Override

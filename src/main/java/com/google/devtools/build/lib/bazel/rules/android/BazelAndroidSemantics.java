@@ -84,12 +84,10 @@ public class BazelAndroidSemantics implements AndroidSemantics {
 
   @Override
   public ImmutableList<String> getAttributesWithJavaRuntimeDeps(RuleContext ruleContext) {
-    switch (ruleContext.getRule().getRuleClass()) {
-      case "android_binary":
-        return ImmutableList.of("application_resources", "deps");
-      default:
-        throw new UnsupportedOperationException("Only supported for top-level binaries");
-    }
+    return switch (ruleContext.getRule().getRuleClass()) {
+      case "android_binary" -> ImmutableList.of("application_resources", "deps");
+      default -> throw new UnsupportedOperationException("Only supported for top-level binaries");
+    };
   }
 
   @Override

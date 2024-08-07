@@ -87,15 +87,15 @@ public class PrintingEventHandler extends AbstractEventHandler
     }
     try {
       switch (event.getKind()) {
-        case STDOUT:
+        case STDOUT -> {
           outErr.getOutputStream().write(event.getMessageBytes());
           outErr.getOutputStream().flush();
-          break;
-        case STDERR:
+        }
+        case STDERR -> {
           outErr.getErrorStream().write(event.getMessageBytes());
           outErr.getErrorStream().flush();
-          break;
-        default:
+        }
+        default -> {
           StringBuilder builder = new StringBuilder();
           builder.append(event.getKind()).append(": ");
           if (event.getLocation() != null) {
@@ -104,6 +104,7 @@ public class PrintingEventHandler extends AbstractEventHandler
           builder.append(event.getMessage()).append("\n");
           outErr.getErrorStream().write(builder.toString().getBytes(StandardCharsets.UTF_8));
           outErr.getErrorStream().flush();
+        }
       }
     } catch (IOException e) {
       /*

@@ -544,25 +544,16 @@ class MetricsCollector {
       WorkerProcessStatus status = wpm.getStatus();
       if (status.isKilled()) {
         switch (status.get()) {
-            // If the process is killed due to a specific reason, we attribute the cause to all
-            // workers of that process (plural in the case of multiplex workers).
-          case KILLED_UNKNOWN:
-            unknownDestroyedCount += numWorkers;
-            break;
-          case KILLED_DUE_TO_INTERRUPTED_EXCEPTION:
-            interruptedExceptionDestroyedCount += numWorkers;
-            break;
-          case KILLED_DUE_TO_IO_EXCEPTION:
-            ioExceptionDestroyedCount += numWorkers;
-            break;
-          case KILLED_DUE_TO_MEMORY_PRESSURE:
-            evictedCount += numWorkers;
-            break;
-          case KILLED_DUE_TO_USER_EXEC_EXCEPTION:
-            userExecExceptionDestroyedCount += numWorkers;
-            break;
-          default:
-            break;
+          // If the process is killed due to a specific reason, we attribute the cause to all
+          // workers of that process (plural in the case of multiplex workers).
+
+          case KILLED_UNKNOWN -> unknownDestroyedCount += numWorkers;
+          case KILLED_DUE_TO_INTERRUPTED_EXCEPTION ->
+              interruptedExceptionDestroyedCount += numWorkers;
+          case KILLED_DUE_TO_IO_EXCEPTION -> ioExceptionDestroyedCount += numWorkers;
+          case KILLED_DUE_TO_MEMORY_PRESSURE -> evictedCount += numWorkers;
+          case KILLED_DUE_TO_USER_EXEC_EXCEPTION -> userExecExceptionDestroyedCount += numWorkers;
+          default -> {}
         }
         destroyedCount += numWorkers;
       } else {
@@ -629,12 +620,8 @@ class MetricsCollector {
             }
 
             switch (winner) {
-              case LOCAL:
-                newValue.incrementLocalWins();
-                break;
-              case REMOTE:
-                newValue.incrementRemoteWins();
-                break;
+              case LOCAL -> newValue.incrementLocalWins();
+              case REMOTE -> newValue.incrementRemoteWins();
             }
 
             return newValue;

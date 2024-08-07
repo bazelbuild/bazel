@@ -153,17 +153,16 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   @Nullable
   @Override
   public Object getValue(String name) {
-    switch (name) {
-      case LABEL_FIELD:
-        return getLabel();
-      case ACTIONS_FIELD_NAME:
+    return switch (name) {
+      case LABEL_FIELD -> getLabel();
+      case ACTIONS_FIELD_NAME -> {
         // Depending on subclass, the 'actions' field will either be unsupported or of type
         // java.util.List, which needs to be converted to Sequence before being returned.
         Object result = get(name);
-        return result != null ? Starlark.fromJava(result, null) : null;
-      default:
-        return get(name);
-    }
+        yield result != null ? Starlark.fromJava(result, null) : null;
+      }
+      default -> get(name);
+    };
   }
 
   @Override
@@ -226,20 +225,14 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   /** Returns a value provided by this target. Only meant to use from Starlark. */
   @Override
   public final Object get(String providerKey) {
-    switch (providerKey) {
-      case FILES_FIELD:
-        return getDefaultProvider().getFiles();
-      case DEFAULT_RUNFILES_FIELD:
-        return getDefaultProvider().getDefaultRunfiles();
-      case DATA_RUNFILES_FIELD:
-        return getDefaultProvider().getDataRunfiles();
-      case FilesToRunProvider.STARLARK_NAME:
-        return getDefaultProvider().getFilesToRun();
-      case OutputGroupInfo.STARLARK_NAME:
-        return get(OutputGroupInfo.STARLARK_CONSTRUCTOR);
-      default:
-        return rawGetStarlarkProvider(providerKey);
-    }
+    return switch (providerKey) {
+      case FILES_FIELD -> getDefaultProvider().getFiles();
+      case DEFAULT_RUNFILES_FIELD -> getDefaultProvider().getDefaultRunfiles();
+      case DATA_RUNFILES_FIELD -> getDefaultProvider().getDataRunfiles();
+      case FilesToRunProvider.STARLARK_NAME -> getDefaultProvider().getFilesToRun();
+      case OutputGroupInfo.STARLARK_NAME -> get(OutputGroupInfo.STARLARK_CONSTRUCTOR);
+      default -> rawGetStarlarkProvider(providerKey);
+    };
   }
 
   /** Implement in subclasses to get a Starlark provider for a given {@code providerKey}. */
