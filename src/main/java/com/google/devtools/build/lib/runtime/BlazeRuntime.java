@@ -419,6 +419,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             commandOptions.slimProfile,
             commandOptions.includePrimaryOutput,
             commandOptions.profileIncludeTargetLabel,
+            commandOptions.profileIncludeTargetConfiguration,
             commandOptions.alwaysProfileSlowOperations,
             new CollectLocalResourceUsage(
                 bugReporter,
