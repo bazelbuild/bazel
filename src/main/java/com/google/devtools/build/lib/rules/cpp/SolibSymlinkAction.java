@@ -298,8 +298,7 @@ public final class SolibSymlinkAction extends AbstractAction {
   @Override
   @Nullable
   public PlatformInfo getExecutionPlatform() {
-    // SolibSymlinkAction is platform agnostic.
-    return null;
+    return PlatformInfo.BUILTIN_PLATFORM_INFO;
   }
 
   @Override

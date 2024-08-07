@@ -98,8 +98,7 @@ public final class MiddlemanAction extends AbstractAction {
   @Override
   @Nullable
   public PlatformInfo getExecutionPlatform() {
-    // Middleman actions do not execute actual actions, and therefore have no execution platform.
-    return null;
+    return PlatformInfo.BUILTIN_PLATFORM_INFO;
   }
 
   @Override
