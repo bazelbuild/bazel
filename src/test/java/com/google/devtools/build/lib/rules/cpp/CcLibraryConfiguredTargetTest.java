@@ -144,7 +144,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "Unrecognized file extension '.wrong_ext', allowed "
                 + "extensions are %s, please check artifact_name_pattern configuration for "
                 + "%s in your rule.",
-            StringUtil.joinEnglishList(correctExtensions, "or", "'"), categoryName));
+            StringUtil.joinEnglishListSingleQuoted(correctExtensions), categoryName));
   }
 
   @Test

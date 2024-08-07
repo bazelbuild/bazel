@@ -22,44 +22,72 @@ import com.google.common.collect.Iterables;
 import java.util.Collection;
 import java.util.Iterator;
 
-/**
- * Various utility methods operating on strings.
- */
+/** Various utility methods operating on strings. */
 public class StringUtil {
   /**
    * Creates a comma-separated list of words as in English.
    *
-   * <p>Example: ["a", "b", "c"] -&gt; "a, b or c".
+   * <p>Examples:
+   *
+   * <ul>
+   *   <li>["a"] → "a"
+   *   <li>["a", "b"] → "a or b"
+   *   <li>["a", "b", "c"] → "a, b, or c"
+   * </ul>
    */
   public static String joinEnglishList(Iterable<?> choices) {
-    return joinEnglishList(choices, "or", "");
+    return joinEnglishList(choices, "or", "", /* oxfordComma= */ true);
   }
 
   /**
    * Creates a comma-separated list of words as in English with the given last-separator.
    *
-   * <p>Example with lastSeparator="then": ["a", "b", "c"] -&gt; "a, b then c".
+   * <p>Example with lastSeparator="and": ["a", "b", "c"] → "a, b, and c".
    */
   public static String joinEnglishList(Iterable<?> choices, String lastSeparator) {
-    return joinEnglishList(choices, lastSeparator, "");
+    return joinEnglishList(choices, lastSeparator, "", /* oxfordComma= */ true);
   }
 
   /**
    * Creates a comma-separated list of words as in English with the given last-separator and quotes.
    *
-   * <p>Example with lastSeparator="then", quote="'": ["a", "b", "c"] -&gt; "'a', 'b' then 'c'".
+   * <p>Example with lastSeparator="then", quote="'", oxfordComma=false: ["a", "b", "c"] → "'a', 'b'
+   * then 'c'".
    */
-  public static String joinEnglishList(Iterable<?> choices, String lastSeparator, String quote) {
+  public static String joinEnglishList(
+      Iterable<?> choices, String lastSeparator, String quote, boolean oxfordComma) {
     StringBuilder buf = new StringBuilder();
+    int numChoicesSeen = 0;
     for (Iterator<?> ii = choices.iterator(); ii.hasNext(); ) {
       Object choice = ii.next();
       if (buf.length() > 0) {
-        buf.append(ii.hasNext() ? "," : " " + lastSeparator);
+        if (ii.hasNext() || (oxfordComma && numChoicesSeen >= 2)) {
+          buf.append(",");
+        }
+        if (!ii.hasNext()) {
+          buf.append(" ").append(lastSeparator);
+        }
         buf.append(" ");
       }
       buf.append(quote).append(choice).append(quote);
+      numChoicesSeen++;
     }
     return buf.length() == 0 ? "nothing" : buf.toString();
+  }
+
+  /**
+   * Creates a comma-separated list of singe-quoted words as in English.
+   *
+   * <p>Examples:
+   *
+   * <ul>
+   *   <li>["a"] → "'a'""
+   *   <li>["a", "b"] → "'a' or 'b'"
+   *   <li>["a", "b", "c"] → "'a', 'b', or 'c'"
+   * </ul>
+   */
+  public static String joinEnglishListSingleQuoted(Iterable<?> choices) {
+    return joinEnglishList(choices, "or", "'", /* oxfordComma= */ true);
   }
 
   /**
@@ -154,4 +182,6 @@ public class StringUtil {
     final byte[] utf8 = unicode.getBytes(UTF_8);
     return new String(utf8, ISO_8859_1);
   }
+
+  private StringUtil() {}
 }

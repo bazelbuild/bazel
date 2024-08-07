@@ -17,10 +17,10 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.util.StringUtil.decodeBytestringUtf8;
 import static com.google.devtools.build.lib.util.StringUtil.encodeBytestringUtf8;
 import static com.google.devtools.build.lib.util.StringUtil.joinEnglishList;
+import static com.google.devtools.build.lib.util.StringUtil.joinEnglishListSingleQuoted;
 
 import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
-import java.util.Collections;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -31,16 +31,28 @@ public class StringUtilTest {
 
   @Test
   public void testJoinEnglishList() throws Exception {
-    assertThat(joinEnglishList(Collections.emptyList())).isEqualTo("nothing");
+    assertThat(joinEnglishList(ImmutableList.of())).isEqualTo("nothing");
     assertThat(joinEnglishList(Arrays.asList("one"))).isEqualTo("one");
     assertThat(joinEnglishList(Arrays.asList("one", "two"))).isEqualTo("one or two");
     assertThat(joinEnglishList(Arrays.asList("one", "two"), "and")).isEqualTo("one and two");
     assertThat(joinEnglishList(Arrays.asList("one", "two", "three")))
-        .isEqualTo("one, two or three");
+        .isEqualTo("one, two, or three");
     assertThat(joinEnglishList(Arrays.asList("one", "two", "three"), "and"))
-        .isEqualTo("one, two and three");
-    assertThat(joinEnglishList(Arrays.asList("one", "two", "three"), "and", "'"))
-        .isEqualTo("'one', 'two' and 'three'");
+        .isEqualTo("one, two, and three");
+    assertThat(joinEnglishList(Arrays.asList("one", "two", "three"), "or even", "\"", true))
+        .isEqualTo("\"one\", \"two\", or even \"three\"");
+    assertThat(joinEnglishList(Arrays.asList("one", "two", "three"), "then", "'", false))
+        .isEqualTo("'one', 'two' then 'three'");
+  }
+
+  @Test
+  public void testJoinEnglishListSingleQuoted() throws Exception {
+    assertThat(joinEnglishListSingleQuoted(ImmutableList.of())).isEqualTo("nothing");
+    assertThat(joinEnglishListSingleQuoted(Arrays.asList("one"))).isEqualTo("'one'");
+    assertThat(joinEnglishListSingleQuoted(Arrays.asList("one", "two")))
+        .isEqualTo("'one' or 'two'");
+    assertThat(joinEnglishListSingleQuoted(Arrays.asList("one", "two", "three")))
+        .isEqualTo("'one', 'two', or 'three'");
   }
 
   @Test

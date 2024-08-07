@@ -1226,8 +1226,7 @@ public class Package {
         allowedUses.add("a WORKSPACE file");
       }
       throw Starlark.errorf(
-          "%s can only be used while evaluating %s",
-          what, StringUtil.joinEnglishList(allowedUses, "or"));
+          "%s can only be used while evaluating %s", what, StringUtil.joinEnglishList(allowedUses));
     }
 
     /** Convenience method for {@link #fromOrFail} that permits any context with a Builder. */
