@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.buildeventservice.BuildEventServiceUploader
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceUploaderCommands.SendBuildEventCommand;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceUploaderCommands.SendLastBuildEventCommand;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceUploaderCommands.SendRegularBuildEventCommand;
+import com.google.devtools.build.lib.buildeventservice.BuildEventServiceUploaderCommands.SendRequestBuildEventCommand;
 import com.google.devtools.build.lib.buildeventservice.BuildEventServiceUploaderCommands.StreamCompleteCommand;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient;
 import com.google.devtools.build.lib.buildeventservice.client.BuildEventServiceClient.StreamContext;
@@ -397,7 +398,7 @@ public final class BuildEventServiceUploader implements Runnable {
     // Every build event sent to the server needs to be acknowledged by it. This queue stores
     // the build events that have been sent and still have to be acknowledged by the server.
     // The build events are stored in the order they were sent.
-    Deque<SendBuildEventCommand> ackQueue = new ArrayDeque<>();
+    Deque<SendRequestBuildEventCommand> ackQueue = new ArrayDeque<>();
     boolean lastEventSent = false;
     int acksReceived = 0;
     int retryAttempt = 0;
@@ -436,7 +437,6 @@ public final class BuildEventServiceUploader implements Runnable {
             {
               // Invariant: the eventQueue may contain events of any type
               SendRegularBuildEventCommand buildEvent = (SendRegularBuildEventCommand) event;
-              ackQueue.addLast(buildEvent);
 
               PathConverter pathConverter = waitForUploads(buildEvent);
 
@@ -448,7 +448,16 @@ public final class BuildEventServiceUploader implements Runnable {
                       buildEvent.getSequenceNumber(),
                       buildEvent.getCreationTime(),
                       Any.pack(serializedRegularBuildEvent));
+              ackQueue.addLast(new SendRequestBuildEventCommand(request));
+              streamContext.sendOverStream(request);
+            }
+            break;
 
+          case SEND_REQUEST_BUILD_EVENT:
+            {
+              SendRequestBuildEventCommand buildEvent = (SendRequestBuildEventCommand) event;
+              PublishBuildToolEventStreamRequest request = buildEvent.getRequest();
+              ackQueue.addLast(buildEvent);
               streamContext.sendOverStream(request);
             }
           }
@@ -456,11 +465,11 @@ public final class BuildEventServiceUploader implements Runnable {
             {
               // Invariant: the eventQueue may contain events of any type
               SendBuildEventCommand lastEvent = (SendLastBuildEventCommand) event;
-              ackQueue.addLast(lastEvent);
               lastEventSent = true;
               PublishBuildToolEventStreamRequest request =
                   besProtoUtil.streamFinished(
                       lastEvent.getSequenceNumber(), lastEvent.getCreationTime());
+              ackQueue.addLast(new SendRequestBuildEventCommand(request));
               streamContext.sendOverStream(request);
               streamContext.halfCloseStream();
               halfCloseFuture.set(null);
@@ -472,7 +481,7 @@ public final class BuildEventServiceUploader implements Runnable {
               // Invariant: the eventQueue may contain events of any type
               AckReceivedCommand ackEvent = (AckReceivedCommand) event;
               if (!ackQueue.isEmpty()) {
-                SendBuildEventCommand expected = ackQueue.removeFirst();
+                SendRequestBuildEventCommand expected = ackQueue.removeFirst();
                 long actualSeqNum = ackEvent.getSequenceNumber();
                 if (expected.getSequenceNumber() == actualSeqNum) {
                   acksReceived++;
@@ -550,7 +559,7 @@ public final class BuildEventServiceUploader implements Runnable {
               // Retry logic
               // Adds events from the ackQueue to the front of the eventQueue, so that the
               // events in the eventQueue are sorted by sequence number (ascending).
-              SendBuildEventCommand unacked;
+              SendRequestBuildEventCommand unacked;
               while ((unacked = ackQueue.pollLast()) != null) {
                 eventQueue.addFirst(unacked);
               }
