@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryModuleApi.TagClassApi;
 import java.util.Optional;
-import net.starlark.java.syntax.Location;
 
 /**
  * Represents a tag class, which is a "class" of {@link Tag}s that share the same attribute schema.
@@ -33,9 +32,6 @@ public abstract class TagClass implements TagClassApi {
   /** Documentation about this tag class. */
   public abstract Optional<String> getDoc();
 
-  /** The Starlark code location where this tag class was defined. */
-  public abstract Location getLocation();
-
   /**
    * A mapping from the <em>public</em> name of an attribute to the position of said attribute in
    * {@link #getAttributes}.
@@ -43,13 +39,12 @@ public abstract class TagClass implements TagClassApi {
   public abstract ImmutableMap<String, Integer> getAttributeIndices();
 
   public static TagClass create(
-      ImmutableList<Attribute> attributes, Optional<String> doc, Location location) {
+      ImmutableList<Attribute> attributes, Optional<String> doc) {
     ImmutableMap.Builder<String, Integer> attributeIndicesBuilder =
         ImmutableMap.builderWithExpectedSize(attributes.size());
     for (int i = 0; i < attributes.size(); i++) {
       attributeIndicesBuilder.put(attributes.get(i).getPublicName(), i);
     }
-    return new AutoValue_TagClass(
-        attributes, doc, location, attributeIndicesBuilder.buildOrThrow());
+    return new AutoValue_TagClass(attributes, doc, attributeIndicesBuilder.buildOrThrow());
   }
 }
