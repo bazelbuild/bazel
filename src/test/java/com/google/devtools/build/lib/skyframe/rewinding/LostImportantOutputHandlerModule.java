@@ -163,7 +163,7 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
 
     private Stream<OutputAndOwner> expand(Artifact output, ArtifactExpander expander) {
       if (output.isTreeArtifact()) {
-        var children = expander.expandTreeArtifact(output).stream();
+        var children = expander.tryExpandTreeArtifact(output).stream();
         var archivedTreeArtifact = expander.getArchivedTreeArtifact(output);
         var expansion =
             archivedTreeArtifact == null

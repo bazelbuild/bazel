@@ -970,10 +970,14 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
 
     @Override
-    public ImmutableSortedSet<TreeFileArtifact> expandTreeArtifact(Artifact treeArtifact) {
+    public ImmutableSortedSet<TreeFileArtifact> expandTreeArtifact(Artifact treeArtifact)
+        throws MissingExpansionException {
       checkArgument(treeArtifact.isTreeArtifact(), treeArtifact);
       TreeArtifactValue tree = inputArtifactData.getTreeMetadata(treeArtifact.getExecPath());
-      return tree == null ? ImmutableSortedSet.of() : tree.getChildren();
+      if (tree == null) {
+        throw new MissingExpansionException("Missing expansion for tree artifact: " + treeArtifact);
+      }
+      return tree.getChildren();
     }
 
     @Override
