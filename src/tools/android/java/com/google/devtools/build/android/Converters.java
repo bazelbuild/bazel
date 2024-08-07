@@ -20,6 +20,7 @@ import com.android.manifmerger.ManifestMerger2.MergeType;
 import com.android.repository.Revision;
 import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.ParameterException;
+import com.beust.jcommander.converters.IParameterSplitter;
 import com.beust.jcommander.converters.StringConverter;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -183,6 +184,33 @@ public final class Converters {
       return "a list of preparsed android data in the format "
           + SerializedAndroidData.EXPECTED_FORMAT
           + "[&...]";
+    }
+  }
+
+  /**
+   * A splitter class for JCommander flags that does not actually split.
+   *
+   * <p>Used when an argument expects a comma in the value (such as DependencySymbolFileProvider).
+   */
+  public static class NoOpSplitter implements IParameterSplitter {
+    @Override
+    public List<String> split(String value) {
+      return ImmutableList.of(value);
+    }
+  }
+
+  /** Converter for a single {@link DependencySymbolFileProvider}. Compatible with JCommander. */
+  public static class CompatDependencySymbolFileProviderConverter
+      implements IStringConverter<DependencySymbolFileProvider> {
+
+    @Override
+    public DependencySymbolFileProvider convert(String input) throws ParameterException {
+      try {
+        return DependencySymbolFileProvider.valueOf(input);
+      } catch (IllegalArgumentException e) {
+        throw new ParameterException(
+            String.format("invalid DependencyAndroidData: %s", e.getMessage()), e);
+      }
     }
   }
 
