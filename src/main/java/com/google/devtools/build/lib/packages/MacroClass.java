@@ -196,7 +196,17 @@ public final class MacroClass {
       attrValues.put(attrName, normalizedValue);
     }
 
-    return new MacroInstance(this, attrValues);
+    // Type and existence enforced by RuleClass.NAME_ATTRIBUTE.
+    String name = (String) Preconditions.checkNotNull(attrValues.get("name"));
+    // Determine the id for this macro. If we're in another macro by the same name, increment the
+    // number, otherwise use 1 for the number.
+    @Nullable MacroInstance parentMacro = pkgBuilder.currentMacro();
+    int sameNameDepth =
+        parentMacro == null || !name.equals(parentMacro.getName())
+            ? 1
+            : parentMacro.getSameNameDepth() + 1;
+
+    return new MacroInstance(this, attrValues, sameNameDepth);
   }
 
   /**
@@ -237,7 +247,7 @@ public final class MacroClass {
               semantics,
               /* contextDescription= */ "",
               SymbolGenerator.create(
-                  MacroId.create(builder.getPackageIdentifier(), macro.getName())));
+                  MacroClassId.create(builder.getPackageIdentifier(), macro.getName())));
       thread.setPrintHandler(Event.makeDebugPrintHandler(builder.getLocalEventHandler()));
 
       // TODO: #19922 - Technically the embedded SymbolGenerator field should use a different key
@@ -272,9 +282,9 @@ public final class MacroClass {
   }
 
   @AutoValue
-  abstract static class MacroId {
-    static MacroId create(PackageIdentifier id, String name) {
-      return new AutoValue_MacroClass_MacroId(id, name);
+  abstract static class MacroClassId {
+    static MacroClassId create(PackageIdentifier id, String name) {
+      return new AutoValue_MacroClass_MacroClassId(id, name);
     }
 
     abstract PackageIdentifier packageId();

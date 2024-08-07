@@ -309,8 +309,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         """);
 
     Package pkg = getPackage("pkg");
-    assertThat(pkg.getMacros().keySet()).containsExactly("abc", "def", "ghi").inOrder();
-    assertThat(pkg.getMacros().get("abc").getMacroClass().getName()).isEqualTo("my_macro");
+    assertThat(pkg.getMacrosById().keySet()).containsExactly("abc:1", "def:1", "ghi:1").inOrder();
+    assertThat(pkg.getMacrosById().get("abc:1").getMacroClass().getName()).isEqualTo("my_macro");
   }
 
   @Test

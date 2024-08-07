@@ -149,7 +149,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
     assertThat(pkg.getTargets()).containsKey("abc");
-    assertThat(pkg.getMacros()).containsKey("abc");
+    assertThat(pkg.getMacrosById()).containsKey("abc:1");
   }
 
   @Test
@@ -244,7 +244,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     assertPackageNotInError(pkg);
     assertThat(pkg.getTargets().keySet())
         .containsAtLeast("abc", "abc_inside_macro", "abc_outside_macro");
-    assertThat(pkg.getMacros()).containsKey("abc");
+    assertThat(pkg.getMacrosById()).containsKey("abc:1");
   }
 
   @Test

@@ -1353,6 +1353,9 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     assertThat(pkg.getTarget("baz")).isInstanceOf(InputFile.class);
   }
 
+  // TODO(#19922): Add test that macro ids are determined correctly, once we allow macros to
+  // instantiate main submacros (i.e. macros having the same name as the parent).
+
   @Test
   public void testGlobPatternExtractor() throws Exception {
     StarlarkFile file =

@@ -127,12 +127,13 @@ public class Package {
    *
    * <p>Note that a target and a macro may share the same name.
    */
+  // TODO(#19922): Change these semantics to disallow name conflicts between macros and targets
+  // except in the (common) case of a main target of a macro.
   private ImmutableSortedMap<String, Target> targets;
 
   /**
-   * The collection of all symbolic macro instances defined in this package, indexed by name.
-   *
-   * <p>Note that a target and a macro may share the same name.
+   * The collection of all symbolic macro instances defined in this package, indexed by their {@link
+   * MacroInstance#getId id} (not name).
    */
   // TODO(#19922): Enforce that macro namespaces are "exclusive", meaning that target names may only
   // suffix a macro name when the target is created (transitively) within the macro.
@@ -665,11 +666,14 @@ public class Package {
     }
   }
 
-  /** Returns all symbolic macros defined in the package. */
-  // TODO(#19922): Clarify this comment to indicate whether the macros have already been expanded
-  // by the point the Package has been built. The answer's probably "yes". In that case, this
-  // accessor is still useful for introspecting e.g. by `bazel query`.
-  public ImmutableMap<String, MacroInstance> getMacros() {
+  /**
+   * Returns all symbolic macros defined in the package, indexed by {@link MacroInstance#getId id}.
+   *
+   * <p>Note that {@code MacroInstance}s hold just the information known at the time a macro was
+   * declared, even though by the time the {@code Package} is fully constructed we already have
+   * fully evaluated these macros.
+   */
+  public ImmutableMap<String, MacroInstance> getMacrosById() {
     return macros;
   }
 
@@ -957,16 +961,32 @@ public class Package {
     private BiMap<String, Target> targets =
         new SnapshottableBiMap<>(target -> target instanceof Rule);
 
-    // All instances of symbolic macros created during package construction.
+    // All instances of symbolic macros created during package construction, indexed by id (not
+    // name).
     private final Map<String, MacroInstance> macros = new LinkedHashMap<>();
 
     /**
-     * A stack of currently executing symbolic macros, outermost first.
+     * A stack representing currently executing symbolic macros, outermost first.
      *
-     * <p>Certain APIs are only available when this stack is empty (i.e. not in any symbolic macro).
-     * See user documentation on {@code macro()} ({@link StarlarkRuleFunctionsApi#macro}).
+     * <p>This is used to help enforce naming rules.
+     *
+     * <p>It is also used to determine whether or not any symbolic macro is currently running, which
+     * influences which APIs are available. See user documentation on {@code macro()} ({@link
+     * StarlarkRuleFunctionsApi#macro}).
      */
-    private final List<MacroInstance> macroStack = new ArrayList<>();
+    // TODO(#19922): This stack model may need adjusting when we have macros that execute at the
+    // end of a package (deferred/lazy evaluation and finalizers). In that case, the stack doesn't
+    // represent actively executing macros, but just the instantiation path to a macro.
+    private final List<MacroStackFrame> macroStack = new ArrayList<>();
+
+    /** An element of macroStack. */
+    private static class MacroStackFrame {
+      final MacroInstance macroInstance;
+
+      MacroStackFrame(MacroInstance macroInstance) {
+        this.macroInstance = macroInstance;
+      }
+    }
 
     private enum NameConflictCheckingPolicy {
       UNKNOWN,
@@ -1180,7 +1200,7 @@ public class Package {
       boolean bad = false;
       if (ctx instanceof Builder builder) {
         bad |= !allowBuild && !builder.isRepoRulePackage();
-        bad |= !allowSymbolicMacros && !builder.macroStack.isEmpty();
+        bad |= !allowSymbolicMacros && builder.currentlyInMacro();
         bad |= !allowWorkspace && builder.isRepoRulePackage();
         if (!bad) {
           return builder;
@@ -1756,7 +1776,7 @@ public class Package {
         EventHandler eventHandler,
         Location location)
         throws NameConflictException, LabelSyntaxException {
-      Preconditions.checkState(macroStack.isEmpty());
+      Preconditions.checkState(!currentlyInMacro());
 
       if (hasDuplicateLabels(environments, name, "environments", location, eventHandler)
           || hasDuplicateLabels(defaults, name, "defaults", location, eventHandler)) {
@@ -1863,7 +1883,7 @@ public class Package {
       checkRuleAndOutputs(rule, labels);
       addRuleInternal(rule);
       ruleLabels.put(rule, labels);
-      if (!macroStack.isEmpty()) {
+      if (currentlyInMacro()) {
         rulesCreatedInMacros.add(rule);
       }
     }
@@ -1871,17 +1891,48 @@ public class Package {
     /** Adds a symbolic macro instance to the package. */
     public void addMacro(MacroInstance macro) throws NameConflictException {
       checkMacroName(macro);
-      macros.put(macro.getName(), macro);
+      macros.put(macro.getId(), macro);
     }
 
     /** Pushes a macro instance onto the stack of currently executing symbolic macros. */
     public void pushMacro(MacroInstance macro) {
-      macroStack.add(macro);
+      macroStack.add(new MacroStackFrame(macro));
     }
 
     /** Pops the stack of currently executing symbolic macros. */
     public MacroInstance popMacro() {
-      return macroStack.remove(macroStack.size() - 1);
+      return macroStack.remove(macroStack.size() - 1).macroInstance;
+    }
+
+    /** Returns whether we're currently executing at least one symbolic macro. */
+    private boolean currentlyInMacro() {
+      return !macroStack.isEmpty();
+    }
+
+    /**
+     * Returns the stack frame corresponding to the innermost currently executing macro, or null if
+     * not in a macro.
+     */
+    @Nullable
+    private MacroStackFrame currentMacroFrame() {
+      return macroStack.isEmpty() ? null : Iterables.getLast(macroStack);
+    }
+
+    /** Returns the innermost currently executing symbolic macro, or null if not in a macro. */
+    @Nullable
+    public MacroInstance currentMacro() {
+      @Nullable MacroStackFrame frame = currentMacroFrame();
+      return frame == null ? null : frame.macroInstance;
+    }
+
+    /**
+     * Returns the name of the innermost currently executing symbolic macro, or null if not in a
+     * macro.
+     */
+    @Nullable
+    private String currentMacroName() {
+      @Nullable MacroInstance macro = currentMacro();
+      return macro == null ? null : macro.getName();
     }
 
     void addRegisteredExecutionPlatforms(List<TargetPattern> platforms) {
@@ -1960,8 +2011,8 @@ public class Package {
               // TODO(#19922): This is quadratic complexity, optimize with a trie or similar if
               // needed.
               boolean macroConflictsFound = false;
-              for (String macroName : macros.keySet()) {
-                macroConflictsFound |= nameIsWithinMacroNamespace(name, macroName);
+              for (MacroInstance macro : macros.values()) {
+                macroConflictsFound |= nameIsWithinMacroNamespace(name, macro.getName());
               }
               if (!macroConflictsFound) {
               Location loc = rule.getLocation();
@@ -2146,7 +2197,8 @@ public class Package {
      *
      * <p>A macro named "foo" owns the namespace consisting of "foo" and all "foo_BAR" where BAR is
      * a non-empty string. This criteria is transitive; a submacro's namespace is a subset of the
-     * parent macro's namespace.
+     * parent macro's namespace. Therefore, if a name is valid w.r.t. the macro that declares it, it
+     * is also valid for all ancestor macros.
      *
      * <p>Note that just because a name is within a macro's namespace does not necessarily mean the
      * corresponding target or macro was declared within this macro.
@@ -2189,9 +2241,8 @@ public class Package {
     private void checkTargetName(Target added) throws NameConflictException {
       checkForExistingTargetName(added);
 
-      if (!macroStack.isEmpty()) {
-        String enclosingMacroName = Iterables.getLast(macroStack).getName();
-        checkDeclaredNameValidForMacro("target", added.getName(), enclosingMacroName);
+      if (currentlyInMacro()) {
+        checkDeclaredNameValidForMacro("target", added.getName(), currentMacroName());
       }
     }
 
@@ -2228,9 +2279,8 @@ public class Package {
     private void checkMacroName(MacroInstance added) throws NameConflictException {
       checkForExistingMacroName(added);
 
-      if (!macroStack.isEmpty()) {
-        String enclosingMacroName = Iterables.getLast(macroStack).getName();
-        checkDeclaredNameValidForMacro("submacro", added.getName(), enclosingMacroName);
+      if (currentlyInMacro()) {
+        checkDeclaredNameValidForMacro("submacro", added.getName(), currentMacroName());
       }
     }
 
@@ -2239,7 +2289,10 @@ public class Package {
      * macro in the package.
      */
     private void checkForExistingMacroName(MacroInstance added) throws NameConflictException {
-      MacroInstance existing = macros.get(added.getName());
+      // Macros are indexed by id, not name, so we can't just use macros.get() directly.
+      // Instead, we reason that if at least one macro by the given name exists, then there is one
+      // with an id suffix of ":1".
+      MacroInstance existing = macros.get(added.getName() + ":1");
       if (existing == null) {
         return;
       }

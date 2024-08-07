@@ -25,17 +25,31 @@ import java.util.Map;
  * StarlarkRuleClassFunctions#MacroFunction} that is executed during a package's evaluation. Just as
  * a {@link MacroClass} is analogous to a {@link RuleClass}, {@code MacroInstance} is analogous to a
  * {@link Rule} (i.e. a rule target).
+ *
+ * <p>Macro instance names are not guaranteed to be unique within a package; see {@link #getId}.
  */
 public final class MacroInstance {
 
   private final MacroClass macroClass;
+
+  private final int sameNameDepth;
+
   // TODO(#19922): Consider switching to more optimized, indexed representation, as in Rule.
   // Order isn't guaranteed, sort before dumping.
   private final ImmutableMap<String, Object> attrValues;
 
-  public MacroInstance(MacroClass macroClass, Map<String, Object> attrValues) {
+  /**
+   * Instantiates the given macro class with the given attribute values.
+   *
+   * <p>{@code sameNameDepth} is the number of macro instances that this one is inside of that share
+   * its name. For most instances it is 1, but for the main submacro of a parent macro it is one
+   * more than the parent's depth.
+   */
+  public MacroInstance(MacroClass macroClass, Map<String, Object> attrValues, int sameNameDepth) {
     this.macroClass = macroClass;
     this.attrValues = ImmutableMap.copyOf(attrValues);
+    Preconditions.checkArgument(sameNameDepth > 0);
+    this.sameNameDepth = sameNameDepth;
     Preconditions.checkArgument(macroClass.getAttributes().keySet().equals(attrValues.keySet()));
   }
 
@@ -45,11 +59,45 @@ public final class MacroInstance {
   }
 
   /**
+   * The depth of this macro instance in a chain of nested macros having the same name.
+   *
+   * <p>1 for any macro that is not declared in a macro of the same name.
+   *
+   * <p>Used by {@link #getId}.
+   */
+  public int getSameNameDepth() {
+    return sameNameDepth;
+  }
+
+  /**
+   * Returns the id of this macro instance. The id is the name, concatenated with {@code ":n"} where
+   * n is an integer distinguishing this from other macro instances of the same name in the package.
+   *
+   * <p>Within a package, two macro instances are not allowed to share the same name except when one
+   * of them is the main submacro of the other. More generally, there may be a contiguous chain of
+   * nested main submacros that all share the same name, but these may not share with any other
+   * macro outside the chain. We allow this exception so that the build does not break if the rule
+   * of a main target is refactored into a macro. The tradeoff of this design is that the name alone
+   * is not enough to disambiguate between macros in the chain.
+   *
+   * <p>The number n is simply the depth of the macro in the chain of same-named macros, starting at
+   * 1. For example, if we have a chain of macro expansions foo -> foo_bar -> foo_bar -> foo_bar ->
+   * foo_bar_baz, then the ids of these macros are respectively "foo:1", "foo_bar:1", "foo_bar:2",
+   * "foo_bar:3", "foo_bar_baz:1".
+   *
+   * <p>Note that ids only serve to canonically identify macro instances, and play no role in naming
+   * or name conflict detection.
+   */
+  public String getId() {
+    return getName() + ":" + sameNameDepth;
+  }
+
+  /**
    * Returns the name of this instance, as given in the {@code name = ...} attribute in the calling
    * BUILD file or macro.
    */
   public String getName() {
-    // Type enforced by RuleClass.NAME_ATTRIBUTE.
+    // Type and existence enforced by RuleClass.NAME_ATTRIBUTE.
     return (String) Preconditions.checkNotNull(attrValues.get("name"));
   }
 
