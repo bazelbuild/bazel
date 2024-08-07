@@ -575,7 +575,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   /** @return modules maps from direct dependencies. */
-  public Iterable<Artifact> getDirectModuleMaps() {
+  public ImmutableList<Artifact> getDirectModuleMaps() {
     return directModuleMaps;
   }
 

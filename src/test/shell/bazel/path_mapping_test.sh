@@ -623,9 +623,9 @@ EOF
   bazel run \
     --verbose_failures \
     --experimental_output_paths=strip \
-    --modify_execution_info=CppCompile=+supports-path-mapping \
+    --modify_execution_info=CppCompile=+supports-path-mapping,CppModuleMap=+supports-path-mapping \
     --remote_executor=grpc://localhost:${worker_port} \
-    --features=-module_maps \
+    --features=layering_check \
     "//$pkg:main" &>"$TEST_log" || fail "Expected success"
 
   expect_log 'Hello, lib1!'
@@ -636,9 +636,9 @@ EOF
   bazel run \
     --verbose_failures \
     --experimental_output_paths=strip \
-    --modify_execution_info=CppCompile=+supports-path-mapping \
+    --modify_execution_info=CppCompile=+supports-path-mapping,CppModuleMap=+supports-path-mapping \
     --remote_executor=grpc://localhost:${worker_port} \
-    --features=-module_maps \
+    --features=layering_check \
     "//$pkg:transitioned_main" &>"$TEST_log" || fail "Expected success"
 
   expect_log 'Hi there, lib1!'
