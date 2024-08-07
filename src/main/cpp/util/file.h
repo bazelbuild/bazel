@@ -14,6 +14,7 @@
 #ifndef BAZEL_SRC_MAIN_CPP_UTIL_FILE_H_
 #define BAZEL_SRC_MAIN_CPP_UTIL_FILE_H_
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -77,6 +78,14 @@ void GetAllFilesUnder(const std::string &path,
                       std::vector<std::string> *result);
 
 class DirectoryEntryConsumer;
+
+class CallbackDirEntryConsumer : public DirectoryEntryConsumer {
+ public:
+  CallbackDirEntryConsumer(std::function<void(const std::string&)> adder_callback);
+  void Consume(const std::string &path, bool is_directory) override;
+ private:
+  const std::function<void(const std::string&)> _adder_callback;
+};
 
 // Visible for testing only.
 typedef void (*_ForEachDirectoryEntry)(const std::string &path,

@@ -74,6 +74,29 @@ function test_empty_resource_file() {
   "$singlejar" --output "$out_jar" --resources $empty
 }
 
+function test_directory_tree() {
+  cd "$TEST_TMPDIR"
+  local -r out_jar="out.jar"
+  local -r dir1="dir1"
+  local -r dir2="dir1/dir2"
+  local -r file1="${dir1}/file1"
+  local -r file2="${dir2}/file2"
+  mkdir "$dir1"
+  mkdir "$dir2"
+  echo -n > "$file1"
+  echo -n > "$file2"
+  "$singlejar" --output "$out_jar" --resources "$dir1"
+  local -r unzipped_dir="unzipped"
+  mkdir "$unzipped_dir"
+  unzip -d "$unzipped_dir" "$out_jar" "$file1" "$file2"
+  [[ -r "${unzipped_dir}/${file1}" ]] || \
+    { echo "${unzipped_dir}/${file1} is not readable" >&2; exit 1; }
+  [[ -r "${unzipped_dir}/${file2}" ]] || \
+    { echo "${unzipped_dir}/${file2} is not readable" >&2; exit 1; }
+}
+
+
+
 run_suite "Misc shell tests"
 #!/bin/bash
 
