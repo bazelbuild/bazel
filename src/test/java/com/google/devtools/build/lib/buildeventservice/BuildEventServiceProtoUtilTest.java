@@ -221,6 +221,7 @@ public class BuildEventServiceProtoUtilTest {
                                 .setEventTime(firstEventTimestamp)
                                 .setBazelEvent(anything))
                         .build())
+                .setRetryAttemptNumber(1)
                 .build());
 
     Timestamp secondEventTimestamp = Timestamps.fromMillis(clock.advanceMillis(100));
@@ -241,6 +242,7 @@ public class BuildEventServiceProtoUtilTest {
                                 .setEventTime(secondEventTimestamp)
                                 .setBazelEvent(anything))
                         .build())
+                .setRetryAttemptNumber(1)
                 .build());
 
     Timestamp thirdEventTimestamp = Timestamps.fromMillis(clock.advanceMillis(100));
@@ -263,6 +265,7 @@ public class BuildEventServiceProtoUtilTest {
                                     BuildComponentStreamFinished.newBuilder()
                                         .setType(FinishType.FINISHED)))
                         .build())
+                .setRetryAttemptNumber(1)
                 .build());
   }
 
