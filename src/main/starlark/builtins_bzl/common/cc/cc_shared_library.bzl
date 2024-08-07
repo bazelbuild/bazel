@@ -1032,7 +1032,7 @@ symbols should be exported.
 </p>
 
 <p>The following syntax is allowed:</p>
-<p><code>//foo:__package__</code> to account for any target in foo/BUILD</p>
+<p><code>//foo:__pkg__</code> to account for any target in foo/BUILD</p>
 <p><code>//foo:__subpackages__</code> to account for any target in foo/BUILD or any other
 package below foo/ like foo/bar/BUILD</p>"""),
         "win_def_file": attr.label(allow_single_file = [".def"], doc = """
