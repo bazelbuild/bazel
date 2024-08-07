@@ -128,11 +128,6 @@ public class ActionKeyCacherTest {
     }
 
     @Override
-    public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
-      return false;
-    }
-
-    @Override
     public MiddlemanType getActionType() {
       return null;
     }

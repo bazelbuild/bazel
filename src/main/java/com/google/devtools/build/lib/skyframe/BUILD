@@ -116,6 +116,7 @@ java_library(
         ":configured_target_key",
         ":configured_target_progress_receiver",
         ":configured_value_creation_exception",
+        ":conflict_checking_mode",
         ":containing_package_lookup_function",
         ":containing_package_lookup_value",
         ":coverage_report_value",
@@ -612,7 +613,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:auto_value",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -870,7 +870,6 @@ java_library(
     name = "build_driver_function",
     srcs = ["BuildDriverFunction.java"],
     deps = [
-        ":artifact_conflict_finder",
         ":aspect_completion_value",
         ":aspect_key_creator",
         ":build_driver_key",
@@ -1130,6 +1129,12 @@ java_library(
         "//third_party:jsr305",
     ],
 )
+
+java_library(
+    name = "conflict_checking_mode",
+    srcs = ["ConflictCheckingMode.java"],
+)
+
 
 java_library(
     name = "containing_package_lookup_function",
@@ -2292,7 +2297,7 @@ java_library(
     srcs = ["SkyframeErrorProcessor.java"],
     deps = [
         ":action_artifact_cycle_reporter",
-        ":artifact_conflict_finder",
+        ":artifact_nested_set_function",
         ":aspect_key_creator",
         ":build_driver_key",
         ":configured_target_key",
