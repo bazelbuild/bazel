@@ -675,6 +675,7 @@ public final class UiEventHandler implements EventHandler {
     }
     completeBuild();
     try {
+      flushStdOutStdErrBuffers();
       terminal.resetTerminal();
       terminal.flush();
     } catch (IOException e) {
