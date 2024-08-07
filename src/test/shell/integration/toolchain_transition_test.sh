@@ -176,8 +176,8 @@ platform(
 )
 EOF
 
-  # Append to WORKSPACE
-  cat >>WORKSPACE <<EOF
+  # Append to MODULE.bazel
+  cat >> MODULE.bazel <<EOF
 register_execution_platforms(
     "//${pkg}/platform:exec_alpha",
     "//${pkg}/platform:exec_beta",
@@ -309,8 +309,8 @@ toolchain(
 )
 EOF
 
-  # Append to WORKSPACE
-  cat >>WORKSPACE <<EOF
+  # Append to MODULE.bazel
+  cat >> MODULE.bazel <<EOF
 register_toolchains(
     "//${pkg}/toolchain:sample_toolchain_alpha",
     "//${pkg}/toolchain:sample_toolchain_beta",

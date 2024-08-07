@@ -247,7 +247,8 @@ end_of_record"
 }
 
 function setup_external_cc_target() {
-  cat > WORKSPACE <<'EOF'
+  cat > MODULE.bazel <<'EOF'
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "other_repo",
     path = "other_repo",
@@ -278,7 +279,7 @@ int b(bool what) {
 EOF
 
   mkdir -p other_repo
-  touch other_repo/WORKSPACE
+  touch other_repo/REPO.bazel
 
   cat > other_repo/BUILD <<'EOF'
 cc_library(
@@ -345,7 +346,7 @@ DA:7,1
 LH:5
 LF:7
 end_of_record
-SF:external/other_repo/a.cc
+SF:external/+_repo_rules+other_repo/a.cc
 FN:4,_Z1ab
 FNDA:1,_Z1ab
 FNF:1

@@ -21,6 +21,10 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+function set_up() {
+  # Create a new workspace to ensure the output_base is clean
+  create_new_workspace
+}
 
 function test_profiler_disabled() {
   cat > BUILD <<'EOF'
@@ -33,7 +37,8 @@ EOF
 
   bazel build //:gen || fail "Expected build to succeed"
 
-  if [[ "$(ls "$(bazel info output_base)/*.jfr")" ]]; then
+  output_base=$(bazel info output_base)
+  if [[ $(find "$output_base" -maxdepth 1 -name "*.jfr") ]]; then
     fail "Expected no profiler outputs"
   fi
 }

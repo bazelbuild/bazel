@@ -77,8 +77,8 @@ function set_up() {
   else
     local -r cwd="$PWD"
   fi
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+  cat > MODULE.bazel <<EOF
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 http_file(name="remote", urls=["file://${cwd}/remote_file"])
 EOF
   touch BUILD

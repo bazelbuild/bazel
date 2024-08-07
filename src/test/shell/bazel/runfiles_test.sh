@@ -22,12 +22,9 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# Make sure runfiles are created under a custom-named subdirectory when
-# workspace() is specified in the WORKSPACE file.
 function test_runfiles_without_bzlmod() {
   name="blorp_malorp"
-  create_workspace_with_default_repos WORKSPACE "$name"
-
+  echo "workspace(name = '$name')" > WORKSPACE
   mkdir foo
   cat > foo/BUILD <<EOF
 java_test(
@@ -44,14 +41,13 @@ public class Noise {
 }
 EOF
 
-  bazel build --noenable_bzlmod //foo:foo >& $TEST_log || fail "Build failed"
+  bazel build --noenable_bzlmod --enable_workspace //foo:foo >& $TEST_log || fail "Build failed"
   [[ -d bazel-bin/foo/foo.runfiles/$name ]] || fail "$name runfiles directory not created"
   [[ -d bazel-bin/foo/foo.runfiles/$name/foo ]] || fail "No foo subdirectory under $name"
   [[ -x bazel-bin/foo/foo.runfiles/$name/foo/foo ]] || fail "No foo executable under $name"
 }
 
 function test_runfiles_bzlmod() {
-  create_workspace_with_default_repos WORKSPACE "blorp_malorp"
   cat > MODULE.bazel <<EOF
 module(name="blep")
 EOF
@@ -79,8 +75,8 @@ EOF
 }
 
 function test_legacy_runfiles_change() {
-  create_workspace_with_default_repos WORKSPACE foo
-  cat >> WORKSPACE <<EOF
+  cat >> MODULE.bazel <<EOF
+new_local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
 new_local_repository(
     name = "bar",
     path = ".",
@@ -101,22 +97,21 @@ int main() { return 0; }
 EOF
   bazel build --legacy_external_runfiles //:thing &> $TEST_log \
     || fail "Build failed"
-  [[ -d bazel-bin/thing.runfiles/_main/external/bar ]] \
+  [[ -d bazel-bin/thing.runfiles/_main/external/+_repo_rules+bar ]] \
     || fail "bar not found"
 
   bazel build --nolegacy_external_runfiles //:thing &> $TEST_log \
     || fail "Build failed"
-  [[ ! -d bazel-bin/thing.runfiles/_main/external/bar ]] \
+  [[ ! -d bazel-bin/thing.runfiles/_main/external/+_repo_rules+bar ]] \
     || fail "Old bar still found"
 
   bazel build --legacy_external_runfiles //:thing &> $TEST_log \
     || fail "Build failed"
-  [[ -d bazel-bin/thing.runfiles/_main/external/bar ]] \
+  [[ -d bazel-bin/thing.runfiles/_main/external/+_repo_rules+bar ]] \
     || fail "bar not recreated"
 }
 
 function test_enable_runfiles_change() {
-  create_workspace_with_default_repos WORKSPACE foo
 
   mkdir data && echo "hello" > data/hello && echo "world" > data/world
 
@@ -147,7 +142,6 @@ EOF
 # Test that the local strategy creates a runfiles tree during test if no --nobuild_runfile_links
 # is specified.
 function test_nobuild_runfile_links() {
-  create_workspace_with_default_repos WORKSPACE foo
 
   mkdir data && echo "hello" > data/hello && echo "world" > data/world
 
@@ -188,7 +182,6 @@ EOF
 # attempt to create the runfiles directory both for the target to run and the
 # --run_under target.
 function test_nobuild_runfile_links_with_run_under() {
-  create_workspace_with_default_repos WORKSPACE foo
 
   mkdir data && echo "hello" > data/hello && echo "world" > data/world
 
@@ -262,6 +255,7 @@ EOF
 }
 
 function setup_runfiles_tree_file_type_changes {
+  add_bazel_skylib "MODULE.bazel"
   mkdir -p rules
   touch rules/BUILD
   cat > rules/defs.bzl <<'EOF'

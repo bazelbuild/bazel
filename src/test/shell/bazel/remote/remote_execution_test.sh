@@ -1208,9 +1208,6 @@ EOF
 
 function test_nobuild_runfile_links() {
   mkdir data && echo "hello" > data/hello && echo "world" > data/world
-    cat > WORKSPACE <<EOF
-workspace(name = "foo")
-EOF
 
   cat > test.sh <<'EOF'
 #!/bin/bash
@@ -1835,8 +1832,8 @@ foo_configure = repository_rule(
 )
 EOF
 
-  cat > WORKSPACE <<'EOF'
-load("//:test.bzl", "foo_configure")
+  cat > MODULE.bazel <<'EOF'
+foo_configure = use_repo_rule("//:test.bzl", "foo_configure")
 
 foo_configure(
   name = "default_foo",
@@ -1873,8 +1870,8 @@ foo_configure = repository_rule(
 )
 EOF
 
-  cat > WORKSPACE <<'EOF'
-load("//:test.bzl", "foo_configure")
+  cat > MODULE.bazel <<'EOF'
+foo_configure = use_repo_rule("//:test.bzl", "foo_configure")
 
 foo_configure(
   name = "default_foo",
@@ -1906,8 +1903,8 @@ foo_configure = repository_rule(
 )
 EOF
 
-  cat > WORKSPACE <<'EOF'
-load("//:test.bzl", "foo_configure")
+  cat > MODULE.bazel <<'EOF'
+foo_configure = use_repo_rule("//:test.bzl", "foo_configure")
 
 foo_configure(
   name = "default_foo",
@@ -1964,8 +1961,9 @@ local_foo_configure = repository_rule(
 )
 EOF
 
-  cat > WORKSPACE <<'EOF'
-load("//:test.bzl", "remote_foo_configure", "local_foo_configure")
+  cat > MODULE.bazel <<'EOF'
+local_foo_configure = use_repo_rule("//:test.bzl", "local_foo_configure")
+remote_foo_configure = use_repo_rule("//:test.bzl", "remote_foo_configure")
 
 remote_foo_configure(
   name = "remote_foo",
@@ -2002,7 +2000,6 @@ EOF
 
 function test_remote_cache_intermediate_outputs() {
   # test that remote cache is hit when intermediate output is not executable
-  touch WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "dep",
@@ -2196,7 +2193,6 @@ end_of_record"
 }
 
 function generate_empty_tree_artifact_as_inputs() {
-  touch WORKSPACE
   mkdir -p pkg
 
   cat > pkg/def.bzl <<'EOF'
@@ -2274,7 +2270,6 @@ function test_empty_tree_artifact_as_inputs_remote_cache() {
 }
 
 function generate_tree_artifact_output() {
-  touch WORKSPACE
   mkdir -p pkg
 
   cat > pkg/def.bzl <<'EOF'
@@ -2937,7 +2932,8 @@ EOF
 }
 
 function setup_external_cc_test() {
-  cat >> WORKSPACE <<'EOF'
+  cat >> MODULE.bazel <<'EOF'
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "other_repo",
   path = "other_repo",
@@ -2945,7 +2941,7 @@ local_repository(
 EOF
 
   mkdir -p other_repo
-  touch other_repo/WORKSPACE
+  touch other_repo/REPO.bazel
 
   mkdir -p other_repo/lib
   cat > other_repo/lib/BUILD <<'EOF'
@@ -3113,7 +3109,8 @@ function test_unresolved_symlink_spawn_absolute() {
 function setup_cc_binary_tool_with_dynamic_deps() {
   local repo=$1
 
-  cat >> WORKSPACE <<'EOF'
+  cat >> MODULE.bazel <<'EOF'
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "other_repo",
   path = "other_repo",
@@ -3121,7 +3118,7 @@ local_repository(
 EOF
 
   mkdir -p $repo
-  touch $repo/WORKSPACE
+  touch $repo/REPO.bazel
 
   mkdir -p $repo/lib
   # Use a comma in the target name as that is known to be problematic whith -Wl,
@@ -3377,6 +3374,7 @@ EOF
 }
 
 function test_platform_no_remote_exec_test_action() {
+  add_platforms "MODULE.bazel"
   mkdir -p a
   cat > a/test.sh <<'EOF'
 #!/bin/sh

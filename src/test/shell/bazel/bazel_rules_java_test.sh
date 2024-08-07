@@ -85,13 +85,13 @@ def rules_java_toolchains():
 EOF
 
   cd rules_java_can_be_overridden || fail "couldn't cd into workspace"
-  bazel build --noenable_bzlmod @rules_java//:yolo &> $TEST_log || \
+  bazel build --noenable_bzlmod --enable_workspace @rules_java//:yolo &> $TEST_log || \
     fail "Bazel failed to build @rules_java"
 }
 
 function test_rules_java_repository_builds_itself() {
+  add_rules_java "MODULE.bazel"
   write_default_bazelrc
-  setup_skylib_support
 
   # We test that a built-in @rules_java repository is buildable.
   bazel build -- @rules_java//java/... &> $TEST_log \

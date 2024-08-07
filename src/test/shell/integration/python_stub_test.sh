@@ -70,6 +70,7 @@ use_fake_python_runtimes_for_testsuite
 
 # Tests that Python 2 or Python 3 is actually invoked.
 function test_python_version() {
+  add_rules_python "MODULE.bazel"
   mkdir -p test
   touch test/main3.py
   cat > test/BUILD << EOF
@@ -91,6 +92,7 @@ EOF
 }
 
 function test_can_build_py_library_at_top_level_regardless_of_version() {
+  add_rules_python "MODULE.bazel"
   mkdir -p test
   cat > test/BUILD << EOF
 load("@rules_python//python:py_library.bzl", "py_library")
@@ -113,6 +115,7 @@ EOF
 # capable of finding its runfiles directory by considering RUNFILES_DIR
 # and RUNFILES_MANIFEST_FILE set by the caller.
 function test_python_through_bash_without_runfile_links() {
+  add_rules_python "MODULE.bazel"
   mkdir -p python_through_bash
 
   cat > python_through_bash/BUILD << EOF

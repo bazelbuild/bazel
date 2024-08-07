@@ -51,7 +51,10 @@ javabase=${javabase%/bin/java}
 
 function set_up() {
   copy_examples
-  create_workspace_with_default_repos "WORKSPACE" "io_bazel"
+  cat > MODULE.bazel <<EOF
+module(name="io_bazel")
+EOF
+  add_rules_java "MODULE.bazel"
 }
 
 #

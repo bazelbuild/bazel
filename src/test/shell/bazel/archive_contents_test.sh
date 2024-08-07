@@ -83,8 +83,8 @@ test_tar_utf8() {
         FILE_URL="file://${WRKDIR}/ext.tar"
     fi
 
-    cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+    cat > MODULE.bazel <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
   name = "ext",
