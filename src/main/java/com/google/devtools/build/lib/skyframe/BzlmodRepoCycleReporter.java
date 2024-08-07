@@ -183,26 +183,6 @@ public class BzlmodRepoCycleReporter implements CyclesReporter.SingleCycleReport
       // repositories were defined.
       requestRepoDefinitions(eventHandler, repos);
       return true;
-    } else if (Iterables.any(cycle, IS_BZL_LOAD)) {
-      Label fileLabel =
-          ((BzlLoadValue.Key) Iterables.getLast(Iterables.filter(cycle, IS_BZL_LOAD))).getLabel();
-      eventHandler.handle(
-          Event.error(
-              null,
-              String.format(
-                  "Failed to load .bzl file '%s': possible dependency cycle detected.\n",
-                  fileLabel)));
-      return true;
-    } else if (Iterables.any(cycle, IS_PACKAGE_LOOKUP)) {
-      PackageIdentifier pkg =
-          (PackageIdentifier)
-              Iterables.getLast(Iterables.filter(cycle, IS_PACKAGE_LOOKUP)).argument();
-      eventHandler.handle(
-          Event.error(
-              null,
-              String.format(
-                  "cannot load package '%s': possible dependency cycle detected.\n", pkg)));
-      return true;
     }
     return false;
   }
