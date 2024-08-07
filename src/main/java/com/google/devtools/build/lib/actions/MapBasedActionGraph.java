@@ -57,7 +57,7 @@ public final class MapBasedActionGraph implements MutableActionGraph {
         // advice on possible known-common reasons for conflicts.
         // e.g. If only config diffs where one is missing TestOptions: --trim_test_configuration
         //   or, if the --platforms differ but have same shortname
-        throw new ActionConflictException(actionKeyContext, artifact, previousAction, action);
+        ActionConflictException.create(actionKeyContext, artifact, previousAction, action);
       }
     }
   }

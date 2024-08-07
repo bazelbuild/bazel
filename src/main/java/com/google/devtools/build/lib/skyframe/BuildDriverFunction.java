@@ -28,6 +28,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AspectConfiguredEvent;
@@ -52,7 +53,6 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType;
@@ -85,14 +85,13 @@ import javax.annotation.Nullable;
  * Drives the analysis & execution of an ActionLookupKey, which is wrapped inside a BuildDriverKey.
  */
 public class BuildDriverFunction implements SkyFunction {
-  private final TransitiveActionLookupValuesHelper transitiveActionLookupValuesHelper;
   private final Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder;
   private final Supplier<RuleContextConstraintSemantics> ruleContextConstraintSemantics;
   private final Supplier<RegexFilter> extraActionFilterSupplier;
 
   private final Supplier<TestTypeResolver> testTypeResolver;
 
-  @Nullable private Supplier<Boolean> shouldCheckForConflict;
+  @Nullable private Supplier<Boolean> shouldCheckForConflictWithTraversal;
 
   // A set of BuildDriverKeys that have been checked for conflicts.
   // This gets cleared after each build.
@@ -117,13 +116,11 @@ public class BuildDriverFunction implements SkyFunction {
   private Map<BuildDriverKey, Set<TopLevelStatusEvents.Type>> keyToPostedEvents =
       Maps.newConcurrentMap();
 
-  BuildDriverFunction(
-      TransitiveActionLookupValuesHelper transitiveActionLookupValuesHelper,
+  public BuildDriverFunction(
       Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder,
       Supplier<RuleContextConstraintSemantics> ruleContextConstraintSemantics,
       Supplier<RegexFilter> extraActionFilterSupplier,
       Supplier<TestTypeResolver> testTypeResolver) {
-    this.transitiveActionLookupValuesHelper = transitiveActionLookupValuesHelper;
     this.incrementalArtifactConflictFinder = incrementalArtifactConflictFinder;
     this.ruleContextConstraintSemantics = ruleContextConstraintSemantics;
     this.extraActionFilterSupplier = extraActionFilterSupplier;
@@ -138,8 +135,9 @@ public class BuildDriverFunction implements SkyFunction {
     private TestType testType;
   }
 
-  public void setShouldCheckForConflict(Supplier<Boolean> shouldCheckForConflict) {
-    this.shouldCheckForConflict = shouldCheckForConflict;
+  public void setShouldCheckForConflictWithTraversal(
+      Supplier<Boolean> shouldCheckForConflictWithTraversal) {
+    this.shouldCheckForConflictWithTraversal = shouldCheckForConflictWithTraversal;
   }
 
   /**
@@ -162,16 +160,23 @@ public class BuildDriverFunction implements SkyFunction {
     // reevaluated every build.
     PrecomputedValue.BUILD_ID.get(env);
 
+    Set<TopLevelStatusEvents.Type> postedEventsTypes =
+        keyToPostedEvents.computeIfAbsent(buildDriverKey, (unused) -> new HashSet<>());
     // Why SkyValue and not ActionLookupValue? The evaluation of some ActionLookupKey can result in
     // classes that don't implement ActionLookupValue
     // (e.g. ConfiguredTargetKey -> NonRuleConfiguredTargetValue).
-    SkyValue topLevelSkyValue = env.getValue(actionLookupKey);
+    SkyValue topLevelSkyValue;
+    try {
+      topLevelSkyValue = env.getValueOrThrow(actionLookupKey, AbstractSaneAnalysisException.class);
+    } catch (AbstractSaneAnalysisException e) {
+      signalAnalysisConclusionIfKeepGoing(
+          env, buildDriverKey, postedEventsTypes, /* success= */ false);
+      throw BuildDriverFunctionException.ofConfiguredTargetOrAspectEval(e);
+    }
 
     if (env.valuesMissing()) {
       return null;
     }
-    Set<TopLevelStatusEvents.Type> postedEventsTypes =
-        keyToPostedEvents.computeIfAbsent(buildDriverKey, (unused) -> new HashSet<>());
 
     // At this point, the target is considered "analyzed". It's important that this event is sent
     // before the TopLevelEntityAnalysisConcludedEvent: when the last of the analysis work is
@@ -186,13 +191,16 @@ public class BuildDriverFunction implements SkyFunction {
     }
 
     // We only check for action conflict once per BuildDriverKey.
-    if (Preconditions.checkNotNull(shouldCheckForConflict).get()
+    if (Preconditions.checkNotNull(shouldCheckForConflictWithTraversal).get()
         && checkedForConflicts.add(buildDriverKey)) {
       try (SilentCloseable c =
           Profiler.instance().profile("BuildDriverFunction.checkActionConflicts")) {
-        ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts =
+        ImmutableMap<ActionAnalysisMetadata, ActionConflictException> actionConflicts =
             checkActionConflicts(actionLookupKey, buildDriverKey.strictActionConflictCheck());
         if (!actionConflicts.isEmpty()) {
+          // The analysis technically succeeded, even though the target/aspect can't be executed.
+          signalAnalysisConclusionIfKeepGoing(
+              env, buildDriverKey, postedEventsTypes, /* success= */ true);
           throw new BuildDriverFunctionException(
               new TopLevelConflictException(
                   "Action conflict(s) detected while analyzing top-level target "
@@ -273,19 +281,25 @@ public class BuildDriverFunction implements SkyFunction {
             postEventIfNecessary(
                 postedEventsTypes,
                 env,
-                TopLevelEntityAnalysisConcludedEvent.success(buildDriverKey));
+                TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey, /* succeeded= */ true));
             // We consider the evaluation of this BuildDriverKey successful at this point, even when
             // the target is skipped.
             removeStatesForKey(buildDriverKey);
             return new BuildDriverValue(topLevelSkyValue, /*skipped=*/ true);
           }
         } catch (TargetCompatibilityCheckException e) {
+          // The analysis of the target technically succeeded, just that it was incompatible and
+          // can't be executed.
+          signalAnalysisConclusionIfKeepGoing(
+              env, buildDriverKey, postedEventsTypes, /* success= */ true);
           throw new BuildDriverFunctionException(e);
         }
       }
 
       postEventIfNecessary(
-          postedEventsTypes, env, TopLevelEntityAnalysisConcludedEvent.success(buildDriverKey));
+          postedEventsTypes,
+          env,
+          TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey, /* succeeded= */ true));
       postEventIfNecessary(
           postedEventsTypes,
           env,
@@ -299,12 +313,41 @@ public class BuildDriverFunction implements SkyFunction {
           postedEventsTypes,
           state.testType);
     } else {
-      announceAspectAnalysisDoneAndRequestExecution(
-          buildDriverKey,
-          (TopLevelAspectsValue) topLevelSkyValue,
+      ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
+      List<SkyKey> aspectCompletionKeys = new ArrayList<>();
+
+      for (Map.Entry<AspectKey, AspectValue> entry :
+          ((TopLevelAspectsValue) topLevelSkyValue).getTopLevelAspectsMap().entrySet()) {
+        AspectKey aspectKey = entry.getKey();
+        AspectValue aspectValue = entry.getValue();
+        addExtraActionsIfRequested(
+            aspectValue.getProvider(ExtraActionArtifactsProvider.class),
+            artifactsToBuild,
+            buildDriverKey.isExtraActionTopLevelOnly());
+
+        // It's possible that this code path is triggered AFTER the analysis cache clean up and the
+        // transitive packages for package root resolution is already cleared. In such a case, the
+        // symlinks should have already been planted.
+        if (aspectValue.getTransitivePackages() != null) {
+          postEventIfNecessary(
+              postedEventsTypes,
+              env,
+              TopLevelTargetReadyForSymlinkPlanting.create(aspectValue.getTransitivePackages()));
+        }
+        aspectCompletionKeys.add(AspectCompletionKey.create(aspectKey, topLevelArtifactContext));
+      }
+
+      // Send the AspectAnalyzedEvents first to make sure the BuildResultListener is up-to-date
+      // before signaling that the analysis of this top level aspect has concluded.
+      postEventIfNecessary(
+          postedEventsTypes,
           env,
-          topLevelArtifactContext,
-          postedEventsTypes);
+          TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey, /* succeeded= */ true));
+
+      postEventIfNecessary(postedEventsTypes, env, SomeExecutionStartedEvent.create());
+      // Request the execution of the collected aspects.
+      declareDependenciesAndCheckValues(
+          env, Iterables.concat(Artifact.keys(artifactsToBuild.build()), aspectCompletionKeys));
     }
 
     if (env.valuesMissing()) {
@@ -322,6 +365,25 @@ public class BuildDriverFunction implements SkyFunction {
 
     removeStatesForKey(buildDriverKey);
     return new BuildDriverValue(topLevelSkyValue, /*skipped=*/ false);
+  }
+
+  /**
+   * Sends out a signal that no more analysis work will be done on this top level target/aspect.
+   *
+   * <p>Only do so in --keep_going mode. This is consistent with the legacy behavior where the
+   * analysis phase isn't considered "finished" if there's an error in --nokeep_going mode.
+   */
+  private static void signalAnalysisConclusionIfKeepGoing(
+      Environment env,
+      BuildDriverKey buildDriverKey,
+      Set<TopLevelStatusEvents.Type> postedEventsTypes,
+      boolean success) {
+    if (buildDriverKey.keepGoing()) {
+      postEventIfNecessary(
+          postedEventsTypes,
+          env,
+          TopLevelEntityAnalysisConcludedEvent.create(buildDriverKey, success));
+    }
   }
 
   /**
@@ -544,52 +606,6 @@ public class BuildDriverFunction implements SkyFunction {
     declareDependenciesAndCheckValues(env, keysToRequest.build());
   }
 
-  private void announceAspectAnalysisDoneAndRequestExecution(
-      BuildDriverKey buildDriverKey,
-      TopLevelAspectsValue topLevelAspectsValue,
-      Environment env,
-      TopLevelArtifactContext topLevelArtifactContext,
-      Set<TopLevelStatusEvents.Type> postedEventsTypes)
-      throws InterruptedException {
-
-    ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
-    List<SkyKey> aspectCompletionKeys = new ArrayList<>();
-
-    boolean symlinkPlantingEventsSent =
-        !postedEventsTypes.add(
-            TopLevelStatusEvents.Type.TOP_LEVEL_TARGET_READY_FOR_SYMLINK_PLANTING);
-    for (Map.Entry<AspectKey, AspectValue> entry :
-        topLevelAspectsValue.getTopLevelAspectsMap().entrySet()) {
-      AspectKey aspectKey = entry.getKey();
-      AspectValue aspectValue = entry.getValue();
-      addExtraActionsIfRequested(
-          aspectValue.getProvider(ExtraActionArtifactsProvider.class),
-          artifactsToBuild,
-          buildDriverKey.isExtraActionTopLevelOnly());
-
-      // It's possible that this code path is triggered AFTER the analysis cache clean up and the
-      // transitive packages for package root resolution is already cleared. In such a case, the
-      // symlinks should have already been planted.
-      if (aspectValue.getTransitivePackages() != null && !symlinkPlantingEventsSent) {
-        env.getListener()
-            .post(
-                TopLevelTargetReadyForSymlinkPlanting.create(aspectValue.getTransitivePackages()));
-      }
-
-      aspectCompletionKeys.add(AspectCompletionKey.create(aspectKey, topLevelArtifactContext));
-    }
-
-    // Send the AspectAnalyzedEvents first to make sure the BuildResultListener is up-to-date before
-    // signaling that the analysis of this top level aspect has concluded.
-    postEventIfNecessary(
-        postedEventsTypes, env, TopLevelEntityAnalysisConcludedEvent.success(buildDriverKey));
-
-    postEventIfNecessary(postedEventsTypes, env, SomeExecutionStartedEvent.create());
-    declareDependenciesAndCheckValues(
-        env, Iterables.concat(Artifact.keys(artifactsToBuild.build()), aspectCompletionKeys));
-
-  }
-
   /**
    * Declares dependencies and checks values for requested nodes in the graph.
    *
@@ -608,22 +624,14 @@ public class BuildDriverFunction implements SkyFunction {
   }
 
   @VisibleForTesting
-  ImmutableMap<ActionAnalysisMetadata, ConflictException> checkActionConflicts(
+  ImmutableMap<ActionAnalysisMetadata, ActionConflictException> checkActionConflicts(
       ActionLookupKey actionLookupKey, boolean strictConflictCheck) throws InterruptedException {
     IncrementalArtifactConflictFinder localRef = incrementalArtifactConflictFinder.get();
     // a null value means that the conflict checker is shut down.
     if (localRef == null) {
       return ImmutableMap.of();
     }
-    if (transitiveActionLookupValuesHelper.trackingStateForIncrementality()) {
-      return localRef.findArtifactConflicts(actionLookupKey, strictConflictCheck).getConflicts();
-    }
-    ActionLookupValuesCollectionResult transitiveValueCollectionResult =
-        transitiveActionLookupValuesHelper.collect();
-    return localRef
-        .findArtifactConflictsNoIncrementality(
-            transitiveValueCollectionResult.collectedValues(), strictConflictCheck)
-        .getConflicts();
+    return localRef.findArtifactConflicts(actionLookupKey, strictConflictCheck).getConflicts();
   }
 
   private void addExtraActionsIfRequested(
@@ -653,6 +661,10 @@ public class BuildDriverFunction implements SkyFunction {
 
   /** A SkyFunctionException wrapper for the actual TopLevelConflictException. */
   private static final class BuildDriverFunctionException extends SkyFunctionException {
+    private BuildDriverFunctionException(Exception cause, Transience transience) {
+      super(cause, transience);
+    }
+
     // The exception is transient here since it could be caused by external factors (conflict with
     // another target).
     BuildDriverFunctionException(TopLevelConflictException cause) {
@@ -662,18 +674,11 @@ public class BuildDriverFunction implements SkyFunction {
     BuildDriverFunctionException(TargetCompatibilityCheckException cause) {
       super(cause, Transience.TRANSIENT);
     }
-  }
 
-  interface TransitiveActionLookupValuesHelper {
-
-    /**
-     * Collect the evaluated ActionLookupValues accumulated since the last time this method was
-     * called. Only used when we're not tracking for incrementality.
-     */
-    ActionLookupValuesCollectionResult collect() throws InterruptedException;
-
-    /** Whether we're tracking state for incrementality in the current invocation. */
-    boolean trackingStateForIncrementality();
+    static BuildDriverFunctionException ofConfiguredTargetOrAspectEval(
+        AbstractSaneAnalysisException cause) {
+      return new BuildDriverFunctionException(cause, Transience.PERSISTENT);
+    }
   }
 
   interface TestTypeResolver {

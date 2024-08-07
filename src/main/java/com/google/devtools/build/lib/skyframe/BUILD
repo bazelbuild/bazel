@@ -116,6 +116,7 @@ java_library(
         ":configured_target_key",
         ":configured_target_progress_receiver",
         ":configured_value_creation_exception",
+        ":conflict_checking_mode",
         ":containing_package_lookup_function",
         ":containing_package_lookup_value",
         ":coverage_report_value",
@@ -191,6 +192,7 @@ java_library(
         ":tests_for_target_pattern_function",
         ":tests_for_target_pattern_value",
         ":top_level_action_lookup_key_wrapper",
+        ":top_level_aspects_details_build_failed_exception",
         ":top_level_aspects_value",
         ":top_level_status_events",
         ":track_source_directories_flag",
@@ -612,7 +614,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:auto_value",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -870,7 +871,6 @@ java_library(
     name = "build_driver_function",
     srcs = ["BuildDriverFunction.java"],
     deps = [
-        ":artifact_conflict_finder",
         ":aspect_completion_value",
         ":aspect_key_creator",
         ":build_driver_key",
@@ -880,6 +880,7 @@ java_library(
         ":incremental_artifact_conflict_finder",
         ":package_value",
         ":precomputed_value",
+        ":sane_analysis_exception",
         ":target_completion_value",
         ":test_completion_value",
         ":top_level_aspects_value",
@@ -943,6 +944,18 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "top_level_aspects_details_build_failed_exception",
+    srcs = [
+        "TopLevelAspectsDetailsBuildFailedException.java",
+    ],
+    deps = [
+        ":sane_analysis_exception",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/protobuf:failure_details_java_proto",
     ],
 )
 
@@ -1129,6 +1142,11 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:jsr305",
     ],
+)
+
+java_library(
+    name = "conflict_checking_mode",
+    srcs = ["ConflictCheckingMode.java"],
 )
 
 java_library(
@@ -2249,7 +2267,10 @@ java_library(
 
 java_library(
     name = "sane_analysis_exception",
-    srcs = ["SaneAnalysisException.java"],
+    srcs = [
+        "AbstractSaneAnalysisException.java",
+        "SaneAnalysisException.java",
+    ],
     deps = [
         ":detailed_exceptions",
     ],
@@ -2292,7 +2313,7 @@ java_library(
     srcs = ["SkyframeErrorProcessor.java"],
     deps = [
         ":action_artifact_cycle_reporter",
-        ":artifact_conflict_finder",
+        ":artifact_nested_set_function",
         ":aspect_key_creator",
         ":build_driver_key",
         ":configured_target_key",
@@ -2317,8 +2338,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:artifact_nested_set_function",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",

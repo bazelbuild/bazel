@@ -23,7 +23,6 @@ import com.google.common.collect.Iterators;
 import com.google.common.escape.Escaper;
 import com.google.common.escape.Escapers;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.SkyframeAwareAction;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
@@ -200,7 +199,7 @@ public final class Actions {
         && (!allowSharedAction
             || !Actions.canBeSharedLogForPotentialFalsePositives(
                 actionKeyContext, actions.get(actionIndex), actions.get(otherIndex)))) {
-      throw new ActionConflictException(
+      throw ActionConflictException.create(
           actionKeyContext, output, actions.get(actionIndex), actions.get(otherIndex));
     }
   }
@@ -309,11 +308,10 @@ public final class Actions {
    * @param strictConflictChecks report path prefix conflicts, regardless of {@link
    *     ActionAnalysisMetadata#shouldReportPathPrefixConflict}
    * @return An immutable map between actions that generated the conflicting artifacts and their
-   *     associated {@link ArtifactPrefixConflictException}
+   *     associated {@link ActionConflictException}
    */
-  public static ImmutableMap<ActionAnalysisMetadata, ArtifactPrefixConflictException>
-      findArtifactPrefixConflicts(
-          ActionGraph actionGraph, Collection<Artifact> artifacts, boolean strictConflictChecks) {
+  public static ImmutableMap<ActionAnalysisMetadata, ActionConflictException>
+      findArtifactPrefixConflicts(ActionGraph actionGraph, Collection<Artifact> artifacts, boolean strictConflictChecks) {
     // No actions in graph -- currently happens only in tests. Special-cased because .next() call
     // below is unconditional.
     if (artifacts.isEmpty()) {
@@ -324,7 +322,7 @@ public final class Actions {
     Arrays.parallelSort(artifactArray, EXEC_PATH_PREFIX_COMPARATOR);
 
     // Keep deterministic ordering of bad actions.
-    Map<ActionAnalysisMetadata, ArtifactPrefixConflictException> badActions = new LinkedHashMap<>();
+    Map<ActionAnalysisMetadata, ActionConflictException> badActions = new LinkedHashMap<>();
     Iterator<Artifact> iter = Iterators.forArray(artifactArray);
 
     // Report an error for every derived artifact which is a strict prefix of another.
@@ -351,9 +349,8 @@ public final class Actions {
           ActionAnalysisMetadata actionJ =
               Preconditions.checkNotNull(actionGraph.getGeneratingAction(artifactJ), artifactJ);
           if (strictConflictChecks || actionI.shouldReportPathPrefixConflict(actionJ)) {
-            ArtifactPrefixConflictException exception =
-                new ArtifactPrefixConflictException(
-                    pathI, pathJ, actionI.getOwner().getLabel(), actionJ.getOwner().getLabel());
+            ActionConflictException exception =
+                ActionConflictException.createPrefix(artifactI, artifactJ, actionI, actionJ);
             badActions.put(actionI, exception);
             badActions.put(actionJ, exception);
           }

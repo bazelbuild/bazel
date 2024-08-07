@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.SaneAnalysisException;
+import com.google.devtools.build.lib.skyframe.AbstractSaneAnalysisException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 
 /**
@@ -32,8 +32,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
  * analysis testing machinery making the outer test unusable, not a failure in the rule(s) which the
  * outer test is testing.
  */
-public final class AnalysisFailurePropagationException extends Exception
-    implements SaneAnalysisException {
+public final class AnalysisFailurePropagationException extends AbstractSaneAnalysisException {
 
   public AnalysisFailurePropagationException(Label label, Iterable<String> causes) {
     super(
