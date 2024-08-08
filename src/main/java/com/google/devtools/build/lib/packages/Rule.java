@@ -545,18 +545,13 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
       checkState(isFrozen(), "Mutable rule missing LateBoundDefault");
       return attr.getLateBoundDefault();
     }
-    switch (attr.getName()) {
-      case GENERATOR_FUNCTION:
-        return interiorCallStack != null ? interiorCallStack.functionName() : "";
-      case GENERATOR_LOCATION:
-        return interiorCallStack != null ? getRelativeLocation() : "";
-      case GENERATOR_NAME:
-        return generatorNamePrefixLength > 0
-            ? getName().substring(0, generatorNamePrefixLength)
-            : "";
-      default:
-        return attr.getDefaultValue(this);
-    }
+    return switch (attr.getName()) {
+      case GENERATOR_FUNCTION -> interiorCallStack != null ? interiorCallStack.functionName() : "";
+      case GENERATOR_LOCATION -> interiorCallStack != null ? getRelativeLocation() : "";
+      case GENERATOR_NAME ->
+          generatorNamePrefixLength > 0 ? getName().substring(0, generatorNamePrefixLength) : "";
+      default -> attr.getDefaultValue(this);
+    };
   }
 
   /**
@@ -568,21 +563,21 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   @Nullable
   Object getAttrIfStored(int attrIndex) {
     checkPositionIndex(attrIndex, attrCount() - 1);
-    switch (getAttrState()) {
-      case MUTABLE:
-        return attrValues[attrIndex];
-      case FROZEN_SMALL:
+    return switch (getAttrState()) {
+      case MUTABLE -> attrValues[attrIndex];
+      case FROZEN_SMALL -> {
         int index = binarySearchAttrBytes(0, attrIndex, 0x7f);
-        return index < 0 ? null : attrValues[index];
-      case FROZEN_LARGE:
+        yield index < 0 ? null : attrValues[index];
+      }
+      case FROZEN_LARGE -> {
         if (attrBytes.length == 0) {
-          return null;
+          yield null;
         }
         int bitSetSize = bitSetSize();
-        index = binarySearchAttrBytes(bitSetSize, attrIndex, 0xff);
-        return index < 0 ? null : attrValues[index - bitSetSize];
-    }
-    throw new AssertionError();
+        int index = binarySearchAttrBytes(bitSetSize, attrIndex, 0xff);
+        yield index < 0 ? null : attrValues[index - bitSetSize];
+      }
+    };
   }
 
   /**
@@ -624,15 +619,13 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     if (attrIndex == null) {
       return false;
     }
-    switch (getAttrState()) {
-      case MUTABLE:
-      case FROZEN_LARGE:
-        return getExplicitBit(attrIndex);
-      case FROZEN_SMALL:
+    return switch (getAttrState()) {
+      case MUTABLE, FROZEN_LARGE -> getExplicitBit(attrIndex);
+      case FROZEN_SMALL -> {
         int index = binarySearchAttrBytes(0, attrIndex, 0x7f);
-        return index >= 0 && (attrBytes[index] & 0x80) != 0;
-    }
-    throw new AssertionError();
+        yield index >= 0 && (attrBytes[index] & 0x80) != 0;
+      }
+    };
   }
 
   /** Returns index into {@link #attrBytes} for {@code attrIndex}, or -1 if not found */

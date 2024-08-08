@@ -120,16 +120,14 @@ public final class Spawns {
         spawn.getExecutionInfo().get(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL);
 
     if (protocolFormat != null) {
-      switch (protocolFormat) {
-        case "json":
-          return ExecutionRequirements.WorkerProtocolFormat.JSON;
-        case "proto":
-          return ExecutionRequirements.WorkerProtocolFormat.PROTO;
-        default:
-          throw new IOException(
-              "requires-worker-protocol must be set to a valid worker protocol format: json or"
-                  + " proto");
-      }
+      return switch (protocolFormat) {
+        case "json" -> ExecutionRequirements.WorkerProtocolFormat.JSON;
+        case "proto" -> ExecutionRequirements.WorkerProtocolFormat.PROTO;
+        default ->
+            throw new IOException(
+                "requires-worker-protocol must be set to a valid worker protocol format: json or"
+                    + " proto");
+      };
     } else {
       return ExecutionRequirements.WorkerProtocolFormat.PROTO;
     }
