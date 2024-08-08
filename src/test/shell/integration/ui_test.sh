@@ -235,6 +235,7 @@ EOF
 #### TESTS #############################################################
 
 function test_basic_progress() {
+  bazel clean || fail "${PRODUCT_NAME} clean failed"
   bazel test --curses=yes --color=yes pkg:true 2>$TEST_log \
     || fail "${PRODUCT_NAME} test failed"
   # some progress indicator is shown
@@ -259,6 +260,7 @@ function test_line_wrapping() {
 }
 
 function test_noshow_progress() {
+  bazel clean || fail "${PRODUCT_NAME} clean failed"
   bazel test --noshow_progress --curses=yes --color=yes \
     pkg:true 2>$TEST_log || fail "${PRODUCT_NAME} test failed"
   # Info messages should still go through
@@ -268,6 +270,7 @@ function test_noshow_progress() {
 }
 
 function test_basic_progress_no_curses() {
+  bazel clean || fail "${PRODUCT_NAME} clean failed"
   bazel test --curses=no --color=yes pkg:true 2>$TEST_log \
     || fail "${PRODUCT_NAME} test failed"
   # some progress indicator is shown
@@ -281,6 +284,7 @@ function test_basic_progress_no_curses() {
 }
 
 function test_no_curses_no_linebreak() {
+  bazel clean || fail "${PRODUCT_NAME} clean failed"
   bazel test --curses=no --color=yes --terminal_columns=9 \
     pkg:true 2>$TEST_log || fail "${PRODUCT_NAME} test failed"
   # expect a long-ish status line
