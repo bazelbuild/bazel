@@ -84,6 +84,7 @@ java_library(
 java_library(
     name = "dumper",
     srcs = DUMPER_SOURCES,
+    add_opens = ["java.base/java.util"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//third_party:guava",
