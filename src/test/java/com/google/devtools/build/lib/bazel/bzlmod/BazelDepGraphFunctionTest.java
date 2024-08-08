@@ -227,7 +227,6 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                 .setImports(importsBuilder.buildOrThrow())
                 .setContainingModuleFilePath(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
                 .build())
-        .setUsingModule(ModuleKey.ROOT)
         .build();
   }
 
