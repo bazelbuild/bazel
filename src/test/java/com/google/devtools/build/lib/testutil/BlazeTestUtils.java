@@ -89,9 +89,13 @@ public class BlazeTestUtils {
    */
   public static ArrayList<String> makeArgs(String... args) {
     ArrayList<String> result =
-        new ArrayList<>(args.length + TestConstants.PRODUCT_SPECIFIC_FLAGS.size());
+        new ArrayList<>(
+            args.length
+                + TestConstants.PRODUCT_SPECIFIC_FLAGS.size()
+                + TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS.size());
     Collections.addAll(result, args);
     result.addAll(TestConstants.PRODUCT_SPECIFIC_FLAGS);
+    result.addAll(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     return result;
   }
 }

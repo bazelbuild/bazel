@@ -360,6 +360,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     if (defaultFlags().contains(Flag.NO_LEGACY_EXTERNAL_RUNFILES)) {
       optionsParser.parse("--nolegacy_external_runfiles");
     }
+    optionsParser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     optionsParser.parse(args);
 
     buildOptions =

@@ -542,7 +542,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return parser.getOptions(PackageOptions.class);
   }
 
-  private BuildLanguageOptions parseBuildLanguageOptions(String... options) throws Exception {
+  protected BuildLanguageOptions parseBuildLanguageOptions(String... options) throws Exception {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
     parser.parse(getDefaultBuildLanguageOptions());
@@ -552,9 +552,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected List<String> getDefaultBuildLanguageOptions() throws Exception {
     ImmutableList.Builder<String> ans = ImmutableList.builder();
-    if (!analysisMock.isThisBazel()) {
-      ans.add("--experimental_google_legacy_api"); // For starlark java_binary;
-    }
+    ans.addAll(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     ans.add("--enable_bzlmod");
     return ans.build();
   }

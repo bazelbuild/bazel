@@ -2304,9 +2304,9 @@ public abstract class AbstractQueryTest<T> {
     writeFile(
         "foo/BUILD",
         """
-        java_library(name = 'a', srcs = ['A.java'])
-        java_library(name = 'b', srcs = ['B.java'], deps = [':a'])
-        java_library(name = 'c', srcs = ['C.java'], deps = [':b'])
+        sh_library(name = 'a', srcs = ['A.java'])
+        sh_library(name = 'b', srcs = ['B.java'], deps = [':a'])
+        sh_library(name = 'c', srcs = ['C.java'], deps = [':b'])
         """);
     assertThat(evalToString("same_pkg_direct_rdeps(//foo:A.java)")).isEqualTo("//foo:a");
   }
@@ -2316,9 +2316,9 @@ public abstract class AbstractQueryTest<T> {
     writeFile(
         "foo/BUILD",
         """
-        java_library(name = 'a', srcs = ['A.java'])
-        java_library(name = 'b', srcs = ['B.java'], deps = [':a'])
-        java_library(name = 'c', srcs = ['C.java'], deps = [':b'])
+        sh_library(name = 'a', srcs = ['A.java'])
+        sh_library(name = 'b', srcs = ['B.java'], deps = [':a'])
+        sh_library(name = 'c', srcs = ['C.java'], deps = [':b'])
         """);
     assertThat(evalToString("same_pkg_direct_rdeps(//foo:A.java + //foo:A.java)"))
         .isEqualTo("//foo:a");
@@ -2349,12 +2349,12 @@ public abstract class AbstractQueryTest<T> {
     writeFile(
         "foo/BUILD",
         """
-        java_library(name = 'a', srcs = ['A.java'])
-        java_library(name = 'b', srcs = ['B.java'], deps = [':a'])
-        java_library(name = 'c', srcs = ['C.java'], deps = [':b'])
+        sh_library(name = 'a', srcs = ['A.java'])
+        sh_library(name = 'b', srcs = ['B.java'], deps = [':a'])
+        sh_library(name = 'c', srcs = ['C.java'], deps = [':b'])
         """);
     // //bar:d directly depends on //foo:a but is in the wrong package
-    writeFile("bar/BUILD", "java_library(name = 'd', srcs = ['D.java'], deps = ['//foo:a'])");
+    writeFile("bar/BUILD", "sh_library(name = 'd', srcs = ['D.java'], deps = ['//foo:a'])");
     assertThat(evalToString("kind(rule, same_pkg_direct_rdeps(//foo:a))")).isEqualTo("//foo:b");
   }
 
@@ -2363,14 +2363,14 @@ public abstract class AbstractQueryTest<T> {
     writeFile(
         "foo/BUILD",
         """
-        java_library(name = 'a', srcs = ['A.java'])
-        java_library(name = 'b', srcs = ['B.java'], deps = ['//bar:a'])
+        sh_library(name = 'a', srcs = ['A.java'])
+        sh_library(name = 'b', srcs = ['B.java'], deps = ['//bar:a'])
         """);
     writeFile(
         "bar/BUILD",
         """
-        java_library(name = 'a', srcs = ['A.java'])
-        java_library(name = 'b', srcs = ['B.java'], deps = ['//foo:a'])
+        sh_library(name = 'a', srcs = ['A.java'])
+        sh_library(name = 'b', srcs = ['B.java'], deps = ['//foo:a'])
         """);
     assertThat(evalToString("kind(rule, same_pkg_direct_rdeps(//foo:a + //bar:a))")).isEmpty();
   }
