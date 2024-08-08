@@ -1192,7 +1192,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     // See SymbolicMacroTest#submacroMayHaveSameNameAsAncestorMacros for coverage of that.
     defineMacroBzl();
     expectEvalError(
-        "macro 'foo' conflicts with existing macro",
+        "macro 'foo' conflicts with an existing macro (and was not created by it)",
         """
         load(":my_macro.bzl", "my_macro")
         my_macro(name = "foo")
@@ -1201,9 +1201,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testSymbolicMacro_macroAndRuleMayShareName_macroDeclaredFirst() throws Exception {
+  public void testSymbolicMacro_macroAndRuleClash_macroDeclaredFirst() throws Exception {
     defineMacroBzl();
-    expectEvalSuccess(
+    expectEvalError(
+        "target 'foo' conflicts with an existing macro (and was not created by it)",
         """
         load(":my_macro.bzl", "my_macro")
         my_macro(name = "foo")
@@ -1212,9 +1213,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testSymbolicMacro_macroAndRuleMayShareName_ruleDeclaredFirst() throws Exception {
+  public void testSymbolicMacro_macroAndRuleClash_ruleDeclaredFirst() throws Exception {
     defineMacroBzl();
-    expectEvalSuccess(
+    expectEvalError(
+        "macro 'foo' conflicts with an existing target",
         """
         load(":my_macro.bzl", "my_macro")
         cc_library(name = "foo")
@@ -1223,9 +1225,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testSymbolicMacro_macroAndOutputMayShareName_macroDeclaredFirst() throws Exception {
+  public void testSymbolicMacro_macroAndOutputClash_macroDeclaredFirst() throws Exception {
     defineMacroBzl();
-    expectEvalSuccess(
+    expectEvalError(
+        "target 'foo' conflicts with an existing macro (and was not created by it)",
         """
         load(":my_macro.bzl", "my_macro")
         my_macro(name = "foo")
@@ -1234,9 +1237,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testSymbolicMacro_macroAndOutputMayShareName_outputDeclaredFirst() throws Exception {
+  public void testSymbolicMacro_macroAndOutputClash_outputDeclaredFirst() throws Exception {
     defineMacroBzl();
-    expectEvalSuccess(
+    expectEvalError(
+        "macro 'foo' conflicts with an existing target",
         """
         load(":my_macro.bzl", "my_macro")
         genrule(name = "gen", outs = ["foo"], cmd = "")
@@ -1261,10 +1265,11 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testSymbolicMacro_macroAndEnvironmentGroupMayShareName_macroDeclaredFirst()
+  public void testSymbolicMacro_macroAndEnvironmentGroupClash_macroDeclaredFirst()
       throws Exception {
     defineMacroBzl();
-    expectEvalSuccess(
+    expectEvalError(
+        "target 'foo' conflicts with an existing macro (and was not created by it)",
         """
         load(":my_macro.bzl", "my_macro")
         my_macro(name = "foo")
@@ -1274,10 +1279,11 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testSymbolicMacro_macroAndEnvironmentGroupMayShareName_environmentGroupDeclaredFirst()
+  public void testSymbolicMacro_macroAndEnvironmentGroupClash_environmentGroupDeclaredFirst()
       throws Exception {
     defineMacroBzl();
-    expectEvalSuccess(
+    expectEvalError(
+        "macro 'foo' conflicts with an existing target",
         """
         load(":my_macro.bzl", "my_macro")
         environment(name = "env")
@@ -1287,10 +1293,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testSymbolicMacro_macroAndPackageGroupMayShareName_macroDeclaredFirst()
-      throws Exception {
+  public void testSymbolicMacro_macroAndPackageGroupClash_macroDeclaredFirst() throws Exception {
     defineMacroBzl();
-    expectEvalSuccess(
+    expectEvalError(
+        "target 'foo' conflicts with an existing macro (and was not created by it)",
         """
         load(":my_macro.bzl", "my_macro")
         my_macro(name = "foo")
@@ -1299,10 +1305,11 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testSymbolicMacro_macroAndPackageGroupMayShareName_packageGroupDeclaredFirst()
+  public void testSymbolicMacro_macroAndPackageGroupClash_packageGroupDeclaredFirst()
       throws Exception {
     defineMacroBzl();
-    expectEvalSuccess(
+    expectEvalError(
+        "macro 'foo' conflicts with an existing target",
         """
         load(":my_macro.bzl", "my_macro")
         package_group(name = "foo")
@@ -1311,9 +1318,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testSymbolicMacro_macroAndInputMayShareName_macroDeclaredFirst() throws Exception {
+  public void testSymbolicMacro_macroAndInputClash_macroDeclaredFirst() throws Exception {
     defineMacroBzl();
-    expectEvalSuccess(
+    expectEvalError(
+        "target 'foo' conflicts with an existing macro (and was not created by it)",
         """
         load(":my_macro.bzl", "my_macro")
         my_macro(name = "foo")
@@ -1322,9 +1330,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testSymbolicMacro_macroAndInputMayShareName_inputDeclaredFirst() throws Exception {
+  public void testSymbolicMacro_macroAndInputClash_inputDeclaredFirst() throws Exception {
     defineMacroBzl();
-    expectEvalSuccess(
+    expectEvalError(
+        "macro 'foo' conflicts with an existing target",
         """
         load(":my_macro.bzl", "my_macro")
         exports_files(["foo"])

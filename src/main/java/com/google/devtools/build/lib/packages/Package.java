@@ -122,21 +122,19 @@ public class Package {
   /** Sentinel value for package overhead being empty. */
   private static final long PACKAGE_OVERHEAD_UNSET = -1;
 
-  /**
-   * The collection of all targets defined in this package, indexed by name.
-   *
-   * <p>Note that a target and a macro may share the same name.
-   */
-  // TODO(#19922): Change these semantics to disallow name conflicts between macros and targets
-  // except in the (common) case of a main target of a macro.
+  /** The collection of all targets defined in this package, indexed by name. */
+  // TODO(bazel-team): Clarify what this map contains when a rule and its output both share the same
+  // name.
   private ImmutableSortedMap<String, Target> targets;
 
   /**
    * The collection of all symbolic macro instances defined in this package, indexed by their {@link
    * MacroInstance#getId id} (not name).
    */
-  // TODO(#19922): Enforce that macro namespaces are "exclusive", meaning that target names may only
-  // suffix a macro name when the target is created (transitively) within the macro.
+  // TODO(#19922): Consider enforcing that macro namespaces are "exclusive", meaning that target
+  // names may only suffix a macro name when the target is created (transitively) within the macro.
+  // This would be a major change that would break the (common) use case where a BUILD file
+  // declares both "foo" and "foo_test".
   private ImmutableSortedMap<String, MacroInstance> macros;
 
   public PackageArgs getPackageArgs() {
@@ -2266,11 +2264,12 @@ public class Package {
      * because of a conflict or because of a violation of symbolic macro naming rules (if
      * applicable).
      *
-     * <p>Checks with respect to targets that have already been added via {@link
-     * #addOrReplaceTarget}. The given target must *not* have already been added.
+     * <p>The given target must *not* have already been added (via {@link #addOrReplaceTarget}).
      */
     private void checkTargetName(Target target) throws NameConflictException {
       checkForExistingTargetName(target);
+
+      checkForExistingMacroName(target.getName(), "target");
 
       if (currentlyInMacro()) {
         checkDeclaredNameValidForMacro("target", target.getName(), currentMacroName());
@@ -2279,10 +2278,9 @@ public class Package {
 
     /**
      * Throws {@link NameConflictException} if the given target's name matches that of an existing
-     * target in the package.
+     * target in the package, or an existing macro in the package that is not its ancestor.
      *
-     * <p>Checks with respect to targets that have already been added via {@link
-     * #addOrReplaceTarget}. The given target must *not* have already been added.
+     * <p>The given target must *not* have already been added (via {@link #addOrReplaceTarget}).
      */
     private void checkForExistingTargetName(Target target) throws NameConflictException {
       Target existing = targets.get(target.getName());
@@ -2310,32 +2308,38 @@ public class Package {
      * Throws {@link NameConflictException} if the given macro's name can't be added, either because
      * of a conflict or because of a violation of symbolic macro naming rules (if applicable).
      *
-     * <p>Checks with respect to macros that have already been added via {@link #addMacro}. The
-     * given macro must *not* have already been added.
+     * <p>The given macro must *not* have already been added (via {@link #addMacro}).
      */
     private void checkMacroName(MacroInstance macro) throws NameConflictException {
-      checkForExistingMacroName(macro);
+      String name = macro.getName();
+
+      // A macro can share names with its main target but no other target. Since the macro hasn't
+      // even been added yet, it hasn't run, and its main target is not yet defined. Therefore, any
+      // match in the targets map represents a real conflict.
+      Target existingTarget = targets.get(name);
+      if (existingTarget != null) {
+        throw new NameConflictException(
+            String.format("macro '%s' conflicts with an existing target.", name));
+      }
+
+      checkForExistingMacroName(name, "macro");
 
       if (currentlyInMacro()) {
-        checkDeclaredNameValidForMacro("submacro", macro.getName(), currentMacroName());
+        checkDeclaredNameValidForMacro("submacro", name, currentMacroName());
       }
     }
 
     /**
-     * Throws {@link NameConflictException} if the given macro's name matches that of an existing
-     * macro in the package, except for the case of a main submacro.
+     * Throws {@link NameConflictException} if the given name (of a hypothetical target or macro)
+     * matches the name of an existing macro in the package, and the existing macro is not currently
+     * executing (i.e. on the macro stack).
      *
-     * <p>Checks with respect to macros that have already been added via {@link #addMacro}. The
-     * given macro must *not* have already been added.
-     *
-     * <p>It is permissible to share the same name as the enclosing macro (a main submacro), but not
-     * for there to also be a sibling of the same name in the enclosing macro.
+     * <p>{@code what} must be either "macro" or "target".
      */
-    private void checkForExistingMacroName(MacroInstance macro) throws NameConflictException {
+    private void checkForExistingMacroName(String name, String what) throws NameConflictException {
       // Macros are indexed by id, not name, so we can't just use macros.get() directly.
       // Instead, we reason that if at least one macro by the given name exists, then there is one
       // with an id suffix of ":1".
-      String name = macro.getName();
       MacroInstance existing = macros.get(name + ":1");
       if (existing == null) {
         return;
@@ -2352,13 +2356,12 @@ public class Package {
         }
       }
 
-      // TODO(#19922): Add definition location info for the existing object, like we have in the
-      // case for rules. Complicated by the fact that there may be more than one macro of that name.
+      // TODO(#19922): Add definition location info for the existing object, like we have in
+      // checkForExistingTargetName. Complicated by the fact that there may be more than one macro
+      // of that name.
       throw new NameConflictException(
           String.format(
-              "macro '%s' conflicts with existing macro. Macros may only share names when one is a"
-                  + " submacro of the other.",
-              name));
+              "%s '%s' conflicts with an existing macro (and was not created by it)", what, name));
     }
 
     /**

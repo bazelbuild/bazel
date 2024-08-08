@@ -237,13 +237,11 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         load(":foo.bzl", "my_macro")
         my_macro(name="abc")
         cc_library(name = "abc_outside_macro")
-        cc_library(name = "abc")
         """);
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets().keySet())
-        .containsAtLeast("abc", "abc_inside_macro", "abc_outside_macro");
+    assertThat(pkg.getTargets().keySet()).containsAtLeast("abc_inside_macro", "abc_outside_macro");
     assertThat(pkg.getMacrosById()).containsKey("abc:1");
   }
 
@@ -422,9 +420,83 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg", "cc_library rule 'abc' conflicts with existing cc_library rule");
   }
 
-  // TODO(#19922): After we disallow macro/target name conflicts, add a test case where a macro
-  // defines both a main target and a main submacro, where the submacro has no main target (so
-  // the only conflict is between the two siblings, not two targets).
+  @Test
+  public void cannotHaveTwoMainSubmacros() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _inner_impl(name):
+            pass
+        inner_macro = macro(implementation=_inner_impl)
+
+        def _impl(name):
+            inner_macro(name = name)
+            inner_macro(name = name)
+        my_macro = macro(implementation=_impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(name="abc")
+        """);
+
+    assertGetPackageFailsWithEvent(
+        "pkg", "macro 'abc' conflicts with an existing macro (and was not created by it)");
+  }
+
+  @Test
+  public void cannotHaveBothMainTargetAndMainSubmacro_submacroDeclaredFirst() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _inner_impl(name):
+            # Don't define a main target; we don't want to trigger a name conflict between this and
+            # the outer target.
+            pass
+        inner_macro = macro(implementation=_inner_impl)
+
+        def _impl(name):
+            inner_macro(name = name)
+            native.cc_library(name = name)
+        my_macro = macro(implementation=_impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(name="abc")
+        """);
+
+    assertGetPackageFailsWithEvent(
+        "pkg", "target 'abc' conflicts with an existing macro (and was not created by it)");
+  }
+
+  @Test
+  public void cannotHaveBothMainTargetAndMainSubmacro_targetDeclaredFirst() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _inner_impl(name):
+            # Don't define a main target; we don't want to trigger a name conflict between this and
+            # the outer target.
+            pass
+        inner_macro = macro(implementation=_inner_impl)
+
+        def _impl(name):
+            native.cc_library(name = name)
+            inner_macro(name = name)
+        my_macro = macro(implementation=_impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(name="abc")
+        """);
+
+    assertGetPackageFailsWithEvent("pkg", "macro 'abc' conflicts with an existing target");
+  }
 
   /**
    * Implementation of a test that ensures a given API cannot be called from inside a symbolic
