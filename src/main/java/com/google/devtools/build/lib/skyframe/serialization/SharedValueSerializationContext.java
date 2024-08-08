@@ -339,7 +339,7 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
    *
    * <p>The caller must ensure that {@link #futurePuts} is non-null.
    */
-  private final List<ListenableFuture<Void>> initializeCombinedWriteStatusesList() {
+  private List<ListenableFuture<Void>> initializeCombinedWriteStatusesList() {
     if (futuresToBlockWritingOn == null) {
       return new ArrayList<>(futurePuts.size());
     }
@@ -371,8 +371,8 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
   /**
    * A tuple consisting of a stream offset and a pending {@link PutOperation}.
    *
-   * <p>When {@link PutOperation} becomes available, {@link fillInPlaceholderAndReturnWriteStatus}
-   * must be called.
+   * <p>When {@link PutOperation} becomes available, {@link
+   * FuturePut#fillInPlaceholderAndReturnWriteStatus} must be called.
    */
   private static final class FuturePut {
     /** Where the fingerprint should be written when it becomes available. */

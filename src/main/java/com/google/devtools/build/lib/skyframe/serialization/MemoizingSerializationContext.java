@@ -204,7 +204,7 @@ abstract class MemoizingSerializationContext extends SerializationContext {
     recorder.recordBytesAndPopLocation(startBytes, codedOut);
   }
 
-  private final <T> void serializeLeafImpl(
+  private <T> void serializeLeafImpl(
       @Nullable T obj, LeafObjectCodec<T> codec, CodedOutputStream codedOut)
       throws IOException, SerializationException {
     if (writeIfNullOrConstant(obj, codedOut)) {
