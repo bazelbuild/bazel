@@ -369,21 +369,46 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     assertGetPackageFailsWithEvent("pkg", "macro 'abc' cannot declare submacro named 'abc$inner'");
   }
 
-  // TODO(#19922): Macro "foo" can declare a main target "foo", but not a submacro "foo". This is a
-  // misfeature and prevents refactoring the main target's rule into a submacro. We should probably
-  // instead allow this as a special case of distinct macros with the same name in the same package.
-  // That may complicate tooling that assumes macro names are unique within a package though. Invert
-  // this test if and when we change that.
   @Test
-  public void submacroCannotShareSameNameAsParentMacro() throws Exception {
+  public void submacroMayHaveSameNameAsAncestorMacros() throws Exception {
     scratch.file(
         "pkg/foo.bzl",
         """
         def _inner_impl(name):
-            pass
+            native.cc_library(name = name)
         inner_macro = macro(implementation=_inner_impl)
-        def _impl(name):
+
+        def _middle_impl(name):
             inner_macro(name = name)
+        middle_macro = macro(implementation=_middle_impl)
+
+        def _outer_impl(name):
+            middle_macro(name = name)
+        outer_macro = macro(implementation = _outer_impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "outer_macro")
+        outer_macro(name="abc")
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    assertThat(pkg.getTargets()).containsKey("abc");
+    assertThat(pkg.getMacrosById()).containsKey("abc:1");
+    assertThat(pkg.getMacrosById()).containsKey("abc:2");
+    assertThat(pkg.getMacrosById()).containsKey("abc:3");
+  }
+
+  @Test
+  public void cannotHaveTwoMainTargets() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name):
+            native.cc_library(name = name)
+            native.cc_library(name = name)
         my_macro = macro(implementation=_impl)
         """);
     scratch.file(
@@ -394,8 +419,12 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         """);
 
     assertGetPackageFailsWithEvent(
-        "pkg", "Error in inner_macro: macro 'abc' conflicts with existing macro");
+        "pkg", "cc_library rule 'abc' conflicts with existing cc_library rule");
   }
+
+  // TODO(#19922): After we disallow macro/target name conflicts, add a test case where a macro
+  // defines both a main target and a main submacro, where the submacro has no main target (so
+  // the only conflict is between the two siblings, not two targets).
 
   /**
    * Implementation of a test that ensures a given API cannot be called from inside a symbolic

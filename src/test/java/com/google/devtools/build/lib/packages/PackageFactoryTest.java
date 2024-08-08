@@ -1188,6 +1188,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
 
   @Test
   public void testSymbolicMacro_duplicateMacroNamesDisallowed() throws Exception {
+    // However, note that duplicates are allowed if one is a submacro of the other.
+    // See SymbolicMacroTest#submacroMayHaveSameNameAsAncestorMacros for coverage of that.
     defineMacroBzl();
     expectEvalError(
         "macro 'foo' conflicts with existing macro",
@@ -1352,9 +1354,6 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     assertThat(pkg.getTarget("foo_")).isInstanceOf(InputFile.class);
     assertThat(pkg.getTarget("baz")).isInstanceOf(InputFile.class);
   }
-
-  // TODO(#19922): Add test that macro ids are determined correctly, once we allow macros to
-  // instantiate main submacros (i.e. macros having the same name as the parent).
 
   @Test
   public void testGlobPatternExtractor() throws Exception {
