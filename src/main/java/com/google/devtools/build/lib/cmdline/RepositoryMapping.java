@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import net.starlark.java.spelling.SpellChecker;
 
 /**
  * Stores the mapping from apparent repo name to canonical repo name, from the viewpoint of an
@@ -128,7 +129,8 @@ public class RepositoryMapping {
     if (ownerRepo() == null) {
       return RepositoryName.createUnvalidated(preMappingName);
     } else {
-      return RepositoryName.createUnvalidated(preMappingName).toNonVisible(ownerRepo());
+      return RepositoryName.createUnvalidated(preMappingName)
+          .toNonVisible(ownerRepo(), SpellChecker.didYouMean(preMappingName, entries().keySet()));
     }
   }
 

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.cmdline;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -132,13 +133,22 @@ public final class RepositoryName {
    */
   private final RepositoryName ownerRepoIfNotVisible;
 
-  private RepositoryName(String name, RepositoryName ownerRepoIfNotVisible) {
+  /**
+   * If ownerRepoIfNotVisible is not null, this field stores the suffix to be appended to the error
+   */
+  @Nullable private final String didYouMeanSuffix;
+
+  private RepositoryName(
+      String name,
+      @Nullable RepositoryName ownerRepoIfNotVisible,
+      @Nullable String didYouMeanSuffix) {
     this.name = name;
     this.ownerRepoIfNotVisible = ownerRepoIfNotVisible;
+    this.didYouMeanSuffix = didYouMeanSuffix;
   }
 
   private RepositoryName(String name) {
-    this(name, null);
+    this(name, /* ownerRepoIfNotVisible= */ null, /* didYouMeanSuffix= */ null);
   }
 
   /**
@@ -192,10 +202,16 @@ public final class RepositoryName {
    * actually not visible from the owner repository and should fail in {@code
    * RepositoryDelegatorFunction} when fetching with this {@link RepositoryName} instance.
    */
-  public RepositoryName toNonVisible(RepositoryName ownerRepo) {
+  public RepositoryName toNonVisible(RepositoryName ownerRepo, String didYouMeanSuffix) {
     Preconditions.checkNotNull(ownerRepo);
     Preconditions.checkArgument(ownerRepo.isVisible());
-    return new RepositoryName(name, ownerRepo);
+    Preconditions.checkNotNull(didYouMeanSuffix);
+    return new RepositoryName(name, ownerRepo, didYouMeanSuffix);
+  }
+
+  @VisibleForTesting
+  public RepositoryName toNonVisible(RepositoryName ownerRepo) {
+    return toNonVisible(ownerRepo, "");
   }
 
   public boolean isVisible() {
@@ -239,7 +255,9 @@ public final class RepositoryName {
   // TODO(bazel-team): Rename to "getCanonicalForm".
   public String getNameWithAt() {
     if (!isVisible()) {
-      return String.format("@@[unknown repo '%s' requested from %s]", name, ownerRepoIfNotVisible);
+      return String.format(
+          "@@[unknown repo '%s' requested from %s%s]",
+          name, ownerRepoIfNotVisible, didYouMeanSuffix);
     }
     return "@@" + name;
   }
@@ -339,16 +357,17 @@ public final class RepositoryName {
     if (this == object) {
       return true;
     }
-    if (!(object instanceof RepositoryName)) {
+    if (!(object instanceof RepositoryName other)) {
       return false;
     }
-    RepositoryName other = (RepositoryName) object;
     return OsPathPolicy.getFilePathOs().equals(name, other.name)
-        && Objects.equals(ownerRepoIfNotVisible, other.ownerRepoIfNotVisible);
+        && Objects.equals(ownerRepoIfNotVisible, other.ownerRepoIfNotVisible)
+        && Objects.equals(didYouMeanSuffix, other.didYouMeanSuffix);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(OsPathPolicy.getFilePathOs().hash(name), ownerRepoIfNotVisible);
+    return Objects.hash(
+        OsPathPolicy.getFilePathOs().hash(name), ownerRepoIfNotVisible, didYouMeanSuffix);
   }
 }
