@@ -124,6 +124,9 @@ cc_test(
         ":zlib_interface",
     ],
     data = [
+        "data/log4j2_plugins_set_1.jar",
+        "data/log4j2_plugins_set_2.jar",
+        "data/log4j2_plugins_set_result.dat",
         "data/multi_release.jar",
     ],
     # Requires at least 5 GiB of memory
