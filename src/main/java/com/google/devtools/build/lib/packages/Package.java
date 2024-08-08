@@ -966,30 +966,34 @@ public class Package {
     private final Map<String, MacroInstance> macros = new LinkedHashMap<>();
 
     /**
-     * A stack representing currently executing symbolic macros, outermost first.
+     * Represents the innermost currently executing symbolic macro, or null if none are running.
      *
-     * <p>This is used to help enforce naming rules.
+     * <p>Logically, this is the top entry of a stack of frames where each frame corresponds to a
+     * nested symbolic macro invocation. In actuality, symbolic macros do not necessarily run
+     * eagerly when they are invoked, so this is not really a call stack per se. We leave it to the
+     * pkgbuilder client to set the current frame, so that the choice of whether to push and pop, or
+     * process a worklist of queued evaluations, is up to them.
      *
-     * <p>It is also used to determine whether or not any symbolic macro is currently running, which
-     * influences which APIs are available. See user documentation on {@code macro()} ({@link
-     * StarlarkRuleFunctionsApi#macro}).
+     * <p>The state of this field is used to determine what Starlark APIs are available (see user
+     * documentation on {@code macro()} at {@link StarlarkRuleFunctionsApi#macro}), and to help
+     * enforce naming requirements on targets and macros.
      */
-    // TODO(#19922): This stack model may need adjusting when we have macros that execute at the
-    // end of a package (deferred/lazy evaluation and finalizers). In that case, the stack doesn't
-    // represent actively executing macros, but just the instantiation path to a macro.
-    private final List<MacroStackFrame> macroStack = new ArrayList<>();
+    private MacroFrame currentMacroFrame = null;
 
-    /** An element of macroStack. */
-    private static class MacroStackFrame {
+    /**
+     * Represents the state of a running symbolic macro (see {@link #currentMacroFrame}).
+     * Semi-opaque.
+     */
+    static class MacroFrame {
       final MacroInstance macroInstance;
       // Most name conflicts are caught by checking the keys of the `targets` and `macros` maps.
       // It is not a conflict for a target or macro to have the same name as the macro it is
       // declared in, yet such a target or macro may still conflict with siblings in the same macro.
       // We use this bool to track whether or not a newly introduced macro, M, having the same name
       // as its parent (the current macro), would clash with an already defined sibling of M.
-      boolean mainSubmacroHasBeenDefined = false;
+      private boolean mainSubmacroHasBeenDefined = false;
 
-      MacroStackFrame(MacroInstance macroInstance) {
+      MacroFrame(MacroInstance macroInstance) {
         this.macroInstance = macroInstance;
       }
     }
@@ -1206,7 +1210,7 @@ public class Package {
       boolean bad = false;
       if (ctx instanceof Builder builder) {
         bad |= !allowBuild && !builder.isRepoRulePackage();
-        bad |= !allowSymbolicMacros && builder.currentlyInMacro();
+        bad |= !allowSymbolicMacros && builder.currentMacroFrame != null;
         bad |= !allowWorkspace && builder.isRepoRulePackage();
         if (!bad) {
           return builder;
@@ -1582,8 +1586,8 @@ public class Package {
     }
 
     /**
-     * Inserts a target into the {@code targets} map. Returns the previous target if one was
-     * present, or null.
+     * Inserts a target into the targets map. Returns the previous target if one was present, or
+     * null.
      */
     @CanIgnoreReturnValue
     @Nullable
@@ -1790,7 +1794,7 @@ public class Package {
         EventHandler eventHandler,
         Location location)
         throws NameConflictException, LabelSyntaxException {
-      Preconditions.checkState(!currentlyInMacro());
+      Preconditions.checkState(currentMacroFrame == null);
 
       if (hasDuplicateLabels(environments, name, "environments", location, eventHandler)
           || hasDuplicateLabels(defaults, name, "defaults", location, eventHandler)) {
@@ -1897,7 +1901,7 @@ public class Package {
       checkRuleAndOutputs(rule, labels);
       addRuleInternal(rule);
       ruleLabels.put(rule, labels);
-      if (currentlyInMacro()) {
+      if (currentMacroFrame != null) {
         rulesCreatedInMacros.add(rule);
       }
     }
@@ -1909,53 +1913,29 @@ public class Package {
       Preconditions.checkState(prev == null);
       // Track whether a main submacro has been seen yet. Conflict checking for this is done in
       // checkMacroName().
-      if (currentlyInMacro()) {
-        MacroStackFrame frame = currentMacroFrame();
-        if (macro.getName().equals(frame.macroInstance.getName())) {
-          frame.mainSubmacroHasBeenDefined = true;
+      if (currentMacroFrame != null) {
+        if (macro.getName().equals(currentMacroFrame.macroInstance.getName())) {
+          currentMacroFrame.mainSubmacroHasBeenDefined = true;
         }
       }
     }
 
-    /** Pushes a macro instance onto the stack of currently executing symbolic macros. */
-    public void pushMacro(MacroInstance macro) {
-      macroStack.add(new MacroStackFrame(macro));
-    }
-
-    /** Pops the stack of currently executing symbolic macros. */
-    public MacroInstance popMacro() {
-      return macroStack.remove(macroStack.size() - 1).macroInstance;
-    }
-
-    /** Returns whether we're currently executing at least one symbolic macro. */
-    private boolean currentlyInMacro() {
-      return !macroStack.isEmpty();
+    /** Returns the current macro frame, or null if there is no currently running symbolic macro. */
+    @Nullable
+    MacroFrame getCurrentMacroFrame() {
+      return currentMacroFrame;
     }
 
     /**
-     * Returns the stack frame corresponding to the innermost currently executing macro, or null if
-     * not in a macro.
+     * Sets the current macro frame and returns the old one.
+     *
+     * <p>Either the new or old frame may be null, indicating no currently running symbolic macro.
      */
     @Nullable
-    private MacroStackFrame currentMacroFrame() {
-      return macroStack.isEmpty() ? null : Iterables.getLast(macroStack);
-    }
-
-    /** Returns the innermost currently executing symbolic macro, or null if not in a macro. */
-    @Nullable
-    public MacroInstance currentMacro() {
-      @Nullable MacroStackFrame frame = currentMacroFrame();
-      return frame == null ? null : frame.macroInstance;
-    }
-
-    /**
-     * Returns the name of the innermost currently executing symbolic macro, or null if not in a
-     * macro.
-     */
-    @Nullable
-    private String currentMacroName() {
-      @Nullable MacroInstance macro = currentMacro();
-      return macro == null ? null : macro.getName();
+    MacroFrame setCurrentMacroFrame(@Nullable MacroFrame frame) {
+      MacroFrame prev = currentMacroFrame;
+      currentMacroFrame = frame;
+      return prev;
     }
 
     void addRegisteredExecutionPlatforms(List<TargetPattern> platforms) {
@@ -2271,8 +2251,9 @@ public class Package {
 
       checkForExistingMacroName(target.getName(), "target");
 
-      if (currentlyInMacro()) {
-        checkDeclaredNameValidForMacro("target", target.getName(), currentMacroName());
+      if (currentMacroFrame != null) {
+        checkDeclaredNameValidForMacro(
+            "target", target.getName(), currentMacroFrame.macroInstance.getName());
       }
     }
 
@@ -2324,8 +2305,8 @@ public class Package {
 
       checkForExistingMacroName(name, "macro");
 
-      if (currentlyInMacro()) {
-        checkDeclaredNameValidForMacro("submacro", name, currentMacroName());
+      if (currentMacroFrame != null) {
+        checkDeclaredNameValidForMacro("submacro", name, currentMacroFrame.macroInstance.getName());
       }
     }
 
@@ -2349,9 +2330,9 @@ public class Package {
       // have the same name as the immediately enclosing macro (relying inductively on the check
       // that was done when that macro was added), and 2) there is no sibling macro of the same name
       // already defined in the current frame.
-      if (currentlyInMacro()) {
-        MacroStackFrame frame = currentMacroFrame();
-        if (name.equals(frame.macroInstance.getName()) && !frame.mainSubmacroHasBeenDefined) {
+      if (currentMacroFrame != null) {
+        if (name.equals(currentMacroFrame.macroInstance.getName())
+            && !currentMacroFrame.mainSubmacroHasBeenDefined) {
           return;
         }
       }
