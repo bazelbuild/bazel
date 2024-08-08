@@ -614,7 +614,6 @@ public class ModExecutorTest {
                             .setDevDependency(false)
                             .setContainingModuleFilePath(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
                             .build())
-                    .setUsingModule(createModuleKey("C", "1.0"))
                     .build())
             .put(
                 mavenId,
@@ -629,7 +628,6 @@ public class ModExecutorTest {
                             .setDevDependency(false)
                             .setContainingModuleFilePath(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
                             .build())
-                    .setUsingModule(createModuleKey("D", "1.0"))
                     .build())
             .put(
                 gradleId,
@@ -644,7 +642,6 @@ public class ModExecutorTest {
                             .setDevDependency(false)
                             .setContainingModuleFilePath(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
                             .build())
-                    .setUsingModule(createModuleKey("Y", "2.0"))
                     .build())
             .put(
                 mavenId,
@@ -667,7 +664,6 @@ public class ModExecutorTest {
                                 "pom_xmls",
                                 StarlarkList.immutableOf("//:pom.xml", "@bar//:pom.xml"))
                             .build())
-                    .setUsingModule(createModuleKey("Y", "2.0"))
                     .build())
             .buildOrThrow();
 

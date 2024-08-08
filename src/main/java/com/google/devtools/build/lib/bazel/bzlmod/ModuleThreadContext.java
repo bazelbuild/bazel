@@ -187,7 +187,6 @@ public class ModuleThreadContext {
           ModuleExtensionUsage.builder()
               .setExtensionBzlFile(extensionBzlFile)
               .setExtensionName(extensionName)
-              .setUsingModule(context.getModuleBuilder().getKey())
               .setProxies(proxies)
               .setTags(tags.build());
       if (isolate) {

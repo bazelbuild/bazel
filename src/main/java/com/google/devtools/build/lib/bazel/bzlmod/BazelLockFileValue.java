@@ -18,7 +18,6 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -33,7 +32,7 @@ import java.util.Optional;
  */
 @AutoValue
 @GenerateTypeAdapter
-public abstract class BazelLockFileValue implements SkyValue, Postable {
+public abstract class BazelLockFileValue implements SkyValue {
 
   // NOTE: See "HACK" note in BazelLockFileModule. While this hack exists, normal increments of the
   // lockfile version need to be done by 2 at a time (i.e. keep LOCK_FILE_VERSION an odd number).
