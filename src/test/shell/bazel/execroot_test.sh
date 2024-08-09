@@ -37,8 +37,8 @@ genrule(
 )
 EOF
 
-  bazel build --noenable_bzlmod -s //dir:use-srcs &> $TEST_log || fail "expected success"
-  execroot="$(bazel info --noenable_bzlmod execution_root)"
+  bazel build --noenable_bzlmod --enable_workspace -s //dir:use-srcs &> $TEST_log || fail "expected success"
+  execroot="$(bazel info --noenable_bzlmod --enable_workspace execution_root)"
   test -e "$execroot/../${ws_name}"
   ls -l bazel-out | tee out
   assert_contains "$(dirname $execroot)/${ws_name}/bazel-out" out
@@ -71,7 +71,7 @@ EOF
 }
 
 function test_sibling_repository_layout() {
-    touch WORKSPACE
+    setup_module_dot_bazel
 
     mkdir -p external/foo
     cat > external/foo/BUILD <<'EOF'
@@ -96,7 +96,7 @@ EOF
 
 # Regression test for b/149771751
 function test_sibling_repository_layout_indirect_dependency() {
-    touch WORKSPACE
+    setup_module_dot_bazel
 
     mkdir external
     mkdir -p foo
@@ -121,7 +121,7 @@ EOF
 
 # Regression test for b/149771751
 function test_subdirectory_repository_layout_indirect_dependency() {
-    touch WORKSPACE
+    setup_module_dot_bazel
 
     mkdir external
     mkdir -p foo
@@ -145,7 +145,7 @@ EOF
 }
 
 function test_no_sibling_repository_layout() {
-    touch WORKSPACE
+    setup_module_dot_bazel
 
     mkdir -p external/foo
     cat > external/foo/BUILD <<'EOF'
@@ -171,8 +171,7 @@ EOF
 }
 
 function test_external_directory_globs() {
-  touch WORKSPACE
-  touch MODULE.bazel
+  setup_module_dot_bazel
 
   mkdir -p external/a external/c
   echo file_ab > external/a/b
@@ -195,7 +194,7 @@ EOF
 }
 
 function test_cc_smoke_with_new_layouts() {
-  touch WORKSPACE
+  setup_module_dot_bazel
   mkdir -p external/a
   cat > external/a/BUILD <<EOF
 cc_binary(name='a', srcs=['a.cc'])
@@ -214,7 +213,7 @@ EOF
 }
 
 function test_java_smoke_with_new_layouts() {
-  touch WORKSPACE
+  setup_module_dot_bazel
   mkdir -p external/java/a
   cat > external/java/a/BUILD <<EOF
 java_binary(name='a', srcs=['A.java'])

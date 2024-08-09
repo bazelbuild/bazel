@@ -119,10 +119,6 @@ EOF
 }
 
 function test_env_vars() {
-  cat > WORKSPACE <<EOF
-workspace(name = "bar")
-EOF
-  add_rules_cc_to_workspace WORKSPACE
   mkdir -p foo
   cat > foo/testenv.sh <<'EOF'
 #!/bin/sh
@@ -145,10 +141,6 @@ EOF
 }
 
 function test_env_vars_override() {
-  cat > WORKSPACE <<EOF
-workspace(name = "bar")
-EOF
-  add_rules_cc_to_workspace WORKSPACE
   mkdir -p foo
   cat > foo/testenv.sh <<'EOF'
 #!/bin/sh
@@ -217,10 +209,6 @@ function test_runfiles_python_runfiles_merges_env_vars() {
 function runfiles_merges_runfiles_env_vars() {
   local -r overridden=$1
   local -r unchanged=$2
-  cat > WORKSPACE <<EOF
-workspace(name = "bar")
-EOF
-  add_rules_cc_to_workspace WORKSPACE
   mkdir -p foo
   cat > foo/foo.sh <<'EOF'
 #!/bin/sh
@@ -246,7 +234,7 @@ sh_binary(
 )
 EOF
 
-touch run/WORKSPACE
+  touch run/REPO.bazel
 
   cat <<EOF > run/under.sh
 #!/bin/sh
@@ -266,7 +254,8 @@ sh_test(
   srcs = [ "passing_test.sh" ])
 EOF
 
-  cat <<EOF > WORKSPACE
+  cat <<EOF > MODULE.bazel
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "run",
     path = "./run",
@@ -363,7 +352,7 @@ function test_run_under_external_file_with_options() {
   # Set up the external repo.
   local run_repo=$TEST_TMPDIR/run
   mkdir -p $run_repo || fail "mkdir run_repo failed"
-  touch $run_repo/WORKSPACE
+  touch $run_repo/REPO.bazel
 
   cat <<EOF > $run_repo/BUILD
 exports_files(["under.sh"])
@@ -376,7 +365,8 @@ EOF
 
 
   # Set up the main repo.
-  cat <<EOF > WORKSPACE
+  cat <<EOF > MODULE.bazel
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "run",
     path = "../run",
@@ -714,7 +704,7 @@ EOF
 
 function test_detailed_test_summary_for_failed_test() {
   copy_examples
-  create_workspace_with_default_repos WORKSPACE
+  add_rules_java "MODULE.bazel"
   setup_javatest_support
 
   local java_native_tests=//examples/java-native/src/test/java/com/example/myproject
@@ -727,7 +717,7 @@ function test_detailed_test_summary_for_failed_test() {
 
 function test_detailed_test_summary_for_passed_test() {
   copy_examples
-  create_workspace_with_default_repos WORKSPACE
+  add_rules_java "MODULE.bazel"
   setup_javatest_support
 
   local java_native_tests=//examples/java-native/src/test/java/com/example/myproject
@@ -1042,7 +1032,8 @@ EOF
 }
 
 function test_run_from_external_repo_sibling_repository_layout() {
-  cat <<EOF > WORKSPACE
+  cat <<EOF > MODULE.bazel
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "a",
     path = "./a",
@@ -1050,7 +1041,7 @@ local_repository(
 EOF
 
   mkdir -p a
-  touch a/WORKSPACE
+  touch a/REPO.bazel
   cat <<'EOF' > a/BUILD
 py_test(
     name = 'x',
@@ -1062,13 +1053,12 @@ EOF
   bazel test --experimental_sibling_repository_layout @a//:x &> $TEST_log \
       || fail "expected success"
 
-  cp $(testlogs_dir a)/x/test.xml $TEST_log
-  expect_log "<testsuite name=\"a/x\""
-  expect_log "<testcase name=\"a/x\""
+  cp $(testlogs_dir +_repo_rules+a)/x/test.xml $TEST_log
+  expect_log "<testsuite name=\"+_repo_rules+a/x\""
+  expect_log "<testcase name=\"+_repo_rules+a/x\""
 }
 
 function test_xml_output_format() {
-  touch WORKSPACE
   cat <<'EOF' > BUILD
 py_test(
     name = 'x',

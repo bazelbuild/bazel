@@ -35,6 +35,11 @@ function set_up() {
   XCODE_VERSION=$(xcodebuild -version | grep ^Xcode | cut -d' ' -f2)
 
   create_new_workspace
+
+  cat > $(setup_module_dot_bazel) <<EOF
+xcode_configure = use_extension("@bazel_tools//tools/osx:xcode_configure.bzl", "xcode_configure_extension")
+use_repo(xcode_configure, "local_config_xcode")
+EOF
 }
 
 function test_host_xcodes() {

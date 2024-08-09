@@ -40,7 +40,6 @@ EOF
 function test_server_process_name_has_workspace_name() {
   mkdir foobarspace
   cd foobarspace
-  create_workspace_with_default_repos WORKSPACE
   ps -o cmd= "$(bazel info server_pid)" &>"$TEST_log"
   expect_log "^bazel(foobarspace)"
   bazel shutdown
