@@ -1,5 +1,8 @@
 //src/test/java/com/google/devtools/build/lib/analysis:AbstractConfiguredTargetTest
 //src/test/java/com/google/devtools/build/lib/analysis/allowlisting:AllowlistingTests
+
+==== ^^ Fixed ^^ ====
+
 //src/test/java/com/google/devtools/build/lib/analysis:AnalysisTests
 //src/test/java/com/google/devtools/build/lib/analysis:AnalysisUtilsTest
 //src/test/java/com/google/devtools/build/lib/analysis:CachingTest
