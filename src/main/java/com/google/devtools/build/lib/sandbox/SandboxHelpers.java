@@ -728,7 +728,7 @@ public final class SandboxHelpers {
    */
   public static void updateContentMap(Path root, long timestamp, SandboxContents stashContents)
       throws IOException, InterruptedException {
-    if (root.statIfFound().getLastChangeTime() > timestamp) {
+    if (root.stat().getLastChangeTime() > timestamp) {
       Set<String> dirsToKeep = new HashSet<>();
       Set<String> filesAndSymlinksToKeep = new HashSet<>();
       for (Dirent dirent : root.readdir(Symlinks.NOFOLLOW)) {
