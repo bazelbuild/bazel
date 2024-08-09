@@ -671,7 +671,10 @@ public final class SandboxHelpers {
 
   /**
    * Computes a {@link SandboxContents} for the filesystem hierarchy rooted at {@code workDir}'s
-   * parent directory.
+   * parent directory, reflecting the expected inputs and outputs for a spawn.
+   *
+   * <p>This may be used in conjunction with {@link #updateContentMap} to speed up the sandbox setup
+   * for a subsequent execution.
    */
   public static SandboxContents createContentMap(
       Path workDir, SandboxInputs inputs, SandboxOutputs outputs) {
@@ -713,6 +716,53 @@ public final class SandboxHelpers {
     SandboxContents root = new SandboxContents();
     root.dirMap().put(workDir.getBaseName(), contentsMap.get(PathFragment.EMPTY_FRAGMENT));
     return root;
+  }
+
+  /**
+   * Updates a {@link SandboxContents} previously created by {@link #createContentMap} to reflect
+   * any filesystem modifications that occurred after the given timestamp.
+   *
+   * <p>This is necessary because an action may delete some of its inputs or create additional
+   * declared outputs. We assume that a ctime check on directories is sufficient to detect such
+   * modifications and avoid a full filesystem traversal.
+   */
+  public static void updateContentMap(Path root, long timestamp, SandboxContents stashContents)
+      throws IOException, InterruptedException {
+    if (root.statIfFound().getLastChangeTime() > timestamp) {
+      Set<String> dirsToKeep = new HashSet<>();
+      Set<String> filesAndSymlinksToKeep = new HashSet<>();
+      for (Dirent dirent : root.readdir(Symlinks.NOFOLLOW)) {
+        if (Thread.interrupted()) {
+          throw new InterruptedException();
+        }
+        Path absPath = root.getChild(dirent.getName());
+        if (dirent.getType().equals(SYMLINK)) {
+          if (stashContents.symlinkMap().containsKey(dirent.getName())
+              && absPath.stat().getLastChangeTime() <= timestamp) {
+            filesAndSymlinksToKeep.add(dirent.getName());
+          } else {
+            absPath.delete();
+          }
+        } else if (dirent.getType().equals(DIRECTORY)) {
+          if (stashContents.dirMap().containsKey(dirent.getName())) {
+            dirsToKeep.add(dirent.getName());
+            updateContentMap(absPath, timestamp, stashContents.dirMap().get(dirent.getName()));
+          } else {
+            absPath.deleteTree();
+            stashContents.dirMap().remove(dirent.getName());
+          }
+        } else {
+          absPath.delete();
+        }
+      }
+      stashContents.dirMap().keySet().retainAll(dirsToKeep);
+      stashContents.symlinkMap().keySet().retainAll(filesAndSymlinksToKeep);
+    } else {
+      for (var entry : stashContents.dirMap().entrySet()) {
+        Path absPath = root.getChild(entry.getKey());
+        updateContentMap(absPath, timestamp, entry.getValue());
+      }
+    }
   }
 
   private static boolean addParent(
