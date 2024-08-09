@@ -167,7 +167,7 @@ public class CommonCommandOptions extends OptionsBase {
       name = "invocation_id",
       defaultValue = "",
       converter = UUIDConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.BAZEL_MONITORING, OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help =
           "Unique identifier, in UUID format, for the command being run. If explicitly specified"
