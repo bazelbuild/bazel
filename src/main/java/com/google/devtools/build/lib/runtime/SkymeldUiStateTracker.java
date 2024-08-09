@@ -100,10 +100,11 @@ final class SkymeldUiStateTracker extends UiStateTracker {
         writeLoadingAnalysisPhaseProgress(
             "Analyzing", additionalMessage, terminalWriter, shortVersion);
         terminalWriter.newline();
-        writeExecutionProgress(terminalWriter, shortVersion);
-        break;
+      // fall through
       case EXECUTION:
-        writeExecutionProgress(terminalWriter, shortVersion);
+        if (executionPhaseStarted) {
+          writeExecutionProgress(terminalWriter, shortVersion);
+        }
         break;
       case BUILD_COMPLETED:
         writeBaseProgress(ok ? "INFO" : "FAILED", additionalMessage, terminalWriter);
