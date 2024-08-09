@@ -2106,6 +2106,7 @@ java_test(
     timeout = "short",
     srcs = ["DiffAwarenessManagerTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe:broken_diff_awareness_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:diff_awareness",
         "//src/main/java/com/google/devtools/build/lib/skyframe:diff_awareness_manager",
