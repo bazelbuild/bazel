@@ -98,6 +98,23 @@ public class JavaTestUtil {
     analysisMock.ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, cpu);
   }
 
+  public static String getJavaBinForJavaBinaryExecutable(RuleContext ruleContext, Action action)
+      throws Exception {
+    if (ruleContext.targetPlatformHasConstraint(getWindowsConstraintValue())) {
+      return ((SpawnAction) action)
+          .getArguments().stream()
+              .filter(a -> a.startsWith("java_bin_path="))
+              .map(a -> a.substring("java_bin_path=".length()))
+              .collect(onlyElement());
+    } else {
+      return ((TemplateExpansionAction) action)
+          .getSubstitutions().stream()
+              .filter(s -> Objects.equals(s.getKey(), "%javabin%"))
+              .collect(onlyElement())
+              .getValue();
+    }
+  }
+
   public static String getJvmFlagsForJavaBinaryExecutable(RuleContext ruleContext, Action action)
       throws Exception {
     if (ruleContext.targetPlatformHasConstraint(getWindowsConstraintValue())) {
