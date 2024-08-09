@@ -389,14 +389,14 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                 entry -> {
                   Path path = entry.getKey();
 
-                  // If this a test log? (regex needed as `test_log` not tagged as logs)
+                  // Is this a test log? (regex needed as `test_log` not tagged as logs)
                   if (TEST_LOG_PATTERN.matcher(path.getPathString()).matches()) {
                     return true;
                   }
 
                   LocalFile file = entry.getValue();
 
-                  // If this a log?
+                  // Is this a log?
                   if (file.type == LocalFileType.LOG || file.type == LocalFileType.PERFORMANCE_LOG) {
                     return true;
                   }
