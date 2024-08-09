@@ -365,7 +365,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                 env.getCommandId()));
         return Preconditions.checkNotNull(lastResult);
       } else {
-        outErr.printErrLn("Found remote cache eviction error, retrying the build...");
+        outErr.printErrLn("Found fatal remote cache error, retrying the build...");
       }
     }
 
@@ -704,7 +704,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       if (newResult.getExitCode().equals(ExitCode.REMOTE_CACHE_EVICTED)) {
         var executionOptions =
             Preconditions.checkNotNull(options.getOptions(ExecutionOptions.class));
-        if (attemptedCommandIds.size() < executionOptions.remoteRetryOnCacheEviction) {
+        if (attemptedCommandIds.size() < executionOptions.remoteRetryOnCacheError) {
           throw new RemoteCacheEvictedException(env.getCommandId(), newResult);
         }
       }
