@@ -271,7 +271,11 @@ function test_noshow_progress() {
 
 function test_basic_progress_no_curses() {
   bazel clean || fail "${PRODUCT_NAME} clean failed"
-  bazel test --curses=no --color=yes pkg:true 2>$TEST_log \
+  # --experimental_ui_debug_all_events is necessary so that we don't miss the
+  # progress indicator event which is only shown once a second when curses is
+  # disabled
+  bazel test --curses=no --color=yes --experimental_ui_debug_all_events \
+    pkg:true 2>$TEST_log \
     || fail "${PRODUCT_NAME} test failed"
   # some progress indicator is shown
   expect_log '\[[0-9,]* / [0-9,]*\]'
@@ -285,7 +289,10 @@ function test_basic_progress_no_curses() {
 
 function test_no_curses_no_linebreak() {
   bazel clean || fail "${PRODUCT_NAME} clean failed"
-  bazel test --curses=no --color=yes --terminal_columns=9 \
+  # --experimental_ui_debug_all_events is necessary so that we don't miss the
+  # progress indicator event which is only shown once a second when curses is
+  # disabled
+  bazel test --curses=no --color=yes --experimental_ui_debug_all_events \
     pkg:true 2>$TEST_log || fail "${PRODUCT_NAME} test failed"
   # expect a long-ish status line
   expect_log '\[[0-9,]* / [0-9,]*\]......'
