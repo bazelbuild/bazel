@@ -67,8 +67,6 @@ import javax.annotation.Nullable;
 class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     implements BuildEventArtifactUploader {
   private static final Pattern TEST_LOG_PATTERN = Pattern.compile(".*/bazel-out/[^/]*/testlogs/.*");
-  private static final Pattern BUILD_LOG_PATTERN =
-      Pattern.compile(".*/bazel-out/_tmp/actions/std(err|out)-.*");
 
   private final Executor executor;
   private final ExtendedEventHandler reporter;
@@ -139,7 +137,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     private final boolean symlink;
     private final boolean remote;
     private final boolean omitted;
-    private final boolean isBuildToolLog;
     private final DigestFunction.Value digestFunction;
 
     PathMetadata(
@@ -149,7 +146,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
         boolean symlink,
         boolean remote,
         boolean omitted,
-        boolean isBuildToolLog,
         DigestFunction.Value digestFunction) {
       this.path = path;
       this.digest = digest;
@@ -157,7 +153,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       this.symlink = symlink;
       this.remote = remote;
       this.omitted = omitted;
-      this.isBuildToolLog = isBuildToolLog;
       this.digestFunction = digestFunction;
     }
 
@@ -185,10 +180,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       return omitted;
     }
 
-    public boolean isBuildToolLog() {
-      return isBuildToolLog;
-    }
-
     public DigestFunction.Value getDigestFunction() {
       return digestFunction;
     }
@@ -213,7 +204,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
           /* symlink= */ false,
           /* remote= */ false,
           /* omitted= */ false,
-          /* isBuildToolLog= */ false,
           /* digestFunction= */ digestUtil.getDigestFunction());
     }
     if (file.type == LocalFileType.OUTPUT_SYMLINK) {
@@ -224,7 +214,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
           /* symlink= */ true,
           /* remote= */ false,
           /* omitted= */ false,
-          /* isBuildToolLog= */ false,
           /* digestFunction= */ digestUtil.getDigestFunction());
     }
 
@@ -242,8 +231,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     }
 
     Digest digest = digestUtil.compute(path);
-    boolean isBuildToolLog =
-        file.type == LocalFileType.LOG || file.type == LocalFileType.PERFORMANCE_LOG;
     return new PathMetadata(
         path,
         digest,
@@ -251,7 +238,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
         /* symlink= */ false,
         isRemoteFile(path),
         omitted,
-        isBuildToolLog,
         digestUtil.getDigestFunction());
   }
 
@@ -271,7 +257,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                 file.isSymlink(),
                 /* remote= */ true,
                 file.isOmitted(),
-                file.isBuildToolLog(),
                 file.getDigestFunction());
         knownRemotePaths.add(remotePathMetadata);
       }
@@ -279,23 +264,11 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   }
 
   private boolean shouldUpload(PathMetadata path) {
-    boolean result =
-        path.getDigest() != null
+    return path.getDigest() != null
             && !path.isRemote()
             && !path.isDirectory()
             && !path.isSymlink()
             && !path.isOmitted();
-
-    if (remoteBuildEventUploadMode == RemoteBuildEventUploadMode.MINIMAL) {
-      result = result && (path.isBuildToolLog() || isBuildOrTestLog(path));
-    }
-
-    return result;
-  }
-
-  private boolean isBuildOrTestLog(PathMetadata path) {
-    return TEST_LOG_PATTERN.matcher(path.getPath().getPathString()).matches()
-        || BUILD_LOG_PATTERN.matcher(path.getPath().getPathString()).matches();
   }
 
   private Single<List<PathMetadata>> queryRemoteCache(
@@ -370,7 +343,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                               // scheme to convert the URI for this file
                               /* remote= */ true,
                               path.isOmitted(),
-                              path.isBuildToolLog(),
                               path.getDigestFunction()))
                   .onErrorResumeNext(
                       error -> {
@@ -409,42 +381,75 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
 
     return Single.using(
         remoteCache::retain,
-        remoteCache ->
-            Flowable.fromIterable(files.entrySet())
-                .map(
-                    entry -> {
-                      Path path = entry.getKey();
-                      LocalFile file = entry.getValue();
-                      try {
-                        return readPathMetadata(path, file);
-                      } catch (IOException e) {
-                        reportUploadError(e, path, null);
-                        return new PathMetadata(
-                            path,
-                            /* digest= */ null,
-                            /* directory= */ false,
-                            /* symlink= */ false,
-                            /* remote= */ false,
-                            /* omitted= */ false,
-                            /* isBuildToolLog= */ false,
-                            DigestFunction.Value.SHA256);
-                      }
-                    })
-                .collect(Collectors.toList())
-                .flatMap(paths -> queryRemoteCache(remoteCache, context, paths))
-                .flatMap(paths -> uploadLocalFiles(remoteCache, context, paths))
-                .flatMap(
-                    paths ->
-                        getRemoteServerInstanceName(remoteCache)
-                            .map(
-                                remoteServerInstanceName ->
-                                    new PathConverterImpl(
-                                        remoteServerInstanceName,
-                                        paths,
-                                        remoteBuildEventUploadMode))),
+        remoteCache -> {
+          var flowable = Flowable.fromIterable(files.entrySet());
+
+          if (remoteBuildEventUploadMode == RemoteBuildEventUploadMode.MINIMAL) {
+            flowable = flowable.filter(
+                entry -> {
+                  Path path = entry.getKey();
+
+                  // If this a test log? (regex needed as `test_log` not tagged as logs)
+                  if (TEST_LOG_PATTERN.matcher(path.getPathString()).matches()) {
+                    return true;
+                  }
+
+                  LocalFile file = entry.getValue();
+
+                  // If this a log?
+                  if (file.type == LocalFileType.LOG || file.type == LocalFileType.PERFORMANCE_LOG) {
+                    return true;
+                  }
+
+                  // Is this std(out|err)?
+                  if (file.type == LocalFileType.STDOUT || file.type == LocalFileType.STDERR) {
+                    return true;
+                  }
+
+                  return false;
+                });
+          }
+
+          return flowable
+              .map(
+                  entry -> {
+                    Path path = entry.getKey();
+                    LocalFile file = entry.getValue();
+                    try {
+                      return readPathMetadata(path, file);
+                    } catch (IOException e) {
+                      reportUploadError(e, path, null);
+                      return new PathMetadata(
+                          path,
+                          /* digest= */ null,
+                          /* directory= */ false,
+                          /* symlink= */ false,
+                          /* remote= */ false,
+                          /* omitted= */ false,
+                          DigestFunction.Value.SHA256);
+                    }
+                  })
+              .collect(Collectors.toList())
+              .flatMap(paths -> queryRemoteCache(remoteCache, context, paths))
+              .flatMap(paths -> uploadLocalFiles(remoteCache, context, paths))
+              .flatMap(
+                  paths ->
+                      getRemoteServerInstanceName(remoteCache)
+                          .map(
+                              remoteServerInstanceName ->
+                                  new PathConverterImpl(
+                                      remoteServerInstanceName,
+                                      paths,
+                                      remoteBuildEventUploadMode)));
+        },
         RemoteCache::release);
   }
 
+  /**
+   * NOTE: When in minimal upload mode not all files will be made available on the remote.
+   *       The returned `PathMapper` will only reflect this, throwing `IllegalStateException`
+   *       if given a path only available locally.
+   */
   @Override
   public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
     return toListenableFuture(doUpload(files).subscribeOn(scheduler));
