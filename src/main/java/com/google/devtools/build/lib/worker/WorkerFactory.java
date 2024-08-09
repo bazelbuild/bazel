@@ -112,6 +112,7 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
                 workerOptions,
                 hardenedSandboxOptions,
                 treeDeleter,
+                key.useInMemoryTracking(),
                 cgroupFactory);
       }
     } else if (key.isMultiplex()) {
