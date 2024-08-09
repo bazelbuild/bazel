@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.profiler.PredicateBasedStatRecorder.Recorde
 import com.google.devtools.build.lib.profiler.StatRecorder.VfsHeuristics;
 import com.google.gson.stream.JsonWriter;
 import com.sun.management.OperatingSystemMXBean;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.management.ManagementFactory;
@@ -196,7 +197,7 @@ public final class Profiler {
           // Primary outputs are non-mergeable, thus incompatible with slim profiles.
           jsonWriter.name("out").value(actionTaskData.primaryOutputPath);
         }
-        if (actionTaskData.targetLabel != null || actionTaskData.mnemonic != null) {
+        if (actionTaskData.targetLabel != null || actionTaskData.mnemonic != null || actionTaskData.configuration != null) {
           jsonWriter.name("args");
           jsonWriter.beginObject();
           if (actionTaskData.targetLabel != null) {
@@ -204,6 +205,9 @@ public final class Profiler {
           }
           if (actionTaskData.mnemonic != null) {
             jsonWriter.name("mnemonic").value(actionTaskData.mnemonic);
+          }
+          if (actionTaskData.configuration != null) {
+            jsonWriter.name("configuration").value(actionTaskData.configuration);
           }
           jsonWriter.endObject();
         }
@@ -233,6 +237,7 @@ public final class Profiler {
     @Nullable final String primaryOutputPath;
     @Nullable final String targetLabel;
     @Nullable final String mnemonic;
+    @Nullable final String configuration;
 
     ActionTaskData(
         long threadId,
@@ -242,11 +247,13 @@ public final class Profiler {
         @Nullable String mnemonic,
         String description,
         @Nullable String primaryOutputPath,
-        @Nullable String targetLabel) {
+        @Nullable String targetLabel,
+        @Nullable String configuration) {
       super(threadId, startTimeNanos, durationNanos, eventType, description);
       this.primaryOutputPath = primaryOutputPath;
       this.targetLabel = targetLabel;
       this.mnemonic = mnemonic;
+      this.configuration = configuration;
     }
   }
 
@@ -333,6 +340,7 @@ public final class Profiler {
   private boolean collectTaskHistograms;
   private boolean includePrimaryOutput;
   private boolean includeTargetLabel;
+  private boolean includeConfiguration;
 
   private Profiler() {
     actionCountTimeSeriesRef = new AtomicReference<>();
@@ -444,6 +452,7 @@ public final class Profiler {
       boolean slimProfile,
       boolean includePrimaryOutput,
       boolean includeTargetLabel,
+      boolean includeConfiguration,
       boolean collectTaskHistograms,
       LocalResourceCollector localResourceCollector)
       throws IOException {
@@ -462,6 +471,7 @@ public final class Profiler {
     this.collectTaskHistograms = collectTaskHistograms;
     this.includePrimaryOutput = includePrimaryOutput;
     this.includeTargetLabel = includeTargetLabel;
+    this.includeConfiguration = includeConfiguration;
     this.recordAllDurations = recordAllDurations;
 
     JsonTraceFileWriter writer = null;
@@ -792,7 +802,8 @@ public final class Profiler {
       String mnemonic,
       String description,
       String primaryOutput,
-      String targetLabel) {
+      String targetLabel,
+      String configuration) {
     checkNotNull(description);
     if (isActive() && isProfiling(type)) {
       final long startTimeNanos = clock.nanoTime();
@@ -806,7 +817,8 @@ public final class Profiler {
               description,
               mnemonic,
               includePrimaryOutput ? primaryOutput : null,
-              includeTargetLabel ? targetLabel : null);
+              includeTargetLabel ? targetLabel : null,
+              includeConfiguration ? configuration : null);
         } finally {
           releaseLane(lane);
         }
@@ -814,11 +826,6 @@ public final class Profiler {
     } else {
       return NOP;
     }
-  }
-
-  public SilentCloseable profileAction(
-      ProfilerTask type, String description, String primaryOutput, String targetLabel) {
-    return profileAction(type, /* mnemonic= */ null, description, primaryOutput, targetLabel);
   }
 
   private static final SilentCloseable NOP = () -> {};
@@ -855,7 +862,8 @@ public final class Profiler {
       String description,
       String mnemonic,
       @Nullable String primaryOutput,
-      @Nullable String targetLabel) {
+      @Nullable String targetLabel,
+      @Nullable String configuration) {
     if (isActive()) {
       long endTimeNanos = clock.nanoTime();
       long duration = endTimeNanos - startTimeNanos;
@@ -870,7 +878,8 @@ public final class Profiler {
                 mnemonic,
                 description,
                 primaryOutput,
-                targetLabel));
+                targetLabel,
+                configuration));
       }
     }
   }
