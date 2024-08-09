@@ -1458,6 +1458,13 @@ public interface CcModuleApi<
   boolean checkExperimentalCcSharedLibrary(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
+      name = "check_experimental_cc_static_library",
+      doc = "DO NOT USE. This is to guard use of cc_static_library.",
+      useStarlarkThread = true,
+      documented = false)
+  boolean checkExperimentalCcStaticLibrary(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
       name = "incompatible_disable_objc_library_transition",
       useStarlarkThread = true,
       documented = false)
