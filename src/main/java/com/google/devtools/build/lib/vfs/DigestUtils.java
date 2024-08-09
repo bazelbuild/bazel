@@ -225,15 +225,24 @@ public class DigestUtils {
     return digest;
   }
 
-  /** Compute lhs ^= rhs bitwise operation of the arrays. May clobber either argument. */
-  public static byte[] xor(byte[] lhs, byte[] rhs) {
+  /**
+   * Combines two digests into one such that swapping the arguments results in the same result. May
+   * clobber either argument.
+   */
+  public static byte[] combineUnordered(byte[] lhs, byte[] rhs) {
     int n = rhs.length;
     if (lhs.length >= n) {
       for (int i = 0; i < n; i++) {
-        lhs[i] ^= rhs[i];
+        // Use + as in Guava's Hashing.combineUnordered.
+        // This has a number of advantages over XOR, which was used in the past:
+        // * Identical inputs will not cancel each other out.
+        // * Due to the carry, addition isn't a linear operation on the level of bit vectors.
+        //   This prevents adversaries from producing linear combinations (i.e., subsets of input
+        //   sets) that collide with other inputs.
+        lhs[i] += rhs[i];
       }
       return lhs;
     }
-    return xor(rhs, lhs);
+    return combineUnordered(rhs, lhs);
   }
 }
