@@ -243,4 +243,8 @@ public final class ExecutionProgressReceiver
       }
     };
   }
+
+  public boolean hasActionsInFlight() {
+    return completedActions.size() < exclusiveTestsCount + enqueuedActions.size();
+  }
 }
