@@ -61,6 +61,7 @@ def _linking_order_test_impl(env, target):
 
         env.expect.that_collection(args).contains_at_least([
             "-lprivate_lib_so",
+            "-Wl,-rpath,hdr_only",
         ])
 
         env.expect.where(

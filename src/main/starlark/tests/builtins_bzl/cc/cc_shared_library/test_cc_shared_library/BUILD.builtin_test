@@ -176,7 +176,7 @@ cc_library(
         # Not exported.
         "qux",
         "prebuilt",
-        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:diff_pkg"
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:diff_pkg",
     ],
 )
 
@@ -473,6 +473,12 @@ genrule(
 cc_library(
     name = "hdr_only",
     hdrs = [":hdr_only_hdr"],
+    linkopts = select({
+        "//src/conditions:linux": [
+            "-Wl,-rpath,hdr_only",
+        ],
+        "//conditions:default": [],
+    }),
 )
 
 cc_library(
@@ -544,20 +550,20 @@ exports_test(
     name = "exports_foo_test",
     target = ":foo_so",
     targets_that_should_be_claimed_to_be_exported = [
-       "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:indirect_dep2",
-       "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:baz",
-       "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:foo",
-       "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:cc_lib_with_no_srcs",
-       "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:nocode_cc_lib",
-       "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:should_not_be_linked_cc_lib",
-       "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:a_suffix",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:indirect_dep2",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:baz",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:foo",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:cc_lib_with_no_srcs",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:nocode_cc_lib",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:should_not_be_linked_cc_lib",
+        "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:a_suffix",
     ],
 )
 
 exports_test(
     name = "external_export_exports_test",
-    target = "external_export_so",
     bazel_only = True,
+    target = "external_export_so",
     targets_that_should_be_claimed_to_be_exported = [
         "@@test_repo+//:bar",
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:external_export",
