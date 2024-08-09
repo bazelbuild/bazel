@@ -1284,7 +1284,11 @@ class UiStateTracker {
     ActionState oldestAction = getOldestAction();
     if (actionsCount == 0 || oldestAction == null) {
       // TODO(b/239693084): Improve the message here.
-      terminalWriter.normal().append(" checking cached actions");
+      if (executionProgressReceiver != null && executionProgressReceiver.hasActionsInFlight()) {
+        terminalWriter.normal().append(" checking cached actions");
+      } else {
+        terminalWriter.normal().append(" no actions running");
+      }
       maybeShowRecentTest(terminalWriter, shortVersion, targetWidth - terminalWriter.getPosition());
     } else if (actionsCount == 1) {
       if (maybeShowRecentTest(null, shortVersion, targetWidth - terminalWriter.getPosition())) {
