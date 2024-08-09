@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.actions.SchedulingActionEvent;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadProgressEvent;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -216,7 +217,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
             BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
             BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
         /* isToolConfiguration= */ true,
-        /* executionPlatform= */ null,
+        /* executionPlatform= */ PlatformInfo.EMPTY_PLATFORM_INFO,
         /* aspectDescriptors= */ ImmutableList.of(),
         /* execProperties= */ ImmutableMap.of());
   }
@@ -653,7 +654,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
                 BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
                 BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
             /* isToolConfiguration= */ false,
-            /* executionPlatform= */ null,
+            /* executionPlatform= */ PlatformInfo.EMPTY_PLATFORM_INFO,
             /* aspectDescriptors= */ ImmutableList.of(),
             /* execProperties= */ ImmutableMap.of());
     when(action.getOwner()).thenReturn(owner);
@@ -1199,7 +1200,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
                 BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
                 BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
             /* isToolConfiguration= */ false,
-            /* executionPlatform= */ null,
+            /* executionPlatform= */ PlatformInfo.EMPTY_PLATFORM_INFO,
             /* aspectDescriptors= */ ImmutableList.of(),
             /* execProperties= */ ImmutableMap.of());
 
@@ -1217,7 +1218,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
                 BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
                 BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
             /* isToolConfiguration= */ false,
-            /* executionPlatform= */ null,
+            /* executionPlatform= */ PlatformInfo.EMPTY_PLATFORM_INFO,
             /* aspectDescriptors= */ ImmutableList.of(),
             /* execProperties= */ ImmutableMap.of());
 
@@ -1235,7 +1236,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
                 BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
                 BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
             /* isToolConfiguration= */ false,
-            /* executionPlatform= */ null,
+            /* executionPlatform= */ PlatformInfo.EMPTY_PLATFORM_INFO,
             /* aspectDescriptors= */ ImmutableList.of(),
             /* execProperties= */ ImmutableMap.of());
 
