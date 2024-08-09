@@ -28,6 +28,9 @@ CC_FLAGS_MAKE_VARIABLE_ACTION_NAME = "cc-flags-make-variable"
 # Name of the C++ module codegen action.
 CPP_MODULE_CODEGEN_ACTION_NAME = "c++-module-codegen"
 
+# Name of the C header parsing action.
+C_HEADER_PARSING_ACTION_NAME = "c-header-parsing"
+
 # Name of the C++ header parsing action.
 CPP_HEADER_PARSING_ACTION_NAME = "c++-header-parsing"
 
@@ -97,6 +100,7 @@ ACTION_NAMES = struct(
     linkstamp_compile = LINKSTAMP_COMPILE_ACTION_NAME,
     cc_flags_make_variable = CC_FLAGS_MAKE_VARIABLE_ACTION_NAME,
     cpp_module_codegen = CPP_MODULE_CODEGEN_ACTION_NAME,
+    c_header_parsing = C_HEADER_PARSING_ACTION_NAME,
     cpp_header_parsing = CPP_HEADER_PARSING_ACTION_NAME,
     cpp_module_compile = CPP_MODULE_COMPILE_ACTION_NAME,
     assemble = ASSEMBLE_ACTION_NAME,

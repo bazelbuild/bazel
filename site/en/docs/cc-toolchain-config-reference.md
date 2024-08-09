@@ -275,11 +275,19 @@ that implements an action (such as `CppCompileAction`). In particular, the
    </td>
   </tr>
   <tr>
+   <td><code>c-header-parsing</code>
+   </td>
+   <td>Run the compiler's parser on a header file to ensure that the header is
+     self-contained, as it will otherwise produce compilation errors. All header
+     files are assumed to be C.
+   </td>
+  </tr>
+  <tr>
    <td><code>c++-header-parsing</code>
    </td>
    <td>Run the compiler's parser on a header file to ensure that the header is
-     self-contained, as it will otherwise produce compilation errors. Applies
-     only to toolchains that support modules.
+     self-contained, as it will otherwise produce compilation errors. All header
+     files are assumed to be C++.
    </td>
   </tr>
 </table>

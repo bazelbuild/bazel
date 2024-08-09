@@ -160,7 +160,10 @@ public final class CppLinkstampCompileHelper {
             .map(Artifact::getExecPathString)
             .collect(toImmutableList()),
         CcCompilationHelper.getCoptsFromOptions(
-            ccToolchainProvider.getCppConfiguration(), semantics, sourceFile.getExecPathString()),
+            ccToolchainProvider.getCppConfiguration(),
+            semantics,
+            sourceFile.getExecPathString(),
+            CppActionNames.LINKSTAMP_COMPILE),
         /* cppModuleMap= */ null,
         needsPic,
         fdoBuildStamp,

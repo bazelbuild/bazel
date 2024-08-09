@@ -1209,7 +1209,9 @@ public final class CcCompilationHelper {
     if (bitcodeOutput) {
       Label sourceLabel = source.getLabel();
       result.addLtoBitcodeFile(
-          outputFiles, ltoIndexTreeArtifact, getCopts(sourceArtifact, sourceLabel));
+          outputFiles,
+          ltoIndexTreeArtifact,
+          getCopts(sourceArtifact, sourceLabel, builder.getActionName()));
     }
 
     ActionOwner actionOwner = null;
@@ -1242,12 +1244,14 @@ public final class CcCompilationHelper {
    * into account.
    */
   public static ImmutableList<String> getCoptsFromOptions(
-      CppConfiguration config, CppSemantics semantics, String sourceFilename) {
+      CppConfiguration config, CppSemantics semantics, String sourceFilename, String actionName) {
     ImmutableList.Builder<String> flagsBuilder = ImmutableList.builder();
 
     flagsBuilder.addAll(config.getCopts());
 
-    if (CppFileTypes.C_SOURCE.matches(sourceFilename)) {
+    if (CppFileTypes.C_SOURCE.matches(sourceFilename)
+        || (CppFileTypes.CPP_HEADER.matches(sourceFilename)
+            && actionName.equals(CppActionNames.C_HEADER_PARSING))) {
       flagsBuilder.addAll(config.getConlyopts());
     }
 
@@ -1268,10 +1272,12 @@ public final class CcCompilationHelper {
     return flagsBuilder.build();
   }
 
-  private ImmutableList<String> getCopts(Artifact sourceFile, Label sourceLabel) {
+  private ImmutableList<String> getCopts(
+      Artifact sourceFile, Label sourceLabel, String actionName) {
     ImmutableList.Builder<String> coptsList = ImmutableList.builder();
     coptsList.addAll(
-        getCoptsFromOptions(cppConfiguration, semantics, sourceFile.getExecPathString()));
+        getCoptsFromOptions(
+            cppConfiguration, semantics, sourceFile.getExecPathString(), actionName));
     coptsList.addAll(copts);
     if (sourceFile != null && sourceLabel != null) {
       coptsList.addAll(collectPerFileCopts(sourceFile, sourceLabel));
@@ -1373,7 +1379,7 @@ public final class CcCompilationHelper {
         dwoFile,
         isUsingFission,
         ltoIndexingFile,
-        getCopts(builder.getSourceFile(), sourceLabel),
+        getCopts(builder.getSourceFile(), sourceLabel, builder.getActionName()),
         builder.getDotdFile(),
         builder.getDiagnosticsFile(),
         usePic,
@@ -1597,7 +1603,9 @@ public final class CcCompilationHelper {
 
         if (bitcodeOutput) {
           result.addLtoBitcodeFile(
-              picAction.getPrimaryOutput(), ltoIndexingFile, getCopts(sourceArtifact, sourceLabel));
+              picAction.getPrimaryOutput(),
+              ltoIndexingFile,
+              getCopts(sourceArtifact, sourceLabel, builder.getActionName()));
         }
       }
       if (dwoFile != null) {
@@ -1671,7 +1679,9 @@ public final class CcCompilationHelper {
         result.addObjectFile(objectFile);
         if (bitcodeOutput) {
           result.addLtoBitcodeFile(
-              objectFile, ltoIndexingFile, getCopts(sourceArtifact, sourceLabel));
+              objectFile,
+              ltoIndexingFile,
+              getCopts(sourceArtifact, sourceLabel, builder.getActionName()));
         }
       }
       if (noPicDwoFile != null) {
