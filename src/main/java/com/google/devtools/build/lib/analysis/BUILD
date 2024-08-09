@@ -89,7 +89,6 @@ java_library(
         ":constraints/supported_environments_provider",
         ":constraints/top_level_constraint_semantics",
         ":dependency_kind",
-        ":duplicate_exception",
         ":extra/extra_action_info_file_write_action",
         ":extra_action_artifacts_provider",
         ":file_provider",
@@ -305,7 +304,6 @@ java_library(
         ":constraints/supported_environments",
         ":constraints/supported_environments_provider",
         ":dependency_kind",
-        ":duplicate_exception",
         ":exec_group_collection",
         ":extra/extra_action_info_file_write_action",
         ":extra_action_artifacts_provider",
@@ -748,11 +746,6 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ],
-)
-
-java_library(
-    name = "duplicate_exception",
-    srcs = ["DuplicateException.java"],
 )
 
 java_library(

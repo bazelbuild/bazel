@@ -29,11 +29,13 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
@@ -1088,6 +1090,127 @@ my_rule = rule(
       // expect to fail.
     }
     assertContainsEvent("ERROR /workspace/test/BUILD:3:6: Output group duplicate provided twice");
+  }
+
+  @Test
+  public void mergesFileProvider() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        """
+        def _asp_impl(target, ctx):
+          f = ctx.actions.declare_file('aspectfile')
+          ctx.actions.write(f, 'f')
+          return [DefaultInfo(files=depset([f]))]
+
+        asp = aspect(implementation=_asp_impl)
+        def _rule_impl(ctx):
+          return [DefaultInfo(files=depset(ctx.files.dep))]
+        my_rule = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [asp]) })
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(':aspect.bzl', 'my_rule')
+        my_rule(name='a', dep=':b')
+        filegroup(name='b', srcs=['sourcefile'])
+        """);
+
+    AnalysisResult analysisResult = update("//test:a");
+    NestedSet<Artifact> filesToBuild =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild())
+            .getProvider(FileProvider.class)
+            .getFilesToBuild();
+    assertThat(ActionsTestUtil.baseArtifactNames(filesToBuild))
+        .containsExactly("sourcefile", "aspectfile");
+  }
+
+  @Test
+  public void aspectDefaultInfoWithNonArtifacts() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        """
+        def _asp_impl(target, ctx):
+          return [DefaultInfo(files=depset([1]))]
+
+        asp = aspect(implementation=_asp_impl)
+        def _rule_impl(ctx):
+          return [DefaultInfo()]
+        my_rule = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [asp]) })
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(':aspect.bzl', 'my_rule')
+        my_rule(name='a', dep=':b')
+        filegroup(name='b', srcs=['sourcefile'])
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    try {
+      update("//test:a");
+    } catch (ViewCreationFailedException e) {
+      // expected.
+    }
+    assertContainsEvent("should contain a depset of files");
+  }
+
+  @Test
+  public void aspectDefaultInfoSomethingElseThanFiles() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        """
+        def _asp_impl(target, ctx):
+          return [DefaultInfo(runfiles=ctx.runfiles([]))]
+
+        asp = aspect(implementation=_asp_impl)
+        def _rule_impl(ctx):
+          return [DefaultInfo()]
+        my_rule = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [asp]) })
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(':aspect.bzl', 'my_rule')
+        my_rule(name='a', dep=':b')
+        filegroup(name='b', srcs=['sourcefile'])
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    try {
+      update("//test:a");
+    } catch (ViewCreationFailedException e) {
+      // expected.
+    }
+    assertContainsEvent("must only have the 'files' field set");
+  }
+
+  @Test
+  public void aspectEmptyDefaultInfo() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        """
+        def _asp_impl(target, ctx):
+          return [DefaultInfo()]
+
+        asp = aspect(implementation=_asp_impl)
+        def _rule_impl(ctx):
+          return [DefaultInfo(files=depset(ctx.files.dep))]
+        my_rule = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [asp]) })
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load(':aspect.bzl', 'my_rule')
+        my_rule(name='a', dep=':b')
+        filegroup(name='b', srcs=['sourcefile'])
+        """);
+
+    AnalysisResult analysisResult = update("//test:a");
+    NestedSet<Artifact> filesToBuild =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild())
+            .getProvider(FileProvider.class)
+            .getFilesToBuild();
+    assertThat(ActionsTestUtil.baseArtifactNames(filesToBuild)).containsExactly("sourcefile");
   }
 
   @Test

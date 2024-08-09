@@ -129,6 +129,18 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   @Test
+  public void fileProviderMerged() throws Exception {
+    setRulesAvailableInTests(
+        TestAspects.BASE_RULE, TestAspects.FILE_PROVIDER_ASPECT_REQUIRING_RULE);
+    pkg("a", "file_provider_aspect(name='a', dep=':b')", "filegroup(name='b', srcs=['source'])");
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    NestedSet<Artifact> filesToBuild = a.getProvider(FileProvider.class).getFilesToBuild();
+    assertThat(ActionsTestUtil.baseArtifactNames(filesToBuild))
+        .containsExactly("file_provider_aspect_file", "source");
+  }
+
+  @Test
   public void providersOfAspectAreMergedIntoDependency() throws Exception {
     setRulesAvailableInTests(TestAspects.BASE_RULE, TestAspects.ASPECT_REQUIRING_RULE);
     pkg("a",
@@ -171,10 +183,6 @@ public class AspectTest extends AnalysisTestCase {
     assertThat(a.getProvider(RuleInfo.class).getData().toList())
         .containsExactly("rule //a:a", "aspect //a:b", "aspect //a:c");
   }
-
-
-
-
 
   @Test
   public void aspectCreationWorksThroughBind() throws Exception {
@@ -1322,36 +1330,42 @@ public class AspectTest extends AnalysisTestCase {
     scratch.file(
         "aspect/build_defs.bzl",
         """
+        DuplicateInfo = provider(fields=[])
         def _aspect_impl(target, ctx):
-            return [DefaultInfo()]
+            return [DuplicateInfo()]
 
-        returns_default_info_aspect = aspect(implementation = _aspect_impl)
+        returns_duplicate_aspect = aspect(implementation = _aspect_impl)
+
+        def _duplicate_rule_impl(ctx):
+          return [DefaultInfo(), DuplicateInfo()]
+
+        duplicate_rule = rule(implementation = _duplicate_rule_impl, attrs = {})
 
         def _rule_impl(ctx):
             pass
 
-        duplicate_provider_aspect_applying_rule = rule(
+        duplicate_aspect_applying_rule = rule(
             implementation = _rule_impl,
-            attrs = {"to": attr.label(aspects = [returns_default_info_aspect])},
+            attrs = {"to": attr.label(aspects = [returns_duplicate_aspect])},
         )
         """);
     scratch.file(
         "aspect/BUILD",
         """
-        load("build_defs.bzl", "duplicate_provider_aspect_applying_rule")
+        load("build_defs.bzl", "duplicate_aspect_applying_rule", "duplicate_rule")
 
-        cc_library(name = "rule_target")
+        duplicate_rule(name = "duplicate")
 
-        duplicate_provider_aspect_applying_rule(
+        duplicate_aspect_applying_rule(
             name = "applies_aspect",
-            to = ":rule_target",
+            to = ":duplicate",
         )
         """);
     assertThat(
             assertThrows(
                 AssertionError.class, () -> getConfiguredTarget("//aspect:applies_aspect")))
         .hasMessageThat()
-        .contains("Provider DefaultInfo provided twice");
+        .contains("Provider DuplicateInfo provided twice");
   }
 
   @Test

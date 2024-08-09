@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.MergingException;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
@@ -47,7 +48,7 @@ public abstract class AspectBaseTargetResolvedToolchainContext
       UnloadedToolchainContext unloadedToolchainContext,
       String targetDescription,
       ImmutableMultimap<ToolchainTypeInfo, ConfiguredTargetAndData> toolchainTargets)
-      throws DuplicateException {
+      throws MergingException {
 
     ImmutableMap.Builder<ToolchainTypeInfo, ToolchainAspectsProviders> toolchainsBuilder =
         new ImmutableMap.Builder<>();
