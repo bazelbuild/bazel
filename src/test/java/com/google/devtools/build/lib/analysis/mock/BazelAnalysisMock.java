@@ -150,7 +150,17 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("protobuf_workspace/WORKSPACE");
     config.create("protobuf_workspace/MODULE.bazel", "module(name='com_google_protobuf')");
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[0]));
-    config.overwrite("MODULE.bazel");
+    config.overwrite("MODULE.bazel",
+        "register_toolchains('@rules_java//java/toolchains/runtime:all')",
+        "register_toolchains('@rules_java//java/toolchains/javac:all')",
+        "register_toolchains('@bazel_tools//tools/cpp:all')",
+        "register_toolchains('@bazel_tools//tools/jdk:all')",
+        "register_toolchains('@bazel_tools//tools/android:all')",
+        // Note this path is created inside the test infrastructure in
+        // createAndroidBuildContents() below. It may not reflect a real depot path.
+        "register_toolchains('@bazel_tools//tools/android/dummy_sdk:all')",
+        "register_toolchains('@bazel_tools//tools/python:autodetecting_toolchain')"
+    );
     /* The rest of platforms is initialized in {@link MockPlatformSupport}. */
     config.create("platforms_workspace/WORKSPACE", "workspace(name = 'platforms')");
     config.create("platforms_workspace/MODULE.bazel", "module(name = 'platforms')");
