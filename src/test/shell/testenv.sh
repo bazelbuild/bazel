@@ -90,7 +90,6 @@ BAZEL_RUNFILES="$TEST_SRCDIR/_main"
 
 # WORKSPACE file
 workspace_file="${BAZEL_RUNFILES}/WORKSPACE"
-distdir_bzl_file="${BAZEL_RUNFILES}/distdir.bzl"
 
 # Where to register toolchains
 TOOLCHAIN_REGISTRAION_FILE="MODULE.bazel"
@@ -305,6 +304,9 @@ build --incompatible_use_toolchain_resolution_for_java_rules
 
 # Enable Bzlmod in all shell integration tests
 common --enable_bzlmod
+
+# Disable WORKSPACE in all shell integration tests
+common --noenable_workspace
 
 # Verify compatibility before the flip (https://github.com/bazelbuild/bazel/issues/12821)
 common --nolegacy_external_runfiles
@@ -537,119 +539,6 @@ function setup_objc_test_support() {
   IOS_SDK_VERSION=$(xcrun --sdk iphoneos --show-sdk-version)
 }
 
-function setup_skylib_support() {
-  mkdir -p rules/private
-  touch rules/private/BUILD
-  cat >> WORKSPACE << EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-{bazel_skylib}
-
-load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
-bazel_skylib_workspace()
-EOF
-}
-
-function add_rules_cc_to_workspace() {
-  cat >> "$1"<<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-{rules_cc}
-EOF
-}
-
-function add_rules_java_to_workspace() {
-  cat >> "$1"<<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-{rules_java}
-EOF
-}
-
-function add_rules_license_to_workspace() {
-  cat >> "$1"<<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-{rules_license}
-EOF
-}
-
-function add_rules_pkg_to_workspace() {
-  cat >> "$1"<<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-{rules_pkg}
-EOF
-}
-
-function add_rules_proto_to_workspace() {
-  cat >> "$1"<<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-{rules_proto}
-EOF
-}
-
-function add_rules_python_to_workspace() {
-  cat >> "$1"<<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-{rules_python}
-EOF
-}
-
-function add_rules_testing_to_workspace() {
-  mkdir lib
-  touch lib/BUILD
-  cat >> "$1"<<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-{rules_testing}
-EOF
-}
-
-function create_workspace_with_default_repos() {
-  write_workspace_file "${1:-WORKSPACE}" "${2:-main}"
-  workspace_file=${1:-WORKSPACE}
-  write_workspace_file "${workspace_file}" "${2:-main}"
-  write_default_lockfile "$(dirname ${workspace_file})/MODULE.bazel.lock"
-  echo "$1"
-}
-
-# Write the default WORKSPACE file, wiping out any custom WORKSPACE setup.
-function write_workspace_file() {
-  cat > "$1" << EOF
-workspace(name = "$2")
-EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-  add_rules_java_to_workspace "WORKSPACE"
-  add_rules_license_to_workspace "WORKSPACE"
-  add_rules_pkg_to_workspace "WORKSPACE"
-  add_rules_proto_to_workspace "WORKSPACE"
-  add_rules_python_to_workspace "WORKSPACE"
-
-  maybe_setup_python_windows_workspace
-}
-
-# If the current platform is Windows, registers our custom Windows Python
-# toolchain. Otherwise does nothing.
-#
-# Since this modifies the WORKSPACE file, it must be called between test cases.
-function maybe_setup_python_windows_workspace() {
-  if [[ ! $PLATFORM =~ msys ]]; then
-    return
-  fi
-
-  # --extra_toolchains has left-to-right precedence semantics, but the bazelrc
-  # is processed before the command line. This means that any matching
-  # toolchains added to the bazelrc will always take precedence over toolchains
-  # set up by test cases. Instead, we add the toolchain to WORKSPACE so that it
-  # has lower priority than whatever is passed on the command line.
-  cat >> WORKSPACE << EOF
-register_toolchains("//tools/python/windows:py_toolchain")
-EOF
-}
-
 # Extract the module version used in the default lock file.
 function get_version_from_default_lock_file() {
   lockfile=$(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock)
@@ -717,13 +606,6 @@ function setup_module_dot_bazel() {
   echo $module_dot_bazel
 }
 
-# Set up a lockfile to avoid accessing BCR for tests with a clean workspace.
-function write_default_lockfile() {
-  module_lockfile=${1:-MODULE.bazel.lock}
-  touch "$(dirname ${module_lockfile})/MODULE.bazel"
-  cp -f $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) ${module_lockfile}
-}
-
 workspaces=()
 # Set-up a new, clean workspace with only the tools installed.
 function create_new_workspace() {
@@ -735,8 +617,6 @@ function create_new_workspace() {
   mkdir tools
 
   copy_tools_directory
-
-  write_workspace_file "WORKSPACE" "$WORKSPACE_NAME"
 
   # Suppress the echo from setup_module_dot_bazel
   setup_module_dot_bazel > /dev/null
@@ -775,7 +655,6 @@ function cleanup_workspace() {
         try_with_timeout rm -fr "$i"
       fi
     done
-    write_workspace_file "WORKSPACE" "$WORKSPACE_NAME"
     # Suppress the echo from setup_module_dot_bazel
     setup_module_dot_bazel > /dev/null
   fi

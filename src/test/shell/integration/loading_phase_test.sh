@@ -467,10 +467,14 @@ function test_bazel_bin_is_not_a_package() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "Could not mkdir $pkg"
   echo "filegroup(name = '$pkg')" > "$pkg/BUILD"
-  add_bazel_skylib "MODULE.bazel"
   # Ensure bazel-<pkg> is created.
   bazel build --symlink_prefix="foo_prefix-" "//$pkg" || fail "build failed"
   [[ -d "foo_prefix-bin" ]] || fail "bazel-bin was not created"
+
+  if [[ $PRODUCT_NAME == "bazel" ]]; then
+    # Remove tools dir set up by copy_tools_directory from testenv.sh
+    rm -rf tools
+  fi
 
   # Assert that "//..." does not expand to //foo_prefix-*
   bazel query //... >& "$TEST_log"

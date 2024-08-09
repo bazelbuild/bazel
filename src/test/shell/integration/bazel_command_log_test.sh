@@ -21,9 +21,6 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 log="$(bazel --batch info command_log)"
 
-# Less network flakiness without bzlmod
-disable_bzlmod
-
 function tear_down() {
   # Clean up after ourselves.
   bazel --nobatch shutdown
