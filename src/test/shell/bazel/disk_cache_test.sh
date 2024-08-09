@@ -91,4 +91,40 @@ EOF
 
 }
 
-run_suite "local action cache test"
+function test_cache_hit_on_source_edit_after_test_failure() {
+  # Regression test for https://github.com/bazelbuild/bazel/issues/11057.
+
+  local -r CACHE_DIR="${TEST_TMPDIR}/cache"
+  rm -rf "$CACHE_DIR"
+
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+sh_test(
+    name = "test",
+    srcs = ["test.sh"],
+)
+EOF
+  echo "exit 0" > a/test.sh
+  chmod +x a/test.sh
+
+  # Populate the cache with a passing test.
+  bazel test --disk_cache="$CACHE_DIR" //a:test >& $TEST_log \
+    || fail "Expected test to pass"
+
+  # Turn the test into a failing one.
+  echo "exit 1" > a/test.sh
+
+  # Check that the test fails.
+  bazel test --disk_cache="$CACHE_DIR" //a:test >& $TEST_log \
+    && fail "Expected test to fail"
+
+  # Turn the test into a passing one again.
+  echo "exit 0" > a/test.sh
+
+  # Check that we hit the previously populated cache.
+  bazel test --disk_cache="$CACHE_DIR" //a:test >& $TEST_log \
+    || fail "Expected test to pass"
+  expect_log "(cached) PASSED"
+}
+
+run_suite "disk cache test"
