@@ -64,6 +64,7 @@ public class CcRules implements RuleSet {
     builder.addRuleDefinition(new CcToolchainRequiringRule());
     builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("cc_binary") {});
     builder.addRuleDefinition(new EmptyRule("cc_shared_library") {});
+    builder.addRuleDefinition(new EmptyRule("cc_static_library") {});
     builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("cc_test") {});
     builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("cc_library") {});
     builder.addRuleDefinition(new EmptyRule("cc_import") {});
