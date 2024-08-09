@@ -421,6 +421,16 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public boolean cacheCompression;
 
   @Option(
+      name = "remote_use_output_paths",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If enabled, check if the remote server(s) support remote execution API v2.1 or newer."
+              + "If yes, use the newer Command.output_paths field. Default is true.")
+  public boolean useOutputPaths;
+
+  @Option(
       name = "experimental_remote_cache_compression_threshold",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.REMOTE,

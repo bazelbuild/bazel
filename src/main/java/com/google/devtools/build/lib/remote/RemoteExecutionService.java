@@ -195,6 +195,8 @@ public class RemoteExecutionService {
 
   @Nullable private final Scrubber scrubber;
 
+  private Boolean useOutputPaths;
+
   public RemoteExecutionService(
       Executor executor,
       Reporter reporter,
@@ -239,6 +241,7 @@ public class RemoteExecutionService {
   }
 
   private Command buildCommand(
+      boolean useOutputPaths,
       Collection<? extends ActionInput> outputs,
       List<String> arguments,
       ImmutableMap<String, String> env,
@@ -246,24 +249,30 @@ public class RemoteExecutionService {
       RemotePathResolver remotePathResolver,
       @Nullable SpawnScrubber spawnScrubber) {
     Command.Builder command = Command.newBuilder();
-    ArrayList<String> outputFiles = new ArrayList<>();
-    ArrayList<String> outputDirectories = new ArrayList<>();
-    ArrayList<String> outputPaths = new ArrayList<>();
-    for (ActionInput output : outputs) {
-      String pathString = decodeBytestringUtf8(remotePathResolver.localPathToOutputPath(output));
-      if (output.isDirectory()) {
-        outputDirectories.add(pathString);
-      } else {
-        outputFiles.add(pathString);
+    if (useOutputPaths) {
+      var outputPaths = new ArrayList<String>();
+      for (ActionInput output : outputs) {
+        String pathString = decodeBytestringUtf8(remotePathResolver.localPathToOutputPath(output));
+        outputPaths.add(pathString);
       }
-      outputPaths.add(pathString);
+      Collections.sort(outputPaths);
+      command.addAllOutputPaths(outputPaths);
+    } else {
+      var outputFiles = new ArrayList<String>();
+      var outputDirectories = new ArrayList<String>();
+      for (ActionInput output : outputs) {
+        String pathString = decodeBytestringUtf8(remotePathResolver.localPathToOutputPath(output));
+        if (output.isDirectory()) {
+          outputDirectories.add(pathString);
+        } else {
+          outputFiles.add(pathString);
+        }
+      }
+      Collections.sort(outputFiles);
+      Collections.sort(outputDirectories);
+      command.addAllOutputFiles(outputFiles);
+      command.addAllOutputDirectories(outputDirectories);
     }
-    Collections.sort(outputFiles);
-    Collections.sort(outputDirectories);
-    Collections.sort(outputPaths);
-    command.addAllOutputFiles(outputFiles);
-    command.addAllOutputDirectories(outputDirectories);
-    command.addAllOutputPaths(outputPaths);
 
     if (platform != null) {
       command.setPlatform(platform);
@@ -564,6 +573,69 @@ public class RemoteExecutionService {
     remoteActionBuildingSemaphore.release();
   }
 
+  private synchronized void initUseOutputPaths() {
+    // If this has already been initialized, return
+    if (this.useOutputPaths != null) {
+      return;
+    }
+    // Default value
+    this.useOutputPaths = true;
+    if (!remoteOptions.useOutputPaths) {
+      this.useOutputPaths = false;
+      return;
+    }
+
+    try {
+      // If both Remote Executor and Remote Cache are configured,
+      // use the highest version that is supported by both server to compare.
+      if (remoteExecutor != null && remoteCache != null) {
+        var executorSupportStatus =
+            ClientApiVersion.current.checkServerSupportedVersions(
+                remoteExecutor.getServerCapabilities());
+        var cacheSupportStatus =
+            ClientApiVersion.current.checkServerSupportedVersions(
+                remoteCache.getServerCapabilities());
+
+        ApiVersion highestSupportedApiVersion = ApiVersion.low;
+        if (executorSupportStatus.isSupported() && cacheSupportStatus.isSupported()) {
+          var executorHighestVersion = executorSupportStatus.getHighestSupportedVersion();
+          var cacheHighestVersion = cacheSupportStatus.getHighestSupportedVersion();
+
+          var commonServerVersion =
+              executorHighestVersion.compareTo(cacheHighestVersion) <= 0
+                  ? executorHighestVersion
+                  : cacheHighestVersion;
+          this.useOutputPaths = commonServerVersion.compareTo(ApiVersion.twoPointOne) >= 0;
+          return;
+        }
+      }
+
+      if (remoteExecutor != null) {
+        var capabilities = remoteExecutor.getServerCapabilities();
+        if (capabilities != null) {
+          var supportStatus = ClientApiVersion.current.checkServerSupportedVersions(capabilities);
+          if (supportStatus.isSupported()) {
+            this.useOutputPaths =
+                supportStatus.getHighestSupportedVersion().compareTo(ApiVersion.twoPointOne) >= 0;
+            return;
+          }
+        }
+      }
+      if (remoteCache != null) {
+        var capabilities = remoteCache.getServerCapabilities();
+        if (capabilities != null) {
+          var supportStatus = ClientApiVersion.current.checkServerSupportedVersions(capabilities);
+          if (supportStatus.isSupported()) {
+            this.useOutputPaths =
+                supportStatus.getHighestSupportedVersion().compareTo(ApiVersion.twoPointOne) >= 0;
+          }
+        }
+      }
+    } catch (IOException e) {
+      // If we can't determine the server capabilities, use the default value.
+    }
+  }
+
   /** Creates a new {@link RemoteAction} instance from spawn. */
   public RemoteAction buildRemoteAction(Spawn spawn, SpawnExecutionContext context)
       throws IOException, ExecException, ForbiddenActionInputException, InterruptedException {
@@ -590,8 +662,12 @@ public class RemoteExecutionService {
         platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
       }
 
+      if (this.useOutputPaths == null) {
+        initUseOutputPaths();
+      }
       Command command =
           buildCommand(
+              this.useOutputPaths,
               spawn.getOutputFiles(),
               spawn.getArguments(),
               spawn.getEnvironment(),

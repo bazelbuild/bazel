@@ -39,8 +39,10 @@ import build.bazel.remote.execution.v2.ExecuteOperationMetadata;
 import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutedActionMetadata;
+import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.ExecutionStage.Value;
 import build.bazel.remote.execution.v2.LogFile;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
@@ -170,6 +172,13 @@ public class RemoteSpawnRunnerTest {
   private static final String SIMPLE_ACTION_ID =
       "31aea267dc597b047a9b6993100415b6406f82822318dc8988e4164a535b51ee";
 
+  private final ServerCapabilities remoteExecutorCapabilities =
+      ServerCapabilities.newBuilder()
+          .setLowApiVersion(ApiVersion.low.toSemVer())
+          .setHighApiVersion(ApiVersion.high.toSemVer())
+          .setExecutionCapabilities(ExecutionCapabilities.newBuilder().setExecEnabled(true).build())
+          .build();
+
   @Before
   public final void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
@@ -192,6 +201,9 @@ public class RemoteSpawnRunnerTest {
     remoteOptions = Options.getDefaults(RemoteOptions.class);
 
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+
+    doReturn(remoteExecutorCapabilities).when(cache).getServerCapabilities();
+    when(executor.getServerCapabilities()).thenReturn(remoteExecutorCapabilities);
   }
 
   @After
@@ -283,6 +295,7 @@ public class RemoteSpawnRunnerTest {
     // Test that if a non-cachable spawn is executed locally due to the local fallback,
     // that its result is not uploaded to the remote cache.
 
+    remoteOptions.useOutputPaths = true;
     remoteOptions.remoteAcceptCached = true;
     remoteOptions.remoteLocalFallback = true;
     remoteOptions.remoteUploadLocalResults = true;
@@ -302,6 +315,7 @@ public class RemoteSpawnRunnerTest {
     runner.exec(spawn, policy);
 
     verify(localRunner).exec(spawn, policy);
+    verify(cache).getServerCapabilities();
     verify(cache).ensureInputsPresent(any(), any(), any(), anyBoolean(), any());
     verifyNoMoreInteractions(cache);
   }

@@ -292,6 +292,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
         ImmutableList.of(
             Maps.immutableEntry("CacheKey1", "CacheValue1"),
             Maps.immutableEntry("CacheKey2", "CacheValue2"));
+    remoteOptions.useOutputPaths = true;
 
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
     RemoteRetrier retrier =
@@ -311,6 +312,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
                         .build();
                 ServerCapabilities caps =
                     ServerCapabilities.newBuilder()
+                        .setLowApiVersion(ApiVersion.low.toSemVer())
+                        .setHighApiVersion(ApiVersion.high.toSemVer())
                         .setExecutionCapabilities(
                             ExecutionCapabilities.newBuilder().setExecEnabled(true).build())
                         .build();
@@ -371,7 +374,6 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
                     .setName("VARIABLE")
                     .setValue("value")
                     .build())
-            .addAllOutputFiles(ImmutableList.of("bar", "foo"))
             .addAllOutputPaths(ImmutableList.of("bar", "foo"))
             .build();
     cmdDigest = DIGEST_UTIL.compute(command);
