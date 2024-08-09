@@ -354,16 +354,6 @@ public final class BazelRulesModule extends BlazeModule {
 
     @Deprecated
     @Option(
-        name = "direct_run",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED},
-        help = "Deprecated no-op.")
-    public boolean directRun;
-
-    @Deprecated
-    @Option(
         name = "glibc",
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
