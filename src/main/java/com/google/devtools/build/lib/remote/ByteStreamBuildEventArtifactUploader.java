@@ -129,30 +129,41 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
         && ((RemoteActionFileSystem) file.getFileSystem()).isRemote(file);
   }
 
+  private enum PathType {
+    FILE,
+    DIRECTORY,
+    SYMLINK,
+  }
+
   private static final class PathMetadata {
 
     private final Path path;
+    @Nullable
     private final Digest digest;
-    private final boolean directory;
-    private final boolean symlink;
+    /**
+     * Type of artifact this path represents.
+     * `null` means this path is omitted and the type unknown (only needed when it may be uploaded).
+     */
+    @Nullable
+    private final PathType type;
+    /**
+     * Indicates file exists on remote and does not need to be uploaded.
+     */
     private final boolean remote;
-    private final boolean omitted;
     private final DigestFunction.Value digestFunction;
 
     PathMetadata(
         Path path,
+        @Nullable
         Digest digest,
-        boolean directory,
-        boolean symlink,
+        @Nullable
+        PathType type,
         boolean remote,
-        boolean omitted,
         DigestFunction.Value digestFunction) {
       this.path = path;
       this.digest = digest;
-      this.directory = directory;
-      this.symlink = symlink;
+      this.type = type;
       this.remote = remote;
-      this.omitted = omitted;
       this.digestFunction = digestFunction;
     }
 
@@ -160,24 +171,38 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       return path;
     }
 
+    @Nullable
     public Digest getDigest() {
       return digest;
     }
 
+    @Nullable
+    public PathType getType() {
+      return type;
+    }
+
     public boolean isDirectory() {
-      return directory;
+      Preconditions.checkNotNull(type, "Omitted paths lack a type.");
+      return type == PathType.DIRECTORY;
     }
 
     public boolean isSymlink() {
-      return symlink;
+      Preconditions.checkNotNull(type, "Omitted paths lack a type.");
+      return type == PathType.SYMLINK;
     }
 
     public boolean isRemote() {
       return remote;
     }
 
+    /**
+     * Omitted paths are not uploaded, but may exist on the remote.
+     * A path may be omitted by;
+     * - A tag (e.g. `no-remote-cache` and `no-remote-cache-upload`).
+     * - A CLI flag (e.g. `--remote_build_event_upload=minimal`).
+     */
     public boolean isOmitted() {
-      return omitted;
+      return type == null;
     }
 
     public DigestFunction.Value getDigestFunction() {
@@ -192,6 +217,26 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   private PathMetadata readPathMetadata(Path path, LocalFile file) throws IOException {
     DigestUtil digestUtil = new DigestUtil(xattrProvider, path.getFileSystem().getDigestFunction());
 
+    if (remoteBuildEventUploadMode == RemoteBuildEventUploadMode.MINIMAL) {
+      // Omit all unimportant paths
+      if (!(
+        // Logs (regex needed for test logs as they lack a dedicated `LocalFileType`)
+        TEST_LOG_PATTERN.matcher(path.getPathString()).matches()
+        || file.type == LocalFileType.LOG
+        || file.type == LocalFileType.PERFORMANCE_LOG
+        // std(out|err)
+        || file.type == LocalFileType.STDOUT
+        || file.type == LocalFileType.STDERR
+      )) {
+        return new PathMetadata(
+            path,
+            /* digest= */ null,
+            /* type= */ null,
+            /* remote= */ false,
+            digestUtil.getDigestFunction());
+      }
+    }
+
     if (file.type == LocalFileType.OUTPUT_DIRECTORY
         || ((file.type == LocalFileType.SUCCESSFUL_TEST_OUTPUT
                 || file.type == LocalFileType.FAILED_TEST_OUTPUT
@@ -200,32 +245,28 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       return new PathMetadata(
           path,
           /* digest= */ null,
-          /* directory= */ true,
-          /* symlink= */ false,
+          PathType.DIRECTORY,
           /* remote= */ false,
-          /* omitted= */ false,
-          /* digestFunction= */ digestUtil.getDigestFunction());
+          digestUtil.getDigestFunction());
     }
     if (file.type == LocalFileType.OUTPUT_SYMLINK) {
       return new PathMetadata(
           path,
           /* digest= */ null,
-          /* directory= */ false,
-          /* symlink= */ true,
+          PathType.SYMLINK,
           /* remote= */ false,
-          /* omitted= */ false,
-          /* digestFunction= */ digestUtil.getDigestFunction());
+          digestUtil.getDigestFunction());
     }
 
     PathFragment filePathFragment = path.asFragment();
-    boolean omitted = false;
+    PathType pathType = PathType.FILE;
     if (omittedFiles.contains(filePathFragment)) {
-      omitted = true;
+      pathType = null;
     } else {
       for (PathFragment treeRoot : omittedTreeRoots) {
         if (path.startsWith(treeRoot)) {
           omittedFiles.add(filePathFragment);
-          omitted = true;
+          pathType = null;
         }
       }
     }
@@ -234,10 +275,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     return new PathMetadata(
         path,
         digest,
-        /* directory= */ false,
-        /* symlink= */ false,
+        pathType,
         isRemoteFile(path),
-        omitted,
         digestUtil.getDigestFunction());
   }
 
@@ -253,10 +292,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
             new PathMetadata(
                 file.getPath(),
                 file.getDigest(),
-                file.isDirectory(),
-                file.isSymlink(),
+                file.getType(),
                 /* remote= */ true,
-                file.isOmitted(),
                 file.getDigestFunction());
         knownRemotePaths.add(remotePathMetadata);
       }
@@ -266,9 +303,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   private boolean shouldUpload(PathMetadata path) {
     return path.getDigest() != null
             && !path.isRemote()
-            && !path.isDirectory()
-            && !path.isSymlink()
-            && !path.isOmitted();
+            && path.getType() == PathType.FILE;
   }
 
   private Single<List<PathMetadata>> queryRemoteCache(
@@ -337,12 +372,10 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                           new PathMetadata(
                               path.getPath(),
                               path.getDigest(),
-                              path.isDirectory(),
-                              path.isSymlink(),
+                              path.getType(),
                               // set remote to true so the PathConverter will use bytestream://
                               // scheme to convert the URI for this file
                               /* remote= */ true,
-                              path.isOmitted(),
                               path.getDigestFunction()))
                   .onErrorResumeNext(
                       error -> {
@@ -422,10 +455,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                       return new PathMetadata(
                           path,
                           /* digest= */ null,
-                          /* directory= */ false,
-                          /* symlink= */ false,
+                          /* type= */ null,
                           /* remote= */ false,
-                          /* omitted= */ false,
                           DigestFunction.Value.SHA256);
                     }
                   })
@@ -523,7 +554,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
         if (skippedPaths.contains(path)) {
           return null;
         }
-        // It's a programming error to reference a file that has not been uploaded.
+        // It's a programming error to reference a file that has not been uploaded or been omitted.
         throw new IllegalStateException(
             String.format("Illegal file reference: '%s'", path.getPathString()));
       }

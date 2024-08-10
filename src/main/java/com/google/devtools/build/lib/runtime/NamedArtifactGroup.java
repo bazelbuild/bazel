@@ -108,6 +108,9 @@ class NamedArtifactGroup implements BuildEvent {
       if (expandedArtifact.relPath == null) {
         String uri =
             pathConverter.apply(completionContext.pathResolver().toPath(expandedArtifact.artifact));
+        if (uri == null) {
+          continue;
+        }
         BuildEventStreamProtos.File file =
             newFileFromArtifact(
                 /* name= */ null, expandedArtifact.artifact, completionContext, uri);
@@ -119,6 +122,9 @@ class NamedArtifactGroup implements BuildEvent {
         String uri =
             pathConverter.apply(
                 completionContext.pathResolver().convertPath(expandedArtifact.target));
+        if (uri == null) {
+          continue;
+        }
         BuildEventStreamProtos.File file =
             newFileFromArtifact(
                 /* name= */ null,
