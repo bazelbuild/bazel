@@ -181,16 +181,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       return type;
     }
 
-    public boolean isDirectory() {
-      Preconditions.checkNotNull(type, "Omitted paths lack a type.");
-      return type == PathType.DIRECTORY;
-    }
-
-    public boolean isSymlink() {
-      Preconditions.checkNotNull(type, "Omitted paths lack a type.");
-      return type == PathType.SYMLINK;
-    }
-
     public boolean isRemote() {
       return remote;
     }
@@ -414,65 +404,36 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
 
     return Single.using(
         remoteCache::retain,
-        remoteCache -> {
-          var flowable = Flowable.fromIterable(files.entrySet());
-
-          if (remoteBuildEventUploadMode == RemoteBuildEventUploadMode.MINIMAL) {
-            flowable = flowable.filter(
-                entry -> {
-                  Path path = entry.getKey();
-
-                  // Is this a test log? (regex needed as `test_log` not tagged as logs)
-                  if (TEST_LOG_PATTERN.matcher(path.getPathString()).matches()) {
-                    return true;
-                  }
-
-                  LocalFile file = entry.getValue();
-
-                  // Is this a log?
-                  if (file.type == LocalFileType.LOG || file.type == LocalFileType.PERFORMANCE_LOG) {
-                    return true;
-                  }
-
-                  // Is this std(out|err)?
-                  if (file.type == LocalFileType.STDOUT || file.type == LocalFileType.STDERR) {
-                    return true;
-                  }
-
-                  return false;
-                });
-          }
-
-          return flowable
-              .map(
-                  entry -> {
-                    Path path = entry.getKey();
-                    LocalFile file = entry.getValue();
-                    try {
-                      return readPathMetadata(path, file);
-                    } catch (IOException e) {
-                      reportUploadError(e, path, null);
-                      return new PathMetadata(
-                          path,
-                          /* digest= */ null,
-                          /* type= */ null,
-                          /* remote= */ false,
-                          DigestFunction.Value.SHA256);
-                    }
-                  })
-              .collect(Collectors.toList())
-              .flatMap(paths -> queryRemoteCache(remoteCache, context, paths))
-              .flatMap(paths -> uploadLocalFiles(remoteCache, context, paths))
-              .flatMap(
-                  paths ->
-                      getRemoteServerInstanceName(remoteCache)
-                          .map(
-                              remoteServerInstanceName ->
-                                  new PathConverterImpl(
-                                      remoteServerInstanceName,
-                                      paths,
-                                      remoteBuildEventUploadMode)));
-        },
+        remoteCache -> 
+            Flowable.fromIterable(files.entrySet())
+                .map(
+                    entry -> {
+                      Path path = entry.getKey();
+                      LocalFile file = entry.getValue();
+                      try {
+                        return readPathMetadata(path, file);
+                      } catch (IOException e) {
+                        reportUploadError(e, path, null);
+                        return new PathMetadata(
+                            path,
+                            /* digest= */ null,
+                            /* type= */ null,
+                            /* remote= */ false,
+                            DigestFunction.Value.SHA256);
+                      }
+                    })
+                .collect(Collectors.toList())
+                .flatMap(paths -> queryRemoteCache(remoteCache, context, paths))
+                .flatMap(paths -> uploadLocalFiles(remoteCache, context, paths))
+                .flatMap(
+                    paths ->
+                        getRemoteServerInstanceName(remoteCache)
+                            .map(
+                                remoteServerInstanceName ->
+                                    new PathConverterImpl(
+                                        remoteServerInstanceName,
+                                        paths,
+                                        remoteBuildEventUploadMode))),
         RemoteCache::release);
   }
 
