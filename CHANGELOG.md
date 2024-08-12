@@ -1,3 +1,23 @@
+## Release 8.0.0-pre.20240805.3 (2024-08-12)
+
+```
+Baseline: 914db36648ef734b9b534d2a37907b9505534399
+
+Cherry picks:
+
+   + 7e689a55ccdcd752c102d25fe9acb257bd7d881c:
+     Be resilient to outdated exec paths in action cache entries
+```
+
+Important changes:
+
+  - The format of canonical repo names has changed to use plus (`+`)
+    instead of tilde (`~`). Effectively, this flips the flag
+    `--incompatible_use_plus_in_repo_names` to true, and the flag is
+    now a no-op (i.e. cannot be "unflipped").
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jordan Mele, Laurent Le Brun, Xdng Yng.
+
 ## Release 8.0.0-pre.20240730.1 (2024-08-06)
 
 ```
