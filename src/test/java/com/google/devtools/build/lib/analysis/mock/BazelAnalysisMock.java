@@ -172,6 +172,20 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create(
         "build_bazel_apple_support/MODULE.bazel", "module(name = 'build_bazel_apple_support')");
     config.create("embedded_tools/WORKSPACE", "workspace(name = 'bazel_tools')");
+
+    // TODO: remove after figuring out https://github.com/bazelbuild/bazel/issues/22208
+    config.create(".bazelignore",
+        "embedded_tools",
+        "platforms_workspace",
+        "local_config_platform_workspace",
+        "rules_java_workspace",
+        "protobuf_workspace",
+        "third_party/bazel_rules/rules_proto",
+        "build_bazel_apple_support",
+        "local_config_xcode_workspace",
+        "third_party/bazel_rules/rules_cc"
+    );
+
     Runfiles runfiles = Runfiles.create();
     for (String filename :
         Arrays.asList("tools/jdk/java_toolchain_alias.bzl", "tools/jdk/java_stub_template.txt")) {
