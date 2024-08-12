@@ -443,6 +443,15 @@ static void SetupNetworking() {
       DIE("close");
     }
   }
+
+  if(opt.create_netns == NO_NETNS || !opt.fake_root){
+      return;
+  }
+  //within network namespace, must write /proc/sys/net/ipv4/ping_group_range
+  //to valid group id, otherwise default value 1 0 can't map back to valid gid
+  //prevent IPPROTO_ICMP from working.
+  //due to current kernel limitation, this only possible when mapped user is root
+  WriteFile("/proc/sys/net/ipv4/ping_group_range", "0 0");
 }
 
 static void EnterWorkingDirectory() {
