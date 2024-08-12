@@ -2,11 +2,11 @@
 //src/test/java/com/google/devtools/build/lib/analysis/config:ConfigTests
 //src/test/java/com/google/devtools/build/lib/analysis:AnalysisUtilsTest
 //src/test/java/com/google/devtools/build/lib/analysis:RunfilesRepoMappingManifestTest
+//src/test/java/com/google/devtools/build/lib/bazel/repository/starlark:StarlarkTests
 
 ^^ Fixed tests ^^
 
 
-//src/test/java/com/google/devtools/build/lib/bazel/repository/starlark:StarlarkTests
 //src/test/java/com/google/devtools/build/lib/bazel/rules/android:AndroidTests
 //src/test/java/com/google/devtools/build/lib/bazel/rules/python:PythonTests
 
