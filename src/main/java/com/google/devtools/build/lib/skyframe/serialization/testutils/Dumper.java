@@ -294,16 +294,22 @@ public final class Dumper {
   }
 
   static boolean shouldInline(Class<?> type) {
-    return !type.isArray()
-        && (type.isPrimitive()
-            || DIRECT_INLINE_TYPES.contains(type)
-            || type.isSynthetic()
-            // Reflectively inaccessible classes will be represented directly using their string
-            // representations as there's nothing else we can do with them.
-            //
-            // TODO: b/331765692 - this might cause a loss of fidelity. Consider including a hash of
-            // the serialized representation in such cases.
-            || getClassInfo(type) instanceof ClosedClassInfo);
+    if (type.isArray()) {
+      return false;
+    }
+    if (Collection.class.isAssignableFrom(type) || Map.class.isAssignableFrom(type)) {
+      // These types have custom handling and do not depend on reflective class information.
+      return false;
+    }
+    return type.isPrimitive()
+        || DIRECT_INLINE_TYPES.contains(type)
+        || type.isSynthetic()
+        // Reflectively inaccessible classes will be represented directly using their string
+        // representations as there's nothing else we can do with them.
+        //
+        // TODO: b/331765692 - this might cause a loss of fidelity. Consider including a hash of
+        // the serialized representation in such cases.
+        || getClassInfo(type) instanceof ClosedClassInfo;
   }
 
   private static final ImmutableSet<Class<?>> WRAPPER_TYPES =
