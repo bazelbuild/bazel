@@ -1,8 +1,5 @@
 //src/test/java/com/google/devtools/build/lib/pkgcache:LoadingPhaseRunnerTest
 //src/test/java/com/google/devtools/build/lib/pkgcache:TargetPatternEvaluatorTest
-
-^^ Fixed tests ^^
-
 //src/test/java/com/google/devtools/build/lib/query2/aquery:ActionGraphQueryTest
 //src/test/java/com/google/devtools/build/lib/query2/cquery:BuildOutputFormatterCallbackTest
 //src/test/java/com/google/devtools/build/lib/query2/cquery:ConfiguredTargetQuerySemanticsTest
@@ -10,6 +7,9 @@
 //src/test/java/com/google/devtools/build/lib/query2/cquery:GraphOutputFormatterCallbackTest
 //src/test/java/com/google/devtools/build/lib/query2/cquery:ProtoOutputFormatterCallbackTest
 //src/test/java/com/google/devtools/build/lib/query2/cquery:TransitionsOutputFormatterTest
+
+^^ Fixed tests ^^
+
 //src/test/java/com/google/devtools/build/lib/query2/engine:AllTests
 //src/test/java/com/google/devtools/build/lib/repository:RepositoryTests
 //src/test/java/com/google/devtools/build/lib/rules/android:AndroidBinaryTest

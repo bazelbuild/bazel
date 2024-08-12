@@ -163,15 +163,6 @@ public abstract class AbstractQueryTest<T> {
     helper.overwriteFile(pathName, lines.toArray(new String[0]));
   }
 
-  protected final void appendToWorkspace(String... lines) throws IOException {
-    overwriteFile(
-        "WORKSPACE",
-        new ImmutableList.Builder<String>()
-            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .add(lines)
-            .build());
-  }
-
   protected void assertContainsEvent(String expectedMessage) {
     helper.assertContainsEvent(expectedMessage);
   }
@@ -847,10 +838,9 @@ public abstract class AbstractQueryTest<T> {
         )
         aspect_rule(
              name = 'qqq',
-             attr = ['//external:yyy'],
+             attr = ['//test:yyy'],
         )
         """);
-    appendToWorkspace("bind(name = 'yyy', actual = '//test:yyy')");
 
     assertThat(eval("deps(//test:xxx)")).containsAtLeastElementsIn(eval("//prod:zzz + //test:yyy"));
     assertThat(eval("deps(//test:qqq)")).containsAtLeastElementsIn(eval("//prod:zzz + //test:yyy"));
@@ -876,11 +866,10 @@ public abstract class AbstractQueryTest<T> {
         )
         aspect_rule(
              name = 'qqq',
-             attr = ['//external:yyy'],
+             attr = ['//test:yyy'],
              param = 'b',
         )
         """);
-    appendToWorkspace("bind(name = 'yyy', actual = '//test:yyy')");
 
     assertThat(eval("deps(//test:xxx)")).containsAtLeastElementsIn(eval("//prod:zzz + //test:yyy"));
     assertThat(eval("deps(//test:qqq)")).containsAtLeastElementsIn(eval("//prod:zzz + //test:yyy"));
@@ -2571,7 +2560,7 @@ public abstract class AbstractQueryTest<T> {
 
   @Test
   public void testStarlarkRuleToolchainDeps() throws Exception {
-    appendToWorkspace("register_toolchains('//bar:all')");
+    overwriteFile("MODULE.bazel", "register_toolchains('//bar:all')");
     writeFile(
         "foo/BUILD",
         """
