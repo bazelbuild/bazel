@@ -43,7 +43,7 @@ import java.io.IOException;
  * <p>Each Artifact's codec implementation is split into two codecs: the main codec that handles the
  * individual fields, and a value-sharing codec.
  */
-final class ArtifactCodecs {
+public final class ArtifactCodecs {
 
   public static final ImmutableList<ObjectCodec<? extends Artifact>> VALUE_SHARING_CODECS =
       ImmutableList.of(
