@@ -1,0 +1,13 @@
+diff --git a/protobuf.bzl b/protobuf.bzl
+index c5b8dab38..5854d2677 100644
+--- a/protobuf.bzl
++++ b/protobuf.bzl
+@@ -481,7 +481,7 @@ def internal_copied_filegroup(name, srcs, strip_prefix, dest, **kwargs):
+             ["cp $(location %s) $(location %s)" %
+              (s, _RelativeOutputPath(s, strip_prefix, dest)) for s in srcs]),
+         cmd_bat = " && ".join(
+-            ["@copy /Y $(location %s) $(location %s) >NUL" %
++            ["@copy /Y \"$(location %s)\" \"$(location %s)\" >NUL" %
+              (s, _RelativeOutputPath(s, strip_prefix, dest)) for s in srcs]),
+     )
+ 

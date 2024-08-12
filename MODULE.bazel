@@ -62,6 +62,12 @@ single_version_override(
     ],
 )
 
+single_version_override(
+    module_name = "protobuf",
+    patch_strip = 1,
+    patches = ["//third_party:protobuf_21.7.patch"],
+)
+
 # The following Bazel modules are not direct dependencies for building Bazel,
 # but are required for visibility from DIST_ARCHIVE_REPOS in repositories.bzl
 bazel_dep(name = "apple_support", version = "1.8.1")
@@ -356,9 +362,9 @@ bazel_dep(name = "bazel_ci_rules", version = "1.0.0")
 bazel_test_deps = use_extension("//:extensions.bzl", "bazel_test_deps")
 use_repo(
     bazel_test_deps,
+    "kythe_release",
     "local_bazel_source_list",
     "local_config_winsdk",
-    "kythe_release",
 )
 
 bazel_rbe_deps = use_extension("//:rbe_extension.bzl", "bazel_rbe_deps")

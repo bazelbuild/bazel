@@ -32,6 +32,7 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 function test_verify_lock_file() {
   rm -f MODULE.bazel
   touch MODULE.bazel
+  echo 'common --incompatible_use_plus_in_repo_names' > .bazelrc
   cp $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) MODULE.bazel.lock
   echo "Running: bazel mod deps --lockfile_mode=error" >& "$TEST_log"
   bazel mod deps --lockfile_mode=error >& "$TEST_log" || fail "Default lockfile for empty workspace is no longer in sync with MODULE.tools. Please run \"bazel run //src/test/tools/bzlmod:update_default_lock_file\""

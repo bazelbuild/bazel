@@ -257,7 +257,7 @@ write_file(
     content = [
         "package com.google.devtools.build.lib.testutil;",
         "class RulesCcRepoName {",
-        "  protected static final String CANONICAL_REPO_NAME = \"%s\";" % get_canonical_repo_name("@rules_cc").replace("+", "~"),
+        "  protected static final String CANONICAL_REPO_NAME = \"%s\";" % get_canonical_repo_name("@rules_cc"),
         "}",
     ],
 )
