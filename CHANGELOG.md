@@ -1,108 +1,128 @@
-## Release 7.2.0 (2024-06-10)
+## Release 7.3.0 (2024-08-12)
 
 ```
 
 Release Notes:
 
-Configurability:
-+ aquery: `//foo:bar` now means "all configured targets with label `//foo:bar`" instead of "choose an arbitrary configured target with label `//foo:bar`". This is in line with cquery behavior. (#22135)
-+ Added a new flag `--incompatible_disable_native_repo_rules` to disable native repo rule usage in WORKSPACE. All native repo rules now have a Starlark counterpart that can be used in both WORKSPACE and Bzlmod; see #22080 for more details. (#22203)
-+ Starlark command-line flags can now be referred to through `alias` targets. (#22212)
-
-ExternalDeps:
-+ bzlmod `git_repository` now accepts the `strip_prefix` arg and passes it to the underlying `git_repository` call. (#22137)
-+ Added a new `include()` directive to `MODULE.bazel` files, which allows the root module file to be divided into multiple segments. (#22204)
-+ Fixed certain deadlocks in repo fetching with worker threads (`--experimental_worker_for_repo_fetching=auto`). (#22261)
-+ `print` statements in module files are now only executed for the root module and modules subject to non-registry overrides (e.g. `local_path_override`). (#22263)
-+ The new `refresh` value for `--lockfile_mode` behaves like the `update` mode, but additionally forces a refresh of mutable registry content (yanked versions and missing module versions) when switched to or from time to time while enabled. (#22371)
-+ `Label` instances passed to `print` or `fail` as positional arguments are now formatted with apparent repository names (optimized for human readability). (#22460)
-+ Changes to environment variables read via `getenv` now correctly invalidate module extensions. (#22541)
-+ Git merge conflicts in `MODULE.bazel.lock` files can be resolved automatically. See https://bazel.build/external/lockfile#automatic-resolution for the required setup. (#22650)
-
-OSS:
-+ Bazel on Linux and BSD now respects the XDG_CACHE_HOME environment variable instead of assuming that ~/.cache/bazel is writable. (#21817)
-
-Performance:
-+ Paths in the Linux sandbox are now again identical to those outside the sandbox, even with `--incompatible_sandbox_hermetic_tmp`. (#22407)
-
-Remote-Exec:
-+ The combined coverage report produced via `--combined_report=lcov` is now announced on the BES via the new `CoverageReport` event. (#22327)
-+ The compact and full execution logs now contain start times for spawns (if available). (#22341)
-
-Rules-CPP:
-+ The default Unix C++ toolchain now supports the `parse_headers` feature to validate header files with `--process_headers_in_dependencies`. (#22369)
-
-Starlark-Interpreter:
-+ Starlark `min` and `max` buitins now allow a `key` callback, similarly to `sorted`. (#21960)
-
-
-Acknowledgements:
-
-This release contains contributions from many people at Google, as well as bazel.build machine account, Brentley Jones, Cameron Martin, Daniel Wagner-Hall, Douglas Thor, Fabian Meumertzheim, George Gensure, hvd, Isaac Torres, Keith Smiley, Mark Elliot, oquenchil, Romain Chossart, Son Luong Ngoc, Spencer Putt, Thomas Weischuh, Xdng Yng, Xùdōng Yáng, Zheng Wei Tan.
 ```
 
-## Release 8.0.0-pre.20240530.1 (2024-06-05)
+## Release 8.0.0-pre.20240805.3 (2024-08-12)
 
 ```
-Baseline: b48a319187c87e230b59142b4f7366775173faf4
+Baseline: 914db36648ef734b9b534d2a37907b9505534399
+
+Cherry picks:
+
+   + 7e689a55ccdcd752c102d25fe9acb257bd7d881c:
+     Be resilient to outdated exec paths in action cache entries
 ```
 
 Important changes:
 
-  - Changes to environment variables read via `getenv` now correctly
-    invalidate module extensions.
-  - `--experimental_collect_system_network_usage` is flipped to
-    `true`.
-  - Progress is no longer written to BEP after the build completing
-    event is posted.
+  - The format of canonical repo names has changed to use plus (`+`)
+    instead of tilde (`~`). Effectively, this flips the flag
+    `--incompatible_use_plus_in_repo_names` to true, and the flag is
+    now a no-op (i.e. cannot be "unflipped").
 
-This release contains contributions from many people at Google, as well as Alessandro Patti, dependabot[bot], Fabian Meumertzheim, Keith Smiley, Matt Smith, Xdng Yng.
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jordan Mele, Laurent Le Brun, Xdng Yng.
 
-## Release 8.0.0-pre.20240523.3 (2024-05-31)
+## Release 8.0.0-pre.20240730.1 (2024-08-06)
 
 ```
-Baseline: 739f7b83e02fb8f17c1a498630c7e02701d83aa1
-
-Cherry picks:
-
-   + cdd104c714dfcdf2661f900ba3c5ebf3616884bb:
-     Do not record events announced after the build-completing event.
-   + b12f536902594e48655c310d62c0bd069484798b:
-     Integrate the skymeld cases into the rewinding inconsistency
-     receiver.
+Baseline: c75124148e025945b96b5b7c165c37d2975e865d
 ```
 
-Incompatible changes:
+This release contains contributions from many people at Google, as well as Cornelius Riemenschneider, Fabian Meumertzheim, Laurent Le Brun, Xdng Yng.
 
-  - The --experimental_aquery_dump_after_build_format and
-    --experimental_aquery_dump_after_build_output_file command line
-    options are not available anymore.
+## Release 8.0.0-pre.20240729.1 (2024-08-01)
+
+```
+Baseline: d08bb13369d840af35a26b5e38b3d0adb896fd29
+```
 
 Important changes:
 
-  - Paths in the Linux sandbox are now again identical to those
-    outside the sandbox, even with
-    `--incompatible_sandbox_hermetic_tmp`.
-  - `cc_toolchain` now passes runfiles for its *_files attrs (e.g.
-    data files for a tool built for linking).
-  - `Label` instances passed to `print` or `fail` as positional
-    arguments are now formatted with apparent repository names
-    (optimized for human readability).
+  - `--compile_one_dependency` selects header-only `cc_library`s in
+    more cases
 
-This release contains contributions from many people at Google, as well as Fabian Meumertzheim, George Gensure, Greg Magolan, hvd, Isaac Torres, Keith Smiley, oquenchil, Tobias Werth, Tomasz Pasternak, UebelAndre, Xdng Yng.
+This release contains contributions from many people at Google, as well as Cornelius Riemenschneider, Fabian Meumertzheim, Keith Smiley, M. Taimoor Zaeem.
 
-## Release 8.0.0-pre.20240516.1 (2024-05-21)
+## Release 8.0.0-pre.20240724.1 (2024-07-30)
 
 ```
-Baseline: 9cf8dc6b65f59f954765b9e255810bee43464488
+Baseline: 0803ad3770155be411a703950502dc71743017bd
+```
+
+Important changes:
+
+  - Added `--experimental_collect_skyframe_counts_in_profiler` to
+    collect Skyframe node counts in the JSON profile over time.
+    Currently, the following SkyFunctions are measured: `BZL_LOAD`,
+    `GLOB`, `GLOBS`, `PACKAGE`, `CONFIGURED_TARGET`, `ASPECT`,
+    `ACTION_EXECUTION`.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jamison Lahman, Jordan Mele, Son Luong Ngoc.
+
+## Release 8.0.0-pre.20240718.2 (2024-07-26)
+
+```
+Baseline: a36c09f61eb0a10727b13ddd62987a8caf7af45c
 
 Cherry picks:
 
-   + 8f55a57335e32be12c5d02933e7a6b97a7498664:
-     Update rules_java 7.6.0 / java_tools 13.6.0
+   + 0803ad3770155be411a703950502dc71743017bd:
+     No public description
+```
+
+Important changes:
+
+  - Stop exposing the AndroidPlatformsTransition to Starlark.
+
+This release contains contributions from many people at Google, as well as eantpil.
+
+## Release 8.0.0-pre.20240710.4 (2024-07-19)
+
+```
+Baseline: 34b926bceba798820b369a47d1a7b7ff1634d277
+```
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, dependabot[bot], Fabian Meumertzheim, Jordan Mele, Laurent Le Brun, Marc Redemske, Son Luong Ngoc.
+
+## Release 8.0.0-pre.20240701.1 (2024-07-12)
+
+```
+Baseline: 3f93d377d036d773fd505a18e084425a00fb94ea
+```
+
+Important changes:
+
+  - Experimental support for path mapping `CppCompile` actions can be
+    enabled via
+    `--modify_execution_info=CppCompile=+supports-path-mapping`.
+
+This release contains contributions from many people at Google, as well as detailyang, Fabian Meumertzheim, Greg Roodt, hvd, Jason Schroeder, Laurent Le Brun, Simon Mavi Stewart, Xdng Yng.
+
+## Release 8.0.0-pre.20240618.2 (2024-07-02)
+
+```
+Baseline: 0c2ed165335327a2c5b534312324baa9ae6b6ebd
+
+Cherry picks:
+
+   + 8d625289052b7d67fedbd50b1eb611deda4ea14a:
+     Automated rollback of commit
+     17f6894346d2e200030dc08d131bf79a31a7c70c.
 ```
 
 Initial release.
+
+## Release 7.2.1 (2024-06-25)
+
+```
+
+Release Notes:
+
+```
 
 ## Release 7.1.2 (2024-05-08)
 
