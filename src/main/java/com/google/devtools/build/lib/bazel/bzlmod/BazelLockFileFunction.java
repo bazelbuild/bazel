@@ -20,10 +20,12 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -40,6 +42,7 @@ import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.StarlarkSemantics;
 
 /** Reads the contents of the lock file into its value. */
 public class BazelLockFileFunction implements SkyFunction {
@@ -66,6 +69,10 @@ public class BazelLockFileFunction implements SkyFunction {
       throws BazelLockfileFunctionException, InterruptedException {
     RootedPath lockfilePath =
         RootedPath.toRootedPath(Root.fromPath(rootDirectory), LabelConstants.MODULE_LOCKFILE_NAME);
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (starlarkSemantics == null) {
+      return null;
+    }
 
     // Add dependency on the lockfile to recognize changes to it
     if (env.getValue(FileValue.key(lockfilePath)) == null) {
@@ -73,7 +80,7 @@ public class BazelLockFileFunction implements SkyFunction {
     }
 
     try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.BZLMOD, "parse lockfile")) {
-      return getLockfileValue(lockfilePath, LOCKFILE_MODE.get(env));
+      return getLockfileValue(lockfilePath, LOCKFILE_MODE.get(env), starlarkSemantics);
     } catch (IOException
         | JsonSyntaxException
         | NullPointerException
@@ -97,13 +104,20 @@ public class BazelLockFileFunction implements SkyFunction {
   }
 
   public static BazelLockFileValue getLockfileValue(
-      RootedPath lockfilePath, LockfileMode lockfileMode)
+      RootedPath lockfilePath, LockfileMode lockfileMode, StarlarkSemantics starlarkSemantics)
       throws IOException, BazelLockfileFunctionException {
     try {
       String json = FileSystemUtils.readContent(lockfilePath.asPath(), UTF_8);
       Matcher matcher = LOCKFILE_VERSION_PATTERN.matcher(json);
       int version = matcher.find() ? Integer.parseInt(matcher.group(1)) : -1;
-      if (version == BazelLockFileValue.LOCK_FILE_VERSION) {
+      // HACK: We need to switch the expected lockfile version based on the value of
+      // `--incompatible_use_plus_in_repo_names`. See full explanation at
+      // BazelLockFileModule.java:120
+      int expectedVersion =
+          starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_USE_PLUS_IN_REPO_NAMES)
+              ? BazelLockFileValue.LOCK_FILE_VERSION + 1
+              : BazelLockFileValue.LOCK_FILE_VERSION;
+      if (version == expectedVersion) {
         return GsonTypeAdapterUtil.LOCKFILE_GSON.fromJson(json, BazelLockFileValue.class);
       } else {
         // This is an old version, its information can't be used.
