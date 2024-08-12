@@ -65,7 +65,8 @@ public class ParsedFlagsFunction implements SkyFunction {
     }
     // The StarlarkOptionsParser needs a native options parser just to inject its Starlark flag
     // values. It doesn't actually parse anything with the native parser.
-    OptionsParser fakeNativeParser = OptionsParser.builder().build();
+    OptionsParser fakeNativeParser =
+        OptionsParser.builder().withConversionContext(key.packageContext()).build();
     StarlarkOptionsParser starlarkFlagParser =
         StarlarkOptionsParser.builder()
             .buildSettingLoader(new SkyframeTargetLoader(env, key.packageContext()))

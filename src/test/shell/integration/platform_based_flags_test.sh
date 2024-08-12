@@ -580,4 +580,90 @@ EOF
   done
 }
 
+function is_bazel() {
+  [ $TEST_WORKSPACE == "_main" ]
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/23115
+function test_module_label_flag() {
+  # Only bazel supports modules.
+  is_bazel || exit 0
+
+  local -r pkg="$FUNCNAME"
+  mkdir -p "$pkg"
+
+  # Create another module that defines a label flag.
+  mkdir -p "$pkg/flags"
+  cat > "$pkg/flags/MODULE.bazel" <<EOF
+module(name = "flags")
+EOF
+
+  write_flags "${pkg}/flags/pbf"
+  cat >>${pkg}/flags/rule.bzl <<EOF
+load('//pbf:sample_flag.bzl', 'BuildSettingInfo')
+def _impl(ctx):
+    value = ctx.attr.value
+    return BuildSettingInfo(value = value)
+
+sample_value = rule(
+    implementation = _impl,
+    attrs = {
+        "value": attr.string(),
+    },
+)
+EOF
+  cat >>${pkg}/flags/BUILD <<EOF
+load(":rule.bzl", "sample_value")
+
+package(default_visibility = ["//visibility:public"])
+
+label_flag(
+    name = "label_flag",
+    build_setting_default = ":default",
+)
+
+sample_value(
+    name = "default",
+    value = "default",
+)
+
+sample_value(
+    name = "alt",
+    value = "alt",
+)
+EOF
+
+  # Refer to the module from the base.
+  cat > MODULE.bazel <<EOF
+module(name = "main")
+
+bazel_dep(name = "flags")
+
+local_path_override(
+    module_name = "flags",
+    path = "${pkg}/flags",
+)
+EOF
+
+  cat >> $pkg/BUILD <<EOF
+load("@flags//pbf:sample_flag.bzl", "show_sample_flag")
+
+platform(
+    name = "pbf_demo",
+    flags = [
+        # Test setting the value to a label in the module.
+        "--@flags//:label_flag=@flags//:alt",
+    ],
+)
+
+show_sample_flag(
+    name = "show",
+    flag = "@flags//:label_flag",
+)
+EOF
+
+  bazel build --platforms="//$pkg:pbf_demo" //$pkg:show &> $TEST_log || fail "bazel failed"
+  expect_log "//${pkg}:show: value = \"alt\""
+}
+
 run_suite "Tests for platform based flags"
