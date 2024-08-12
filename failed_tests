@@ -1,8 +1,8 @@
 //src/test/java/com/google/devtools/build/lib/pkgcache:LoadingPhaseRunnerTest
+//src/test/java/com/google/devtools/build/lib/pkgcache:TargetPatternEvaluatorTest
 
 ^^ Fixed tests ^^
 
-//src/test/java/com/google/devtools/build/lib/pkgcache:TargetPatternEvaluatorTest
 //src/test/java/com/google/devtools/build/lib/query2/aquery:ActionGraphQueryTest
 //src/test/java/com/google/devtools/build/lib/query2/cquery:BuildOutputFormatterCallbackTest
 //src/test/java/com/google/devtools/build/lib/query2/cquery:ConfiguredTargetQuerySemanticsTest
