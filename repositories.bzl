@@ -57,10 +57,7 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "+grpc_repo_deps_ext+com_google_googleapis",
     "+grpc_repo_deps_ext+envoy_api",
     "+grpc_repo_deps_ext+rules_cc",  # TODO: Should be removed
-]] + [
-    # TODO(pcloudy): Remove after https://github.com/bazelbuild/rules_kotlin/issues/1106 is fixed
-    get_canonical_repo_name("rules_kotlin") + "+rules_kotlin_extensions+com_github_jetbrains_kotlin",
-] + ["bazel_features+"]
+]] + ["bazel_features+"]
 
 ##################################################################################
 #
