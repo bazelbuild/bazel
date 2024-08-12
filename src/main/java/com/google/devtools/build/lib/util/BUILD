@@ -430,3 +430,12 @@ java_library(
         "//third_party:guava",
     ],
 )
+
+java_library(
+    name = "temp_path_generator",
+    srcs = ["TempPathGenerator.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:jsr305",
+    ],
+)
