@@ -1,9 +1,9 @@
 //src/test/java/com/google/devtools/build/lib/analysis:AnalysisTests
+//src/test/java/com/google/devtools/build/lib/analysis/config:ConfigTests
+//src/test/java/com/google/devtools/build/lib/analysis:AnalysisUtilsTest
 
 ^^ Fixed tests ^^
 
-//src/test/java/com/google/devtools/build/lib/analysis/config:ConfigTests
-//src/test/java/com/google/devtools/build/lib/analysis:AnalysisUtilsTest
 //src/test/java/com/google/devtools/build/lib/analysis:RunfilesRepoMappingManifestTest
 
 //src/test/java/com/google/devtools/build/lib/bazel/repository/starlark:StarlarkTests
