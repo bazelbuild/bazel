@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoC
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.ObjectInfo;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.PrimitiveInfo;
 import java.lang.reflect.Array;
+import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -158,8 +159,8 @@ public final class Dumper {
       addedLine = outputArrayElements(obj);
     } else if (obj instanceof Map) {
       addedLine = outputMapEntries((Map<?, ?>) obj);
-    } else if (obj instanceof Iterable) {
-      addedLine = outputIterableElements((Iterable<?>) obj);
+    } else if (obj instanceof Collection) {
+      addedLine = outputCollectionElements((Collection<?>) obj);
     } else {
       addedLine = outputObjectFields(obj);
     }
@@ -258,12 +259,12 @@ public final class Dumper {
     return !map.isEmpty();
   }
 
-  private boolean outputIterableElements(Iterable<?> iterable) {
-    for (var next : iterable) {
+  private boolean outputCollectionElements(Collection<?> collection) {
+    for (var next : collection) {
       addNewlineAndIndent();
       outputObject(next);
     }
-    return !isEmpty(iterable);
+    return !isEmpty(collection);
   }
 
   private boolean outputObjectFields(Object obj) {
