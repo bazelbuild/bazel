@@ -42,6 +42,7 @@ public class AndroidSdkRepositoryTest extends AndroidBuildViewTestCase {
         ResourceLoader.readFromResources("tools/android/android_sdk_repository_template.bzl"));
     scratch.overwriteFile("local_config_platform_workspace/BUILD");
     scratch.overwriteFile("local_config_platform_workspace/constraints.bzl", "HOST_CONSTRAINTS=[]");
+    setBuildLanguageOptions("--enable_workspace");
   }
 
   private void scratchPlatformsDirectories(int... apiLevels) throws Exception {
