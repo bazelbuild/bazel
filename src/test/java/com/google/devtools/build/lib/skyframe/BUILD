@@ -1631,7 +1631,6 @@ java_test(
 
 java_test(
     name = "RepositoryMappingFunctionTest",
-    timeout = "short",
     srcs = ["RepositoryMappingFunctionTest.java"],
     deps = [
         ":testutil",
@@ -1781,7 +1780,6 @@ java_test(
 
 java_test(
     name = "WorkspaceFileFunctionTest",
-    timeout = "short",
     srcs = ["WorkspaceFileFunctionTest.java"],
     deps = [
         ":testutil",
