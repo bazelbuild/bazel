@@ -14,16 +14,27 @@
 package com.google.devtools.build.lib.remote.grpc;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.remote.grpc.SharedConnectionFactory.SharedConnection;
 import com.google.devtools.build.lib.remote.util.RxNoGlobalErrorsRule;
+import io.grpc.CallOptions;
+import io.grpc.ClientCall;
+import io.grpc.Metadata;
+import io.grpc.MethodDescriptor;
+import io.grpc.Status;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.observers.TestObserver;
 import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayDeque;
+import java.util.Queue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -143,6 +154,82 @@ public class SharedConnectionFactoryTest {
 
     assertThat(error.get()).isNull();
     verify(connectionFactory, times(1)).create();
+  }
+
+  private static final class FatalIOException extends IOException {
+    FatalIOException() {
+      super("fatal");
+    }
+  }
+
+  @SuppressWarnings({"unchecked", "CannotMockFinalClass"})
+  @Test
+  public void create_belowMaxConcurrency_fatalErrorPreventsReuse() throws IOException {
+    Connection brokenConnection =
+        new Connection() {
+          @Override
+          public <ReqT, RespT> ClientCall<ReqT, RespT> call(
+              MethodDescriptor<ReqT, RespT> method, CallOptions options) {
+            var call = mock(ClientCall.class);
+            doAnswer(
+                    invocationOnMock -> {
+                      ((ClientCall.Listener) invocationOnMock.getArgument(0))
+                          .onClose(Status.fromThrowable(new FatalIOException()), new Metadata());
+                      return null;
+                    })
+                .when(call)
+                .start(any(), any());
+            return call;
+          }
+
+          @Override
+          public void close() {}
+        };
+    Connection newConnection = mock(Connection.class);
+    Queue<Connection> connectionsToCreate =
+        new ArrayDeque<>(ImmutableList.of(brokenConnection, newConnection));
+    when(connectionFactory.create())
+        .thenAnswer(invocation -> Single.just(connectionsToCreate.remove()));
+
+    SharedConnectionFactory factory =
+        new SharedConnectionFactory(connectionFactory, 2, t -> t instanceof FatalIOException);
+
+    TestObserver<SharedConnection> observer1 = factory.create().test();
+    assertThat(factory.numAvailableConnections()).isEqualTo(1);
+    observer1
+        .assertValue(conn -> conn.getUnderlyingConnection() == brokenConnection)
+        .assertComplete();
+
+    // Submit a call on the first connection and have it fail.
+    MethodDescriptor.Marshaller<byte[]> nullMarshaller =
+        new MethodDescriptor.Marshaller<>() {
+          @Override
+          public InputStream stream(byte[] bytes) {
+            return null;
+          }
+
+          @Override
+          public byte[] parse(InputStream inputStream) {
+            return null;
+          }
+        };
+    try (Connection firstConnection = observer1.values().getFirst()) {
+      var call =
+          firstConnection.call(
+              MethodDescriptor.newBuilder(nullMarshaller, nullMarshaller)
+                  .setType(MethodDescriptor.MethodType.CLIENT_STREAMING)
+                  .setFullMethodName("testMethod")
+                  .build(),
+              CallOptions.DEFAULT);
+      ClientCall.Listener<byte[]> listener = new ClientCall.Listener<>() {};
+      call.start(listener, new Metadata());
+      listener.onClose(Status.fromThrowable(new FatalIOException()), new Metadata());
+    }
+
+    // Validate that the connection is not reused.
+    TestObserver<SharedConnection> observer2 = factory.create().test();
+    observer2.assertValue(conn -> conn.getUnderlyingConnection() == newConnection).assertComplete();
+    assertThat(factory.numAvailableConnections()).isEqualTo(1);
   }
 
   @Test
